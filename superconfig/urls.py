@@ -9,6 +9,7 @@ urlpatterns = [
     path('restore/', views.database_restore, name='database_restore'),
     path('restore/server/', views.database_restore_from_server, name='database_restore_from_server'),
     path('backups/list/', views.list_backups, name='list_backups'),
+    path('backups/delete/', views.delete_backup, name='delete_backup'),
     path('backups/download/<str:filename>/', views.download_backup, name='download_backup'),
     path('database/info/', views.database_info, name='database_info'),
     path('email/status/', views.email_service_status, name='email_service_status'),

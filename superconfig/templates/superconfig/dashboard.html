@@ -1399,8 +1399,11 @@ function loadBackupList() {
                                        class="btn btn-sm btn-outline-primary me-1">
                                         <i class="fas fa-download me-1"></i>Download
                                     </a>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="restoreFromServerDirect('${backup.filename}')">
+                                    <button class="btn btn-sm btn-outline-warning me-1" onclick="restoreFromServerDirect('${backup.filename}')">
                                         <i class="fas fa-undo me-1"></i>Restore
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteBackup('${backup.filename}')">
+                                        <i class="fas fa-trash me-1"></i>Löschen
                                     </button>
                                 </td>
                             </tr>
@@ -1465,6 +1468,41 @@ function restoreFromServerDirect(filename) {
         $('#confirmModal').modal('hide');
     });
     
+    $('#confirmModal').modal('show');
+}
+
+function deleteBackup(filename) {
+    // Confirmation dialog
+    $('#confirmMessage').text(`Sind Sie sicher, dass Sie das Backup "${filename}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden!`);
+
+    $('#confirmAction').off('click').on('click', function() {
+        console.log('🗑️ Deleting backup:', filename);
+
+        $.ajax({
+            url: '{% url "superconfig:delete_backup" %}',
+            type: 'POST',
+            data: {
+                'backup_filename': filename
+            },
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .done(function(response) {
+            if (response.success) {
+                showAlert(`✅ ${response.message}`, 'success');
+                loadBackupList();
+            } else {
+                showAlert(`❌ ${response.message}`, 'danger');
+            }
+        })
+        .fail(function() {
+            showAlert('❌ Fehler beim Löschen des Backups', 'danger');
+        });
+
+        $('#confirmModal').modal('hide');
+    });
+
     $('#confirmModal').modal('show');
 }
 
@@ -2690,6 +2728,7 @@ window.createBackup = createBackup;
 window.restoreBackup = restoreBackup;
 window.restoreFromServer = restoreFromServer;
 window.restoreFromServerDirect = restoreFromServerDirect;
+window.deleteBackup = deleteBackup;
 window.loadBackupList = loadBackupList;
 window.loadEmailServiceInfo = loadEmailServiceInfo;
 window.sendTestEmail = sendTestEmail;

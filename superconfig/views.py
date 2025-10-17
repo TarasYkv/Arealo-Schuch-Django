@@ -434,6 +434,62 @@ def list_backups(request):
 
 @login_required
 @user_passes_test(is_superuser)
+def delete_backup(request):
+    """Delete a specific backup file"""
+    if request.method == 'POST':
+        backup_filename = request.POST.get('backup_filename')
+
+        if not backup_filename:
+            return JsonResponse({
+                'success': False,
+                'message': 'Keine Backup-Datei ausgewählt'
+            })
+
+        try:
+            # Security check: ensure filename is safe
+            if '..' in backup_filename or '/' in backup_filename or '\\' in backup_filename:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Ungültiger Dateiname'
+                })
+
+            # Get backup file path
+            backup_dir = os.path.join(settings.BASE_DIR, 'backups')
+            backup_path = os.path.join(backup_dir, backup_filename)
+
+            # Check if file exists
+            if not os.path.exists(backup_path):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Backup-Datei nicht gefunden'
+                })
+
+            # Validate file extension (must be .sql or .sqlite3)
+            if not backup_filename.endswith(('.sql', '.sqlite3')):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Ungültiges Dateiformat'
+                })
+
+            # Delete the backup file
+            os.remove(backup_path)
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Backup "{backup_filename}" erfolgreich gelöscht'
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Fehler beim Löschen des Backups: {str(e)}'
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+
+@login_required
+@user_passes_test(is_superuser)
 def download_backup(request, filename):
     """Download a specific backup file"""
     try:
