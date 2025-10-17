@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import subprocess
 from datetime import datetime
 from .zoho_oauth import ZohoOAuthHandler
 from django.shortcuts import render, redirect
@@ -23,6 +24,50 @@ def is_superuser(user):
     return user.is_superuser
 
 
+def get_database_engine():
+    """Detect database engine (mysql, sqlite, postgresql)"""
+    engine = settings.DATABASES['default']['ENGINE']
+    if 'mysql' in engine:
+        return 'mysql'
+    elif 'sqlite' in engine:
+        return 'sqlite'
+    elif 'postgresql' in engine or 'psycopg' in engine:
+        return 'postgresql'
+    return 'unknown'
+
+
+def get_database_config():
+    """Get database configuration for current engine"""
+    db_config = settings.DATABASES['default']
+    engine = get_database_engine()
+
+    if engine == 'mysql':
+        return {
+            'engine': 'mysql',
+            'name': db_config.get('NAME'),
+            'user': db_config.get('USER'),
+            'password': db_config.get('PASSWORD'),
+            'host': db_config.get('HOST', 'localhost'),
+            'port': db_config.get('PORT', 3306),
+        }
+    elif engine == 'sqlite':
+        return {
+            'engine': 'sqlite',
+            'path': db_config.get('NAME'),
+        }
+    elif engine == 'postgresql':
+        return {
+            'engine': 'postgresql',
+            'name': db_config.get('NAME'),
+            'user': db_config.get('USER'),
+            'password': db_config.get('PASSWORD'),
+            'host': db_config.get('HOST', 'localhost'),
+            'port': db_config.get('PORT', 5432),
+        }
+
+    return {'engine': 'unknown'}
+
+
 @login_required
 @user_passes_test(is_superuser)
 def superconfig_dashboard(request):
@@ -33,198 +78,356 @@ def superconfig_dashboard(request):
 @login_required
 @user_passes_test(is_superuser)
 def database_backup(request):
-    """Create database backup"""
+    """Create database backup - supports MySQL and SQLite"""
     if request.method == 'POST':
         try:
             # Create backup directory if it doesn't exist
             backup_dir = os.path.join(settings.BASE_DIR, 'backups')
             os.makedirs(backup_dir, exist_ok=True)
-            
+
+            # Get database config
+            db_config = get_database_config()
+            engine = db_config['engine']
+
             # Generate backup filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_filename = f'database_backup_{timestamp}.sqlite3'
-            backup_path = os.path.join(backup_dir, backup_filename)
-            
-            # Get current database path
-            db_path = settings.DATABASES['default']['NAME']
-            
-            # Create backup
-            shutil.copy2(db_path, backup_path)
-            
+
+            if engine == 'mysql':
+                backup_filename = f'database_backup_{timestamp}.sql'
+                backup_path = os.path.join(backup_dir, backup_filename)
+
+                # Build mysqldump command
+                cmd = [
+                    'mysqldump',
+                    '-h', db_config['host'],
+                    '-P', str(db_config['port']),
+                    '-u', db_config['user'],
+                    db_config['name']
+                ]
+
+                # Add password via environment variable (more secure)
+                env = os.environ.copy()
+                env['MYSQL_PWD'] = db_config['password']
+
+                # Execute mysqldump
+                with open(backup_path, 'w') as backup_file:
+                    result = subprocess.run(
+                        cmd,
+                        stdout=backup_file,
+                        stderr=subprocess.PIPE,
+                        env=env,
+                        text=True
+                    )
+
+                if result.returncode != 0:
+                    raise Exception(f'mysqldump failed: {result.stderr}')
+
+            elif engine == 'sqlite':
+                backup_filename = f'database_backup_{timestamp}.sqlite3'
+                backup_path = os.path.join(backup_dir, backup_filename)
+
+                # Get current database path
+                db_path = db_config['path']
+
+                # Create backup using file copy
+                shutil.copy2(db_path, backup_path)
+
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Unsupported database engine: {engine}'
+                })
+
+            # Get backup file size
+            backup_size = os.path.getsize(backup_path) / (1024 * 1024)  # MB
+
             messages.success(request, f'Database backup created successfully: {backup_filename}')
             return JsonResponse({
-                'success': True, 
-                'message': f'Backup erstellt: {backup_filename}',
-                'filename': backup_filename
+                'success': True,
+                'message': f'Backup erstellt: {backup_filename} ({backup_size:.2f} MB)',
+                'filename': backup_filename,
+                'size_mb': round(backup_size, 2),
+                'engine': engine
             })
-            
+
         except Exception as e:
             messages.error(request, f'Backup failed: {str(e)}')
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'message': f'Backup fehlgeschlagen: {str(e)}'
             })
-    
+
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
 
 @login_required
 @user_passes_test(is_superuser)
 def database_restore(request):
-    """Restore database from backup file upload"""
+    """Restore database from backup file upload - supports MySQL and SQLite"""
     if request.method == 'POST':
         backup_file = request.FILES.get('backup_file')
-        
+
         if not backup_file:
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'message': 'Keine Backup-Datei ausgewählt'
             })
-        
+
         try:
-            # Validate file extension
-            if not backup_file.name.endswith('.sqlite3'):
-                return JsonResponse({
-                    'success': False, 
-                    'message': 'Ungültiges Dateiformat. Nur .sqlite3 Dateien sind erlaubt.'
-                })
-            
-            # Get current database path
-            db_path = settings.DATABASES['default']['NAME']
-            
+            # Get database config
+            db_config = get_database_config()
+            engine = db_config['engine']
+
+            # Validate file extension based on engine
+            if engine == 'mysql':
+                if not backup_file.name.endswith('.sql'):
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Ungültiges Dateiformat. Für MySQL sind nur .sql Dateien erlaubt.'
+                    })
+            elif engine == 'sqlite':
+                if not backup_file.name.endswith('.sqlite3'):
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Ungültiges Dateiformat. Für SQLite sind nur .sqlite3 Dateien erlaubt.'
+                    })
+
             # Create backup of current database before restore
-            current_backup_path = db_path + f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            shutil.copy2(db_path, current_backup_path)
-            
+            backup_result = database_backup(request)
+            # Note: backup_result is a JsonResponse, we just trigger it for safety
+
             # Save uploaded file temporarily
-            temp_path = os.path.join(settings.BASE_DIR, 'temp_restore.sqlite3')
+            temp_path = os.path.join(settings.BASE_DIR, f'temp_restore.{backup_file.name.split(".")[-1]}')
             with open(temp_path, 'wb+') as destination:
                 for chunk in backup_file.chunks():
                     destination.write(chunk)
-            
-            # Validate the backup file by trying to open it
-            try:
-                conn = sqlite3.connect(temp_path)
-                conn.close()
-            except sqlite3.Error:
+
+            if engine == 'mysql':
+                # Restore MySQL database using mysql command
+                cmd = [
+                    'mysql',
+                    '-h', db_config['host'],
+                    '-P', str(db_config['port']),
+                    '-u', db_config['user'],
+                    db_config['name']
+                ]
+
+                # Add password via environment variable
+                env = os.environ.copy()
+                env['MYSQL_PWD'] = db_config['password']
+
+                # Execute mysql restore
+                with open(temp_path, 'r') as backup_file_handle:
+                    result = subprocess.run(
+                        cmd,
+                        stdin=backup_file_handle,
+                        stderr=subprocess.PIPE,
+                        env=env,
+                        text=True
+                    )
+
+                if result.returncode != 0:
+                    raise Exception(f'MySQL restore failed: {result.stderr}')
+
+                # Clean up temp file
                 os.remove(temp_path)
+
                 return JsonResponse({
-                    'success': False, 
-                    'message': 'Ungültige SQLite-Datei'
+                    'success': True,
+                    'message': 'MySQL-Datenbank erfolgreich wiederhergestellt. Vorherige DB wurde automatisch gesichert.'
                 })
-            
-            # Replace current database with backup
-            shutil.move(temp_path, db_path)
-            
-            return JsonResponse({
-                'success': True, 
-                'message': f'Database erfolgreich wiederhergestellt. Aktuelle DB wurde gesichert als: {os.path.basename(current_backup_path)}'
-            })
-            
+
+            elif engine == 'sqlite':
+                # Validate the backup file by trying to open it
+                try:
+                    conn = sqlite3.connect(temp_path)
+                    conn.close()
+                except sqlite3.Error:
+                    os.remove(temp_path)
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Ungültige SQLite-Datei'
+                    })
+
+                # Get current database path
+                db_path = db_config['path']
+
+                # Replace current database with backup
+                shutil.move(temp_path, db_path)
+
+                return JsonResponse({
+                    'success': True,
+                    'message': 'SQLite-Datenbank erfolgreich wiederhergestellt.'
+                })
+
         except Exception as e:
+            # Clean up temp file if it exists
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.remove(temp_path)
+
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'message': f'Wiederherstellung fehlgeschlagen: {str(e)}'
             })
-    
+
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
 
 @login_required
 @user_passes_test(is_superuser)
 def database_restore_from_server(request):
-    """Restore database from server backup"""
+    """Restore database from server backup - supports MySQL and SQLite"""
     if request.method == 'POST':
         backup_filename = request.POST.get('backup_filename')
-        
+
         if not backup_filename:
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'message': 'Keine Backup-Datei ausgewählt'
             })
-        
+
         try:
             # Security check: ensure filename is safe
             if '..' in backup_filename or '/' in backup_filename or '\\' in backup_filename:
                 return JsonResponse({
-                    'success': False, 
+                    'success': False,
                     'message': 'Ungültiger Dateiname'
                 })
-            
-            # Check if backup file exists
+
+            # Get database config
+            db_config = get_database_config()
+            engine = db_config['engine']
+
+            # Check if backup file exists and has correct extension
             backup_dir = os.path.join(settings.BASE_DIR, 'backups')
             backup_path = os.path.join(backup_dir, backup_filename)
-            
-            if not os.path.exists(backup_path) or not backup_filename.endswith('.sqlite3'):
+
+            if not os.path.exists(backup_path):
                 return JsonResponse({
-                    'success': False, 
+                    'success': False,
                     'message': 'Backup-Datei nicht gefunden'
                 })
-            
-            # Get current database path
-            db_path = settings.DATABASES['default']['NAME']
-            
-            # Create backup of current database before restore
-            current_backup_path = db_path + f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            shutil.copy2(db_path, current_backup_path)
-            
-            # Validate the backup file by trying to open it
-            try:
-                conn = sqlite3.connect(backup_path)
-                conn.close()
-            except sqlite3.Error:
+
+            # Validate file extension based on engine
+            if engine == 'mysql' and not backup_filename.endswith('.sql'):
                 return JsonResponse({
-                    'success': False, 
-                    'message': 'Ungültige SQLite-Datei'
+                    'success': False,
+                    'message': 'Ungültiges Dateiformat für MySQL. Nur .sql Dateien sind erlaubt.'
                 })
-            
-            # Replace current database with backup
-            shutil.copy2(backup_path, db_path)
-            
-            return JsonResponse({
-                'success': True, 
-                'message': f'Database erfolgreich wiederhergestellt von {backup_filename}. Aktuelle DB wurde gesichert als: {os.path.basename(current_backup_path)}'
-            })
-            
+            elif engine == 'sqlite' and not backup_filename.endswith('.sqlite3'):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Ungültiges Dateiformat für SQLite. Nur .sqlite3 Dateien sind erlaubt.'
+                })
+
+            if engine == 'mysql':
+                # Restore MySQL database
+                cmd = [
+                    'mysql',
+                    '-h', db_config['host'],
+                    '-P', str(db_config['port']),
+                    '-u', db_config['user'],
+                    db_config['name']
+                ]
+
+                # Add password via environment variable
+                env = os.environ.copy()
+                env['MYSQL_PWD'] = db_config['password']
+
+                # Execute mysql restore
+                with open(backup_path, 'r') as backup_file:
+                    result = subprocess.run(
+                        cmd,
+                        stdin=backup_file,
+                        stderr=subprocess.PIPE,
+                        env=env,
+                        text=True
+                    )
+
+                if result.returncode != 0:
+                    raise Exception(f'MySQL restore failed: {result.stderr}')
+
+                return JsonResponse({
+                    'success': True,
+                    'message': f'MySQL-Datenbank erfolgreich wiederhergestellt von {backup_filename}'
+                })
+
+            elif engine == 'sqlite':
+                # Validate the backup file
+                try:
+                    conn = sqlite3.connect(backup_path)
+                    conn.close()
+                except sqlite3.Error:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Ungültige SQLite-Datei'
+                    })
+
+                # Get current database path
+                db_path = db_config['path']
+
+                # Create backup of current database before restore
+                current_backup_path = db_path + f'.backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+                shutil.copy2(db_path, current_backup_path)
+
+                # Replace current database with backup
+                shutil.copy2(backup_path, db_path)
+
+                return JsonResponse({
+                    'success': True,
+                    'message': f'SQLite-Datenbank erfolgreich wiederhergestellt von {backup_filename}. Aktuelle DB wurde gesichert als: {os.path.basename(current_backup_path)}'
+                })
+
         except Exception as e:
             return JsonResponse({
-                'success': False, 
+                'success': False,
                 'message': f'Wiederherstellung fehlgeschlagen: {str(e)}'
             })
-    
+
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
 
 @login_required
 @user_passes_test(is_superuser)
 def list_backups(request):
-    """List available database backups"""
+    """List available database backups - supports both .sql and .sqlite3"""
     try:
         backup_dir = os.path.join(settings.BASE_DIR, 'backups')
         backups = []
-        
+
+        # Get current database engine for context
+        engine = get_database_engine()
+
         if os.path.exists(backup_dir):
             for filename in os.listdir(backup_dir):
-                if filename.endswith('.sqlite3'):
+                # Accept both .sql (MySQL) and .sqlite3 (SQLite) backup files
+                if filename.endswith(('.sqlite3', '.sql')):
                     file_path = os.path.join(backup_dir, filename)
                     file_stat = os.stat(file_path)
+
+                    # Determine backup type
+                    backup_type = 'MySQL' if filename.endswith('.sql') else 'SQLite'
+
                     backups.append({
                         'filename': filename,
                         'size': round(file_stat.st_size / (1024 * 1024), 2),  # Size in MB
-                        'created': datetime.fromtimestamp(file_stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
+                        'created': datetime.fromtimestamp(file_stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
+                        'type': backup_type,
+                        'compatible': (engine == 'mysql' and filename.endswith('.sql')) or (engine == 'sqlite' and filename.endswith('.sqlite3'))
                     })
-        
+
         # Sort by creation date (newest first)
         backups.sort(key=lambda x: x['created'], reverse=True)
-        
+
         return JsonResponse({
-            'success': True, 
-            'backups': backups
+            'success': True,
+            'backups': backups,
+            'current_engine': engine
         })
-        
+
     except Exception as e:
         return JsonResponse({
-            'success': False, 
+            'success': False,
             'message': f'Fehler beim Laden der Backups: {str(e)}'
         })
 
@@ -256,39 +459,93 @@ def download_backup(request, filename):
 @login_required
 @user_passes_test(is_superuser)
 def database_info(request):
-    """Get database information and statistics"""
+    """Get database information and statistics - supports MySQL and SQLite"""
     try:
-        db_path = settings.DATABASES['default']['NAME']
-        db_size = os.path.getsize(db_path) / (1024 * 1024)  # Size in MB
-        
+        db_config = get_database_config()
+        engine = db_config['engine']
+
+        # Get database size
+        if engine == 'mysql':
+            # For MySQL, query INFORMATION_SCHEMA for size
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT
+                        SUM(data_length + index_length) / 1024 / 1024 AS size_mb
+                    FROM information_schema.TABLES
+                    WHERE table_schema = %s
+                """, [db_config['name']])
+                result = cursor.fetchone()
+                db_size = result[0] if result[0] else 0
+
+        elif engine == 'sqlite':
+            # For SQLite, get file size
+            db_path = db_config['path']
+            db_size = os.path.getsize(db_path) / (1024 * 1024)  # Size in MB
+        else:
+            db_size = 0
+
         # Get table information
+        tables_info = []
+
         with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT name, 
-                       (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=t.name) as table_count
-                FROM sqlite_master t 
-                WHERE type='table' AND name NOT LIKE 'sqlite_%'
-                ORDER BY name
-            """)
-            
-            tables_info = []
-            for table_name, _ in cursor.fetchall():
-                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-                row_count = cursor.fetchone()[0]
-                tables_info.append({
-                    'name': table_name,
-                    'rows': row_count
-                })
-        
+            if engine == 'mysql':
+                # MySQL: Use INFORMATION_SCHEMA
+                cursor.execute("""
+                    SELECT
+                        table_name,
+                        table_rows,
+                        ROUND(((data_length + index_length) / 1024 / 1024), 2) AS size_mb
+                    FROM information_schema.TABLES
+                    WHERE table_schema = %s
+                    ORDER BY table_name
+                """, [db_config['name']])
+
+                for table_name, row_count, table_size in cursor.fetchall():
+                    tables_info.append({
+                        'name': table_name,
+                        'rows': row_count or 0,
+                        'size_mb': float(table_size) if table_size else 0
+                    })
+
+            elif engine == 'sqlite':
+                # SQLite: Use sqlite_master
+                cursor.execute("""
+                    SELECT name
+                    FROM sqlite_master
+                    WHERE type='table' AND name NOT LIKE 'sqlite_%'
+                    ORDER BY name
+                """)
+
+                for (table_name,) in cursor.fetchall():
+                    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                    row_count = cursor.fetchone()[0]
+                    tables_info.append({
+                        'name': table_name,
+                        'rows': row_count
+                    })
+
+        # Build response based on engine
+        database_info = {
+            'engine': engine.upper(),
+            'size_mb': round(db_size, 2),
+            'tables': tables_info,
+            'table_count': len(tables_info)
+        }
+
+        if engine == 'mysql':
+            database_info.update({
+                'host': db_config['host'],
+                'port': db_config['port'],
+                'database_name': db_config['name']
+            })
+        elif engine == 'sqlite':
+            database_info['path'] = str(db_config['path'])
+
         return JsonResponse({
             'success': True,
-            'database_info': {
-                'size_mb': round(db_size, 2),
-                'path': str(db_path),  # Convert PosixPath to string
-                'tables': tables_info
-            }
+            'database_info': database_info
         })
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,
