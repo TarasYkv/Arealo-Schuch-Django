@@ -268,16 +268,24 @@ document.getElementById('storage-main-tab')?.addEventListener('shown.bs.tab', fu
 });
 
 function loadStorageStats() {
-    // TODO: Implement AJAX calls to load storage statistics
-    // This is a placeholder - implement actual API endpoints
-
     console.log('Loading storage stats...');
 
-    // Placeholder data
-    document.getElementById('totalUsers').textContent = '{{ total_users|default:"-" }}';
-    document.getElementById('totalStorage').textContent = '{{ total_storage_gb|default:"-" }} GB';
-    document.getElementById('premiumUsers').textContent = '{{ premium_users|default:"-" }}';
-    document.getElementById('totalRevenue').textContent = '{{ monthly_revenue|default:"-" }}€';
+    // Load main statistics
+    fetch('/superconfig/api/storage/statistics/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('totalUsers').textContent = data.stats.total_users;
+                document.getElementById('totalStorage').textContent = data.stats.total_storage_gb + ' GB';
+                document.getElementById('premiumUsers').textContent = data.stats.premium_users;
+                document.getElementById('totalRevenue').textContent = data.stats.monthly_revenue;
+            } else {
+                console.error('Failed to load statistics:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading statistics:', error);
+        });
 
     // Load other sections...
     loadTopStorageUsers();
@@ -287,54 +295,191 @@ function loadStorageStats() {
 }
 
 function loadTopStorageUsers() {
-    // TODO: Implement API call
-    const placeholder = `
-        <div class="alert alert-info mb-0">
-            <i class="fas fa-info-circle me-2"></i>
-            API-Endpunkt muss noch implementiert werden
-        </div>
-    `;
-    document.getElementById('topStorageUsers').innerHTML = placeholder;
+    fetch('/superconfig/api/storage/top-users/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.users.length > 0) {
+                let html = '<div class="list-group">';
+                data.users.forEach(user => {
+                    html += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${user.username}</strong>
+                                    <br>
+                                    <small class="text-muted">${user.email}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-danger">${user.storage_gb} GB</span>
+                                    <br>
+                                    <small class="text-muted">${user.plan_name}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                document.getElementById('topStorageUsers').innerHTML = html;
+            } else {
+                document.getElementById('topStorageUsers').innerHTML = `
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Keine Speicher-Nutzer gefunden
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading top storage users:', error);
+            document.getElementById('topStorageUsers').innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Fehler beim Laden der Daten
+                </div>
+            `;
+        });
 }
 
 function loadStorageByApp() {
-    // TODO: Implement API call
-    const placeholder = `
-        <div class="alert alert-info mb-0">
-            <i class="fas fa-info-circle me-2"></i>
-            API-Endpunkt muss noch implementiert werden
-        </div>
-    `;
-    document.getElementById('storageByApp').innerHTML = placeholder;
+    fetch('/superconfig/api/storage/by-app/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.storage_by_app.length > 0) {
+                let html = '<div class="list-group">';
+                data.storage_by_app.forEach(item => {
+                    html += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${item.app}</strong>
+                                    <br>
+                                    <small class="text-muted">${item.table}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-success">${item.size_mb.toFixed(2)} MB</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                document.getElementById('storageByApp').innerHTML = html;
+            } else {
+                document.getElementById('storageByApp').innerHTML = `
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Keine Speicher-Daten gefunden
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading storage by app:', error);
+            document.getElementById('storageByApp').innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Fehler beim Laden der Daten
+                </div>
+            `;
+        });
 }
 
 function loadRecentLogs() {
-    // TODO: Implement API call
-    const placeholder = `
-        <tr>
-            <td colspan="5" class="text-center">
-                <div class="alert alert-info mb-0">
-                    <i class="fas fa-info-circle me-2"></i>
-                    API-Endpunkt muss noch implementiert werden
-                </div>
-            </td>
-        </tr>
-    `;
-    document.getElementById('storageLogsBody').innerHTML = placeholder;
+    fetch('/superconfig/api/storage/logs/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.logs.length > 0) {
+                let html = '';
+                data.logs.forEach(log => {
+                    html += `
+                        <tr>
+                            <td>${log.username}</td>
+                            <td>${log.app}</td>
+                            <td>${log.action}</td>
+                            <td>${log.size}</td>
+                            <td>${log.timestamp}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('storageLogsBody').innerHTML = html;
+            } else {
+                document.getElementById('storageLogsBody').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Keine Storage-Logs gefunden
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading storage logs:', error);
+            document.getElementById('storageLogsBody').innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center">
+                        <div class="alert alert-danger mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Fehler beim Laden der Logs
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
 }
 
 function loadSubscriptionPlans() {
-    // TODO: Implement API call
-    const placeholder = `
-        <tr>
-            <td colspan="6" class="text-center">
-                <div class="alert alert-info mb-0">
-                    <i class="fas fa-info-circle me-2"></i>
-                    API-Endpunkt muss noch implementiert werden
-                </div>
-            </td>
-        </tr>
-    `;
-    document.getElementById('subscriptionPlans').innerHTML = placeholder;
+    fetch('/superconfig/api/subscription/plans-overview/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.plans.length > 0) {
+                let html = '';
+                data.plans.forEach(plan => {
+                    const activeClass = plan.is_active ? 'success' : 'danger';
+                    const activeText = plan.is_active ? 'Ja' : 'Nein';
+                    html += `
+                        <tr>
+                            <td><strong>${plan.name}</strong></td>
+                            <td>${plan.storage}</td>
+                            <td>${plan.price}</td>
+                            <td>${plan.interval}</td>
+                            <td>
+                                <span class="badge bg-${activeClass}">${activeText}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">${plan.subscriber_count}</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('subscriptionPlans').innerHTML = html;
+            } else {
+                document.getElementById('subscriptionPlans').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Keine Subscription-Pläne gefunden
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading subscription plans:', error);
+            document.getElementById('subscriptionPlans').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center">
+                        <div class="alert alert-danger mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Fehler beim Laden der Pläne
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
 }
 </script>

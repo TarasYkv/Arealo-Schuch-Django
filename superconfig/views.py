@@ -1829,3 +1829,221 @@ def get_available_users(request):
             'success': False,
             'message': f'Fehler beim Laden der Benutzer: {str(e)}'
         })
+
+
+# Storage & Subscription API Endpoints for SuperConfig Dashboard
+
+@login_required
+@user_passes_test(is_superuser)
+def storage_statistics_api(request):
+    """Get storage statistics for dashboard"""
+    try:
+        from payments.models import Subscription, Invoice, SubscriptionPlan
+        from django.contrib.auth import get_user_model
+        from django.db.models import Sum, Q
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+
+        User = get_user_model()
+
+        # Total users
+        total_users = User.objects.count()
+
+        # Premium users (active subscriptions)
+        premium_users = Subscription.objects.filter(
+            Q(status='active') | Q(status='trialing')
+        ).values('customer__user').distinct().count()
+
+        # Total storage (sum of all active subscription storage_mb)
+        total_storage_mb = SubscriptionPlan.objects.filter(
+            subscription__status__in=['active', 'trialing']
+        ).aggregate(total=Sum('storage_mb'))['total'] or 0
+        total_storage_gb = round(total_storage_mb / 1024, 2)
+
+        # Monthly revenue (sum of paid invoices in current month)
+        current_month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        monthly_revenue = Invoice.objects.filter(
+            status='paid',
+            paid_at__gte=current_month_start
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+
+        return JsonResponse({
+            'success': True,
+            'stats': {
+                'total_users': total_users,
+                'total_storage_gb': total_storage_gb,
+                'premium_users': premium_users,
+                'monthly_revenue': f'{monthly_revenue:.2f}€'
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden der Storage-Statistiken: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def top_storage_users_api(request):
+    """Get top storage users"""
+    try:
+        from payments.models import Subscription, SubscriptionPlan
+        from django.db.models import Sum, Q
+
+        # Get active subscriptions with storage, grouped by user
+        top_users = Subscription.objects.filter(
+            Q(status='active') | Q(status='trialing'),
+            plan__storage_mb__isnull=False
+        ).select_related('customer__user', 'plan').order_by('-plan__storage_mb')[:10]
+
+        users_data = []
+        for subscription in top_users:
+            storage_mb = subscription.plan.storage_mb or 0
+            users_data.append({
+                'username': subscription.customer.user.username,
+                'email': subscription.customer.user.email,
+                'storage_mb': storage_mb,
+                'storage_gb': round(storage_mb / 1024, 2),
+                'plan_name': subscription.plan.name,
+                'status': subscription.get_status_display()
+            })
+
+        return JsonResponse({
+            'success': True,
+            'users': users_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden der Top-Speicher-Nutzer: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def storage_by_app_api(request):
+    """Get storage distribution by app"""
+    try:
+        from django.apps import apps
+        from django.db import connection
+
+        # Get all models with FileField or ImageField
+        storage_data = []
+
+        # Calculate storage per app by inspecting database tables
+        with connection.cursor() as cursor:
+            engine = get_database_engine()
+
+            if engine == 'mysql':
+                cursor.execute("""
+                    SELECT
+                        table_name,
+                        ROUND((data_length + index_length) / 1024 / 1024, 2) AS size_mb
+                    FROM information_schema.TABLES
+                    WHERE table_schema = %s
+                    AND table_name NOT LIKE 'auth_%%'
+                    AND table_name NOT LIKE 'django_%%'
+                    ORDER BY size_mb DESC
+                    LIMIT 10
+                """, [settings.DATABASES['default']['NAME']])
+
+                for table_name, size_mb in cursor.fetchall():
+                    # Extract app name from table name
+                    app_name = table_name.split('_')[0] if '_' in table_name else table_name
+                    storage_data.append({
+                        'app': app_name.capitalize(),
+                        'table': table_name,
+                        'size_mb': float(size_mb) if size_mb else 0,
+                        'size_gb': round(float(size_mb) / 1024, 2) if size_mb else 0
+                    })
+
+        return JsonResponse({
+            'success': True,
+            'storage_by_app': storage_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden der Speicher-Verteilung: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def recent_storage_logs_api(request):
+    """Get recent storage activity logs"""
+    try:
+        from payments.models import Subscription, Invoice
+        from django.utils import timezone
+
+        # Get recent subscription changes as activity logs
+        recent_subscriptions = Subscription.objects.select_related(
+            'customer__user', 'plan'
+        ).order_by('-updated_at')[:10]
+
+        logs_data = []
+        for sub in recent_subscriptions:
+            logs_data.append({
+                'username': sub.customer.user.username,
+                'app': 'Payments',
+                'action': f'Subscription {sub.get_status_display()}',
+                'size': f'{sub.plan.storage_mb or 0} MB' if sub.plan.storage_mb else 'N/A',
+                'timestamp': sub.updated_at.strftime('%d.%m.%Y %H:%M')
+            })
+
+        return JsonResponse({
+            'success': True,
+            'logs': logs_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden der Storage-Logs: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def subscription_plans_overview_api(request):
+    """Get subscription plans overview with subscriber counts"""
+    try:
+        from payments.models import SubscriptionPlan, Subscription
+        from django.db.models import Count, Q
+
+        plans = SubscriptionPlan.objects.annotate(
+            subscriber_count=Count(
+                'subscription',
+                filter=Q(subscription__status__in=['active', 'trialing'])
+            )
+        ).order_by('price')
+
+        plans_data = []
+        for plan in plans:
+            storage_display = f'{plan.storage_mb} MB' if plan.storage_mb else 'N/A'
+            if plan.storage_mb and plan.storage_mb >= 1024:
+                storage_display = f'{plan.storage_mb / 1024:.1f} GB'
+
+            plans_data.append({
+                'name': plan.name,
+                'storage': storage_display,
+                'price': f'{plan.price}€',
+                'interval': plan.get_interval_display() if hasattr(plan, 'get_interval_display') else plan.interval,
+                'is_active': plan.is_active,
+                'subscriber_count': plan.subscriber_count
+            })
+
+        return JsonResponse({
+            'success': True,
+            'plans': plans_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden der Subscription-Pläne: {str(e)}'
+        })
