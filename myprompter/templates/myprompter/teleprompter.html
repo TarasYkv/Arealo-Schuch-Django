@@ -1,0 +1,1627 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --prompter-primary: #6366f1;
+        --prompter-secondary: #8b5cf6;
+        --prompter-success: #10b981;
+        --prompter-danger: #ef4444;
+        --prompter-warning: #f59e0b;
+        --prompter-dark: #1f2937;
+        --prompter-light: #f9fafb;
+    }
+
+    .prompter-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .prompter-header {
+        background: linear-gradient(135deg, var(--prompter-primary) 0%, var(--prompter-secondary) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+    }
+
+    .prompter-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        margin-bottom: 1.5rem;
+    }
+
+    .text-input-area {
+        width: 100%;
+        min-height: 200px;
+        padding: 1.5rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        line-height: 1.8;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        transition: border-color 0.3s;
+        resize: vertical;
+    }
+
+    .text-input-area:focus {
+        outline: none;
+        border-color: var(--prompter-primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .prompter-display {
+        background: var(--prompter-dark);
+        color: white;
+        padding: 3rem;
+        border-radius: 16px;
+        min-height: 400px;
+        font-size: 2rem;
+        line-height: 2.2;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        display: none;
+        overflow-y: auto;
+        overflow-x: hidden;
+        max-height: 70vh;
+        word-wrap: break-word;
+        box-sizing: border-box;
+        /* scroll-behavior entfernt - wir nutzen custom smooth scroll */
+    }
+
+    .prompter-display.active {
+        display: block;
+    }
+
+    /* Wichtig: Im Fullscreen muss display aktiv sein */
+    .fullscreen-container:fullscreen .prompter-display.active,
+    .fullscreen-container:-webkit-full-screen .prompter-display.active,
+    .fullscreen-container:-moz-full-screen .prompter-display.active,
+    .fullscreen-container:-ms-fullscreen .prompter-display.active {
+        display: block !important;
+    }
+
+    /* Text-Bereich bleibt gleich groß, auch wenn Stats ausgeblendet */
+    .fullscreen-container.hide-stats:fullscreen .prompter-display,
+    .fullscreen-container.hide-stats:-webkit-full-screen .prompter-display,
+    .fullscreen-container.hide-stats:-moz-full-screen .prompter-display,
+    .fullscreen-container.hide-stats:-ms-fullscreen .prompter-display {
+        /* Keine Änderung - Text-Bereich bleibt konstant */
+    }
+
+    .fullscreen-container.hide-stats:fullscreen .fullscreen-stats,
+    .fullscreen-container.hide-stats:-webkit-full-screen .fullscreen-stats,
+    .fullscreen-container.hide-stats:-moz-full-screen .fullscreen-stats,
+    .fullscreen-container.hide-stats:-ms-fullscreen .fullscreen-stats {
+        display: none !important;
+    }
+
+    .word {
+        transition: all 0.5s ease-in-out;
+        padding: 0.1rem 0.2rem;
+        border-radius: 4px;
+    }
+
+    /* Sehr subtile Markierung der aktuellen Zeile */
+    .word.current-line {
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.2); /* Sanfter Glow */
+        transition: box-shadow 0.6s ease-in-out;
+    }
+
+    /* Text spiegeln für Teleprompter-Spiegel */
+    .prompter-display.mirrored {
+        transform: scaleX(-1);
+        -webkit-transform: scaleX(-1);
+        -moz-transform: scaleX(-1);
+        -ms-transform: scaleX(-1);
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    .control-panel {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1.5rem;
+    }
+
+    .btn-prompter {
+        padding: 0.875rem 1.75rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-prompter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-start {
+        background: linear-gradient(135deg, var(--prompter-success) 0%, #059669 100%);
+        color: white;
+    }
+
+    .btn-stop {
+        background: linear-gradient(135deg, var(--prompter-danger) 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .btn-reset {
+        background: linear-gradient(135deg, var(--prompter-warning) 0%, #d97706 100%);
+        color: white;
+    }
+
+    .btn-save {
+        background: linear-gradient(135deg, var(--prompter-primary) 0%, var(--prompter-secondary) 100%);
+        color: white;
+    }
+
+    .btn-load {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        color: white;
+    }
+
+    .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        background: var(--prompter-light);
+        font-weight: 500;
+    }
+
+    .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #9ca3af;
+        animation: fadeIn 0.3s;
+    }
+
+    .status-dot.active {
+        background: var(--prompter-success);
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+
+    .saved-texts-list {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 1rem;
+    }
+
+    .saved-text-item {
+        background: var(--prompter-light);
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+
+    .saved-text-item:hover {
+        border-color: var(--prompter-primary);
+        transform: translateX(4px);
+    }
+
+    .saved-text-item h6 {
+        margin: 0 0 0.5rem 0;
+        color: var(--prompter-dark);
+        font-weight: 600;
+    }
+
+    .saved-text-item small {
+        color: #6b7280;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-overlay.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-content h3 {
+        margin-top: 0;
+        color: var(--prompter-dark);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--prompter-dark);
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--prompter-primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .progress-bar {
+        background: #e5e7eb;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .progress-bar-fill {
+        background: linear-gradient(90deg, var(--prompter-primary), var(--prompter-secondary));
+        height: 100%;
+        transition: width 0.3s;
+        width: 0%;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .stat-item {
+        background: var(--prompter-light);
+        padding: 1rem;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--prompter-primary);
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+
+    [data-theme="dark"] .prompter-card,
+    [data-theme="dark"] .modal-content {
+        background: #1f2937;
+    }
+
+    [data-theme="dark"] .text-input-area {
+        background: #111827;
+        color: white;
+        border-color: #374151;
+    }
+
+    [data-theme="dark"] .saved-text-item {
+        background: #111827;
+    }
+
+    [data-theme="dark"] .saved-text-item h6 {
+        color: white;
+    }
+
+    [data-theme="dark"] .stat-item {
+        background: #111827;
+    }
+
+    /* Dark theme für Settings Panel */
+    [data-theme="dark"] #settingsPanel {
+        background: #111827 !important;
+    }
+
+    [data-theme="dark"] #settingsPanel h6,
+    [data-theme="dark"] #settingsPanel label {
+        color: white !important;
+    }
+
+    /* ===== FULLSCREEN MODE ===== */
+    .fullscreen-container {
+        position: relative;
+    }
+
+    .fullscreen-container:fullscreen,
+    .fullscreen-container:-webkit-full-screen,
+    .fullscreen-container:-moz-full-screen,
+    .fullscreen-container:-ms-fullscreen {
+        background: var(--prompter-dark);
+        padding: 0;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+    }
+
+    .fullscreen-container:fullscreen .prompter-display,
+    .fullscreen-container:-webkit-full-screen .prompter-display,
+    .fullscreen-container:-moz-full-screen .prompter-display,
+    .fullscreen-container:-ms-fullscreen .prompter-display {
+        width: 100vw;
+        height: calc(100vh - 240px); /* Platz für Stats-Leiste (140px) + Buttons (100px) */
+        max-width: 100vw;
+        max-height: calc(100vh - 240px);
+        /* font-size wird per JavaScript gesteuert und um 25% erhöht */
+        padding: 2rem 4rem;
+        border-radius: 0; /* Keine abgerundeten Ecken im Vollbild */
+        overflow-x: hidden;
+        overflow-y: auto;
+        word-wrap: break-word;
+        box-sizing: border-box;
+        margin: 0;
+    }
+
+    /* Fullscreen Stats & Progress */
+    .fullscreen-stats {
+        display: none;
+        width: 100%;
+        min-height: 140px;
+        padding: 1.5rem 2rem;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(10px);
+        flex-shrink: 0; /* Verhindert, dass Stats komprimiert werden */
+        z-index: 10;
+        box-sizing: border-box;
+    }
+
+    .fullscreen-container:fullscreen .fullscreen-stats,
+    .fullscreen-container:-webkit-full-screen .fullscreen-stats,
+    .fullscreen-container:-moz-full-screen .fullscreen-stats,
+    .fullscreen-container:-ms-fullscreen .fullscreen-stats {
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    .fullscreen-stats .stats-grid {
+        display: flex;
+        justify-content: center;
+        gap: 3rem;
+        margin: 0 0 1rem 0;
+    }
+
+    .fullscreen-stats .stat-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 1rem 2rem;
+        border-radius: 10px;
+        text-align: center;
+        min-width: 140px;
+    }
+
+    .fullscreen-stats .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .fullscreen-stats .stat-label {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.8);
+        margin-top: 0.25rem;
+    }
+
+    .fullscreen-stats .progress-bar {
+        background: rgba(255, 255, 255, 0.2);
+        height: 10px;
+        border-radius: 5px;
+        overflow: hidden;
+        margin: 0;
+    }
+
+    .fullscreen-stats .progress-bar-fill {
+        background: linear-gradient(90deg, #10b981, #059669);
+        height: 100%;
+    }
+
+    .fullscreen-controls {
+        position: fixed !important;
+        bottom: 2rem !important; /* Immer am unteren Bildschirmrand */
+        right: 2rem !important;
+        display: none;
+        gap: 1rem;
+        z-index: 9999 !important; /* Sehr hoher z-index */
+        flex-direction: row; /* Buttons nebeneinander */
+        pointer-events: auto !important;
+    }
+
+    .fullscreen-controls button {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+    }
+
+    .fullscreen-container:fullscreen .fullscreen-controls,
+    .fullscreen-container:-webkit-full-screen .fullscreen-controls,
+    .fullscreen-container:-moz-full-screen .fullscreen-controls,
+    .fullscreen-container:-ms-fullscreen .fullscreen-controls {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .btn-fullscreen {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        opacity: 0.9;
+        transition: opacity 0.3s;
+    }
+
+    .btn-fullscreen:hover {
+        opacity: 1;
+    }
+
+    .btn-fullscreen-exit {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        opacity: 0.9;
+        transition: opacity 0.3s;
+    }
+
+    .btn-fullscreen-exit:hover {
+        opacity: 1;
+    }
+
+    /* ===== MOBILE OPTIMIZATIONS ===== */
+    @media (max-width: 768px) {
+        .prompter-container {
+            margin: 1rem auto;
+            padding: 0 0.5rem;
+        }
+
+        .prompter-header {
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 12px;
+        }
+
+        .prompter-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .prompter-header p {
+            font-size: 0.875rem;
+        }
+
+        .prompter-card {
+            padding: 1rem;
+            border-radius: 12px;
+        }
+
+        .text-input-area {
+            min-height: 150px;
+            padding: 1rem;
+            font-size: 1rem;
+            border-radius: 10px;
+        }
+
+        .prompter-display {
+            padding: 1.5rem;
+            font-size: 1.5rem;
+            line-height: 2;
+            min-height: 300px;
+            max-height: 60vh;
+            border-radius: 12px;
+        }
+
+        .control-panel {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .btn-prompter {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            justify-content: center;
+        }
+
+        .status-indicator {
+            width: 100%;
+            justify-content: center;
+            padding: 0.875rem 1rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .stat-item {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+        }
+
+        .modal-content {
+            width: 95%;
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
+        .saved-texts-list {
+            max-height: 250px;
+        }
+
+        .saved-text-item {
+            padding: 0.875rem;
+        }
+    }
+
+    /* ===== SMALL MOBILE (< 576px) ===== */
+    @media (max-width: 575px) {
+        .prompter-header h1 {
+            font-size: 1.25rem;
+        }
+
+        .prompter-header p {
+            font-size: 0.8rem;
+        }
+
+        .prompter-display {
+            font-size: 1.25rem;
+            line-height: 1.8;
+            padding: 1rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stat-item {
+            padding: 0.5rem;
+        }
+
+        .btn-prompter {
+            padding: 0.875rem;
+            font-size: 0.95rem;
+        }
+    }
+
+    /* ===== LANDSCAPE MODE ON MOBILE ===== */
+    @media (max-height: 500px) and (orientation: landscape) {
+        .prompter-header {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .prompter-header h1 {
+            font-size: 1.25rem;
+            margin: 0;
+        }
+
+        .prompter-header p {
+            display: none;
+        }
+
+        .prompter-card {
+            padding: 0.75rem;
+        }
+
+        .text-input-area {
+            min-height: 100px;
+            padding: 0.75rem;
+        }
+
+        .prompter-display {
+            font-size: 1.75rem;
+            padding: 1rem 2rem;
+            max-height: calc(100vh - 200px);
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .control-panel {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        .btn-prompter {
+            flex: 1 1 calc(50% - 0.5rem);
+            min-width: 120px;
+        }
+
+        .status-indicator {
+            width: 100%;
+        }
+    }
+
+    /* ===== FULLSCREEN LANDSCAPE OPTIMIZATION ===== */
+    @media (orientation: landscape) {
+        .fullscreen-container:fullscreen .prompter-display,
+        .fullscreen-container:-webkit-full-screen .prompter-display,
+        .fullscreen-container:-moz-full-screen .prompter-display,
+        .fullscreen-container:-ms-fullscreen .prompter-display {
+            /* font-size wird per JavaScript gesteuert */
+            padding: 2rem 6rem;
+        }
+    }
+
+    /* ===== TABLET OPTIMIZATION ===== */
+    @media (min-width: 768px) and (max-width: 1024px) {
+        .fullscreen-container:fullscreen .prompter-display,
+        .fullscreen-container:-webkit-full-screen .prompter-display,
+        .fullscreen-container:-moz-full-screen .prompter-display,
+        .fullscreen-container:-ms-fullscreen .prompter-display {
+            /* font-size wird per JavaScript gesteuert */
+        }
+    }
+
+    /* ===== TOUCH OPTIMIZATION ===== */
+    @media (hover: none) and (pointer: coarse) {
+        .btn-prompter {
+            min-height: 44px;
+            min-width: 44px;
+        }
+
+        .saved-text-item {
+            min-height: 44px;
+            padding: 1rem;
+        }
+
+        .prompter-display {
+            -webkit-overflow-scrolling: touch;
+        }
+    }
+
+    /* ===== PREVENT TEXT SELECTION IN PROMPTER ===== */
+    .prompter-display {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="prompter-container">
+    <!-- Header -->
+    <div class="prompter-header">
+        <h1 style="margin: 0 0 0.5rem 0;"><i class="bi bi-mic-fill"></i> MyPrompter</h1>
+        <p style="margin: 0 0 1rem 0; opacity: 0.9; font-size: 1.1rem;">Professioneller Teleprompter mit intelligenter Spracherkennung</p>
+        <p style="margin: 0; opacity: 0.85; font-size: 0.95rem; line-height: 1.6;">
+            Perfekt für Präsentationen, Video-Aufnahmen und Reden. MyPrompter folgt automatisch deiner Stimme,
+            markiert die aktuelle Zeile und scrollt sanft mit. Mit Spiegel-Funktion für professionelle
+            Teleprompter-Aufbauten, flexibler Textgröße und Vollbild-Modus für maximale Übersichtlichkeit.
+        </p>
+        <div style="margin-top: 1rem; display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.9rem; opacity: 0.85;">
+            <div><i class="bi bi-check-circle-fill" style="color: #10b981;"></i> Automatische Spracherkennung</div>
+            <div><i class="bi bi-check-circle-fill" style="color: #10b981;"></i> Intelligentes Scrolling</div>
+            <div><i class="bi bi-check-circle-fill" style="color: #10b981;"></i> Spiegel-Funktion</div>
+            <div><i class="bi bi-check-circle-fill" style="color: #10b981;"></i> Texte speichern & laden</div>
+            <div><i class="bi bi-check-circle-fill" style="color: #10b981;"></i> Vollbild-Modus</div>
+        </div>
+    </div>
+
+    <!-- Text Input Section -->
+    <div class="prompter-card">
+        <h3><i class="bi bi-pencil-square"></i> Text eingeben</h3>
+        <textarea
+            id="textInput"
+            class="text-input-area"
+            placeholder="Gib hier deinen Text ein oder lade einen gespeicherten Text..."
+        ></textarea>
+
+        <!-- Prompter-Einstellungen -->
+        <div id="settingsPanel" style="margin-top: 1.5rem; padding: 1rem; background: var(--prompter-light); border-radius: 10px;">
+            <h6 style="margin: 0 0 1rem 0; color: var(--prompter-dark);"><i class="bi bi-gear"></i> Einstellungen</h6>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <!-- Textgröße -->
+                <div>
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--prompter-dark);">
+                        <i class="bi bi-fonts"></i> Textgröße: <span id="fontSizeLabel">2.0</span>rem
+                    </label>
+                    <input type="range" id="fontSizeSlider" min="1.0" max="4.0" step="0.1" value="2.0"
+                           style="width: 100%;" oninput="adjustFontSize(this.value)">
+                </div>
+
+                <!-- Text spiegeln -->
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding-top: 1.5rem;">
+                    <input type="checkbox" id="mirrorToggle" onchange="toggleMirror()"
+                           style="width: 20px; height: 20px; cursor: pointer;">
+                    <label for="mirrorToggle" style="margin: 0; font-weight: 600; color: var(--prompter-dark); cursor: pointer;">
+                        <i class="bi bi-symmetry-vertical"></i> Text spiegeln
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <button class="btn-prompter btn-start" onclick="startPrompter()">
+                <i class="bi bi-play-fill"></i> Start
+            </button>
+            <button class="btn-prompter btn-stop" onclick="stopPrompter()" style="display: none;">
+                <i class="bi bi-stop-fill"></i> Stop
+            </button>
+            <button class="btn-prompter btn-reset" onclick="resetPrompter()">
+                <i class="bi bi-arrow-clockwise"></i> Zurücksetzen
+            </button>
+            <button class="btn-prompter btn-save" onclick="showSaveModal()">
+                <i class="bi bi-save"></i> Speichern
+            </button>
+            <button class="btn-prompter btn-load" onclick="toggleSavedTexts()">
+                <i class="bi bi-folder-open"></i> Laden
+            </button>
+            <button class="btn-prompter btn-fullscreen" onclick="toggleFullscreen()" id="fullscreenBtn">
+                <i class="bi bi-arrows-fullscreen"></i> Vollbild
+            </button>
+            <div class="status-indicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Bereit</span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-item">
+                <div class="stat-value" id="wordCount">0</div>
+                <div class="stat-label">Wörter</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="estimatedDuration">0:00</div>
+                <div class="stat-label">Geschätzte Dauer</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="elapsedTime">0:00</div>
+                <div class="stat-label">Verstrichene Zeit</div>
+            </div>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+    </div>
+
+    <!-- Saved Texts Section -->
+    <div class="prompter-card" id="savedTextsSection" style="display: none;">
+        <h3><i class="bi bi-bookmark-star"></i> Gespeicherte Texte</h3>
+        <div class="saved-texts-list" id="savedTextsList">
+            {% for text in saved_texts %}
+            <div class="saved-text-item" onclick="loadText({{ text.id }})">
+                <h6>
+                    {% if text.is_favorite %}<i class="bi bi-star-fill text-warning"></i>{% endif %}
+                    {{ text.title }}
+                </h6>
+                <small>{{ text.word_count }} Wörter · {{ text.updated_at|date:"d.m.Y H:i" }}</small>
+            </div>
+            {% empty %}
+            <p class="text-muted">Noch keine gespeicherten Texte.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Prompter Display with Fullscreen Support -->
+    <div class="fullscreen-container" id="fullscreenContainer">
+        <div class="prompter-display" id="prompterDisplay"></div>
+
+        <!-- Fullscreen Stats & Progress (only visible in fullscreen) -->
+        <div class="fullscreen-stats" id="fullscreenStats">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="wordCountFullscreen">0</div>
+                    <div class="stat-label">Wörter</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="estimatedDurationFullscreen">0:00</div>
+                    <div class="stat-label">Geschätzte Dauer</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="elapsedTimeFullscreen">0:00</div>
+                    <div class="stat-label">Verstrichene Zeit</div>
+                </div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="progressBarFillFullscreen" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Fullscreen Controls (only visible in fullscreen) -->
+        <div class="fullscreen-controls">
+            <button class="btn-prompter btn-fullscreen" id="toggleStatsBtn" onclick="toggleFullscreenStats()">
+                <i class="bi bi-eye-slash"></i> Stats ausblenden
+            </button>
+            <button class="btn-prompter btn-fullscreen-exit" onclick="exitFullscreen()">
+                <i class="bi bi-fullscreen-exit"></i> Beenden
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal-overlay" id="saveModal">
+    <div class="modal-content">
+        <h3><i class="bi bi-save"></i> Text speichern</h3>
+        <div class="form-group">
+            <label for="textTitle">Titel:</label>
+            <input type="text" id="textTitle" placeholder="z.B. Präsentation Quartalsbericht">
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn-prompter btn-save" onclick="saveText()" style="flex: 1;">
+                Speichern
+            </button>
+            <button class="btn-prompter btn-reset" onclick="closeSaveModal()" style="flex: 1;">
+                Abbrechen
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let recognition = null;
+let isRunning = false;
+let words = [];
+let currentWordIndex = 0;
+let startTime = null;
+let timerInterval = null;
+let estimatedSeconds = 0;
+let lastProcessedWordCount = 0; // Tracking für bereits verarbeitete Wörter
+let currentLineTop = null; // Tracking der aktuellen Zeilen-Position
+let isMirrored = false; // Text-Spiegel-Status
+let fontSize = 2.0; // Standard-Textgröße in rem
+let showFullscreenStats = true; // Stats im Fullscreen anzeigen
+
+// Get CSRF token from cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Format seconds to MM:SS
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Calculate estimated duration based on word count
+// Average speaking rate: 150-160 words per minute for German
+function calculateEstimatedDuration(wordCount) {
+    const wordsPerMinute = 150; // Average speaking rate
+    const minutes = wordCount / wordsPerMinute;
+    return Math.round(minutes * 60); // Convert to seconds
+}
+
+// Start the timer
+function startTimer() {
+    startTime = Date.now();
+    timerInterval = setInterval(updateTimer, 1000);
+}
+
+// Stop the timer
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+// Update elapsed time and remaining time
+function updateTimer() {
+    if (!startTime) return;
+
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const elapsedText = formatTime(elapsed);
+
+    // Update both normal and fullscreen views
+    document.getElementById('elapsedTime').textContent = elapsedText;
+    document.getElementById('elapsedTimeFullscreen').textContent = elapsedText;
+}
+
+// Initialize Speech Recognition
+function initSpeechRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Spracherkennung wird von diesem Browser nicht unterstützt. Bitte verwende Chrome, Edge oder Safari.');
+        return false;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'de-DE';
+
+    recognition.onresult = function(event) {
+        // Verarbeite auch Zwischenergebnisse für Echtzeit-Feedback
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript.toLowerCase().trim();
+
+            // Verarbeite sowohl finale als auch interim results
+            // für sofortige Wort-für-Wort Hervorhebung
+            processTranscript(transcript, event.results[i].isFinal);
+        }
+    };
+
+    recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'no-speech') {
+            // Automatisch neu starten bei Pause
+            if (isRunning) {
+                recognition.start();
+            }
+        }
+    };
+
+    recognition.onend = function() {
+        if (isRunning) {
+            recognition.start(); // Automatisch neu starten
+        }
+    };
+
+    return true;
+}
+
+function processTranscript(transcript, isFinal) {
+    const spokenWords = transcript.split(/\s+/).filter(w => w.length > 0);
+
+    if (spokenWords.length === 0 || currentWordIndex >= words.length) return;
+
+    // OPTIMIERTE STRATEGIE: Verarbeite ALLE Wörter sofort, nicht nur die letzten
+    // Das macht das Tracking viel schneller!
+
+    // Finde heraus, welche Wörter neu sind
+    const newWordsStart = lastProcessedWordCount;
+
+    // Verarbeite alle neuen Wörter (ALLE, nicht nur die letzten 2)
+    for (let wordIdx = newWordsStart; wordIdx < spokenWords.length; wordIdx++) {
+        const spokenWord = spokenWords[wordIdx];
+        const cleanSpoken = spokenWord.replace(/[.,!?;:]/g, '').toLowerCase();
+
+        if (cleanSpoken.length < 2) continue; // Mindestens 2 Zeichen
+        if (currentWordIndex >= words.length) break;
+
+        // Versuche das aktuelle erwartete Wort zu matchen
+        const currentTextWord = words[currentWordIndex].replace(/[.,!?;:]/g, '').toLowerCase();
+
+        if (wordsMatch(cleanSpoken, currentTextWord)) {
+            // Wort wurde gesprochen - zeige die aktuelle Zeile zur Orientierung
+            highlightWord(currentWordIndex);
+            continue; // Nächstes gesprochenes Wort
+        }
+
+        // Wenn kein Match: schaue max 4 Wörter voraus (Balance zwischen Speed und Genauigkeit)
+        let matched = false;
+        const lookahead = Math.min(4, words.length - currentWordIndex);
+
+        for (let i = 1; i <= lookahead; i++) {
+            const nextIndex = currentWordIndex + i;
+            const nextTextWord = words[nextIndex].replace(/[.,!?;:]/g, '').toLowerCase();
+
+            if (wordsMatch(cleanSpoken, nextTextWord)) {
+                // Wort wurde gesprochen - zeige die aktuelle Zeile zur Orientierung
+                highlightWord(nextIndex);
+                matched = true;
+                break;
+            }
+        }
+
+        // Wenn immer noch kein Match: überspringe dieses gesprochene Wort
+        // (könnte ein Versprecher oder Füllwort sein)
+    }
+
+    // WICHTIG: Update lastProcessedWordCount auch bei interim results!
+    // Das sorgt dafür, dass wir beim nächsten Mal nur neue Wörter verarbeiten
+    lastProcessedWordCount = spokenWords.length;
+
+    // Bei finalem Ergebnis: Reset für nächsten Satz
+    if (isFinal) {
+        lastProcessedWordCount = 0;
+    }
+}
+
+// Hilfsfunktion für Wort-Matching (streng um Springen zu vermeiden)
+function wordsMatch(spoken, text) {
+    // Exaktes Match (immer erlaubt, auch für kurze Wörter)
+    if (spoken === text) return true;
+
+    // Für kurze Wörter (1-3 Buchstaben): Nur exaktes Match
+    if (spoken.length <= 3 || text.length <= 3) {
+        return spoken === text;
+    }
+
+    // Teilstring-Match (nur bei längeren Wörtern)
+    if (spoken.length >= 4 && text.startsWith(spoken)) return true;
+    if (text.length >= 4 && spoken.startsWith(text)) return true;
+
+    // Fuzzy Match für ähnliche Wörter - streng um falsche Matches zu vermeiden
+    if (spoken.length >= 5 && text.length >= 5) {
+        const similarity = calculateSimilarity(spoken, text);
+        if (similarity >= 0.85) return true; // 85% Ähnlichkeit - streng
+    }
+
+    return false;
+}
+
+// Berechne Ähnlichkeit zwischen zwei Wörtern (0-1)
+function calculateSimilarity(str1, str2) {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+
+    if (longer.length === 0) return 1.0;
+
+    const editDistance = levenshteinDistance(str1, str2);
+    return (longer.length - editDistance) / longer.length;
+}
+
+// Levenshtein Distanz für Fuzzy Matching
+function levenshteinDistance(str1, str2) {
+    const matrix = [];
+
+    for (let i = 0; i <= str2.length; i++) {
+        matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= str1.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= str2.length; i++) {
+        for (let j = 1; j <= str1.length; j++) {
+            if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+
+    return matrix[str2.length][str1.length];
+}
+
+function startPrompter() {
+    const text = document.getElementById('textInput').value.trim();
+    if (!text) {
+        alert('Bitte gib zuerst einen Text ein.');
+        return;
+    }
+
+    if (!initSpeechRecognition()) {
+        return;
+    }
+
+    words = text.split(/\s+/);
+    currentWordIndex = 0;
+    lastProcessedWordCount = 0;
+    currentLineTop = null; // Reset Zeilen-Tracking beim Start
+
+    // Display aufbauen (berücksichtigt aktuellen Modus)
+    buildDisplay();
+
+    // UI aktualisieren
+    document.querySelector('.btn-start').style.display = 'none';
+    document.querySelector('.btn-stop').style.display = 'inline-flex';
+    document.getElementById('statusDot').classList.add('active');
+    document.getElementById('statusText').textContent = 'Aktiv';
+
+    isRunning = true;
+    recognition.start();
+
+    // Start timer
+    startTimer();
+}
+
+function stopPrompter() {
+    isRunning = false;
+    if (recognition) {
+        recognition.stop();
+    }
+
+    // Stop timer
+    stopTimer();
+
+    document.querySelector('.btn-start').style.display = 'inline-flex';
+    document.querySelector('.btn-stop').style.display = 'none';
+    document.getElementById('statusDot').classList.remove('active');
+    document.getElementById('statusText').textContent = 'Gestoppt';
+}
+
+function resetPrompter() {
+    stopPrompter();
+    currentWordIndex = 0;
+    lastProcessedWordCount = 0;
+    currentLineTop = null; // Reset Zeilen-Tracking
+    startTime = null;
+    document.getElementById('prompterDisplay').classList.remove('active');
+
+    // Reset both normal and fullscreen views
+    document.getElementById('elapsedTime').textContent = '0:00';
+    document.getElementById('elapsedTimeFullscreen').textContent = '0:00';
+
+    updateProgress();
+}
+
+// Butterweiche Scroll-Animation
+function smoothScrollTo(element, duration = 800) {
+    const display = document.getElementById('prompterDisplay');
+    const targetPosition = element.offsetTop - (display.clientHeight / 2) + (element.offsetHeight / 2);
+    const startPosition = display.scrollTop;
+    const distance = targetPosition - startPosition;
+    let startTime = null;
+
+    // Easing function für sehr weiche Animation
+    function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function animation(currentTime) {
+        if (startTime === null) startTime = currentTime;
+        const timeElapsed = currentTime - startTime;
+        const progress = Math.min(timeElapsed / duration, 1);
+
+        const ease = easeInOutCubic(progress);
+        display.scrollTop = startPosition + (distance * ease);
+
+        if (timeElapsed < duration) {
+            requestAnimationFrame(animation);
+        }
+    }
+
+    requestAnimationFrame(animation);
+}
+
+// Sanftes Scrollen nur wenn Zeile nicht im Sichtbereich
+function scrollToLineIfNeeded(element) {
+    const display = document.getElementById('prompterDisplay');
+    const displayRect = display.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+
+    // Prüfe ob Element im sichtbaren Bereich ist (mit größerem Puffer)
+    const bufferTop = displayRect.height * 0.25; // 25% Puffer oben
+    const bufferBottom = displayRect.height * 0.25; // 25% Puffer unten
+
+    const isVisible =
+        elementRect.top >= (displayRect.top + bufferTop) &&
+        elementRect.bottom <= (displayRect.bottom - bufferBottom);
+
+    if (!isVisible) {
+        // Butterweiche Animation statt hartem Scroll
+        smoothScrollTo(element, 1000); // 1 Sekunde für sehr sanfte Animation
+    }
+}
+
+function highlightWord(index) {
+    const wordElement = document.getElementById(`word-${index}`);
+    if (!wordElement) return;
+
+    // ===== Einfache Zeilen-Markierung zur Orientierung =====
+
+    // Warte kurz damit Layout fertig ist
+    requestAnimationFrame(() => {
+        // Finde die Y-Position des aktuellen Wortes
+        const currentTop = wordElement.offsetTop;
+        const tolerance = 10;
+
+        // Bestimme welche Zeile angezeigt werden soll basierend auf Lesefortschritt
+        let targetLineTop = currentTop;
+        let nextLineFirstWordIndex = null;
+
+        // Zähle Wörter auf der aktuellen Zeile
+        const wordsOnCurrentLine = [];
+        for (let i = 0; i < words.length; i++) {
+            const el = document.getElementById(`word-${i}`);
+            if (el && Math.abs(el.offsetTop - currentTop) <= tolerance) {
+                wordsOnCurrentLine.push(i);
+            }
+        }
+
+        // Finde Position des aktuellen Wortes in der Zeile
+        const positionInLine = wordsOnCurrentLine.indexOf(index);
+        const lineProgress = positionInLine / wordsOnCurrentLine.length;
+
+        // Wenn >= 60% der Zeile gelesen, suche die nächste Zeile
+        if (lineProgress >= 0.6 && wordsOnCurrentLine.length > 0) {
+            const lastWordInLine = wordsOnCurrentLine[wordsOnCurrentLine.length - 1];
+            if (lastWordInLine + 1 < words.length) {
+                nextLineFirstWordIndex = lastWordInLine + 1;
+                const nextLineEl = document.getElementById(`word-${nextLineFirstWordIndex}`);
+                if (nextLineEl) {
+                    targetLineTop = nextLineEl.offsetTop;
+                }
+            }
+        }
+
+        // Prüfe ob wir die Markierung wechseln müssen
+        const isNewLine = currentLineTop === null || Math.abs(targetLineTop - currentLineTop) > tolerance;
+
+        if (isNewLine) {
+            // NEUE ZEILE: Markierung aktualisieren
+            currentLineTop = targetLineTop;
+
+            // Entferne alte Markierungen sanft (CSS Transition übernimmt Fade-Out)
+            document.querySelectorAll('.word.current-line').forEach(el => {
+                el.classList.remove('current-line');
+            });
+
+            // Kurze Verzögerung für sanften Übergang, dann neue Markierung setzen
+            setTimeout(() => {
+                // Markiere nur die Ziel-Zeile (unauffällig)
+                for (let i = 0; i < words.length; i++) {
+                    const el = document.getElementById(`word-${i}`);
+                    if (el && Math.abs(el.offsetTop - targetLineTop) <= tolerance) {
+                        el.classList.add('current-line');
+                    }
+                }
+            }, 50); // 50ms Verzögerung für weichen Übergang
+
+            // Sanftes Auto-Scrolling zur neuen Zeile
+            if (nextLineFirstWordIndex !== null) {
+                // Scrolle zur nächsten Zeile
+                const nextLineFirstWord = document.getElementById(`word-${nextLineFirstWordIndex}`);
+                if (nextLineFirstWord) scrollToLineIfNeeded(nextLineFirstWord);
+            } else {
+                scrollToLineIfNeeded(wordElement);
+            }
+        }
+    });
+
+    // Update Index und Progress
+    currentWordIndex = index + 1;
+    updateProgress();
+}
+
+function updateProgress() {
+    const progress = words.length > 0 ? Math.round((currentWordIndex / words.length) * 100) : 0;
+
+    // Update both normal and fullscreen views
+    document.getElementById('progressBarFill').style.width = progress + '%';
+    document.getElementById('progressBarFillFullscreen').style.width = progress + '%';
+}
+
+// Fullscreen Functions
+function toggleFullscreen() {
+    const container = document.getElementById('fullscreenContainer');
+
+    if (!document.fullscreenElement &&
+        !document.webkitFullscreenElement &&
+        !document.mozFullScreenElement &&
+        !document.msFullscreenElement) {
+        // Enter fullscreen
+        enterFullscreen(container);
+    } else {
+        // Exit fullscreen
+        exitFullscreen();
+    }
+}
+
+function enterFullscreen(element) {
+    if (element.requestFullscreen) {
+        element.requestFullscreen();
+    } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+    } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+    } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+    }
+}
+
+function exitFullscreen() {
+    if (document.exitFullscreen) {
+        document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+    }
+}
+
+// Listen for fullscreen changes
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+function handleFullscreenChange() {
+    const btn = document.getElementById('fullscreenBtn');
+    const display = document.getElementById('prompterDisplay');
+    const fullscreenStats = document.getElementById('fullscreenStats');
+    const fullscreenControls = document.querySelector('.fullscreen-controls');
+    const isFullscreen = document.fullscreenElement ||
+                        document.webkitFullscreenElement ||
+                        document.mozFullScreenElement ||
+                        document.msFullscreenElement;
+
+    if (isFullscreen) {
+        btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i> Vollbild';
+
+        // Erhöhe Textgröße im Fullscreen um 25%
+        const fullscreenFontSize = fontSize * 1.25;
+        display.style.fontSize = fullscreenFontSize + 'rem';
+        display.style.lineHeight = (fullscreenFontSize * 1.1) + 'rem';
+
+        // Force-Anzeige der Stats-Leiste
+        if (fullscreenStats) {
+            fullscreenStats.style.display = 'block';
+            fullscreenStats.style.visibility = 'visible';
+        }
+
+        // Force-Anzeige der Fullscreen-Controls
+        if (fullscreenControls) {
+            fullscreenControls.style.display = 'flex';
+            fullscreenControls.style.visibility = 'visible';
+            fullscreenControls.style.opacity = '1';
+            fullscreenControls.style.zIndex = '9999';
+        }
+
+        // Update der Fullscreen Stats
+        updateWordCount();
+        updateProgress();
+    } else {
+        btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i> Vollbild';
+
+        // Stelle normale Textgröße wieder her
+        display.style.fontSize = fontSize + 'rem';
+        display.style.lineHeight = (fontSize * 1.1) + 'rem';
+
+        // Stats-Leiste ausblenden
+        if (fullscreenStats) {
+            fullscreenStats.style.display = 'none';
+        }
+
+        // Controls ausblenden
+        if (fullscreenControls) {
+            fullscreenControls.style.display = 'none';
+        }
+
+        // Reset Stats-Toggle beim Verlassen
+        const container = document.getElementById('fullscreenContainer');
+        showFullscreenStats = true;
+        container.classList.remove('hide-stats');
+    }
+}
+
+// Fullscreen Stats Toggle
+function toggleFullscreenStats() {
+    showFullscreenStats = !showFullscreenStats;
+    const container = document.getElementById('fullscreenContainer');
+    const btn = document.getElementById('toggleStatsBtn');
+    const fullscreenStats = document.getElementById('fullscreenStats');
+
+    if (showFullscreenStats) {
+        // Stats anzeigen
+        container.classList.remove('hide-stats');
+        if (fullscreenStats) {
+            fullscreenStats.style.display = 'block';
+        }
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i> Stats ausblenden';
+    } else {
+        // Stats ausblenden - Text-Bereich bleibt gleich
+        container.classList.add('hide-stats');
+        if (fullscreenStats) {
+            fullscreenStats.style.display = 'none';
+        }
+        btn.innerHTML = '<i class="bi bi-eye"></i> Stats einblenden';
+    }
+}
+
+// Mirror & Font Size Functions
+function toggleMirror() {
+    isMirrored = !isMirrored;
+    const display = document.getElementById('prompterDisplay');
+
+    if (isMirrored) {
+        display.classList.add('mirrored');
+    } else {
+        display.classList.remove('mirrored');
+    }
+}
+
+function adjustFontSize(value) {
+    fontSize = parseFloat(value);
+    document.getElementById('fontSizeLabel').textContent = fontSize.toFixed(1);
+
+    const display = document.getElementById('prompterDisplay');
+    display.style.fontSize = fontSize + 'rem';
+
+    // Adjust line height proportionally
+    const lineHeight = fontSize * 1.1; // 1.1x font size
+    display.style.lineHeight = lineHeight + 'rem';
+}
+
+function buildDisplay() {
+    const display = document.getElementById('prompterDisplay');
+
+    // Build the display with words
+    display.innerHTML = words.map((word, index) =>
+        `<span class="word" id="word-${index}">${word} </span>`
+    ).join('');
+
+    display.classList.add('active');
+
+    // Apply mirror setting if enabled
+    if (isMirrored) {
+        display.classList.add('mirrored');
+    }
+
+    // Apply font size
+    display.style.fontSize = fontSize + 'rem';
+    display.style.lineHeight = (fontSize * 1.1) + 'rem';
+
+    // Highlight erstes Wort - warte auf Layout mit requestAnimationFrame
+    requestAnimationFrame(() => {
+        // Highlighte das erste Wort (Vorausschau-Modus)
+        if (words.length > 0) {
+            highlightWord(0);
+        }
+    });
+}
+
+// Text Management
+function toggleSavedTexts() {
+    const section = document.getElementById('savedTextsSection');
+    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+
+function showSaveModal() {
+    const text = document.getElementById('textInput').value.trim();
+    if (!text) {
+        alert('Bitte gib zuerst einen Text ein.');
+        return;
+    }
+    document.getElementById('saveModal').classList.add('active');
+}
+
+function closeSaveModal() {
+    document.getElementById('saveModal').classList.remove('active');
+    document.getElementById('textTitle').value = '';
+}
+
+async function saveText() {
+    const title = document.getElementById('textTitle').value.trim();
+    const content = document.getElementById('textInput').value.trim();
+
+    if (!title || !content) {
+        alert('Bitte fülle alle Felder aus.');
+        return;
+    }
+
+    try {
+        const csrftoken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                          document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                          getCookie('csrftoken');
+
+        const response = await fetch('{% url "myprompter:save_text" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ title, content })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            alert('Text erfolgreich gespeichert!');
+            closeSaveModal();
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Speichern: ' + error.message);
+    }
+}
+
+async function loadText(textId) {
+    try {
+        const response = await fetch(`/myprompter/api/get/${textId}/`);
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('textInput').value = data.text.content;
+            updateWordCount();
+            document.getElementById('savedTextsSection').style.display = 'none';
+        } else {
+            alert('Fehler beim Laden: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Laden: ' + error.message);
+    }
+}
+
+// Update word count and estimated duration
+function updateWordCount() {
+    const text = document.getElementById('textInput').value.trim();
+    const count = text ? text.split(/\s+/).length : 0;
+
+    // Update both normal and fullscreen views
+    document.getElementById('wordCount').textContent = count;
+    document.getElementById('wordCountFullscreen').textContent = count;
+
+    // Calculate and display estimated duration
+    estimatedSeconds = calculateEstimatedDuration(count);
+    const estimatedText = formatTime(estimatedSeconds);
+    document.getElementById('estimatedDuration').textContent = estimatedText;
+    document.getElementById('estimatedDurationFullscreen').textContent = estimatedText;
+}
+
+// Event Listeners
+document.getElementById('textInput').addEventListener('input', updateWordCount);
+
+// Initial word count
+updateWordCount();
+</script>
+{% endblock %}

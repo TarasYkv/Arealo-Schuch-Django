@@ -331,6 +331,29 @@ def _get_available_apps():
                 'Beta-Entwicklung': 'Neue Features kommen regelmäßig dazu'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'myprompter': {
+            'name': 'MyPrompter',
+            'icon': 'bi-mic-fill',
+            'color': 'warning',
+            'app_url': '/myprompter/',
+            'short_desc': 'Professioneller Teleprompter mit intelligenter Spracherkennung',
+            'features': [
+                'Automatische Spracherkennung (Deutsch)',
+                'Intelligentes Scrolling folgt deiner Stimme',
+                'Spiegel-Funktion für professionelle Teleprompter-Setups',
+                'Flexible Textgröße (1.0 - 4.0 rem)',
+                'Fullscreen-Modus mit Stats-Anzeige',
+                'Texte speichern und laden',
+                'Mobile-optimiert für unterwegs'
+            ],
+            'benefits': {
+                'Perfekt für Content Creator': 'Ideal für Video-Aufnahmen, Präsentationen und Reden',
+                'Professionelle Features': 'Spiegel-Funktion und anpassbare Textgröße',
+                'Zeit sparen': 'Automatisches Scrolling, keine manuelle Steuerung nötig',
+                'Volle Kontrolle': 'Wähle zwischen voller Stats-Anzeige oder reinem Text-Modus'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         }
     }
     

@@ -191,6 +191,7 @@ class AppPermission(models.Model):
         ('promptpro', 'PromptPro'),
         ('fileshare', 'FileShare'),
         ('loomconnect', 'LoomConnect'),
+        ('myprompter', 'MyPrompter'),
 
         # Schuch Tools
         ('schuch', 'Schuch'),
