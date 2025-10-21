@@ -59,6 +59,7 @@ urlpatterns = [
     path('loomline/', include('loomline.urls')),
     path('fileshare/', include('fileshare.urls')),
     path('connect/', include('loomconnect.urls')),
+    path('myprompter/', include('myprompter.urls')),
     path('stats/', include('stats.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
 
