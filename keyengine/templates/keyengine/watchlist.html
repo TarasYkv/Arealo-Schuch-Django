@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}KeyEngine - Merkliste{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'keyengine/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <span class="keyengine-icon">📋</span> Meine Keyword-Merkliste
+                </h1>
+                <a href="{% url 'keyengine:dashboard' %}" class="btn btn-outline-success">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück zum Generator
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card keyengine-stat-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-list-ul fa-2x text-success mb-2"></i>
+                    <h3 class="mb-0">{{ total_count }}</h3>
+                    <p class="text-muted mb-0">Gesamt</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card keyengine-stat-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                    <h3 class="mb-0">{{ open_count }}</h3>
+                    <p class="text-muted mb-0">Offen</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card keyengine-stat-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <h3 class="mb-0">{{ done_count }}</h3>
+                    <p class="text-muted mb-0">Erledigt</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Sortierung -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="btn-group" role="group">
+                <a href="?status=all&sort={{ sort_by }}" class="btn {% if status_filter == 'all' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    Alle
+                </a>
+                <a href="?status=open&sort={{ sort_by }}" class="btn {% if status_filter == 'open' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    Offen
+                </a>
+                <a href="?status=done&sort={{ sort_by }}" class="btn {% if status_filter == 'done' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    Erledigt
+                </a>
+            </div>
+        </div>
+        <div class="col-md-6 text-end">
+            <select id="sort-select" class="form-select w-auto d-inline-block">
+                <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Neueste zuerst</option>
+                <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>Nach Priorität</option>
+                <option value="alpha" {% if sort_by == 'alpha' %}selected{% endif %}>Alphabetisch</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Keywords Liste -->
+    <div class="row">
+        <div class="col-12">
+            {% if keywords %}
+                <div class="keyword-list">
+                    {% for kw in keywords %}
+                    <div class="keyword-item {% if kw.is_done %}keyword-done{% endif %}" data-id="{{ kw.id }}">
+                        <div class="keyword-header">
+                            <div class="d-flex align-items-center flex-grow-1">
+                                <!-- Checkbox -->
+                                <div class="form-check me-3">
+                                    <input
+                                        class="form-check-input keyword-checkbox"
+                                        type="checkbox"
+                                        {% if kw.is_done %}checked{% endif %}
+                                        data-id="{{ kw.id }}"
+                                    >
+                                </div>
+
+                                <!-- Keyword Text -->
+                                <div class="flex-grow-1">
+                                    <h5 class="keyword-text mb-1">{{ kw.keyword }}</h5>
+                                    {% if kw.intent_type %}
+                                        <span class="intent-badge intent-{{ kw.intent_type|lower|cut:" " }}">
+                                            {{ kw.intent_type }}
+                                        </span>
+                                    {% endif %}
+                                    {% if kw.description %}
+                                        <p class="text-muted small mb-0 mt-1">{{ kw.description }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Priorität -->
+                                <div class="me-3">
+                                    <select
+                                        class="form-select form-select-sm priority-select"
+                                        data-id="{{ kw.id }}"
+                                    >
+                                        <option value="high" {% if kw.priority == 'high' %}selected{% endif %}>🔴 Hoch</option>
+                                        <option value="medium" {% if kw.priority == 'medium' %}selected{% endif %}>🟡 Mittel</option>
+                                        <option value="low" {% if kw.priority == 'low' %}selected{% endif %}>⚪ Niedrig</option>
+                                    </select>
+                                </div>
+
+                                <!-- Actions -->
+                                <div>
+                                    <button
+                                        class="btn btn-sm btn-outline-primary copy-btn"
+                                        data-keyword="{{ kw.keyword }}"
+                                        title="Kopieren"
+                                    >
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <button
+                                        class="btn btn-sm btn-outline-danger delete-btn"
+                                        data-id="{{ kw.id }}"
+                                        title="Löschen"
+                                    >
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metadaten -->
+                        <div class="keyword-meta">
+                            <small class="text-muted">
+                                Hinzugefügt: {{ kw.created_at|date:"d.m.Y H:i" }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                    <p class="text-muted">
+                        {% if status_filter == 'done' %}
+                            Keine erledigten Keywords.
+                        {% elif status_filter == 'open' %}
+                            Keine offenen Keywords.
+                        {% else %}
+                            Deine Merkliste ist leer. <a href="{% url 'keyengine:dashboard' %}">Starte jetzt mit der Keyword-Suche!</a>
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="toast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-message">
+                <!-- Nachricht hier -->
+            </div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Sortierung ändern
+document.getElementById('sort-select').addEventListener('change', function() {
+    const status = '{{ status_filter }}';
+    const sort = this.value;
+    window.location.href = `?status=${status}&sort=${sort}`;
+});
+</script>
+
+<script src="{% static 'keyengine/js/app.js' %}"></script>
+{% endblock %}

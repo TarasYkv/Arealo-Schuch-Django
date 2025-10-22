@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}KeyEngine - Meine Listen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'keyengine/css/style.css' %}">
+<style>
+/* Listen-Kacheln */
+.list-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.list-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    cursor: pointer;
+    border-top: 4px solid var(--card-color, #10b981);
+}
+
+.list-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.list-card-header {
+    background: linear-gradient(135deg, var(--card-color, #10b981) 0%, var(--card-color-dark, #059669) 100%);
+    color: white;
+    padding: 1.25rem;
+}
+
+.list-card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.list-card-body {
+    padding: 1.25rem;
+}
+
+.list-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.list-stat {
+    text-align: center;
+}
+
+.list-stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--card-color, #10b981);
+}
+
+.list-stat-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+}
+
+.list-card-footer {
+    border-top: 1px solid #e5e7eb;
+    padding: 1rem 1.25rem;
+    background: #f9fafb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-meta {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.list-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-list-action {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border: none;
+    background: none;
+    color: #6b7280;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.btn-list-action:hover {
+    color: var(--card-color, #10b981);
+}
+
+/* Neue Liste Button */
+.create-list-card {
+    border: 2px dashed #d1d5db;
+    background: #f9fafb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.create-list-card:hover {
+    border-color: #10b981;
+    background: #f0fdf4;
+    transform: translateY(-4px);
+}
+
+.create-list-content {
+    text-align: center;
+    color: #6b7280;
+}
+
+.create-list-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Archivierte Listen */
+.archived-section {
+    margin-top: 3rem;
+}
+
+.archived-toggle {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    background: #f3f4f6;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.2s;
+}
+
+.archived-toggle:hover {
+    background: #e5e7eb;
+}
+
+.archived-lists {
+    margin-top: 1rem;
+    display: none;
+}
+
+.archived-lists.show {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">
+                    <span class="keyengine-icon">📋</span> Meine Keyword-Listen
+                </h1>
+                <a href="{% url 'keyengine:dashboard' %}" class="btn btn-outline-success">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück zum Generator
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Listen-Kacheln -->
+    <div class="list-cards-grid">
+        {% for list in lists %}
+        <div class="list-card" style="--card-color: {{ list.color }}; --card-color-dark: {{ list.color }}dd;"
+             onclick="window.location.href='{% url 'keyengine:list_detail' list.id %}'">
+            <div class="list-card-header">
+                <h3 class="list-card-title">{{ list.name }}</h3>
+            </div>
+            <div class="list-card-body">
+                <div class="list-stats">
+                    <div class="list-stat">
+                        <div class="list-stat-value">{{ list.total_keywords }}</div>
+                        <div class="list-stat-label">Gesamt</div>
+                    </div>
+                    <div class="list-stat">
+                        <div class="list-stat-value" style="color: #f59e0b;">{{ list.open_keywords }}</div>
+                        <div class="list-stat-label">Offen</div>
+                    </div>
+                    <div class="list-stat">
+                        <div class="list-stat-value" style="color: #10b981;">{{ list.done_keywords }}</div>
+                        <div class="list-stat-label">Erledigt</div>
+                    </div>
+                </div>
+                {% if list.description %}
+                <p class="text-muted small mb-0">{{ list.description|truncatewords:20 }}</p>
+                {% endif %}
+            </div>
+            <div class="list-card-footer" onclick="event.stopPropagation();">
+                <div class="list-meta">
+                    <i class="fas fa-calendar-alt"></i> {{ list.created_at|date:"d.m.Y" }}
+                </div>
+                <div class="list-actions">
+                    <button class="btn-list-action" title="Bearbeiten"
+                            onclick="editList({{ list.id }}, '{{ list.name }}', '{{ list.color }}', '{{ list.description }}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-list-action" title="Duplizieren"
+                            onclick="duplicateList({{ list.id }}, '{{ list.name }}')">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="btn-list-action" title="Exportieren"
+                            onclick="window.location.href='{% url 'keyengine:export_list' list.id %}'">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="btn-list-action" title="Archivieren"
+                            onclick="archiveList({{ list.id }}, '{{ list.name }}')">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                    <button class="btn-list-action text-danger" title="Löschen"
+                            onclick="deleteList({{ list.id }}, '{{ list.name }}', {{ list.total_keywords }})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Neue Liste erstellen -->
+        <div class="list-card create-list-card" onclick="showCreateListModal()">
+            <div class="create-list-content">
+                <div class="create-list-icon">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <h4>Neue Liste erstellen</h4>
+                <p class="mb-0">Keywords organisieren</p>
+            </div>
+        </div>
+    </div>
+
+    {% if not lists %}
+    <!-- Leerer Zustand -->
+    <div class="text-center py-5">
+        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+        <h3 class="text-muted">Noch keine Listen</h3>
+        <p class="text-muted mb-4">Erstelle deine erste Keyword-Liste!</p>
+        <button class="btn btn-success btn-lg" onclick="showCreateListModal()">
+            <i class="fas fa-plus me-2"></i>Erste Liste erstellen
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Archivierte Listen -->
+    {% if archived_lists %}
+    <div class="archived-section">
+        <div class="archived-toggle" onclick="toggleArchived()">
+            <i class="fas fa-archive"></i>
+            <span>Archivierte Listen ({{ archived_lists.count }})</span>
+            <i class="fas fa-chevron-down" id="archived-chevron"></i>
+        </div>
+        <div class="archived-lists" id="archived-lists-container">
+            <div class="list-cards-grid mt-3">
+                {% for list in archived_lists %}
+                <div class="list-card" style="--card-color: #9ca3af; --card-color-dark: #6b7280; opacity: 0.7;">
+                    <div class="list-card-header">
+                        <h3 class="list-card-title">{{ list.name }}</h3>
+                    </div>
+                    <div class="list-card-body">
+                        <div class="text-center">
+                            <div class="list-stat-value">{{ list.total_keywords }}</div>
+                            <div class="list-stat-label">Keywords</div>
+                        </div>
+                    </div>
+                    <div class="list-card-footer">
+                        <button class="btn btn-sm btn-outline-success"
+                                onclick="archiveList({{ list.id }}, '{{ list.name }}')">
+                            <i class="fas fa-undo me-1"></i>Wiederherstellen
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger"
+                                onclick="deleteList({{ list.id }}, '{{ list.name }}', {{ list.total_keywords }})">
+                            <i class="fas fa-trash me-1"></i>Löschen
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create/Edit List Modal -->
+<div class="modal fade" id="listModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="listModalTitle">Neue Liste erstellen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="listForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="list_id" value="">
+
+                    <div class="mb-3">
+                        <label for="list_name" class="form-label">Name *</label>
+                        <input type="text" class="form-control" id="list_name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="list_color" class="form-label">Farbe</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#10b981" checked>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #10b981; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#3b82f6">
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #3b82f6; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#8b5cf6">
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #8b5cf6; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#f59e0b">
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #f59e0b; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#ef4444">
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #ef4444; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#ec4899">
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #ec4899; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#fbbf24">
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #fbbf24; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#06b6d4">
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #06b6d4; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="list_description" class="form-label">Beschreibung (optional)</label>
+                        <textarea class="form-control" id="list_description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" onclick="saveList()">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="toast" class="toast align-items-center" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-message"></div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'keyengine/js/lists.js' %}"></script>
+{% endblock %}

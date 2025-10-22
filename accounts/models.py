@@ -192,6 +192,7 @@ class AppPermission(models.Model):
         ('fileshare', 'FileShare'),
         ('loomconnect', 'LoomConnect'),
         ('myprompter', 'MyPrompter'),
+        ('keyengine', 'KeyEngine'),
 
         # Schuch Tools
         ('schuch', 'Schuch'),
@@ -866,8 +867,9 @@ class AppInfo(models.Model):
         ('payments', 'Zahlungen & Abos'),
         ('core', 'Schuch (Startseite/Kern)'),
         ('loomline', 'LoomLine - SEO Task Timeline'),
+        ('keyengine', 'KeyEngine - Keyword Research'),
     ]
-    
+
     app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Feature")
     title = models.CharField(max_length=200, verbose_name="Titel")
     short_description = models.CharField(max_length=300, verbose_name="Kurzbeschreibung")
@@ -938,7 +940,8 @@ class FeatureAccess(models.Model):
         ('bug_report', 'Bug Report'),
         ('payments', 'Zahlungen & Abos'),
         ('core', 'Schuch (Startseite/Kern)'),
-        
+        ('keyengine', 'KeyEngine - Keyword Research'),
+
         # Spezifische Features/Sub-Bereiche
         ('video_upload', 'Video Upload'),
         ('video_sharing', 'Video Sharing'),

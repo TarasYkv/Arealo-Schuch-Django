@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}KeyEngine - {{ keyword_list.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'keyengine/css/style.css' %}">
+<style>
+/* Listen-Header mit Farbe */
+.list-header {
+    background: linear-gradient(135deg, {{ keyword_list.color }} 0%, {{ keyword_list.color }}dd 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+}
+
+.list-header-title {
+    font-size: 1.75rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.list-header-description {
+    opacity: 0.9;
+    margin-top: 0.5rem;
+}
+
+.list-actions-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-list-header-action {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-list-header-action:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Zurück-Button -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <a href="{% url 'keyengine:lists_overview' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-2"></i>Zurück zur Übersicht
+            </a>
+        </div>
+    </div>
+
+    <!-- Listen-Header -->
+    <div class="list-header">
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+                <h1 class="list-header-title">{{ keyword_list.name }}</h1>
+                {% if keyword_list.description %}
+                <p class="list-header-description mb-0">{{ keyword_list.description }}</p>
+                {% endif %}
+            </div>
+            <div class="list-actions-bar">
+                <button class="btn btn-list-header-action" onclick="editList({{ keyword_list.id }}, '{{ keyword_list.name }}', '{{ keyword_list.color }}', '{{ keyword_list.description }}')">
+                    <i class="fas fa-edit me-1"></i>Bearbeiten
+                </button>
+                <button class="btn btn-list-header-action" onclick="duplicateList({{ keyword_list.id }}, '{{ keyword_list.name }}')">
+                    <i class="fas fa-copy me-1"></i>Duplizieren
+                </button>
+                <a href="{% url 'keyengine:export_list' keyword_list.id %}" class="btn btn-list-header-action">
+                    <i class="fas fa-download me-1"></i>Exportieren
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card keyengine-stat-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-list-ul fa-2x text-success mb-2"></i>
+                    <h3 class="mb-0">{{ total_count }}</h3>
+                    <p class="text-muted mb-0">Gesamt</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card keyengine-stat-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                    <h3 class="mb-0">{{ open_count }}</h3>
+                    <p class="text-muted mb-0">Offen</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card keyengine-stat-card">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <h3 class="mb-0">{{ done_count }}</h3>
+                    <p class="text-muted mb-0">Erledigt</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Sortierung -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="btn-group" role="group">
+                <a href="?status=all&sort={{ sort_by }}" class="btn {% if status_filter == 'all' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    Alle
+                </a>
+                <a href="?status=open&sort={{ sort_by }}" class="btn {% if status_filter == 'open' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    Offen
+                </a>
+                <a href="?status=done&sort={{ sort_by }}" class="btn {% if status_filter == 'done' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    Erledigt
+                </a>
+            </div>
+        </div>
+        <div class="col-md-6 text-end">
+            <select id="sort-select" class="form-select w-auto d-inline-block">
+                <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Neueste zuerst</option>
+                <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>Nach Priorität</option>
+                <option value="alpha" {% if sort_by == 'alpha' %}selected{% endif %}>Alphabetisch</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Keywords Liste -->
+    <div class="row">
+        <div class="col-12">
+            {% if keywords %}
+                <div class="keyword-list">
+                    {% for kw in keywords %}
+                    <div class="keyword-item {% if kw.is_done %}keyword-done{% endif %}" data-id="{{ kw.id }}">
+                        <div class="keyword-header">
+                            <div class="d-flex align-items-center flex-grow-1">
+                                <!-- Checkbox -->
+                                <div class="form-check me-3">
+                                    <input
+                                        class="form-check-input keyword-checkbox"
+                                        type="checkbox"
+                                        {% if kw.is_done %}checked{% endif %}
+                                        data-id="{{ kw.id }}"
+                                    >
+                                </div>
+
+                                <!-- Keyword Text -->
+                                <div class="flex-grow-1">
+                                    <h5 class="keyword-text mb-1">{{ kw.keyword }}</h5>
+                                    {% if kw.intent_type %}
+                                        <span class="intent-badge intent-{{ kw.intent_type|lower|cut:" " }}">
+                                            {{ kw.intent_type }}
+                                        </span>
+                                    {% endif %}
+                                    {% if kw.description %}
+                                        <p class="text-muted small mb-0 mt-1">{{ kw.description }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Priorität -->
+                                <div class="me-3">
+                                    <select
+                                        class="form-select form-select-sm priority-select"
+                                        data-id="{{ kw.id }}"
+                                    >
+                                        <option value="high" {% if kw.priority == 'high' %}selected{% endif %}>🔴 Hoch</option>
+                                        <option value="medium" {% if kw.priority == 'medium' %}selected{% endif %}>🟡 Mittel</option>
+                                        <option value="low" {% if kw.priority == 'low' %}selected{% endif %}>⚪ Niedrig</option>
+                                    </select>
+                                </div>
+
+                                <!-- Verschieben Dropdown -->
+                                {% if all_lists %}
+                                <div class="me-2">
+                                    <select class="form-select form-select-sm move-select" data-id="{{ kw.id }}">
+                                        <option value="">Verschieben nach...</option>
+                                        {% for other_list in all_lists %}
+                                        <option value="{{ other_list.id }}">{{ other_list.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                {% endif %}
+
+                                <!-- Actions -->
+                                <div>
+                                    <button
+                                        class="btn btn-sm btn-outline-primary copy-btn"
+                                        data-keyword="{{ kw.keyword }}"
+                                        title="Kopieren"
+                                    >
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    <button
+                                        class="btn btn-sm btn-outline-danger delete-btn"
+                                        data-id="{{ kw.id }}"
+                                        title="Löschen"
+                                    >
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metadaten -->
+                        <div class="keyword-meta">
+                            <small class="text-muted">
+                                Hinzugefügt: {{ kw.created_at|date:"d.m.Y H:i" }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                    <p class="text-muted">
+                        {% if status_filter == 'done' %}
+                            Keine erledigten Keywords.
+                        {% elif status_filter == 'open' %}
+                            Keine offenen Keywords.
+                        {% else %}
+                            Diese Liste ist leer. <a href="{% url 'keyengine:dashboard' %}">Finde jetzt Keywords!</a>
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Edit List Modal -->
+<div class="modal fade" id="listModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Liste bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="listForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="list_id" value="{{ keyword_list.id }}">
+
+                    <div class="mb-3">
+                        <label for="list_name" class="form-label">Name *</label>
+                        <input type="text" class="form-control" id="list_name" value="{{ keyword_list.name }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="list_color" class="form-label">Farbe</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#10b981" {% if keyword_list.color == '#10b981' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #10b981; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#3b82f6" {% if keyword_list.color == '#3b82f6' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #3b82f6; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#8b5cf6" {% if keyword_list.color == '#8b5cf6' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #8b5cf6; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#f59e0b" {% if keyword_list.color == '#f59e0b' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #f59e0b; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#ef4444" {% if keyword_list.color == '#ef4444' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #ef4444; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#ec4899" {% if keyword_list.color == '#ec4899' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #ec4899; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#fbbf24" {% if keyword_list.color == '#fbbf24' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #fbbf24; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="list_color" value="#06b6d4" {% if keyword_list.color == '#06b6d4' %}checked{% endif %}>
+                                <label class="form-check-label">
+                                    <span class="d-inline-block rounded" style="width: 30px; height: 30px; background: #06b6d4; border: 2px solid #ddd;"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="list_description" class="form-label">Beschreibung (optional)</label>
+                        <textarea class="form-control" id="list_description" rows="3">{{ keyword_list.description }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" onclick="saveList()">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="toast" class="toast align-items-center" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-message"></div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Sortierung ändern
+document.getElementById('sort-select').addEventListener('change', function() {
+    const status = '{{ status_filter }}';
+    const sort = this.value;
+    window.location.href = `?status=${status}&sort=${sort}`;
+});
+
+// Keyword verschieben
+document.querySelectorAll('.move-select').forEach(select => {
+    select.addEventListener('change', function() {
+        const keywordId = this.dataset.id;
+        const targetListId = this.value;
+
+        if (!targetListId) return;
+
+        moveKeyword(keywordId, targetListId);
+        this.value = ''; // Reset
+    });
+});
+</script>
+
+<script src="{% static 'keyengine/js/app.js' %}"></script>
+<script src="{% static 'keyengine/js/lists.js' %}"></script>
+{% endblock %}

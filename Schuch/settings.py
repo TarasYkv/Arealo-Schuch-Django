@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     'loomconnect',
     'myprompter',
     'stats',
+    'keyengine',
 ]
 
 
