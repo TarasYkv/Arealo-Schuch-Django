@@ -585,10 +585,17 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen der Blogs: {str(e)}"
     
-    def fetch_blog_posts(self, blog_id: str, limit: int = 250, page_info: Optional[str] = None, fields: Optional[str] = None) -> Tuple[bool, List[Dict], str, Optional[str]]:
+    def fetch_blog_posts(self, blog_id: str, limit: int = 250, page_info: Optional[str] = None, fields: Optional[str] = None, order: Optional[str] = None) -> Tuple[bool, List[Dict], str, Optional[str]]:
         """
         Holt Blog-Posts für einen bestimmten Blog mit moderner cursor-basierter Pagination
-        
+
+        Args:
+            blog_id: Die Shopify Blog ID
+            limit: Maximale Anzahl der abzurufenden Artikel (max 250)
+            page_info: Cursor für Pagination
+            fields: Spezifische Felder zum Abrufen
+            order: Sortierreihenfolge (z.B. 'published_at desc' für neueste zuerst)
+
         Returns:
             Tuple[bool, List[Dict], str, Optional[str]]: success, articles, message, next_page_info
         """
@@ -604,6 +611,11 @@ class ShopifyAPIClient:
                     'limit': min(limit, 250),
                     'fields': 'id,title,handle,author,status,created_at,updated_at,published_at,tags,image,body_html,summary'
                 }
+
+            # Füge Sortierung hinzu, falls angegeben
+            if order:
+                params['order'] = order
+                print(f"📊 Sortierung angewendet: {order}")
             
             # MODERNE PAGINATION: Verwende page_info statt veraltete Parameter
             if page_info:
@@ -2177,8 +2189,39 @@ class ShopifyBlogSync:
         
         return False, [], "ALLE Import-Methoden fehlgeschlagen - API-Problem oder Konfigurationsfehler"
 
+    def _fetch_latest_blog_posts(self, blog: ShopifyBlog, limit: int = 250, check_unimported: bool = False) -> Tuple[bool, List[Dict], str]:
+        """Holt die neuesten Blog-Posts direkt, ohne Pagination durchzusuchen"""
+        try:
+            # Hole die neuesten Posts direkt
+            success, articles, message, _ = self.api.fetch_blog_posts(
+                blog.shopify_id,
+                limit=min(limit, 250),
+                order='published_at desc'  # Neueste zuerst!
+            )
+
+            if not success:
+                return False, [], f"Fehler beim Abrufen der neuesten Posts: {message}"
+
+            if check_unimported:
+                # Filtere nur unimportierte Posts
+                existing_ids = set(
+                    ShopifyBlogPost.objects.filter(blog=blog)
+                    .values_list('shopify_id', flat=True)
+                )
+                articles = [
+                    article for article in articles
+                    if str(article['id']) not in existing_ids
+                ]
+                print(f"🆕 {len(articles)} neue unimportierte Blog-Posts von {limit} neuesten gefunden")
+
+            return True, articles, f"{len(articles)} neueste Blog-Posts gefunden"
+
+        except Exception as e:
+            print(f"❌ Fehler beim Abrufen der neuesten Blog-Posts: {e}")
+            return False, [], f"Fehler: {str(e)}"
+
     def _fetch_next_unimported_blog_posts(self, blog: ShopifyBlog, limit: int = 250) -> Tuple[bool, List[Dict], str]:
-        """Holt die nächsten nicht-importierten Blog-Posts durch cursor-basierte Pagination"""
+        """Holt die nächsten nicht-importierten Blog-Posts durch cursor-basierte Pagination (neueste zuerst)"""
         try:
             # Hole bereits importierte Blog-Post-IDs für diesen Blog
             existing_ids = set(
@@ -2186,18 +2229,24 @@ class ShopifyBlogSync:
                 .values_list('shopify_id', flat=True)
             )
             print(f"📊 {len(existing_ids)} Blog-Posts bereits in lokaler DB für Blog {blog.title}")
-            
+
             # Iteriere durch Shopify-Blog-Posts und finde unimportierte
             all_articles = []
             page_info = None
             found_unimported = 0
             page_count = 0
-            
+
             while found_unimported < limit:
                 page_count += 1
-                
+
                 # Hole nächste Batch von Shopify mit cursor-basierter Pagination
-                success, articles, message, next_page_info = self.api.fetch_blog_posts(blog.shopify_id, limit=250, page_info=page_info)
+                # WICHTIG: Sortiere nach published_at desc, um neueste Posts zuerst zu bekommen
+                success, articles, message, next_page_info = self.api.fetch_blog_posts(
+                    blog.shopify_id,
+                    limit=250,
+                    page_info=page_info,
+                    order='published_at desc'  # Neueste zuerst!
+                )
                 
                 if not success:
                     return False, [], message
@@ -2254,10 +2303,23 @@ class ShopifyBlogSync:
                 # Alle lokalen Blog-Posts für diesen Blog löschen und erste 250 importieren
                 deleted_count = self._delete_all_local_blog_posts(blog)
                 print(f"🗑️ {deleted_count} lokale Blog-Posts gelöscht vor Neuimport für Blog {blog.title}")
-                success, articles, message, _ = self.api.fetch_blog_posts(blog.shopify_id, limit=250)
+                # Auch hier neueste zuerst holen!
+                success, articles, message, _ = self.api.fetch_blog_posts(
+                    blog.shopify_id,
+                    limit=250,
+                    order='published_at desc'
+                )
             elif import_mode == 'new_only':
-                # Nächste 250 neue Blog-Posts importieren
+                # Nächste 250 neue Blog-Posts importieren (mit verbesserter Sortierung)
                 success, articles, message = self._fetch_next_unimported_blog_posts(blog, limit=250)
+            elif import_mode == 'latest_unimported':
+                # NEUER MODUS: Hole direkt die neuesten unimportierten Posts
+                success, articles, message = self._fetch_latest_blog_posts(blog, limit=250, check_unimported=True)
+                print(f"📊 Import-Mode 'latest_unimported': Direkt die neuesten unimportierten Posts holen")
+            elif import_mode == 'latest_all':
+                # NEUER MODUS: Hole die neuesten Posts (auch bereits importierte für Updates)
+                success, articles, message = self._fetch_latest_blog_posts(blog, limit=250, check_unimported=False)
+                print(f"📊 Import-Mode 'latest_all': Die neuesten Posts importieren/aktualisieren")
             elif import_mode == 'all_robust':
                 # NEUE OPTION: Alle Blog-Posts mit robusten Fallback-Strategien
                 success, articles, message = self._fetch_all_blog_posts_with_fallback(blog.shopify_id)

@@ -60,11 +60,11 @@
     z-index: 10;
 }
 
-.dropdown {
+.card .dropdown {
     position: relative;
 }
 
-.dropdown-menu {
+.card .dropdown-menu {
     position: absolute !important;
     top: 100% !important;
     right: 0 !important;
@@ -78,26 +78,26 @@
 }
 
 /* Dropdown nach links öffnen statt nach rechts */
-.dropdown-menu-end {
+.card .dropdown-menu-end {
     right: 0 !important;
     left: auto !important;
 }
 
 /* Scrollbar Styling */
-.dropdown-menu::-webkit-scrollbar {
+.card .dropdown-menu::-webkit-scrollbar {
     width: 6px;
 }
 
-.dropdown-menu::-webkit-scrollbar-track {
+.card .dropdown-menu::-webkit-scrollbar-track {
     background: #f1f1f1;
 }
 
-.dropdown-menu::-webkit-scrollbar-thumb {
+.card .dropdown-menu::-webkit-scrollbar-thumb {
     background: #888;
     border-radius: 3px;
 }
 
-.dropdown-menu::-webkit-scrollbar-thumb:hover {
+.card .dropdown-menu::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
 </style>
@@ -517,15 +517,31 @@
                 <div class="mb-4">
                     <label class="form-label">Import-Modus</label>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="blog_import_mode" 
-                               id="blogImportModeNew" value="new_only" checked>
-                        <label class="form-check-label" for="blogImportModeNew">
-                            <strong>Nächste 250 neue Beiträge</strong>
-                            <small class="text-muted d-block">Importiert die nächsten 250 Beiträge, die noch nicht importiert wurden</small>
+                        <input class="form-check-input" type="radio" name="blog_import_mode"
+                               id="blogImportModeLatestNew" value="latest_unimported" checked>
+                        <label class="form-check-label" for="blogImportModeLatestNew">
+                            <strong class="text-success">🆕 Neueste unimportierte Beiträge</strong>
+                            <small class="text-muted d-block">Importiert die 250 neuesten Beiträge, die noch nicht importiert wurden (empfohlen)</small>
                         </label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="radio" name="blog_import_mode" 
+                        <input class="form-check-input" type="radio" name="blog_import_mode"
+                               id="blogImportModeLatestAll" value="latest_all">
+                        <label class="form-check-label" for="blogImportModeLatestAll">
+                            <strong>🔄 Neueste Beiträge aktualisieren</strong>
+                            <small class="text-muted d-block">Importiert/aktualisiert die 250 neuesten Beiträge (auch bereits vorhandene)</small>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="blog_import_mode"
+                               id="blogImportModeNew" value="new_only">
+                        <label class="form-check-label" for="blogImportModeNew">
+                            <strong>Nächste 250 neue Beiträge (alte Methode)</strong>
+                            <small class="text-muted d-block">Durchsucht von Anfang an nach unimportierten Beiträgen</small>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="blog_import_mode"
                                id="blogImportModeReset" value="all">
                         <label class="form-check-label" for="blogImportModeReset">
                             <strong class="text-warning">Alle löschen und erste 250 importieren</strong>
@@ -608,12 +624,18 @@ function startBlogImport() {
     importBlogPosts(selectedMode);
 }
 
-function importBlogPosts(importMode = 'new_only') {
+function importBlogPosts(importMode = 'latest_unimported') {
     let confirmMessage = '';
     if (importMode === 'all') {
         confirmMessage = '🗑️ ACHTUNG: Alle lokalen Blog-Posts werden gelöscht und neu importiert!\n\nAlle SEO-Optimierungen gehen verloren.\n\nFortfahren?';
+    } else if (importMode === 'latest_unimported') {
+        confirmMessage = '✅ Die 250 neuesten unimportierten Blog-Posts werden importiert.\n\nFortfahren?';
+    } else if (importMode === 'latest_all') {
+        confirmMessage = '🔄 Die 250 neuesten Blog-Posts werden importiert/aktualisiert.\n\nBereits vorhandene Posts werden überschrieben.\n\nFortfahren?';
+    } else if (importMode === 'new_only') {
+        confirmMessage = '📋 Die nächsten 250 unimportierten Blog-Posts werden gesucht (kann ältere Posts finden).\n\nFortfahren?';
     } else {
-        confirmMessage = 'Nur neue Blog-Posts importieren?';
+        confirmMessage = 'Blog-Posts importieren?';
     }
     
     if (!confirm(confirmMessage)) return;
