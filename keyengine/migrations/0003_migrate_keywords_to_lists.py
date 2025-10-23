@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('keyengine', '0002_userpreference_keywordlist_and_more'),
-        ('accounts', '__latest__'),  # Dependency auf CustomUser
+        ('accounts', '0014_alter_apppermission_app_name_and_more'),  # Dependency auf CustomUser
     ]
 
     operations = [
