@@ -1,0 +1,138 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Anfrage senden - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8 mb-4">
+        <div class="loomconnect-card loomconnect-section-2">
+            <h2 class="mb-4">
+                <i class="bi bi-person-plus"></i> Verbindungsanfrage senden
+            </h2>
+
+            <!-- Receiver Profile Card -->
+            <div class="loomconnect-card mb-4" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); color: white;">
+                <div class="d-flex align-items-center gap-3">
+                    {% if receiver_profile.avatar %}
+                        <img src="{{ receiver_profile.avatar.url }}" alt="{{ receiver.username }}" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid white; object-fit: cover;">
+                    {% else %}
+                        <div style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid white; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-person-fill" style="font-size: 2rem;"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h4 class="mb-1">{{ receiver.get_full_name|default:receiver.username }}</h4>
+                        <p class="mb-0 opacity-75">@{{ receiver.username }}</p>
+                        {% if receiver_profile.tagline %}
+                        <p class="small mb-0 mt-1">{{ receiver_profile.tagline }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Request Form -->
+            <form method="post" class="loomconnect-form">
+                {% csrf_token %}
+
+                <!-- Request Type -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">{{ form.request_type.label }}</label>
+                    {% for radio in form.request_type %}
+                    <div class="form-check">
+                        {{ radio.tag }}
+                        <label class="form-check-label" for="{{ radio.id_for_label }}">
+                            {{ radio.choice_label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                    {% if form.request_type.errors %}
+                        <div class="text-danger small mt-1">{{ form.request_type.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Message -->
+                <div class="mb-4">
+                    <label for="{{ form.message.id_for_label }}" class="form-label fw-bold">{{ form.message.label }}</label>
+                    {{ form.message }}
+                    {% if form.message.help_text %}
+                        <div class="form-text">{{ form.message.help_text }}</div>
+                    {% endif %}
+                    {% if form.message.errors %}
+                        <div class="text-danger small mt-1">{{ form.message.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Related Skill (Optional) -->
+                <div class="mb-4">
+                    <label for="{{ form.related_skill.id_for_label }}" class="form-label fw-bold">Bezug zu Skill (Optional)</label>
+                    {{ form.related_skill }}
+                    <div class="form-text">Wähle einen Skill, falls sich deine Anfrage darauf bezieht</div>
+                    {% if form.related_skill.errors %}
+                        <div class="text-danger small mt-1">{{ form.related_skill.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        <i class="bi bi-send"></i> Anfrage senden
+                    </button>
+                    <a href="{% url 'loomconnect:profile' receiver.username %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-x"></i> Abbrechen
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Sidebar - Tips -->
+    <div class="col-lg-4">
+        <div class="loomconnect-card loomconnect-section-1">
+            <h6 class="mb-3">
+                <i class="bi bi-lightbulb"></i> Tipps für eine gute Anfrage
+            </h6>
+            <ul class="small text-muted mb-0" style="list-style: none; padding-left: 0;">
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Stelle dich kurz vor
+                </li>
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Erkläre, warum du dich vernetzen möchtest
+                </li>
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Sei höflich und authentisch
+                </li>
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Erwähne gemeinsame Interessen oder Skills
+                </li>
+            </ul>
+        </div>
+
+        <!-- Receiver Skills (if available) -->
+        {% if receiver_profile.userskill_set.all %}
+        <div class="loomconnect-card loomconnect-section-1 mt-3">
+            <h6 class="mb-3">
+                <i class="bi bi-star"></i> Skills von {{ receiver.username }}
+            </h6>
+            <div class="d-flex flex-wrap gap-2">
+                {% for user_skill in receiver_profile.userskill_set.all|slice:":5" %}
+                <span class="badge bg-light text-dark">
+                    {{ user_skill.skill.name }}
+                </span>
+                {% endfor %}
+                {% if receiver_profile.userskill_set.count > 5 %}
+                <span class="badge bg-light text-muted">
+                    +{{ receiver_profile.userskill_set.count|add:"-5" }} mehr
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

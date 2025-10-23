@@ -1,0 +1,173 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Suche - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-9 mb-4">
+        <div class="loomconnect-card loomconnect-section-2">
+            <h2 class="mb-4">
+                <i class="bi bi-search"></i> Suche
+            </h2>
+
+            <!-- Search Form -->
+            <form method="get" class="mb-4">
+                <div class="row g-3">
+                    <!-- Query -->
+                    <div class="col-md-12">
+                        {{ form.query }}
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="col-md-4">
+                        <label class="form-label small">{{ form.category.label }}</label>
+                        {{ form.category }}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small">{{ form.availability.label }}</label>
+                        {{ form.availability }}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label small">{{ form.sort_by.label }}</label>
+                        {{ form.sort_by }}
+                    </div>
+
+                    <!-- Search Button -->
+                    <div class="col-12">
+                        <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                            <i class="bi bi-search"></i> Suchen
+                        </button>
+                        <a href="{% url 'loomconnect:search' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                            <i class="bi bi-arrow-clockwise"></i> Zurücksetzen
+                        </a>
+                    </div>
+                </div>
+            </form>
+
+            <hr class="my-4">
+
+            <!-- Search Results -->
+            {% if results %}
+                <h5 class="mb-3">{{ results|length }} Ergebnis{{ results|length|pluralize:"se" }}</h5>
+
+                <div class="row g-3">
+                    {% for result in results %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="loomconnect-card h-100" style="padding: 20px;">
+                            <div class="text-center mb-3">
+                                <a href="{% url 'loomconnect:profile' result.user.username %}">
+                                    {% if result.avatar %}
+                                        <img src="{{ result.avatar.url }}" alt="{{ result.user.username }}" class="rounded-circle" style="width: 80px; height: 80px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px; background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); color: white;">
+                                            <i class="bi bi-person-fill" style="font-size: 2rem;"></i>
+                                        </div>
+                                    {% endif %}
+                                </a>
+                            </div>
+
+                            <div class="text-center">
+                                <h6 class="mb-1">
+                                    <a href="{% url 'loomconnect:profile' result.user.username %}" class="text-decoration-none">
+                                        {{ result.user.get_full_name|default:result.user.username }}
+                                    </a>
+                                </h6>
+                                <p class="text-muted small mb-2">@{{ result.user.username }}</p>
+
+                                {% if result.tagline %}
+                                <p class="small mb-3">{{ result.tagline|truncatewords:10 }}</p>
+                                {% endif %}
+
+                                <!-- Stats -->
+                                <div class="d-flex justify-content-center gap-3 mb-3 small text-muted">
+                                    <div>
+                                        <i class="bi bi-star"></i> {{ result.skills_count }}
+                                    </div>
+                                    <div>
+                                        <i class="bi bi-people"></i> {{ result.connections_count }}
+                                    </div>
+                                    <div>
+                                        <i class="bi bi-heart"></i> {{ result.karma_score }}
+                                    </div>
+                                </div>
+
+                                <!-- Action Button -->
+                                <a href="{% url 'loomconnect:profile' result.user.username %}" class="btn loomconnect-btn loomconnect-btn-primary btn-sm w-100">
+                                    <i class="bi bi-eye"></i> Profil ansehen
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% elif request.GET.query or request.GET.category or request.GET.availability %}
+                <!-- No Results -->
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-search"></i>
+                    </div>
+                    <h5>Keine Ergebnisse gefunden</h5>
+                    <p class="text-muted">Versuche es mit anderen Suchbegriffen oder Filtern</p>
+                    <a href="{% url 'loomconnect:discover' %}" class="btn loomconnect-btn loomconnect-btn-primary mt-2">
+                        <i class="bi bi-compass"></i> Alle User entdecken
+                    </a>
+                </div>
+            {% else %}
+                <!-- Initial State -->
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-search"></i>
+                    </div>
+                    <h5>Suche nach Skills und Usern</h5>
+                    <p class="text-muted">Nutze die Suche, um gezielt nach Skills oder Personen zu suchen</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="col-lg-3">
+        <div class="loomconnect-card loomconnect-section-1">
+            <h6 class="mb-3">
+                <i class="bi bi-lightbulb"></i> Such-Tipps
+            </h6>
+            <ul class="small text-muted mb-0" style="list-style: none; padding-left: 0;">
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Suche nach Skills (z.B. "Python")
+                </li>
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Suche nach Usernamen
+                </li>
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Filter nach Kategorie
+                </li>
+                <li class="mb-2">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Filter nach Verfügbarkeit
+                </li>
+            </ul>
+        </div>
+
+        <div class="loomconnect-card loomconnect-section-1 mt-3">
+            <h6 class="mb-3">
+                <i class="bi bi-compass"></i> Schnellzugriff
+            </h6>
+            <div class="d-grid gap-2">
+                <a href="{% url 'loomconnect:discover' %}" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
+                    <i class="bi bi-compass"></i> Alle entdecken
+                </a>
+                <a href="{% url 'loomconnect:connections' %}" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
+                    <i class="bi bi-people"></i> Meine Connections
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
