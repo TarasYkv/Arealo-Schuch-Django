@@ -36,12 +36,9 @@ class LoomConnectAccessMixin(LoginRequiredMixin):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
 
-        # Superuser hat immer Zugriff
-        if request.user.is_superuser:
-            return super().dispatch(request, *args, **kwargs)
-
-        # AppPermission prüfen
-        if not hasattr(request.user, 'app_permissions') or not request.user.app_permissions.filter(app_name='loomconnect').exists():
+        # AppPermission prüfen (inkl. superuser_bypass)
+        from accounts.models import AppPermission
+        if not AppPermission.user_has_access('loomconnect', request.user):
             messages.error(request, 'Du hast keinen Zugriff auf LoomConnect.')
             return redirect('startseite')
 
