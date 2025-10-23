@@ -49,7 +49,7 @@
         position: fixed !important;
         left: 0 !important;
         top: 95px !important;
-        width: 240px !important;
+        width: 200px !important;
         height: calc(100vh - 95px) !important;
         background: var(--loomconnect-sidebar-bg) !important;
         backdrop-filter: blur(10px) !important;
@@ -118,22 +118,25 @@
 
     /* Main Content with Sidebar */
     .loomconnect-container {
-        margin-left: 240px;
-        max-width: 100%;
-        width: calc(100% - 240px);
+        margin-left: 200px;
+        max-width: calc(100vw - 200px);
+        width: calc(100% - 200px);
         padding: 20px;
         box-sizing: border-box;
+        overflow-x: hidden;
     }
 
     /* Fix Bootstrap row overflow */
     .loomconnect-container .row {
-        margin-left: -12px;
-        margin-right: -12px;
+        margin-left: 0;
+        margin-right: 0;
+        max-width: 100%;
     }
 
     .loomconnect-container .row > * {
         padding-left: 12px;
         padding-right: 12px;
+        max-width: 100%;
     }
 
     /* Section Background Colors */
@@ -409,6 +412,35 @@
     }
 
     /* Responsive */
+    @media (max-width: 1400px) {
+        nav.loomconnect-sidebar {
+            width: 180px !important;
+        }
+
+        .loomconnect-container {
+            margin-left: 180px;
+            max-width: calc(100vw - 180px);
+            width: calc(100% - 180px);
+        }
+    }
+
+    @media (max-width: 1200px) {
+        nav.loomconnect-sidebar {
+            width: 160px !important;
+        }
+
+        .loomconnect-sidebar-link {
+            padding: 10px 16px !important;
+            font-size: 0.9rem;
+        }
+
+        .loomconnect-container {
+            margin-left: 160px;
+            max-width: calc(100vw - 160px);
+            width: calc(100% - 160px);
+        }
+    }
+
     @media (max-width: 992px) {
         nav.loomconnect-sidebar {
             width: 70px !important;
@@ -425,6 +457,7 @@
 
         .loomconnect-container {
             margin-left: 70px;
+            max-width: calc(100vw - 70px);
             width: calc(100% - 70px);
         }
     }
@@ -436,6 +469,7 @@
 
         .loomconnect-container {
             margin-left: 0;
+            max-width: 100vw;
             width: 100%;
             padding: 12px;
         }
@@ -453,13 +487,27 @@
             height: 30px;
             font-size: 0.875rem;
         }
+
+        /* Fix für mobile Ansicht */
+        .row {
+            margin: 0 !important;
+        }
+
+        .col-lg-8, .col-lg-4 {
+            padding: 0 8px !important;
+        }
     }
 </style>
 {% endblock %}
 
 {% block fullscreen_content %}
+<!-- Mobile Menu Toggle -->
+<button class="btn btn-primary d-lg-none position-fixed" style="top: 100px; left: 10px; z-index: 1050;" onclick="toggleMobileMenu()">
+    <i class="bi bi-list"></i>
+</button>
+
 <!-- Left Sidebar Navigation -->
-<nav class="loomconnect-sidebar">
+<nav class="loomconnect-sidebar" id="loomconnectSidebar">
     <ul class="loomconnect-sidebar-nav">
         <li class="loomconnect-sidebar-item">
             <a href="{% url 'loomconnect:dashboard' %}" class="loomconnect-sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
@@ -543,6 +591,31 @@
     }
 
     const csrftoken = getCookie('csrftoken');
+
+    // Mobile Menu Toggle
+    function toggleMobileMenu() {
+        const sidebar = document.getElementById('loomconnectSidebar');
+        if (sidebar) {
+            if (sidebar.style.display === 'none' || sidebar.style.display === '') {
+                sidebar.style.display = 'block';
+                sidebar.style.position = 'fixed';
+                sidebar.style.zIndex = '1049';
+            } else {
+                sidebar.style.display = 'none';
+            }
+        }
+    }
+
+    // Close mobile menu when clicking outside
+    document.addEventListener('click', function(event) {
+        const sidebar = document.getElementById('loomconnectSidebar');
+        const toggleButton = event.target.closest('.btn-primary.d-lg-none');
+        const isClickInsideSidebar = event.target.closest('.loomconnect-sidebar');
+
+        if (window.innerWidth < 992 && sidebar && !isClickInsideSidebar && !toggleButton) {
+            sidebar.style.display = 'none';
+        }
+    });
 
     // Like Post
     function likePost(postId) {
