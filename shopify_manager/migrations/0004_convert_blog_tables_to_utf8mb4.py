@@ -10,14 +10,6 @@ def convert_tables_to_utf8mb4(apps, schema_editor):
         tables = [
             'shopify_manager_shopifyblog',
             'shopify_manager_shopifyblogpost',
-            'shopify_manager_shopifycollection',
-            'shopify_manager_collectionseooptimization',
-            'shopify_manager_shopifyproductcollection',
-            'shopify_manager_shopifyproduct',
-            'shopify_manager_productseooptimization',
-            'shopify_manager_shopifyproductimage',
-            'shopify_manager_productshippingprofile',
-            'shopify_manager_googleadsproductdata',
         ]
         for table in tables:
             cursor.execute(
