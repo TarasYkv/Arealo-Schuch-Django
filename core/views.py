@@ -1,6 +1,6 @@
 # core/views.py
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.contrib.auth.decorators import login_required
 from accounts.models import CustomPage, EditableContent
 from accounts.decorators import require_app_permission
@@ -414,6 +414,41 @@ def redirect_to_organization_chat(request):
     """Redirect von /chat/ zu /organization/chat/"""
     return redirect('organization:chat_home')
 
+
+@login_required
+def seo_dashboard(request):
+    """SEO Dashboard als zentrale Übersicht für LoomLine und KeyEngine"""
+    context = {
+        'current_page': 'seo_dashboard',
+        'loomline_data': {
+            'name': 'LoomLine',
+            'description': 'Aufgaben- und Projektmanagement mit SEO-Fokus',
+            'icon': 'fas fa-list-alt',
+            'color': 'primary',
+            'features': [
+                'Keyword-Tracking',
+                'Content-Planung',
+                'SEO-Aufgaben',
+                'Ranking-Überwachung'
+            ],
+            'dashboard_url': 'loomline:dashboard',
+            'projects_url': 'loomline:project-list',
+        },
+        'keyengine_data': {
+            'name': 'KeyEngine',
+            'description': 'Keyword-Recherche und SEO-Analyse',
+            'icon': 'fas fa-key',
+            'color': 'success',
+            'features': [
+                'Keyword-Recherche',
+                'Wettbewerbsanalyse',
+                'SERP-Analyse',
+                'Content-Optimierung'
+            ],
+            'dashboard_url': 'keyengine:dashboard',
+        }
+    }
+    return render(request, 'core/seo_dashboard.html', context)
 
 def robots_txt(request):
     """

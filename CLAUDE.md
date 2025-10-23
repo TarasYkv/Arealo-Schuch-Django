@@ -1,4 +1,4 @@
-# Claude Performance & Qualitäts-Anweisungen
+    # Claude Performance & Qualitäts-Anweisungen
 
 ## 🧠 Denkzeit & Qualität erzwingen
 

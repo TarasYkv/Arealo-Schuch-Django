@@ -19,6 +19,9 @@ urlpatterns = [
     path('apps/', core_views.public_app_list, name='public_app_list'),
     path('app/<str:app_name>/', core_views.public_app_info, name='public_app_info'),
 
+    # SEO Dashboard
+    path('seo/', core_views.seo_dashboard, name='seo_dashboard'),
+
     # Schuch Tools
     path('beleuchtungsrechner/', core_views.beleuchtungsrechner, name='beleuchtungsrechner'),
     path('din-en-13201/', include('lighting_classification.urls')),
