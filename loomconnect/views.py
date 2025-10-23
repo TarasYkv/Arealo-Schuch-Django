@@ -422,50 +422,26 @@ class FeedView(LoomConnectAccessMixin, ListView):
 
 class DiscoverView(LoomConnectAccessMixin, ListView):
     """Discover - Alle User & Skills durchsuchen"""
-    model = ConnectProfile
+    model = User
     template_name = 'loomconnect/discover.html'
-    context_object_name = 'profiles'
+    context_object_name = 'users'
     paginate_by = 24
 
     def get_queryset(self):
-        queryset = ConnectProfile.objects.filter(
-            onboarding_completed=True,
-            is_public=True
-        ).exclude(user=self.request.user).select_related('user').annotate(
-            skills_count=Count('userskill'),
-            connections_count=Count('connections_as_profile_1') + Count('connections_as_profile_2')
+        # User mit ConnectProfile vorgeladen
+        queryset = User.objects.filter(
+            connect_profile__onboarding_completed=True,
+            connect_profile__is_public=True
+        ).exclude(id=self.request.user.id).select_related('connect_profile').prefetch_related(
+            Prefetch('connect_profile__userskill_set', to_attr='user_skills'),
+            Prefetch('connect_profile__userneed_set', queryset=UserNeed.objects.filter(is_active=True), to_attr='user_needs')
+        ).annotate(
+            skills_count=Count('connect_profile__userskill'),
+            connections_count=Count('connect_profile__connections_as_profile_1') + Count('connect_profile__connections_as_profile_2')
         )
 
-        # Filter nach Skills
-        skill_filter = self.request.GET.get('skill')
-        if skill_filter:
-            queryset = queryset.filter(userskill__skill_id=skill_filter).distinct()
-
-        # Filter nach Kategorie
-        category_filter = self.request.GET.get('category')
-        if category_filter:
-            queryset = queryset.filter(userskill__skill__category_id=category_filter).distinct()
-
-        # Filter nach Verfügbarkeit
-        availability = self.request.GET.get('availability')
-        if availability == 'online':
-            # Online in den letzten 15 Minuten
-            queryset = queryset.filter(last_seen__gte=timezone.now() - timedelta(minutes=15))
-        elif availability == 'active':
-            # Aktiv in den letzten 7 Tagen
-            queryset = queryset.filter(last_seen__gte=timezone.now() - timedelta(days=7))
-
-        # Sortierung
-        sort_by = self.request.GET.get('sort_by', 'relevance')
-        if sort_by == 'karma':
-            queryset = queryset.order_by('-karma_score')
-        elif sort_by == 'connections':
-            queryset = queryset.order_by('-connections_count')
-        elif sort_by == 'recent':
-            queryset = queryset.order_by('-user__date_joined')
-        else:
-            # Relevanz-Sortierung (Karma + Skills Match)
-            queryset = queryset.order_by('-karma_score', '-skills_count')
+        # Einfache Sortierung nach Karma und Aktivität
+        queryset = queryset.order_by('-connect_profile__karma_score', '-connect_profile__updated_at')
 
         return queryset
 

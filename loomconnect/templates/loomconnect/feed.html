@@ -97,7 +97,7 @@
 
                     {% if post.image %}
                     <div class="mb-3">
-                        <img src="{{ post.image.url }}" alt="Post Bild" class="img-fluid rounded" style="max-width: 100%; height: auto;">
+                        <img src="{{ post.image.url }}" alt="Post Bild" class="img-fluid rounded" style="max-width: 100%; max-height: 400px; object-fit: cover;">
                     </div>
                     {% endif %}
 
@@ -201,45 +201,53 @@
         {% endif %}
     </div>
 
-    <!-- Right Sidebar - Filters, Trending & Suggestions -->
+    <!-- Right Sidebar - Feed Guide, Trending & Suggestions -->
     <div class="col-lg-4">
-        <!-- Filters -->
+        <!-- Feed-Anleitung -->
         <div class="loomconnect-card loomconnect-section-1 mb-4">
             <h6 class="mb-3">
-                <i class="bi bi-funnel"></i> Filter
+                <i class="bi bi-book"></i> Feed-Guide
             </h6>
 
-            <form method="get" action="{% url 'loomconnect:feed' %}">
-                <!-- Skill Filter -->
+            <div class="small">
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">Nach Skill</label>
-                    <select name="skill" class="form-select form-select-sm">
-                        <option value="">Alle Skills</option>
-                        {% for skill in all_skills %}
-                        <option value="{{ skill.id }}" {% if request.GET.skill == skill.id|stringformat:"s" %}selected{% endif %}>
-                            {{ skill.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                    <div class="d-flex align-items-start gap-2 mb-2">
+                        <span class="badge" style="background: var(--loomconnect-primary);">💡</span>
+                        <div>
+                            <strong>Posts erstellen</strong>
+                            <p class="text-muted mb-0">Teile dein Wissen, stelle Fragen oder suche nach Hilfe.</p>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Post Type Filter -->
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">Typ</label>
-                    <select name="type" class="form-select form-select-sm">
-                        <option value="">Alle</option>
-                        <option value="frage" {% if request.GET.type == 'frage' %}selected{% endif %}>Fragen</option>
-                        <option value="tipp" {% if request.GET.type == 'tipp' %}selected{% endif %}>Tipps</option>
-                        <option value="diskussion" {% if request.GET.type == 'diskussion' %}selected{% endif %}>Diskussionen</option>
-                        <option value="projekt" {% if request.GET.type == 'projekt' %}selected{% endif %}>Projekte</option>
-                    </select>
+                    <div class="d-flex align-items-start gap-2 mb-2">
+                        <span class="badge" style="background: var(--loomconnect-secondary);">❤️</span>
+                        <div>
+                            <strong>Interagieren</strong>
+                            <p class="text-muted mb-0">Like und kommentiere Posts, um Karma zu sammeln.</p>
+                        </div>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary btn-sm w-100">
-                    <i class="bi bi-search"></i> Filtern
-                </button>
-                <a href="{% url 'loomconnect:feed' %}" class="btn btn-sm btn-link w-100">Filter zurücksetzen</a>
-            </form>
+                <div>
+                    <div class="d-flex align-items-start gap-2">
+                        <span class="badge" style="background: var(--loomconnect-accent);">🤝</span>
+                        <div>
+                            <strong>Vernetzen</strong>
+                            <p class="text-muted mb-0">Finde User mit ähnlichen Interessen und connecte dich.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-3">
+
+            <div class="text-center">
+                <a href="{% url 'loomconnect:post_create' %}" class="btn loomconnect-btn loomconnect-btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Neuer Post
+                </a>
+            </div>
         </div>
 
         <!-- LoomAds Sidebar -->

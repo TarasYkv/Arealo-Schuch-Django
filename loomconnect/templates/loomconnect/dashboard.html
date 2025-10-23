@@ -21,14 +21,54 @@
             {% endif %}
         </div>
 
+        <!-- App-Erklärung (KeyEngine-Style) -->
+        <div class="loomconnect-card mb-4" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%); border: 2px solid rgba(102, 126, 234, 0.2);">
+            <div class="row align-items-center">
+                <div class="col-md-2 text-center mb-3 mb-md-0">
+                    <div style="width: 80px; height: 80px; margin: 0 auto; background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-people-fill text-white" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+                <div class="col-md-10">
+                    <h3 style="color: var(--loomconnect-primary); margin-bottom: 12px;">
+                        LoomConnect - Skill-Sharing & Networking Platform
+                    </h3>
+                    <p class="text-muted mb-3">
+                        Verbinde dich mit anderen Usern, tausche Skills aus und baue dein professionelles Netzwerk auf.
+                        <strong>Finde Experten</strong> für deine Projekte oder <strong>teile dein Wissen</strong> mit der Community.
+                    </p>
+                    <!-- Workflow -->
+                    <div class="d-flex gap-2 mb-3 flex-wrap">
+                        <div class="d-flex align-items-center gap-2" style="padding: 8px 16px; background: rgba(102, 126, 234, 0.1); border-radius: 20px;">
+                            <span class="badge" style="background: var(--loomconnect-primary);">1</span>
+                            <small>Profile erstellen</small>
+                        </div>
+                        <span class="align-self-center">→</span>
+                        <div class="d-flex align-items-center gap-2" style="padding: 8px 16px; background: rgba(102, 126, 234, 0.1); border-radius: 20px;">
+                            <span class="badge" style="background: var(--loomconnect-primary);">2</span>
+                            <small>Skills & Needs angeben</small>
+                        </div>
+                        <span class="align-self-center">→</span>
+                        <div class="d-flex align-items-center gap-2" style="padding: 8px 16px; background: rgba(102, 126, 234, 0.1); border-radius: 20px;">
+                            <span class="badge" style="background: var(--loomconnect-primary);">3</span>
+                            <small>Matches finden</small>
+                        </div>
+                        <span class="align-self-center">→</span>
+                        <div class="d-flex align-items-center gap-2" style="padding: 8px 16px; background: rgba(102, 126, 234, 0.1); border-radius: 20px;">
+                            <span class="badge" style="background: var(--loomconnect-primary);">4</span>
+                            <small>Verbinden & Chatten</small>
+                        </div>
+                    </div>
+                    <p class="mb-0" style="font-style: italic; color: var(--loomconnect-secondary);">
+                        <i class="bi bi-star-fill me-2"></i>
+                        <strong>Karma-System:</strong> Jede erfolgreiche Connection bringt dir +5 Karma-Punkte und erhöht deine Sichtbarkeit!
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <!-- LoomAds Top Banner -->
         {% show_ad_zone 'loomconnect_feed_top' %}
-
-        <!-- Welcome Message -->
-        <div class="loomconnect-card mb-4">
-            <h4>👋 Willkommen zurück, {{ user.first_name|default:user.username }}!</h4>
-            <p class="text-muted mb-0">Hier ist deine Übersicht über deine Aktivitäten.</p>
-        </div>
 
         <!-- Pending Requests -->
         {% if pending_requests > 0 %}
@@ -167,8 +207,11 @@
                 <h5 class="mb-1">{{ user.get_full_name|default:user.username }}</h5>
                 <p class="text-muted small mb-3">@{{ user.username }}</p>
 
-                <!-- Karma Badge -->
-                <div class="badge" style="background: var(--loomconnect-secondary); font-size: 0.9rem; padding: 0.5rem 1rem;">
+                <!-- Karma Badge with Info -->
+                <div class="badge" style="background: var(--loomconnect-secondary); font-size: 0.9rem; padding: 0.5rem 1rem;"
+                     data-bs-toggle="tooltip"
+                     data-bs-placement="bottom"
+                     title="Karma-Punkte zeigen deine Aktivität und Vertrauenswürdigkeit. +5 Punkte pro erfolgreiche Connection!">
                     ⭐ {{ profile.karma_score }} Karma
                 </div>
             </div>
@@ -181,6 +224,23 @@
                 <a href="{% url 'loomconnect:post_create' %}" class="btn loomconnect-btn loomconnect-btn-primary btn-sm">
                     <i class="bi bi-plus-circle"></i> Neuer Post
                 </a>
+            </div>
+        </div>
+
+        <!-- How LoomConnect Works -->
+        <div class="loomconnect-card mb-4">
+            <h6 class="mb-3">
+                <i class="bi bi-question-circle"></i> Wie funktioniert LoomConnect?
+            </h6>
+            <div class="small">
+                <div class="mb-3">
+                    <strong>🤝 Connections</strong>
+                    <p class="text-muted mb-0">Verbinde dich mit anderen Usern, um Skills auszutauschen. Nach einer akzeptierten Anfrage öffnet sich automatisch ein Chat-Raum.</p>
+                </div>
+                <div>
+                    <strong>⭐ Karma-Punkte</strong>
+                    <p class="text-muted mb-0">Sammle Karma durch erfolgreiche Verbindungen (+5 pro Connection). Je mehr Karma, desto vertrauenswürdiger bist du in der Community!</p>
+                </div>
             </div>
         </div>
 
@@ -211,4 +271,14 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Bootstrap Tooltips initialisieren
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
 {% endblock %}

@@ -1,0 +1,67 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Post löschen - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="loomconnect-card">
+            <div class="text-center mb-4">
+                <div style="width: 80px; height: 80px; margin: 0 auto; background: linear-gradient(135deg, #f44336, #e91e63); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-trash text-white" style="font-size: 2rem;"></i>
+                </div>
+            </div>
+
+            <h4 class="text-center mb-4">Post wirklich löschen?</h4>
+
+            <div class="alert alert-warning mb-4">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Achtung!</strong> Diese Aktion kann nicht rückgängig gemacht werden.
+            </div>
+
+            <!-- Post Preview -->
+            <div class="post-card mb-4" style="opacity: 0.7;">
+                <div class="post-header">
+                    {% if object.author.avatar %}
+                        <img src="{{ object.author.avatar.url }}" alt="{{ object.author.user.username }}" class="profile-avatar-small">
+                    {% else %}
+                        <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <strong>{{ object.author.user.get_full_name|default:object.author.user.username }}</strong>
+                        <div class="small text-muted">{{ object.created_at|date:"d.m.Y H:i" }}</div>
+                    </div>
+                </div>
+                <div class="post-content">
+                    <p>{{ object.content|truncatewords:30 }}</p>
+                    {% if object.image %}
+                        <small class="text-muted"><i class="bi bi-image"></i> Bild angehängt</small>
+                    {% endif %}
+                </div>
+                <div class="post-actions">
+                    <span class="text-muted">
+                        <i class="bi bi-heart"></i> {{ object.likes.count }} Likes •
+                        <i class="bi bi-chat"></i> {{ object.comments.count }} Kommentare
+                    </span>
+                </div>
+            </div>
+
+            <!-- Confirmation Buttons -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex gap-2">
+                    <a href="{% url 'loomconnect:post_detail' object.id %}" class="btn btn-outline-secondary flex-fill">
+                        <i class="bi bi-x-circle"></i> Abbrechen
+                    </a>
+                    <button type="submit" class="btn btn-danger flex-fill">
+                        <i class="bi bi-trash"></i> Endgültig löschen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
