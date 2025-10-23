@@ -522,7 +522,7 @@ class ProfileDetailView(LoomConnectAccessMixin, DetailView):
         if user != self.request.user:
             viewer_profile = get_or_create_profile(self.request.user)
             ProfileView.objects.create(
-                profile=profile,
+                viewed_profile=profile,
                 viewer=viewer_profile
             )
 
