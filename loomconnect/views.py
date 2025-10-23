@@ -538,6 +538,14 @@ class ProfileDetailView(LoomConnectAccessMixin, DetailView):
         context['user_needs'] = UserNeed.objects.filter(profile=viewed_user.connect_profile, is_active=True).select_related('skill')
         context['user_posts'] = ConnectPost.objects.filter(author=viewed_user.connect_profile).order_by('-created_at')[:5]
 
+        # Counts für Template
+        context['user_skills_count'] = context['user_skills'].count()
+        context['connections_count'] = Connection.objects.filter(
+            Q(profile_1=viewed_user.connect_profile) | Q(profile_2=viewed_user.connect_profile)
+        ).count()
+        context['profile_views'] = ProfileView.objects.filter(viewed_profile=viewed_user.connect_profile).count()
+        context['is_online'] = viewed_user.connect_profile.is_online()
+
         # Connection Status prüfen
         context['is_connected'] = Connection.objects.filter(
             Q(profile_1=context['my_profile'], profile_2=viewed_user.connect_profile) |
@@ -550,6 +558,8 @@ class ProfileDetailView(LoomConnectAccessMixin, DetailView):
             Q(from_profile=viewed_user.connect_profile, to_profile=context['my_profile']),
             status='pending'
         ).first()
+
+        context['has_pending_request'] = context['pending_request'] is not None
 
         return context
 
