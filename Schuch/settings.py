@@ -144,7 +144,7 @@ if os.getenv('DB_ENGINE') == 'mysql':
             'PORT': os.getenv('DB_PORT', '3306'),
             'OPTIONS': {
                 # Enforce strict mode and ensure utf8mb4 support for emojis/special chars
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES', innodb_strict_mode=1",
+                'init_command': "SET SESSION sql_mode='STRICT_TRANS_TABLES'",
                 'charset': 'utf8mb4',
                 'use_unicode': True,
             },
