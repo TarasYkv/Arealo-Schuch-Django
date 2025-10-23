@@ -190,6 +190,36 @@
     </div>
 </div>
 
+        </div>
+    </div>
+</div>
+
+<!-- Styled Confirmation Modal -->
+<div class="modal fade" id="actionConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold">Aktion bestätigen</h5>
+                <button type="button" class="btn-close" data-confirm-cancel aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Bitte bestätige diese Aktion.
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-confirm-cancel>
+                    <i class="fas fa-arrow-left me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-primary" id="actionConfirmButton">
+                    <i class="fas fa-check-circle me-2"></i>Bestätigen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Filter -->
 <div class="card mb-3 filter-card">
     <div class="card-header">
@@ -613,33 +643,163 @@
 <script>
 let importInterval = null;
 
-function startBlogImport() {
-    const selectedMode = document.querySelector('input[name="blog_import_mode"]:checked').value;
-    
-    // Schließe das Import-Modal
-    const importModal = bootstrap.Modal.getInstance(document.getElementById('blogImportModal'));
-    importModal.hide();
-    
-    // Starte den Import
-    importBlogPosts(selectedMode);
+const confirmModalElement = document.getElementById('actionConfirmModal');
+const confirmModalButton = document.getElementById('actionConfirmButton');
+let confirmModalInstance = null;
+const confirmModalState = { resolved: false, onConfirm: null, onCancel: null };
+
+function getConfirmModalInstance() {
+    if (!confirmModalInstance) {
+        confirmModalInstance = bootstrap.Modal.getOrCreateInstance(confirmModalElement);
+    }
+    return confirmModalInstance;
 }
 
-function importBlogPosts(importMode = 'latest_unimported') {
-    let confirmMessage = '';
-    if (importMode === 'all') {
-        confirmMessage = '🗑️ ACHTUNG: Alle lokalen Blog-Posts werden gelöscht und neu importiert!\n\nAlle SEO-Optimierungen gehen verloren.\n\nFortfahren?';
-    } else if (importMode === 'latest_unimported') {
-        confirmMessage = '✅ Die 250 neuesten unimportierten Blog-Posts werden importiert.\n\nFortfahren?';
-    } else if (importMode === 'latest_all') {
-        confirmMessage = '🔄 Die 250 neuesten Blog-Posts werden importiert/aktualisiert.\n\nBereits vorhandene Posts werden überschrieben.\n\nFortfahren?';
-    } else if (importMode === 'new_only') {
-        confirmMessage = '📋 Die nächsten 250 unimportierten Blog-Posts werden gesucht (kann ältere Posts finden).\n\nFortfahren?';
-    } else {
-        confirmMessage = 'Blog-Posts importieren?';
+confirmModalElement.querySelectorAll('[data-confirm-cancel]').forEach(button => {
+    button.addEventListener('click', () => {
+        getConfirmModalInstance().hide();
+    });
+});
+
+confirmModalElement.addEventListener('hidden.bs.modal', () => {
+    if (!confirmModalState.resolved && typeof confirmModalState.onCancel === 'function') {
+        confirmModalState.onCancel();
     }
-    
-    if (!confirm(confirmMessage)) return;
-    
+    confirmModalState.resolved = false;
+    confirmModalState.onConfirm = null;
+    confirmModalState.onCancel = null;
+});
+
+confirmModalButton.addEventListener('click', () => {
+    confirmModalState.resolved = true;
+    getConfirmModalInstance().hide();
+    if (typeof confirmModalState.onConfirm === 'function') {
+        confirmModalState.onConfirm();
+    }
+});
+
+function showConfirmationModal(options) {
+    const modal = getConfirmModalInstance();
+    const {
+        title = 'Aktion bestätigen',
+        body = '',
+        confirmLabel = 'Bestätigen',
+        confirmVariant = 'primary',
+        confirmIcon = 'fa-check-circle',
+        onConfirm = null,
+        onCancel = null,
+    } = options || {};
+
+    confirmModalElement.querySelector('.modal-title').innerHTML = title;
+    confirmModalElement.querySelector('.modal-body').innerHTML = body;
+    confirmModalButton.className = `btn btn-${confirmVariant}`;
+    confirmModalButton.innerHTML = `<i class="fas ${confirmIcon} me-2"></i>${confirmLabel}`;
+    confirmModalButton.disabled = false;
+
+    confirmModalState.resolved = false;
+    confirmModalState.onConfirm = onConfirm;
+    confirmModalState.onCancel = onCancel;
+
+    modal.show();
+}
+
+function getImportConfirmationConfig(importMode) {
+    const configurations = {
+        latest_unimported: {
+            title: '<i class="fas fa-download me-2 text-primary"></i>Import der neuesten Beiträge',
+            body: `
+                <p class="mb-3">Die <strong>250 neuesten unimportierten Blog-Beiträge</strong> werden aus Shopify geladen.</p>
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i> Bereits importierte Beiträge bleiben unverändert.
+                </div>
+            `,
+            confirmLabel: 'Import starten',
+            confirmVariant: 'primary',
+            confirmIcon: 'fa-download',
+        },
+        latest_all: {
+            title: '<i class="fas fa-sync me-2 text-warning"></i>Neueste Beiträge aktualisieren',
+            body: `
+                <p class="mb-2">Die <strong>250 neuesten Blog-Beiträge</strong> werden importiert und bestehende Inhalte aktualisiert.</p>
+                <ul class="mb-0 text-muted small ps-3">
+                    <li>Änderungen aus Shopify überschreiben lokale Inhalte.</li>
+                    <li>Ideal, wenn kürzlich Anpassungen im Shopify-Blog vorgenommen wurden.</li>
+                </ul>
+            `,
+            confirmLabel: 'Beiträge aktualisieren',
+            confirmVariant: 'warning',
+            confirmIcon: 'fa-sync',
+        },
+        new_only: {
+            title: '<i class="fas fa-search-plus me-2 text-info"></i>Nächste neuen Beiträge importieren',
+            body: `
+                <p class="mb-2">Es werden <strong>die nächsten 250 noch nicht importierten Beiträge</strong> gesucht (beginnend bei älteren Posts).</p>
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-lightbulb me-2"></i> Nutze diese Option, wenn ältere Beiträge fehlen.
+                </div>
+            `,
+            confirmLabel: 'Import fortsetzen',
+            confirmVariant: 'info',
+            confirmIcon: 'fa-search-plus',
+        },
+        all: {
+            title: '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>Kompletten Re-Import bestätigen',
+            body: `
+                <div class="alert alert-danger">
+                    <i class="fas fa-ban me-2"></i>
+                    Alle lokalen Blog-Beiträge werden gelöscht. Sämtliche SEO-Optimierungen gehen verloren.
+                </div>
+                <p class="mb-0">Anschließend werden die ersten 250 Beiträge frisch aus Shopify importiert.</p>
+            `,
+            confirmLabel: 'Alles neu importieren',
+            confirmVariant: 'danger',
+            confirmIcon: 'fa-trash-alt',
+        },
+    };
+
+    return configurations[importMode] || configurations.latest_unimported;
+}
+
+function startBlogImport() {
+    const selectedInput = document.querySelector('input[name="blog_import_mode"]:checked');
+    if (!selectedInput) {
+        return;
+    }
+
+    const selectedMode = selectedInput.value;
+    const importModalElement = document.getElementById('blogImportModal');
+    const importModalInstance = bootstrap.Modal.getOrCreateInstance(importModalElement);
+
+    const openConfirmation = () => {
+        const config = getImportConfirmationConfig(selectedMode);
+        showConfirmationModal({
+            title: config.title,
+            body: config.body,
+            confirmLabel: config.confirmLabel,
+            confirmVariant: config.confirmVariant,
+            confirmIcon: config.confirmIcon,
+            onConfirm: () => {
+                executeBlogImport(selectedMode);
+            },
+            onCancel: () => {
+                importModalInstance.show();
+            }
+        });
+    };
+
+    if (importModalElement.classList.contains('show')) {
+        const handler = () => {
+            importModalElement.removeEventListener('hidden.bs.modal', handler);
+            openConfirmation();
+        };
+        importModalElement.addEventListener('hidden.bs.modal', handler);
+        importModalInstance.hide();
+    } else {
+        openConfirmation();
+    }
+}
+
+function executeBlogImport(importMode = 'latest_unimported') {
     // Zeige Progress Modal
     const progressModal = new bootstrap.Modal(document.getElementById('importProgressModal'));
     progressModal.show();
@@ -789,27 +949,39 @@ function showAlert(type, message) {
 
 // Blog-Post Synchronisation
 function syncBlogPost(blogPostId) {
-    if (!confirm('Blog-Post zu Shopify synchronisieren?')) return;
-    
-    fetch(`/shopify/api/blog-posts/${blogPostId}/sync/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('Synchronisation erfolgreich!', 'success');
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showAlert('Synchronisation fehlgeschlagen: ' + data.error, 'danger');
+    showConfirmationModal({
+        title: '<i class="fas fa-sync me-2 text-primary"></i>Synchronisation bestätigen',
+        body: `
+            <p class="mb-2">Der ausgewählte Blog-Post wird sofort mit Shopify synchronisiert.</p>
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle me-2"></i> Änderungen in Shopify überschreiben lokale Inhalte dieses Beitrags.
+            </div>
+        `,
+        confirmLabel: 'Synchronisieren',
+        confirmVariant: 'primary',
+        confirmIcon: 'fa-sync',
+        onConfirm: () => {
+            fetch(`/shopify/api/blog-posts/${blogPostId}/sync/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', 'Blog-Post wurde erfolgreich synchronisiert.');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showAlert('danger', 'Synchronisation fehlgeschlagen: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'Fehler bei der Synchronisation');
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('Fehler bei der Synchronisation', 'danger');
     });
 }
 
