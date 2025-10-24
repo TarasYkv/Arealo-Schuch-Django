@@ -100,6 +100,8 @@ def handle_app_selection(request, draft):
 
         # Speichere Auswahl
         draft.selected_app = selected_app
+        draft.save(update_fields=['selected_app'])  # ← WICHTIG: Feld speichern!
+
         step_data = {
             'app': selected_app,
             'app_display': dict(AppCampaign.APP_CHOICES).get(selected_app, selected_app)
@@ -162,6 +164,7 @@ def handle_campaign_details(request, draft):
         # Speichere Daten
         draft.campaign_name = campaign_name
         draft.campaign_description = campaign_description
+        draft.save(update_fields=['campaign_name', 'campaign_description'])  # ← WICHTIG: Felder speichern!
 
         step_data = {
             'name': campaign_name,
