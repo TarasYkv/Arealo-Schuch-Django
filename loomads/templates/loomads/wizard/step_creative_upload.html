@@ -10,7 +10,7 @@
 .crop-container {
     max-height: 500px;
     min-height: 300px;
-    overflow: hidden;
+    overflow: visible !important; /* Wichtig für Cropper */
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 4px;
@@ -32,12 +32,48 @@
 .zoom-controls {
     margin-top: 10px;
 }
-/* Sicherstellen dass Modal über allem liegt */
+
+/* Kritische z-index Fixes für Interaktivität */
 #cropModal {
-    z-index: 1060 !important;
+    z-index: 9999 !important;
 }
-#cropModal .modal-backdrop {
-    z-index: 1050 !important;
+#cropModal .modal-dialog {
+    z-index: 10000 !important;
+    position: relative;
+}
+#cropModal .modal-content {
+    z-index: 10001 !important;
+    position: relative;
+}
+#cropModal .modal-body {
+    z-index: 10002 !important;
+    position: relative;
+}
+
+/* Cropper Elements müssen über allem sein */
+.cropper-container {
+    z-index: 10003 !important;
+    position: relative !important;
+}
+.cropper-wrap-box,
+.cropper-canvas,
+.cropper-drag-box,
+.cropper-crop-box,
+.cropper-modal {
+    z-index: inherit !important;
+}
+
+/* Buttons und Controls müssen klickbar sein */
+#cropModal button,
+#cropModal .btn {
+    z-index: 10010 !important;
+    position: relative;
+    pointer-events: auto !important;
+}
+
+/* Backdrop darf nicht blockieren */
+.modal-backdrop {
+    z-index: 9998 !important;
 }
 </style>
 {% endblock %}
@@ -260,6 +296,35 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
 <script>
+// Debugging: Überprüfe ob Cropper.js geladen ist
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('=== Cropper Debug Info ===');
+    console.log('Cropper verfügbar:', typeof Cropper !== 'undefined');
+
+    if (typeof Cropper !== 'undefined') {
+        console.log('✅ Cropper.js erfolgreich geladen');
+    } else {
+        console.error('❌ Cropper.js NICHT geladen! CDN-Problem?');
+    }
+
+    // Überprüfe CSS
+    const cropperCSS = Array.from(document.styleSheets).find(sheet => {
+        try {
+            return sheet.href && sheet.href.includes('cropper');
+        } catch (e) {
+            return false;
+        }
+    });
+    console.log('Cropper CSS geladen:', !!cropperCSS);
+
+    // Test z-index des Modals
+    const modal = document.getElementById('cropModal');
+    if (modal) {
+        const modalStyle = window.getComputedStyle(modal);
+        console.log('Modal z-index:', modalStyle.zIndex);
+    }
+});
+
 let cropper = null;
 let currentDimension = null;
 let currentWidth = 0;
@@ -385,28 +450,47 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
 });
 
 // Zoom controls
-document.getElementById('zoomIn').addEventListener('click', function() {
-    if (cropper) cropper.zoom(0.1);
+document.getElementById('zoomIn').addEventListener('click', function(e) {
+    console.log('🔍 Zoom In Button geklickt', e);
+    if (cropper) {
+        cropper.zoom(0.1);
+        console.log('✅ Zoom In ausgeführt');
+    } else {
+        console.error('❌ Cropper nicht verfügbar');
+    }
 });
 
-document.getElementById('zoomOut').addEventListener('click', function() {
-    if (cropper) cropper.zoom(-0.1);
+document.getElementById('zoomOut').addEventListener('click', function(e) {
+    console.log('🔍 Zoom Out Button geklickt', e);
+    if (cropper) {
+        cropper.zoom(-0.1);
+        console.log('✅ Zoom Out ausgeführt');
+    } else {
+        console.error('❌ Cropper nicht verfügbar');
+    }
 });
 
-document.getElementById('resetZoom').addEventListener('click', function() {
+document.getElementById('resetZoom').addEventListener('click', function(e) {
+    console.log('🔄 Reset Zoom Button geklickt', e);
     if (cropper) {
         cropper.reset();
         cropper.setCropBoxData({
             width: cropper.getContainerData().width * 0.9,
             height: (cropper.getContainerData().width * 0.9) * (currentHeight / currentWidth)
         });
+        console.log('✅ Reset ausgeführt');
+    } else {
+        console.error('❌ Cropper nicht verfügbar');
     }
 });
 
 // Crop and save
-document.getElementById('cropAndSave').addEventListener('click', function() {
+document.getElementById('cropAndSave').addEventListener('click', function(e) {
+    console.log('✂️ "Zuschneiden & Übernehmen" Button geklickt', e);
+
     if (!cropper || !currentDimension) {
-        console.error('Cropper oder Dimension fehlt');
+        console.error('❌ Cropper oder Dimension fehlt');
+        alert('Crop-Tool ist nicht bereit. Bitte laden Sie das Bild erneut.');
         return;
     }
 
