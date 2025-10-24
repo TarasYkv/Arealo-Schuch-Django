@@ -197,7 +197,7 @@ class AppCampaign(models.Model):
     name = models.CharField(max_length=200, verbose_name='App-Kampagnenname')
     description = models.TextField(blank=True, verbose_name='Beschreibung')
     app_target = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=APP_CHOICES,
         verbose_name='Ziel-App',
         help_text='App für die diese Kampagne geschaltet wird'
