@@ -8,8 +8,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 <style>
 .crop-container {
-    max-height: 500px;
-    min-height: 300px;
+    max-height: 350px;  /* Reduziert von 500px */
+    min-height: 250px;  /* Reduziert von 300px */
     overflow: visible !important; /* Wichtig für Cropper */
     background: #f8f9fa;
     border: 1px solid #dee2e6;
@@ -22,8 +22,8 @@
 }
 .crop-preview {
     width: 100%;
-    max-width: 300px;
-    height: 200px;
+    max-width: 250px;  /* Reduziert von 300px */
+    height: 150px;     /* Reduziert von 200px */
     margin: 0 auto;
     overflow: hidden;
     border: 2px dashed #ddd;
@@ -31,6 +31,19 @@
 }
 .zoom-controls {
     margin-top: 10px;
+}
+
+/* Modal muss scrollbar sein */
+#cropModal .modal-body {
+    max-height: calc(100vh - 210px); /* Viewport height minus Header+Footer */
+    overflow-y: auto;
+}
+#cropModal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 2px solid #dee2e6;
+    z-index: 10050 !important;
 }
 
 /* Kritische z-index Fixes für Interaktivität */
@@ -256,7 +269,7 @@
 
 <!-- Image Crop Modal -->
 <div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="cropModalLabel">
@@ -407,6 +420,23 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
             // Initialize cropper after modal is shown AND image is loaded
             modalEl.addEventListener('shown.bs.modal', function initCropper() {
                 console.log('Modal geöffnet, warte auf Bild-Laden...');
+
+                // Prüfe ob Buttons sichtbar sind
+                const footer = document.querySelector('#cropModal .modal-footer');
+                const cropButton = document.getElementById('cropAndSave');
+                if (footer && cropButton) {
+                    const footerRect = footer.getBoundingClientRect();
+                    const isVisible = footerRect.top < window.innerHeight && footerRect.bottom > 0;
+                    console.log('🔍 Footer Position:', footerRect.top, 'px von oben');
+                    console.log('🔍 Footer sichtbar:', isVisible);
+                    console.log('🔍 Viewport Höhe:', window.innerHeight, 'px');
+
+                    if (!isVisible) {
+                        console.warn('⚠️ Footer NICHT sichtbar! Scrolle runter oder Modal zu groß.');
+                    } else {
+                        console.log('✅ Footer und Buttons sind sichtbar!');
+                    }
+                }
 
                 // Show target dimensions
                 const targetDimEl = document.getElementById('targetDimensions');
