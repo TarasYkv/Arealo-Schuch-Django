@@ -261,12 +261,26 @@ function toggleCreativeType(dimension, type) {
 document.querySelectorAll('.image-upload-input').forEach(input => {
     input.addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            console.log('Keine Datei ausgewählt');
+            return;
+        }
+
+        // Validiere Dateityp
+        if (!file.type.startsWith('image/')) {
+            alert('Bitte wählen Sie eine Bilddatei aus.');
+            this.value = '';
+            return;
+        }
+
+        console.log('Lade Bild:', file.name, file.size, 'bytes');
 
         // Get dimension info
         currentDimension = this.dataset.dimension;
         currentWidth = parseInt(this.dataset.width);
         currentHeight = parseInt(this.dataset.height);
+
+        console.log('Ziel-Dimensionen:', currentWidth, 'x', currentHeight);
 
         // Show target dimensions
         document.getElementById('targetDimensions').textContent =
@@ -274,7 +288,13 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
 
         // Load image
         const reader = new FileReader();
+        reader.onerror = function(error) {
+            console.error('Fehler beim Laden der Datei:', error);
+            alert('Fehler beim Laden der Datei. Bitte versuchen Sie es erneut.');
+        };
+
         reader.onload = function(event) {
+            console.log('Bild geladen, öffne Crop-Modal');
             const image = document.getElementById('cropImage');
             image.src = event.target.result;
 
@@ -284,6 +304,7 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
 
             // Initialize cropper after modal is shown
             document.getElementById('cropModal').addEventListener('shown.bs.modal', function() {
+                console.log('Modal geöffnet, initialisiere Cropper');
                 if (cropper) {
                     cropper.destroy();
                 }
@@ -295,6 +316,7 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
                     responsive: true,
                     preview: '#cropPreview',
                     ready: function() {
+                        console.log('Cropper bereit');
                         // Fit image to crop box
                         cropper.setCropBoxData({
                             width: cropper.getContainerData().width * 0.9,
@@ -329,7 +351,12 @@ document.getElementById('resetZoom').addEventListener('click', function() {
 
 // Crop and save
 document.getElementById('cropAndSave').addEventListener('click', function() {
-    if (!cropper || !currentDimension) return;
+    if (!cropper || !currentDimension) {
+        console.error('Cropper oder Dimension fehlt');
+        return;
+    }
+
+    console.log('Schneide Bild zu:', currentWidth, 'x', currentHeight);
 
     // Get cropped canvas
     const canvas = cropper.getCroppedCanvas({
@@ -339,21 +366,61 @@ document.getElementById('cropAndSave').addEventListener('click', function() {
         imageSmoothingQuality: 'high'
     });
 
+    if (!canvas) {
+        console.error('Canvas konnte nicht erstellt werden');
+        alert('Fehler beim Zuschneiden des Bildes. Bitte versuchen Sie es erneut.');
+        return;
+    }
+
+    console.log('Canvas erstellt:', canvas.width, 'x', canvas.height);
+
     // Convert to blob and then to base64
     canvas.toBlob(function(blob) {
+        if (!blob) {
+            console.error('Blob konnte nicht erstellt werden');
+            alert('Fehler beim Speichern des Bildes. Bitte versuchen Sie es erneut.');
+            return;
+        }
+
+        console.log('Blob erstellt, Größe:', blob.size, 'bytes');
+
         const reader = new FileReader();
+        reader.onerror = function(error) {
+            console.error('Fehler beim Lesen des Blobs:', error);
+            alert('Fehler beim Speichern des Bildes. Bitte versuchen Sie es erneut.');
+        };
+
         reader.onloadend = function() {
             const base64data = reader.result;
+            console.log('Base64 erstellt, Länge:', base64data.length);
 
             // Save to hidden input
-            document.getElementById('creative_' + currentDimension + '_cropped').value = base64data;
+            const hiddenInput = document.getElementById('creative_' + currentDimension + '_cropped');
+            if (hiddenInput) {
+                hiddenInput.value = base64data;
+                console.log('Base64 in Hidden Input gespeichert');
+            } else {
+                console.error('Hidden Input nicht gefunden:', 'creative_' + currentDimension + '_cropped');
+            }
 
             // Show preview
-            document.getElementById('preview_img_' + currentDimension).src = base64data;
-            document.getElementById('preview_' + currentDimension).style.display = 'block';
+            const previewImg = document.getElementById('preview_img_' + currentDimension);
+            const previewDiv = document.getElementById('preview_' + currentDimension);
+            if (previewImg && previewDiv) {
+                previewImg.src = base64data;
+                previewDiv.style.display = 'block';
+                console.log('Vorschau angezeigt');
+            } else {
+                console.error('Preview-Elemente nicht gefunden');
+            }
 
             // Close modal
-            bootstrap.Modal.getInstance(document.getElementById('cropModal')).hide();
+            const modalEl = document.getElementById('cropModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) {
+                modalInstance.hide();
+                console.log('Modal geschlossen');
+            }
         };
         reader.readAsDataURL(blob);
     }, 'image/jpeg', 0.95);
