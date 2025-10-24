@@ -301,6 +301,30 @@ def dashboard(request):
             'url': 'loomads:dashboard',
             'color': 'bg-secondary',
             'category': 'management'
+        },
+        'loomconnect': {
+            'name': 'LoomConnect',
+            'description': 'Professionelles Networking - Verbinde dich mit anderen Fachleuten und tausche Skills aus.',
+            'icon': 'bi-people',
+            'url': 'loomconnect:dashboard',
+            'color': 'bg-primary',
+            'category': 'communication'
+        },
+        'keyengine': {
+            'name': 'KeyEngine',
+            'description': 'Keyword-Recherche und SEO-Optimierung für bessere Suchmaschinen-Rankings.',
+            'icon': 'bi-key',
+            'url': 'keyengine:dashboard',
+            'color': 'bg-success',
+            'category': 'tools'
+        },
+        'lighting_tools': {
+            'name': 'Lighting Tools',
+            'description': 'Professionelle Werkzeuge für Lichtplanung und Beleuchtungskonzepte.',
+            'icon': 'bi-lightbulb',
+            'url': 'lighting_tools:overview',
+            'color': 'bg-warning',
+            'category': 'tools'
         }
     }
     
