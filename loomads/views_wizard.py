@@ -18,6 +18,18 @@ from .models import (
 from accounts.models import UserAppPermission
 
 
+def get_next_step_from_current(current_step):
+    """Berechnet den nächsten Schritt basierend auf dem aktuellen Schritt"""
+    steps = [choice[0] for choice in AdWizardDraft.WIZARD_STEPS]
+    try:
+        current_index = steps.index(current_step)
+        if current_index < len(steps) - 1:
+            return steps[current_index + 1]
+    except ValueError:
+        pass
+    return None
+
+
 @login_required
 def wizard_start(request):
     """
@@ -83,6 +95,8 @@ def handle_app_selection(request, draft):
     """
     Schritt 1: App-Auswahl
     """
+    current_step = 'app_selection'
+
     # Filtere Apps basierend auf User-Berechtigungen
     # Nur Apps anzeigen, die für normale User sichtbar sind
     allowed_app_choices = [
@@ -103,17 +117,25 @@ def handle_app_selection(request, draft):
 
         # Speichere Auswahl
         draft.selected_app = selected_app
-        draft.save(update_fields=['selected_app'])  # ← WICHTIG: Feld speichern!
+        draft.save(update_fields=['selected_app'])
 
         step_data = {
             'app': selected_app,
             'app_display': dict(AppCampaign.APP_CHOICES).get(selected_app, selected_app)
         }
-        draft.update_wizard_data(step_data)
+        # Speichere Daten unter dem aktuellen Schritt
+        draft.wizard_data[current_step] = step_data
+        draft.current_step = current_step
+        draft.save(update_fields=['wizard_data', 'current_step', 'updated_at'])
+
+        # Markiere Schritt als abgeschlossen
+        draft.mark_step_completed(current_step)
 
         # Weiter zum nächsten Schritt
-        draft.advance_to_next_step()
-        return redirect('loomads:wizard_step', draft_id=draft.id, step=draft.current_step)
+        next_step = get_next_step_from_current(current_step)
+        if next_step:
+            return redirect('loomads:wizard_step', draft_id=draft.id, step=next_step)
+        return redirect('loomads:wizard_step', draft_id=draft.id, step=current_step)
 
     # GET: Zeige App-Auswahl
     # Lade verfügbare Zonen pro App für Info (nur für erlaubte Apps)
@@ -139,6 +161,8 @@ def handle_campaign_details(request, draft):
     """
     Schritt 2: Kampagnen-Details (Name, Beschreibung, Zeitraum, Budget)
     """
+    current_step = 'campaign_details'
+
     if request.method == 'POST':
         campaign_name = request.POST.get('campaign_name', '').strip()
         campaign_description = request.POST.get('campaign_description', '').strip()
@@ -164,7 +188,6 @@ def handle_campaign_details(request, draft):
         # Speichere Daten
         draft.campaign_name = campaign_name
         draft.campaign_description = campaign_description
-        draft.save(update_fields=['campaign_name', 'campaign_description'])  # ← WICHTIG: Felder speichern!
 
         step_data = {
             'name': campaign_name,
@@ -174,11 +197,19 @@ def handle_campaign_details(request, draft):
             'priority': int(priority),
             'daily_impression_limit': int(daily_impression_limit) if daily_impression_limit else None,
         }
-        draft.update_wizard_data(step_data)
+        # Speichere Daten unter dem aktuellen Schritt
+        draft.wizard_data[current_step] = step_data
+        draft.current_step = current_step
+        draft.save(update_fields=['wizard_data', 'current_step', 'campaign_name', 'campaign_description', 'updated_at'])
 
-        # Weiter
-        draft.advance_to_next_step()
-        return redirect('loomads:wizard_step', draft_id=draft.id, step=draft.current_step)
+        # Markiere Schritt als abgeschlossen
+        draft.mark_step_completed(current_step)
+
+        # Weiter zum nächsten Schritt
+        next_step = get_next_step_from_current(current_step)
+        if next_step:
+            return redirect('loomads:wizard_step', draft_id=draft.id, step=next_step)
+        return redirect('loomads:wizard_step', draft_id=draft.id, step=current_step)
 
     # GET
     # Lade bereits gespeicherte Daten falls vorhanden
@@ -259,11 +290,20 @@ def handle_format_selection(request, draft):
         step_data = {
             'selected_formats': selected_formats_data
         }
-        draft.update_wizard_data(step_data)
+        # Speichere Daten unter dem aktuellen Schritt
+        current_step = 'format_selection'
+        draft.wizard_data[current_step] = step_data
+        draft.current_step = current_step
+        draft.save(update_fields=['wizard_data', 'current_step', 'updated_at'])
 
-        # Weiter
-        draft.advance_to_next_step()
-        return redirect('loomads:wizard_step', draft_id=draft.id, step=draft.current_step)
+        # Markiere Schritt als abgeschlossen
+        draft.mark_step_completed(current_step)
+
+        # Weiter zum nächsten Schritt
+        next_step = get_next_step_from_current(current_step)
+        if next_step:
+            return redirect('loomads:wizard_step', draft_id=draft.id, step=next_step)
+        return redirect('loomads:wizard_step', draft_id=draft.id, step=current_step)
 
     # GET
     saved_data = draft.get_step_data('format_selection')
@@ -365,11 +405,20 @@ def handle_creative_upload(request, draft):
         step_data = {
             'creatives': uploaded_creatives
         }
-        draft.update_wizard_data(step_data)
+        # Speichere Daten unter dem aktuellen Schritt
+        current_step = 'creative_upload'
+        draft.wizard_data[current_step] = step_data
+        draft.current_step = current_step
+        draft.save(update_fields=['wizard_data', 'current_step', 'updated_at'])
 
-        # Weiter zur Review
-        draft.advance_to_next_step()
-        return redirect('loomads:wizard_step', draft_id=draft.id, step=draft.current_step)
+        # Markiere Schritt als abgeschlossen
+        draft.mark_step_completed(current_step)
+
+        # Weiter zum nächsten Schritt
+        next_step = get_next_step_from_current(current_step)
+        if next_step:
+            return redirect('loomads:wizard_step', draft_id=draft.id, step=next_step)
+        return redirect('loomads:wizard_step', draft_id=draft.id, step=current_step)
 
     # GET
     saved_data = draft.get_step_data('creative_upload')
