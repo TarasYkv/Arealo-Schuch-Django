@@ -158,6 +158,8 @@ class AppCampaign(models.Model):
 
     APP_CHOICES = [
         ('loomline', 'LoomLine'),
+        ('loomconnect', 'LoomConnect'),
+        ('keyengine', 'KeyEngine'),
         ('fileshare', 'FileShara'),
         ('streamrec', 'StreamRec'),
         ('promptpro', 'PromptPro'),
