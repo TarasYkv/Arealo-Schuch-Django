@@ -166,9 +166,16 @@ class AppCampaign(models.Model):
         ('blog', 'Blog'),
         ('videos', 'Video-Management'),
         ('chat', 'Chat-System'),
+        ('todos', 'Todos'),
+        ('core', 'Dashboard/Startseite'),
+        ('image_editor', 'Image Editor'),
+        ('amortization_calculator', 'Amortisationsrechner'),
+        ('pdf_sucher', 'PDF Sucher'),
+        ('naturmacher', 'Naturmacher'),
+        ('lighting_tools', 'Lighting Tools'),
+        ('shopify_manager', 'Shopify Manager'),
         ('global', 'Global Bereiche'),
-        ('shopify', 'Shopify Integration'),
-        ('dashboard', 'Dashboard'),
+        ('dashboard', 'Dashboard (Legacy)'),
     ]
 
     STATUS_CHOICES = [
