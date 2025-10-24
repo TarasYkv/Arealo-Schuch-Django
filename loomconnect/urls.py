@@ -54,7 +54,7 @@ urlpatterns = [
 
     # Connections
     path('connections/', views.ConnectionsView.as_view(), name='connections'),
-    path('connections/<uuid:pk>/cancel/', views.CancelConnectionView.as_view(), name='cancel_connection'),
+    path('connections/<int:pk>/cancel/', views.CancelConnectionView.as_view(), name='cancel_connection'),
 
     # Stories
     path('stories/', views.StoriesView.as_view(), name='stories'),
