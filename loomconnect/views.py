@@ -413,7 +413,7 @@ class FeedView(LoomConnectAccessMixin, ListView):
         # Active Stories (letzte 24h)
         context['active_stories'] = ConnectStory.objects.filter(
             created_at__gte=timezone.now() - timedelta(hours=24)
-        ).select_related('author', 'author__connect_profile').order_by('-created_at')[:10]
+        ).select_related('profile', 'profile__user').order_by('-created_at')[:10]
 
         # Suggested Users (Users die nicht verbunden sind)
         connected_profile_ids = Connection.objects.filter(
