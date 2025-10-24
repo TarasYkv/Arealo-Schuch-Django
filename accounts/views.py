@@ -215,6 +215,14 @@ def dashboard(request):
             'color': 'bg-warning',
             'category': 'education'
         },
+        'organisation': {
+            'name': 'Organisation',
+            'description': 'Notizen, Ideenboards, Kalender und Team-Chat für bessere Organisation.',
+            'icon': 'bi-clipboard-list',
+            'url': 'organization:dashboard',
+            'color': 'bg-primary',
+            'category': 'tools'
+        },
         'loomline': {
             'name': 'LoomLine',
             'description': 'SEO Task Timeline - Tracking erledigter SEO-Aufgaben mit intelligentem Erinnerungssystem.',
