@@ -1,0 +1,111 @@
+{% extends 'loomads/wizard/wizard_base.html' %}
+
+{% block wizard_title %}Überprüfung{% endblock %}
+
+{% block wizard_content %}
+<h3 class="mb-4">
+    <i class="bi bi-check-circle text-success"></i>
+    Schritt 5: Überprüfung und Veröffentlichung
+</h3>
+
+<p class="text-muted mb-4">
+    Überprüfen Sie Ihre Eingaben bevor Sie die Kampagne erstellen.
+</p>
+
+<!-- Kampagnen-Übersicht -->
+<div class="card mb-3">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Kampagnen-Details</h5>
+    </div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Name:</dt>
+            <dd class="col-sm-9">{{ campaign_data.name }}</dd>
+
+            <dt class="col-sm-3">App:</dt>
+            <dd class="col-sm-9">{{ app_data.app_display }}</dd>
+
+            <dt class="col-sm-3">Beschreibung:</dt>
+            <dd class="col-sm-9">{{ campaign_data.description|default:"Keine Beschreibung" }}</dd>
+
+            <dt class="col-sm-3">Zeitraum:</dt>
+            <dd class="col-sm-9">
+                {{ campaign_data.start_date }} bis {{ campaign_data.end_date }}
+            </dd>
+
+            <dt class="col-sm-3">Priorität:</dt>
+            <dd class="col-sm-9">{{ campaign_data.priority }}</dd>
+
+            {% if campaign_data.daily_impression_limit %}
+            <dt class="col-sm-3">Impressions/Tag:</dt>
+            <dd class="col-sm-9">{{ campaign_data.daily_impression_limit }}</dd>
+            {% endif %}
+        </dl>
+    </div>
+</div>
+
+<!-- Formate-Übersicht -->
+<div class="card mb-3">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0">Ausgewählte Formate</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for fmt in format_data.selected_formats %}
+            <div class="col-md-4 mb-2">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <strong>{{ fmt.dimension }}</strong><br>
+                        <small class="text-muted">{{ fmt.zone_count }} Zone{{ fmt.zone_count|pluralize:"n" }}</small>
+                        {% if fmt.dimension in creative_data.creatives %}
+                        <br><span class="badge bg-success">Creative ✓</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Creatives-Übersicht -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">Hochgeladene Creatives</h5>
+    </div>
+    <div class="card-body">
+        <ul class="list-group">
+            {% for dim, creative in creative_data.creatives.items %}
+            <li class="list-group-item">
+                <i class="bi bi-image"></i>
+                <strong>{{ dim }}</strong>:
+                {% if creative.type == 'url' %}
+                    <span class="badge bg-info">URL</span> {{ creative.url }}
+                {% else %}
+                    <span class="badge bg-primary">Datei</span> {{ creative.filename }}
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    <strong>Wichtig:</strong> Nach der Erstellung wird die Kampagne als <strong>Entwurf</strong> gespeichert.
+    Sie müssen sie manuell aktivieren, um sie zu veröffentlichen.
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </button>
+        <button type="submit" class="btn btn-success btn-lg">
+            <i class="bi bi-check-circle"></i> Kampagne erstellen
+        </button>
+    </div>
+</form>
+{% endblock %}

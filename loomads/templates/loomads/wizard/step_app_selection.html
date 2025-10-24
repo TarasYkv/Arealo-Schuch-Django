@@ -1,0 +1,49 @@
+{% extends 'loomads/wizard/wizard_base.html' %}
+
+{% block wizard_title %}App-Auswahl{% endblock %}
+
+{% block wizard_content %}
+<h3 class="mb-4">
+    <i class="bi bi-app-indicator text-primary"></i>
+    Schritt 1: Wählen Sie die Ziel-App
+</h3>
+
+<p class="text-muted mb-4">
+    Wählen Sie die App aus, in der Ihre Werbeanzeigen geschaltet werden sollen.
+</p>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="row">
+        {% for app_code, app_name in app_choices %}
+        <div class="col-md-6 col-lg-4 mb-3">
+            <input type="radio" class="btn-check" name="selected_app" id="app_{{ app_code }}" value="{{ app_code }}" required>
+            <label class="btn btn-outline-primary w-100 text-start py-3" for="app_{{ app_code }}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-app fs-4 me-2"></i>
+                        <strong>{{ app_name }}</strong>
+                    </div>
+                    <span class="badge bg-secondary">
+                        {{ app_zone_counts|get_item:app_code|default:0 }} Zonen
+                    </span>
+                </div>
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% url 'loomads:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <button type="submit" class="btn btn-primary">
+            Weiter <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+</form>
+
+<!-- Custom filter for dict access -->
+{% load custom_filters %}
+{% endblock %}

@@ -1285,9 +1285,147 @@ class AutoAdvertisement(models.Model):
         
         score = ctr * zone_multiplier
         return min(score, 100.0)
-    
+
     def update_performance_score(self):
         """Aktualisiert den Performance-Score"""
         self.performance_score = self.calculate_performance_score()
         self.save(update_fields=['performance_score'])
         return self.performance_score
+
+
+class AdWizardDraft(models.Model):
+    """Speichert Entwürfe während des Schritt-für-Schritt Ad-Erstellungs-Assistenten"""
+
+    WIZARD_STEPS = [
+        ('app_selection', 'App-Auswahl'),
+        ('campaign_details', 'Kampagnen-Details'),
+        ('format_selection', 'Format-Auswahl'),
+        ('creative_upload', 'Creative-Upload'),
+        ('review', 'Überprüfung'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='ad_wizard_drafts',
+        verbose_name='Benutzer'
+    )
+
+    # Wizard State
+    current_step = models.CharField(
+        max_length=30,
+        choices=WIZARD_STEPS,
+        default='app_selection',
+        verbose_name='Aktueller Schritt'
+    )
+    completed_steps = models.JSONField(
+        default=list,
+        verbose_name='Abgeschlossene Schritte',
+        help_text='Liste der bereits abgeschlossenen Schritte'
+    )
+
+    # Wizard Data (JSON für Flexibilität)
+    wizard_data = models.JSONField(
+        default=dict,
+        verbose_name='Wizard-Daten',
+        help_text='Alle gesammelten Daten aus den Wizard-Schritten'
+    )
+
+    # Campaign Draft Data
+    selected_app = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name='Ausgewählte App'
+    )
+    campaign_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Kampagnenname'
+    )
+    campaign_description = models.TextField(
+        blank=True,
+        verbose_name='Kampagnen-Beschreibung'
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(
+        verbose_name='Verfällt am',
+        help_text='Entwurf wird nach diesem Datum automatisch gelöscht'
+    )
+
+    # Status
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name='Aktiv',
+        help_text='Inaktive Entwürfe werden nicht mehr angezeigt'
+    )
+
+    class Meta:
+        verbose_name = 'Ad-Wizard Entwurf'
+        verbose_name_plural = 'Ad-Wizard Entwürfe'
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f"Entwurf von {self.user.username} - {self.get_current_step_display()}"
+
+    def is_expired(self):
+        """Prüft ob der Entwurf abgelaufen ist"""
+        return timezone.now() > self.expires_at
+
+    def mark_step_completed(self, step):
+        """Markiert einen Schritt als abgeschlossen"""
+        if step not in self.completed_steps:
+            self.completed_steps.append(step)
+            self.save(update_fields=['completed_steps', 'updated_at'])
+
+    def get_next_step(self):
+        """Gibt den nächsten Schritt zurück"""
+        steps = [choice[0] for choice in self.WIZARD_STEPS]
+        try:
+            current_index = steps.index(self.current_step)
+            if current_index < len(steps) - 1:
+                return steps[current_index + 1]
+        except ValueError:
+            pass
+        return None
+
+    def advance_to_next_step(self):
+        """Geht zum nächsten Schritt"""
+        next_step = self.get_next_step()
+        if next_step:
+            self.mark_step_completed(self.current_step)
+            self.current_step = next_step
+            self.save(update_fields=['current_step', 'updated_at'])
+            return True
+        return False
+
+    def get_progress_percentage(self):
+        """Berechnet den Fortschritt in Prozent"""
+        total_steps = len(self.WIZARD_STEPS)
+        completed = len(self.completed_steps)
+        return int((completed / total_steps) * 100)
+
+    def update_wizard_data(self, step_data):
+        """Aktualisiert die Wizard-Daten für den aktuellen Schritt"""
+        self.wizard_data[self.current_step] = step_data
+        self.save(update_fields=['wizard_data', 'updated_at'])
+
+    def get_step_data(self, step):
+        """Holt Daten für einen bestimmten Schritt"""
+        return self.wizard_data.get(step, {})
+
+    @classmethod
+    def cleanup_expired_drafts(cls):
+        """Löscht alle abgelaufenen Entwürfe"""
+        now = timezone.now()
+        expired = cls.objects.filter(expires_at__lte=now)
+        count = expired.count()
+        expired.delete()
+        return count

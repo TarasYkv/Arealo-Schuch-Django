@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Gespeicherte Entwürfe - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-file-earmark-text text-info me-2"></i>
+                Gespeicherte Wizard-Entwürfe
+            </h1>
+            <p class="text-muted mb-0">Setzen Sie unterbrochene Kampagnen-Erstellungen fort</p>
+        </div>
+        <div>
+            <a href="{% url 'loomads:wizard_start' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Neuer Wizard
+            </a>
+            <a href="{% url 'loomads:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+
+    {% if drafts %}
+    <div class="row">
+        {% for draft in drafts %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header {% if draft.is_expired %}bg-danger{% else %}bg-primary{% endif %} text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            {% if draft.campaign_name %}
+                                {{ draft.campaign_name }}
+                            {% else %}
+                                Unbenannte Kampagne
+                            {% endif %}
+                        </h6>
+                        <span class="badge bg-light text-dark">
+                            {{ draft.get_progress_percentage }}%
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        {% if draft.selected_app %}
+                        <dt class="col-sm-4">App:</dt>
+                        <dd class="col-sm-8">{{ draft.selected_app }}</dd>
+                        {% endif %}
+
+                        <dt class="col-sm-4">Schritt:</dt>
+                        <dd class="col-sm-8">{{ draft.get_current_step_display }}</dd>
+
+                        <dt class="col-sm-4">Erstellt:</dt>
+                        <dd class="col-sm-8">{{ draft.created_at|date:"d.m.Y H:i" }}</dd>
+
+                        <dt class="col-sm-4">Aktualisiert:</dt>
+                        <dd class="col-sm-8">{{ draft.updated_at|date:"d.m.Y H:i" }}</dd>
+
+                        <dt class="col-sm-4">Verfällt:</dt>
+                        <dd class="col-sm-8">
+                            {% if draft.is_expired %}
+                                <span class="text-danger">
+                                    <i class="bi bi-exclamation-triangle"></i> Abgelaufen
+                                </span>
+                            {% else %}
+                                {{ draft.expires_at|date:"d.m.Y H:i" }}
+                            {% endif %}
+                        </dd>
+                    </dl>
+
+                    <!-- Progress Bar -->
+                    <div class="progress mt-3" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ draft.get_progress_percentage }}%"
+                             aria-valuenow="{{ draft.get_progress_percentage }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                            {{ draft.get_progress_percentage }}%
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        {% if not draft.is_expired %}
+                        <a href="{% url 'loomads:wizard_step' draft.id draft.current_step %}"
+                           class="btn btn-sm btn-success">
+                            <i class="bi bi-play-circle"></i> Fortsetzen
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'loomads:wizard_cancel' draft.id %}"
+                           class="btn btn-sm btn-outline-danger"
+                           onclick="return confirm('Entwurf wirklich löschen?')">
+                            <i class="bi bi-trash"></i> Löschen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+        </div>
+        <h3 class="text-muted mb-3">Keine Entwürfe vorhanden</h3>
+        <p class="text-muted mb-4">
+            Sie haben derzeit keine gespeicherten Wizard-Entwürfe.
+        </p>
+        <a href="{% url 'loomads:wizard_start' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-magic"></i> Wizard starten
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

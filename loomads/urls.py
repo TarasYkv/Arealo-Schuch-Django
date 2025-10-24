@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import views_frontend
+from . import views_wizard
 
 app_name = 'loomads'
 
@@ -46,7 +47,13 @@ urlpatterns = [
     path('app-campaigns/<uuid:campaign_id>/ads/create/', views.app_ad_create, name='app_ad_create'),
     path('app-ads/<uuid:ad_id>/edit/', views.app_ad_edit, name='app_ad_edit'),
     path('app-ads/<uuid:ad_id>/delete/', views.app_ad_delete, name='app_ad_delete'),
-    
+
+    # Ad Creation Wizard
+    path('wizard/', views_wizard.wizard_start, name='wizard_start'),
+    path('wizard/<uuid:draft_id>/<str:step>/', views_wizard.wizard_step, name='wizard_step'),
+    path('wizard/<uuid:draft_id>/cancel/', views_wizard.wizard_cancel, name='wizard_cancel'),
+    path('wizard/drafts/', views_wizard.wizard_list_drafts, name='wizard_list_drafts'),
+
     # Auto-Campaign Formate
     path('auto-formats/', views_frontend.auto_format_list, name='auto_format_list'),
     

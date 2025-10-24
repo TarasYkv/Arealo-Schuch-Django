@@ -1,0 +1,71 @@
+{% extends 'loomads/wizard/wizard_base.html' %}
+
+{% block wizard_title %}Creative-Upload{% endblock %}
+
+{% block wizard_content %}
+<h3 class="mb-4">
+    <i class="bi bi-cloud-upload text-primary"></i>
+    Schritt 4: Creatives hochladen
+</h3>
+
+<p class="text-muted mb-4">
+    Laden Sie für jedes gewählte Format ein Bild oder Video hoch oder geben Sie eine URL an.
+</p>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    {% for fmt in formats %}
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-image"></i>
+                Format: {{ fmt.dimension }} px ({{ fmt.width }} x {{ fmt.height }})
+            </h5>
+            <small class="text-muted">{{ fmt.zone_count }} Zone{{ fmt.zone_count|pluralize:"n" }}</small>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="creative_{{ fmt.dimension }}" class="form-label">Datei hochladen</label>
+                    <input type="file" class="form-control" id="creative_{{ fmt.dimension }}"
+                           name="creative_{{ fmt.dimension }}" accept="image/*,video/*">
+                    <small class="form-text text-muted">
+                        Empfohlene Größe: {{ fmt.width }}x{{ fmt.height }} px
+                    </small>
+                    {% if fmt.dimension in uploaded_creatives %}
+                    <div class="mt-2">
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i>
+                            Hochgeladen: {{ uploaded_creatives|get_item:fmt.dimension|get_item:'filename' }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="creative_url_{{ fmt.dimension }}" class="form-label">Oder URL eingeben</label>
+                    <input type="url" class="form-control" id="creative_url_{{ fmt.dimension }}"
+                           name="creative_url_{{ fmt.dimension }}" placeholder="https://...">
+                    <small class="form-text text-muted">URL zu einem existierenden Bild oder Video</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        <strong>Hinweis:</strong> Sie können entweder eine Datei hochladen oder eine URL angeben.
+        Mindestens ein Creative muss vorhanden sein.
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <button type="button" class="btn btn-outline-secondary" onclick="history.back()">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </button>
+        <button type="submit" class="btn btn-primary">
+            Weiter zur Überprüfung <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+</form>
+{% endblock %}
