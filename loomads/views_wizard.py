@@ -59,12 +59,6 @@ def wizard_step(request, draft_id, step):
         messages.error(request, 'Dieser Entwurf ist abgelaufen. Bitte starten Sie neu.')
         return redirect('loomads:wizard_start')
 
-    # Aktualisiere current_step wenn man zu einem anderen Schritt navigiert
-    # Das ermöglicht Zurück-Navigation
-    if step != draft.current_step and request.method == 'GET':
-        draft.current_step = step
-        draft.save(update_fields=['current_step'])
-
     # Route zu entsprechendem Step-Handler
     step_handlers = {
         'app_selection': handle_app_selection,
