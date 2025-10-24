@@ -3,6 +3,27 @@
 
 {% block wizard_title %}Creative-Upload{% endblock %}
 
+{% block extra_head %}
+<!-- Cropper.js for Image Cropping -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+<style>
+.crop-container {
+    max-height: 400px;
+    overflow: hidden;
+}
+.crop-preview {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 2px dashed #ddd;
+}
+.zoom-controls {
+    margin-top: 10px;
+}
+</style>
+{% endblock %}
+
 {% block wizard_content %}
 <h3 class="mb-4">
     <i class="bi bi-cloud-upload text-primary"></i>
@@ -55,11 +76,40 @@
 
             <!-- File Upload Option -->
             <div id="file_section_{{ fmt.dimension }}" class="creative-section">
-                <label for="creative_{{ fmt.dimension }}" class="form-label">Datei hochladen</label>
-                <input type="file" class="form-control" id="creative_{{ fmt.dimension }}"
-                       name="creative_{{ fmt.dimension }}" accept="image/*,video/*">
+                <label class="form-label">Bild hochladen und zuschneiden</label>
+
+                <!-- Hidden file input -->
+                <input type="file" class="d-none image-upload-input" id="creative_input_{{ fmt.dimension }}"
+                       accept="image/*" data-dimension="{{ fmt.dimension }}" data-width="{{ fmt.width }}" data-height="{{ fmt.height }}">
+
+                <!-- Hidden input for cropped image -->
+                <input type="hidden" name="creative_{{ fmt.dimension }}_cropped" id="creative_{{ fmt.dimension }}_cropped">
+
+                <!-- Upload Button -->
+                <button type="button" class="btn btn-outline-primary w-100" onclick="document.getElementById('creative_input_{{ fmt.dimension }}').click()">
+                    <i class="bi bi-upload"></i> Bild auswählen ({{ fmt.width }}x{{ fmt.height }} px)
+                </button>
+
+                <!-- Preview -->
+                <div id="preview_{{ fmt.dimension }}" class="mt-3" style="display: none;">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-success">
+                                    <i class="bi bi-check-circle"></i> Bild zugeschnitten und bereit
+                                </small>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        onclick="document.getElementById('creative_input_{{ fmt.dimension }}').click()">
+                                    <i class="bi bi-pencil"></i> Ändern
+                                </button>
+                            </div>
+                            <img id="preview_img_{{ fmt.dimension }}" class="img-fluid rounded" style="max-height: 150px;">
+                        </div>
+                    </div>
+                </div>
+
                 <small class="form-text text-muted">
-                    Empfohlene Größe: {{ fmt.width }}x{{ fmt.height }} px
+                    Empfohlene Größe: {{ fmt.width }}x{{ fmt.height }} px. Sie können das Bild zuschneiden und zoomen.
                 </small>
             </div>
 
@@ -130,7 +180,70 @@
     </div>
 </form>
 
+<!-- Image Crop Modal -->
+<div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cropModalLabel">
+                    <i class="bi bi-crop"></i> Bild zuschneiden
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="crop-container">
+                            <img id="cropImage" style="max-width: 100%;">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Vorschau:</h6>
+                        <div class="crop-preview" id="cropPreview"></div>
+
+                        <div class="zoom-controls mt-3">
+                            <label class="form-label">Zoom:</label>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn btn-outline-secondary" id="zoomOut">
+                                    <i class="bi bi-zoom-out"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="resetZoom">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="zoomIn">
+                                    <i class="bi bi-zoom-in"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label">Ziel-Format:</label>
+                            <div class="alert alert-info py-2 px-3">
+                                <small id="targetDimensions"></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="cropAndSave">
+                    <i class="bi bi-check-circle"></i> Zuschneiden & Übernehmen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cropper.js Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
 <script>
+let cropper = null;
+let currentDimension = null;
+let currentWidth = 0;
+let currentHeight = 0;
+
 function toggleCreativeType(dimension, type) {
     // Hide all sections
     document.getElementById('file_section_' + dimension).style.display = 'none';
@@ -140,5 +253,115 @@ function toggleCreativeType(dimension, type) {
     // Show selected section
     document.getElementById(type + '_section_' + dimension).style.display = 'block';
 }
+
+// Handle image upload and open crop modal
+document.querySelectorAll('.image-upload-input').forEach(input => {
+    input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Get dimension info
+        currentDimension = this.dataset.dimension;
+        currentWidth = parseInt(this.dataset.width);
+        currentHeight = parseInt(this.dataset.height);
+
+        // Show target dimensions
+        document.getElementById('targetDimensions').textContent =
+            `${currentWidth} x ${currentHeight} px (${(currentWidth / currentHeight).toFixed(2)}:1)`;
+
+        // Load image
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const image = document.getElementById('cropImage');
+            image.src = event.target.result;
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('cropModal'));
+            modal.show();
+
+            // Initialize cropper after modal is shown
+            document.getElementById('cropModal').addEventListener('shown.bs.modal', function() {
+                if (cropper) {
+                    cropper.destroy();
+                }
+
+                cropper = new Cropper(image, {
+                    aspectRatio: currentWidth / currentHeight,
+                    viewMode: 1,
+                    autoCropArea: 1,
+                    responsive: true,
+                    preview: '#cropPreview',
+                    ready: function() {
+                        // Fit image to crop box
+                        cropper.setCropBoxData({
+                            width: cropper.getContainerData().width * 0.9,
+                            height: (cropper.getContainerData().width * 0.9) * (currentHeight / currentWidth)
+                        });
+                    }
+                });
+            }, { once: true });
+        };
+        reader.readAsDataURL(file);
+    });
+});
+
+// Zoom controls
+document.getElementById('zoomIn').addEventListener('click', function() {
+    if (cropper) cropper.zoom(0.1);
+});
+
+document.getElementById('zoomOut').addEventListener('click', function() {
+    if (cropper) cropper.zoom(-0.1);
+});
+
+document.getElementById('resetZoom').addEventListener('click', function() {
+    if (cropper) {
+        cropper.reset();
+        cropper.setCropBoxData({
+            width: cropper.getContainerData().width * 0.9,
+            height: (cropper.getContainerData().width * 0.9) * (currentHeight / currentWidth)
+        });
+    }
+});
+
+// Crop and save
+document.getElementById('cropAndSave').addEventListener('click', function() {
+    if (!cropper || !currentDimension) return;
+
+    // Get cropped canvas
+    const canvas = cropper.getCroppedCanvas({
+        width: currentWidth,
+        height: currentHeight,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+    });
+
+    // Convert to blob and then to base64
+    canvas.toBlob(function(blob) {
+        const reader = new FileReader();
+        reader.onloadend = function() {
+            const base64data = reader.result;
+
+            // Save to hidden input
+            document.getElementById('creative_' + currentDimension + '_cropped').value = base64data;
+
+            // Show preview
+            document.getElementById('preview_img_' + currentDimension).src = base64data;
+            document.getElementById('preview_' + currentDimension).style.display = 'block';
+
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('cropModal')).hide();
+        };
+        reader.readAsDataURL(blob);
+    }, 'image/jpeg', 0.95);
+});
+
+// Cleanup on modal close
+document.getElementById('cropModal').addEventListener('hidden.bs.modal', function() {
+    if (cropper) {
+        cropper.destroy();
+        cropper = null;
+    }
+});
 </script>
 {% endblock %}

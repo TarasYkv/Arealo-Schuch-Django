@@ -303,9 +303,28 @@ def handle_creative_upload(request, draft):
 
             # Datei hochgeladen
             if creative_type == 'file':
-                field_name = f'creative_{dim}'
-                if field_name in request.FILES:
-                    uploaded_file = request.FILES[field_name]
+                # Prüfe zuerst auf zugeschnittenes Bild (Base64)
+                cropped_field = f'creative_{dim}_cropped'
+                if cropped_field in request.POST and request.POST[cropped_field]:
+                    # Base64 zugeschnittenes Bild verarbeiten
+                    import base64
+                    from django.core.files.base import ContentFile
+
+                    base64_data = request.POST[cropped_field]
+                    # Format: "data:image/jpeg;base64,/9j/4AAQ..."
+                    format_str, imgstr = base64_data.split(';base64,')
+                    ext = format_str.split('/')[-1]
+
+                    # Speichere Base64-String (wird später beim Campaign-Create verarbeitet)
+                    uploaded_creatives[dim] = {
+                        'type': 'file',
+                        'filename': f'creative_{dim}.{ext}',
+                        'content_type': format_str.split(':')[1],
+                        'data': base64_data,  # Base64-String für spätere Verarbeitung
+                    }
+                # Fallback: Normale Datei-Upload (ohne Cropping)
+                elif f'creative_{dim}' in request.FILES:
+                    uploaded_file = request.FILES[f'creative_{dim}']
                     uploaded_creatives[dim] = {
                         'type': 'file',
                         'filename': uploaded_file.name,
@@ -437,6 +456,20 @@ def handle_review(request, draft):
                     link_url=creative_info.get('url', '#'),  # URL oder Fallback
                     is_active=True,
                 )
+
+                # Speichere Base64-Bild falls vorhanden
+                if creative_type == 'file' and 'data' in creative_info:
+                    import base64
+                    from django.core.files.base import ContentFile
+
+                    base64_data = creative_info['data']
+                    # Format: "data:image/jpeg;base64,/9j/4AAQ..."
+                    format_str, imgstr = base64_data.split(';base64,')
+                    ext = format_str.split('/')[-1]
+
+                    # Dekodiere und speichere Bild
+                    image_data = ContentFile(base64.b64decode(imgstr), name=f'{dim}_{campaign.id}.{ext}')
+                    ad.image.save(f'{dim}_{campaign.id}.{ext}', image_data, save=True)
 
                 # Weise Zonen zu
                 zone_codes = fmt['zone_codes']
