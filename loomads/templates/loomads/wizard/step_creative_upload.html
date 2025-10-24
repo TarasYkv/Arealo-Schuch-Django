@@ -590,8 +590,25 @@ class SimpleCropper {
         const img = new Image();
         img.onload = () => {
             console.log('✅ Bild geladen:', img.width, 'x', img.height);
-            this.canvas.width = Math.min(600, parent.clientWidth - 20);
-            this.canvas.height = Math.min(400, parent.clientHeight - 20);
+
+            // Canvas-Größe basierend auf Bild-Seitenverhältnis berechnen
+            const maxWidth = Math.min(600, parent.clientWidth - 20);
+            const maxHeight = Math.min(500, parent.clientHeight - 20);
+            const imageAspectRatio = img.width / img.height;
+
+            // Canvas so skalieren, dass Bild nicht verzerrt wird
+            if (imageAspectRatio > maxWidth / maxHeight) {
+                // Bild ist breiter - Width begrenzt
+                this.canvas.width = maxWidth;
+                this.canvas.height = maxWidth / imageAspectRatio;
+            } else {
+                // Bild ist höher - Height begrenzt
+                this.canvas.height = maxHeight;
+                this.canvas.width = maxHeight * imageAspectRatio;
+            }
+
+            console.log('📐 Canvas-Größe angepasst:', this.canvas.width, 'x', this.canvas.height,
+                       '(Bild-Ratio:', imageAspectRatio.toFixed(2) + ')');
 
             // Crop-Box initial zentrieren
             const boxWidth = this.canvas.width * 0.7;
