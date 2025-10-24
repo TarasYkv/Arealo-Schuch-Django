@@ -10,13 +10,16 @@
       crossorigin="anonymous" referrerpolicy="no-referrer" />
 <style>
 .crop-container {
-    max-height: 350px;  /* Reduziert von 500px */
-    min-height: 250px;  /* Reduziert von 300px */
+    max-height: 650px;  /* Erhöht für größeres Canvas */
+    min-height: 400px;
     overflow: visible !important; /* Wichtig für Cropper */
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 4px;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .crop-container img {
     max-width: 100%;
@@ -24,8 +27,8 @@
 }
 .crop-preview {
     width: 100%;
-    max-width: 250px;  /* Reduziert von 300px */
-    height: 150px;     /* Reduziert von 200px */
+    max-width: 300px;
+    height: 200px;
     margin: 0 auto;
     overflow: hidden;
     border: 2px dashed #ddd;
@@ -591,9 +594,9 @@ class SimpleCropper {
         img.onload = () => {
             console.log('✅ Bild geladen:', img.width, 'x', img.height);
 
-            // Canvas-Größe basierend auf Bild-Seitenverhältnis berechnen
-            const maxWidth = Math.min(600, parent.clientWidth - 20);
-            const maxHeight = Math.min(500, parent.clientHeight - 20);
+            // Canvas möglichst groß machen (nutzt Modal-Breite)
+            const maxWidth = Math.min(900, parent.clientWidth - 40);
+            const maxHeight = 600; // Feste Höhe für Konsistenz
             const imageAspectRatio = img.width / img.height;
 
             // Canvas so skalieren, dass Bild nicht verzerrt wird
@@ -607,12 +610,23 @@ class SimpleCropper {
                 this.canvas.width = maxHeight * imageAspectRatio;
             }
 
-            console.log('📐 Canvas-Größe angepasst:', this.canvas.width, 'x', this.canvas.height,
-                       '(Bild-Ratio:', imageAspectRatio.toFixed(2) + ')');
+            console.log('📐 Canvas-Größe:', this.canvas.width, 'x', this.canvas.height,
+                       '| Bild-Ratio:', imageAspectRatio.toFixed(2),
+                       '| Ziel-Format-Ratio:', this.aspectRatio.toFixed(2));
 
-            // Crop-Box initial zentrieren
-            const boxWidth = this.canvas.width * 0.7;
-            const boxHeight = boxWidth / this.aspectRatio;
+            // Crop-Box: Möglichst groß, aber Ziel-Seitenverhältnis behalten
+            // Die Crop-Box soll zeigen, welcher Bereich zugeschnitten wird
+            let boxWidth, boxHeight;
+
+            if (this.aspectRatio > this.canvas.width / this.canvas.height) {
+                // Zielformat ist breiter als Canvas - Width begrenzt
+                boxWidth = this.canvas.width * 0.9;
+                boxHeight = boxWidth / this.aspectRatio;
+            } else {
+                // Zielformat ist höher - Height begrenzt
+                boxHeight = this.canvas.height * 0.9;
+                boxWidth = boxHeight * this.aspectRatio;
+            }
             this.cropBox = {
                 x: (this.canvas.width - boxWidth) / 2,
                 y: (this.canvas.height - boxHeight) / 2,
@@ -658,13 +672,25 @@ class SimpleCropper {
         // Clear
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Bild zeichnen (zentriert und skaliert)
-        const imgWidth = this.sourceImage.width * this.scale;
-        const imgHeight = this.sourceImage.height * this.scale;
-        const imgX = (canvas.width - imgWidth) / 2;
-        const imgY = (canvas.height - imgHeight) / 2;
+        // Bild skalieren um Canvas auszufüllen (Cover-Modus)
+        const imageAspectRatio = this.sourceImage.width / this.sourceImage.height;
+        const canvasAspectRatio = canvas.width / canvas.height;
 
-        ctx.drawImage(this.sourceImage, imgX, imgY, imgWidth, imgHeight);
+        let drawWidth, drawHeight;
+        if (imageAspectRatio > canvasAspectRatio) {
+            // Bild ist breiter - an Höhe ausrichten
+            drawHeight = canvas.height * this.scale;
+            drawWidth = drawHeight * imageAspectRatio;
+        } else {
+            // Bild ist höher - an Breite ausrichten
+            drawWidth = canvas.width * this.scale;
+            drawHeight = drawWidth / imageAspectRatio;
+        }
+
+        const imgX = (canvas.width - drawWidth) / 2;
+        const imgY = (canvas.height - drawHeight) / 2;
+
+        ctx.drawImage(this.sourceImage, imgX, imgY, drawWidth, drawHeight);
 
         // Dunkler Overlay außerhalb Crop-Box
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -844,8 +870,17 @@ class SimpleCropper {
 
     reset() {
         this.scale = 1;
-        const boxWidth = this.canvas.width * 0.7;
-        const boxHeight = boxWidth / this.aspectRatio;
+
+        // Crop-Box wie bei Init berechnen (90% vom Canvas)
+        let boxWidth, boxHeight;
+        if (this.aspectRatio > this.canvas.width / this.canvas.height) {
+            boxWidth = this.canvas.width * 0.9;
+            boxHeight = boxWidth / this.aspectRatio;
+        } else {
+            boxHeight = this.canvas.height * 0.9;
+            boxWidth = boxHeight * this.aspectRatio;
+        }
+
         this.cropBox = {
             x: (this.canvas.width - boxWidth) / 2,
             y: (this.canvas.height - boxHeight) / 2,
@@ -853,6 +888,7 @@ class SimpleCropper {
             height: boxHeight
         };
         this.draw();
+        console.log('🔄 Reset: Crop-Box und Zoom zurückgesetzt');
     }
 
     getCroppedCanvas(options) {
@@ -864,19 +900,37 @@ class SimpleCropper {
         resultCanvas.height = targetHeight;
         const resultCtx = resultCanvas.getContext('2d');
 
-        // Calculate source coordinates
-        const imgWidth = this.sourceImage.width * this.scale;
-        const imgHeight = this.sourceImage.height * this.scale;
-        const imgX = (this.canvas.width - imgWidth) / 2;
-        const imgY = (this.canvas.height - imgHeight) / 2;
+        // Berechne die Bild-Position auf Canvas (wie in draw())
+        const imageAspectRatio = this.sourceImage.width / this.sourceImage.height;
+        const canvasAspectRatio = this.canvas.width / this.canvas.height;
 
-        // Source region in original image
-        const sourceX = (this.cropBox.x - imgX) / this.scale;
-        const sourceY = (this.cropBox.y - imgY) / this.scale;
-        const sourceWidth = this.cropBox.width / this.scale;
-        const sourceHeight = this.cropBox.height / this.scale;
+        let drawWidth, drawHeight;
+        if (imageAspectRatio > canvasAspectRatio) {
+            drawHeight = this.canvas.height * this.scale;
+            drawWidth = drawHeight * imageAspectRatio;
+        } else {
+            drawWidth = this.canvas.width * this.scale;
+            drawHeight = drawWidth / imageAspectRatio;
+        }
 
-        // Draw cropped portion
+        const imgX = (this.canvas.width - drawWidth) / 2;
+        const imgY = (this.canvas.height - drawHeight) / 2;
+
+        // Berechne welcher Teil des Original-Bildes in der Crop-Box ist
+        const scaleToOriginal = this.sourceImage.width / drawWidth;
+
+        const sourceX = (this.cropBox.x - imgX) * scaleToOriginal;
+        const sourceY = (this.cropBox.y - imgY) * scaleToOriginal;
+        const sourceWidth = this.cropBox.width * scaleToOriginal;
+        const sourceHeight = this.cropBox.height * scaleToOriginal;
+
+        console.log('🖼️ Crop:', {
+            cropBox: this.cropBox,
+            source: { x: sourceX, y: sourceY, w: sourceWidth, h: sourceHeight },
+            target: { w: targetWidth, h: targetHeight }
+        });
+
+        // Zeichne zugeschnittenen Bereich
         resultCtx.drawImage(
             this.sourceImage,
             sourceX, sourceY, sourceWidth, sourceHeight,
