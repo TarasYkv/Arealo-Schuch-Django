@@ -282,10 +282,6 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
 
         console.log('Ziel-Dimensionen:', currentWidth, 'x', currentHeight);
 
-        // Show target dimensions
-        document.getElementById('targetDimensions').textContent =
-            `${currentWidth} x ${currentHeight} px (${(currentWidth / currentHeight).toFixed(2)}:1)`;
-
         // Load image
         const reader = new FileReader();
         reader.onerror = function(error) {
@@ -305,6 +301,13 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
             // Initialize cropper after modal is shown
             document.getElementById('cropModal').addEventListener('shown.bs.modal', function() {
                 console.log('Modal geöffnet, initialisiere Cropper');
+
+                // Show target dimensions (jetzt ist das Element sichtbar)
+                const targetDimEl = document.getElementById('targetDimensions');
+                if (targetDimEl) {
+                    targetDimEl.textContent = `${currentWidth} x ${currentHeight} px (${(currentWidth / currentHeight).toFixed(2)}:1)`;
+                }
+
                 if (cropper) {
                     cropper.destroy();
                 }
