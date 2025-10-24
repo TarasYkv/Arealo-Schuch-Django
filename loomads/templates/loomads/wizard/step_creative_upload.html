@@ -551,6 +551,7 @@ console.log('🚀 Lade eigenen Canvas-Cropper (keine CDN-Dependencies)...');
 // Simpler Canvas-basierter Cropper
 class SimpleCropper {
     constructor(imageElement, options) {
+        console.log('🔧 SimpleCropper Constructor aufgerufen', { options });
         this.image = imageElement;
         this.options = options || {};
         this.aspectRatio = options.aspectRatio || 1;
@@ -567,6 +568,7 @@ class SimpleCropper {
         this.dragStart = { x: 0, y: 0 };
         this.scale = 1;
 
+        console.log('🔧 AspectRatio gesetzt auf:', this.aspectRatio);
         this.init();
     }
 
@@ -603,9 +605,23 @@ class SimpleCropper {
             this.draw();
             this.addEventListeners();
 
+            console.log('✅ SimpleCropper Canvas vollständig gezeichnet');
+
+            // Rufe ready Callback auf (mit cropper als context)
             if (this.options.ready) {
-                this.options.ready();
+                console.log('📞 Rufe ready Callback auf...');
+                try {
+                    this.options.ready.call(this);
+                    console.log('✅ Ready Callback erfolgreich ausgeführt');
+                } catch (error) {
+                    console.error('❌ Fehler im ready Callback:', error);
+                }
+            } else {
+                console.log('ℹ️ Kein ready Callback definiert');
             }
+        };
+        img.onerror = (e) => {
+            console.error('❌ Fehler beim Laden des Bildes:', e);
         };
         img.src = this.image.src;
         this.sourceImage = img;
@@ -614,7 +630,7 @@ class SimpleCropper {
         parent.innerHTML = '';
         parent.appendChild(this.canvas);
 
-        console.log('✅ SimpleCropper initialisiert');
+        console.log('✅ SimpleCropper initialisiert, warte auf Bildladen...');
     }
 
     draw() {
@@ -775,6 +791,42 @@ class SimpleCropper {
     destroy() {
         // Cleanup
         this.canvas.remove();
+    }
+
+    // Zusätzliche Cropper.js kompatible Methoden
+    getContainerData() {
+        const data = {
+            width: this.canvas.width,
+            height: this.canvas.height
+        };
+        console.log('📊 getContainerData():', data);
+        return data;
+    }
+
+    setCropBoxData(data) {
+        console.log('📐 setCropBoxData() aufgerufen mit:', data);
+        if (data.width) this.cropBox.width = data.width;
+        if (data.height) this.cropBox.height = data.height;
+        if (data.left !== undefined) this.cropBox.x = data.left;
+        if (data.top !== undefined) this.cropBox.y = data.top;
+
+        // Bounds checking
+        this.cropBox.x = Math.max(0, Math.min(this.canvas.width - this.cropBox.width, this.cropBox.x));
+        this.cropBox.y = Math.max(0, Math.min(this.canvas.height - this.cropBox.height, this.cropBox.y));
+
+        console.log('✅ CropBox gesetzt auf:', this.cropBox);
+        this.draw();
+    }
+
+    getCropBoxData() {
+        const data = {
+            left: this.cropBox.x,
+            top: this.cropBox.y,
+            width: this.cropBox.width,
+            height: this.cropBox.height
+        };
+        console.log('📊 getCropBoxData():', data);
+        return data;
     }
 }
 
