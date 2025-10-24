@@ -38,9 +38,8 @@ def is_superuser(user):
 
 
 @login_required
-@user_passes_test(is_superuser)
 def dashboard(request):
-    """LoomAds Dashboard - nur für Superuser"""
+    """LoomAds Dashboard - für alle User (Wizard für alle, Admin-Funktionen nur für Superuser)"""
     
     # Statistiken sammeln
     total_campaigns = Campaign.objects.count()
