@@ -940,11 +940,19 @@ class PostLikeView(LoomConnectAccessMixin, View):
         )
 
         if not created:
-            # Unlike
+            # Unlike - remove karma
             like.delete()
             liked = False
+            # Karma vom Post-Autor abziehen
+            post.author.karma_score -= 2
+            post.author.save()
         else:
+            # Like - add karma
             liked = True
+            # Karma an Post-Autor vergeben (nicht an sich selbst)
+            if post.author != request.user.connect_profile:
+                post.author.karma_score += 2
+                post.author.save()
 
         likes_count = post.likes.count()
 
@@ -989,6 +997,11 @@ class PostCommentView(LoomConnectAccessMixin, View):
             author=profile,
             content=content
         )
+
+        # Karma an Post-Autor vergeben (3 Punkte, nicht an sich selbst)
+        if post.author != profile:
+            post.author.karma_score += 3
+            post.author.save()
 
         return JsonResponse({
             'success': True,
