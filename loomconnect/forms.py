@@ -431,17 +431,20 @@ class EditNeedForm(forms.ModelForm):
     class Meta:
         model = UserNeed
         fields = ['description', 'urgency', 'is_active']
+        labels = {
+            'description': 'Beschreibung (optional)',
+        }
         widgets = {
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
-                'rows': 4
+                'rows': 4,
+                'placeholder': 'Beschreibe optional, wobei du Hilfe brauchst...'
             }),
             'urgency': forms.RadioSelect(attrs={'class': 'urgency-radio'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         error_messages = {
             'description': {
-                'required': 'Bitte beschreibe, wobei du Hilfe brauchst.',
                 'max_length': 'Die Beschreibung darf maximal 500 Zeichen lang sein.',
             },
         }

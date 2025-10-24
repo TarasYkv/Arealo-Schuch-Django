@@ -203,7 +203,7 @@ class UserNeed(models.Model):
 
     profile = models.ForeignKey(ConnectProfile, on_delete=models.CASCADE)
     skill = models.ForeignKey(Skill, on_delete=models.CASCADE)
-    description = models.TextField(verbose_name='Beschreibung', max_length=500)
+    description = models.TextField(verbose_name='Beschreibung', max_length=500, blank=True)
     urgency = models.CharField(max_length=20, choices=URGENCY_CHOICES, default='mittel')
     is_active = models.BooleanField(default=True, verbose_name='Aktiv')
     created_at = models.DateTimeField(auto_now_add=True)
