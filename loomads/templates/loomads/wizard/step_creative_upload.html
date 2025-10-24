@@ -8,18 +8,36 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 <style>
 .crop-container {
-    max-height: 400px;
+    max-height: 500px;
+    min-height: 300px;
     overflow: hidden;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    position: relative;
+}
+.crop-container img {
+    max-width: 100%;
+    display: block;
 }
 .crop-preview {
     width: 100%;
     max-width: 300px;
+    height: 200px;
     margin: 0 auto;
     overflow: hidden;
     border: 2px dashed #ddd;
+    background: #f8f9fa;
 }
 .zoom-controls {
     margin-top: 10px;
+}
+/* Sicherstellen dass Modal über allem liegt */
+#cropModal {
+    z-index: 1060 !important;
+}
+#cropModal .modal-backdrop {
+    z-index: 1050 !important;
 }
 </style>
 {% endblock %}
@@ -295,38 +313,71 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
             image.src = event.target.result;
 
             // Show modal
-            const modal = new bootstrap.Modal(document.getElementById('cropModal'));
+            const modalEl = document.getElementById('cropModal');
+            const modal = new bootstrap.Modal(modalEl);
             modal.show();
 
-            // Initialize cropper after modal is shown
-            document.getElementById('cropModal').addEventListener('shown.bs.modal', function() {
-                console.log('Modal geöffnet, initialisiere Cropper');
+            // Initialize cropper after modal is shown AND image is loaded
+            modalEl.addEventListener('shown.bs.modal', function initCropper() {
+                console.log('Modal geöffnet, warte auf Bild-Laden...');
 
-                // Show target dimensions (jetzt ist das Element sichtbar)
+                // Show target dimensions
                 const targetDimEl = document.getElementById('targetDimensions');
                 if (targetDimEl) {
                     targetDimEl.textContent = `${currentWidth} x ${currentHeight} px (${(currentWidth / currentHeight).toFixed(2)}:1)`;
                 }
 
-                if (cropper) {
-                    cropper.destroy();
+                // Warte bis Bild komplett geladen ist
+                if (image.complete) {
+                    console.log('Bild bereits geladen, initialisiere Cropper');
+                    initializeCropper();
+                } else {
+                    image.onload = function() {
+                        console.log('Bild fertig geladen, initialisiere Cropper');
+                        initializeCropper();
+                    };
                 }
 
-                cropper = new Cropper(image, {
-                    aspectRatio: currentWidth / currentHeight,
-                    viewMode: 1,
-                    autoCropArea: 1,
-                    responsive: true,
-                    preview: '#cropPreview',
-                    ready: function() {
-                        console.log('Cropper bereit');
-                        // Fit image to crop box
-                        cropper.setCropBoxData({
-                            width: cropper.getContainerData().width * 0.9,
-                            height: (cropper.getContainerData().width * 0.9) * (currentHeight / currentWidth)
-                        });
+                function initializeCropper() {
+                    if (cropper) {
+                        console.log('Zerstöre alten Cropper');
+                        cropper.destroy();
                     }
-                });
+
+                    try {
+                        console.log('Erstelle neuen Cropper mit Aspect Ratio:', currentWidth / currentHeight);
+                        cropper = new Cropper(image, {
+                            aspectRatio: currentWidth / currentHeight,
+                            viewMode: 1,
+                            autoCropArea: 1,
+                            responsive: true,
+                            preview: '#cropPreview',
+                            dragMode: 'move',
+                            guides: true,
+                            center: true,
+                            highlight: true,
+                            cropBoxMovable: true,
+                            cropBoxResizable: true,
+                            toggleDragModeOnDblclick: false,
+                            ready: function() {
+                                console.log('✅ Cropper erfolgreich initialisiert und bereit!');
+                                // Fit image to crop box
+                                const containerData = cropper.getContainerData();
+                                const cropBoxWidth = containerData.width * 0.8;
+                                const cropBoxHeight = cropBoxWidth * (currentHeight / currentWidth);
+
+                                cropper.setCropBoxData({
+                                    width: cropBoxWidth,
+                                    height: cropBoxHeight
+                                });
+                                console.log('Crop-Box gesetzt:', cropBoxWidth, 'x', cropBoxHeight);
+                            }
+                        });
+                    } catch (error) {
+                        console.error('❌ Fehler beim Initialisieren von Cropper:', error);
+                        alert('Fehler beim Initialisieren des Crop-Tools. Bitte versuchen Sie es erneut.');
+                    }
+                }
             }, { once: true });
         };
         reader.readAsDataURL(file);
