@@ -247,6 +247,14 @@ def dashboard(request):
             'color': 'bg-primary',
             'category': 'ai'
         },
+        'myprompter': {
+            'name': 'MyPrompter',
+            'description': 'Teleprompter für Videoaufnahmen und Präsentationen mit anpassbarer Geschwindigkeit.',
+            'icon': 'bi-mic-fill',
+            'url': 'myprompter:teleprompter',
+            'color': 'bg-success',
+            'category': 'media'
+        },
         'loomconnect': {
             'name': 'LoomConnect',
             'description': 'Professionelles Networking - Verbinde dich mit anderen Fachleuten und tausche Skills aus.',

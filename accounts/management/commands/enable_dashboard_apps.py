@@ -23,7 +23,7 @@ class Command(BaseCommand):
             'videos', 'schuch', 'schuch_dashboard', 'wirtschaftlichkeitsrechner',
             'sportplatz_konfigurator', 'pdf_suche', 'ki_zusammenfassung', 'shopify',
             'bilder', 'schulungen', 'loomline', 'streamrec', 'fileshare', 'promptpro',
-            'loomconnect', 'keyengine'
+            'myprompter', 'loomconnect', 'keyengine'
         ]
         
         self.stdout.write(self.style.SUCCESS('🔓 Schalte Dashboard-Apps frei...'))
