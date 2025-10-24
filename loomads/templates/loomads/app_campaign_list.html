@@ -72,6 +72,39 @@
         </div>
     </div>
 
+    <!-- Bulk Actions Bar -->
+    <div class="card mb-3" id="bulkActionsBar" style="display: none;">
+        <div class="card-body bg-light">
+            <form method="post" action="{% url 'loomads:app_campaign_bulk_action' %}" id="bulkActionForm">
+                {% csrf_token %}
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <span class="me-3">
+                            <strong id="selectedCount">0</strong> App-Kampagne(n) ausgewählt
+                        </span>
+                        <div class="btn-group" role="group">
+                            <button type="submit" name="action" value="activate" class="btn btn-sm btn-success">
+                                <i class="bi bi-play-fill"></i> Aktivieren
+                            </button>
+                            <button type="submit" name="action" value="pause" class="btn btn-sm btn-warning">
+                                <i class="bi bi-pause-fill"></i> Pausieren
+                            </button>
+                            <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Möchten Sie die ausgewählten App-Kampagnen wirklich löschen?')">
+                                <i class="bi bi-trash"></i> Löschen
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                            <i class="bi bi-x-circle"></i> Auswahl aufheben
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Kampagnen Liste -->
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-0">
@@ -85,6 +118,9 @@
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="selectAll" class="form-check-input">
+                                </th>
                                 <th>Name</th>
                                 <th>App</th>
                                 <th>Status</th>
@@ -99,6 +135,10 @@
                         <tbody>
                             {% for campaign in page_obj %}
                                 <tr>
+                                    <td>
+                                        <input type="checkbox" class="form-check-input campaign-checkbox"
+                                               value="{{ campaign.id }}" name="campaign_ids">
+                                    </td>
                                     <td>
                                         <div>
                                             <strong>
@@ -246,6 +286,62 @@
         </div>
     </div>
 </div>
+
+<script>
+// Select All / Deselect All functionality
+document.getElementById('selectAll').addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.campaign-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+    updateBulkActionsBar();
+});
+
+// Update bulk actions bar when individual checkboxes change
+document.querySelectorAll('.campaign-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', updateBulkActionsBar);
+});
+
+// Update the bulk actions bar visibility and count
+function updateBulkActionsBar() {
+    const checkedBoxes = document.querySelectorAll('.campaign-checkbox:checked');
+    const count = checkedBoxes.length;
+    const bulkActionsBar = document.getElementById('bulkActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+
+    if (count > 0) {
+        bulkActionsBar.style.display = 'block';
+        selectedCount.textContent = count;
+    } else {
+        bulkActionsBar.style.display = 'none';
+        document.getElementById('selectAll').checked = false;
+    }
+}
+
+// Clear selection
+function clearSelection() {
+    document.querySelectorAll('.campaign-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    document.getElementById('selectAll').checked = false;
+    updateBulkActionsBar();
+}
+
+// Add selected campaign IDs to form before submit
+document.getElementById('bulkActionForm').addEventListener('submit', function(e) {
+    // Remove any existing hidden inputs
+    this.querySelectorAll('input[name="campaign_ids"]').forEach(input => input.remove());
+
+    // Add hidden inputs for each checked campaign
+    document.querySelectorAll('.campaign-checkbox:checked').forEach(checkbox => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'campaign_ids';
+        input.value = checkbox.value;
+        this.appendChild(input);
+    });
+});
+</script>
 
 <style>
 .table td {

@@ -523,8 +523,9 @@ def get_ad_for_zone(request, zone_code):
         is_active=True,
         zones=zone,
         campaign__status='active',
-        campaign__start_date__lte=now,
-        campaign__end_date__gte=now
+        campaign__start_date__lte=now
+    ).filter(
+        Q(campaign__end_date__gte=now) | Q(campaign__end_date__isnull=True)
     )
 
     # Aktive App-Anzeigen für diese Zone hinzufügen
@@ -532,8 +533,9 @@ def get_ad_for_zone(request, zone_code):
         is_active=True,
         zones=zone,
         app_campaign__status='active',
-        app_campaign__start_date__lte=now,
-        app_campaign__end_date__gte=now
+        app_campaign__start_date__lte=now
+    ).filter(
+        Q(app_campaign__end_date__gte=now) | Q(app_campaign__end_date__isnull=True)
     )
 
     initial_count = active_ads.count()
@@ -904,41 +906,62 @@ def get_multiple_ads_for_zone(request, zone_code, count=3):
         zone = AdZone.objects.get(code=zone_code, is_active=True)
     except AdZone.DoesNotExist:
         return JsonResponse({'error': f'Zone "{zone_code}" not found'}, status=404)
-    
-    # Check zone permissions
-    current_app = request.resolver_match.app_name if request.resolver_match else None
-    settings = LoomAdsSettings.get_settings()
-    
-    # App-spezifische Zone-Kontrolle
-    zone_type = zone.zone_type
-    if not settings.is_zone_enabled(zone_type, current_app):
-        return JsonResponse({
-            'error': f'Zone "{zone_type}" disabled for app "{current_app or "default"}"'
-        }, status=403)
-    
-    # App-Beschränkung prüfen
-    if zone.app_restriction and current_app != zone.app_restriction:
-        return JsonResponse({
-            'error': f'Zone restricted to app "{zone.app_restriction}"'
-        }, status=403)
-    
+
     # Limit count to reasonable number
     count = min(max(1, count), 10)
 
     # Get multiple ads - with proper campaign status and date filtering
     now = timezone.now()
+
+    # Normale Ads
     active_ads = Advertisement.objects.filter(
         zones=zone,
         is_active=True,
         campaign__status='active',  # Only active campaigns
-        campaign__start_date__lte=now,
-        campaign__end_date__gte=now
+        campaign__start_date__lte=now
+    ).filter(
+        Q(campaign__end_date__gte=now) | Q(campaign__end_date__isnull=True)
     ).select_related().order_by('?')[:count]
-    
+
+    # App-Ads hinzufügen falls keine normalen Ads vorhanden
     if not active_ads:
-        return JsonResponse({
-            'error': 'No active ads available for this zone'
-        }, status=404)
+        app_ads = AppAdvertisement.objects.filter(
+            zones=zone,
+            is_active=True,
+            app_campaign__status='active',
+            app_campaign__start_date__lte=now
+        ).filter(
+            Q(app_campaign__end_date__gte=now) | Q(app_campaign__end_date__isnull=True)
+        ).order_by('?')[:count]
+
+        if not app_ads:
+            return JsonResponse({
+                'error': 'No active ads available for this zone'
+            }, status=404)
+
+        # Konvertiere App-Ads zu Standard-Format
+        ads_data = []
+        for app_ad in app_ads:
+            ad_data = {
+                'id': str(app_ad.id),
+                'type': app_ad.ad_type,
+                'title': app_ad.title,
+                'description': app_ad.description_text,
+                'target_url': app_ad.link_url,
+                'target_type': '_blank',
+            }
+
+            if app_ad.ad_type == 'image' and app_ad.image:
+                ad_data['image_url'] = request.build_absolute_uri(app_ad.image.url)
+            elif app_ad.ad_type == 'html' and app_ad.html_content:
+                ad_data['type'] = 'html'
+                ad_data['html_content'] = app_ad.html_content
+            elif app_ad.ad_type == 'video' and app_ad.video_url:
+                ad_data['video_url'] = app_ad.video_url
+
+            ads_data.append(ad_data)
+
+        return JsonResponse({'ads': ads_data, 'count': len(ads_data)})
     
     ads_data = []
     for ad in active_ads:

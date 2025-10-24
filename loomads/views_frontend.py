@@ -1382,3 +1382,35 @@ def get_blog_sample_ads(zone):
     })
 
     return ads
+
+
+# ========== BULK ACTIONS ==========
+
+@login_required
+@user_passes_test(is_superuser)
+@require_POST
+def campaign_bulk_action(request):
+    """Bulk-Aktionen für Kampagnen (Aktivieren, Pausieren, Löschen)"""
+    action = request.POST.get('action')
+    campaign_ids = request.POST.getlist('campaign_ids')
+
+    if not campaign_ids:
+        messages.warning(request, 'Keine Kampagnen ausgewählt.')
+        return redirect('loomads:campaign_list')
+
+    campaigns = Campaign.objects.filter(id__in=campaign_ids)
+    count = campaigns.count()
+
+    if action == 'activate':
+        campaigns.update(status='active')
+        messages.success(request, f'{count} Kampagne(n) wurden aktiviert.')
+    elif action == 'pause':
+        campaigns.update(status='paused')
+        messages.success(request, f'{count} Kampagne(n) wurden pausiert.')
+    elif action == 'delete':
+        campaigns.delete()
+        messages.success(request, f'{count} Kampagne(n) wurden gelöscht.')
+    else:
+        messages.error(request, 'Ungültige Aktion.')
+
+    return redirect('loomads:campaign_list')

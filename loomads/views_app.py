@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
 from django.core.paginator import Paginator
@@ -227,3 +228,35 @@ def app_ad_delete(request, ad_id):
     }
 
     return render(request, 'loomads/app_ad_confirm_delete.html', context)
+
+
+# ========== BULK ACTIONS ==========
+
+@login_required
+@user_passes_test(is_superuser)
+@require_POST
+def app_campaign_bulk_action(request):
+    """Bulk-Aktionen für App-Kampagnen (Aktivieren, Pausieren, Löschen)"""
+    action = request.POST.get('action')
+    campaign_ids = request.POST.getlist('campaign_ids')
+
+    if not campaign_ids:
+        messages.warning(request, 'Keine App-Kampagnen ausgewählt.')
+        return redirect('loomads:app_campaign_list')
+
+    campaigns = AppCampaign.objects.filter(id__in=campaign_ids)
+    count = campaigns.count()
+
+    if action == 'activate':
+        campaigns.update(status='active')
+        messages.success(request, f'{count} App-Kampagne(n) wurden aktiviert.')
+    elif action == 'pause':
+        campaigns.update(status='paused')
+        messages.success(request, f'{count} App-Kampagne(n) wurden pausiert.')
+    elif action == 'delete':
+        campaigns.delete()
+        messages.success(request, f'{count} App-Kampagne(n) wurden gelöscht.')
+    else:
+        messages.error(request, 'Ungültige Aktion.')
+
+    return redirect('loomads:app_campaign_list')

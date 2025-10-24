@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_frontend
 from . import views_wizard
+from . import views_app
 
 app_name = 'loomads'
 
@@ -11,6 +12,7 @@ urlpatterns = [
     
     # Kampagnen
     path('campaigns/', views.campaign_list, name='campaign_list'),
+    path('campaigns/bulk-action/', views_frontend.campaign_bulk_action, name='campaign_bulk_action'),
     path('campaigns/create/', views.campaign_create, name='campaign_create'),
     path('campaigns/<uuid:campaign_id>/', views.campaign_detail, name='campaign_detail'),
     path('campaigns/<uuid:campaign_id>/edit/', views.campaign_edit, name='campaign_edit'),
@@ -38,6 +40,7 @@ urlpatterns = [
 
     # App-Kampagnen
     path('app-campaigns/', views.app_campaign_list, name='app_campaign_list'),
+    path('app-campaigns/bulk-action/', views_app.app_campaign_bulk_action, name='app_campaign_bulk_action'),
     path('app-campaigns/create/', views.app_campaign_create, name='app_campaign_create'),
     path('app-campaigns/<uuid:campaign_id>/', views.app_campaign_detail, name='app_campaign_detail'),
     path('app-campaigns/<uuid:campaign_id>/edit/', views.app_campaign_edit, name='app_campaign_edit'),

@@ -30,7 +30,12 @@ class PublicAppRedirectMiddleware:
         # Prüfe nur bei nicht angemeldeten Benutzern
         if not request.user.is_authenticated:
             path = request.path_info.lstrip('/')
-            
+
+            # WICHTIG: API-Endpoints nie umleiten (öffentlich zugänglich für Ad-Delivery)
+            if path.startswith('loomads/api/'):
+                response = self.get_response(request)
+                return response
+
             # Prüfe ob der Pfad zu einer App gehört
             for app_name, url_patterns in self.app_redirects.items():
                 for pattern in url_patterns:
@@ -46,6 +51,6 @@ class PublicAppRedirectMiddleware:
                             # App nicht freigegeben - keine Weiterleitung
                             pass
                         break
-        
+
         response = self.get_response(request)
         return response
