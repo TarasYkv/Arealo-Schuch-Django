@@ -1050,13 +1050,19 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
 
                 // Show target dimensions
                 console.log('📏 Setze Ziel-Format:', currentWidth, 'x', currentHeight);
-                const targetDimEl = document.getElementById('targetDimensions');
+
+                // Suche Element direkt im Modal (für mehr Sicherheit)
+                const modalElement = document.getElementById('cropModal');
+                const targetDimEl = modalElement ? modalElement.querySelector('#targetDimensions') : document.getElementById('targetDimensions');
+
                 if (targetDimEl) {
                     const formatText = `${currentWidth} x ${currentHeight} px (${(currentWidth / currentHeight).toFixed(2)}:1)`;
                     targetDimEl.textContent = formatText;
                     console.log('✅ Ziel-Format gesetzt:', formatText);
                 } else {
                     console.error('❌ targetDimensions Element nicht gefunden!');
+                    console.log('🔍 Modal gefunden:', !!modalElement);
+                    console.log('🔍 Alle Elemente mit ID im Modal:', modalElement ? Array.from(modalElement.querySelectorAll('[id]')).map(el => el.id) : 'Modal nicht gefunden');
                 }
 
                 // Warte bis Bild komplett geladen ist
