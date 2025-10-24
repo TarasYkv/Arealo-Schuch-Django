@@ -1200,6 +1200,30 @@ class ConnectionsView(LoomConnectAccessMixin, ListView):
         return context
 
 
+class CancelConnectionView(LoomConnectAccessMixin, View):
+    """Connection beenden/löschen"""
+
+    def post(self, request, pk):
+        profile = get_or_create_profile(request.user)
+
+        # Connection finden, bei der der User beteiligt ist
+        connection = get_object_or_404(
+            Connection,
+            Q(profile_1=profile) | Q(profile_2=profile),
+            pk=pk
+        )
+
+        # Anderen User für die Message speichern
+        other_profile = connection.profile_2 if connection.profile_1 == profile else connection.profile_1
+        other_username = other_profile.user.username
+
+        # Connection löschen
+        connection.delete()
+
+        messages.success(request, f'Verbindung mit {other_username} wurde beendet.')
+        return redirect('loomconnect:connections')
+
+
 # ==========================================
 # STORY VIEWS
 # ==========================================
