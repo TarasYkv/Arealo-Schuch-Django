@@ -15,13 +15,13 @@
         <div class="col-md-8 mb-3">
             <label for="campaign_name" class="form-label">Kampagnenname *</label>
             <input type="text" class="form-control" id="campaign_name" name="campaign_name"
-                   value="{{ saved_data.name }}" required>
+                   value="{{ saved_data.name|default:'' }}" required>
         </div>
         <div class="col-md-4 mb-3">
             <label for="priority" class="form-label">Priorität</label>
             <select class="form-select" id="priority" name="priority">
                 {% for value, label in priority_choices %}
-                <option value="{{ value }}" {% if saved_data.priority == value %}selected{% endif %}>
+                <option value="{{ value }}" {% if saved_data and saved_data.priority == value %}selected{% endif %}>
                     {{ label }}
                 </option>
                 {% endfor %}
@@ -32,19 +32,19 @@
     <div class="mb-3">
         <label for="campaign_description" class="form-label">Beschreibung</label>
         <textarea class="form-control" id="campaign_description" name="campaign_description"
-                  rows="3">{{ saved_data.description }}</textarea>
+                  rows="3">{{ saved_data.description|default:'' }}</textarea>
     </div>
 
     <div class="row">
         <div class="col-md-6 mb-3">
             <label for="start_date" class="form-label">Startdatum *</label>
             <input type="datetime-local" class="form-control" id="start_date" name="start_date"
-                   value="{{ saved_data.start_date }}" required>
+                   value="{{ saved_data.start_date|default:'' }}" required>
         </div>
         <div class="col-md-6 mb-3">
             <label for="end_date" class="form-label">Enddatum *</label>
             <input type="datetime-local" class="form-control" id="end_date" name="end_date"
-                   value="{{ saved_data.end_date }}" required>
+                   value="{{ saved_data.end_date|default:'' }}" required>
         </div>
     </div>
 
@@ -52,7 +52,7 @@
         <div class="col-md-6 mb-3">
             <label for="daily_impression_limit" class="form-label">Tägliches Impression-Limit (optional)</label>
             <input type="number" class="form-control" id="daily_impression_limit"
-                   name="daily_impression_limit" value="{{ saved_data.daily_impression_limit }}"
+                   name="daily_impression_limit" value="{{ saved_data.daily_impression_limit|default:'' }}"
                    min="0" placeholder="Leer = unbegrenzt">
             <small class="form-text text-muted">Maximale Anzahl der Impressions pro Tag</small>
         </div>

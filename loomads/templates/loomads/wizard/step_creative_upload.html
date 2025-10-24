@@ -34,11 +34,19 @@
                     <small class="form-text text-muted">
                         Empfohlene Größe: {{ fmt.width }}x{{ fmt.height }} px
                     </small>
-                    {% if fmt.dimension in uploaded_creatives %}
+                    {% if uploaded_creatives and fmt.dimension in uploaded_creatives %}
                     <div class="mt-2">
                         <span class="badge bg-success">
                             <i class="bi bi-check-circle"></i>
-                            Hochgeladen: {{ uploaded_creatives|get_item:fmt.dimension|get_item:'filename' }}
+                            {% with creative_info=uploaded_creatives|get_item:fmt.dimension %}
+                                {% if creative_info.filename %}
+                                    Hochgeladen: {{ creative_info.filename }}
+                                {% elif creative_info.url %}
+                                    URL: {{ creative_info.url }}
+                                {% else %}
+                                    Hochgeladen ✓
+                                {% endif %}
+                            {% endwith %}
                         </span>
                     </div>
                     {% endif %}

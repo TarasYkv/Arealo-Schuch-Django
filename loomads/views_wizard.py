@@ -415,7 +415,7 @@ def handle_review(request, draft):
             draft.save()
 
             messages.success(request, f'Kampagne "{campaign.name}" wurde erfolgreich erstellt!')
-            return redirect('loomads:campaign_detail', campaign_id=campaign.id)
+            return redirect('loomads:app_campaign_detail', campaign_id=campaign.id)
 
         except Exception as e:
             messages.error(request, f'Fehler beim Erstellen der Kampagne: {str(e)}')
