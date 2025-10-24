@@ -8,7 +8,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods
 from datetime import timedelta
 import json
 
@@ -432,12 +431,15 @@ def handle_review(request, draft):
 
 
 @login_required
-@require_http_methods(["POST"])
 def wizard_cancel(request, draft_id):
     """
     Wizard abbrechen und Draft löschen
+    Erlaubt GET und POST Requests
     """
     draft = get_object_or_404(AdWizardDraft, id=draft_id, user=request.user)
+
+    # Bei GET: Bestätigung anzeigen über JavaScript confirm
+    # Bei POST oder direktem GET: Draft löschen
     draft.delete()
 
     messages.info(request, 'Wizard wurde abgebrochen.')
