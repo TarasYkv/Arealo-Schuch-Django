@@ -70,8 +70,11 @@ def wizard_step(request, draft_id, step):
 
     handler = step_handlers.get(step)
     if not handler:
-        messages.error(request, 'Ungültiger Schritt.')
-        return redirect('loomads:wizard_start')
+        messages.error(request, 'Ungültiger Schritt. Der Wizard wurde zurückgesetzt.')
+        # Setze current_step auf gültigen Wert zurück
+        draft.current_step = 'app_selection'
+        draft.save(update_fields=['current_step'])
+        return redirect('loomads:wizard_step', draft_id=draft.id, step='app_selection')
 
     return handler(request, draft)
 
@@ -447,8 +450,9 @@ def wizard_cancel(request, draft_id):
         messages.info(request, 'Wizard wurde abgebrochen.')
         return redirect('loomads:dashboard')
 
-    # Bei GET: Zurück zum aktuellen Schritt
-    return redirect('loomads:wizard_step', draft_id=draft.id, step=draft.current_step)
+    # Bei GET: Zurück zum Dashboard (verhindert Redirect-Loop bei ungültigem current_step)
+    messages.warning(request, 'Bitte verwenden Sie den Abbrechen-Button im Wizard.')
+    return redirect('loomads:dashboard')
 
 
 @login_required
