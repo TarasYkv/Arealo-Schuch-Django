@@ -438,8 +438,6 @@ class FeedView(LoomConnectAccessMixin, ListView):
         # Trending Skills (meistgenutzte Skills)
         context['trending_skills'] = Skill.objects.filter(
             is_active=True
-        ).annotate(
-            usage_count=Count('userskill')
         ).order_by('-usage_count')[:10]
 
         return context
