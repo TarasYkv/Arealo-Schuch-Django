@@ -1961,14 +1961,21 @@
                                 <li><a class="dropdown-item" href="{% url 'superconfig:dashboard' %}">
                                     <i class="bi bi-gear-fill text-danger"></i> SuperConfig
                                 </a></li>
-                                <li><a class="dropdown-item" href="{% url 'loomads:dashboard' %}">
-                                    <i class="bi bi-megaphone-fill text-warning"></i> LoomAds
-                                </a></li>
                                 <li><a class="dropdown-item" href="{% url 'accounts:content_editor' %}">
                                     <i class="bi bi-palette2"></i> Visual Editor
                                 </a></li>
                                 {% endif %}
-                                
+
+                                {% if user.is_superuser %}
+                                <li><a class="dropdown-item" href="{% url 'loomads:dashboard' %}">
+                                    <i class="bi bi-megaphone-fill text-warning"></i> LoomAds Dashboard
+                                </a></li>
+                                {% elif user|can_see_app_in_frontend:"loomads" %}
+                                <li><a class="dropdown-item" href="{% url 'loomads:wizard_start' %}">
+                                    <i class="bi bi-magic text-warning"></i> Kampagnen-Assistent
+                                </a></li>
+                                {% endif %}
+
                                 {% if user.is_superuser %}
                                 <!-- Desktop View Toggle im Dropdown (nur für Superuser) -->
                                 <li class="px-3 py-2">
