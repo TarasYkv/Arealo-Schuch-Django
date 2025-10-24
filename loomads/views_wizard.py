@@ -16,6 +16,7 @@ from .models import (
     AdWizardDraft, AppCampaign, AppAdvertisement, AdZone,
     AutoCampaignFormat
 )
+from accounts.models import UserAppPermission
 
 
 @login_required
@@ -80,6 +81,14 @@ def handle_app_selection(request, draft):
     """
     Schritt 1: App-Auswahl
     """
+    # Filtere Apps basierend auf User-Berechtigungen
+    # Nur Apps anzeigen, die für normale User sichtbar sind
+    allowed_app_choices = [
+        (app_code, app_name)
+        for app_code, app_name in AppCampaign.APP_CHOICES
+        if UserAppPermission.user_can_see_app_in_frontend(app_code, request.user)
+    ]
+
     if request.method == 'POST':
         selected_app = request.POST.get('selected_app')
 
@@ -87,7 +96,7 @@ def handle_app_selection(request, draft):
             messages.error(request, 'Bitte wählen Sie eine App aus.')
             return render(request, 'loomads/wizard/step_app_selection.html', {
                 'draft': draft,
-                'app_choices': AppCampaign.APP_CHOICES,
+                'app_choices': allowed_app_choices,
             })
 
         # Speichere Auswahl
@@ -103,9 +112,9 @@ def handle_app_selection(request, draft):
         return redirect('loomads:wizard_step', draft_id=draft.id, step=draft.current_step)
 
     # GET: Zeige App-Auswahl
-    # Lade verfügbare Zonen pro App für Info
+    # Lade verfügbare Zonen pro App für Info (nur für erlaubte Apps)
     app_zone_counts = {}
-    for app_code, app_name in AppCampaign.APP_CHOICES:
+    for app_code, app_name in allowed_app_choices:
         zones = AdZone.objects.filter(
             is_active=True,
             code__icontains=app_code
@@ -114,7 +123,7 @@ def handle_app_selection(request, draft):
 
     context = {
         'draft': draft,
-        'app_choices': AppCampaign.APP_CHOICES,
+        'app_choices': allowed_app_choices,
         'app_zone_counts': app_zone_counts,
         'progress': draft.get_progress_percentage(),
     }
