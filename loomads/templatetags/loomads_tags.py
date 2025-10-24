@@ -603,3 +603,19 @@ def get_ad_apps(advertisement):
         'count': len(active_apps),
         'is_restricted': bool(restricted_apps)
     }
+
+
+@register.filter
+def get_item(dictionary, key):
+    """
+    Dictionary-Zugriff im Template
+
+    Verwendung:
+    {{ dict|get_item:key }}
+
+    Beispiel:
+    {{ app_zone_counts|get_item:app_code }}
+    """
+    if isinstance(dictionary, dict):
+        return dictionary.get(key)
+    return None
