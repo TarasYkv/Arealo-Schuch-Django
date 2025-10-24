@@ -18,12 +18,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Alle Apps aus dem Dashboard (accounts/views.py app_definitions)
+        # Nur Apps die auch im Navigations-Menü (base.html) erscheinen
         dashboard_apps = [
-            'chat', 'videos', 'schuch', 'schuch_dashboard', 'wirtschaftlichkeitsrechner',
+            'videos', 'schuch', 'schuch_dashboard', 'wirtschaftlichkeitsrechner',
             'sportplatz_konfigurator', 'pdf_suche', 'ki_zusammenfassung', 'shopify',
-            'bilder', 'organisation', 'schulungen', 'todos', 'editor', 'bug_report',
-            'payments', 'loomline', 'streamrec', 'fileshare', 'promptpro', 'loomads',
-            'loomconnect', 'keyengine', 'lighting_tools'
+            'bilder', 'schulungen', 'loomline', 'streamrec', 'fileshare', 'promptpro',
+            'loomconnect', 'keyengine'
         ]
         
         self.stdout.write(self.style.SUCCESS('🔓 Schalte Dashboard-Apps frei...'))
