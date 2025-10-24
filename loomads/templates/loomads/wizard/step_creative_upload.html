@@ -44,10 +44,21 @@
 #cropModal .modal-content {
     z-index: 10001 !important;
     position: relative;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5) !important; /* Starker Schatten ohne Backdrop */
+    border: 2px solid #0d6efd; /* Blauer Border für Sichtbarkeit */
 }
 #cropModal .modal-body {
     z-index: 10002 !important;
     position: relative;
+}
+/* Modal-Header hervorheben */
+#cropModal .modal-header {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: white;
+    border-bottom: 3px solid #084298;
+}
+#cropModal .modal-header .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
 }
 
 /* Cropper Elements müssen über allem sein */
@@ -71,9 +82,15 @@
     pointer-events: auto !important;
 }
 
-/* Backdrop darf nicht blockieren */
-.modal-backdrop {
-    z-index: 9998 !important;
+/* Kein Backdrop verwenden - deaktiviert im JavaScript */
+/* Modal ist ohne dunklen Overlay voll interaktiv */
+
+/* Optional: Eigener semi-transparenter Hintergrund der NICHT blockiert */
+#cropModal.show {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+#cropModal.show .modal-dialog {
+    pointer-events: auto; /* Dialog bleibt klickbar */
 }
 </style>
 {% endblock %}
@@ -377,10 +394,15 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
             const image = document.getElementById('cropImage');
             image.src = event.target.result;
 
-            // Show modal
+            // Show modal OHNE Backdrop (wichtig für Interaktivität!)
             const modalEl = document.getElementById('cropModal');
-            const modal = new bootstrap.Modal(modalEl);
+            const modal = new bootstrap.Modal(modalEl, {
+                backdrop: false,  // KEIN dunkler Overlay
+                keyboard: true,   // ESC zum Schließen erlaubt
+                focus: true
+            });
             modal.show();
+            console.log('Modal ohne Backdrop geöffnet');
 
             // Initialize cropper after modal is shown AND image is loaded
             modalEl.addEventListener('shown.bs.modal', function initCropper() {
