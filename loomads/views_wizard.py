@@ -299,28 +299,38 @@ def handle_creative_upload(request, draft):
 
         for fmt in selected_formats:
             dim = fmt['dimension']
-            field_name = f'creative_{dim}'
+            creative_type = request.POST.get(f'creative_type_{dim}', 'file')
 
-            # Prüfe ob Datei hochgeladen wurde
-            if field_name in request.FILES:
-                uploaded_file = request.FILES[field_name]
+            # Datei hochgeladen
+            if creative_type == 'file':
+                field_name = f'creative_{dim}'
+                if field_name in request.FILES:
+                    uploaded_file = request.FILES[field_name]
+                    uploaded_creatives[dim] = {
+                        'type': 'file',
+                        'filename': uploaded_file.name,
+                        'size': uploaded_file.size,
+                        'content_type': uploaded_file.content_type,
+                        # TODO: Speichere tatsächliche Datei
+                    }
 
-                # Speichere Datei (temporär in Draft-Daten)
-                # In Production würde man hier die Datei speichern und URL zurückgeben
-                uploaded_creatives[dim] = {
-                    'filename': uploaded_file.name,
-                    'size': uploaded_file.size,
-                    'content_type': uploaded_file.content_type,
-                    # TODO: Speichere tatsächliche Datei
-                }
+            # URL eingegeben
+            elif creative_type == 'url':
+                url_field = f'creative_url_{dim}'
+                if url_field in request.POST and request.POST[url_field]:
+                    uploaded_creatives[dim] = {
+                        'type': 'url',
+                        'url': request.POST[url_field]
+                    }
 
-            # Alternativ: URL eingegeben
-            url_field = f'creative_url_{dim}'
-            if url_field in request.POST and request.POST[url_field]:
-                uploaded_creatives[dim] = {
-                    'type': 'url',
-                    'url': request.POST[url_field]
-                }
+            # HTML/Rich Text
+            elif creative_type == 'html':
+                html_field = f'creative_html_{dim}'
+                if html_field in request.POST and request.POST[html_field]:
+                    uploaded_creatives[dim] = {
+                        'type': 'html',
+                        'html': request.POST[html_field]
+                    }
 
         # Validierung: Mindestens ein Creative muss vorhanden sein
         if not uploaded_creatives:
@@ -403,13 +413,28 @@ def handle_review(request, draft):
                 if not creative_info:
                     continue
 
+                # Bestimme ad_type basierend auf Creative-Type
+                creative_type = creative_info.get('type', 'file')
+                if creative_type == 'html':
+                    ad_type = 'html'
+                elif creative_type == 'url':
+                    # Prüfe ob Video-URL
+                    url = creative_info.get('url', '')
+                    if any(ext in url.lower() for ext in ['.mp4', '.webm', '.ogg']):
+                        ad_type = 'video'
+                    else:
+                        ad_type = 'image'
+                else:
+                    ad_type = 'image'  # Default für File-Uploads
+
                 # Erstelle Advertisement
                 ad = AppAdvertisement.objects.create(
                     app_campaign=campaign,
                     name=f"{campaign.name} - {dim}",
                     description=f"Creative für Format {dim}",
-                    ad_type='image',  # Default, kann später angepasst werden
-                    link_url='#',  # TODO: Aus Formular holen
+                    ad_type=ad_type,
+                    html_content=creative_info.get('html', '') if creative_type == 'html' else '',
+                    link_url=creative_info.get('url', '#'),  # URL oder Fallback
                     is_active=True,
                 )
 

@@ -78,12 +78,36 @@
         <ul class="list-group">
             {% for dim, creative in creative_data.creatives.items %}
             <li class="list-group-item">
-                <i class="bi bi-image"></i>
-                <strong>{{ dim }}</strong>:
-                {% if creative.type == 'url' %}
-                    <span class="badge bg-info">URL</span> {{ creative.url }}
-                {% else %}
-                    <span class="badge bg-primary">Datei</span> {{ creative.filename }}
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <i class="bi bi-image me-2"></i>
+                        <strong>{{ dim }}</strong>:
+                        {% if creative.type == 'url' %}
+                            <span class="badge bg-info">URL</span>
+                            <a href="{{ creative.url }}" target="_blank" class="ms-2">{{ creative.url }}</a>
+                        {% elif creative.type == 'html' %}
+                            <span class="badge bg-warning">HTML/Rich Text</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2"
+                                    data-bs-toggle="collapse" data-bs-target="#preview_{{ dim|slugify }}">
+                                <i class="bi bi-eye"></i> Vorschau
+                            </button>
+                        {% else %}
+                            <span class="badge bg-primary">Datei</span> {{ creative.filename }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if creative.type == 'html' %}
+                <div class="collapse mt-3" id="preview_{{ dim|slugify }}">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <small class="text-muted">HTML-Vorschau:</small>
+                        </div>
+                        <div class="card-body">
+                            <pre class="mb-0" style="max-height: 200px; overflow-y: auto; font-size: 12px;">{{ creative.html }}</pre>
+                        </div>
+                    </div>
+                </div>
                 {% endif %}
             </li>
             {% endfor %}
