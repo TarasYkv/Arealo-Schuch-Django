@@ -1053,16 +1053,32 @@ document.querySelectorAll('.image-upload-input').forEach(input => {
 
                 // Suche Element direkt im Modal (für mehr Sicherheit)
                 const modalElement = document.getElementById('cropModal');
-                const targetDimEl = modalElement ? modalElement.querySelector('#targetDimensions') : document.getElementById('targetDimensions');
+                let targetDimEl = modalElement ? modalElement.querySelector('#targetDimensions') : document.getElementById('targetDimensions');
+
+                // Falls Element nicht existiert, erstelle es dynamisch
+                if (!targetDimEl) {
+                    console.warn('⚠️ targetDimensions nicht gefunden, erstelle dynamisch im Modal-Header');
+                    const modalHeader = modalElement.querySelector('.modal-header');
+                    if (modalHeader) {
+                        const formatInfo = document.createElement('div');
+                        formatInfo.className = 'mt-2';
+                        formatInfo.innerHTML = `
+                            <small class="text-white opacity-75">
+                                <i class="bi bi-info-circle"></i> Ziel-Format: <strong id="targetDimensions"></strong>
+                            </small>
+                        `;
+                        modalHeader.appendChild(formatInfo);
+                        targetDimEl = document.getElementById('targetDimensions');
+                        console.log('✅ targetDimensions dynamisch erstellt');
+                    }
+                }
 
                 if (targetDimEl) {
                     const formatText = `${currentWidth} x ${currentHeight} px (${(currentWidth / currentHeight).toFixed(2)}:1)`;
                     targetDimEl.textContent = formatText;
                     console.log('✅ Ziel-Format gesetzt:', formatText);
                 } else {
-                    console.error('❌ targetDimensions Element nicht gefunden!');
-                    console.log('🔍 Modal gefunden:', !!modalElement);
-                    console.log('🔍 Alle Elemente mit ID im Modal:', modalElement ? Array.from(modalElement.querySelectorAll('[id]')).map(el => el.id) : 'Modal nicht gefunden');
+                    console.error('❌ Konnte targetDimensions auch dynamisch nicht erstellen!');
                 }
 
                 // Warte bis Bild komplett geladen ist
