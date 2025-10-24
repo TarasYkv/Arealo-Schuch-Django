@@ -133,15 +133,8 @@ def dashboard(request):
     from .models import AppPermission
     
     # App-Definitionen mit URLs, Icons und Kategorien
+    # Nur Apps die auch im Menü (base.html) erscheinen
     app_definitions = {
-        'chat': {
-            'name': 'Chat System',
-            'description': 'Kommuniziere direkt mit anderen Nutzern über unser integriertes Chat-System.',
-            'icon': 'bi-chat-dots',
-            'url': 'organization:chat_home',
-            'color': 'bg-primary',
-            'category': 'communication'
-        },
         'videos': {
             'name': 'Videos',
             'description': 'Verwalte und teile deine Video-Inhalte sicher und effizient.',
@@ -214,14 +207,6 @@ def dashboard(request):
             'color': 'bg-info',
             'category': 'media'
         },
-        'organisation': {
-            'name': 'Organisation',
-            'description': 'Verwalte Organisationsstrukturen und Zuständigkeiten.',
-            'icon': 'bi-building',
-            'url': 'organization:dashboard',
-            'color': 'bg-secondary',
-            'category': 'management'
-        },
         'schulungen': {
             'name': 'Schulungen',
             'description': 'Zugriff auf Schulungsmaterialien und Weiterbildungsangebote.',
@@ -229,38 +214,6 @@ def dashboard(request):
             'url': 'naturmacher:thema_list',
             'color': 'bg-warning',
             'category': 'education'
-        },
-        'todos': {
-            'name': 'ToDos',
-            'description': 'Verwalte deine Aufgaben und Projekte effizient.',
-            'icon': 'bi-check-square',
-            'url': 'todos:home',
-            'color': 'bg-primary',
-            'category': 'management'
-        },
-        'editor': {
-            'name': 'Content Editor',
-            'description': 'Bearbeite Inhalte und Seiten deiner Website.',
-            'icon': 'bi-pencil-square',
-            'url': 'accounts:content_editor',
-            'color': 'bg-warning',
-            'category': 'tools'
-        },
-        'bug_report': {
-            'name': 'Bug Report',
-            'description': 'Melde Fehler und Verbesserungsvorschläge.',
-            'icon': 'bi-bug',
-            'url': 'bug_report:submit_bug_report',
-            'color': 'bg-danger',
-            'category': 'support'
-        },
-        'payments': {
-            'name': 'Zahlungen & Abos',
-            'description': 'Verwalte deine Abonnements und Zahlungsinformationen.',
-            'icon': 'bi-credit-card',
-            'url': 'payments:subscription_plans',
-            'color': 'bg-success',
-            'category': 'management'
         },
         'loomline': {
             'name': 'LoomLine',
@@ -294,14 +247,6 @@ def dashboard(request):
             'color': 'bg-primary',
             'category': 'ai'
         },
-        'loomads': {
-            'name': 'LoomAds',
-            'description': 'Werbeanzeigen-Verwaltung und Ad-Zones für deine Plattform.',
-            'icon': 'bi-megaphone',
-            'url': 'loomads:dashboard',
-            'color': 'bg-secondary',
-            'category': 'management'
-        },
         'loomconnect': {
             'name': 'LoomConnect',
             'description': 'Professionelles Networking - Verbinde dich mit anderen Fachleuten und tausche Skills aus.',
@@ -316,14 +261,6 @@ def dashboard(request):
             'icon': 'bi-key',
             'url': 'keyengine:dashboard',
             'color': 'bg-success',
-            'category': 'tools'
-        },
-        'lighting_tools': {
-            'name': 'Lighting Tools',
-            'description': 'Professionelle Werkzeuge für Lichtplanung und Beleuchtungskonzepte.',
-            'icon': 'bi-lightbulb',
-            'url': 'lighting_tools:overview',
-            'color': 'bg-warning',
             'category': 'tools'
         }
     }
