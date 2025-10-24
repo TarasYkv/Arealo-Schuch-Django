@@ -105,7 +105,7 @@
                 <!-- Selected Counter -->
                 <div class="alert alert-info mt-4">
                     <i class="bi bi-info-circle"></i>
-                    Du hast <strong id="selected-count">0</strong> Bedarfe ausgewählt
+                    Du hast <strong id="selected-count">0</strong> von maximal 5 Bedarfen ausgewählt
                 </div>
 
                 <!-- Navigation -->
@@ -127,10 +127,22 @@
     const counter = document.getElementById('selected-count');
     const detailsSection = document.getElementById('need-details-section');
     const descriptionsContainer = document.getElementById('need-descriptions');
+    const maxNeeds = 5;
 
     function updateCounter() {
         const checkedBoxes = document.querySelectorAll('.need-checkbox:checked');
         counter.textContent = checkedBoxes.length;
+
+        // Disable unchecked boxes if limit reached
+        checkboxes.forEach(cb => {
+            if (!cb.checked && checkedBoxes.length >= maxNeeds) {
+                cb.disabled = true;
+                cb.parentElement.style.opacity = '0.5';
+            } else if (cb.disabled) {
+                cb.disabled = false;
+                cb.parentElement.style.opacity = '1';
+            }
+        });
 
         // Show/hide details section
         if (checkedBoxes.length > 0) {

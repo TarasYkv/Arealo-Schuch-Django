@@ -37,10 +37,10 @@
 
         <!-- User Grid -->
         {% if users %}
-            <div class="row g-4" id="user-grid">
+            <div class="row g-3" id="user-grid">
                 {% for profile_user in users %}
-                <div class="col-md-6 user-card-item">
-                    <div class="loomconnect-card h-100" style="padding: 24px;">
+                <div class="col-md-6 col-lg-4 user-card-item">
+                    <div class="loomconnect-card h-100" style="padding: 16px;">
                         <!-- Avatar & Basic Info -->
                         <div class="text-center mb-3">
                             <a href="{% url 'loomconnect:profile' profile_user.username %}">
@@ -71,22 +71,22 @@
 
                         <!-- Bio Preview -->
                         {% if profile_user.connect_profile.bio %}
-                        <p class="small text-muted mb-3" style="min-height: 60px;">
-                            {{ profile_user.connect_profile.bio|truncatewords:15 }}
+                        <p class="small text-muted mb-2" style="min-height: 40px; font-size: 0.85rem;">
+                            {{ profile_user.connect_profile.bio|truncatewords:12 }}
                         </p>
                         {% else %}
-                        <p class="small text-muted mb-3 fst-italic" style="min-height: 60px;">
+                        <p class="small text-muted mb-2 fst-italic" style="min-height: 40px; font-size: 0.85rem;">
                             Noch keine Bio hinzugefügt
                         </p>
                         {% endif %}
 
                         <!-- Skills Preview -->
                         {% if profile_user.user_skills %}
-                        <div class="mb-3">
-                            <div class="small text-muted mb-2"><i class="bi bi-star"></i> Top Skills:</div>
+                        <div class="mb-2">
+                            <div class="small text-muted mb-1" style="font-size: 0.8rem;"><i class="bi bi-star"></i> Skills:</div>
                             <div class="d-flex flex-wrap gap-1">
-                                {% for user_skill in profile_user.user_skills|slice:":3" %}
-                                <span class="skill-badge" style="font-size: 0.75rem; padding: 4px 10px;">{{ user_skill.skill.name }}</span>
+                                {% for user_skill in profile_user.user_skills|slice:":2" %}
+                                <span class="skill-badge" style="font-size: 0.7rem; padding: 3px 8px;">{{ user_skill.skill.name }}</span>
                                 {% endfor %}
                             </div>
                         </div>
@@ -94,34 +94,34 @@
 
                         <!-- Needs Preview -->
                         {% if profile_user.user_needs %}
-                        <div class="mb-3">
-                            <div class="small text-muted mb-2"><i class="bi bi-search"></i> Sucht Hilfe:</div>
+                        <div class="mb-2">
+                            <div class="small text-muted mb-1" style="font-size: 0.8rem;"><i class="bi bi-search"></i> Sucht:</div>
                             <div class="d-flex flex-wrap gap-1">
                                 {% for need in profile_user.user_needs|slice:":2" %}
-                                <span class="skill-badge-outline" style="font-size: 0.75rem; padding: 4px 10px;">{{ need.skill.name }}</span>
+                                <span class="skill-badge-outline" style="font-size: 0.7rem; padding: 3px 8px;">{{ need.skill.name }}</span>
                                 {% endfor %}
                             </div>
                         </div>
                         {% endif %}
 
                         <!-- Stats -->
-                        <div class="row g-2 mb-3">
+                        <div class="row g-2 mb-2">
                             <div class="col-4">
                                 <div class="text-center">
-                                    <div class="fw-bold" style="color: var(--loomconnect-primary);">{{ profile_user.skills_count }}</div>
-                                    <div class="small text-muted">Skills</div>
+                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.95rem;">{{ profile_user.skills_count }}</div>
+                                    <div class="small text-muted" style="font-size: 0.7rem;">Skills</div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="text-center">
-                                    <div class="fw-bold" style="color: var(--loomconnect-primary);">{{ profile_user.connections_count }}</div>
-                                    <div class="small text-muted">Connects</div>
+                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.95rem;">{{ profile_user.connections_count }}</div>
+                                    <div class="small text-muted" style="font-size: 0.7rem;">Connects</div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="text-center">
-                                    <div class="fw-bold" style="color: var(--loomconnect-primary);">{{ profile_user.connect_profile.karma_score }}</div>
-                                    <div class="small text-muted">Karma</div>
+                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.95rem;">{{ profile_user.connect_profile.karma_score }}</div>
+                                    <div class="small text-muted" style="font-size: 0.7rem;">Karma</div>
                                 </div>
                             </div>
                         </div>
@@ -238,9 +238,9 @@
 
     listView.addEventListener('change', function() {
         if (this.checked) {
-            userGrid.classList.remove('row', 'g-4');
+            userGrid.classList.remove('row', 'g-3');
             document.querySelectorAll('.user-card-item').forEach(item => {
-                item.classList.remove('col-md-6');
+                item.classList.remove('col-md-6', 'col-lg-4');
                 item.classList.add('mb-3');
             });
         }
@@ -248,9 +248,9 @@
 
     gridView.addEventListener('change', function() {
         if (this.checked) {
-            userGrid.classList.add('row', 'g-4');
+            userGrid.classList.add('row', 'g-3');
             document.querySelectorAll('.user-card-item').forEach(item => {
-                item.classList.add('col-md-6');
+                item.classList.add('col-md-6', 'col-lg-4');
                 item.classList.remove('mb-3');
             });
         }
