@@ -39,10 +39,10 @@
         {% if users %}
             <div class="row g-3" id="user-grid">
                 {% for profile_user in users %}
-                <div class="col-md-6 col-lg-4 user-card-item">
-                    <div class="loomconnect-card h-100" style="padding: 16px;">
+                <div class="col-md-6 col-lg-4 col-xl-3 user-card-item">
+                    <div class="loomconnect-card h-100" style="padding: 12px;">
                         <!-- Avatar & Basic Info -->
-                        <div class="text-center mb-3">
+                        <div class="text-center mb-2">
                             <a href="{% url 'loomconnect:profile' profile_user.username %}">
                                 {% if profile_user.connect_profile.avatar %}
                                     <img src="{{ profile_user.connect_profile.avatar.url }}" alt="{{ profile_user.username }}" class="profile-avatar mb-2">
@@ -71,22 +71,21 @@
 
                         <!-- Bio Preview -->
                         {% if profile_user.connect_profile.bio %}
-                        <p class="small text-muted mb-2" style="min-height: 40px; font-size: 0.85rem;">
-                            {{ profile_user.connect_profile.bio|truncatewords:12 }}
+                        <p class="small text-muted mb-2" style="min-height: 30px; font-size: 0.75rem; line-height: 1.3;">
+                            {{ profile_user.connect_profile.bio|truncatewords:10 }}
                         </p>
                         {% else %}
-                        <p class="small text-muted mb-2 fst-italic" style="min-height: 40px; font-size: 0.85rem;">
-                            Noch keine Bio hinzugefügt
+                        <p class="small text-muted mb-2 fst-italic" style="min-height: 30px; font-size: 0.75rem;">
+                            Keine Bio
                         </p>
                         {% endif %}
 
                         <!-- Skills Preview -->
                         {% if profile_user.user_skills %}
-                        <div class="mb-2">
-                            <div class="small text-muted mb-1" style="font-size: 0.8rem;"><i class="bi bi-star"></i> Skills:</div>
+                        <div class="mb-1">
                             <div class="d-flex flex-wrap gap-1">
                                 {% for user_skill in profile_user.user_skills|slice:":2" %}
-                                <span class="skill-badge" style="font-size: 0.7rem; padding: 3px 8px;">{{ user_skill.skill.name }}</span>
+                                <span class="skill-badge" style="font-size: 0.65rem; padding: 2px 6px;">{{ user_skill.skill.name }}</span>
                                 {% endfor %}
                             </div>
                         </div>
@@ -94,46 +93,45 @@
 
                         <!-- Needs Preview -->
                         {% if profile_user.user_needs %}
-                        <div class="mb-2">
-                            <div class="small text-muted mb-1" style="font-size: 0.8rem;"><i class="bi bi-search"></i> Sucht:</div>
+                        <div class="mb-1">
                             <div class="d-flex flex-wrap gap-1">
                                 {% for need in profile_user.user_needs|slice:":2" %}
-                                <span class="skill-badge-outline" style="font-size: 0.7rem; padding: 3px 8px;">{{ need.skill.name }}</span>
+                                <span class="skill-badge-outline" style="font-size: 0.65rem; padding: 2px 6px;">{{ need.skill.name }}</span>
                                 {% endfor %}
                             </div>
                         </div>
                         {% endif %}
 
                         <!-- Stats -->
-                        <div class="row g-2 mb-2">
+                        <div class="row g-1 mb-2">
                             <div class="col-4">
                                 <div class="text-center">
-                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.95rem;">{{ profile_user.skills_count }}</div>
-                                    <div class="small text-muted" style="font-size: 0.7rem;">Skills</div>
+                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.85rem;">{{ profile_user.skills_count }}</div>
+                                    <div class="small text-muted" style="font-size: 0.65rem;">Skills</div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="text-center">
-                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.95rem;">{{ profile_user.connections_count }}</div>
-                                    <div class="small text-muted" style="font-size: 0.7rem;">Connects</div>
+                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.85rem;">{{ profile_user.connections_count }}</div>
+                                    <div class="small text-muted" style="font-size: 0.65rem;">Connects</div>
                                 </div>
                             </div>
                             <div class="col-4">
                                 <div class="text-center">
-                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.95rem;">{{ profile_user.connect_profile.karma_score }}</div>
-                                    <div class="small text-muted" style="font-size: 0.7rem;">Karma</div>
+                                    <div class="fw-bold" style="color: var(--loomconnect-primary); font-size: 0.85rem;">{{ profile_user.connect_profile.karma_score }}</div>
+                                    <div class="small text-muted" style="font-size: 0.65rem;">Karma</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Actions -->
-                        <div class="d-grid gap-2">
-                            <a href="{% url 'loomconnect:profile' profile_user.username %}" class="btn loomconnect-btn loomconnect-btn-primary btn-sm">
-                                <i class="bi bi-eye"></i> Profil ansehen
+                        <div class="d-grid gap-1">
+                            <a href="{% url 'loomconnect:profile' profile_user.username %}" class="btn loomconnect-btn loomconnect-btn-primary" style="font-size: 0.75rem; padding: 4px 8px;">
+                                <i class="bi bi-eye"></i> Profil
                             </a>
                             {% if not profile_user.is_connected and not profile_user.has_pending_request %}
-                            <a href="{% url 'loomconnect:send_request' profile_user.username %}" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
-                                <i class="bi bi-person-plus"></i> Verbinden
+                            <a href="{% url 'loomconnect:send_request' profile_user.username %}" class="btn loomconnect-btn loomconnect-btn-outline" style="font-size: 0.75rem; padding: 4px 8px;">
+                                <i class="bi bi-person-plus"></i> Connect
                             </a>
                             {% endif %}
                         </div>
@@ -240,7 +238,7 @@
         if (this.checked) {
             userGrid.classList.remove('row', 'g-3');
             document.querySelectorAll('.user-card-item').forEach(item => {
-                item.classList.remove('col-md-6', 'col-lg-4');
+                item.classList.remove('col-md-6', 'col-lg-4', 'col-xl-3');
                 item.classList.add('mb-3');
             });
         }
@@ -250,7 +248,7 @@
         if (this.checked) {
             userGrid.classList.add('row', 'g-3');
             document.querySelectorAll('.user-card-item').forEach(item => {
-                item.classList.add('col-md-6', 'col-lg-4');
+                item.classList.add('col-md-6', 'col-lg-4', 'col-xl-3');
                 item.classList.remove('mb-3');
             });
         }
