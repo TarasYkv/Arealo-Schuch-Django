@@ -224,6 +224,7 @@ class AppCampaign(models.Model):
     exclude_zone_types = models.JSONField(
         default=list,
         blank=True,
+        null=True,
         verbose_name='Ausgeschlossene Zone-Typen',
         help_text='Zone-Typen die von dieser App-Kampagne ausgeschlossen werden sollen'
     )
