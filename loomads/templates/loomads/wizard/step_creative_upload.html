@@ -578,10 +578,11 @@ class SimpleCropper {
         // Canvas erstellen
         this.canvas = document.createElement('canvas');
         this.canvas.style.maxWidth = '100%';
-        this.canvas.style.cursor = 'move';
+        this.canvas.style.cursor = 'default';
         this.canvas.style.border = '1px solid #dee2e6';
         this.canvas.style.borderRadius = '4px';
         this.canvas.style.background = '#f8f9fa';
+        this.canvas.style.userSelect = 'none'; // Verhindere Text-Selektion beim Ziehen
 
         this.ctx = this.canvas.getContext('2d');
 
@@ -668,6 +669,58 @@ class SimpleCropper {
         ctx.lineWidth = 2;
         ctx.strokeRect(this.cropBox.x, this.cropBox.y, this.cropBox.width, this.cropBox.height);
 
+        // Bewegungs-Icon in der Mitte (4 Pfeile Symbol)
+        const centerX = this.cropBox.x + this.cropBox.width / 2;
+        const centerY = this.cropBox.y + this.cropBox.height / 2;
+        const iconSize = 20;
+
+        // Halbtransparenter Kreis als Hintergrund
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, iconSize, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bewegungspfeile (Kreuz)
+        ctx.strokeStyle = '#39f';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+
+        // Oben
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - iconSize * 0.6);
+        ctx.lineTo(centerX, centerY - iconSize * 0.3);
+        ctx.lineTo(centerX - 3, centerY - iconSize * 0.4);
+        ctx.moveTo(centerX, centerY - iconSize * 0.3);
+        ctx.lineTo(centerX + 3, centerY - iconSize * 0.4);
+        ctx.stroke();
+
+        // Unten
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY + iconSize * 0.6);
+        ctx.lineTo(centerX, centerY + iconSize * 0.3);
+        ctx.lineTo(centerX - 3, centerY + iconSize * 0.4);
+        ctx.moveTo(centerX, centerY + iconSize * 0.3);
+        ctx.lineTo(centerX + 3, centerY + iconSize * 0.4);
+        ctx.stroke();
+
+        // Links
+        ctx.beginPath();
+        ctx.moveTo(centerX - iconSize * 0.6, centerY);
+        ctx.lineTo(centerX - iconSize * 0.3, centerY);
+        ctx.lineTo(centerX - iconSize * 0.4, centerY - 3);
+        ctx.moveTo(centerX - iconSize * 0.3, centerY);
+        ctx.lineTo(centerX - iconSize * 0.4, centerY + 3);
+        ctx.stroke();
+
+        // Rechts
+        ctx.beginPath();
+        ctx.moveTo(centerX + iconSize * 0.6, centerY);
+        ctx.lineTo(centerX + iconSize * 0.3, centerY);
+        ctx.lineTo(centerX + iconSize * 0.4, centerY - 3);
+        ctx.moveTo(centerX + iconSize * 0.3, centerY);
+        ctx.lineTo(centerX + iconSize * 0.4, centerY + 3);
+        ctx.stroke();
+
         // Hilfslinien (Drittel-Raster)
         ctx.strokeStyle = '#eee';
         ctx.lineWidth = 1;
@@ -699,42 +752,70 @@ class SimpleCropper {
     }
 
     addEventListeners() {
+        // Prüfe ob Maus innerhalb der Crop-Box ist
+        const isInsideCropBox = (x, y) => {
+            return x >= this.cropBox.x && x <= this.cropBox.x + this.cropBox.width &&
+                   y >= this.cropBox.y && y <= this.cropBox.y + this.cropBox.height;
+        };
+
         this.canvas.addEventListener('mousedown', (e) => {
-            this.isDragging = true;
             const rect = this.canvas.getBoundingClientRect();
-            this.dragStart = {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Nur starten wenn in Crop-Box geklickt
+            if (isInsideCropBox(mouseX, mouseY)) {
+                this.isDragging = true;
+                this.dragStart = { x: mouseX, y: mouseY };
+                this.canvas.style.cursor = 'grabbing';
+                console.log('🖱️ Drag gestartet an:', mouseX, mouseY);
+            }
         });
 
         this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Cursor ändern wenn über Crop-Box
+            if (!this.isDragging) {
+                this.canvas.style.cursor = isInsideCropBox(mouseX, mouseY) ? 'grab' : 'default';
+            }
+
             if (!this.isDragging) return;
 
-            const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            // Berechne Bewegung in BEIDE Richtungen
+            const dx = mouseX - this.dragStart.x;
+            const dy = mouseY - this.dragStart.y;
 
-            const dx = x - this.dragStart.x;
-            const dy = y - this.dragStart.y;
+            console.log('📐 Bewegung: dx=' + dx + ', dy=' + dy);
 
+            // Bewege Crop-Box in BEIDE Richtungen
             this.cropBox.x += dx;
             this.cropBox.y += dy;
 
-            // Bounds checking
+            // Bounds checking - verhindere Überlauf
             this.cropBox.x = Math.max(0, Math.min(this.canvas.width - this.cropBox.width, this.cropBox.x));
             this.cropBox.y = Math.max(0, Math.min(this.canvas.height - this.cropBox.height, this.cropBox.y));
 
-            this.dragStart = { x, y };
+            this.dragStart = { x: mouseX, y: mouseY };
             this.draw();
         });
 
         this.canvas.addEventListener('mouseup', () => {
-            this.isDragging = false;
+            if (this.isDragging) {
+                console.log('🖱️ Drag beendet');
+                this.isDragging = false;
+                this.canvas.style.cursor = 'grab';
+            }
         });
 
         this.canvas.addEventListener('mouseleave', () => {
-            this.isDragging = false;
+            if (this.isDragging) {
+                console.log('🖱️ Drag abgebrochen (Maus verlassen)');
+                this.isDragging = false;
+                this.canvas.style.cursor = 'default';
+            }
         });
     }
 
