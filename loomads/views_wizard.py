@@ -253,6 +253,7 @@ def handle_format_selection(request, draft):
                     'height': fmt['height'],
                     'zone_count': len(fmt['zones']),
                     'zone_codes': [z.code for z in fmt['zones']],
+                    'zone_types': fmt['zone_types'],  # Zone-Typen für Anzeige
                 })
 
         step_data = {
