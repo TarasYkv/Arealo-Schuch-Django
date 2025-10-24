@@ -142,8 +142,8 @@ def handle_campaign_details(request, draft):
     if request.method == 'POST':
         campaign_name = request.POST.get('campaign_name', '').strip()
         campaign_description = request.POST.get('campaign_description', '').strip()
-        start_date = request.POST.get('start_date')
-        end_date = request.POST.get('end_date')
+        start_date = request.POST.get('start_date') or None
+        end_date = request.POST.get('end_date') or None
         priority = request.POST.get('priority', 3)
         daily_impression_limit = request.POST.get('daily_impression_limit', '')
 
@@ -151,10 +151,6 @@ def handle_campaign_details(request, draft):
         errors = []
         if not campaign_name:
             errors.append('Kampagnenname ist erforderlich.')
-        if not start_date:
-            errors.append('Startdatum ist erforderlich.')
-        if not end_date:
-            errors.append('Enddatum ist erforderlich.')
 
         if errors:
             for error in errors:
@@ -162,6 +158,7 @@ def handle_campaign_details(request, draft):
             return render(request, 'loomads/wizard/step_campaign_details.html', {
                 'draft': draft,
                 'progress': draft.get_progress_percentage(),
+                'priority_choices': AppCampaign.PRIORITY_CHOICES,
             })
 
         # Speichere Daten
@@ -377,6 +374,14 @@ def handle_review(request, draft):
     if request.method == 'POST':
         # Erstelle finale Kampagne
         try:
+            # Setze start_date auf "jetzt" wenn leer
+            start_date = campaign_data.get('start_date')
+            if not start_date:
+                start_date = timezone.now()
+
+            # end_date kann NULL bleiben für "unbegrenzt"
+            end_date = campaign_data.get('end_date') or None
+
             # 1. Erstelle App-Campaign
             campaign = AppCampaign.objects.create(
                 name=campaign_data['name'],
@@ -385,8 +390,8 @@ def handle_review(request, draft):
                 created_by=request.user,
                 status='draft',  # Startet als Entwurf
                 priority=campaign_data['priority'],
-                start_date=campaign_data['start_date'],
-                end_date=campaign_data['end_date'],
+                start_date=start_date,
+                end_date=end_date,
                 daily_impression_limit=campaign_data.get('daily_impression_limit'),
             )
 

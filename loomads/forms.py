@@ -5,10 +5,10 @@ from .models import Campaign, Advertisement, AdZone, AdTargeting, ZoneIntegratio
 
 class CampaignForm(forms.ModelForm):
     """Form for creating and editing campaigns"""
-    
+
     class Meta:
         model = Campaign
-        fields = ['name', 'description', 'status', 'start_date', 'end_date', 
+        fields = ['name', 'description', 'status', 'start_date', 'end_date',
                   'daily_impression_limit', 'total_impression_limit',
                   'daily_click_limit', 'total_click_limit']
         widgets = {
@@ -24,11 +24,13 @@ class CampaignForm(forms.ModelForm):
             'status': forms.Select(attrs={'class': 'form-select'}),
             'start_date': forms.DateTimeInput(attrs={
                 'class': 'form-control',
-                'type': 'datetime-local'
+                'type': 'datetime-local',
+                'placeholder': 'Leer lassen für "Ab sofort"'
             }),
             'end_date': forms.DateTimeInput(attrs={
                 'class': 'form-control',
-                'type': 'datetime-local'
+                'type': 'datetime-local',
+                'placeholder': 'Leer lassen für "Unbegrenzt"'
             }),
             'daily_impression_limit': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -51,14 +53,16 @@ class CampaignForm(forms.ModelForm):
             'name': 'Kampagnenname',
             'description': 'Beschreibung',
             'status': 'Status',
-            'start_date': 'Startdatum',
-            'end_date': 'Enddatum',
+            'start_date': 'Startdatum (optional)',
+            'end_date': 'Enddatum (optional)',
             'daily_impression_limit': 'Tägliches Impression-Limit',
             'total_impression_limit': 'Gesamt Impression-Limit',
             'daily_click_limit': 'Tägliches Klick-Limit',
             'total_click_limit': 'Gesamt Klick-Limit',
         }
         help_texts = {
+            'start_date': 'Leer lassen für "Ab sofort"',
+            'end_date': 'Leer lassen für "Unbegrenzt"',
             'daily_impression_limit': 'Maximale Anzahl der Impressions pro Tag',
             'total_impression_limit': 'Maximale Anzahl der Impressions insgesamt',
             'daily_click_limit': 'Maximale Anzahl der Klicks pro Tag',
@@ -67,6 +71,9 @@ class CampaignForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Felder optional machen
+        self.fields['start_date'].required = False
+        self.fields['end_date'].required = False
         # Format datetime fields for HTML5 datetime-local input
         if self.instance.pk:
             if self.instance.start_date:
@@ -279,11 +286,13 @@ class AppCampaignForm(forms.ModelForm):
             'priority': forms.Select(attrs={'class': 'form-select'}),
             'start_date': forms.DateTimeInput(attrs={
                 'class': 'form-control',
-                'type': 'datetime-local'
+                'type': 'datetime-local',
+                'placeholder': 'Leer lassen für "Ab sofort"'
             }),
             'end_date': forms.DateTimeInput(attrs={
                 'class': 'form-control',
-                'type': 'datetime-local'
+                'type': 'datetime-local',
+                'placeholder': 'Leer lassen für "Unbegrenzt"'
             }),
             'auto_include_new_zones': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'exclude_zone_types': forms.CheckboxSelectMultiple(),
@@ -317,8 +326,8 @@ class AppCampaignForm(forms.ModelForm):
             'app_target': 'Ziel-App',
             'status': 'Status',
             'priority': 'Priorität',
-            'start_date': 'Startdatum',
-            'end_date': 'Enddatum',
+            'start_date': 'Startdatum (optional)',
+            'end_date': 'Enddatum (optional)',
             'auto_include_new_zones': 'Neue Zonen automatisch einbeziehen',
             'exclude_zone_types': 'Ausgeschlossene Zone-Typen',
             'weight_multiplier': 'Gewichtungs-Multiplikator',
@@ -330,6 +339,8 @@ class AppCampaignForm(forms.ModelForm):
         help_texts = {
             'app_target': 'App für die diese Kampagne geschaltet wird',
             'priority': 'Höhere Priorität = häufigere Anzeige in App-Zonen',
+            'start_date': 'Leer lassen für "Ab sofort"',
+            'end_date': 'Leer lassen für "Unbegrenzt"',
             'auto_include_new_zones': 'Neue Zonen der App automatisch zu dieser Kampagne hinzufügen',
             'exclude_zone_types': 'Zone-Typen die von dieser App-Kampagne ausgeschlossen werden sollen',
             'weight_multiplier': 'Multiplikator für die Anzeigengewichtung in App-Zonen (0.1 - 5.0)',
@@ -341,6 +352,9 @@ class AppCampaignForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Felder optional machen
+        self.fields['start_date'].required = False
+        self.fields['end_date'].required = False
         # Format datetime fields for HTML5 datetime-local input
         if self.instance.pk:
             if self.instance.start_date:

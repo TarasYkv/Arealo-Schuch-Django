@@ -95,8 +95,18 @@ class Campaign(models.Model):
     description = models.TextField(blank=True, verbose_name='Beschreibung')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ad_campaigns')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    start_date = models.DateTimeField(verbose_name='Startdatum')
-    end_date = models.DateTimeField(verbose_name='Enddatum')
+    start_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Startdatum',
+        help_text='Leer lassen für "Ab sofort"'
+    )
+    end_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Enddatum',
+        help_text='Leer lassen für "Unbegrenzt"'
+    )
     daily_impression_limit = models.IntegerField(
         null=True, blank=True,
         verbose_name='Tägliches Impression-Limit',
@@ -212,8 +222,18 @@ class AppCampaign(models.Model):
     )
 
     # Zeitplanung
-    start_date = models.DateTimeField(verbose_name='Startdatum')
-    end_date = models.DateTimeField(verbose_name='Enddatum')
+    start_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Startdatum',
+        help_text='Leer lassen für "Ab sofort"'
+    )
+    end_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Enddatum',
+        help_text='Leer lassen für "Unbegrenzt"'
+    )
 
     # Automatische Zone-Zuordnung Optionen
     auto_include_new_zones = models.BooleanField(
@@ -1005,8 +1025,18 @@ class AutoCampaign(models.Model):
     # Standard Kampagnen-Felder
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auto_campaigns')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    start_date = models.DateTimeField(verbose_name='Startdatum')
-    end_date = models.DateTimeField(verbose_name='Enddatum')
+    start_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Startdatum',
+        help_text='Leer lassen für "Ab sofort"'
+    )
+    end_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Enddatum',
+        help_text='Leer lassen für "Unbegrenzt"'
+    )
     
     # Budget & Limits
     daily_impression_limit = models.IntegerField(
