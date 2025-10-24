@@ -407,12 +407,40 @@ class FeedView(LoomConnectAccessMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['profile'] = get_or_create_profile(self.request.user)
+        profile = get_or_create_profile(self.request.user)
+        context['profile'] = profile
 
         # Active Stories (letzte 24h)
         context['active_stories'] = ConnectStory.objects.filter(
             created_at__gte=timezone.now() - timedelta(hours=24)
         ).select_related('author', 'author__connect_profile').order_by('-created_at')[:10]
+
+        # Suggested Users (Users die nicht verbunden sind)
+        connected_profile_ids = Connection.objects.filter(
+            Q(profile_1=profile) | Q(profile_2=profile)
+        ).values_list('profile_1_id', 'profile_2_id')
+
+        all_connected_ids = set()
+        for p1, p2 in connected_profile_ids:
+            all_connected_ids.add(p1)
+            all_connected_ids.add(p2)
+        all_connected_ids.discard(profile.id)
+
+        context['suggested_users'] = User.objects.filter(
+            connect_profile__onboarding_completed=True,
+            connect_profile__is_public=True
+        ).exclude(
+            id=self.request.user.id
+        ).exclude(
+            connect_profile__id__in=all_connected_ids
+        ).select_related('connect_profile')[:5]
+
+        # Trending Skills (meistgenutzte Skills)
+        context['trending_skills'] = Skill.objects.filter(
+            is_active=True
+        ).annotate(
+            usage_count=Count('userskill')
+        ).order_by('-usage_count')[:10]
 
         return context
 
