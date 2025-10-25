@@ -2667,17 +2667,18 @@ class StreamRecorderOptimized {
                 ctx.drawImage(videoElement, 0, 0, ctx.canvas.width, ctx.canvas.height);
                 console.log('✅ Drew initial camera frame to canvas');
             } else {
-                // Draw placeholder
-                ctx.fillStyle = '#FFFFFF';
-                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                console.log('⚠️ Camera not ready, drew white placeholder');
-                
-                // Wait for video to be ready and try again
+                // DON'T draw white placeholder - wait for video to be ready
+                console.log('⚠️ Camera not ready, waiting...');
+
+                // Wait for video to be ready and try again - but DON'T update stream yet
                 setTimeout(() => {
                     if (this.backgroundEffects.enabled) {
                         this.updateStreamWithCanvasStream();
                     }
                 }, 500);
+
+                // Exit early - don't create stream until video is ready
+                return;
             }
             
             // Create or recreate the canvas stream if needed
@@ -2926,9 +2927,11 @@ class StreamRecorderOptimized {
             // Start processing if camera is active
             if (this.streams.has('camera')) {
                 this.startBackgroundProcessing();
-                // Update the stream map with canvas stream
-                this.updateStreamWithCanvasStream();
-                
+
+                // DON'T update stream immediately - wait for MediaPipe to process frames first
+                // Stream will be updated automatically in onSegmentationResults() when MediaPipe is working
+                console.log('⏳ Waiting for MediaPipe to start processing before switching stream...');
+
                 // Set up timeout for MediaPipe initialization
                 setTimeout(() => {
                     if (!this.backgroundEffects.mediapipeWorking) {
@@ -3422,12 +3425,36 @@ class StreamRecorderOptimized {
         if (this.backgroundEffects.enabled && this.backgroundEffects.mode !== 'none' && this.backgroundEffects.segmentationCanvas) {
             try {
                 // Create stream from canvas (throttle to avoid too frequent updates)
-                if (!this.backgroundEffects.processedStream) {
+                if (!this.backgroundEffects.processedStream || !this.backgroundEffects.streamReplaced) {
+                    // Create the processed stream
                     this.backgroundEffects.processedStream = this.backgroundEffects.segmentationCanvas.captureStream(30);
                     console.log('🎬 Created processed stream from canvas');
+
+                    // Replace the video element's stream ONCE when MediaPipe is working
+                    if (!this.backgroundEffects.streamReplaced && this.backgroundEffects.mediapipeWorking) {
+                        const videoElement = document.getElementById('video-camera');
+                        if (videoElement && this.backgroundEffects.processedStream) {
+                            // Save original stream if not saved
+                            if (!this.backgroundEffects.originalCameraStream) {
+                                this.backgroundEffects.originalCameraStream = this.streams.get('camera');
+                                console.log('💾 Saved original camera stream');
+                            }
+
+                            // Replace stream
+                            videoElement.srcObject = this.backgroundEffects.processedStream;
+                            this.streams.set('camera', this.backgroundEffects.processedStream);
+
+                            videoElement.play().catch(e => {
+                                console.error('Error playing processed stream:', e);
+                            });
+
+                            this.backgroundEffects.streamReplaced = true;
+                            console.log('✅ Replaced camera stream with processed stream');
+                        }
+                    }
                 }
             } catch (error) {
-                console.error('❌ Error creating processed stream:', error);
+                console.error('❌ Error creating/updating processed stream:', error);
             }
         }
     }
@@ -3875,9 +3902,10 @@ class StreamRecorderOptimized {
 
     disableBackgroundEffects() {
         console.log('🔄 Disabling background effects...');
-        
+
         this.backgroundEffects.enabled = false;
         this.backgroundEffects.mode = 'none';
+        this.backgroundEffects.streamReplaced = false; // Reset flag for next activation
         
         // Stop animation frame first
         if (this.backgroundEffects.animationFrame) {
@@ -3898,6 +3926,12 @@ class StreamRecorderOptimized {
         if (this.backgroundEffects.canvasStream) {
             this.backgroundEffects.canvasStream.getTracks().forEach(track => track.stop());
             this.backgroundEffects.canvasStream = null;
+        }
+
+        // Clean up processed stream
+        if (this.backgroundEffects.processedStream) {
+            this.backgroundEffects.processedStream.getTracks().forEach(track => track.stop());
+            this.backgroundEffects.processedStream = null;
         }
         
         // Restore original camera stream
