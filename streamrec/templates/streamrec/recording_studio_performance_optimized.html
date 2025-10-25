@@ -3922,13 +3922,15 @@ class StreamRecorderOptimized {
             this.backgroundEffects.enabled = false;
             this.backgroundEffects.mode = 'none';
             this.backgroundEffects.greenScreenActive = false;
+            this.backgroundEffects.segmentationActive = false; // Stop segmentation
+            this.backgroundEffects.mediapipeWorking = false; // Reset MediaPipe flag
 
             // Hide status badge
             if (statusBadge) {
                 statusBadge.style.display = 'none';
             }
 
-            console.log('✅ Green Screen deaktiviert');
+            console.log('✅ Green Screen deaktiviert - normale Kamera wieder sichtbar');
         }
     }
 
@@ -4905,11 +4907,14 @@ class StreamRecorderOptimized {
     // Helper: draw video preserving aspect ratio (contain)
     drawVideoContain(video, dx, dy, dw, dh) {
         // Special handling for camera with background effects
-        if (this.backgroundEffects.enabled && 
-            this.backgroundEffects.mode !== 'none' && 
+        // WICHTIG: Nur segmentationCanvas nutzen wenn MediaPipe wirklich läuft!
+        if (this.backgroundEffects.enabled &&
+            this.backgroundEffects.mode !== 'none' &&
             this.backgroundEffects.segmentationCanvas &&
+            this.backgroundEffects.mediapipeWorking && // MediaPipe muss aktiv sein!
+            this.backgroundEffects.segmentationActive && // Segmentation muss laufen!
             video.id === 'video-camera') {
-            
+
             // Draw the segmentation canvas instead of the video
             const canvas = this.backgroundEffects.segmentationCanvas;
             const vw = canvas.width;
@@ -4959,11 +4964,14 @@ class StreamRecorderOptimized {
     // Helper: draw video covering target rect (cover) with cropping
     drawVideoCover(video, dx, dy, dw, dh) {
         // Special handling for camera with background effects
-        if (this.backgroundEffects.enabled && 
-            this.backgroundEffects.mode !== 'none' && 
+        // WICHTIG: Nur segmentationCanvas nutzen wenn MediaPipe wirklich läuft!
+        if (this.backgroundEffects.enabled &&
+            this.backgroundEffects.mode !== 'none' &&
             this.backgroundEffects.segmentationCanvas &&
+            this.backgroundEffects.mediapipeWorking && // MediaPipe muss aktiv sein!
+            this.backgroundEffects.segmentationActive && // Segmentation muss laufen!
             video.id === 'video-camera') {
-            
+
             // Draw the segmentation canvas instead of the video
             const canvas = this.backgroundEffects.segmentationCanvas;
             const vw = canvas.width;
@@ -7264,11 +7272,14 @@ class StreamRecorderOptimized {
 
     drawVideoFill(video, x, y, width, height) {
         // Special handling for camera with background effects
-        if (this.backgroundEffects.enabled && 
-            this.backgroundEffects.mode !== 'none' && 
+        // WICHTIG: Nur segmentationCanvas nutzen wenn MediaPipe wirklich läuft!
+        if (this.backgroundEffects.enabled &&
+            this.backgroundEffects.mode !== 'none' &&
             this.backgroundEffects.segmentationCanvas &&
+            this.backgroundEffects.mediapipeWorking && // MediaPipe muss aktiv sein!
+            this.backgroundEffects.segmentationActive && // Segmentation muss laufen!
             video.id === 'video-camera') {
-            
+
             // Draw the segmentation canvas instead of the video
             const canvas = this.backgroundEffects.segmentationCanvas;
             const vw = canvas.width;
