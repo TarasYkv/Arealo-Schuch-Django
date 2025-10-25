@@ -1185,6 +1185,10 @@ class StreamRecorderOptimized {
         this.recordingAudioDestination = null;
         this.recordingAudioSources = [];
 
+        // Bound event handlers for global pointer tracking
+        this.boundGlobalMouseMove = (event) => this.handleMouseMove(event);
+        this.boundGlobalMouseUp = (event) => this.handleMouseUp(event);
+
         this.init();
     }
 
@@ -7377,7 +7381,6 @@ class StreamRecorderOptimized {
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
 
         // Touch events for mobile
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
@@ -7433,6 +7436,8 @@ class StreamRecorderOptimized {
                 };
             }
             this.canvas.style.cursor = hitTest.cursor;
+            document.addEventListener('mousemove', this.boundGlobalMouseMove);
+            document.addEventListener('mouseup', this.boundGlobalMouseUp);
         }
     }
 
@@ -7665,15 +7670,15 @@ class StreamRecorderOptimized {
         
         if (this.isDragging && this.draggedStream) {
             const streamData = this.freeLayoutStreams.get(this.draggedStream);
-            streamData.x = Math.max(0, Math.min(this.canvas.width - streamData.width, coords.x - this.dragOffset.x));
-            streamData.y = Math.max(0, Math.min(this.canvas.height - streamData.height, coords.y - this.dragOffset.y));
+            streamData.x = coords.x - this.dragOffset.x;
+            streamData.y = coords.y - this.dragOffset.y;
         } else if (this.isResizing && this.resizeStream) {
             const streamData = this.freeLayoutStreams.get(this.resizeStream);
             const minSize = 50;
             
             if (this.resizeHandle === 'se') {
-                streamData.width = Math.max(minSize, Math.min(this.canvas.width - streamData.x, coords.x - streamData.x));
-                streamData.height = Math.max(minSize, Math.min(this.canvas.height - streamData.y, coords.y - streamData.y));
+                streamData.width = Math.max(minSize, coords.x - streamData.x);
+                streamData.height = Math.max(minSize, coords.y - streamData.y);
             }
         } else {
             // Update cursor based on hover
@@ -7689,6 +7694,8 @@ class StreamRecorderOptimized {
         this.resizeStream = null;
         this.resizeHandle = null;
         this.canvas.style.cursor = 'default';
+        document.removeEventListener('mousemove', this.boundGlobalMouseMove);
+        document.removeEventListener('mouseup', this.boundGlobalMouseUp);
     }
 
     handleTouchStart(e) {
