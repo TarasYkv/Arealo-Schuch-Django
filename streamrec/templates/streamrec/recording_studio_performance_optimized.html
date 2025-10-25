@@ -2169,19 +2169,12 @@ class StreamRecorderOptimized {
                         }, { once: true });
                     }
                 }
-                // Always start fallback drawing
-                this.startFallbackDrawing();
-            } else {
-                // Start a fallback drawing loop to ensure we always have content
-                this.startFallbackDrawing();
+                // WICHTIG: KEIN fallback drawing hier!
+                // Das normale Video soll weiter laufen
             }
-            
-            // Test canvas with initial pattern
-            const ctx = this.backgroundEffects.segmentationCtx;
-            ctx.fillStyle = '#4CAF50';
-            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.fillStyle = '#2196F3';
-            ctx.fillRect(50, 50, ctx.canvas.width - 100, ctx.canvas.height - 100);
+
+            // WICHTIG: KEINE Test-Pattern zeichnen!
+            // Canvas bleibt leer bis MediaPipe es füllt
             
             console.log('✅ Segmentation canvas created successfully');
             
@@ -2197,8 +2190,10 @@ class StreamRecorderOptimized {
     }
     
     startFallbackDrawing() {
-        console.log('🔄 Starting fallback drawing loop...');
-        
+        // DEAKTIVIERT: Diese Funktion verursacht das weiße Canvas Problem
+        console.log('⚠️ startFallbackDrawing wurde aufgerufen aber ist deaktiviert');
+        return; // Sofort beenden
+
         const drawFallback = () => {
             if (!this.backgroundEffects.enabled || !this.backgroundEffects.segmentationCanvas) {
                 return;
@@ -2805,11 +2800,9 @@ class StreamRecorderOptimized {
             // Ensure canvas has content
             const ctx = this.backgroundEffects.segmentationCtx;
             if (ctx) {
-                // Clear and ensure white background
+                // WICHTIG: KEIN weißer Hintergrund!
                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                ctx.fillStyle = '#FFFFFF';
-                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                
+
                 // Draw current camera frame if available
                 if (this.streams.has('camera') && this.backgroundEffects.originalCameraStream) {
                     const videoElement = this.getRawVideoElement('camera');
@@ -4906,14 +4899,10 @@ class StreamRecorderOptimized {
 
     // Helper: draw video preserving aspect ratio (contain)
     drawVideoContain(video, dx, dy, dw, dh) {
-        // Special handling for camera with background effects
-        // WICHTIG: Nur segmentationCanvas nutzen wenn MediaPipe wirklich läuft!
-        if (this.backgroundEffects.enabled &&
-            this.backgroundEffects.mode !== 'none' &&
-            this.backgroundEffects.segmentationCanvas &&
-            this.backgroundEffects.mediapipeWorking && // MediaPipe muss aktiv sein!
-            this.backgroundEffects.segmentationActive && // Segmentation muss laufen!
-            video.id === 'video-camera') {
+        // WICHTIG: IMMER das normale Video zeichnen
+        // Green Screen Effekt wird in onSegmentationResults angewendet
+        // Niemals das segmentationCanvas hier direkt zeichnen!
+        if (false) { // Diese Bedingung absichtlich deaktiviert
 
             // Draw the segmentation canvas instead of the video
             const canvas = this.backgroundEffects.segmentationCanvas;
@@ -4963,35 +4952,10 @@ class StreamRecorderOptimized {
 
     // Helper: draw video covering target rect (cover) with cropping
     drawVideoCover(video, dx, dy, dw, dh) {
-        // Special handling for camera with background effects
-        // WICHTIG: Nur segmentationCanvas nutzen wenn MediaPipe wirklich läuft!
-        if (this.backgroundEffects.enabled &&
-            this.backgroundEffects.mode !== 'none' &&
-            this.backgroundEffects.segmentationCanvas &&
-            this.backgroundEffects.mediapipeWorking && // MediaPipe muss aktiv sein!
-            this.backgroundEffects.segmentationActive && // Segmentation muss laufen!
-            video.id === 'video-camera') {
+        // WICHTIG: IMMER das normale Video zeichnen
+        // Green Screen Effekt wird in onSegmentationResults angewendet
+        // Niemals das segmentationCanvas hier direkt zeichnen!
 
-            // Draw the segmentation canvas instead of the video
-            const canvas = this.backgroundEffects.segmentationCanvas;
-            const vw = canvas.width;
-            const vh = canvas.height;
-            const videoAspect = vw / vh;
-            const targetAspect = dw / dh;
-            
-            let sx = 0, sy = 0, sw = vw, sh = vh;
-            if (videoAspect > targetAspect) {
-                sw = vh * targetAspect;
-                sx = (vw - sw) / 2;
-            } else {
-                sh = vw / targetAspect;
-                sy = (vh - sh) / 2;
-            }
-            
-            this.ctx.drawImage(canvas, sx, sy, sw, sh, dx, dy, dw, dh);
-            return;
-        }
-        
         // Normal video handling
         const vw = video.videoWidth || video.width || 16;
         const vh = video.videoHeight || video.height || 9;
@@ -7271,14 +7235,10 @@ class StreamRecorderOptimized {
     }
 
     drawVideoFill(video, x, y, width, height) {
-        // Special handling for camera with background effects
-        // WICHTIG: Nur segmentationCanvas nutzen wenn MediaPipe wirklich läuft!
-        if (this.backgroundEffects.enabled &&
-            this.backgroundEffects.mode !== 'none' &&
-            this.backgroundEffects.segmentationCanvas &&
-            this.backgroundEffects.mediapipeWorking && // MediaPipe muss aktiv sein!
-            this.backgroundEffects.segmentationActive && // Segmentation muss laufen!
-            video.id === 'video-camera') {
+        // WICHTIG: IMMER das normale Video zeichnen
+        // Green Screen Effekt wird in onSegmentationResults angewendet
+        // Niemals das segmentationCanvas hier direkt zeichnen!
+        if (false) { // Diese Bedingung absichtlich deaktiviert
 
             // Draw the segmentation canvas instead of the video
             const canvas = this.backgroundEffects.segmentationCanvas;
