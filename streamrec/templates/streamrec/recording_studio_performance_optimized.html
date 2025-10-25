@@ -3862,34 +3862,66 @@ class StreamRecorderOptimized {
                 return;
             }
 
-            // Save original camera stream if not already saved
-            if (!this.backgroundEffects.originalCameraStream) {
-                this.backgroundEffects.originalCameraStream = this.streams.get('camera');
-                console.log('💾 Original camera stream saved');
+            try {
+                // SIMPLE APPROACH: Don't replace stream, just enable effect mode
+                this.backgroundEffects.enabled = true;
+                this.backgroundEffects.mode = 'remove';
+                this.backgroundEffects.greenScreenActive = true; // Special flag for green screen
+
+                // Save original stream reference (but don't replace it!)
+                if (!this.backgroundEffects.originalCameraStream) {
+                    this.backgroundEffects.originalCameraStream = this.streams.get('camera');
+                    console.log('💾 Saved camera stream reference');
+                }
+
+                // Show status badge (loading state)
+                if (statusBadge) {
+                    statusBadge.style.display = 'block';
+                    const fpsSpan = document.getElementById('greenScreenFPS');
+                    if (fpsSpan) fpsSpan.textContent = '(lädt...)';
+                }
+
+                // Initialize MediaPipe if not already done
+                if (!this.segmentationReady) {
+                    console.log('🚀 MediaPipe wird initialisiert...');
+
+                    // Create segmentation canvas
+                    if (!this.backgroundEffects.segmentationCanvas) {
+                        this.createSegmentationCanvas();
+                    }
+
+                    // Initialize MediaPipe
+                    await this.initializeSegmentation();
+
+                    console.log('✅ MediaPipe initialisiert');
+                } else {
+                    console.log('✅ MediaPipe bereits initialisiert, aktiviere Effekt');
+
+                    // Start processing if not already running
+                    if (!this.backgroundEffects.segmentationActive) {
+                        this.startBackgroundProcessing();
+                    }
+                }
+
+                // Update status
+                if (statusBadge) {
+                    const fpsSpan = document.getElementById('greenScreenFPS');
+                    if (fpsSpan) fpsSpan.textContent = '(aktiv)';
+                }
+
+                console.log('✅ Green Screen aktiviert - Effekt wird auf Composition Canvas angewendet');
+
+            } catch (error) {
+                console.error('❌ Fehler beim Aktivieren:', error);
+                if (toggle) toggle.checked = false;
+                if (statusBadge) statusBadge.style.display = 'none';
             }
-
-            // Enable background effects
-            this.backgroundEffects.enabled = true;
-            this.backgroundEffects.mode = 'remove';
-
-            // Create segmentation canvas if it doesn't exist
-            if (!this.backgroundEffects.segmentationCanvas) {
-                this.createSegmentationCanvas();
-            }
-
-            // Initialize MediaPipe segmentation
-            await this.initializeSegmentation();
-
-            // Show status badge
-            if (statusBadge) {
-                statusBadge.style.display = 'block';
-            }
-
-            console.log('✅ Green Screen aktiviert');
 
         } else {
-            // Disable background effects
-            this.disableBackgroundEffects();
+            // Simple disable
+            this.backgroundEffects.enabled = false;
+            this.backgroundEffects.mode = 'none';
+            this.backgroundEffects.greenScreenActive = false;
 
             // Hide status badge
             if (statusBadge) {
