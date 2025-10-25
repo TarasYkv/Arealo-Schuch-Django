@@ -1128,7 +1128,8 @@ class StreamRecorderOptimized {
             maskSmoothing: 0.65,
             confidenceThreshold: 0.6,
             edgeFeather: 0.12,
-            maskBlurRadius: 4
+            maskBlurRadius: 4,
+            lastSegmentationResults: null
         };
         
         // MediaPipe Selfie Segmentation
@@ -1190,6 +1191,19 @@ class StreamRecorderOptimized {
         if (this.debugLogging) {
             console.log(...args);
         }
+    }
+
+    resetMaskCache(reason = 'manual') {
+        this.backgroundEffects.previousMaskData = null;
+        this.backgroundEffects.maskInitialized = false;
+        this.backgroundEffects.maskDimensions = null;
+        if (this.backgroundEffects._maskProcessingCanvas && this.backgroundEffects._maskProcessingCtx) {
+            const procCanvas = this.backgroundEffects._maskProcessingCanvas;
+            this.backgroundEffects._maskProcessingCtx.clearRect(0, 0, procCanvas.width || 0, procCanvas.height || 0);
+        }
+        delete this.backgroundEffects._lastMaskLog;
+        this.backgroundEffects._maskImmediateFrame = true;
+        this.logDebug('♻️ Mask cache reset:', reason);
     }
 
     init() {
@@ -3015,8 +3029,7 @@ class StreamRecorderOptimized {
         }
         
         console.log('🎬 Starting background processing...');
-        this.backgroundEffects.previousMaskData = null;
-        this.backgroundEffects.maskInitialized = false;
+        this.resetMaskCache('start-processing');
         
         // Create video element for processing
         let processingVideo = document.getElementById('processing-video');
@@ -3173,6 +3186,8 @@ class StreamRecorderOptimized {
     }
     
     onSegmentationResults(results) {
+        this.backgroundEffects.lastSegmentationResults = results;
+
         this.logDebug('🔍 MediaPipe Results:', {
             hasResults: !!results,
             hasImage: !!(results && results.image),
@@ -3212,7 +3227,53 @@ class StreamRecorderOptimized {
             this.drawDirectVideoToCanvas();
             return;
         }
-        
+
+        // Cache latest segmentation inputs for instant re-application
+        try {
+            if (!this.backgroundEffects._cachedImageCanvas) {
+                this.backgroundEffects._cachedImageCanvas = document.createElement('canvas');
+                this.backgroundEffects._cachedImageCtx = this.backgroundEffects._cachedImageCanvas.getContext('2d', { willReadFrequently: true });
+            }
+            if (!this.backgroundEffects._cachedMaskCanvas) {
+                this.backgroundEffects._cachedMaskCanvas = document.createElement('canvas');
+                this.backgroundEffects._cachedMaskCtx = this.backgroundEffects._cachedMaskCanvas.getContext('2d', { willReadFrequently: true });
+            }
+
+            const sourceWidth = (src) => {
+                if (!src) return 0;
+                return src.videoWidth || src.naturalWidth || src.width || (src.canvas ? src.canvas.width : 0) || 0;
+            };
+
+            const sourceHeight = (src) => {
+                if (!src) return 0;
+                return src.videoHeight || src.naturalHeight || src.height || (src.canvas ? src.canvas.height : 0) || 0;
+            };
+
+            const cacheWidth = sourceWidth(results.image) || canvas.width;
+            const cacheHeight = sourceHeight(results.image) || canvas.height;
+
+            if (cacheWidth && cacheHeight) {
+                this.backgroundEffects._cachedImageCanvas.width = cacheWidth;
+                this.backgroundEffects._cachedImageCanvas.height = cacheHeight;
+                this.backgroundEffects._cachedImageCtx.clearRect(0, 0, cacheWidth, cacheHeight);
+                this.backgroundEffects._cachedImageCtx.drawImage(results.image, 0, 0, cacheWidth, cacheHeight);
+
+                this.backgroundEffects._cachedMaskCanvas.width = cacheWidth;
+                this.backgroundEffects._cachedMaskCanvas.height = cacheHeight;
+                this.backgroundEffects._cachedMaskCtx.clearRect(0, 0, cacheWidth, cacheHeight);
+                if (results.segmentationMask) {
+                    this.backgroundEffects._cachedMaskCtx.drawImage(results.segmentationMask, 0, 0, cacheWidth, cacheHeight);
+                }
+
+                this.backgroundEffects.lastSegmentationResults = {
+                    image: this.backgroundEffects._cachedImageCanvas,
+                    segmentationMask: this.backgroundEffects._cachedMaskCanvas
+                };
+            }
+        } catch (cacheError) {
+            console.warn('⚠️ Failed to cache segmentation results:', cacheError);
+        }
+
         try {
             // Mark MediaPipe as working
             this.backgroundEffects.mediapipeWorking = true;
@@ -3440,6 +3501,7 @@ class StreamRecorderOptimized {
 
     computeMaskWeights(results) {
         if (!results || !results.segmentationMask) {
+            this.backgroundEffects._maskImmediateFrame = false;
             return null;
         }
 
@@ -3448,6 +3510,7 @@ class StreamRecorderOptimized {
         const height = canvas && canvas.height ? canvas.height : (results.segmentationMask.height || (results.image ? results.image.height : 0));
 
         if (!width || !height) {
+            this.backgroundEffects._maskImmediateFrame = false;
             return null;
         }
 
@@ -3480,15 +3543,16 @@ class StreamRecorderOptimized {
         }
 
         const prevMask = this.backgroundEffects.previousMaskData;
-        const hasPrevMask = this.backgroundEffects.maskInitialized;
+        const forceFresh = this.backgroundEffects._maskImmediateFrame;
+        const hasPrevMask = !forceFresh && this.backgroundEffects.maskInitialized;
         const smoothingRaw = this.backgroundEffects.maskSmoothing ?? 0.65;
         const smoothing = Math.max(0, Math.min(0.99, smoothingRaw));
         const threshold = Math.max(0, Math.min(1, this.backgroundEffects.confidenceThreshold ?? 0.6));
-        const feather = Math.max(0, Math.min(0.5, this.backgroundEffects.edgeFeather ?? 0.12));
-        const edgeLow = Math.max(0, threshold - feather);
-        const edgeHigh = Math.min(1, threshold + feather);
-        const edgeRange = Math.max(0.0001, edgeHigh - edgeLow);
-        const minAlpha = 0.02;
+        const featherRaw = this.backgroundEffects.edgeFeather ?? 0.12;
+        const feather = Math.max(0.001, Math.min(0.5, featherRaw));
+        const minAlpha = 0;
+        const thresholdShift = (threshold - 0.6) * 1.4; // tighten (>0) or loosen (<0) mask
+        const featherGamma = Math.max(0.1, 1.0 + (0.25 - feather) * 3.5);
 
         if (this.debugLogging) {
             const now = performance.now();
@@ -3497,25 +3561,24 @@ class StreamRecorderOptimized {
                     smoothing: smoothing.toFixed(2),
                     threshold: threshold.toFixed(2),
                     feather: feather.toFixed(2),
-                    blurRadius
+                    blurRadius,
+                    thresholdShift: thresholdShift.toFixed(2),
+                    featherGamma: featherGamma.toFixed(2)
                 });
                 this.backgroundEffects._lastMaskLog = now;
             }
         }
 
-        for (let i = 0, p = 0; p < pixelCount && i < maskData.data.length; i += 4, p++) {
-            let value = maskData.data[i] / 255;
+        const normalizeDenominator = Math.max(0.0001, 1 - thresholdShift);
 
-            if (edgeHigh > edgeLow) {
-                if (value <= edgeLow) {
-                    value = 0;
-                } else if (value >= edgeHigh) {
-                    value = 1;
-                } else {
-                    const t = (value - edgeLow) / edgeRange;
-                    value = t * t * (3 - 2 * t);
-                }
-            }
+        for (let i = 0, p = 0; p < pixelCount && i < maskData.data.length; i += 4, p++) {
+            const maskSample = maskData.data[i] / 255; // red channel normalised
+
+            let normalized = (maskSample - thresholdShift) / normalizeDenominator;
+            normalized = Math.min(1, Math.max(0, normalized));
+
+            // Feather controls transitions via gamma curve (lower feather = sharper edges)
+            let value = Math.pow(normalized, featherGamma);
 
             if (hasPrevMask) {
                 value = prevMask[p] * smoothing + value * (1 - smoothing);
@@ -3529,6 +3592,7 @@ class StreamRecorderOptimized {
 
         this.backgroundEffects.maskInitialized = true;
         this.backgroundEffects.maskDimensions = { width, height };
+        this.backgroundEffects._maskImmediateFrame = false;
 
         return prevMask;
     }
@@ -3719,6 +3783,9 @@ class StreamRecorderOptimized {
         // Remove old overlays
         const oldOverlays = container.querySelectorAll('.effect-overlay, .blur-overlay, .bg-image-overlay, .intelligent-effect-canvas');
         oldOverlays.forEach(o => o.remove());
+
+        // Ensure sliders/listeners stay initialised regardless of mode
+        this.setupEffectControls();
 
         // For pure removal we intentionally leave the canvas untouched
         if (mode === 'remove') {
@@ -4068,10 +4135,16 @@ class StreamRecorderOptimized {
                         return;
                     }
                     this.backgroundEffects[propertyKey] = raw;
-                    this.backgroundEffects.previousMaskData = null;
-                    this.backgroundEffects.maskInitialized = false;
+                    input.value = `${raw}`;
+                    this.resetMaskCache(`slider:${propertyKey}`);
                     updateValueLabel(raw);
-                    console.log(`🎚️ Updated ${propertyKey} to`, raw);
+                    this.logDebug(`🎚️ Updated ${propertyKey} to`, raw);
+                    if (this.backgroundEffects.enabled && this.segmentationReady && !this.backgroundEffects.segmentationActive) {
+                        this.startBackgroundProcessing();
+                    }
+                    if (this.backgroundEffects.enabled && this.backgroundEffects.lastSegmentationResults) {
+                        this.onSegmentationResults(this.backgroundEffects.lastSegmentationResults);
+                    }
                     this.updateSegmentationStatus(`Feinjustierung: ${propertyKey} = ${formatter(raw)}`);
                 });
             }
@@ -4281,8 +4354,8 @@ class StreamRecorderOptimized {
 
         // Allow next activation to capture a fresh reference
         this.backgroundEffects.originalCameraStream = this.streams.get('camera');
-        this.backgroundEffects.previousMaskData = null;
-        this.backgroundEffects.maskInitialized = false;
+        this.resetMaskCache('disable');
+        this.backgroundEffects.lastSegmentationResults = null;
 
         console.log('✅ Background effects disabled');
     }
@@ -7269,13 +7342,18 @@ class StreamRecorderOptimized {
     freezeCurrentLayoutAndSwitchToFree() {
         console.log('🎨 Auto-Wechsel zu freiem Layout');
 
-        // Initialize freeLayoutStreams with default positions for all active streams
-        const activeStreamKeys = Array.from(this.streams.keys());
+        const previousLayout = new Map(this.freeLayoutStreams);
+        const activeStreamEntries = Array.from(this.streams.entries())
+            .filter(([key]) => this.activeStreams.has(key));
+        const activeStreamKeys = activeStreamEntries.map(([key]) => key);
+
+        this.freeLayoutStreams.clear();
+        this.streamOrder = [];
 
         // Calculate positions based on current layout
         switch (this.currentLayout) {
             case 'pip':
-                this.freezePipLayout(activeStreamKeys);
+                this.freezePipLayout(activeStreamEntries, previousLayout);
                 break;
             case 'side':
                 this.freezeSideBySideLayout(activeStreamKeys);
@@ -7294,6 +7372,10 @@ class StreamRecorderOptimized {
                 this.freezeDefaultLayout(activeStreamKeys);
         }
 
+        if (this.streamOrder.length === 0) {
+            this.streamOrder = [...activeStreamKeys];
+        }
+
         // Switch to free layout
         this.currentLayout = 'free';
         this.applyLayout('free');
@@ -7302,40 +7384,99 @@ class StreamRecorderOptimized {
         this.showNotification('Freies Layout aktiviert', 'Sie können jetzt Streams frei positionieren und skalieren', 'info');
     }
 
-    freezePipLayout(streamKeys) {
-        // PIP: One large background, one small overlay
-        if (streamKeys.length >= 2) {
-            // First stream: fullscreen background
-            this.freeLayoutStreams.set(streamKeys[0], {
+    freezePipLayout(activeStreamEntries, previousLayout = new Map()) {
+        if (!activeStreamEntries || activeStreamEntries.length === 0) {
+            return;
+        }
+
+        const usableEntries = activeStreamEntries
+            .filter(([key, stream]) => stream && this.activeStreams.has(key));
+
+        if (usableEntries.length === 0) {
+            return;
+        }
+
+        const usedKeys = new Set();
+
+        const findEntry = (predicate) => usableEntries.find(predicate);
+
+        let backgroundEntry = findEntry(([key]) => key.startsWith('screen')) || usableEntries[0];
+
+        let overlayEntry = null;
+        if (backgroundEntry && backgroundEntry[0] !== 'camera') {
+            overlayEntry = findEntry(([key]) => key === 'camera');
+        }
+        if (!overlayEntry) {
+            overlayEntry = findEntry(([key]) => key !== backgroundEntry[0]);
+        }
+
+        if (backgroundEntry) {
+            const [bgKey] = backgroundEntry;
+            this.freeLayoutStreams.set(bgKey, {
                 x: 0,
                 y: 0,
                 width: this.canvas.width,
                 height: this.canvas.height
             });
-
-            // Second stream: small overlay (20% size, bottom-right)
-            const pipSize = Math.floor(this.canvas.width * 0.2);
-            const padding = 20;
-            this.freeLayoutStreams.set(streamKeys[1], {
-                x: this.canvas.width - pipSize - padding,
-                y: this.canvas.height - pipSize - padding,
-                width: pipSize,
-                height: pipSize
-            });
-
-            // Additional streams: cascade them
-            for (let i = 2; i < streamKeys.length; i++) {
-                const offset = (i - 1) * 30;
-                this.freeLayoutStreams.set(streamKeys[i], {
-                    x: 50 + offset,
-                    y: 50 + offset,
-                    width: 300,
-                    height: 200
-                });
-            }
-        } else {
-            this.freezeDefaultLayout(streamKeys);
+            usedKeys.add(bgKey);
         }
+
+        if (overlayEntry && (!backgroundEntry || overlayEntry[0] !== backgroundEntry[0])) {
+            const [overlayKey] = overlayEntry;
+            const sizeRatio = Math.max(0.1, Math.min(1, this.pipSettings.size / 100));
+            const pipWidth = Math.max(80, this.canvas.width * sizeRatio);
+            const pipHeight = Math.max(80, this.canvas.height * sizeRatio);
+
+            let x = this.pipSettings.x;
+            let y = this.pipSettings.y;
+
+            if (x === 0 && y === 0) {
+                x = this.canvas.width - pipWidth - this.pipSettings.padding;
+                y = this.pipSettings.padding;
+            }
+
+            x = Math.max(0, Math.min(this.canvas.width - pipWidth, x));
+            y = Math.max(0, Math.min(this.canvas.height - pipHeight, y));
+
+            this.freeLayoutStreams.set(overlayKey, {
+                x,
+                y,
+                width: pipWidth,
+                height: pipHeight
+            });
+            usedKeys.add(overlayKey);
+        }
+
+        let cascadeIndex = 0;
+        for (const [key] of usableEntries) {
+            if (usedKeys.has(key)) continue;
+
+            const previous = previousLayout.get(key);
+            if (previous) {
+                this.freeLayoutStreams.set(key, { ...previous });
+            } else {
+                const offset = cascadeIndex * 30;
+                const width = Math.min(this.canvas.width * 0.4, 320);
+                const height = Math.min(this.canvas.height * 0.4, 180);
+                this.freeLayoutStreams.set(key, {
+                    x: this.pipSettings.padding + offset,
+                    y: this.pipSettings.padding + offset,
+                    width,
+                    height
+                });
+                cascadeIndex++;
+            }
+        }
+
+        const order = [];
+        if (backgroundEntry) order.push(backgroundEntry[0]);
+        if (overlayEntry && overlayEntry[0] !== backgroundEntry?.[0]) order.push(overlayEntry[0]);
+        for (const [key] of usableEntries) {
+            if (!order.includes(key)) {
+                order.push(key);
+            }
+        }
+        this.streamOrder = order;
     }
 
     freezeSideBySideLayout(streamKeys) {
@@ -7468,7 +7609,15 @@ class StreamRecorderOptimized {
     }
 
     hitTestFreeLayout(x, y) {
-        for (const [streamId, data] of this.freeLayoutStreams.entries()) {
+        const keys = this.streamOrder.length > 0
+            ? this.streamOrder.filter(key => this.freeLayoutStreams.has(key))
+            : Array.from(this.freeLayoutStreams.keys());
+
+        for (let i = keys.length - 1; i >= 0; i--) {
+            const streamId = keys[i];
+            const data = this.freeLayoutStreams.get(streamId);
+            if (!data) continue;
+
             // Check resize handle (bottom-right corner)
             const handleSize = 15;
             if (x >= data.x + data.width - handleSize && x <= data.x + data.width &&
