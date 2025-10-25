@@ -1180,6 +1180,11 @@ class StreamRecorderOptimized {
         // Logging control (set true for verbose console output)
         this.debugLogging = false;
 
+        // Recording audio mixing state
+        this.recordingAudioContext = null;
+        this.recordingAudioDestination = null;
+        this.recordingAudioSources = [];
+
         this.init();
     }
 
@@ -5400,32 +5405,117 @@ class StreamRecorderOptimized {
             const audioEnabled = document.getElementById('audioEnabled')?.checked;
             let finalStream = canvasStream;
             
-            if (audioEnabled) {
-                // Create combined stream with audio tracks from active streams
-                const combinedStream = new MediaStream();
-                
-                // Add video tracks from canvas
-                canvasStream.getVideoTracks().forEach(track => {
-                    combinedStream.addTrack(track);
-                });
-                
-                // Add audio tracks from active streams
-                for (const [streamId, stream] of this.streams) {
-                    if (stream && stream.getAudioTracks().length > 0) {
-                        stream.getAudioTracks().forEach(track => {
-                            combinedStream.addTrack(track);
-                            console.log(`🎤 Audio track added from ${streamId}`);
-                        });
+        if (audioEnabled) {
+            const combinedStream = new MediaStream();
+            canvasStream.getVideoTracks().forEach(track => {
+                combinedStream.addTrack(track);
+            });
+
+            let audioAttached = false;
+            const AudioCtor = window.AudioContext || window.webkitAudioContext;
+
+            if (AudioCtor) {
+                let audioContext = null;
+                let destination = null;
+                const audioSources = [];
+                const attachSourceFromStream = (stream, sourceId = 'source') => {
+                    if (!stream) return false;
+                    const audioTracks = stream.getAudioTracks().filter(track => track && track.readyState === 'live');
+                    if (audioTracks.length === 0) {
+                        return false;
                     }
+                    if (!audioContext) {
+                        audioContext = new AudioCtor();
+                        destination = audioContext.createMediaStreamDestination();
+                    }
+                    audioTracks.forEach(track => {
+                        const trackStream = new MediaStream([track]);
+                        const sourceNode = audioContext.createMediaStreamSource(trackStream);
+                        sourceNode.connect(destination);
+                        audioSources.push({ node: sourceNode, stream: trackStream });
+                        console.log(`🎤 Audio source connected from ${sourceId}`);
+                    });
+                    return true;
+                };
+
+                for (const [streamId, stream] of this.streams) {
+                    attachSourceFromStream(stream, streamId);
                 }
-                
-                finalStream = combinedStream;
-                console.log(`🎤 Audio-enabled recording: ${finalStream.getAudioTracks().length} audio tracks`);
-            } else {
-                console.log(`🔇 Audio-disabled recording: video only`);
+
+                if (this.backgroundEffects?.originalCameraStream) {
+                    attachSourceFromStream(this.backgroundEffects.originalCameraStream, 'originalCamera');
+                }
+
+                if (this.backgroundEffects?.segmentationOriginStream) {
+                    attachSourceFromStream(this.backgroundEffects.segmentationOriginStream, 'segmentationOrigin');
+                }
+
+                if (destination && destination.stream.getAudioTracks().length > 0) {
+                    destination.stream.getAudioTracks().forEach(track => {
+                        combinedStream.addTrack(track);
+                    });
+                    finalStream = combinedStream;
+                    this.recordingAudioContext = audioContext;
+                    this.recordingAudioDestination = destination;
+                    this.recordingAudioSources = audioSources;
+                    audioAttached = true;
+                    console.log(`🎤 Audio-enabled recording (mixed): ${finalStream.getAudioTracks().length} audio tracks`);
+                } else {
+                    audioSources.forEach(({ node }) => {
+                        try { node.disconnect(); } catch (err) { console.warn('Audio source disconnect failed', err); }
+                    });
+                    if (audioContext) {
+                        audioContext.close().catch(() => {});
+                    }
+                    this.recordingAudioContext = null;
+                    this.recordingAudioDestination = null;
+                    this.recordingAudioSources = [];
+                }
             }
-            
-            // 🚀 IMPROVED MediaRecorder configuration
+
+            if (!audioAttached) {
+                this.recordingAudioContext = null;
+                this.recordingAudioDestination = null;
+                this.recordingAudioSources = [];
+
+                const addedAudioTrackIds = new Set();
+                const addDirectAudioTracks = (stream, sourceId = 'source') => {
+                    if (!stream) return;
+                    stream.getAudioTracks().forEach(track => {
+                        if (!track || track.readyState !== 'live' || addedAudioTrackIds.has(track.id)) {
+                            return;
+                        }
+                        addedAudioTrackIds.add(track.id);
+                        combinedStream.addTrack(track);
+                        console.log(`🎤 Direct audio track added from ${sourceId}`);
+                    });
+                };
+
+                for (const [streamId, stream] of this.streams) {
+                    addDirectAudioTracks(stream, streamId);
+                }
+
+                if (this.backgroundEffects?.originalCameraStream) {
+                    addDirectAudioTracks(this.backgroundEffects.originalCameraStream, 'originalCamera');
+                }
+
+                if (this.backgroundEffects?.segmentationOriginStream) {
+                    addDirectAudioTracks(this.backgroundEffects.segmentationOriginStream, 'segmentationOrigin');
+                }
+
+                if (combinedStream.getAudioTracks().length > 0) {
+                    finalStream = combinedStream;
+                    audioAttached = true;
+                    console.log(`🎤 Audio-enabled recording (direct): ${finalStream.getAudioTracks().length} audio tracks`);
+                } else {
+                    console.warn('⚠️ No active audio tracks found for recording');
+                }
+            }
+        } else {
+            console.log(`🔇 Audio-disabled recording: video only`);
+        }
+
+        // 🚀 IMPROVED MediaRecorder configuration
             const options = this.getOptimalRecorderOptions();
             this.mediaRecorder = new MediaRecorder(finalStream, options);
             
@@ -5446,6 +5536,20 @@ class StreamRecorderOptimized {
                 const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
                 const url = URL.createObjectURL(blob);
                 this.showPreviewModal(url);
+                if (this.recordingAudioSources?.length) {
+                    this.recordingAudioSources.forEach(({ node }) => {
+                        try { node.disconnect(); } catch (error) { console.warn('Audio source disconnect error:', error); }
+                    });
+                    this.recordingAudioSources = [];
+                }
+                if (this.recordingAudioDestination) {
+                    this.recordingAudioDestination.stream.getAudioTracks().forEach(track => track.stop());
+                    this.recordingAudioDestination = null;
+                }
+                if (this.recordingAudioContext) {
+                    this.recordingAudioContext.close().catch(() => {});
+                    this.recordingAudioContext = null;
+                }
                 this.resetRecordingUI();
             };
 
