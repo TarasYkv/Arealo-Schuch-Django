@@ -528,6 +528,28 @@
                                     <i class="fas fa-exchange-alt me-1"></i>Kamera spiegeln
                                 </label>
                             </div>
+
+                            <!-- Green Screen / Background Removal -->
+                            <div class="mt-3 pt-3 border-top">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="greenScreenToggle">
+                                    <label class="form-check-label" for="greenScreenToggle" style="font-size: 0.85rem;">
+                                        <i class="fas fa-magic me-1"></i>
+                                        <strong>Hintergrund entfernen</strong>
+                                    </label>
+                                </div>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                    <i class="fas fa-info-circle me-1"></i>Entfernt den Hintergrund (Green Screen Effekt)
+                                </small>
+                                <!-- Status Badge -->
+                                <div id="greenScreenStatus" class="mt-2" style="display: none;">
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i>
+                                        Green Screen aktiv
+                                        <span id="greenScreenFPS" class="ms-1"></span>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1374,7 +1396,12 @@ class StreamRecorderOptimized {
         // Camera controls
         document.getElementById('startCameraBtn')?.addEventListener('click', () => this.startCamera());
         document.getElementById('stopCameraBtn')?.addEventListener('click', () => this.stopCamera());
-        
+
+        // Green Screen Toggle
+        document.getElementById('greenScreenToggle')?.addEventListener('change', (e) => {
+            this.toggleGreenScreen(e.target.checked);
+        });
+
         // Screen controls
         document.getElementById('startScreenBtn')?.addEventListener('click', () => this.startScreen());
         document.getElementById('addScreenBtn')?.addEventListener('click', () => this.addScreen());
@@ -2978,6 +3005,12 @@ class StreamRecorderOptimized {
                     if (fpsEl) {
                         fpsEl.textContent = this.segmentationFPS;
                     }
+
+                    // Update Green Screen FPS display
+                    const greenScreenFpsEl = document.getElementById('greenScreenFPS');
+                    if (greenScreenFpsEl) {
+                        greenScreenFpsEl.textContent = `(${this.segmentationFPS} FPS)`;
+                    }
                 }
                 
                 // Continue processing
@@ -3786,7 +3819,60 @@ class StreamRecorderOptimized {
                 break;
         }
     }
-    
+
+    async toggleGreenScreen(enabled) {
+        console.log(`🎬 Green Screen ${enabled ? 'aktivieren' : 'deaktivieren'}...`);
+
+        const statusBadge = document.getElementById('greenScreenStatus');
+        const toggle = document.getElementById('greenScreenToggle');
+
+        if (enabled) {
+            // Check if camera is active
+            if (!this.streams.has('camera')) {
+                console.warn('⚠️ Keine Kamera aktiv - bitte zuerst Kamera starten');
+                alert('Bitte starten Sie zuerst Ihre Kamera, bevor Sie den Green Screen Effekt aktivieren.');
+                if (toggle) toggle.checked = false;
+                return;
+            }
+
+            // Save original camera stream if not already saved
+            if (!this.backgroundEffects.originalCameraStream) {
+                this.backgroundEffects.originalCameraStream = this.streams.get('camera');
+                console.log('💾 Original camera stream saved');
+            }
+
+            // Enable background effects
+            this.backgroundEffects.enabled = true;
+            this.backgroundEffects.mode = 'remove';
+
+            // Create segmentation canvas if it doesn't exist
+            if (!this.backgroundEffects.segmentationCanvas) {
+                this.createSegmentationCanvas();
+            }
+
+            // Initialize MediaPipe segmentation
+            await this.initializeSegmentation();
+
+            // Show status badge
+            if (statusBadge) {
+                statusBadge.style.display = 'block';
+            }
+
+            console.log('✅ Green Screen aktiviert');
+
+        } else {
+            // Disable background effects
+            this.disableBackgroundEffects();
+
+            // Hide status badge
+            if (statusBadge) {
+                statusBadge.style.display = 'none';
+            }
+
+            console.log('✅ Green Screen deaktiviert');
+        }
+    }
+
     disableBackgroundEffects() {
         console.log('🔄 Disabling background effects...');
         
