@@ -549,6 +549,41 @@
                                         <span id="greenScreenFPS" class="ms-1"></span>
                                     </span>
                                 </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#backgroundAdvancedSettings" aria-expanded="false" aria-controls="backgroundAdvancedSettings">
+                                        <i class="fas fa-sliders-h me-1"></i>Feinjustierung
+                                    </button>
+                                </div>
+                                <div class="collapse mt-2" id="backgroundAdvancedSettings">
+                                    <div class="bg-light border rounded p-2">
+                                        <label for="maskSmoothing" class="form-label" style="font-size: 0.75rem;">
+                                            Masken-Glättung
+                                            <span class="ms-1 text-muted" id="maskSmoothingValue">0.65</span>
+                                        </label>
+                                        <input type="range" class="form-range" id="maskSmoothing" min="0" max="0.95" step="0.05">
+
+                                        <label for="maskConfidence" class="form-label mt-2" style="font-size: 0.75rem;">
+                                            Erkennungsgrenze
+                                            <span class="ms-1 text-muted" id="maskConfidenceValue">0.60</span>
+                                        </label>
+                                        <input type="range" class="form-range" id="maskConfidence" min="0.30" max="0.95" step="0.01">
+
+                                        <label for="maskFeather" class="form-label mt-2" style="font-size: 0.75rem;">
+                                            Randweichheit
+                                            <span class="ms-1 text-muted" id="maskFeatherValue">0.12</span>
+                                        </label>
+                                        <input type="range" class="form-range" id="maskFeather" min="0" max="0.30" step="0.01">
+
+                                        <label for="maskBlurRadius" class="form-label mt-2" style="font-size: 0.75rem;">
+                                            Masken-Blur
+                                            <span class="ms-1 text-muted" id="maskBlurRadiusValue">4</span>
+                                        </label>
+                                        <input type="range" class="form-range" id="maskBlurRadius" min="0" max="10" step="1">
+                                        <small class="text-muted d-block mt-2" style="font-size: 0.7rem;">
+                                            Änderungen wirken ab dem nächsten Frame. Aktuelle Werte werden in der Konsole protokolliert.
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1087,7 +1122,13 @@ class StreamRecorderOptimized {
             backgroundImage: null,
             segmentationCanvas: null,
             segmentationCtx: null,
-            processedStream: null
+            processedStream: null,
+            previousMaskData: null,
+            maskInitialized: false,
+            maskSmoothing: 0.65,
+            confidenceThreshold: 0.6,
+            edgeFeather: 0.12,
+            maskBlurRadius: 4
         };
         
         // MediaPipe Selfie Segmentation
@@ -1127,15 +1168,28 @@ class StreamRecorderOptimized {
         this.enableFrameSkipping = true;
         this.enableErrorRecovery = true;
         this.renderTimeBuffer = [];
-        
+
         // 🚀 NEW: Fullscreen & UI Features
         this.showGrid = false;
         this.canvasZoom = 1.0;
         this.canvasOffsetX = 0;
         this.canvasOffsetY = 0;
         this.originalCanvasSize = null;
-        
+
+        // Logging control (set true for verbose console output)
+        this.debugLogging = false;
+
         this.init();
+    }
+
+    setDebugLogging(enabled) {
+        this.debugLogging = Boolean(enabled);
+    }
+
+    logDebug(...args) {
+        if (this.debugLogging) {
+            console.log(...args);
+        }
     }
 
     init() {
@@ -2961,6 +3015,8 @@ class StreamRecorderOptimized {
         }
         
         console.log('🎬 Starting background processing...');
+        this.backgroundEffects.previousMaskData = null;
+        this.backgroundEffects.maskInitialized = false;
         
         // Create video element for processing
         let processingVideo = document.getElementById('processing-video');
@@ -2975,8 +3031,6 @@ class StreamRecorderOptimized {
             processingVideo.style.top = '-9999px';
             document.body.appendChild(processingVideo);
         }
-        
-        processingVideo.srcObject = cameraStream;
         
         const processFrame = async () => {
             if (!this.backgroundEffects.enabled || !this.streams.has('camera') || !this.segmentationReady) {
@@ -3018,28 +3072,52 @@ class StreamRecorderOptimized {
             }
         };
         
-        processingVideo.onloadedmetadata = () => {
+        let processingStarted = false;
+
+        const startProcessing = () => {
             console.log(`📹 Processing video ready: ${processingVideo.videoWidth}x${processingVideo.videoHeight}`);
-            
-            // Set canvas dimensions to match video
+
             if (this.backgroundEffects.segmentationCanvas) {
                 this.backgroundEffects.segmentationCanvas.width = processingVideo.videoWidth;
                 this.backgroundEffects.segmentationCanvas.height = processingVideo.videoHeight;
                 console.log(`🖼️ Segmentation canvas set to: ${this.backgroundEffects.segmentationCanvas.width}x${this.backgroundEffects.segmentationCanvas.height}`);
             }
-            
-            // Start processing
+
+            if (processingStarted) {
+                return;
+            }
+
+            processingStarted = true;
             processFrame();
         };
-        
+
+        processingVideo.onloadedmetadata = () => {
+            startProcessing();
+        };
+
         processingVideo.onerror = (error) => {
             console.error('❌ Processing video error:', error);
             this.updateSegmentationStatus('Video-Fehler');
         };
+
+        processingVideo.srcObject = cameraStream;
+
+        // Ensure autoplay reliably starts so MediaPipe receives frames
+        const playPromise = processingVideo.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(err => {
+                console.warn('⚠️ Processing video autoplay blocked:', err);
+            });
+        }
+
+        // If metadata is already available (e.g., when reusing the element), trigger processing immediately
+        if (processingVideo.readyState >= 2) {
+            startProcessing();
+        }
     }
     
     drawDirectVideoToCanvas() {
-        console.log('🎯 Drawing direct video to canvas (fallback mode)');
+        this.logDebug('🎯 Drawing direct video to canvas (fallback mode)');
         
         if (!this.backgroundEffects.segmentationCanvas || !this.backgroundEffects.segmentationCtx) {
             console.error('❌ No canvas available for direct video drawing');
@@ -3068,7 +3146,7 @@ class StreamRecorderOptimized {
                 ctx.textAlign = 'left';
                 ctx.fillText('Kamera (Fallback-Modus)', 15, 30);
                 
-                console.log('✅ Direct video drawn to canvas');
+                this.logDebug('✅ Direct video drawn to canvas');
                 
             } catch (error) {
                 console.error('❌ Failed to draw direct video:', error);
@@ -3090,21 +3168,21 @@ class StreamRecorderOptimized {
             ctx.textAlign = 'center';
             ctx.fillText('Kamera wird initialisiert...', canvas.width/2, canvas.height/2);
             
-            console.log('📹 Video not ready, drew placeholder');
+            this.logDebug('📹 Video not ready, drew placeholder');
         }
     }
     
     onSegmentationResults(results) {
-        console.log('🔍 MediaPipe Results:', {
+        this.logDebug('🔍 MediaPipe Results:', {
             hasResults: !!results,
             hasImage: !!(results && results.image),
             hasSegmentationMask: !!(results && results.segmentationMask),
             imageType: results && results.image ? results.image.constructor.name : 'none',
             imageSize: results && results.image ? `${results.image.width}x${results.image.height}` : 'none'
         });
-        
+
         if (!results || !results.image) {
-            console.warn('❌ Invalid segmentation results received - drawing test pattern');
+            this.logDebug('❌ Invalid segmentation results received - drawing test pattern');
             
             // Draw test pattern directly to canvas
             const canvas = this.backgroundEffects.segmentationCanvas;
@@ -3120,7 +3198,7 @@ class StreamRecorderOptimized {
                 ctx.fillText('NO RESULTS', canvas.width/2, canvas.height/2);
                 
                 this.updateDebugCanvas(canvas);
-                console.log('🔍 Drew "no results" test pattern');
+                this.logDebug('🔍 Drew "no results" test pattern');
             }
             
             return;
@@ -3143,7 +3221,7 @@ class StreamRecorderOptimized {
             // Always start fresh
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            console.log(`🎬 Processing frame: ${canvas.width}x${canvas.height}, mode: ${this.backgroundEffects.mode}`);
+            this.logDebug(`🎬 Processing frame: ${canvas.width}x${canvas.height}, mode: ${this.backgroundEffects.mode}`);
             
             // Draw based on effect mode to the internal canvas
             switch (this.backgroundEffects.mode) {
@@ -3152,7 +3230,7 @@ class StreamRecorderOptimized {
                         this.applyBackgroundRemoval(ctx, results);
                     } else {
                         // Fallback: just draw the original image
-                        console.log('⚠️ No segmentation mask, drawing original image');
+                        this.logDebug('⚠️ No segmentation mask, drawing original image');
                         ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
                     }
                     break;
@@ -3161,7 +3239,7 @@ class StreamRecorderOptimized {
                         this.applyBackgroundBlur(ctx, results);
                     } else {
                         // Fallback: just draw the original image
-                        console.log('⚠️ No segmentation mask, drawing original image');
+                        this.logDebug('⚠️ No segmentation mask, drawing original image');
                         ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
                     }
                     break;
@@ -3170,7 +3248,7 @@ class StreamRecorderOptimized {
                         this.applyBackgroundImage(ctx, results);
                     } else {
                         // Fallback: just draw the original image
-                        console.log('⚠️ No segmentation mask, drawing original image');
+                        this.logDebug('⚠️ No segmentation mask, drawing original image');
                         ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
                     }
                     break;
@@ -3180,7 +3258,7 @@ class StreamRecorderOptimized {
                     ctx.fillRect(0, 0, canvas.width/2, canvas.height);
                     ctx.fillStyle = '#00ff00';
                     ctx.fillRect(canvas.width/2, 0, canvas.width/2, canvas.height);
-                    console.log('✅ Drew test pattern');
+                    this.logDebug('✅ Drew test pattern');
                     break;
                 default:
                     // Just draw the original image if available
@@ -3222,150 +3300,270 @@ class StreamRecorderOptimized {
     
     applyBackgroundRemoval(ctx, results) {
         const canvas = ctx.canvas;
-        
-        // Clear canvas with white background (or transparent)
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (!results.segmentationMask) {
-            console.log('⚠️ No segmentation mask available, drawing original');
-            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-            return;
-        }
-        
+
         try {
-            // Create a temporary canvas for the mask
+            const weights = this.computeMaskWeights(results);
+            if (!weights) {
+                this.logDebug('⚠️ No segmentation mask available, drawing original');
+                if (results.image) {
+                    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                }
+                return;
+            }
+
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = canvas.width;
             tempCanvas.height = canvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            // Draw the segmentation mask
-            tempCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-            
-            // Get mask data
-            const maskData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
-            
-            // Draw the original image
-            tempCtx.clearRect(0, 0, canvas.width, canvas.height);
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
             tempCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-            
-            // Get image data
             const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
-            
-            // Apply mask to remove background
-            for (let i = 0; i < maskData.data.length; i += 4) {
-                // Use the red channel of the mask as the alpha
-                const maskValue = maskData.data[i] / 255.0;
-                
-                // Apply mask to alpha channel
-                imageData.data[i + 3] = Math.floor(maskValue * 255);
+
+            const pixelCount = Math.min(weights.length, imageData.data.length / 4);
+            for (let p = 0, i = 0; p < pixelCount; p++, i += 4) {
+                const alpha = Math.round(Math.min(1, Math.max(0, weights[p])) * 255);
+                imageData.data[i + 3] = alpha;
             }
-            
-            // Put the processed image back
+
             ctx.putImageData(imageData, 0, 0);
-            
-            console.log('✅ Applied background removal with segmentation mask');
+
+            this.logDebug('✅ Applied background removal with segmentation mask');
         } catch (error) {
             console.error('❌ Error applying background removal:', error);
-            // Fallback to original image
-            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-            ctx.font = '20px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('MediaPipe Test', canvas.width/2, canvas.height/2);
-            console.log('✅ Drew test pattern (no image available)');
+            if (results.image) {
+                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            }
         }
-        
-        // DEBUG: Copy to debug canvas
+
         this.updateDebugCanvas(canvas);
     }
-    
+
     applyBackgroundBlur(ctx, results) {
         const canvas = ctx.canvas;
-        
-        // Clear canvas
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        if (!results.segmentationMask) {
-            console.log('⚠️ No segmentation mask available, drawing original');
-            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+        const weights = this.computeMaskWeights(results);
+        if (!weights) {
+            this.logDebug('⚠️ No segmentation mask available, drawing original');
+            if (results.image) {
+                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            }
             return;
         }
-        
+
         try {
-            // Get blur strength from settings
             const blurStrength = this.backgroundEffects.blurStrength || 10;
-            
-            // Step 1: Draw blurred background
+            const dimensions = this.backgroundEffects.maskDimensions;
+            const personMaskCanvas = this.createMaskCanvasFromWeights(weights, dimensions);
+
             ctx.save();
             ctx.filter = `blur(${blurStrength}px)`;
             ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
             ctx.restore();
-            
-            // Step 2: Draw foreground (person) without blur using mask
+
+            if (personMaskCanvas) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.drawImage(personMaskCanvas, 0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
+
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = canvas.width;
             tempCanvas.height = canvas.height;
             const tempCtx = tempCanvas.getContext('2d');
-            
-            // Draw original image to temp canvas
             tempCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-            
-            // Apply mask as clipping
             tempCtx.globalCompositeOperation = 'destination-in';
-            tempCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-            
-            // Draw masked foreground over blurred background
+
+            if (personMaskCanvas) {
+                tempCtx.drawImage(personMaskCanvas, 0, 0, canvas.width, canvas.height);
+            } else if (results.segmentationMask) {
+                tempCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
             ctx.drawImage(tempCanvas, 0, 0);
-            
-            console.log(`✅ Applied background blur (strength: ${blurStrength}px)`);
+
+            this.logDebug(`✅ Applied background blur (strength: ${blurStrength}px)`);
         } catch (error) {
             console.error('❌ Error applying background blur:', error);
-            // Fallback to original image
             ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
         }
-        
-        // DEBUG: Copy to debug canvas
+
         this.updateDebugCanvas(canvas);
     }
-    
+
     applyBackgroundImage(ctx, results) {
         const canvas = ctx.canvas;
-        
-        // Clear canvas
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // SIMPLE TEST: Just draw green background and original image
-        if (results.image) {
-            // Draw green background
-            ctx.fillStyle = '#00FF00';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw original image with some transparency
-            ctx.globalAlpha = 0.8;
-            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-            ctx.globalAlpha = 1.0;
-            
-            console.log('✅ Drew green background with image for test');
+
+        const weights = this.computeMaskWeights(results);
+        const dimensions = this.backgroundEffects.maskDimensions;
+        const personMaskCanvas = this.createMaskCanvasFromWeights(weights, dimensions);
+
+        if (this.backgroundEffects.backgroundImage) {
+            ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, canvas.width, canvas.height);
         } else {
-            // Draw a test pattern
             ctx.fillStyle = '#00FF00';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        if (results.image) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            tempCtx.globalCompositeOperation = 'destination-in';
+
+            if (personMaskCanvas) {
+                tempCtx.drawImage(personMaskCanvas, 0, 0, canvas.width, canvas.height);
+            } else if (results.segmentationMask) {
+                tempCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(tempCanvas, 0, 0);
+        } else {
             ctx.fillStyle = '#000000';
             ctx.font = '20px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('Image Test', canvas.width/2, canvas.height/2);
-            console.log('✅ Drew image test pattern');
+            this.logDebug('✅ Drew image test pattern');
         }
-        
-        // DEBUG: Copy to debug canvas
+
         this.updateDebugCanvas(canvas);
     }
-    
+
+    computeMaskWeights(results) {
+        if (!results || !results.segmentationMask) {
+            return null;
+        }
+
+        const canvas = this.backgroundEffects.segmentationCanvas;
+        const width = canvas && canvas.width ? canvas.width : (results.segmentationMask.width || (results.image ? results.image.width : 0));
+        const height = canvas && canvas.height ? canvas.height : (results.segmentationMask.height || (results.image ? results.image.height : 0));
+
+        if (!width || !height) {
+            return null;
+        }
+
+        if (!this.backgroundEffects._maskProcessingCanvas) {
+            this.backgroundEffects._maskProcessingCanvas = document.createElement('canvas');
+            this.backgroundEffects._maskProcessingCtx = this.backgroundEffects._maskProcessingCanvas.getContext('2d', { willReadFrequently: true });
+        }
+
+        const procCanvas = this.backgroundEffects._maskProcessingCanvas;
+        const procCtx = this.backgroundEffects._maskProcessingCtx;
+        procCanvas.width = width;
+        procCanvas.height = height;
+        procCtx.clearRect(0, 0, width, height);
+
+        const blurRadius = Math.max(0, this.backgroundEffects.maskBlurRadius || 0);
+        if (blurRadius > 0) {
+            procCtx.filter = `blur(${blurRadius}px)`;
+        }
+        procCtx.drawImage(results.segmentationMask, 0, 0, width, height);
+        if (blurRadius > 0) {
+            procCtx.filter = 'none';
+        }
+
+        const maskData = procCtx.getImageData(0, 0, width, height);
+        const pixelCount = width * height;
+
+        if (!this.backgroundEffects.previousMaskData || this.backgroundEffects.previousMaskData.length !== pixelCount) {
+            this.backgroundEffects.previousMaskData = new Float32Array(pixelCount);
+            this.backgroundEffects.maskInitialized = false;
+        }
+
+        const prevMask = this.backgroundEffects.previousMaskData;
+        const hasPrevMask = this.backgroundEffects.maskInitialized;
+        const smoothingRaw = this.backgroundEffects.maskSmoothing ?? 0.65;
+        const smoothing = Math.max(0, Math.min(0.99, smoothingRaw));
+        const threshold = Math.max(0, Math.min(1, this.backgroundEffects.confidenceThreshold ?? 0.6));
+        const feather = Math.max(0, Math.min(0.5, this.backgroundEffects.edgeFeather ?? 0.12));
+        const edgeLow = Math.max(0, threshold - feather);
+        const edgeHigh = Math.min(1, threshold + feather);
+        const edgeRange = Math.max(0.0001, edgeHigh - edgeLow);
+        const minAlpha = 0.02;
+
+        if (this.debugLogging) {
+            const now = performance.now();
+            if (!this.backgroundEffects._lastMaskLog || now - this.backgroundEffects._lastMaskLog > 5000) {
+                console.log('🧮 Mask params', {
+                    smoothing: smoothing.toFixed(2),
+                    threshold: threshold.toFixed(2),
+                    feather: feather.toFixed(2),
+                    blurRadius
+                });
+                this.backgroundEffects._lastMaskLog = now;
+            }
+        }
+
+        for (let i = 0, p = 0; p < pixelCount && i < maskData.data.length; i += 4, p++) {
+            let value = maskData.data[i] / 255;
+
+            if (edgeHigh > edgeLow) {
+                if (value <= edgeLow) {
+                    value = 0;
+                } else if (value >= edgeHigh) {
+                    value = 1;
+                } else {
+                    const t = (value - edgeLow) / edgeRange;
+                    value = t * t * (3 - 2 * t);
+                }
+            }
+
+            if (hasPrevMask) {
+                value = prevMask[p] * smoothing + value * (1 - smoothing);
+            }
+
+            if (value < minAlpha) value = 0;
+            if (value > 1 - minAlpha) value = 1;
+
+            prevMask[p] = value;
+        }
+
+        this.backgroundEffects.maskInitialized = true;
+        this.backgroundEffects.maskDimensions = { width, height };
+
+        return prevMask;
+    }
+
+    createMaskCanvasFromWeights(weights, dimensions, invert = false) {
+        if (!weights || !dimensions || !dimensions.width || !dimensions.height) {
+            return null;
+        }
+
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = dimensions.width;
+        maskCanvas.height = dimensions.height;
+        const maskCtx = maskCanvas.getContext('2d');
+        const imageData = maskCtx.createImageData(dimensions.width, dimensions.height);
+
+        const pixelCount = Math.min(weights.length, imageData.data.length / 4);
+        for (let p = 0, i = 0; p < pixelCount; p++, i += 4) {
+            const value = invert ? 1 - weights[p] : weights[p];
+            const clamped = Math.min(1, Math.max(0, value));
+            const alpha = Math.round(clamped * 255);
+            imageData.data[i] = 255;
+            imageData.data[i + 1] = 255;
+            imageData.data[i + 2] = 255;
+            imageData.data[i + 3] = alpha;
+        }
+
+        maskCtx.putImageData(imageData, 0, 0);
+        return maskCanvas;
+    }
+
     updateDebugCanvas(sourceCanvas) {
         const debugCanvas = document.getElementById('debugCanvas');
         const debugStatus = document.getElementById('debugCanvasStatus');
-        
-        console.log('🔍 updateDebugCanvas called:', {
+
+        this.logDebug('🔍 updateDebugCanvas called:', {
             hasDebugCanvas: !!debugCanvas,
             hasSourceCanvas: !!sourceCanvas,
             sourceCanvasSize: sourceCanvas ? `${sourceCanvas.width}x${sourceCanvas.height}` : 'none'
@@ -3381,7 +3579,7 @@ class StreamRecorderOptimized {
                 // Try to copy the source canvas
                 try {
                     debugCtx.drawImage(sourceCanvas, 0, 0, debugCanvas.width, debugCanvas.height);
-                    console.log('🖼️ Successfully copied source canvas to debug canvas');
+                    this.logDebug('🖼️ Successfully copied source canvas to debug canvas');
                 } catch (error) {
                     console.error('❌ Error copying source canvas:', error);
                     // Draw error pattern
@@ -3400,9 +3598,9 @@ class StreamRecorderOptimized {
                 debugCtx.font = '12px Arial';
                 debugCtx.textAlign = 'center';
                 debugCtx.fillText('NO SOURCE', debugCanvas.width/2, debugCanvas.height/2);
-                console.log('🖼️ Drew "no source" pattern');
-            }
-            
+                this.logDebug('🖼️ Drew "no source" pattern');
+        }
+        
             // Update status
             if (debugStatus) {
                 debugStatus.textContent = sourceCanvas ? `Aktiv (${sourceCanvas.width}x${sourceCanvas.height})` : 'Kein Canvas';
@@ -3481,7 +3679,7 @@ class StreamRecorderOptimized {
                 // If image mode is active, reapply the effect
                 if (this.backgroundEffects.mode === 'image' && this.backgroundEffects.enabled) {
                     this.applySimpleEffect('image');
-                    console.log('🖼️ Updated background image effect');
+                    this.logDebug('🖼️ Updated background image effect');
                 }
             };
             img.src = e.target.result;
@@ -3490,23 +3688,23 @@ class StreamRecorderOptimized {
     }
     
     applyEffectToCompositionCanvas(mode, segmentationResults = null) {
-        console.log('🎨 Applying effect to composition canvas:', mode, segmentationResults ? 'with segmentation' : 'without segmentation');
+        this.logDebug('🎨 Applying effect to composition canvas:', mode, segmentationResults ? 'with segmentation' : 'without segmentation');
         
         // Get the main composition canvas in the Live Vorschau area
         const compositionCanvas = document.getElementById('compositionCanvas');
         if (!compositionCanvas) {
-            console.log('❌ Composition canvas not found');
+            console.warn('❌ Composition canvas not found');
             return;
         }
         
         // Get the direct parent container of the canvas
         const container = compositionCanvas.parentElement;
         if (!container) {
-            console.log('❌ Canvas container not found');
+            console.warn('❌ Canvas container not found');
             return;
         }
-        
-        console.log('🎯 Targeting composition canvas in Live Vorschau');
+
+        this.logDebug('🎯 Targeting composition canvas in Live Vorschau');
         
         // Ensure container has position relative for overlay positioning
         container.style.position = 'relative';
@@ -3519,9 +3717,14 @@ class StreamRecorderOptimized {
         container.style.backgroundColor = '';
         
         // Remove old overlays
-        const oldOverlays = container.querySelectorAll('.effect-overlay, .blur-overlay, .bg-image-overlay');
+        const oldOverlays = container.querySelectorAll('.effect-overlay, .blur-overlay, .bg-image-overlay, .intelligent-effect-canvas');
         oldOverlays.forEach(o => o.remove());
-        
+
+        // For pure removal we intentionally leave the canvas untouched
+        if (mode === 'remove') {
+            return;
+        }
+
         // If we have segmentation results, apply intelligent effects
         if (segmentationResults && segmentationResults.segmentationMask) {
             this.applyIntelligentEffect(compositionCanvas, container, mode, segmentationResults);
@@ -3532,7 +3735,7 @@ class StreamRecorderOptimized {
     }
     
     applyIntelligentEffect(canvas, container, mode, results) {
-        console.log('🧠 Applying intelligent effect with person segmentation:', mode);
+        this.logDebug('🧠 Applying intelligent effect with person segmentation:', mode);
         
         // Create an overlay canvas for the effect
         let effectCanvas = container.querySelector('.intelligent-effect-canvas');
@@ -3558,17 +3761,30 @@ class StreamRecorderOptimized {
         
         // Clear the effect canvas
         effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
-        
+
+        if (!results || !results.image) {
+            this.logDebug('⚠️ Missing image for intelligent effect, falling back to simple effect');
+            effectCanvas.remove();
+            this.applySimpleCSSEffect(canvas, container, mode);
+            return;
+        }
+
         try {
+            let weights = this.backgroundEffects.previousMaskData;
+            if ((!weights || !this.backgroundEffects.maskDimensions) && results && results.segmentationMask) {
+                weights = this.computeMaskWeights(results);
+            }
+            const dimensions = this.backgroundEffects.maskDimensions;
+
             switch(mode) {
                 case 'blur':
-                    this.applyIntelligentBlur(effectCtx, results);
+                    this.applyIntelligentBlur(effectCtx, results, weights, dimensions);
                     break;
                 case 'remove':
-                    this.applyIntelligentRemoval(effectCtx, results);
+                    this.applyIntelligentRemoval(effectCtx, results, weights, dimensions);
                     break;
                 case 'image':
-                    this.applyIntelligentImageBackground(effectCtx, results);
+                    this.applyIntelligentImageBackground(effectCtx, results, weights, dimensions);
                     break;
                 default:
                     // Remove effect canvas for 'none'
@@ -3583,93 +3799,106 @@ class StreamRecorderOptimized {
         }
     }
     
-    applyIntelligentBlur(ctx, results) {
+    applyIntelligentBlur(ctx, results, weights, dimensions) {
         const canvas = ctx.canvas;
-        
-        // Step 1: Create inverted mask (blur everywhere except person)
-        const maskCanvas = document.createElement('canvas');
-        maskCanvas.width = canvas.width;
-        maskCanvas.height = canvas.height;
-        const maskCtx = maskCanvas.getContext('2d');
-        
-        // Fill with white (blur area)
-        maskCtx.fillStyle = 'white';
-        maskCtx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw inverted segmentation mask (black = person area, no blur)
-        maskCtx.globalCompositeOperation = 'destination-out';
-        maskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-        
-        // Step 2: Apply blur effect using the mask
+
         const blurStrength = this.backgroundEffects.blurStrength || 15;
+
+        ctx.save();
         ctx.filter = `blur(${blurStrength}px)`;
+        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        const personMaskCanvas = this.createMaskCanvasFromWeights(weights, dimensions);
+
+        if (personMaskCanvas) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.drawImage(personMaskCanvas, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        }
+
+        const personCanvas = document.createElement('canvas');
+        personCanvas.width = canvas.width;
+        personCanvas.height = canvas.height;
+        const personCtx = personCanvas.getContext('2d');
+        personCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        personCtx.globalCompositeOperation = 'destination-in';
+
+        if (personMaskCanvas) {
+            personCtx.drawImage(personMaskCanvas, 0, 0, canvas.width, canvas.height);
+        } else if (results.segmentationMask) {
+            personCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+        }
+
         ctx.globalCompositeOperation = 'source-over';
-        
-        // Create a pattern that will be blurred
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Apply the mask
-        ctx.globalCompositeOperation = 'destination-in';
-        ctx.filter = 'none';
-        ctx.drawImage(maskCanvas, 0, 0);
-        
-        console.log(`✅ Applied intelligent blur (strength: ${blurStrength}px)`);
+        ctx.drawImage(personCanvas, 0, 0);
+
+        this.logDebug(`✅ Applied intelligent blur (strength: ${blurStrength}px)`);
     }
     
-    applyIntelligentRemoval(ctx, results) {
+    applyIntelligentRemoval(ctx, results, weights, dimensions) {
         const canvas = ctx.canvas;
-        
-        // Step 1: Fill with background color
+
         ctx.fillStyle = '#f0f0f0';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Step 2: Create soft edge mask from segmentation
-        const blurredMask = document.createElement('canvas');
-        blurredMask.width = canvas.width;
-        blurredMask.height = canvas.height;
-        const blurredMaskCtx = blurredMask.getContext('2d');
-        
-        // Draw segmentation mask with blur for soft edges
-        blurredMaskCtx.filter = 'blur(10px)';
-        blurredMaskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-        
-        // Step 3: Create gradient overlay based on the segmentation mask
+
+        if (!results.image) {
+            return;
+        }
+
+        const personMaskCanvas = this.createMaskCanvasFromWeights(weights, dimensions);
+        const personCanvas = document.createElement('canvas');
+        personCanvas.width = canvas.width;
+        personCanvas.height = canvas.height;
+        const personCtx = personCanvas.getContext('2d');
+        personCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        personCtx.globalCompositeOperation = 'destination-in';
+
+        if (personMaskCanvas) {
+            personCtx.drawImage(personMaskCanvas, 0, 0, canvas.width, canvas.height);
+        } else if (results.segmentationMask) {
+            personCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+        }
+
         ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(blurredMask, 0, 0);
-        
-        console.log('✅ Applied intelligent background removal');
+        ctx.drawImage(personCanvas, 0, 0);
+
+        this.logDebug('✅ Applied intelligent background removal');
     }
     
-    applyIntelligentImageBackground(ctx, results) {
+    applyIntelligentImageBackground(ctx, results, weights, dimensions) {
         const canvas = ctx.canvas;
-        
+
         if (this.backgroundEffects.backgroundImage) {
-            // Draw background image
             ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, canvas.width, canvas.height);
-            
-            // Create inverted mask for background visibility
-            const maskCanvas = document.createElement('canvas');
-            maskCanvas.width = canvas.width;
-            maskCanvas.height = canvas.height;
-            const maskCtx = maskCanvas.getContext('2d');
-            
-            // Invert the segmentation mask
-            maskCtx.fillStyle = 'white';
-            maskCtx.fillRect(0, 0, canvas.width, canvas.height);
-            maskCtx.globalCompositeOperation = 'destination-out';
-            maskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-            
-            // Apply background only where person is not detected
-            ctx.globalCompositeOperation = 'destination-in';
-            ctx.drawImage(maskCanvas, 0, 0);
-            
-            console.log('✅ Applied intelligent background image');
         } else {
-            // Default green screen
             ctx.fillStyle = '#00ff00';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
+
+        if (!results.image) {
+            return;
+        }
+
+        const personMaskCanvas = this.createMaskCanvasFromWeights(weights, dimensions);
+        const personCanvas = document.createElement('canvas');
+        personCanvas.width = canvas.width;
+        personCanvas.height = canvas.height;
+        const personCtx = personCanvas.getContext('2d');
+        personCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        personCtx.globalCompositeOperation = 'destination-in';
+
+        if (personMaskCanvas) {
+            personCtx.drawImage(personMaskCanvas, 0, 0, canvas.width, canvas.height);
+        } else if (results.segmentationMask) {
+            personCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+        }
+
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(personCanvas, 0, 0);
+
+        this.logDebug('✅ Applied intelligent background image');
     }
     
     applySimpleEffect(mode) {
@@ -3678,7 +3907,7 @@ class StreamRecorderOptimized {
     }
     
     applySimpleCSSEffect(canvas, container, mode) {
-        console.log('🎨 Applying simple CSS effect:', mode);
+        this.logDebug('🎨 Applying simple CSS effect:', mode);
         
         // Apply effect to the main canvas
         switch(mode) {
@@ -3700,7 +3929,7 @@ class StreamRecorderOptimized {
                     z-index: 2;
                 `;
                 container.appendChild(blurOverlay);
-                console.log('✅ Applied blur overlay effect to composition canvas');
+                this.logDebug('✅ Applied blur overlay effect to composition canvas');
                 break;
                     
             case 'remove':
@@ -3729,7 +3958,7 @@ class StreamRecorderOptimized {
                     z-index: 2;
                 `;
                 container.appendChild(removeOverlay);
-                console.log('✅ Applied improved background removal effect to composition canvas');
+                this.logDebug('✅ Applied improved background removal effect to composition canvas');
                 break;
                     
             case 'image':
@@ -3771,19 +4000,19 @@ class StreamRecorderOptimized {
                         z-index: 2;
                     `;
                     container.appendChild(maskOverlay);
-                    console.log('✅ Applied background image effect to composition canvas');
+                    this.logDebug('✅ Applied background image effect to composition canvas');
                 } else {
                     // Default green screen effect
                     container.style.backgroundColor = '#00ff00';
                     canvas.style.filter = 'contrast(1.2)';
-                    console.log('✅ Applied green screen effect to composition canvas (no image uploaded)');
+                    this.logDebug('✅ Applied green screen effect to composition canvas (no image uploaded)');
                 }
                 break;
                     
             case 'none':
             default:
                 // Already cleaned up at the beginning
-                console.log('✅ Removed all effects from composition canvas');
+                this.logDebug('✅ Removed all effects from composition canvas');
                 break;
         }
         
@@ -3819,6 +4048,45 @@ class StreamRecorderOptimized {
                 this.handleBackgroundImageUpload(e);
             });
         }
+
+        const setupRangeControl = (id, valueId, propertyKey, parser = parseFloat, formatter = (v) => Number(v).toFixed(2)) => {
+            const input = document.getElementById(id);
+            if (!input) return;
+
+            const label = valueId ? document.getElementById(valueId) : null;
+            const updateValueLabel = (val) => {
+                if (label) {
+                    label.textContent = formatter(val);
+                }
+            };
+
+            if (!input.hasListener) {
+                input.hasListener = true;
+                input.addEventListener('input', (e) => {
+                    const raw = parser(e.target.value);
+                    if (!Number.isFinite(raw)) {
+                        return;
+                    }
+                    this.backgroundEffects[propertyKey] = raw;
+                    this.backgroundEffects.previousMaskData = null;
+                    this.backgroundEffects.maskInitialized = false;
+                    updateValueLabel(raw);
+                    console.log(`🎚️ Updated ${propertyKey} to`, raw);
+                    this.updateSegmentationStatus(`Feinjustierung: ${propertyKey} = ${formatter(raw)}`);
+                });
+            }
+
+            const currentValue = this.backgroundEffects[propertyKey];
+            if (Number.isFinite(currentValue)) {
+                input.value = currentValue;
+                updateValueLabel(currentValue);
+            }
+        };
+
+        setupRangeControl('maskSmoothing', 'maskSmoothingValue', 'maskSmoothing');
+        setupRangeControl('maskConfidence', 'maskConfidenceValue', 'confidenceThreshold', parseFloat, (v) => Number(v).toFixed(2));
+        setupRangeControl('maskFeather', 'maskFeatherValue', 'edgeFeather', parseFloat, (v) => Number(v).toFixed(2));
+        setupRangeControl('maskBlurRadius', 'maskBlurRadiusValue', 'maskBlurRadius', (v) => parseInt(v, 10), (v) => parseInt(v, 10));
     }
     
     updateEffectControls(mode) {
@@ -3911,12 +4179,12 @@ class StreamRecorderOptimized {
             }
 
         } else {
-            // Simple disable
-            this.backgroundEffects.enabled = false;
-            this.backgroundEffects.mode = 'none';
+            // Disable and restore original stream
             this.backgroundEffects.greenScreenActive = false;
             this.backgroundEffects.segmentationActive = false; // Stop segmentation
             this.backgroundEffects.mediapipeWorking = false; // Reset MediaPipe flag
+
+            this.disableBackgroundEffects();
 
             // Hide status badge
             if (statusBadge) {
@@ -3964,49 +4232,12 @@ class StreamRecorderOptimized {
         // Restore original camera stream
         if (this.backgroundEffects.originalCameraStream) {
             console.log('🔄 Restoring original camera stream');
-            
-            // Update stream map
+
+            // Update stream map and notify listeners
             this.streams.set('camera', this.backgroundEffects.originalCameraStream);
-            
-            // Get or create video element for camera
-            let videoElement = document.getElementById('video-camera');
-            if (!videoElement) {
-                // If video element doesn't exist, create it
-                const streamContainer = document.querySelector(`[data-stream-id="camera"]`);
-                if (streamContainer) {
-                    videoElement = document.createElement('video');
-                    videoElement.id = 'video-camera';
-                    videoElement.autoplay = true;
-                    videoElement.playsInline = true;
-                    videoElement.muted = true;
-                    videoElement.style.width = '100%';
-                    videoElement.style.height = '100%';
-                    videoElement.style.objectFit = 'cover';
-                    streamContainer.appendChild(videoElement);
-                }
-            }
-            
-            if (videoElement) {
-                // Clear and reset the video element
-                videoElement.srcObject = null;
-                videoElement.load();
-                
-                // Set the original stream
-                videoElement.srcObject = this.backgroundEffects.originalCameraStream;
-                
-                // Play the video
-                videoElement.play().catch(e => {
-                    console.error('Error playing video after restore:', e);
-                });
-                
-                console.log('✅ Restored original stream to video element');
-            }
-            
-            // Trigger UI update
             this.onStreamUpdate('camera', this.backgroundEffects.originalCameraStream);
-            
-            // Clear the original stream reference
-            // Don't clear it yet - keep it for potential re-enable
+
+            // Keep reference for next activation
             // this.backgroundEffects.originalCameraStream = null;
         } else {
             console.warn('⚠️ No original stream to restore');
@@ -4018,7 +4249,7 @@ class StreamRecorderOptimized {
             this.backgroundEffects.animationFrame = null;
             console.log('✅ Stopped animation frame');
         }
-        
+
         // Clean up segmentation video element
         const segVideo = document.getElementById('video-segmentation');
         if (segVideo) {
@@ -4026,30 +4257,91 @@ class StreamRecorderOptimized {
             segVideo.remove();
             console.log('✅ Segmentation video element removed');
         }
-        
+
+        // Clean up processing helper video element
+        const processingVideo = document.getElementById('processing-video');
+        if (processingVideo) {
+            processingVideo.pause();
+            processingVideo.srcObject = null;
+            processingVideo.remove();
+            console.log('✅ Processing video element removed');
+        }
+
         // Reset UI
         const noneRadio = document.getElementById('bgEffectNone');
         if (noneRadio) noneRadio.checked = true;
         this.updateSegmentationStatus('Deaktiviert');
-        
+
+        // Remove any remaining overlays from the live preview
+        this.applyEffectToCompositionCanvas('none');
+
+        // Ensure camera stays active and composition loop continues
+        this.activeStreams.add('camera');
+        this.checkCompositionReady();
+
+        // Allow next activation to capture a fresh reference
+        this.backgroundEffects.originalCameraStream = this.streams.get('camera');
+        this.backgroundEffects.previousMaskData = null;
+        this.backgroundEffects.maskInitialized = false;
+
         console.log('✅ Background effects disabled');
     }
     
     onStreamUpdate(type, newStream) {
         console.log(`🔄 Stream update for ${type}:`, newStream);
-        
+
         try {
-            // Update the main video element for this stream type
-            const videoElement = document.getElementById(`video-${type}`);
-            if (videoElement) {
-                videoElement.srcObject = newStream;
-                console.log(`✅ Updated video-${type} with new stream`);
-            }
-            
-            // Clear video element cache to force recreation
+            // Clear cached video element before updating
             if (this.videoElements.has(type)) {
                 this.videoElements.delete(type);
                 console.log(`🗑️ Cleared cached video element for ${type}`);
+            }
+
+            // Update the main video element for this stream type
+            let videoElement = document.getElementById(`video-${type}`);
+            if (!videoElement && newStream) {
+                videoElement = document.createElement('video');
+                videoElement.id = `video-${type}`;
+                videoElement.autoplay = true;
+                videoElement.muted = true;
+                videoElement.playsInline = true;
+                videoElement.style.display = 'none';
+                videoElement.style.position = 'absolute';
+                videoElement.style.top = '-9999px';
+                document.body.appendChild(videoElement);
+                console.log(`🆕 Created hidden video element for ${type}`);
+            }
+            if (videoElement) {
+                videoElement.srcObject = newStream;
+                console.log(`✅ Updated video-${type} with new stream`);
+
+                const markReady = () => {
+                    this.videoElements.set(type, videoElement);
+                    this.needsCanvasRefresh = true;
+                    if (!this.isComposing && this.activeStreams.size > 0) {
+                        this.startRenderLoop();
+                    }
+                };
+
+                if (videoElement.readyState >= 2) {
+                    markReady();
+                } else {
+                    videoElement.addEventListener('loadedmetadata', () => {
+                        markReady();
+                    }, { once: true });
+                }
+
+                const playPromise = videoElement.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(err => {
+                        console.warn(`⚠️ Autoplay retry required for video-${type}:`, err);
+                        const resumePlayback = () => {
+                            videoElement.play().catch(() => {});
+                            document.removeEventListener('click', resumePlayback);
+                        };
+                        document.addEventListener('click', resumePlayback, { once: true });
+                    });
+                }
             }
             
             // Force canvas refresh for next frame
