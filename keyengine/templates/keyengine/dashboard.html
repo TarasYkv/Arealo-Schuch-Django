@@ -13,14 +13,32 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <h1 class="h3 mb-0">
                     <span class="keyengine-icon">🔑</span> KeyEngine
                 </h1>
-                <a href="{% url 'keyengine:lists_overview' %}" class="btn btn-success">
-                    <i class="fas fa-list me-2"></i>Meine Listen
-                </a>
+                <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="list-selector" class="mb-0 text-muted small">Ziel-Liste</label>
+                        <select class="form-select form-select-sm" id="list-selector">
+                            {% if user_lists %}
+                                {% for list in user_lists %}
+                                    <option value="{{ list.id }}" {% if default_list and list.id == default_list.id %}selected{% endif %}>{{ list.name }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="" selected>Standard-Liste</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <a href="{% url 'keyengine:lists_overview' %}" class="btn btn-success">
+                        <i class="fas fa-list me-2"></i>Meine Listen
+                    </a>
+                </div>
             </div>
+            <p class="text-muted small mt-2">
+                Wähle die Liste, in die neue Keywords übernommen werden sollen.
+                {% if not user_lists %}Es wird automatisch eine Standard-Liste verwendet.{% endif %}
+            </p>
         </div>
     </div>
 
@@ -155,6 +173,25 @@
             </div>
         </div>
     </div>
+    
+    <!-- Suchverlauf -->
+    <div class="row mb-4" id="search-history-section" style="display: none;">
+        <div class="col-md-8 mx-auto">
+            <div class="card border-success shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-success">
+                        <i class="fas fa-history me-2"></i>Letzte Suchen
+                    </h5>
+                    <button class="btn btn-sm btn-outline-danger" id="clear-history-btn">
+                        <i class="fas fa-trash-alt"></i> Verlauf löschen
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush" id="search-history-list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Ergebnisse -->
     <div class="row" id="results-section" style="display: none;">
@@ -188,5 +225,5 @@
     </div>
 </div>
 
-<script src="{% static 'keyengine/js/app.js' %}"></script>
+<script src="{% static 'keyengine/js/app.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
