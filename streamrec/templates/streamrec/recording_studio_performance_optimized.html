@@ -859,9 +859,9 @@
                     <div id="previewContainer" class="position-relative d-flex align-items-center justify-content-center" 
                          style="height: 600px; border-radius: 0.5rem; overflow: hidden;">
                         
-                        <canvas id="compositionCanvas" 
-                                width="1920" 
-                                height="1080" 
+                        <canvas id="compositionCanvas"
+                                width="1280"
+                                height="720"
                                 class="border border-secondary"
                                 style="max-width: 100%; max-height: 100%; object-fit: contain;">
                         </canvas>
@@ -4524,8 +4524,8 @@ class StreamRecorderOptimized {
             
             // Build video constraints with selected camera
             const videoConstraints = {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 640 },
+                height: { ideal: 480 },
                 frameRate: { ideal: this.targetFPS }
             };
             
@@ -4606,8 +4606,8 @@ class StreamRecorderOptimized {
             
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
                     frameRate: { ideal: this.targetFPS },
                     cursor: 'always'
                 },
@@ -6236,13 +6236,13 @@ class StreamRecorderOptimized {
     }
     
     calculateMultiStreamBitrateFactor(streamCount) {
-        // Reduziere Bitrate exponentiell mit mehr Streams
+        // Reduziere Bitrate exponentiell mit mehr Streams (optimiert für bessere Performance)
         switch (streamCount) {
             case 1: return 1.0;      // Volle Bitrate
-            case 2: return 0.8;      // 80% bei 2 Streams
-            case 3: return 0.6;      // 60% bei 3 Streams
-            case 4: return 0.45;     // 45% bei 4 Streams
-            default: return 0.35;    // 35% bei 5+ Streams
+            case 2: return 0.7;      // 70% bei 2 Streams (optimiert von 80%)
+            case 3: return 0.55;     // 55% bei 3 Streams (optimiert von 60%)
+            case 4: return 0.40;     // 40% bei 4 Streams (optimiert von 45%)
+            default: return 0.30;    // 30% bei 5+ Streams (optimiert von 35%)
         }
     }
     
@@ -6277,27 +6277,27 @@ class StreamRecorderOptimized {
         
         switch (quality) {
             case 'ultra':
-                this.targetFPS = streamCount <= 2 ? 30 : 25;
-                this.maxSkipFrames = 0;
+                this.targetFPS = streamCount <= 1 ? 30 : (streamCount === 2 ? 24 : 20);
+                this.maxSkipFrames = streamCount <= 2 ? 1 : 2;
                 this.quality = 'ultra';
                 break;
             case 'high':
-                this.targetFPS = streamCount <= 3 ? 25 : 20;
-                this.maxSkipFrames = streamCount <= 2 ? 1 : 2;
+                this.targetFPS = streamCount <= 1 ? 25 : (streamCount === 2 ? 20 : 18);
+                this.maxSkipFrames = streamCount <= 2 ? 2 : 3;
                 this.quality = 'high';
                 break;
             case 'medium':
-                this.targetFPS = streamCount <= 3 ? 20 : 15;
-                this.maxSkipFrames = 2;
+                this.targetFPS = streamCount <= 1 ? 20 : (streamCount === 2 ? 16 : 14);
+                this.maxSkipFrames = streamCount <= 2 ? 3 : 4;
                 break;
             case 'low':
-                this.targetFPS = streamCount <= 2 ? 15 : 12;
-                this.maxSkipFrames = 3;
+                this.targetFPS = streamCount <= 1 ? 15 : (streamCount === 2 ? 12 : 10);
+                this.maxSkipFrames = streamCount <= 2 ? 4 : 5;
                 this.quality = 'low';
                 break;
             case 'potato':
-                this.targetFPS = streamCount <= 1 ? 12 : 8;
-                this.maxSkipFrames = 5;
+                this.targetFPS = streamCount <= 1 ? 12 : (streamCount === 2 ? 10 : 8);
+                this.maxSkipFrames = 6;
                 this.quality = 'potato';
                 break;
             default:
