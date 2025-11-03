@@ -373,11 +373,6 @@
                     <input type="file" id="file-input" multiple style="display: none;">
                 </div>
 
-                <!-- Test Button for debugging -->
-                <div class="text-center mt-3">
-                    <button id="test-button" class="btn btn-warning">🔧 Test Datei-Auswahl</button>
-                </div>
-
                 <!-- File List -->
                 <div id="file-list" class="file-list mt-4" style="display: none;">
                     <h5>Ausgewählte Dateien:</h5>
@@ -611,6 +606,15 @@
 
     function initFileShare() {
         console.log('Initializing FileShare...');
+
+        // Ensure password field is not required on page load
+        const passwordInput = document.getElementById('password');
+        const enablePasswordCheckbox = document.getElementById('enable-password');
+        if (passwordInput && !enablePasswordCheckbox.checked) {
+            passwordInput.removeAttribute('required');
+            passwordInput.value = '';
+        }
+
         let selectedFiles = [];
         let transferId = null;
 
@@ -635,18 +639,6 @@
             fileInput.click();
             console.log('File input click triggered');
         });
-
-        // Test button for debugging
-        const testButton = document.getElementById('test-button');
-        if (testButton) {
-            console.log('Adding test button click handler...');
-            testButton.addEventListener('click', function(e) {
-                console.log('Test button clicked!');
-                alert('Test button funktioniert! Jetzt teste ich den File Input...');
-                fileInput.click();
-                console.log('File input triggered via test button');
-            });
-        }
 
     uploadZone.addEventListener('dragover', (e) => {
         e.preventDefault();
