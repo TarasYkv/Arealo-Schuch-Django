@@ -49,8 +49,8 @@ def create_transfer(request):
         )
 
         # Handle password protection
-        password = request.POST.get('password')
-        if password:
+        password = request.POST.get('password', '').strip()
+        if password:  # Only set hash if password is not empty
             transfer.password_hash = hashlib.sha256(password.encode()).hexdigest()
             transfer.save()
 
@@ -165,8 +165,9 @@ def download_page(request, transfer_id):
                 messages.error(request, 'This transfer is no longer available.')
             return render(request, 'fileshare/error.html')
 
-        # Check password if required
-        if transfer.password_hash:
+        # Check password if required (ignore empty hash)
+        empty_hash = hashlib.sha256(''.encode()).hexdigest()
+        if transfer.password_hash and transfer.password_hash != empty_hash:
             if request.method == 'POST':
                 password = request.POST.get('password', '')
                 if hashlib.sha256(password.encode()).hexdigest() == transfer.password_hash:
@@ -199,8 +200,9 @@ def download_file(request, transfer_id, file_id=None):
         if not transfer.can_download:
             raise Http404("Transfer not available")
 
-        # Check password authorization
-        if transfer.password_hash and not request.session.get(f'transfer_{transfer_id}_auth'):
+        # Check password authorization (ignore empty hash)
+        empty_hash = hashlib.sha256(''.encode()).hexdigest()
+        if transfer.password_hash and transfer.password_hash != empty_hash and not request.session.get(f'transfer_{transfer_id}_auth'):
             return redirect('fileshare:download', transfer_id=transfer_id)
 
         # Log the download
