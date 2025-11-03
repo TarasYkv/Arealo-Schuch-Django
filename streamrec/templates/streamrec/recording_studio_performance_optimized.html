@@ -7494,10 +7494,12 @@ class StreamRecorderOptimized {
                 this.isDragging = true;
                 this.draggedStream = hitTest.streamId;
                 const streamData = this.freeLayoutStreams.get(hitTest.streamId);
-                this.dragOffset = {
-                    x: coords.x - streamData.x,
-                    y: coords.y - streamData.y
-                };
+
+                // Store original positions (in both screen and canvas coords)
+                this.dragStartMouseX = e.clientX;
+                this.dragStartMouseY = e.clientY;
+                this.dragStartStreamX = streamData.x;
+                this.dragStartStreamY = streamData.y;
             }
             this.canvas.style.cursor = hitTest.cursor;
             document.addEventListener('mousemove', this.boundGlobalMouseMove);
@@ -7729,23 +7731,36 @@ class StreamRecorderOptimized {
     handleMouseMove(e) {
         if (this.isRecording) return;
         if (this.currentLayout !== 'free') return; // Only process in free layout
-        
-        const coords = this.getCanvasCoordinates(e);
-        
+
         if (this.isDragging && this.draggedStream) {
+            // Calculate mouse movement delta in screen coordinates
+            const deltaScreenX = e.clientX - this.dragStartMouseX;
+            const deltaScreenY = e.clientY - this.dragStartMouseY;
+
+            // Convert delta to canvas coordinates
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+
+            const deltaCanvasX = deltaScreenX * scaleX;
+            const deltaCanvasY = deltaScreenY * scaleY;
+
+            // Apply delta to stream position
             const streamData = this.freeLayoutStreams.get(this.draggedStream);
-            streamData.x = coords.x - this.dragOffset.x;
-            streamData.y = coords.y - this.dragOffset.y;
+            streamData.x = this.dragStartStreamX + deltaCanvasX;
+            streamData.y = this.dragStartStreamY + deltaCanvasY;
         } else if (this.isResizing && this.resizeStream) {
+            const coords = this.getCanvasCoordinates(e);
             const streamData = this.freeLayoutStreams.get(this.resizeStream);
             const minSize = 50;
-            
+
             if (this.resizeHandle === 'se') {
                 streamData.width = Math.max(minSize, coords.x - streamData.x);
                 streamData.height = Math.max(minSize, coords.y - streamData.y);
             }
         } else {
             // Update cursor based on hover
+            const coords = this.getCanvasCoordinates(e);
             const hitTest = this.hitTestFreeLayout(coords.x, coords.y);
             this.canvas.style.cursor = hitTest ? hitTest.cursor : 'default';
         }
