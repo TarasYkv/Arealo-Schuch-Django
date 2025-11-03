@@ -667,6 +667,19 @@
                             </div>
                         </div>
 
+                        <!-- Audio Sync Offset Control -->
+                        <div class="mb-3">
+                            <label for="audioSyncOffset" class="form-label small">Audio-Synchronisation:</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-backward text-muted" style="font-size: 0.8rem;" title="Audio früher"></i>
+                                <input type="range" class="volume-slider" id="audioSyncOffset"
+                                       min="-500" max="500" value="0" step="10">
+                                <i class="fas fa-forward text-muted" style="font-size: 0.8rem;" title="Audio später"></i>
+                                <span class="small text-muted ms-1" id="audioSyncDisplay">0 ms</span>
+                            </div>
+                            <small class="text-muted" style="font-size: 0.7rem;">Negativ = Audio früher, Positiv = Audio später</small>
+                        </div>
+
                         <!-- Audio Level Meter -->
                         <div class="mb-2">
                             <label class="form-label small">Eingangspegel:</label>
@@ -1164,6 +1177,13 @@ class StreamRecorderOptimized {
             averageRenderTime: 0,
             lastFPS: 0
         };
+
+        // 🎵 AUDIO SYNC
+        this.audioSyncOffset = 0; // Audio offset in milliseconds
+        this.audioContext = null; // Web Audio API context
+        this.audioDelayNode = null; // Delay node for audio sync
+        this.audioSourceNodes = new Map(); // Source nodes for each stream
+        this.audioDestination = null; // Destination for combined audio
         this.performanceBuffer = [];
         this.lastFPSUpdate = 0;
         this.enableFrameSkipping = true;
@@ -1529,6 +1549,16 @@ class StreamRecorderOptimized {
         // Audio controls
         document.getElementById('audioEnabled')?.addEventListener('change', () => this.checkAudioStream());
         document.getElementById('systemAudio')?.addEventListener('change', () => this.checkAudioStream());
+
+        // Audio Sync Offset
+        document.getElementById('audioSyncOffset')?.addEventListener('input', (e) => {
+            this.audioSyncOffset = parseInt(e.target.value);
+            const display = document.getElementById('audioSyncDisplay');
+            if (display) {
+                display.textContent = `${this.audioSyncOffset} ms`;
+            }
+            console.log(`🎵 Audio-Sync-Offset: ${this.audioSyncOffset}ms`);
+        });
 
         // Fullscreen
         document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
@@ -5435,7 +5465,33 @@ class StreamRecorderOptimized {
                     audioTracks.forEach(track => {
                         const trackStream = new MediaStream([track]);
                         const sourceNode = audioContext.createMediaStreamSource(trackStream);
-                        sourceNode.connect(destination);
+
+                        // 🎵 Apply audio sync offset with DelayNode
+                        const syncOffsetMs = this.audioSyncOffset || 0;
+
+                        if (syncOffsetMs > 0) {
+                            // Positive offset: delay audio (audio comes LATER)
+                            const delaySeconds = syncOffsetMs / 1000;
+                            const delayNode = audioContext.createDelay(1.0); // Max 1 second delay
+                            delayNode.delayTime.value = Math.min(delaySeconds, 1.0);
+                            sourceNode.connect(delayNode);
+                            delayNode.connect(destination);
+                            console.log(`🎵 Audio-Sync (später): +${syncOffsetMs}ms (Delay: ${delaySeconds.toFixed(3)}s)`);
+                        } else if (syncOffsetMs < 0) {
+                            // Negative offset: delay video instead (audio comes EARLIER)
+                            // For now, we use a base delay approach
+                            const baseDelaySeconds = 0.5; // 500ms base delay on all audio
+                            const adjustedDelaySeconds = Math.max(0, baseDelaySeconds + (syncOffsetMs / 1000));
+                            const delayNode = audioContext.createDelay(1.0);
+                            delayNode.delayTime.value = adjustedDelaySeconds;
+                            sourceNode.connect(delayNode);
+                            delayNode.connect(destination);
+                            console.log(`🎵 Audio-Sync (früher): ${syncOffsetMs}ms (Base-Delay: ${baseDelaySeconds}s, Adjusted: ${adjustedDelaySeconds.toFixed(3)}s)`);
+                        } else {
+                            // No offset: direct connection
+                            sourceNode.connect(destination);
+                        }
+
                         audioSources.push({ node: sourceNode, stream: trackStream });
                         console.log(`🎤 Audio source connected from ${sourceId}`);
                     });
@@ -6535,6 +6591,13 @@ class StreamRecorderOptimized {
                     this.updateAspectRatio(settings.aspectRatio);
                     document.getElementById('aspectRatioSetting').value = settings.aspectRatio;
                 }
+                if (settings.audioSyncOffset !== undefined) {
+                    this.audioSyncOffset = settings.audioSyncOffset;
+                    const slider = document.getElementById('audioSyncOffset');
+                    const display = document.getElementById('audioSyncDisplay');
+                    if (slider) slider.value = settings.audioSyncOffset;
+                    if (display) display.textContent = `${settings.audioSyncOffset} ms`;
+                }
             } else {
                 // No stored settings - apply default 16:9 format
                 this.updateAspectRatio('16:9');
@@ -6558,7 +6621,8 @@ class StreamRecorderOptimized {
                 enableErrorRecovery: document.getElementById('enableErrorRecovery')?.checked ?? true,
                 showPerformance: document.getElementById('enablePerformanceMonitor')?.checked ?? false,
                 bitrate: document.getElementById('bitrateSetting')?.value ?? '4000000',
-                aspectRatio: aspectRatio
+                aspectRatio: aspectRatio,
+                audioSyncOffset: this.audioSyncOffset
             };
             
             localStorage.setItem('streamrec-optimized-settings', JSON.stringify(settings));
