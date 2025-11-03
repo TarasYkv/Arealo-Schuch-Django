@@ -1962,21 +1962,22 @@ class StreamRecorderOptimized {
         this.canvas.addEventListener('mousedown', (e) => {
             console.log(`🖱️ Mouse down - Layout: ${this.currentLayout}, Composing: ${this.isComposing}`);
             if (this.currentLayout !== 'pip' || !this.isComposing) return;
-            
+
             const coords = this.getCanvasCoordinates(e);
             console.log(`🖱️ Mouse coordinates (scaled): ${coords.x}, ${coords.y}`);
             console.log(`🖱️ PIP position: ${this.pipSettings.x}, ${this.pipSettings.y}`);
-            
+
             // Check if click is within PIP area
             const hitTest = this.isPIPHitTest(coords.x, coords.y);
             console.log(`🎯 PIP hit test result: ${hitTest}`);
-            
+
             if (hitTest) {
                 this.pipDragState.isDragging = true;
-                this.pipDragState.startX = coords.x;
-                this.pipDragState.startY = coords.y;
-                this.pipDragState.offsetX = coords.x - this.pipSettings.x;
-                this.pipDragState.offsetY = coords.y - this.pipSettings.y;
+                // Store original positions for delta calculation
+                this.pipDragState.startMouseX = e.clientX;
+                this.pipDragState.startMouseY = e.clientY;
+                this.pipDragState.startPIPX = this.pipSettings.x;
+                this.pipDragState.startPIPY = this.pipSettings.y;
                 this.canvas.style.cursor = 'grabbing';
                 console.log('🎯 PIP drag started');
                 e.preventDefault();
@@ -1986,29 +1987,39 @@ class StreamRecorderOptimized {
         // Mouse move event for dragging
         this.canvas.addEventListener('mousemove', (e) => {
             if (this.currentLayout !== 'pip' || !this.isComposing) return;
-            
-            const coords = this.getCanvasCoordinates(e);
-            
+
             if (this.pipDragState.isDragging) {
-                console.log(`🖱️ Dragging - Mouse: ${coords.x}, ${coords.y}`);
+                // Calculate mouse movement delta in screen coordinates
+                const deltaScreenX = e.clientX - this.pipDragState.startMouseX;
+                const deltaScreenY = e.clientY - this.pipDragState.startMouseY;
+
+                // Convert delta to canvas coordinates
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+
+                const deltaCanvasX = deltaScreenX * scaleX;
+                const deltaCanvasY = deltaScreenY * scaleY;
+
                 // Calculate new position
-                const newX = coords.x - this.pipDragState.offsetX;
-                const newY = coords.y - this.pipDragState.offsetY;
-                
+                const newX = this.pipDragState.startPIPX + deltaCanvasX;
+                const newY = this.pipDragState.startPIPY + deltaCanvasY;
+
                 // Get PIP dimensions
                 const sizePercentage = this.pipSettings.size / 100;
                 const pipWidth = this.canvas.width * sizePercentage;
                 const pipHeight = this.canvas.height * sizePercentage;
-                
+
                 // Constrain to canvas bounds
                 this.pipSettings.x = Math.max(0, Math.min(this.canvas.width - pipWidth, newX));
                 this.pipSettings.y = Math.max(0, Math.min(this.canvas.height - pipHeight, newY));
-                
+
                 // Trigger re-render
                 this.renderCurrentLayout();
-                
+
             } else {
                 // Change cursor when hovering over PIP area
+                const coords = this.getCanvasCoordinates(e);
                 if (this.isPIPHitTest(coords.x, coords.y)) {
                     this.canvas.style.cursor = 'grab';
                 } else {
