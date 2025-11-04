@@ -1007,7 +1007,7 @@
                             </select>
                             <div class="form-text">
                                 <i class="fas fa-info-circle me-1"></i>
-                                MP4 wird browser-nativ aufgenommen (Chrome, Edge, Safari). Fallback zu WebM bei fehlender Unterstützung.
+                                MP4 benötigt AAC-Audio (H.264+AAC in Chrome/Edge/Safari). Fallback zu WebM wenn AAC nicht verfügbar.
                             </div>
                         </div>
                     </div>
@@ -6284,29 +6284,37 @@ class StreamRecorderOptimized {
                 break;
         }
 
-        // 🎬 MP4 FORMAT: Versuche browser-native MP4-Aufnahme
+        // 🎬 MP4 FORMAT: Versuche browser-native MP4-Aufnahme mit AAC-Audio
         if (this.outputFormat === 'mp4') {
-            // Prüfe MP4-Codecs in dieser Reihenfolge
-            const mp4Codecs = [
-                audioEnabled ? 'video/mp4;codecs=h264,aac' : 'video/mp4;codecs=h264',
-                audioEnabled ? 'video/mp4;codecs=avc1,mp4a' : 'video/mp4;codecs=avc1',
-                'video/mp4'
-            ];
+            // WICHTIG: Nur spezifische AAC-Codecs testen
+            // Generisches 'video/mp4' würde Opus verwenden (nicht kompatibel)
+            const mp4Codecs = audioEnabled
+                ? [
+                    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',  // H.264 Baseline + AAC-LC (am besten unterstützt)
+                    'video/mp4;codecs=h264,aac',                // Alternative H.264 + AAC
+                    'video/mp4;codecs=avc1,mp4a',               // Generischere Version
+                  ]
+                : [
+                    'video/mp4;codecs=avc1.42E01E',             // H.264 Baseline (nur Video)
+                    'video/mp4;codecs=h264',                    // Alternative H.264
+                    'video/mp4;codecs=avc1',                    // Generischer H.264
+                  ];
 
             let mp4Found = false;
             for (const codec of mp4Codecs) {
                 if (MediaRecorder.isTypeSupported(codec)) {
-                    console.log(`✅ MP4 natively supported: ${codec}`);
+                    console.log(`✅ MP4 mit AAC natively supported: ${codec}`);
                     preferredCodec = codec;
                     mp4Found = true;
                     break;
                 }
             }
 
-            // Falls kein MP4-Codec unterstützt wird, verwende WebM als Fallback
+            // Falls kein MP4+AAC unterstützt wird, verwende WebM (KEIN MP4+Opus!)
             if (!mp4Found) {
-                console.warn('⚠️ Browser unterstützt keine native MP4-Aufnahme, verwende WebM');
-                console.warn('Getestete Codecs:', mp4Codecs);
+                console.warn('⚠️ Browser unterstützt keine MP4-Aufnahme mit AAC-Audio');
+                console.warn('⚠️ Fallback zu WebM (verhindert MP4+Opus Inkompatibilität)');
+                console.warn('Getestete MP4-Codecs:', mp4Codecs);
                 this.outputFormat = 'webm'; // Auto-Fallback zu WebM
                 preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
             }
