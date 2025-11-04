@@ -5631,6 +5631,9 @@ class StreamRecorderOptimized {
                 // Determine video type from blob
                 const videoType = blob.type;
 
+                // Debug: Log the actual format
+                console.log(`📹 Recording stopped. Format: ${videoType}, Size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+
                 const url = URL.createObjectURL(blob);
                 this.showPreviewModal(url, videoType);
 
@@ -5818,8 +5821,8 @@ class StreamRecorderOptimized {
         const existing = document.getElementById('recordPreviewModal');
         if (existing) existing.remove();
 
-        // Determine file extension from type
-        const fileExtension = videoType === 'video/mp4' ? 'mp4' : 'webm';
+        // Determine file extension from type (includes check for codecs)
+        const fileExtension = videoType.includes('mp4') ? 'mp4' : 'webm';
 
         const html = `
             <div class="modal fade" id="recordPreviewModal" tabindex="-1" data-video-type="${videoType}" data-file-extension="${fileExtension}">
@@ -6290,17 +6293,20 @@ class StreamRecorderOptimized {
                 'video/mp4'
             ];
 
+            let mp4Found = false;
             for (const codec of mp4Codecs) {
                 if (MediaRecorder.isTypeSupported(codec)) {
                     console.log(`✅ MP4 natively supported: ${codec}`);
                     preferredCodec = codec;
+                    mp4Found = true;
                     break;
                 }
             }
 
             // Falls kein MP4-Codec unterstützt wird, verwende WebM als Fallback
-            if (!MediaRecorder.isTypeSupported(preferredCodec)) {
+            if (!mp4Found) {
                 console.warn('⚠️ Browser unterstützt keine native MP4-Aufnahme, verwende WebM');
+                console.warn('Getestete Codecs:', mp4Codecs);
                 this.outputFormat = 'webm'; // Auto-Fallback zu WebM
                 preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
             }
@@ -6327,30 +6333,32 @@ class StreamRecorderOptimized {
             mimeType: preferredCodec,
             videoBitsPerSecond: optimizedBitrate
         };
-        
+
         // Audio-Bitrate nur hinzufügen wenn Audio aktiviert ist
         if (audioEnabled) {
             options.audioBitsPerSecond = audioBitrate;
         }
-        
-        // 🛡️ PROGRESSIVE FALLBACK mit Qualitäts-Priorisierung
-        const supportedTypes = [
-            preferredCodec,                  // Bevorzugter Codec
-            'video/webm;codecs=vp9,opus',    // VP9 Fallback
-            'video/webm;codecs=vp8,opus',    // VP8 mit Audio
-            'video/webm;codecs=h264,aac',    // Hardware-beschleunigt
-            'video/webm;codecs=vp8',         // Basis VP8
-            'video/webm',                    // Standard WebM
-            'video/mp4'                      // Letzter Fallback
-        ];
-        
-        for (const type of supportedTypes) {
-            if (MediaRecorder.isTypeSupported(type)) {
-                options.mimeType = type;
-                break;
+
+        // 🛡️ SAFETY CHECK: Verify codec is actually supported
+        if (!MediaRecorder.isTypeSupported(preferredCodec)) {
+            console.warn(`⚠️ Preferred codec not supported: ${preferredCodec}`);
+
+            // Ultimate fallback
+            const fallbackTypes = [
+                'video/webm;codecs=vp8,opus',
+                'video/webm;codecs=vp8',
+                'video/webm'
+            ];
+
+            for (const type of fallbackTypes) {
+                if (MediaRecorder.isTypeSupported(type)) {
+                    console.log(`📹 Fallback zu: ${type}`);
+                    options.mimeType = type;
+                    break;
+                }
             }
         }
-        
+
         console.log(`📹 Multi-Stream optimiert (${activeStreamCount} Streams): ${Math.round(optimizedBitrate/1000)}kbps, ${options.mimeType}`);
         return options;
     }
