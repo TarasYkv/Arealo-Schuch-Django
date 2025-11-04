@@ -1090,8 +1090,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
 
 <!-- FFmpeg.wasm for MP4 conversion -->
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
 
 <script>
 console.log('🚀 StreamRec Performance Optimized Version (PythonAnywhere Ready) wird geladen...');
@@ -1644,28 +1643,26 @@ class StreamRecorderOptimized {
 
         try {
             console.log('🎬 Loading FFmpeg.wasm...');
-            const { FFmpeg } = FFmpegWASM;
-            const { toBlobURL } = FFmpegUtil;
 
-            this.ffmpeg = new FFmpeg();
+            // Check if FFmpeg is available
+            if (typeof FFmpeg === 'undefined' || !FFmpeg.createFFmpeg) {
+                throw new Error('FFmpeg library not loaded');
+            }
 
-            // Set up logging
-            this.ffmpeg.on('log', ({ message }) => {
-                console.log('FFmpeg:', message);
-            });
-
-            // Set up progress tracking
-            this.ffmpeg.on('progress', ({ progress }) => {
-                const percent = Math.round(progress * 100);
-                this.updateConversionProgress(percent);
+            // Create FFmpeg instance (0.11.x API)
+            const { createFFmpeg } = FFmpeg;
+            this.ffmpeg = createFFmpeg({
+                log: true,
+                progress: ({ ratio }) => {
+                    const percent = Math.round(ratio * 100);
+                    if (percent > 30 && percent < 90) { // Only update during conversion phase
+                        this.updateConversionProgress(percent, 'Konvertiere zu MP4...');
+                    }
+                }
             });
 
             // Load FFmpeg
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-            await this.ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            });
+            await this.ffmpeg.load();
 
             this.ffmpegLoaded = true;
             console.log('✅ FFmpeg loaded successfully');
@@ -1692,20 +1689,14 @@ class StreamRecorderOptimized {
 
             this.updateConversionProgress(10, 'Bereite Konvertierung vor...');
 
-            // Convert blob to Uint8Array
-            const arrayBuffer = await webmBlob.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-
-            this.updateConversionProgress(20, 'Schreibe temporäre Datei...');
-
-            // Write input file to FFmpeg virtual file system
-            await this.ffmpeg.writeFile('input.webm', uint8Array);
+            // Write input file to FFmpeg virtual file system (0.11.x API)
+            const { fetchFile } = FFmpeg;
+            this.ffmpeg.FS('writeFile', 'input.webm', await fetchFile(webmBlob));
 
             this.updateConversionProgress(30, 'Konvertiere zu MP4...');
 
-            // Run FFmpeg conversion
-            // -movflags +faststart ensures the video can start playing before it's fully downloaded
-            await this.ffmpeg.exec([
+            // Run FFmpeg conversion (0.11.x uses run() not exec())
+            await this.ffmpeg.run(
                 '-i', 'input.webm',
                 '-c:v', 'libx264',      // Video codec: H.264
                 '-preset', 'medium',     // Encoding speed/quality balance
@@ -1713,18 +1704,17 @@ class StreamRecorderOptimized {
                 '-c:a', 'aac',           // Audio codec: AAC
                 '-b:a', '128k',          // Audio bitrate
                 '-movflags', '+faststart', // Enable streaming
-                '-y',                    // Overwrite output file
                 'output.mp4'
-            ]);
+            );
 
             this.updateConversionProgress(90, 'Lese konvertierte Datei...');
 
-            // Read the output file
-            const data = await this.ffmpeg.readFile('output.mp4');
+            // Read the output file (0.11.x API)
+            const data = this.ffmpeg.FS('readFile', 'output.mp4');
 
-            // Clean up
-            await this.ffmpeg.deleteFile('input.webm');
-            await this.ffmpeg.deleteFile('output.mp4');
+            // Clean up (0.11.x API)
+            this.ffmpeg.FS('unlink', 'input.webm');
+            this.ffmpeg.FS('unlink', 'output.mp4');
 
             this.updateConversionProgress(100, 'Fertig!');
 
