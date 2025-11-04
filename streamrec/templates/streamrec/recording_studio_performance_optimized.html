@@ -1002,12 +1002,12 @@
                                 <i class="fas fa-file-video me-1"></i>Ausgabeformat:
                             </label>
                             <select class="form-select" id="outputFormatSetting">
-                                <option value="webm">WebM (Browser-nativ, schnell)</option>
-                                <option value="mp4" selected>MP4 (Universal, konvertiert nach Aufnahme)</option>
+                                <option value="webm">WebM (Alle Browser, VP8/Opus)</option>
+                                <option value="mp4" selected>MP4 (Chrome/Edge/Safari, H.264/AAC)</option>
                             </select>
                             <div class="form-text">
                                 <i class="fas fa-info-circle me-1"></i>
-                                MP4 wird nach der Aufnahme konvertiert (~10-30 Sek.)
+                                MP4 wird browser-nativ aufgenommen (Chrome, Edge, Safari). Fallback zu WebM bei fehlender Unterstützung.
                             </div>
                         </div>
                     </div>
@@ -1089,8 +1089,7 @@
 <!-- MediaPipe Selfie Segmentation Library -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
 
-<!-- FFmpeg.wasm for MP4 conversion -->
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+<!-- No external conversion library needed - using browser-native MP4 recording -->
 
 <script>
 console.log('🚀 StreamRec Performance Optimized Version (PythonAnywhere Ready) wird geladen...');
@@ -1118,9 +1117,7 @@ class StreamRecorderOptimized {
         this.recordedChunks = [];
         this.isRecording = false;
         this.outputMode = 'merged'; // 'merged' or 'separate'
-        this.outputFormat = 'mp4'; // 'webm' or 'mp4' - format for final download
-        this.ffmpeg = null; // FFmpeg instance for video conversion
-        this.ffmpegLoaded = false; // Track if FFmpeg is loaded
+        this.outputFormat = 'mp4'; // 'webm' or 'mp4' - format for browser-native recording
         this.separateFiles = null; // Store separate file data for bulk download
         this.separateRecorders = new Map(); // Store individual MediaRecorders for each stream
         this.separateChunks = new Map(); // Store recorded chunks for each stream
@@ -1636,176 +1633,6 @@ class StreamRecorderOptimized {
         }
     }
 
-    async loadFFmpeg() {
-        if (this.ffmpegLoaded) {
-            return true;
-        }
-
-        try {
-            console.log('🎬 Loading FFmpeg.wasm...');
-
-            // Check if FFmpeg is available
-            if (typeof FFmpeg === 'undefined' || !FFmpeg.createFFmpeg) {
-                throw new Error('FFmpeg library not loaded');
-            }
-
-            // Create FFmpeg instance (0.11.x API)
-            const { createFFmpeg } = FFmpeg;
-            this.ffmpeg = createFFmpeg({
-                log: true,
-                progress: ({ ratio }) => {
-                    const percent = Math.round(ratio * 100);
-                    if (percent > 30 && percent < 90) { // Only update during conversion phase
-                        this.updateConversionProgress(percent, 'Konvertiere zu MP4...');
-                    }
-                }
-            });
-
-            // Load FFmpeg
-            await this.ffmpeg.load();
-
-            this.ffmpegLoaded = true;
-            console.log('✅ FFmpeg loaded successfully');
-            return true;
-        } catch (error) {
-            console.error('❌ Failed to load FFmpeg:', error);
-            return false;
-        }
-    }
-
-    async convertToMP4(webmBlob, filename = 'recording') {
-        try {
-            // Show conversion modal
-            this.showConversionProgress(0);
-
-            // Load FFmpeg if not already loaded
-            if (!this.ffmpegLoaded) {
-                this.updateConversionProgress(5, 'Lade FFmpeg...');
-                const loaded = await this.loadFFmpeg();
-                if (!loaded) {
-                    throw new Error('FFmpeg konnte nicht geladen werden');
-                }
-            }
-
-            this.updateConversionProgress(10, 'Bereite Konvertierung vor...');
-
-            // Write input file to FFmpeg virtual file system (0.11.x API)
-            const { fetchFile } = FFmpeg;
-            this.ffmpeg.FS('writeFile', 'input.webm', await fetchFile(webmBlob));
-
-            this.updateConversionProgress(30, 'Konvertiere zu MP4...');
-
-            // Run FFmpeg conversion (0.11.x uses run() not exec())
-            await this.ffmpeg.run(
-                '-i', 'input.webm',
-                '-c:v', 'libx264',      // Video codec: H.264
-                '-preset', 'medium',     // Encoding speed/quality balance
-                '-crf', '23',            // Quality (lower = better, 23 is default)
-                '-c:a', 'aac',           // Audio codec: AAC
-                '-b:a', '128k',          // Audio bitrate
-                '-movflags', '+faststart', // Enable streaming
-                'output.mp4'
-            );
-
-            this.updateConversionProgress(90, 'Lese konvertierte Datei...');
-
-            // Read the output file (0.11.x API)
-            const data = this.ffmpeg.FS('readFile', 'output.mp4');
-
-            // Clean up (0.11.x API)
-            this.ffmpeg.FS('unlink', 'input.webm');
-            this.ffmpeg.FS('unlink', 'output.mp4');
-
-            this.updateConversionProgress(100, 'Fertig!');
-
-            // Create blob from output
-            const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
-
-            // Hide conversion modal after short delay
-            setTimeout(() => {
-                this.hideConversionProgress();
-            }, 1000);
-
-            return mp4Blob;
-        } catch (error) {
-            console.error('❌ Conversion error:', error);
-            this.hideConversionProgress();
-            throw error;
-        }
-    }
-
-    showConversionProgress(percent = 0, message = 'Konvertiere zu MP4...') {
-        // Remove existing modal if any
-        let modal = document.getElementById('conversionProgressModal');
-        if (modal) {
-            modal.remove();
-        }
-
-        // Create modal HTML
-        const modalHTML = `
-            <div class="modal fade show" id="conversionProgressModal"
-                 style="display: block; background: rgba(0,0,0,0.7);"
-                 tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header bg-primary text-white">
-                            <h5 class="modal-title">
-                                <i class="fas fa-sync fa-spin me-2"></i>
-                                Video-Konvertierung
-                            </h5>
-                        </div>
-                        <div class="modal-body text-center py-4">
-                            <div class="mb-3">
-                                <i class="fas fa-file-video fa-3x text-primary mb-3"></i>
-                            </div>
-                            <h6 id="conversionMessage">${message}</h6>
-                            <div class="progress mt-3" style="height: 25px;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                     id="conversionProgressBar"
-                                     role="progressbar"
-                                     style="width: ${percent}%"
-                                     aria-valuenow="${percent}"
-                                     aria-valuemin="0"
-                                     aria-valuemax="100">
-                                    ${percent}%
-                                </div>
-                            </div>
-                            <p class="text-muted mt-3 small">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Dies kann 10-30 Sekunden dauern...
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Add to document
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    }
-
-    updateConversionProgress(percent, message = null) {
-        const progressBar = document.getElementById('conversionProgressBar');
-        const messageEl = document.getElementById('conversionMessage');
-
-        if (progressBar) {
-            progressBar.style.width = `${percent}%`;
-            progressBar.setAttribute('aria-valuenow', percent);
-            progressBar.textContent = `${percent}%`;
-        }
-
-        if (message && messageEl) {
-            messageEl.textContent = message;
-        }
-    }
-
-    hideConversionProgress() {
-        const modal = document.getElementById('conversionProgressModal');
-        if (modal) {
-            modal.remove();
-        }
-    }
-
     startSeparateStreamRecording() {
         console.log('🎬 Starting separate stream recordings...');
         console.log('📊 Available streams:', Array.from(this.streams.keys()));
@@ -1939,42 +1766,26 @@ class StreamRecorderOptimized {
         }
     }
     
-    async processSeparateRecordings() {
+    processSeparateRecordings() {
         console.log('🎬 Processing separate recordings...');
 
         const separateFiles = [];
         const timestamp = Date.now();
-        const needsConversion = this.outputFormat === 'mp4';
-        const fileExtension = needsConversion ? 'mp4' : 'webm';
 
-        // Convert files if needed
-        for (const [streamType, webmBlob] of this.separateChunks.entries()) {
-            if (webmBlob instanceof Blob && webmBlob.size > 0) {
-                let finalBlob = webmBlob;
-                let finalType = 'video/webm';
+        // Process recorded files (already in correct format from MediaRecorder)
+        for (const [streamType, blob] of this.separateChunks.entries()) {
+            if (blob instanceof Blob && blob.size > 0) {
+                // Determine file extension from blob type
+                const blobType = blob.type;
+                const fileExtension = blobType.includes('mp4') ? 'mp4' : 'webm';
 
-                if (needsConversion) {
-                    try {
-                        console.log(`🎬 Converting ${streamType} to MP4...`);
-                        this.showConversionProgress(0, `Konvertiere ${streamType} zu MP4...`);
-                        finalBlob = await this.convertToMP4(webmBlob, streamType);
-                        finalType = 'video/mp4';
-                        console.log(`✅ ${streamType} conversion successful`);
-                    } catch (error) {
-                        console.error(`❌ ${streamType} conversion failed:`, error);
-                        // Keep WebM as fallback
-                        finalBlob = webmBlob;
-                        finalType = 'video/webm';
-                    }
-                }
-
-                const url = URL.createObjectURL(finalBlob);
+                const url = URL.createObjectURL(blob);
                 separateFiles.push({
                     type: streamType,
                     url: url,
-                    blob: finalBlob,
+                    blob: blob,
                     filename: `${streamType}-${timestamp}.${fileExtension}`,
-                    videoType: finalType
+                    videoType: blobType
                 });
             }
         }
@@ -5813,29 +5624,15 @@ class StreamRecorderOptimized {
                 }
             };
 
-            this.mediaRecorder.onstop = async () => {
-                // Default merged recording
-                const webmBlob = new Blob(this.recordedChunks, { type: 'video/webm' });
+            this.mediaRecorder.onstop = () => {
+                // Create blob from recorded chunks (already in correct format from MediaRecorder)
+                const blob = new Blob(this.recordedChunks, { type: this.mediaRecorder.mimeType });
 
-                let finalBlob = webmBlob;
-                let finalType = 'video/webm';
+                // Determine video type from blob
+                const videoType = blob.type;
 
-                // Convert to MP4 if selected
-                if (this.outputFormat === 'mp4') {
-                    try {
-                        console.log('🎬 Converting to MP4...');
-                        finalBlob = await this.convertToMP4(webmBlob);
-                        finalType = 'video/mp4';
-                        console.log('✅ Conversion successful');
-                    } catch (error) {
-                        console.error('❌ Conversion failed, using WebM:', error);
-                        alert('MP4-Konvertierung fehlgeschlagen. Video wird als WebM gespeichert.\n\nFehler: ' + error.message);
-                        // Keep WebM as fallback
-                    }
-                }
-
-                const url = URL.createObjectURL(finalBlob);
-                this.showPreviewModal(url, finalType);
+                const url = URL.createObjectURL(blob);
+                this.showPreviewModal(url, videoType);
 
                 if (this.recordingAudioSources?.length) {
                     this.recordingAudioSources.forEach(({ node }) => {
@@ -6462,15 +6259,15 @@ class StreamRecorderOptimized {
                 break;
         }
         
-        // 🚀 ENHANCED CODEC SELECTION basierend auf Qualitäts-Level
+        // 🚀 ENHANCED CODEC SELECTION basierend auf Qualitäts-Level und Ausgabeformat
         let preferredCodec = 'video/webm;codecs=vp8,opus'; // Standard
         let audioBitrate = 128000;
-        
+
         // Audio-Qualität aus UI lesen
         const audioQualitySelect = document.getElementById('audioQualitySelect');
         const audioEnabled = document.getElementById('audioEnabled')?.checked !== false;
         const audioQuality = audioQualitySelect?.value || 'medium';
-        
+
         // Audio-Bitrate basierend auf Auswahl
         switch (audioQuality) {
             case 'high':
@@ -6483,21 +6280,47 @@ class StreamRecorderOptimized {
                 audioBitrate = 96000;
                 break;
         }
-        
-        switch (quality) {
-            case 'ultra':
-                preferredCodec = audioEnabled ? 'video/webm;codecs=vp9,opus' : 'video/webm;codecs=vp9';
-                break;
-            case 'high':
+
+        // 🎬 MP4 FORMAT: Versuche browser-native MP4-Aufnahme
+        if (this.outputFormat === 'mp4') {
+            // Prüfe MP4-Codecs in dieser Reihenfolge
+            const mp4Codecs = [
+                audioEnabled ? 'video/mp4;codecs=h264,aac' : 'video/mp4;codecs=h264',
+                audioEnabled ? 'video/mp4;codecs=avc1,mp4a' : 'video/mp4;codecs=avc1',
+                'video/mp4'
+            ];
+
+            for (const codec of mp4Codecs) {
+                if (MediaRecorder.isTypeSupported(codec)) {
+                    console.log(`✅ MP4 natively supported: ${codec}`);
+                    preferredCodec = codec;
+                    break;
+                }
+            }
+
+            // Falls kein MP4-Codec unterstützt wird, verwende WebM als Fallback
+            if (!MediaRecorder.isTypeSupported(preferredCodec)) {
+                console.warn('⚠️ Browser unterstützt keine native MP4-Aufnahme, verwende WebM');
+                this.outputFormat = 'webm'; // Auto-Fallback zu WebM
                 preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
-                break;
-            case 'medium':
-                preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
-                break;
-            case 'low':
-            case 'potato':
-                preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm';
-                break;
+            }
+        } else {
+            // WebM Format (Standard)
+            switch (quality) {
+                case 'ultra':
+                    preferredCodec = audioEnabled ? 'video/webm;codecs=vp9,opus' : 'video/webm;codecs=vp9';
+                    break;
+                case 'high':
+                    preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
+                    break;
+                case 'medium':
+                    preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
+                    break;
+                case 'low':
+                case 'potato':
+                    preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm';
+                    break;
+            }
         }
         
         let options = {
