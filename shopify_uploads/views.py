@@ -14,7 +14,10 @@ from .models import FotogravurImage
 
 
 def cors_headers(func):
-    """Decorator to add CORS headers to API responses"""
+    """
+    Decorator to add CORS headers to API responses.
+    Allows requests from naturmacher.de (Shopify store).
+    """
     @wraps(func)
     def wrapper(request, *args, **kwargs):
         # Handle preflight OPTIONS request
@@ -22,8 +25,8 @@ def cors_headers(func):
             response = HttpResponse()
             response['Access-Control-Allow-Origin'] = 'https://naturmacher.de'
             response['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
-            response['Access-Control-Allow-Headers'] = 'Content-Type'
-            response['Access-Control-Max-Age'] = '3600'
+            response['Access-Control-Allow-Headers'] = 'Content-Type, X-Requested-With'
+            response['Access-Control-Max-Age'] = '86400'  # 24 hours
             return response
 
         # Call the actual view
@@ -32,7 +35,8 @@ def cors_headers(func):
         # Add CORS headers to response
         response['Access-Control-Allow-Origin'] = 'https://naturmacher.de'
         response['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Content-Type'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, X-Requested-With'
+        response['Access-Control-Allow-Credentials'] = 'false'
 
         return response
     return wrapper
