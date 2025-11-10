@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bild löschen - {{ image.unique_id }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Bild löschen</h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <img src="{{ image.image.url }}"
+                             alt="{{ image.unique_id }}"
+                             style="max-width: 100%; max-height: 300px; object-fit: contain;">
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                    </div>
+
+                    <p>Möchten Sie das folgende Bild wirklich löschen?</p>
+
+                    <ul class="list-unstyled">
+                        <li><strong>ID:</strong> {{ image.unique_id }}</li>
+                        <li><strong>Erstellt:</strong> {{ image.created_at|date:"d.m.Y H:i" }}</li>
+                        {% if image.shopify_order_id %}
+                        <li><strong>Bestellung:</strong> {{ image.shopify_order_id }}</li>
+                        {% endif %}
+                        {% if image.custom_text %}
+                        <li><strong>Text:</strong> {{ image.custom_text }}</li>
+                        {% endif %}
+                    </ul>
+
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'shopify_uploads:image_detail' image.unique_id %}"
+                               class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Ja, löschen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

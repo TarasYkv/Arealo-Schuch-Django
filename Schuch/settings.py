@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'todos',
     'chat',
     'shopify_manager',
+    'shopify_uploads',
     'image_editor',
     'bug_report',
     'videos',

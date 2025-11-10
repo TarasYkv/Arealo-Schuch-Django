@@ -42,6 +42,7 @@ urlpatterns = [
     # Chat wurde zu Organization verschoben
     path('chat/', core_views.redirect_to_organization_chat, name='chat_redirect'),
     path('shopify/', include('shopify_manager.urls')),
+    path('shopify-uploads/', include('shopify_uploads.urls')),
     path('images/', include('image_editor.urls')),
     path('bug-report/', include('bug_report.urls')),
     path('organization/', include('organization.urls')),

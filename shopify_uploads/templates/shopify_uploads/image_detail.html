@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ image.unique_id }} - Fotogravur Upload{% endblock %}
+
+{% block extra_css %}
+<style>
+.detail-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.image-preview {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 600px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.info-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.info-value {
+    color: #212529;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.setting-item {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.setting-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0d6efd;
+    margin-bottom: 0.25rem;
+}
+
+.setting-label {
+    font-size: 0.85rem;
+    color: #666;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 detail-container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'shopify_uploads:image_list' %}" class="btn btn-outline-secondary mb-2">
+                <i class="bi bi-arrow-left"></i> Zurück zur Übersicht
+            </a>
+            <h1><i class="bi bi-image"></i> {{ image.unique_id }}</h1>
+        </div>
+        <div>
+            <a href="{{ image.image.url }}" download class="btn btn-primary">
+                <i class="bi bi-download"></i> Download
+            </a>
+            <a href="{% url 'shopify_uploads:image_delete' image.unique_id %}"
+               class="btn btn-danger">
+                <i class="bi bi-trash"></i> Löschen
+            </a>
+        </div>
+    </div>
+
+    <!-- Bildvorschau -->
+    <div class="image-preview">
+        <img src="{{ image.image.url }}" alt="{{ image.unique_id }}">
+    </div>
+
+    <div class="row">
+        <!-- Allgemeine Informationen -->
+        <div class="col-md-6">
+            <div class="info-card">
+                <h4><i class="bi bi-info-circle"></i> Allgemeine Informationen</h4>
+                <div class="info-row">
+                    <span class="info-label">Eindeutige ID:</span>
+                    <span class="info-value">{{ image.unique_id }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Erstellt am:</span>
+                    <span class="info-value">{{ image.created_at|date:"d.m.Y H:i:s" }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dateigröße:</span>
+                    <span class="info-value">{{ image.file_size_kb }} KB</span>
+                </div>
+                {% if image.original_filename %}
+                <div class="info-row">
+                    <span class="info-label">Original-Dateiname:</span>
+                    <span class="info-value">{{ image.original_filename }}</span>
+                </div>
+                {% endif %}
+                {% if image.uploaded_by %}
+                <div class="info-row">
+                    <span class="info-label">Hochgeladen von:</span>
+                    <span class="info-value">{{ image.uploaded_by.username }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Shopify Informationen -->
+        <div class="col-md-6">
+            <div class="info-card">
+                <h4><i class="bi bi-shop"></i> Shopify Informationen</h4>
+                <div class="info-row">
+                    <span class="info-label">Bestellnummer:</span>
+                    <span class="info-value">
+                        {% if image.shopify_order_id %}
+                            {{ image.shopify_order_id }}
+                        {% else %}
+                            <em class="text-muted">Nicht zugeordnet</em>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Produkt-ID:</span>
+                    <span class="info-value">
+                        {% if image.shopify_product_id %}
+                            {{ image.shopify_product_id }}
+                        {% else %}
+                            <em class="text-muted">Nicht zugeordnet</em>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Wunschtext:</span>
+                    <span class="info-value">
+                        {% if image.custom_text %}
+                            {{ image.custom_text }}
+                        {% else %}
+                            <em class="text-muted">Kein Text</em>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Schriftart:</span>
+                    <span class="info-value">
+                        {% if image.font_family %}
+                            {{ image.font_family }}
+                        {% else %}
+                            <em class="text-muted">Keine Schriftart</em>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verarbeitungseinstellungen -->
+    {% if image.processing_settings %}
+    <div class="info-card">
+        <h4><i class="bi bi-sliders"></i> Verarbeitungseinstellungen</h4>
+        <div class="settings-grid">
+            {% if image.processing_settings.brightness is not None %}
+            <div class="setting-item">
+                <div class="setting-value">{{ image.processing_settings.brightness }}</div>
+                <div class="setting-label">Helligkeit</div>
+            </div>
+            {% endif %}
+
+            {% if image.processing_settings.contrast is not None %}
+            <div class="setting-item">
+                <div class="setting-value">{{ image.processing_settings.contrast }}</div>
+                <div class="setting-label">Kontrast</div>
+            </div>
+            {% endif %}
+
+            {% if image.processing_settings.threshold is not None %}
+            <div class="setting-item">
+                <div class="setting-value">{{ image.processing_settings.threshold }}</div>
+                <div class="setting-label">S/W Schwellenwert</div>
+            </div>
+            {% endif %}
+
+            {% if image.processing_settings.bg_removed is not None %}
+            <div class="setting-item">
+                <div class="setting-value">
+                    {% if image.processing_settings.bg_removed %}
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    {% else %}
+                        <i class="bi bi-x-circle-fill text-danger"></i>
+                    {% endif %}
+                </div>
+                <div class="setting-label">Hintergrund entfernt</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Bild-URL für API-Zugriff -->
+    <div class="info-card">
+        <h4><i class="bi bi-link-45deg"></i> Bild-URL (API)</h4>
+        <div class="input-group">
+            <input type="text"
+                   class="form-control"
+                   id="imageUrl"
+                   value="{{ request.scheme }}://{{ request.get_host }}{{ image.image.url }}"
+                   readonly>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyImageUrl()">
+                <i class="bi bi-clipboard"></i> Kopieren
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyImageUrl() {
+    const input = document.getElementById('imageUrl');
+    input.select();
+    document.execCommand('copy');
+    alert('URL kopiert!');
+}
+</script>
+{% endblock %}
