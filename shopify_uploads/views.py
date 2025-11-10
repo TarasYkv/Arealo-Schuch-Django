@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.files.base import ContentFile
@@ -9,7 +9,33 @@ from django.db.models import Q
 import base64
 import uuid
 import json
+from functools import wraps
 from .models import FotogravurImage
+
+
+def cors_headers(func):
+    """Decorator to add CORS headers to API responses"""
+    @wraps(func)
+    def wrapper(request, *args, **kwargs):
+        # Handle preflight OPTIONS request
+        if request.method == 'OPTIONS':
+            response = HttpResponse()
+            response['Access-Control-Allow-Origin'] = 'https://naturmacher.de'
+            response['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
+            response['Access-Control-Allow-Headers'] = 'Content-Type'
+            response['Access-Control-Max-Age'] = '3600'
+            return response
+
+        # Call the actual view
+        response = func(request, *args, **kwargs)
+
+        # Add CORS headers to response
+        response['Access-Control-Allow-Origin'] = 'https://naturmacher.de'
+        response['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type'
+
+        return response
+    return wrapper
 
 
 def is_superuser(user):
@@ -83,12 +109,15 @@ def image_delete(request, unique_id):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@cors_headers
 def upload_image(request):
     """
     API-Endpoint zum Hochladen von konvertierten Bildern
     Wird vom Shopify-Frontend aufgerufen
+    Akzeptiert: POST, OPTIONS (für CORS preflight)
     """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST requests allowed'}, status=405)
     try:
         # Parse JSON request body
         data = json.loads(request.body)
@@ -152,11 +181,14 @@ def upload_image(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@cors_headers
 def get_image(request, unique_id):
     """
     API-Endpoint zum Abrufen eines Bildes anhand der unique_id
+    Akzeptiert: GET, OPTIONS (für CORS preflight)
     """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Only GET requests allowed'}, status=405)
     try:
         image = FotogravurImage.objects.get(unique_id=unique_id)
         return JsonResponse({
