@@ -214,3 +214,125 @@ def get_image(request, unique_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@csrf_exempt
+def shopify_order_webhook(request):
+    """
+    Webhook-Endpoint für Shopify Order Creation
+    Wird aufgerufen, wenn eine Bestellung abgeschlossen wird
+    Aktualisiert FotogravurImage mit Order-ID und benennt Bild um
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST requests allowed'}, status=405)
+
+    try:
+        import hmac
+        import hashlib
+        from django.conf import settings
+        import os
+
+        # HMAC-Verifizierung (optional, aber empfohlen für Production)
+        webhook_secret = os.environ.get('SHOPIFY_WEBHOOK_SECRET', '')
+        if webhook_secret:
+            hmac_header = request.META.get('HTTP_X_SHOPIFY_HMAC_SHA256', '')
+            calculated_hmac = hmac.new(
+                webhook_secret.encode('utf-8'),
+                request.body,
+                hashlib.sha256
+            ).digest()
+            calculated_hmac_b64 = base64.b64encode(calculated_hmac).decode('utf-8')
+
+            if not hmac.compare_digest(calculated_hmac_b64, hmac_header):
+                return JsonResponse({'error': 'Invalid HMAC signature'}, status=401)
+
+        # Parse Order Data
+        order_data = json.loads(request.body)
+        order_id = str(order_data.get('id', ''))
+        order_number = order_data.get('order_number', '')
+
+        if not order_id:
+            return JsonResponse({'error': 'Missing order_id'}, status=400)
+
+        # Line Items durchgehen und nach Fotogravur-Bildern suchen
+        line_items = order_data.get('line_items', [])
+        updated_images = []
+
+        for item in line_items:
+            properties = item.get('properties', [])
+
+            # Nach "Bild ID" Property suchen
+            bild_id = None
+            for prop in properties:
+                if prop.get('name') == 'Bild ID':
+                    bild_id = prop.get('value')
+                    break
+
+            if not bild_id:
+                continue  # Kein Fotogravur-Bild in diesem Line Item
+
+            # FotogravurImage mit unique_id finden
+            try:
+                fotogravur_image = FotogravurImage.objects.get(unique_id=bild_id)
+
+                # Order-ID speichern
+                fotogravur_image.shopify_order_id = order_id
+
+                # Bild umbenennen auf order_id.png
+                if fotogravur_image.image:
+                    # Alten Dateipfad holen
+                    old_file = fotogravur_image.image.file
+                    old_path = fotogravur_image.image.path
+
+                    # Neuen Dateinamen erstellen: order_id.png
+                    from django.core.files.base import File
+                    import shutil
+
+                    # Neuer Filename
+                    new_filename = f"{order_id}.png"
+
+                    # Speicherort beibehalten, nur Filename ändern
+                    import pathlib
+                    old_path_obj = pathlib.Path(old_path)
+                    new_path = old_path_obj.parent / new_filename
+
+                    # Datei umbenennen
+                    shutil.move(str(old_path_obj), str(new_path))
+
+                    # Model-Feld aktualisieren
+                    fotogravur_image.image.name = str(pathlib.Path(fotogravur_image.image.name).parent / new_filename)
+
+                fotogravur_image.save()
+                updated_images.append({
+                    'unique_id': bild_id,
+                    'order_id': order_id,
+                    'new_filename': f"{order_id}.png"
+                })
+
+            except FotogravurImage.DoesNotExist:
+                # Bild nicht gefunden - kann vorkommen bei älteren Bestellungen
+                continue
+
+        return JsonResponse({
+            'success': True,
+            'order_id': order_id,
+            'order_number': order_number,
+            'updated_images': updated_images,
+            'count': len(updated_images)
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON'
+        }, status=400)
+    except Exception as e:
+        # Log error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Shopify Webhook Error: {str(e)}', exc_info=True)
+
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
