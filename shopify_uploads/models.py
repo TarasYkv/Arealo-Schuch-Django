@@ -11,8 +11,11 @@ class FotogravurImage(models.Model):
     # Eindeutige ID für das Bild
     unique_id = models.CharField(max_length=100, unique=True, db_index=True)
 
-    # Das konvertierte S/W-Bild
+    # Das konvertierte S/W-Bild (mit Dithering)
     image = models.ImageField(upload_to='fotogravur/%Y/%m/')
+
+    # Das Original-Bild (unverarbeitet)
+    original_image = models.ImageField(upload_to='fotogravur/originals/%Y/%m/', blank=True, null=True)
 
     # Original-Dateiname (für Referenz)
     original_filename = models.CharField(max_length=255, blank=True)

@@ -27,10 +27,15 @@ class FotogravurImageAdmin(admin.ModelAdmin):
         'file_size',
         'uploaded_by',
         'image_preview_large',
+        'original_image_preview_large',
     ]
     fieldsets = (
-        ('Bild', {
+        ('Verarbeitetes Bild (S/W)', {
             'fields': ('image', 'image_preview_large', 'unique_id', 'original_filename')
+        }),
+        ('Original-Bild (Farbig)', {
+            'fields': ('original_image', 'original_image_preview_large'),
+            'classes': ('collapse',),  # Standardmäßig eingeklappt
         }),
         ('Shopify Informationen', {
             'fields': ('shopify_order_id', 'shopify_product_id')
@@ -54,14 +59,24 @@ class FotogravurImageAdmin(admin.ModelAdmin):
     image_preview.short_description = 'Vorschau'
 
     def image_preview_large(self, obj):
-        """Große Bildvorschau im Detail"""
+        """Große Bildvorschau im Detail (S/W verarbeitet)"""
         if obj.image:
             return format_html(
                 '<img src="{}" style="max-width: 600px; max-height: 600px; object-fit: contain; border: 1px solid #ddd; padding: 10px; background: #f8f9fa;" />',
                 obj.image.url
             )
         return '-'
-    image_preview_large.short_description = 'Bildvorschau'
+    image_preview_large.short_description = 'S/W-Bildvorschau'
+
+    def original_image_preview_large(self, obj):
+        """Große Bildvorschau des Originals"""
+        if obj.original_image:
+            return format_html(
+                '<img src="{}" style="max-width: 600px; max-height: 600px; object-fit: contain; border: 1px solid #ddd; padding: 10px; background: #f8f9fa;" />',
+                obj.original_image.url
+            )
+        return '-'
+    original_image_preview_large.short_description = 'Original-Bildvorschau'
 
     def custom_text_short(self, obj):
         """Gekürzter Wunschtext"""

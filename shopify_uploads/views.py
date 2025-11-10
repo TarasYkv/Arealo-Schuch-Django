@@ -135,7 +135,7 @@ def upload_image(request):
                     'error': f'Fehlendes Feld: {field}'
                 }, status=400)
 
-        # Base64-Bild dekodieren
+        # Base64-Bild dekodieren (S/W verarbeitetes Bild)
         image_data = data['image_data']
         if image_data.startswith('data:image'):
             # Entferne "data:image/png;base64," prefix
@@ -143,8 +143,17 @@ def upload_image(request):
 
         image_binary = base64.b64decode(image_data)
 
+        # Original-Bild dekodieren (falls vorhanden)
+        original_image_binary = None
+        if 'original_image_data' in data and data['original_image_data']:
+            original_image_data = data['original_image_data']
+            if original_image_data.startswith('data:image'):
+                original_image_data = original_image_data.split(',')[1]
+            original_image_binary = base64.b64decode(original_image_data)
+
         # Dateiname generieren
         filename = f"{data['unique_id']}.png"
+        original_filename = f"{data['unique_id']}_original.png"
 
         # FotogravurImage erstellen
         fotogravur_image = FotogravurImage(
@@ -158,19 +167,36 @@ def upload_image(request):
             file_size=len(image_binary),
         )
 
-        # Bild speichern
+        # S/W-Bild speichern
         fotogravur_image.image.save(
             filename,
             ContentFile(image_binary),
-            save=True
+            save=False  # Noch nicht speichern, falls Original auch gespeichert werden soll
         )
 
-        return JsonResponse({
+        # Original-Bild speichern (falls vorhanden)
+        if original_image_binary:
+            fotogravur_image.original_image.save(
+                original_filename,
+                ContentFile(original_image_binary),
+                save=False
+            )
+
+        # Jetzt alles speichern
+        fotogravur_image.save()
+
+        response_data = {
             'success': True,
             'unique_id': fotogravur_image.unique_id,
             'image_url': fotogravur_image.image.url,
             'file_size_kb': fotogravur_image.file_size_kb,
-        })
+        }
+
+        # Original-Bild URL hinzufügen (falls vorhanden)
+        if fotogravur_image.original_image:
+            response_data['original_image_url'] = fotogravur_image.original_image.url
+
+        return JsonResponse(response_data)
 
     except json.JSONDecodeError:
         return JsonResponse({
