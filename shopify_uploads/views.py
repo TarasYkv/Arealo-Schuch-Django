@@ -305,20 +305,19 @@ def shopify_order_webhook(request):
                 fotogravur_image.shopify_order_id = order_id
 
                 # Bild umbenennen auf order_id.png
+                from django.core.files.base import File
+                import shutil
+                import pathlib
+
                 if fotogravur_image.image:
                     # Alten Dateipfad holen
                     old_file = fotogravur_image.image.file
                     old_path = fotogravur_image.image.path
 
-                    # Neuen Dateinamen erstellen: order_id.png
-                    from django.core.files.base import File
-                    import shutil
-
-                    # Neuer Filename
+                    # Neuer Filename für S/W-Bild
                     new_filename = f"{order_id}.png"
 
                     # Speicherort beibehalten, nur Filename ändern
-                    import pathlib
                     old_path_obj = pathlib.Path(old_path)
                     new_path = old_path_obj.parent / new_filename
 
@@ -328,12 +327,37 @@ def shopify_order_webhook(request):
                     # Model-Feld aktualisieren
                     fotogravur_image.image.name = str(pathlib.Path(fotogravur_image.image.name).parent / new_filename)
 
+                # Original-Bild umbenennen auf order_id_original.png
+                if fotogravur_image.original_image:
+                    # Alten Dateipfad holen
+                    old_original_path = fotogravur_image.original_image.path
+
+                    # Neuer Filename für Original-Bild
+                    new_original_filename = f"{order_id}_original.png"
+
+                    # Speicherort beibehalten, nur Filename ändern
+                    old_original_path_obj = pathlib.Path(old_original_path)
+                    new_original_path = old_original_path_obj.parent / new_original_filename
+
+                    # Datei umbenennen
+                    shutil.move(str(old_original_path_obj), str(new_original_path))
+
+                    # Model-Feld aktualisieren
+                    fotogravur_image.original_image.name = str(pathlib.Path(fotogravur_image.original_image.name).parent / new_original_filename)
+
                 fotogravur_image.save()
-                updated_images.append({
+
+                # Response mit beiden Dateinamen
+                image_info = {
                     'unique_id': bild_id,
                     'order_id': order_id,
-                    'new_filename': f"{order_id}.png"
-                })
+                    'new_sw_filename': f"{order_id}.png"
+                }
+
+                if fotogravur_image.original_image:
+                    image_info['new_original_filename'] = f"{order_id}_original.png"
+
+                updated_images.append(image_info)
 
             except FotogravurImage.DoesNotExist:
                 # Bild nicht gefunden - kann vorkommen bei älteren Bestellungen
