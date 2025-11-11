@@ -31,6 +31,9 @@ class MediaCORSMiddleware:
     """
     Middleware to add CORS headers to media files (images, etc.).
     Allows naturmacher.de to load images from workloom.de.
+
+    WICHTIG: Setzt auch Vary: Origin damit Cloudflare verschiedene
+    gecachte Versionen für verschiedene Origins erstellt.
     """
 
     def __init__(self, get_response):
@@ -45,5 +48,14 @@ class MediaCORSMiddleware:
             response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
             response['Access-Control-Allow-Headers'] = 'Content-Type'
             response['Access-Control-Max-Age'] = '86400'  # 24 hours
+
+            # WICHTIG: Vary: Origin damit Cloudflare origin-spezifisch cached
+            # Dadurch werden CORS-Header im Cache gespeichert
+            existing_vary = response.get('Vary', '')
+            if existing_vary:
+                if 'Origin' not in existing_vary:
+                    response['Vary'] = f"{existing_vary}, Origin"
+            else:
+                response['Vary'] = 'Origin'
 
         return response
