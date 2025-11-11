@@ -1,6 +1,30 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.contrib import messages
 from .models import FotogravurImage
+
+
+def delete_selected_images(modeladmin, request, queryset):
+    """
+    Custom Admin Action: Mehrere Bilder löschen
+    Löscht sowohl die Datenbank-Einträge als auch die Bild-Dateien
+    """
+    count = queryset.count()
+
+    # Lösche Bild-Dateien und Datenbank-Einträge
+    for image in queryset:
+        # Lösche S/W-Bild
+        if image.image:
+            image.image.delete(save=False)
+        # Lösche Original-Bild
+        if image.original_image:
+            image.original_image.delete(save=False)
+        # Lösche Datenbank-Eintrag
+        image.delete()
+
+    messages.success(request, f'{count} Bild(er) erfolgreich gelöscht (inkl. Dateien).')
+
+delete_selected_images.short_description = "Ausgewählte Bilder löschen (inkl. Dateien)"
 
 
 @admin.register(FotogravurImage)
@@ -29,6 +53,7 @@ class FotogravurImageAdmin(admin.ModelAdmin):
         'image_preview_large',
         'original_image_preview_large',
     ]
+    actions = [delete_selected_images]  # Custom Bulk-Delete Action
     fieldsets = (
         ('Verarbeitetes Bild (S/W)', {
             'fields': ('image', 'image_preview_large', 'unique_id', 'original_filename')
