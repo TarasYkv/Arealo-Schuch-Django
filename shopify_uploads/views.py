@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, FileResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.files.base import ContentFile
@@ -9,6 +9,7 @@ from django.db.models import Q
 import base64
 import uuid
 import json
+import os
 from functools import wraps
 from .models import FotogravurImage
 
@@ -40,6 +41,32 @@ def cors_headers(func):
 
         return response
     return wrapper
+
+
+def get_media_url_with_cors(request, file_field):
+    """
+    Hilfsfunktion: Erstellt URL für Media-Datei mit CORS-Proxy.
+    Für PythonAnywhere: Bilder werden durch Django-View mit CORS-Headern serviert.
+
+    Args:
+        request: Django request object
+        file_field: ImageField oder FileField
+
+    Returns:
+        str: Absolute URL mit CORS-Proxy (/shopify-uploads/media/...)
+    """
+    if not file_field:
+        return None
+
+    # Extrahiere relativen Pfad (entferne /media/ prefix)
+    file_path = file_field.name  # z.B. "fotogravur/originals/2025/11/test.png"
+
+    # Erstelle URL über unseren CORS-Proxy
+    # /shopify-uploads/media/fotogravur/originals/2025/11/test.png
+    proxy_url = f'/shopify-uploads/media/{file_path}'
+
+    # Mache absolute URL
+    return request.build_absolute_uri(proxy_url)
 
 
 def is_superuser(user):
@@ -222,11 +249,11 @@ def upload_image(request):
             'is_update': is_update,
         }
 
-        # URLs hinzufügen (falls vorhanden) - WICHTIG: Absolute URLs für Cross-Origin
+        # URLs hinzufügen (falls vorhanden) - WICHTIG: Mit CORS-Proxy für PythonAnywhere
         if fotogravur_image.image:
-            response_data['image_url'] = request.build_absolute_uri(fotogravur_image.image.url)
+            response_data['image_url'] = get_media_url_with_cors(request, fotogravur_image.image)
         if fotogravur_image.original_image:
-            response_data['original_image_url'] = request.build_absolute_uri(fotogravur_image.original_image.url)
+            response_data['original_image_url'] = get_media_url_with_cors(request, fotogravur_image.original_image)
 
         return JsonResponse(response_data)
 
@@ -263,11 +290,11 @@ def get_image(request, unique_id):
             'created_at': image.created_at.isoformat(),
         }
 
-        # URLs nur hinzufügen, wenn vorhanden
+        # URLs nur hinzufügen, wenn vorhanden - mit CORS-Proxy
         if image.image:
-            response_data['image_url'] = request.build_absolute_uri(image.image.url)
+            response_data['image_url'] = get_media_url_with_cors(request, image.image)
         if image.original_image:
-            response_data['original_image_url'] = request.build_absolute_uri(image.original_image.url)
+            response_data['original_image_url'] = get_media_url_with_cors(request, image.original_image)
 
         return JsonResponse(response_data)
     except FotogravurImage.DoesNotExist:
@@ -426,3 +453,66 @@ def shopify_order_webhook(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@csrf_exempt
+@cors_headers
+def serve_media_with_cors(request, file_path):
+    """
+    Serviert Media-Dateien mit CORS-Headern.
+    Workaround für PythonAnywhere, wo nginx nicht konfiguriert werden kann.
+
+    URL: /shopify-uploads/media/<file_path>
+    Beispiel: /shopify-uploads/media/fotogravur/originals/2025/11/test.png
+    """
+    from django.conf import settings
+
+    if request.method not in ['GET', 'OPTIONS']:
+        return HttpResponse('Method not allowed', status=405)
+
+    # OPTIONS preflight ist bereits durch @cors_headers decorator behandelt
+    if request.method == 'OPTIONS':
+        return HttpResponse(status=204)
+
+    try:
+        # Vollständiger Pfad zur Datei
+        full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+
+        # Sicherheitscheck: Stelle sicher, dass die Datei innerhalb von MEDIA_ROOT liegt
+        full_path = os.path.abspath(full_path)
+        media_root = os.path.abspath(settings.MEDIA_ROOT)
+
+        if not full_path.startswith(media_root):
+            raise Http404("Invalid file path")
+
+        # Prüfe ob Datei existiert
+        if not os.path.exists(full_path):
+            raise Http404("File not found")
+
+        # Öffne und serviere die Datei
+        response = FileResponse(open(full_path, 'rb'))
+
+        # Content-Type basierend auf Dateiendung
+        if full_path.endswith('.png'):
+            response['Content-Type'] = 'image/png'
+        elif full_path.endswith(('.jpg', '.jpeg')):
+            response['Content-Type'] = 'image/jpeg'
+        elif full_path.endswith('.gif'):
+            response['Content-Type'] = 'image/gif'
+        elif full_path.endswith('.webp'):
+            response['Content-Type'] = 'image/webp'
+        else:
+            response['Content-Type'] = 'application/octet-stream'
+
+        # Cache-Header für bessere Performance
+        response['Cache-Control'] = 'public, max-age=2592000'  # 30 Tage
+
+        return response
+
+    except Http404:
+        raise
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Media serve error: {str(e)}', exc_info=True)
+        raise Http404("File not found")
