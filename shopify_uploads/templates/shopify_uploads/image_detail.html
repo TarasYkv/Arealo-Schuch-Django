@@ -90,12 +90,24 @@
             <a href="{% url 'shopify_uploads:image_list' %}" class="btn btn-outline-secondary mb-2">
                 <i class="bi bi-arrow-left"></i> Zurück zur Übersicht
             </a>
-            <h1><i class="bi bi-image"></i> {{ image.unique_id }}</h1>
+            <h1>
+                <i class="bi bi-image"></i> {{ image.unique_id }}
+                {% if not image.image and image.original_image %}
+                    <span class="badge bg-warning text-dark">Verarbeitung läuft</span>
+                {% endif %}
+            </h1>
         </div>
         <div>
-            <a href="{{ image.image.url }}" download class="btn btn-primary">
-                <i class="bi bi-download"></i> Download
-            </a>
+            {% if image.image %}
+                <a href="{{ image.image.url }}" download class="btn btn-primary">
+                    <i class="bi bi-download"></i> S/W Download
+                </a>
+            {% endif %}
+            {% if image.original_image %}
+                <a href="{{ image.original_image.url }}" download class="btn btn-success">
+                    <i class="bi bi-download"></i> Original Download
+                </a>
+            {% endif %}
             <a href="{% url 'shopify_uploads:image_delete' image.unique_id %}"
                class="btn btn-danger">
                 <i class="bi bi-trash"></i> Löschen
@@ -104,10 +116,18 @@
     </div>
 
     <!-- Bildvorschau S/W -->
+    {% if image.image %}
     <div class="image-preview">
         <h4><i class="bi bi-palette"></i> Verarbeitetes Bild (S/W)</h4>
         <img src="{{ image.image.url }}" alt="{{ image.unique_id }}">
     </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-hourglass-split"></i>
+        <strong>Verarbeitung läuft...</strong>
+        Das S/W-Bild wird gerade verarbeitet und hochgeladen. Bitte warten Sie einen Moment.
+    </div>
+    {% endif %}
 
     <!-- Original-Bild (Farbig) -->
     {% if image.original_image %}
@@ -244,20 +264,44 @@
     </div>
     {% endif %}
 
-    <!-- Bild-URL für API-Zugriff -->
+    <!-- Bild-URLs für API-Zugriff -->
+    {% if image.image or image.original_image %}
     <div class="info-card">
-        <h4><i class="bi bi-link-45deg"></i> Bild-URL (API)</h4>
-        <div class="input-group">
-            <input type="text"
-                   class="form-control"
-                   id="imageUrl"
-                   value="{{ request.scheme }}://{{ request.get_host }}{{ image.image.url }}"
-                   readonly>
-            <button class="btn btn-outline-secondary" type="button" onclick="copyImageUrl()">
-                <i class="bi bi-clipboard"></i> Kopieren
-            </button>
+        <h4><i class="bi bi-link-45deg"></i> Bild-URLs (API)</h4>
+
+        {% if image.image %}
+        <div class="mb-3">
+            <label class="form-label"><strong>S/W-Bild URL:</strong></label>
+            <div class="input-group">
+                <input type="text"
+                       class="form-control"
+                       id="imageUrl"
+                       value="{{ request.scheme }}://{{ request.get_host }}{{ image.image.url }}"
+                       readonly>
+                <button class="btn btn-outline-secondary" type="button" onclick="copyImageUrl()">
+                    <i class="bi bi-clipboard"></i> Kopieren
+                </button>
+            </div>
         </div>
+        {% endif %}
+
+        {% if image.original_image %}
+        <div>
+            <label class="form-label"><strong>Original-Bild URL:</strong></label>
+            <div class="input-group">
+                <input type="text"
+                       class="form-control"
+                       id="originalImageUrl"
+                       value="{{ request.scheme }}://{{ request.get_host }}{{ image.original_image.url }}"
+                       readonly>
+                <button class="btn btn-outline-secondary" type="button" onclick="copyOriginalImageUrl()">
+                    <i class="bi bi-clipboard"></i> Kopieren
+                </button>
+            </div>
+        </div>
+        {% endif %}
     </div>
+    {% endif %}
 </div>
 
 <script>
@@ -265,7 +309,14 @@ function copyImageUrl() {
     const input = document.getElementById('imageUrl');
     input.select();
     document.execCommand('copy');
-    alert('URL kopiert!');
+    alert('S/W-Bild URL kopiert!');
+}
+
+function copyOriginalImageUrl() {
+    const input = document.getElementById('originalImageUrl');
+    input.select();
+    document.execCommand('copy');
+    alert('Original-Bild URL kopiert!');
 }
 </script>
 {% endblock %}

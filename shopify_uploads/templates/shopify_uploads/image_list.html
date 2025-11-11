@@ -131,11 +131,26 @@
     <div class="fotogravur-grid">
         {% for image in images %}
         <div class="fotogravur-card">
-            <img src="{{ image.image.url }}"
-                 alt="Fotogravur {{ image.unique_id }}"
-                 class="fotogravur-image">
+            {% if image.image %}
+                <img src="{{ image.image.url }}"
+                     alt="Fotogravur {{ image.unique_id }}"
+                     class="fotogravur-image">
+            {% elif image.original_image %}
+                <img src="{{ image.original_image.url }}"
+                     alt="Fotogravur {{ image.unique_id }} (Original)"
+                     class="fotogravur-image">
+            {% else %}
+                <div class="fotogravur-image d-flex align-items-center justify-content-center">
+                    <i class="bi bi-image" style="font-size: 3rem; color: #ccc;"></i>
+                </div>
+            {% endif %}
             <div class="fotogravur-info">
-                <h5>{{ image.unique_id }}</h5>
+                <h5>
+                    {{ image.unique_id }}
+                    {% if not image.image and image.original_image %}
+                        <span class="badge bg-warning text-dark">Upload läuft</span>
+                    {% endif %}
+                </h5>
 
                 {% if image.custom_text %}
                 <div class="fotogravur-meta">
@@ -166,11 +181,20 @@
                        class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-eye"></i> Details
                     </a>
-                    <a href="{{ image.image.url }}"
-                       target="_blank"
-                       class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-download"></i> Download
-                    </a>
+                    {% if image.image %}
+                        <a href="{{ image.image.url }}"
+                           target="_blank"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-download"></i> S/W
+                        </a>
+                    {% endif %}
+                    {% if image.original_image %}
+                        <a href="{{ image.original_image.url }}"
+                           target="_blank"
+                           class="btn btn-sm btn-outline-info">
+                            <i class="bi bi-download"></i> Original
+                        </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
