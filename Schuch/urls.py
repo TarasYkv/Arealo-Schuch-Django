@@ -75,7 +75,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 ]
 
-# Static und Media files für Development
+# Media files always served through Django (needed for CORS middleware on PythonAnywhere)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Static files nur für Development
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
