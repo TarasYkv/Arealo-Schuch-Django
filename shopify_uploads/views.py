@@ -119,6 +119,11 @@ def upload_image(request):
     API-Endpoint zum Hochladen von konvertierten Bildern
     Wird vom Shopify-Frontend aufgerufen
     Akzeptiert: POST, OPTIONS (für CORS preflight)
+
+    Unterstützt zwei Modi:
+    1. Initial Upload: nur original_image_data + unique_id (erstellt Record)
+    2. Update: image_data + unique_id (updated existierenden Record)
+    3. Full Upload: beide Bilder gleichzeitig
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST requests allowed'}, status=405)
@@ -126,24 +131,27 @@ def upload_image(request):
         # Parse JSON request body
         data = json.loads(request.body)
 
-        # Validierung
-        required_fields = ['image_data', 'unique_id']
-        for field in required_fields:
-            if field not in data:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Fehlendes Feld: {field}'
-                }, status=400)
+        # Validierung: unique_id ist required, mindestens ein Bild muss vorhanden sein
+        if 'unique_id' not in data:
+            return JsonResponse({
+                'success': False,
+                'error': 'Fehlendes Feld: unique_id'
+            }, status=400)
 
-        # Base64-Bild dekodieren (S/W verarbeitetes Bild)
-        image_data = data['image_data']
-        if image_data.startswith('data:image'):
-            # Entferne "data:image/png;base64," prefix
-            image_data = image_data.split(',')[1]
+        if 'image_data' not in data and 'original_image_data' not in data:
+            return JsonResponse({
+                'success': False,
+                'error': 'Mindestens ein Bild muss vorhanden sein (image_data oder original_image_data)'
+            }, status=400)
 
-        image_binary = base64.b64decode(image_data)
+        # Base64-Bilder dekodieren
+        image_binary = None
+        if 'image_data' in data and data['image_data']:
+            image_data = data['image_data']
+            if image_data.startswith('data:image'):
+                image_data = image_data.split(',')[1]
+            image_binary = base64.b64decode(image_data)
 
-        # Original-Bild dekodieren (falls vorhanden)
         original_image_binary = None
         if 'original_image_data' in data and data['original_image_data']:
             original_image_data = data['original_image_data']
@@ -151,28 +159,50 @@ def upload_image(request):
                 original_image_data = original_image_data.split(',')[1]
             original_image_binary = base64.b64decode(original_image_data)
 
-        # Dateiname generieren
+        # Dateinamen generieren
         filename = f"{data['unique_id']}.png"
         original_filename = f"{data['unique_id']}_original.png"
 
-        # FotogravurImage erstellen
-        fotogravur_image = FotogravurImage(
-            unique_id=data['unique_id'],
-            original_filename=data.get('original_filename', ''),
-            shopify_order_id=data.get('shopify_order_id', ''),
-            shopify_product_id=data.get('shopify_product_id', ''),
-            custom_text=data.get('custom_text', ''),
-            font_family=data.get('font_family', ''),
-            processing_settings=data.get('processing_settings', {}),
-            file_size=len(image_binary),
-        )
+        # Versuche existierenden Record zu finden, sonst erstelle neuen
+        try:
+            fotogravur_image = FotogravurImage.objects.get(unique_id=data['unique_id'])
+            # Update existierendes Bild
+            is_update = True
+        except FotogravurImage.DoesNotExist:
+            # Erstelle neues Bild
+            fotogravur_image = FotogravurImage(
+                unique_id=data['unique_id'],
+                file_size=len(image_binary) if image_binary else len(original_image_binary),
+            )
+            is_update = False
 
-        # S/W-Bild speichern
-        fotogravur_image.image.save(
-            filename,
-            ContentFile(image_binary),
-            save=False  # Noch nicht speichern, falls Original auch gespeichert werden soll
-        )
+        # Felder aktualisieren (optional)
+        if 'original_filename' in data:
+            fotogravur_image.original_filename = data['original_filename']
+        if 'shopify_order_id' in data:
+            fotogravur_image.shopify_order_id = data['shopify_order_id']
+        if 'shopify_product_id' in data:
+            fotogravur_image.shopify_product_id = data['shopify_product_id']
+        if 'custom_text' in data:
+            fotogravur_image.custom_text = data['custom_text']
+        if 'font_family' in data:
+            fotogravur_image.font_family = data['font_family']
+        if 'processing_settings' in data:
+            fotogravur_image.processing_settings = data['processing_settings']
+
+        # File size aktualisieren
+        if image_binary:
+            fotogravur_image.file_size = len(image_binary)
+        elif original_image_binary and not is_update:
+            fotogravur_image.file_size = len(original_image_binary)
+
+        # S/W-Bild speichern (falls vorhanden)
+        if image_binary:
+            fotogravur_image.image.save(
+                filename,
+                ContentFile(image_binary),
+                save=False
+            )
 
         # Original-Bild speichern (falls vorhanden)
         if original_image_binary:
@@ -182,17 +212,19 @@ def upload_image(request):
                 save=False
             )
 
-        # Jetzt alles speichern
+        # Alles speichern
         fotogravur_image.save()
 
         response_data = {
             'success': True,
             'unique_id': fotogravur_image.unique_id,
-            'image_url': fotogravur_image.image.url,
             'file_size_kb': fotogravur_image.file_size_kb,
+            'is_update': is_update,
         }
 
-        # Original-Bild URL hinzufügen (falls vorhanden)
+        # URLs hinzufügen (falls vorhanden)
+        if fotogravur_image.image:
+            response_data['image_url'] = fotogravur_image.image.url
         if fotogravur_image.original_image:
             response_data['original_image_url'] = fotogravur_image.original_image.url
 
