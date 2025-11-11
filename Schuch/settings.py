@@ -96,6 +96,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'shopify_uploads.middleware.DisableRedirectForAPIMiddleware',  # Disable redirects for Shopify API
+    'shopify_uploads.middleware.MediaCORSMiddleware',  # CORS headers for media files
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
