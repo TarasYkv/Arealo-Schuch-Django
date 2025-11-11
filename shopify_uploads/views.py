@@ -222,11 +222,11 @@ def upload_image(request):
             'is_update': is_update,
         }
 
-        # URLs hinzufügen (falls vorhanden)
+        # URLs hinzufügen (falls vorhanden) - WICHTIG: Absolute URLs für Cross-Origin
         if fotogravur_image.image:
-            response_data['image_url'] = fotogravur_image.image.url
+            response_data['image_url'] = request.build_absolute_uri(fotogravur_image.image.url)
         if fotogravur_image.original_image:
-            response_data['original_image_url'] = fotogravur_image.original_image.url
+            response_data['original_image_url'] = request.build_absolute_uri(fotogravur_image.original_image.url)
 
         return JsonResponse(response_data)
 
@@ -253,15 +253,23 @@ def get_image(request, unique_id):
         return JsonResponse({'error': 'Only GET requests allowed'}, status=405)
     try:
         image = FotogravurImage.objects.get(unique_id=unique_id)
-        return JsonResponse({
+
+        response_data = {
             'success': True,
             'unique_id': image.unique_id,
-            'image_url': request.build_absolute_uri(image.image.url),
             'custom_text': image.custom_text,
             'font_family': image.font_family,
             'processing_settings': image.processing_settings,
             'created_at': image.created_at.isoformat(),
-        })
+        }
+
+        # URLs nur hinzufügen, wenn vorhanden
+        if image.image:
+            response_data['image_url'] = request.build_absolute_uri(image.image.url)
+        if image.original_image:
+            response_data['original_image_url'] = request.build_absolute_uri(image.original_image.url)
+
+        return JsonResponse(response_data)
     except FotogravurImage.DoesNotExist:
         return JsonResponse({
             'success': False,
