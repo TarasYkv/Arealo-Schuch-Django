@@ -275,6 +275,50 @@ input[type="range"] {
             </div>
         </div>
 
+        <!-- Laser-Gravur Einstellungen -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="control-group">
+                    <h5><i class="bi bi-rulers"></i> Laser-Gravur Einstellungen</h5>
+
+                    <div class="row">
+                        <!-- Zielgröße -->
+                        <div class="col-md-4">
+                            <label class="form-label">Ziel-Breite (mm)</label>
+                            <input type="number" class="form-control" id="targetWidth"
+                                   value="100" min="10" max="500" step="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ziel-Höhe (mm)</label>
+                            <input type="number" class="form-control" id="targetHeight"
+                                   value="100" min="10" max="500" step="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Schrittweite (mm)</label>
+                            <input type="number" class="form-control" id="stepSize"
+                                   value="0.05" min="0.01" max="1.0" step="0.01">
+                        </div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="keepAspectRatio" checked>
+                                <label class="form-check-label" for="keepAspectRatio">
+                                    Seitenverhältnis beibehalten
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                Berechnete Auflösung: <strong id="calculatedResolution">2000 x 2000 px</strong>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Aktionsbuttons -->
         <div class="control-group">
             <div class="d-flex justify-content-between align-items-center">
@@ -322,7 +366,11 @@ let currentImageData = null;
 let currentSettings = {
     brightness: 0,
     contrast: 0,
-    threshold: 127
+    threshold: 127,
+    targetWidth: 100,      // mm
+    targetHeight: 100,     // mm
+    stepSize: 0.05,        // mm
+    keepAspectRatio: true
 };
 
 // Canvas elements
@@ -420,6 +468,53 @@ function updatePreview() {
     currentImageData = imageData;
 }
 
+// Laser-Gravur: Auflösung berechnen
+function calculateTargetResolution() {
+    const width = parseFloat(document.getElementById('targetWidth').value);
+    const height = parseFloat(document.getElementById('targetHeight').value);
+    const stepSize = parseFloat(document.getElementById('stepSize').value);
+
+    if (stepSize <= 0) return { width: 0, height: 0 };
+
+    const pixelWidth = Math.round(width / stepSize);
+    const pixelHeight = Math.round(height / stepSize);
+
+    return { width: pixelWidth, height: pixelHeight };
+}
+
+// Laser-Gravur: Anzeige aktualisieren
+function updateResolutionDisplay() {
+    const resolution = calculateTargetResolution();
+    document.getElementById('calculatedResolution').textContent =
+        `${resolution.width} x ${resolution.height} px`;
+
+    // Settings aktualisieren
+    currentSettings.targetWidth = parseFloat(document.getElementById('targetWidth').value);
+    currentSettings.targetHeight = parseFloat(document.getElementById('targetHeight').value);
+    currentSettings.stepSize = parseFloat(document.getElementById('stepSize').value);
+    currentSettings.keepAspectRatio = document.getElementById('keepAspectRatio').checked;
+}
+
+// Laser-Gravur: Canvas auf Zielgröße skalieren
+function scaleCanvasToTarget(sourceCanvas) {
+    const targetResolution = calculateTargetResolution();
+
+    // Erstelle neues Canvas mit Zielgröße
+    const scaledCanvas = document.createElement('canvas');
+    scaledCanvas.width = targetResolution.width;
+    scaledCanvas.height = targetResolution.height;
+    const ctx = scaledCanvas.getContext('2d');
+
+    // Hochqualitative Skalierung
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Skaliere Bild
+    ctx.drawImage(sourceCanvas, 0, 0, targetResolution.width, targetResolution.height);
+
+    return scaledCanvas;
+}
+
 // Server-side operation
 async function processOnServer(operation, params = {}) {
     showLoading(true);
@@ -473,8 +568,15 @@ async function saveImage() {
     showLoading(true);
 
     try {
-        // Get image data from canvas
-        const imageData = processedCanvas.toDataURL('image/png');
+        // Skaliere Canvas auf Zielgröße für Laser-Gravur
+        const scaledCanvas = scaleCanvasToTarget(processedCanvas);
+
+        // Get image data from scaled canvas
+        const imageData = scaledCanvas.toDataURL('image/png');
+
+        const targetResolution = calculateTargetResolution();
+
+        showAlert('info', `Speichere Bild mit ${targetResolution.width}x${targetResolution.height}px für ${currentSettings.targetWidth}x${currentSettings.targetHeight}mm @ ${currentSettings.stepSize}mm Schrittweite...`);
 
         const response = await fetch('{% url "shopify_uploads:save_processed_image" image.unique_id %}', {
             method: 'POST',
@@ -530,6 +632,12 @@ function showAlert(type, message) {
 document.addEventListener('DOMContentLoaded', function() {
     // Load image
     loadOriginalImage();
+
+    // Laser-Gravur Einstellungen (früh deklarieren für Reset-Handler)
+    const targetWidthInput = document.getElementById('targetWidth');
+    const targetHeightInput = document.getElementById('targetHeight');
+    const stepSizeInput = document.getElementById('stepSize');
+    const keepAspectRatioCheckbox = document.getElementById('keepAspectRatio');
 
     // Brightness slider
     const brightnessSlider = document.getElementById('brightnessSlider');
@@ -590,13 +698,71 @@ document.addEventListener('DOMContentLoaded', function() {
         contrastValue.textContent = '0';
         thresholdValue.textContent = '127';
 
+        // Reset Laser-Gravur Einstellungen
+        targetWidthInput.value = 100;
+        targetHeightInput.value = 100;
+        stepSizeInput.value = 0.05;
+        keepAspectRatioCheckbox.checked = true;
+
         // Reset settings
-        currentSettings = { brightness: 0, contrast: 0, threshold: 127 };
+        currentSettings = {
+            brightness: 0,
+            contrast: 0,
+            threshold: 127,
+            targetWidth: 100,
+            targetHeight: 100,
+            stepSize: 0.05,
+            keepAspectRatio: true
+        };
 
         // Reload original image
         loadOriginalImage();
 
+        // Update resolution display
+        updateResolutionDisplay();
+
         showAlert('info', 'Bild zurückgesetzt');
+    });
+
+    // Laser-Gravur Einstellungen Event Listeners
+    let lastAspectRatio = 1.0;
+
+    // Initial Auflösung berechnen
+    updateResolutionDisplay();
+
+    // Seitenverhältnis bei Breiten-Änderung
+    targetWidthInput.addEventListener('input', function() {
+        if (keepAspectRatioCheckbox.checked) {
+            const newHeight = Math.round(parseFloat(this.value) / lastAspectRatio);
+            targetHeightInput.value = newHeight;
+        } else {
+            lastAspectRatio = parseFloat(targetWidthInput.value) / parseFloat(targetHeightInput.value);
+        }
+        updateResolutionDisplay();
+    });
+
+    // Seitenverhältnis bei Höhen-Änderung
+    targetHeightInput.addEventListener('input', function() {
+        if (keepAspectRatioCheckbox.checked) {
+            const newWidth = Math.round(parseFloat(this.value) * lastAspectRatio);
+            targetWidthInput.value = newWidth;
+        } else {
+            lastAspectRatio = parseFloat(targetWidthInput.value) / parseFloat(targetHeightInput.value);
+        }
+        updateResolutionDisplay();
+    });
+
+    // Schrittweite geändert
+    stepSizeInput.addEventListener('input', function() {
+        updateResolutionDisplay();
+    });
+
+    // Seitenverhältnis-Lock
+    keepAspectRatioCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            lastAspectRatio = parseFloat(targetWidthInput.value) / parseFloat(targetHeightInput.value);
+        }
+        updateResolutionDisplay();
     });
 
     // Save button
