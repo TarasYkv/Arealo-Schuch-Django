@@ -494,6 +494,7 @@ def process_image_ajax(request, unique_id):
         # Parse JSON request
         data = json.loads(request.body)
         operation = data.get('operation')
+        current_image_data = data.get('current_image_data')  # Optional: Aktuelles Canvas-Bild
 
         if not operation:
             return JsonResponse({
@@ -501,20 +502,37 @@ def process_image_ajax(request, unique_id):
                 'error': 'Operation fehlt'
             }, status=400)
 
-        # Verwende Original-Bild als Basis (falls vorhanden)
-        source_image = image.original_image if image.original_image else image.image
-
-        if not source_image:
-            return JsonResponse({
-                'success': False,
-                'error': 'Kein Bild vorhanden'
-            }, status=400)
-
         # Importiere ImageProcessor
         from image_editor.image_processing import ImageProcessor
+        import base64
+        from io import BytesIO
+        from PIL import Image as PILImage
 
-        # Initialisiere Prozessor
-        processor = ImageProcessor(source_image)
+        # Verwende aktuelles Canvas-Bild falls vorhanden, sonst Original
+        if current_image_data:
+            # Entferne "data:image/...;base64," Prefix
+            if 'base64,' in current_image_data:
+                current_image_data = current_image_data.split('base64,')[1]
+
+            # Dekodiere Base64 zu Bild
+            image_bytes = base64.b64decode(current_image_data)
+            pil_image = PILImage.open(BytesIO(image_bytes))
+
+            # Initialisiere Prozessor mit PIL-Bild
+            processor = ImageProcessor()
+            processor.image = pil_image
+        else:
+            # Verwende Original-Bild als Basis (falls vorhanden)
+            source_image = image.original_image if image.original_image else image.image
+
+            if not source_image:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Kein Bild vorhanden'
+                }, status=400)
+
+            # Initialisiere Prozessor
+            processor = ImageProcessor(source_image)
 
         # Führe Operation aus
         success = False

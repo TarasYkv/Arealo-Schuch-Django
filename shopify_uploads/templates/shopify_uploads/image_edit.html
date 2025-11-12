@@ -263,11 +263,12 @@ input[type="range"] {
                     <div class="mt-3">
                         <small class="text-muted">
                             <strong>Empfohlener Workflow für Laser-Gravur:</strong><br>
-                            1. Helligkeit/Kontrast anpassen<br>
-                            2. "Zu Graustufen" klicken<br>
+                            1. Helligkeit/Kontrast anpassen (Echtzeit-Vorschau)<br>
+                            2. Optional: "Zu Graustufen" klicken<br>
                             3. S/W-Schwellenwert einstellen<br>
-                            4. "Dithering anwenden" klicken<br>
-                            5. "Speichern" klicken
+                            4. "Dithering anwenden" klicken (nutzt aktuelle Vorschau)<br>
+                            5. "Speichern" klicken<br>
+                            <em>Hinweis: Jeder Schritt baut auf dem vorherigen auf!</em>
                         </small>
                     </div>
                 </div>
@@ -424,6 +425,9 @@ async function processOnServer(operation, params = {}) {
     showLoading(true);
 
     try {
+        // Hole aktuelles Canvas-Bild als Base64
+        const currentImageBase64 = processedCanvas.toDataURL('image/png');
+
         const response = await fetch('{% url "shopify_uploads:process_image_ajax" image.unique_id %}', {
             method: 'POST',
             headers: {
@@ -432,6 +436,7 @@ async function processOnServer(operation, params = {}) {
             },
             body: JSON.stringify({
                 operation: operation,
+                current_image_data: currentImageBase64,  // Sende aktuelles Canvas-Bild
                 ...params
             })
         });
