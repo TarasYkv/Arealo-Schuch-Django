@@ -315,7 +315,8 @@ input[type="range"] {
 {% block extra_js %}
 <script>
 // Global variables
-let originalImage = null;
+let originalImageSource = null;  // Das wirklich unveränderte Original (wird NIE modifiziert)
+let workingImage = null;         // Arbeitskopie für fortschreitende Bearbeitung
 let currentImageData = null;
 let currentSettings = {
     brightness: 0,
@@ -343,14 +344,19 @@ function loadOriginalImage() {
         processedCanvas.width = img.width;
         processedCanvas.height = img.height;
 
-        // Draw original
+        // Draw original (wird nur hier EINMAL gezeichnet)
         originalCtx.drawImage(img, 0, 0);
 
         // Initialize processed canvas
         processedCtx.drawImage(img, 0, 0);
 
-        // Store original image data
-        originalImage = originalCtx.getImageData(0, 0, img.width, img.height);
+        // Store UNVERÄNDERLICHE original image data
+        originalImageSource = originalCtx.getImageData(0, 0, img.width, img.height);
+
+        // Clone für Arbeitskopie
+        workingImage = processedCtx.createImageData(img.width, img.height);
+        workingImage.data.set(originalImageSource.data);
+
         currentImageData = processedCtx.getImageData(0, 0, img.width, img.height);
     };
     img.src = '{{ image.original_image.url }}';
@@ -392,11 +398,11 @@ function applyThresholdClient(imageData, threshold) {
 
 // Update preview with current settings
 function updatePreview() {
-    if (!originalImage) return;
+    if (!workingImage) return;
 
-    // Clone original image data
-    const imageData = processedCtx.createImageData(originalImage.width, originalImage.height);
-    imageData.data.set(originalImage.data);
+    // Clone working image data (NICHT das Original!)
+    const imageData = processedCtx.createImageData(workingImage.width, workingImage.height);
+    imageData.data.set(workingImage.data);
 
     // Apply brightness
     if (currentSettings.brightness !== 0) {
@@ -440,9 +446,9 @@ async function processOnServer(operation, params = {}) {
                 processedCtx.drawImage(img, 0, 0);
                 currentImageData = processedCtx.getImageData(0, 0, processedCanvas.width, processedCanvas.height);
 
-                // Update original to processed for further operations
-                originalImage.data.set(currentImageData.data);
-                originalCtx.putImageData(originalImage, 0, 0);
+                // Update workingImage für fortschreitende Bearbeitung
+                // WICHTIG: Original-Canvas wird NICHT verändert!
+                workingImage.data.set(currentImageData.data);
 
                 showAlert('success', data.message);
             };
