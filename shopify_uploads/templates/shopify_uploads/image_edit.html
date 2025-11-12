@@ -1,0 +1,599 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bild bearbeiten - {{ image.unique_id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.editor-container {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.canvas-container {
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+canvas {
+    max-width: 100%;
+    max-height: 600px;
+    border: 1px solid #adb5bd;
+    background: white;
+    cursor: crosshair;
+}
+
+.control-panel {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.control-group {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.control-group:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.control-group h5 {
+    margin-bottom: 1rem;
+    color: #495057;
+    font-weight: 600;
+}
+
+.slider-container {
+    margin-bottom: 1rem;
+}
+
+.slider-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.slider-value {
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+input[type="range"] {
+    width: 100%;
+}
+
+.btn-group-custom {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+.alert-floating {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    min-width: 300px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.processing-info {
+    background: #e7f3ff;
+    border: 1px solid #b3d7ff;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.processing-info h6 {
+    margin: 0 0 0.5rem 0;
+    color: #004085;
+}
+
+.processing-info ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    font-size: 0.9rem;
+    color: #004085;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 editor-container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{% url 'shopify_uploads:image_detail' image.unique_id %}" class="btn btn-outline-secondary mb-2">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </a>
+            <h1>
+                <i class="bi bi-brush"></i> Bildeditor - {{ image.unique_id }}
+            </h1>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>Fehler:</strong> {{ error }}
+    </div>
+    {% else %}
+
+    <!-- Info-Box -->
+    <div class="processing-info">
+        <h6><i class="bi bi-info-circle"></i> Anleitung:</h6>
+        <ul>
+            <li>Verwenden Sie die Regler und Buttons, um das Bild anzupassen</li>
+            <li>Das Original wird links angezeigt, die Vorschau rechts</li>
+            <li>Für beste Laser-Gravur-Ergebnisse: Zu Graustufen konvertieren, dann Dithering anwenden</li>
+            <li>Klicken Sie auf "Speichern", um die Änderungen zu übernehmen</li>
+        </ul>
+    </div>
+
+    <div class="row">
+        <!-- Linke Spalte: Original -->
+        <div class="col-lg-6 mb-4">
+            <div class="canvas-container">
+                <div>
+                    <h5 class="mb-3">Original</h5>
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rechte Spalte: Bearbeitet -->
+        <div class="col-lg-6 mb-4">
+            <div class="canvas-container">
+                <div>
+                    <h5 class="mb-3">Vorschau (bearbeitet)</h5>
+                    <canvas id="processedCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <div class="row">
+            <!-- Basisanpassungen -->
+            <div class="col-md-6">
+                <div class="control-group">
+                    <h5><i class="bi bi-sliders"></i> Basisanpassungen</h5>
+
+                    <!-- Helligkeit -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Helligkeit:</span>
+                            <span class="slider-value" id="brightnessValue">0</span>
+                        </div>
+                        <input type="range" class="form-range" id="brightnessSlider"
+                               min="-100" max="100" value="0" step="1">
+                    </div>
+
+                    <!-- Kontrast -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Kontrast:</span>
+                            <span class="slider-value" id="contrastValue">0</span>
+                        </div>
+                        <input type="range" class="form-range" id="contrastSlider"
+                               min="-100" max="100" value="0" step="1">
+                    </div>
+
+                    <!-- S/W Schwellenwert -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>S/W Schwellenwert:</span>
+                            <span class="slider-value" id="thresholdValue">127</span>
+                        </div>
+                        <input type="range" class="form-range" id="thresholdSlider"
+                               min="0" max="255" value="127" step="1">
+                        <small class="text-muted">
+                            Wird bei "S/W-Schwellenwert" und "Dithering" verwendet
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Erweiterte Operationen -->
+            <div class="col-md-6">
+                <div class="control-group">
+                    <h5><i class="bi bi-gear"></i> Erweiterte Operationen</h5>
+
+                    <div class="btn-group-custom">
+                        <button type="button" class="btn btn-outline-secondary" id="btnGrayscale">
+                            <i class="bi bi-circle-half"></i> Zu Graustufen
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="btnInvert">
+                            <i class="bi bi-brightness-high"></i> Invertieren
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="btnThreshold">
+                            <i class="bi bi-image"></i> S/W-Schwellenwert
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btnDithering">
+                            <i class="bi bi-grid-3x3"></i> Dithering anwenden
+                        </button>
+                    </div>
+
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <strong>Empfohlener Workflow für Laser-Gravur:</strong><br>
+                            1. Helligkeit/Kontrast anpassen<br>
+                            2. "Zu Graustufen" klicken<br>
+                            3. S/W-Schwellenwert einstellen<br>
+                            4. "Dithering anwenden" klicken<br>
+                            5. "Speichern" klicken
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aktionsbuttons -->
+        <div class="control-group">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <button type="button" class="btn btn-warning" id="btnReset">
+                        <i class="bi bi-arrow-counterclockwise"></i> Zurücksetzen
+                    </button>
+                </div>
+                <div>
+                    <a href="{% url 'shopify_uploads:image_detail' image.unique_id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x"></i> Abbrechen
+                    </a>
+                    <button type="button" class="btn btn-success" id="btnSave">
+                        <i class="bi bi-save"></i> Speichern
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mb-0">Verarbeite Bild...</p>
+    </div>
+</div>
+
+<!-- Alert Container -->
+<div id="alertContainer"></div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+let originalImage = null;
+let currentImageData = null;
+let currentSettings = {
+    brightness: 0,
+    contrast: 0,
+    threshold: 127
+};
+
+// Canvas elements
+const originalCanvas = document.getElementById('originalCanvas');
+const processedCanvas = document.getElementById('processedCanvas');
+const originalCtx = originalCanvas.getContext('2d');
+const processedCtx = processedCanvas.getContext('2d');
+
+// CSRF Token
+const csrfToken = '{{ csrf_token }}';
+
+// Load original image
+function loadOriginalImage() {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+        // Set canvas size
+        originalCanvas.width = img.width;
+        originalCanvas.height = img.height;
+        processedCanvas.width = img.width;
+        processedCanvas.height = img.height;
+
+        // Draw original
+        originalCtx.drawImage(img, 0, 0);
+
+        // Initialize processed canvas
+        processedCtx.drawImage(img, 0, 0);
+
+        // Store original image data
+        originalImage = originalCtx.getImageData(0, 0, img.width, img.height);
+        currentImageData = processedCtx.getImageData(0, 0, img.width, img.height);
+    };
+    img.src = '{{ image.original_image.url }}';
+}
+
+// Client-side image processing functions
+function applyBrightness(imageData, value) {
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, Math.max(0, data[i] + value));     // R
+        data[i+1] = Math.min(255, Math.max(0, data[i+1] + value)); // G
+        data[i+2] = Math.min(255, Math.max(0, data[i+2] + value)); // B
+    }
+    return imageData;
+}
+
+function applyContrast(imageData, value) {
+    const data = imageData.data;
+    const factor = (259 * (value + 255)) / (255 * (259 - value));
+
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, Math.max(0, factor * (data[i] - 128) + 128));     // R
+        data[i+1] = Math.min(255, Math.max(0, factor * (data[i+1] - 128) + 128)); // G
+        data[i+2] = Math.min(255, Math.max(0, factor * (data[i+2] - 128) + 128)); // B
+    }
+    return imageData;
+}
+
+function applyThresholdClient(imageData, threshold) {
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+        // Convert to grayscale first
+        const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+        const value = gray > threshold ? 255 : 0;
+        data[i] = data[i+1] = data[i+2] = value;
+    }
+    return imageData;
+}
+
+// Update preview with current settings
+function updatePreview() {
+    if (!originalImage) return;
+
+    // Clone original image data
+    const imageData = processedCtx.createImageData(originalImage.width, originalImage.height);
+    imageData.data.set(originalImage.data);
+
+    // Apply brightness
+    if (currentSettings.brightness !== 0) {
+        applyBrightness(imageData, currentSettings.brightness);
+    }
+
+    // Apply contrast
+    if (currentSettings.contrast !== 0) {
+        applyContrast(imageData, currentSettings.contrast);
+    }
+
+    // Update canvas
+    processedCtx.putImageData(imageData, 0, 0);
+    currentImageData = imageData;
+}
+
+// Server-side operation
+async function processOnServer(operation, params = {}) {
+    showLoading(true);
+
+    try {
+        const response = await fetch('{% url "shopify_uploads:process_image_ajax" image.unique_id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                operation: operation,
+                ...params
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Load processed image
+            const img = new Image();
+            img.onload = function() {
+                processedCtx.clearRect(0, 0, processedCanvas.width, processedCanvas.height);
+                processedCtx.drawImage(img, 0, 0);
+                currentImageData = processedCtx.getImageData(0, 0, processedCanvas.width, processedCanvas.height);
+
+                // Update original to processed for further operations
+                originalImage.data.set(currentImageData.data);
+                originalCtx.putImageData(originalImage, 0, 0);
+
+                showAlert('success', data.message);
+            };
+            img.src = data.image;
+        } else {
+            showAlert('danger', 'Fehler: ' + data.error);
+        }
+    } catch (error) {
+        showAlert('danger', 'Netzwerkfehler: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Save processed image
+async function saveImage() {
+    showLoading(true);
+
+    try {
+        // Get image data from canvas
+        const imageData = processedCanvas.toDataURL('image/png');
+
+        const response = await fetch('{% url "shopify_uploads:save_processed_image" image.unique_id %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                image_data: imageData,
+                processing_settings: currentSettings
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('success', 'Bild erfolgreich gespeichert! (' + data.file_size_kb + ' KB)');
+            setTimeout(() => {
+                window.location.href = '{% url "shopify_uploads:image_detail" image.unique_id %}';
+            }, 1500);
+        } else {
+            showAlert('danger', 'Fehler beim Speichern: ' + data.error);
+        }
+    } catch (error) {
+        showAlert('danger', 'Netzwerkfehler: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+// UI Helper functions
+function showLoading(show) {
+    document.getElementById('loadingOverlay').classList.toggle('active', show);
+}
+
+function showAlert(type, message) {
+    const container = document.getElementById('alertContainer');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show alert-floating`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    container.appendChild(alert);
+
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Load image
+    loadOriginalImage();
+
+    // Brightness slider
+    const brightnessSlider = document.getElementById('brightnessSlider');
+    const brightnessValue = document.getElementById('brightnessValue');
+    brightnessSlider.addEventListener('input', function() {
+        currentSettings.brightness = parseInt(this.value);
+        brightnessValue.textContent = this.value;
+        updatePreview();
+    });
+
+    // Contrast slider
+    const contrastSlider = document.getElementById('contrastSlider');
+    const contrastValue = document.getElementById('contrastValue');
+    contrastSlider.addEventListener('input', function() {
+        currentSettings.contrast = parseInt(this.value);
+        contrastValue.textContent = this.value;
+        updatePreview();
+    });
+
+    // Threshold slider
+    const thresholdSlider = document.getElementById('thresholdSlider');
+    const thresholdValue = document.getElementById('thresholdValue');
+    thresholdSlider.addEventListener('input', function() {
+        currentSettings.threshold = parseInt(this.value);
+        thresholdValue.textContent = this.value;
+    });
+
+    // Grayscale button
+    document.getElementById('btnGrayscale').addEventListener('click', function() {
+        processOnServer('grayscale');
+    });
+
+    // Invert button
+    document.getElementById('btnInvert').addEventListener('click', function() {
+        processOnServer('invert');
+    });
+
+    // Threshold button
+    document.getElementById('btnThreshold').addEventListener('click', function() {
+        processOnServer('threshold', { threshold: currentSettings.threshold });
+    });
+
+    // Dithering button
+    document.getElementById('btnDithering').addEventListener('click', function() {
+        processOnServer('dithering', {
+            threshold: currentSettings.threshold,
+            method: 'floyd-steinberg'
+        });
+    });
+
+    // Reset button
+    document.getElementById('btnReset').addEventListener('click', function() {
+        // Reset sliders
+        brightnessSlider.value = 0;
+        contrastSlider.value = 0;
+        thresholdSlider.value = 127;
+        brightnessValue.textContent = '0';
+        contrastValue.textContent = '0';
+        thresholdValue.textContent = '127';
+
+        // Reset settings
+        currentSettings = { brightness: 0, contrast: 0, threshold: 127 };
+
+        // Reload original image
+        loadOriginalImage();
+
+        showAlert('info', 'Bild zurückgesetzt');
+    });
+
+    // Save button
+    document.getElementById('btnSave').addEventListener('click', function() {
+        if (confirm('Möchten Sie die Änderungen wirklich speichern?')) {
+            saveImage();
+        }
+    });
+});
+</script>
+{% endblock %}

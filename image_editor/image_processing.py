@@ -725,6 +725,107 @@ class ImageProcessor:
         """Gibt die komplette Verarbeitungshistorie zurück"""
         return self.processing_history.copy()
     
+    def apply_dithering(self, method='floyd-steinberg', threshold=127):
+        """
+        Wendet Dithering auf das Bild an für bessere S/W-Konvertierung
+
+        Args:
+            method: Dithering-Algorithmus ('floyd-steinberg', 'simple')
+            threshold: Schwellwert für S/W-Konvertierung (0-255)
+
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            # Konvertiere zu Graustufen falls notwendig
+            if self.current_image.mode != 'L':
+                gray_image = self.current_image.convert('L')
+            else:
+                gray_image = self.current_image.copy()
+
+            if method == 'floyd-steinberg':
+                # Floyd-Steinberg Dithering mit NumPy
+                img_array = np.array(gray_image, dtype=np.float32)
+                height, width = img_array.shape
+
+                # Durchlaufe alle Pixel
+                for y in range(height):
+                    for x in range(width):
+                        old_pixel = img_array[y, x]
+                        new_pixel = 255 if old_pixel > threshold else 0
+                        img_array[y, x] = new_pixel
+
+                        # Berechne Fehler
+                        error = old_pixel - new_pixel
+
+                        # Verteile Fehler auf Nachbarpixel (Floyd-Steinberg Matrix)
+                        if x + 1 < width:
+                            img_array[y, x + 1] += error * 7/16
+                        if y + 1 < height:
+                            if x > 0:
+                                img_array[y + 1, x - 1] += error * 3/16
+                            img_array[y + 1, x] += error * 5/16
+                            if x + 1 < width:
+                                img_array[y + 1, x + 1] += error * 1/16
+
+                # Clip values to valid range
+                img_array = np.clip(img_array, 0, 255).astype(np.uint8)
+                result_image = Image.fromarray(img_array, 'L')
+
+            elif method == 'simple':
+                # Einfaches Thresholding ohne Dithering
+                img_array = np.array(gray_image)
+                img_array = np.where(img_array > threshold, 255, 0).astype(np.uint8)
+                result_image = Image.fromarray(img_array, 'L')
+
+            else:
+                return False, f"Unbekannte Dithering-Methode: {method}"
+
+            # Konvertiere zurück zu RGB für Konsistenz
+            self.current_image = result_image.convert('RGB')
+
+            self._add_to_history('dithering', {
+                'method': method,
+                'threshold': threshold
+            })
+
+            return True, f"Dithering ({method}) erfolgreich angewendet"
+
+        except Exception as e:
+            return False, f"Fehler beim Dithering: {str(e)}"
+
+    def apply_threshold(self, threshold=127):
+        """
+        Wendet einen einfachen Schwellwert an (S/W ohne Dithering)
+
+        Args:
+            threshold: Schwellwert (0-255)
+
+        Returns:
+            tuple: (success, message)
+        """
+        try:
+            # Konvertiere zu Graustufen falls notwendig
+            if self.current_image.mode != 'L':
+                gray_image = self.current_image.convert('L')
+            else:
+                gray_image = self.current_image.copy()
+
+            # Threshold anwenden
+            img_array = np.array(gray_image)
+            img_array = np.where(img_array > threshold, 255, 0).astype(np.uint8)
+            result_image = Image.fromarray(img_array, 'L')
+
+            # Konvertiere zurück zu RGB für Konsistenz
+            self.current_image = result_image.convert('RGB')
+
+            self._add_to_history('threshold', {'threshold': threshold})
+
+            return True, f"Schwellwert ({threshold}) angewendet"
+
+        except Exception as e:
+            return False, f"Fehler bei Schwellwert-Anwendung: {str(e)}"
+
     def reset_to_original(self):
         """Setzt das Bild auf den ursprünglichen Zustand zurück"""
         self.current_image = self.original_image.copy()

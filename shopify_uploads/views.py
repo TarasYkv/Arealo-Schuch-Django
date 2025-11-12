@@ -455,6 +455,199 @@ def shopify_order_webhook(request):
         }, status=500)
 
 
+@login_required
+@user_passes_test(is_superuser)
+def image_edit(request, unique_id):
+    """
+    Bildeditor-Ansicht für Laser-Gravur Anpassungen
+    Nur für Superuser zugänglich
+    """
+    image = get_object_or_404(FotogravurImage, unique_id=unique_id)
+
+    # Wenn kein Original vorhanden, verwende das verarbeitete Bild als Basis
+    if not image.original_image and image.image:
+        context = {
+            'image': image,
+            'has_original': False,
+            'error': 'Kein Original-Bild vorhanden. Bitte verwenden Sie ein Bild mit Original.'
+        }
+        return render(request, 'shopify_uploads/image_edit.html', context)
+
+    context = {
+        'image': image,
+        'has_original': bool(image.original_image),
+    }
+    return render(request, 'shopify_uploads/image_edit.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def process_image_ajax(request, unique_id):
+    """
+    AJAX-Endpoint für Bildverarbeitung
+    Akzeptiert JSON mit Operation und Parametern, gibt verarbeitetes Bild zurück
+    """
+    try:
+        image = get_object_or_404(FotogravurImage, unique_id=unique_id)
+
+        # Parse JSON request
+        data = json.loads(request.body)
+        operation = data.get('operation')
+
+        if not operation:
+            return JsonResponse({
+                'success': False,
+                'error': 'Operation fehlt'
+            }, status=400)
+
+        # Verwende Original-Bild als Basis (falls vorhanden)
+        source_image = image.original_image if image.original_image else image.image
+
+        if not source_image:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Bild vorhanden'
+            }, status=400)
+
+        # Importiere ImageProcessor
+        from image_editor.image_processing import ImageProcessor
+
+        # Initialisiere Prozessor
+        processor = ImageProcessor(source_image)
+
+        # Führe Operation aus
+        success = False
+        message = ''
+
+        if operation == 'brightness':
+            factor = float(data.get('factor', 1.0))
+            success, message = processor.adjust_brightness(factor)
+
+        elif operation == 'contrast':
+            factor = float(data.get('factor', 1.0))
+            success, message = processor.adjust_contrast(factor)
+
+        elif operation == 'grayscale':
+            success, message = processor.convert_to_grayscale()
+
+        elif operation == 'invert':
+            success, message = processor.invert()
+
+        elif operation == 'threshold':
+            threshold = int(data.get('threshold', 127))
+            success, message = processor.apply_threshold(threshold)
+
+        elif operation == 'dithering':
+            threshold = int(data.get('threshold', 127))
+            method = data.get('method', 'floyd-steinberg')
+            success, message = processor.apply_dithering(method=method, threshold=threshold)
+
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f'Unbekannte Operation: {operation}'
+            }, status=400)
+
+        if not success:
+            return JsonResponse({
+                'success': False,
+                'error': message
+            }, status=500)
+
+        # Konvertiere Bild zu Base64
+        image_base64 = processor.get_current_image_base64()
+
+        return JsonResponse({
+            'success': True,
+            'image': image_base64,
+            'message': message
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültiges JSON'
+        }, status=400)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Image processing error: {str(e)}', exc_info=True)
+
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def save_processed_image(request, unique_id):
+    """
+    Speichert das verarbeitete Bild als S/W-Version
+    Akzeptiert Base64-Bild-Daten
+    """
+    try:
+        image = get_object_or_404(FotogravurImage, unique_id=unique_id)
+
+        # Parse JSON request
+        data = json.loads(request.body)
+        image_data = data.get('image_data')
+        processing_settings = data.get('processing_settings', {})
+
+        if not image_data:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Bilddaten vorhanden'
+            }, status=400)
+
+        # Dekodiere Base64-Bild
+        if image_data.startswith('data:image'):
+            image_data = image_data.split(',')[1]
+
+        image_binary = base64.b64decode(image_data)
+
+        # Speichere als S/W-Bild
+        filename = f"{unique_id}.png"
+        image.image.save(
+            filename,
+            ContentFile(image_binary),
+            save=False
+        )
+
+        # Update file size
+        image.file_size = len(image_binary)
+
+        # Speichere Verarbeitungseinstellungen
+        image.processing_settings = processing_settings
+
+        # Save to database
+        image.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Bild erfolgreich gespeichert',
+            'file_size_kb': image.file_size_kb,
+            'image_url': image.image.url
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültiges JSON'
+        }, status=400)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Image save error: {str(e)}', exc_info=True)
+
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
 @csrf_exempt
 @cors_headers
 def serve_media_with_cors(request, file_path):

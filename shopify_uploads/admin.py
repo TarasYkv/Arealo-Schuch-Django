@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.contrib import messages
+from django.urls import reverse
 from .models import FotogravurImage
 
 
@@ -36,6 +37,7 @@ class FotogravurImageAdmin(admin.ModelAdmin):
         'shopify_order_id',
         'file_size_display',
         'created_at',
+        'edit_link',
     ]
     list_filter = ['created_at', 'font_family']
     search_fields = [
@@ -114,6 +116,17 @@ class FotogravurImageAdmin(admin.ModelAdmin):
         """Dateigröße in KB"""
         return f"{obj.file_size_kb} KB" if obj.file_size else '-'
     file_size_display.short_description = 'Dateigröße'
+
+    def edit_link(self, obj):
+        """Link zum Bildeditor"""
+        if obj.original_image:
+            url = reverse('shopify_uploads:image_edit', args=[obj.unique_id])
+            return format_html(
+                '<a href="{}" class="button" style="padding: 5px 10px; background-color: #17a2b8; color: white; text-decoration: none; border-radius: 4px;">Anpassen</a>',
+                url
+            )
+        return '-'
+    edit_link.short_description = 'Bearbeiten'
 
     def has_add_permission(self, request):
         """Nur über API hochladen, nicht manuell im Admin"""
