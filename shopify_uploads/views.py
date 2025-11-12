@@ -518,9 +518,8 @@ def process_image_ajax(request, unique_id):
             image_bytes = base64.b64decode(current_image_data)
             pil_image = PILImage.open(BytesIO(image_bytes))
 
-            # Initialisiere Prozessor mit PIL-Bild
-            processor = ImageProcessor()
-            processor.image = pil_image
+            # Initialisiere Prozessor mit PIL-Bild (direkt als Argument)
+            processor = ImageProcessor(pil_image)
         else:
             # Verwende Original-Bild als Basis (falls vorhanden)
             source_image = image.original_image if image.original_image else image.image
