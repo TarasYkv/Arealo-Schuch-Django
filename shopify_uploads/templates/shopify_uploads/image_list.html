@@ -86,6 +86,43 @@
     font-size: 0.9rem;
     margin-top: 0.5rem;
 }
+
+.card-checkbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.fotogravur-card {
+    position: relative;
+}
+
+.fotogravur-card.selected {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+.bulk-actions {
+    position: sticky;
+    top: 20px;
+    z-index: 100;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: none;
+}
+
+.bulk-actions.show {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
 </style>
 {% endblock %}
 
@@ -126,11 +163,30 @@
         </div>
     </form>
 
+    <!-- Bulk Actions Bar -->
+    <div class="bulk-actions" id="bulkActions">
+        <div>
+            <strong id="selectedCount">0</strong> Bild(er) ausgewählt
+        </div>
+        <div>
+            <button type="button" class="btn btn-outline-primary btn-sm me-2" id="selectAllBtn">
+                <i class="bi bi-check-square"></i> Alle auswählen
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" id="deselectAllBtn">
+                <i class="bi bi-square"></i> Auswahl aufheben
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                <i class="bi bi-trash"></i> Ausgewählte löschen
+            </button>
+        </div>
+    </div>
+
     <!-- Bilder-Grid -->
     {% if images %}
     <div class="fotogravur-grid">
         {% for image in images %}
-        <div class="fotogravur-card">
+        <div class="fotogravur-card" data-image-id="{{ image.unique_id }}">
+            <input type="checkbox" class="card-checkbox form-check-input" data-image-id="{{ image.unique_id }}">
             {% if image.image %}
                 <img src="{{ image.image.url }}"
                      alt="Fotogravur {{ image.unique_id }}"
@@ -211,4 +267,120 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.card-checkbox');
+    const bulkActions = document.getElementById('bulkActions');
+    const selectedCount = document.getElementById('selectedCount');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+
+    // Update UI basierend auf Auswahl
+    function updateUI() {
+        const selected = Array.from(checkboxes).filter(cb => cb.checked);
+        selectedCount.textContent = selected.length;
+
+        if (selected.length > 0) {
+            bulkActions.classList.add('show');
+        } else {
+            bulkActions.classList.remove('show');
+        }
+
+        // Update Card-Styling
+        checkboxes.forEach(cb => {
+            const card = cb.closest('.fotogravur-card');
+            if (cb.checked) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        });
+    }
+
+    // Checkbox Change Events
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateUI);
+    });
+
+    // Alle auswählen
+    selectAllBtn.addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = true);
+        updateUI();
+    });
+
+    // Auswahl aufheben
+    deselectAllBtn.addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = false);
+        updateUI();
+    });
+
+    // Bulk Delete
+    bulkDeleteBtn.addEventListener('click', async function() {
+        const selected = Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.dataset.imageId);
+
+        if (selected.length === 0) return;
+
+        const confirmed = confirm(`Möchten Sie wirklich ${selected.length} Bild(er) löschen?\n\nDies löscht sowohl die Datenbank-Einträge als auch alle Bild-Dateien.`);
+
+        if (!confirmed) return;
+
+        // Loading-State
+        bulkDeleteBtn.disabled = true;
+        bulkDeleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Lösche...';
+
+        try {
+            const response = await fetch('{% url "shopify_uploads:bulk_delete" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    image_ids: selected
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Entferne gelöschte Cards aus DOM
+                selected.forEach(id => {
+                    const card = document.querySelector(`.fotogravur-card[data-image-id="${id}"]`);
+                    if (card) {
+                        card.style.transition = 'opacity 0.3s';
+                        card.style.opacity = '0';
+                        setTimeout(() => card.remove(), 300);
+                    }
+                });
+
+                // Success Message
+                alert(`✓ ${data.deleted_count} Bild(er) erfolgreich gelöscht!`);
+
+                // Seite neu laden nach 1 Sekunde
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                alert('Fehler beim Löschen: ' + data.error);
+                bulkDeleteBtn.disabled = false;
+                bulkDeleteBtn.innerHTML = '<i class="bi bi-trash"></i> Ausgewählte löschen';
+            }
+        } catch (error) {
+            console.error('Fehler:', error);
+            alert('Netzwerkfehler beim Löschen: ' + error.message);
+            bulkDeleteBtn.disabled = false;
+            bulkDeleteBtn.innerHTML = '<i class="bi bi-trash"></i> Ausgewählte löschen';
+        }
+    });
+
+    // Initial UI update
+    updateUI();
+});
+</script>
 {% endblock %}

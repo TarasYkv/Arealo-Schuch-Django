@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/upload/', views.upload_image, name='api_upload'),
     path('api/get/<str:unique_id>/', views.get_image, name='api_get'),
     path('api/webhook/order-created/', views.shopify_order_webhook, name='shopify_order_webhook'),
+    path('api/bulk-delete/', views.bulk_delete_images, name='bulk_delete'),
 
     # Media-Proxy für CORS (PythonAnywhere Workaround)
     re_path(r'^media/(?P<file_path>.+)$', views.serve_media_with_cors, name='serve_media'),

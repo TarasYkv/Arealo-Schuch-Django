@@ -666,6 +666,95 @@ def save_processed_image(request, unique_id):
         }, status=500)
 
 
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def bulk_delete_images(request):
+    """
+    Bulk-Delete: Löscht mehrere Bilder gleichzeitig
+    Akzeptiert JSON mit Array von image_ids
+    Löscht sowohl Datenbank-Einträge als auch Bild-Dateien
+    """
+    try:
+        # Parse JSON request
+        data = json.loads(request.body)
+        image_ids = data.get('image_ids', [])
+
+        if not image_ids:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Bild-IDs angegeben'
+            }, status=400)
+
+        if not isinstance(image_ids, list):
+            return JsonResponse({
+                'success': False,
+                'error': 'image_ids muss ein Array sein'
+            }, status=400)
+
+        # Zähler für gelöschte Bilder
+        deleted_count = 0
+        errors = []
+
+        # Lösche jedes Bild
+        for unique_id in image_ids:
+            try:
+                image = FotogravurImage.objects.get(unique_id=unique_id)
+
+                # Lösche S/W-Bild
+                if image.image:
+                    try:
+                        image.image.delete(save=False)
+                    except Exception as e:
+                        errors.append(f"{unique_id}: Fehler beim Löschen des S/W-Bildes - {str(e)}")
+
+                # Lösche Original-Bild
+                if image.original_image:
+                    try:
+                        image.original_image.delete(save=False)
+                    except Exception as e:
+                        errors.append(f"{unique_id}: Fehler beim Löschen des Original-Bildes - {str(e)}")
+
+                # Lösche Datenbank-Eintrag
+                image.delete()
+                deleted_count += 1
+
+            except FotogravurImage.DoesNotExist:
+                errors.append(f"{unique_id}: Bild nicht gefunden")
+            except Exception as e:
+                errors.append(f"{unique_id}: Unerwarteter Fehler - {str(e)}")
+
+        # Response erstellen
+        response_data = {
+            'success': True,
+            'deleted_count': deleted_count,
+            'requested_count': len(image_ids),
+        }
+
+        if errors:
+            response_data['errors'] = errors
+            response_data['message'] = f'{deleted_count} von {len(image_ids)} Bild(ern) erfolgreich gelöscht. {len(errors)} Fehler aufgetreten.'
+        else:
+            response_data['message'] = f'{deleted_count} Bild(er) erfolgreich gelöscht.'
+
+        return JsonResponse(response_data)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültiges JSON'
+        }, status=400)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Bulk delete error: {str(e)}', exc_info=True)
+
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
 @csrf_exempt
 @cors_headers
 def serve_media_with_cors(request, file_path):
