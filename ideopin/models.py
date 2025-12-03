@@ -28,6 +28,30 @@ class PinProject(models.Model):
         ('bottom', 'Unten'),
     ]
 
+    # Styling-Preset Optionen
+    STYLE_PRESET_CHOICES = [
+        ('custom', 'Benutzerdefiniert'),
+        ('modern_bold', 'Modern & Bold'),
+        ('elegant_serif', 'Elegant & Klassisch'),
+        ('playful_color', 'Verspielt & Bunt'),
+        ('minimal_clean', 'Minimalistisch'),
+        ('dark_contrast', 'Dunkel & Kontrastreich'),
+        ('bright_fresh', 'Hell & Frisch'),
+        ('vintage_retro', 'Vintage & Retro'),
+        ('professional', 'Business & Professionell'),
+    ]
+
+    # Text-Effekt Optionen
+    TEXT_EFFECT_CHOICES = [
+        ('none', 'Kein Effekt'),
+        ('shadow', 'Schatten'),
+        ('outline', 'Kontur/Outline'),
+        ('glow', 'Leuchteffekt'),
+        ('frame', 'Rahmen'),
+        ('banner', 'Banner/Ribbon'),
+        ('badge', 'Badge/Stempel'),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -141,6 +165,52 @@ class PinProject(models.Model):
     text_background_opacity = models.FloatField(
         default=0.7,
         verbose_name="Hintergrund-Transparenz"
+    )
+
+    # Erweiterte Styling-Optionen
+    style_preset = models.CharField(
+        max_length=30,
+        choices=STYLE_PRESET_CHOICES,
+        default='custom',
+        verbose_name="Style-Preset",
+        help_text="Vordefinierte Styling-Kombination"
+    )
+    text_effect = models.CharField(
+        max_length=20,
+        choices=TEXT_EFFECT_CHOICES,
+        default='none',
+        verbose_name="Text-Effekt",
+        help_text="Visueller Effekt für bessere Lesbarkeit"
+    )
+    text_secondary_color = models.CharField(
+        max_length=7,
+        default='#000000',
+        verbose_name="Sekundärfarbe",
+        help_text="Für Outline, Schatten oder Akzente"
+    )
+    auto_font_size = models.BooleanField(
+        default=True,
+        verbose_name="Automatische Schriftgröße",
+        help_text="Schriftgröße automatisch an Textlänge anpassen"
+    )
+    text_max_width_percent = models.IntegerField(
+        default=80,
+        verbose_name="Max. Textbreite (%)",
+        help_text="Maximale Breite des Texts in Prozent der Bildbreite"
+    )
+    text_padding = models.IntegerField(
+        default=20,
+        verbose_name="Text-Padding",
+        help_text="Abstand um den Text herum"
+    )
+    text_line_height = models.FloatField(
+        default=1.3,
+        verbose_name="Zeilenhöhe",
+        help_text="Multiplikator für Zeilenabstand"
+    )
+    styling_ai_generated = models.BooleanField(
+        default=False,
+        verbose_name="KI-generiertes Styling"
     )
 
     # Metadaten
@@ -297,6 +367,29 @@ class PinSettings(models.Model):
         default='1000x1500',
         choices=FORMAT_CHOICES,
         verbose_name="Standard-Format"
+    )
+
+    # Erweiterte Styling-Defaults
+    default_style_preset = models.CharField(
+        max_length=30,
+        choices=PinProject.STYLE_PRESET_CHOICES,
+        default='modern_bold',
+        verbose_name="Standard Style-Preset"
+    )
+    default_text_effect = models.CharField(
+        max_length=20,
+        choices=PinProject.TEXT_EFFECT_CHOICES,
+        default='shadow',
+        verbose_name="Standard Text-Effekt"
+    )
+    default_auto_font_size = models.BooleanField(
+        default=True,
+        verbose_name="Auto-Schriftgröße aktivieren"
+    )
+    enable_auto_styling = models.BooleanField(
+        default=True,
+        verbose_name="Auto-Styling aktivieren",
+        help_text="KI schlägt automatisch passendes Styling vor"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

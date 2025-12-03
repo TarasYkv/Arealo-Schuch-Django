@@ -236,6 +236,70 @@ def api_generate_overlay_text(request, project_id):
 
 @login_required
 @require_POST
+def api_generate_styling(request, project_id):
+    """API: Generiert optimales Text-Styling via KI"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    if not project.overlay_text:
+        return JsonResponse({
+            'success': False,
+            'error': 'Bitte zuerst einen Overlay-Text eingeben.'
+        }, status=400)
+
+    if not request.user.openai_api_key:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein OpenAI API-Key konfiguriert. Bitte in Ihrem Profil hinterlegen.'
+        }, status=400)
+
+    try:
+        from .ai_service import PinAIService
+        ai_service = PinAIService(request.user)
+        result = ai_service.generate_text_styling(
+            keywords=project.keywords,
+            overlay_text=project.overlay_text,
+            pin_format=project.pin_format or '1000x1500'
+        )
+
+        if result.get('success'):
+            styling = result['styling']
+
+            # Styling auf Projekt anwenden
+            project.style_preset = styling.get('style_preset', 'modern_bold')
+            project.text_font = styling.get('text_font', 'Arial')
+            project.text_size = styling.get('text_size', 48)
+            project.text_color = styling.get('text_color', '#FFFFFF')
+            project.text_secondary_color = styling.get('text_secondary_color', '#000000')
+            project.text_background_color = styling.get('text_background_color', '')
+            project.text_background_opacity = styling.get('text_background_opacity', 0.7)
+            project.text_effect = styling.get('text_effect', 'shadow')
+            project.text_position = styling.get('text_position', 'center')
+            project.text_padding = styling.get('text_padding', 20)
+            project.styling_ai_generated = True
+            project.save()
+
+            return JsonResponse({
+                'success': True,
+                'styling': styling,
+                'reasoning': result.get('reasoning', ''),
+                'is_fallback': result.get('is_fallback', False)
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Unbekannter Fehler')
+            }, status=500)
+
+    except Exception as e:
+        logger.error(f"Error generating text styling: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_generate_image(request, project_id):
     """API: Generiert Bild via Gemini oder Ideogram"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)

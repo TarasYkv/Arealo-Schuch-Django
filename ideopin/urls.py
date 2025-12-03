@@ -16,6 +16,7 @@ urlpatterns = [
 
     # API-Endpunkte
     path('api/generate-text/<int:project_id>/', views.api_generate_overlay_text, name='api_generate_text'),
+    path('api/generate-styling/<int:project_id>/', views.api_generate_styling, name='api_generate_styling'),
     path('api/generate-image/<int:project_id>/', views.api_generate_image, name='api_generate_image'),
     path('api/apply-overlay/<int:project_id>/', views.api_apply_text_overlay, name='api_apply_overlay'),
     path('api/generate-seo/<int:project_id>/', views.api_generate_seo_description, name='api_generate_seo'),

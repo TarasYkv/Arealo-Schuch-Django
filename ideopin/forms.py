@@ -24,12 +24,17 @@ class Step2TextForm(forms.ModelForm):
         model = PinProject
         fields = [
             'overlay_text',
+            'style_preset',
             'text_font',
             'text_size',
             'text_color',
+            'text_secondary_color',
             'text_position',
+            'text_effect',
             'text_background_color',
-            'text_background_opacity'
+            'text_background_opacity',
+            'text_padding',
+            'auto_font_size',
         ]
         widgets = {
             'overlay_text': forms.Textarea(attrs={
@@ -38,6 +43,10 @@ class Step2TextForm(forms.ModelForm):
                 'placeholder': 'Catchy Pin-Text eingeben...',
                 'maxlength': 200
             }),
+            'style_preset': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'style_preset_select'
+            }),
             'text_font': forms.Select(attrs={'class': 'form-select'}, choices=[
                 ('Arial', 'Arial'),
                 ('Helvetica', 'Helvetica'),
@@ -45,7 +54,6 @@ class Step2TextForm(forms.ModelForm):
                 ('Georgia', 'Georgia'),
                 ('Verdana', 'Verdana'),
                 ('Impact', 'Impact'),
-                ('Comic Sans MS', 'Comic Sans MS'),
             ]),
             'text_size': forms.NumberInput(attrs={
                 'class': 'form-control',
@@ -56,7 +64,12 @@ class Step2TextForm(forms.ModelForm):
                 'class': 'form-control form-control-color',
                 'type': 'color',
             }),
+            'text_secondary_color': forms.TextInput(attrs={
+                'class': 'form-control form-control-color',
+                'type': 'color',
+            }),
             'text_position': forms.Select(attrs={'class': 'form-select'}),
+            'text_effect': forms.Select(attrs={'class': 'form-select'}),
             'text_background_color': forms.TextInput(attrs={
                 'class': 'form-control form-control-color',
                 'type': 'color',
@@ -66,6 +79,14 @@ class Step2TextForm(forms.ModelForm):
                 'min': 0,
                 'max': 1,
                 'step': 0.1,
+            }),
+            'text_padding': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 5,
+                'max': 50,
+            }),
+            'auto_font_size': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
             }),
         }
 
