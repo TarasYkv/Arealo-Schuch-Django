@@ -21,6 +21,10 @@ class GeminiImageService:
 
     def __init__(self, api_key: str):
         self.api_key = api_key
+        self.headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key
+        }
 
     def generate_image(
         self,
@@ -79,7 +83,8 @@ class GeminiImageService:
     def _generate_standard(self, prompt: str, aspect_ratio: str, model: str) -> dict:
         """Standard Bildgenerierung ohne Referenz"""
         try:
-            url = f"{self.BASE_URL}/models/{model}:predict?key={self.api_key}"
+            # Imagen 3 API Endpoint
+            url = f"{self.BASE_URL}/models/{model}:predict"
 
             payload = {
                 "instances": [
@@ -90,15 +95,18 @@ class GeminiImageService:
                 "parameters": {
                     "sampleCount": 1,
                     "aspectRatio": aspect_ratio,
-                    "personGeneration": "ALLOW_ADULT",
-                    "safetyFilterLevel": "BLOCK_MEDIUM_AND_ABOVE"
+                    "personGeneration": "allow_adult",
+                    "safetyFilterLevel": "block_medium_and_above"
                 }
             }
+
+            logger.info(f"Calling Imagen API: {url}")
+            logger.info(f"Aspect ratio: {aspect_ratio}")
 
             response = requests.post(
                 url,
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers=self.headers,
                 timeout=120
             )
 
@@ -145,88 +153,17 @@ class GeminiImageService:
 
     def _edit_image(self, prompt: str, reference_image, aspect_ratio: str, model: str) -> dict:
         """
-        Bearbeitet ein Bild mit Imagen 3 (Inpainting/Outpainting)
+        Generiert ein Bild mit Imagen 3.
 
-        Das Referenzbild wird als Basis verwendet und der Hintergrund
-        basierend auf dem Prompt neu generiert.
+        Hinweis: Die Imagen 3 API über generativelanguage unterstützt kein direktes
+        Image Editing. Daher nutzen wir die Standard-Generierung.
+        Das Referenzbild wird ignoriert - der Prompt sollte das gewünschte Ergebnis beschreiben.
         """
-        try:
-            # Read the reference image
-            if hasattr(reference_image, 'read'):
-                image_data = reference_image.read()
-                reference_image.seek(0)
-            elif hasattr(reference_image, 'path'):
-                with open(reference_image.path, 'rb') as f:
-                    image_data = f.read()
-            else:
-                with open(reference_image, 'rb') as f:
-                    image_data = f.read()
+        logger.info("Reference image provided, but Imagen 3 API does not support image editing.")
+        logger.info("Using standard generation instead. Consider describing the product in the prompt.")
 
-            image_b64 = base64.b64encode(image_data).decode('utf-8')
-
-            # Imagen 3 Edit API
-            # Für Edit/Inpaint nutzen wir das imagen-3.0-capability-001 Modell
-            edit_model = "imagen-3.0-capability-001"
-            url = f"{self.BASE_URL}/models/{edit_model}:predict?key={self.api_key}"
-
-            payload = {
-                "instances": [
-                    {
-                        "prompt": prompt,
-                        "image": {
-                            "bytesBase64Encoded": image_b64
-                        }
-                    }
-                ],
-                "parameters": {
-                    "sampleCount": 1,
-                    "editMode": "EDIT_MODE_OUTPAINT",  # Erweitert das Bild
-                    "safetyFilterLevel": "BLOCK_MEDIUM_AND_ABOVE"
-                }
-            }
-
-            response = requests.post(
-                url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=120
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                if "predictions" in data and len(data["predictions"]) > 0:
-                    result_image = data["predictions"][0].get("bytesBase64Encoded")
-                    if result_image:
-                        return {
-                            'success': True,
-                            'image_data': result_image
-                        }
-
-                return {
-                    'success': False,
-                    'error': 'Keine Bilddaten in der Edit-Antwort'
-                }
-            else:
-                # Bei Fehler: Versuche Standard-Generierung mit verbessertem Prompt
-                error_msg = f"Edit-API Fehler: {response.status_code}"
-                try:
-                    error_data = response.json()
-                    if 'error' in error_data:
-                        error_msg = error_data['error'].get('message', error_msg)
-                except:
-                    pass
-                logger.error(f"Gemini Edit API error: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg
-                }
-
-        except Exception as e:
-            logger.error(f"Error in Gemini edit generation: {e}")
-            return {
-                'success': False,
-                'error': f"Fehler bei der Bildbearbeitung: {str(e)}"
-            }
+        # Verwende Standard-Generierung
+        return self._generate_standard(prompt, aspect_ratio, model)
 
     @staticmethod
     def build_prompt_with_text(
