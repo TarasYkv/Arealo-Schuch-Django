@@ -643,9 +643,19 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen YouTube API-Key ein.')
                 
+        elif action == 'update_ideogram':
+            ideogram_key = request.POST.get('ideogram_api_key', '').strip()
+            if ideogram_key:
+                user.ideogram_api_key = ideogram_key
+                user.save()
+                messages.success(request, 'Ideogram API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Ideogram API-Key ein.')
+
         elif action == 'clear_keys':
             user.openai_api_key = ''
             user.youtube_api_key = ''
+            user.ideogram_api_key = ''
             user.save()
             messages.success(request, 'Alle API-Keys wurden gelöscht.')
         
@@ -669,8 +679,10 @@ def neue_api_einstellungen_view(request):
         'user': user,
         'openai_key_masked': '••••••••' + user.openai_api_key[-4:] if user.openai_api_key and len(user.openai_api_key) > 4 else '',
         'youtube_key_masked': '••••••••' + user.youtube_api_key[-4:] if user.youtube_api_key and len(user.youtube_api_key) > 4 else '',
+        'ideogram_key_masked': '••••••••' + user.ideogram_api_key[-4:] if user.ideogram_api_key and len(user.ideogram_api_key) > 4 else '',
         'openai_configured': bool(user.openai_api_key),
         'youtube_configured': bool(user.youtube_api_key),
+        'ideogram_configured': bool(user.ideogram_api_key),
         'zoho_configured': bool(zoho_settings and zoho_settings.is_configured),
         'shopify_configured': len(shopify_stores) > 0,
         'zoho_settings': zoho_settings,
