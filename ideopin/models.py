@@ -208,12 +208,12 @@ class PinSettings(models.Model):
 
     AI_PROVIDER_CHOICES = [
         ('ideogram', 'Ideogram'),
-        ('gemini', 'Google Gemini (Imagen 3)'),
+        ('gemini', 'Google Gemini (Nano Banana)'),
     ]
 
     GEMINI_MODEL_CHOICES = [
-        ('imagen-3.0-generate-002', 'Imagen 3 (Beste Qualität)'),
-        ('imagen-3.0-fast-generate-001', 'Imagen 3 Fast (Schneller)'),
+        ('gemini-2.0-flash-exp', 'Gemini 2.0 Flash (Nano Banana)'),
+        ('gemini-2.0-flash-preview-image-generation', 'Gemini 2.0 Flash Preview'),
     ]
 
     user = models.OneToOneField(
@@ -253,9 +253,9 @@ class PinSettings(models.Model):
     gemini_model = models.CharField(
         max_length=50,
         choices=GEMINI_MODEL_CHOICES,
-        default='imagen-3.0-generate-002',
+        default='gemini-2.0-flash-exp',
         verbose_name="Gemini Modell",
-        help_text="Imagen 3 liefert beste Qualität, Fast ist schneller"
+        help_text="Nano Banana kann Produkte extrahieren und Text perfekt rendern"
     )
 
     default_font = models.CharField(
