@@ -8,12 +8,18 @@
                 <h5 class="mb-0"><i class="bi bi-image"></i> Schritt 3: Bild erstellen</h5>
             </div>
             <div class="card-body">
-                {% if not has_ideogram_key %}
+                {% if not has_required_key %}
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle"></i>
-                    <strong>Ideogram API-Key fehlt!</strong>
-                    Bitte hinterlege deinen Ideogram API-Key in deinem
-                    <a href="{% url 'accounts:profile' %}">Profil</a>.
+                    {% if ai_provider == 'gemini' %}
+                        <strong>Gemini API-Key fehlt!</strong>
+                        Bitte hinterlege deinen Gemini API-Key in den
+                        <a href="{% url 'accounts:neue_api_einstellungen' %}">API-Einstellungen</a>.
+                    {% else %}
+                        <strong>Ideogram API-Key fehlt!</strong>
+                        Bitte hinterlege deinen Ideogram API-Key in den
+                        <a href="{% url 'accounts:neue_api_einstellungen' %}">API-Einstellungen</a>.
+                    {% endif %}
                 </div>
                 {% endif %}
 
@@ -55,29 +61,39 @@
                         </label>
                         <div class="card bg-light">
                             <div class="card-body">
-                                {% for radio in form.text_integration_mode %}
                                 <div class="form-check mb-2">
-                                    {{ radio.tag }}
-                                    <label class="form-check-label" for="{{ radio.id_for_label }}">
-                                        {% if radio.choice_value == 'ideogram' %}
-                                            <strong>Von Ideogram designen lassen</strong>
-                                            <small class="d-block text-muted">
-                                                Text wird direkt ins Bild integriert mit professionellem Design
-                                            </small>
-                                        {% elif radio.choice_value == 'pil' %}
-                                            <strong>Nachträglich hinzufügen (PIL)</strong>
-                                            <small class="d-block text-muted">
-                                                Text wird nach der Bildgenerierung als Overlay hinzugefügt
-                                            </small>
-                                        {% else %}
-                                            <strong>Kein Text</strong>
-                                            <small class="d-block text-muted">
-                                                Nur Hintergrundbild ohne Text-Overlay
-                                            </small>
-                                        {% endif %}
+                                    <input type="radio" name="text_integration_mode" value="ideogram"
+                                           class="form-check-input" id="text_mode_ideogram"
+                                           {% if project.text_integration_mode == 'ideogram' %}checked{% endif %}>
+                                    <label class="form-check-label" for="text_mode_ideogram">
+                                        <strong>Von KI designen lassen</strong>
+                                        <small class="d-block text-muted">
+                                            Text wird direkt ins Bild integriert mit professionellem Design
+                                        </small>
                                     </label>
                                 </div>
-                                {% endfor %}
+                                <div class="form-check mb-2">
+                                    <input type="radio" name="text_integration_mode" value="pil"
+                                           class="form-check-input" id="text_mode_pil"
+                                           {% if project.text_integration_mode == 'pil' %}checked{% endif %}>
+                                    <label class="form-check-label" for="text_mode_pil">
+                                        <strong>Nachträglich hinzufügen (PIL)</strong>
+                                        <small class="d-block text-muted">
+                                            Text wird nach der Bildgenerierung als Overlay hinzugefügt
+                                        </small>
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="radio" name="text_integration_mode" value="none"
+                                           class="form-check-input" id="text_mode_none"
+                                           {% if project.text_integration_mode == 'none' %}checked{% endif %}>
+                                    <label class="form-check-label" for="text_mode_none">
+                                        <strong>Kein Text</strong>
+                                        <small class="d-block text-muted">
+                                            Nur Hintergrundbild ohne Text-Overlay
+                                        </small>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                         {% if project.overlay_text %}
@@ -90,12 +106,13 @@
                     <div class="mb-4">
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-success btn-lg flex-grow-1" id="generateImageBtn"
-                                    {% if not has_ideogram_key %}disabled{% endif %}>
+                                    {% if not has_required_key %}disabled{% endif %}>
                                 <i class="bi bi-magic"></i> Bild generieren
+                                {% if ai_provider == 'gemini' %}<small class="ms-1">(Gemini)</small>{% else %}<small class="ms-1">(Ideogram)</small>{% endif %}
                             </button>
                             {% if project.generated_image %}
                             <button type="button" class="btn btn-outline-warning btn-lg" id="regenerateImageBtn"
-                                    {% if not has_ideogram_key %}disabled{% endif %}
+                                    {% if not has_required_key %}disabled{% endif %}
                                     title="Neues Bild generieren">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>

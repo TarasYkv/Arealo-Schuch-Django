@@ -102,13 +102,30 @@ def wizard_step3(request, project_id):
                 pass
         form = Step3ImageForm(instance=project)
 
+    # Determine which AI provider is selected
+    ai_provider = 'gemini'  # Default
+    try:
+        pin_settings = PinSettings.objects.get(user=request.user)
+        ai_provider = pin_settings.ai_provider
+    except PinSettings.DoesNotExist:
+        pass
+
+    # Check if the required API key is available
+    has_required_key = (
+        (ai_provider == 'gemini' and bool(request.user.gemini_api_key)) or
+        (ai_provider == 'ideogram' and bool(request.user.ideogram_api_key))
+    )
+
     context = {
         'form': form,
         'project': project,
         'step': 3,
         'total_steps': 6,
         'has_ideogram_key': bool(request.user.ideogram_api_key),
+        'has_gemini_key': bool(request.user.gemini_api_key),
         'has_openai_key': bool(request.user.openai_api_key),
+        'has_required_key': has_required_key,
+        'ai_provider': ai_provider,
     }
     return render(request, 'ideopin/wizard/step3_image.html', context)
 
