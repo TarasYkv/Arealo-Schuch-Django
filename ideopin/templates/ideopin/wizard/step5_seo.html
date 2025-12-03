@@ -1,0 +1,130 @@
+{% extends 'ideopin/base_wizard.html' %}
+
+{% block wizard_content %}
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-search"></i> Schritt 5: SEO Pin-Beschreibung</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Die Pin-Beschreibung ist wichtig für Pinterest SEO.
+                    Lass sie von der KI generieren oder schreibe deine eigene.
+                </p>
+
+                <form method="post" id="step5Form">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Pin-Beschreibung</label>
+                        <div class="input-group mb-2">
+                            {{ form.seo_description }}
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="generateSeoBtn">
+                                <i class="bi bi-magic"></i> KI generieren
+                            </button>
+                            <span class="text-counter" id="seoCounter">0 / 500</span>
+                        </div>
+                        <div class="form-text">
+                            Maximal 500 Zeichen. Die ersten 100 Zeichen sind besonders wichtig!
+                        </div>
+                    </div>
+
+                    <div class="alert alert-success">
+                        <h6><i class="bi bi-check-circle"></i> Pinterest SEO Tipps:</h6>
+                        <ul class="mb-0 small">
+                            <li>Keywords in den ersten 100 Zeichen platzieren</li>
+                            <li>Call-to-Action einbauen (z.B. "Jetzt entdecken")</li>
+                            <li>3-5 relevante Hashtags am Ende</li>
+                            <li>Emotionale Ansprache nutzen</li>
+                        </ul>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'ideopin:wizard_step4' project.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Zurück
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-lg"></i> Pin fertigstellen
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-eye"></i> Pin-Vorschau</h6>
+            </div>
+            <div class="card-body">
+                {% if project.final_image %}
+                    <img src="{{ project.final_image.url }}" alt="Pin" class="img-fluid rounded mb-3">
+                {% elif project.generated_image %}
+                    <img src="{{ project.generated_image.url }}" alt="Pin" class="img-fluid rounded mb-3">
+                {% endif %}
+
+                <div class="small text-muted">
+                    <p><strong>Text:</strong> {{ project.overlay_text|default:"Nicht gesetzt" }}</p>
+                    <p><strong>Link:</strong> {{ project.pin_url|default:"Nicht gesetzt" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const seoInput = document.querySelector('#{{ form.seo_description.id_for_label }}');
+    const seoCounter = document.getElementById('seoCounter');
+    const generateBtn = document.getElementById('generateSeoBtn');
+
+    // Counter
+    function updateCounter() {
+        const len = seoInput.value.length;
+        seoCounter.textContent = `${len} / 500`;
+        seoCounter.className = 'text-counter';
+        if (len > 480) seoCounter.classList.add('danger');
+        else if (len > 400) seoCounter.classList.add('warning');
+    }
+
+    seoInput.addEventListener('input', updateCounter);
+    updateCounter();
+
+    // Generate SEO description
+    generateBtn.addEventListener('click', async function() {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_generate_seo" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                seoInput.value = data.description;
+                updateCounter();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (e) {
+            alert('Fehler bei der Generierung');
+        }
+
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+    });
+});
+</script>
+{% endblock %}

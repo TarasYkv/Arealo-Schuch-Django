@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     'myprompter',
     'stats',
     'keyengine',
+    'ideopin',
 ]
 
 

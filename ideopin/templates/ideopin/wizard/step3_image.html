@@ -1,0 +1,188 @@
+{% extends 'ideopin/base_wizard.html' %}
+
+{% block wizard_content %}
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-image"></i> Schritt 3: Bild erstellen</h5>
+            </div>
+            <div class="card-body">
+                {% if not has_ideogram_key %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Ideogram API-Key fehlt!</strong>
+                    Bitte hinterlege deinen Ideogram API-Key in deinem
+                    <a href="{% url 'accounts:profile' %}">Profil</a>.
+                </div>
+                {% endif %}
+
+                <form method="post" enctype="multipart/form-data" id="step3Form">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Produktbild (optional)</label>
+                        {{ form.product_image }}
+                        <div class="form-text">
+                            Wird als Referenz für die Bildgenerierung verwendet.
+                        </div>
+                        {% if project.product_image %}
+                        <div class="mt-2">
+                            <img src="{{ project.product_image.url }}" alt="Produktbild"
+                                 style="max-width: 100px; border-radius: 8px;">
+                            <span class="text-success ms-2"><i class="bi bi-check"></i> Hochgeladen</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Hintergrund-Beschreibung</label>
+                        {{ form.background_description }}
+                        <div class="form-text">
+                            Beschreibe den gewünschten Hintergrund.
+                            Z.B.: "Heller, minimalistischer Hintergrund mit pastellfarbenen Blumen"
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Pin-Format</label>
+                        {{ form.pin_format }}
+                    </div>
+
+                    <div class="mb-4">
+                        <button type="button" class="btn btn-success btn-lg w-100" id="generateImageBtn"
+                                {% if not has_ideogram_key %}disabled{% endif %}>
+                            <i class="bi bi-magic"></i> Bild mit Ideogram generieren
+                        </button>
+                    </div>
+
+                    {% if project.generated_image %}
+                    <div class="mb-4">
+                        <button type="button" class="btn btn-outline-primary w-100" id="applyOverlayBtn">
+                            <i class="bi bi-fonts"></i> Text-Overlay anwenden
+                        </button>
+                    </div>
+                    {% endif %}
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'ideopin:wizard_step2' project.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Zurück
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            Weiter <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-eye"></i> Bild-Vorschau</h6>
+            </div>
+            <div class="card-body">
+                <div class="pin-preview" id="imagePreview">
+                    {% if project.final_image %}
+                        <img src="{{ project.final_image.url }}" alt="Finales Bild" class="img-fluid">
+                        <span class="badge bg-success mt-2">Mit Text-Overlay</span>
+                    {% elif project.generated_image %}
+                        <img src="{{ project.generated_image.url }}" alt="Generiertes Bild" class="img-fluid">
+                        <span class="badge bg-info mt-2">Generiert (ohne Overlay)</span>
+                    {% else %}
+                        <div class="bg-light rounded p-5 text-muted">
+                            <i class="bi bi-image" style="font-size: 48px;"></i>
+                            <p class="mt-2 mb-0">Noch kein Bild generiert</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="mt-3 small text-muted">
+                    <p><strong>Text:</strong> {{ project.overlay_text|default:"Nicht gesetzt" }}</p>
+                    <p><strong>Keywords:</strong> {{ project.keywords|truncatechars:50 }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const generateBtn = document.getElementById('generateImageBtn');
+    const applyOverlayBtn = document.getElementById('applyOverlayBtn');
+    const imagePreview = document.getElementById('imagePreview');
+
+    // Generate image
+    if (generateBtn) {
+        generateBtn.addEventListener('click', async function() {
+            // Save form first
+            document.getElementById('step3Form').submit();
+            return;
+
+            // Alternative: AJAX generation (disabled for now)
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere Bild...';
+
+            try {
+                const response = await fetch('{% url "ideopin:api_generate_image" project.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    imagePreview.innerHTML = `<img src="${data.image_url}" alt="Generiertes Bild" class="img-fluid">`;
+                    location.reload();
+                } else {
+                    alert('Fehler: ' + data.error);
+                }
+            } catch (e) {
+                alert('Fehler bei der Bildgenerierung');
+            }
+
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
+        });
+    }
+
+    // Apply overlay
+    if (applyOverlayBtn) {
+        applyOverlayBtn.addEventListener('click', async function() {
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Wende Overlay an...';
+
+            try {
+                const response = await fetch('{% url "ideopin:api_apply_overlay" project.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    imagePreview.innerHTML = `
+                        <img src="${data.image_url}" alt="Finales Bild" class="img-fluid">
+                        <span class="badge bg-success mt-2">Mit Text-Overlay</span>
+                    `;
+                } else {
+                    alert('Fehler: ' + data.error);
+                }
+            } catch (e) {
+                alert('Fehler beim Anwenden des Overlays');
+            }
+
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
+        });
+    }
+});
+</script>
+{% endblock %}

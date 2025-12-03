@@ -13,6 +13,7 @@ class CustomUser(AbstractUser):
     anthropic_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Anthropic API Key")
     google_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Google API Key")
     youtube_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="YouTube API Key")
+    ideogram_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Ideogram API Key")
     
     # Firmeninfo-Felder für Naturmacher
     company_info = models.TextField(blank=True, verbose_name="Firmeninformationen", 
@@ -193,6 +194,7 @@ class AppPermission(models.Model):
         ('loomconnect', 'LoomConnect'),
         ('myprompter', 'MyPrompter'),
         ('keyengine', 'KeyEngine'),
+        ('ideopin', 'IdeoPin - Pinterest Generator'),
 
         # Schuch Tools
         ('schuch', 'Schuch'),

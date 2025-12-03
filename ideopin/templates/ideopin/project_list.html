@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Meine Pins - IdeoPin{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-pinterest text-danger"></i> Meine Pinterest Pins
+        </h1>
+        <div>
+            <a href="{% url 'ideopin:wizard_step1' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Neuen Pin erstellen
+            </a>
+            <a href="{% url 'ideopin:settings' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-gear"></i>
+            </a>
+        </div>
+    </div>
+
+    {% if projects %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for project in projects %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-img-top bg-light" style="height: 200px; overflow: hidden;">
+                    {% if project.final_image %}
+                        <img src="{{ project.final_image.url }}" alt="Pin"
+                             style="width: 100%; height: 100%; object-fit: cover;">
+                    {% elif project.generated_image %}
+                        <img src="{{ project.generated_image.url }}" alt="Pin"
+                             style="width: 100%; height: 100%; object-fit: cover;">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                            <i class="bi bi-image" style="font-size: 48px;"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title text-truncate" title="{{ project.keywords }}">
+                        {{ project.keywords|truncatechars:40 }}
+                    </h6>
+                    {% if project.overlay_text %}
+                    <p class="card-text small text-muted">
+                        "{{ project.overlay_text|truncatechars:50 }}"
+                    </p>
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-{{ project.status|default:'secondary' }}">
+                            {% if project.status == 'completed' %}
+                                <i class="bi bi-check-circle"></i> Fertig
+                            {% elif project.status == 'draft' %}
+                                <i class="bi bi-pencil"></i> Entwurf
+                            {% else %}
+                                <i class="bi bi-clock"></i> In Bearbeitung
+                            {% endif %}
+                        </span>
+                        <small class="text-muted">{{ project.updated_at|date:"d.m.Y" }}</small>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top-0">
+                    <div class="btn-group w-100" role="group">
+                        {% if project.status == 'completed' %}
+                            <a href="{% url 'ideopin:wizard_result' project.id %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> Ansehen
+                            </a>
+                        {% else %}
+                            <a href="{% url 'ideopin:wizard_step1_edit' project.id %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-pencil"></i> Bearbeiten
+                            </a>
+                        {% endif %}
+                        <a href="{% url 'ideopin:project_duplicate' project.id %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-copy"></i>
+                        </a>
+                        <form action="{% url 'ideopin:project_delete' project.id %}" method="post" class="d-inline"
+                              onsubmit="return confirm('Pin wirklich löschen?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-pinterest text-muted" style="font-size: 64px;"></i>
+        <h4 class="mt-3">Noch keine Pins erstellt</h4>
+        <p class="text-muted">Erstelle deinen ersten Pinterest Pin mit KI-Unterstützung!</p>
+        <a href="{% url 'ideopin:wizard_step1' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-lg"></i> Ersten Pin erstellen
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

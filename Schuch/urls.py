@@ -66,6 +66,7 @@ urlpatterns = [
     path('myprompter/', include('myprompter.urls')),
     path('stats/', include('stats.urls')),
     path('keyengine/', include('keyengine.urls')),
+    path('ideopin/', include('ideopin.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
 
     # SEO: Sitemap und robots.txt

@@ -1,0 +1,154 @@
+{% extends 'ideopin/base_wizard.html' %}
+
+{% block wizard_content %}
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-fonts"></i> Schritt 2: Text-Overlay erstellen</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Der Text erscheint als Overlay auf deinem Pin-Bild.
+                    Lass ihn von der KI generieren oder schreibe deinen eigenen.
+                </p>
+
+                <form method="post" id="step2Form">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Overlay-Text</label>
+                        <div class="input-group mb-2">
+                            {{ form.overlay_text }}
+                            <button type="button" class="btn btn-outline-primary" id="generateTextBtn">
+                                <i class="bi bi-magic"></i> KI generieren
+                            </button>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="form-text">Kurz und catchy - max. 200 Zeichen</span>
+                            <span class="text-counter" id="textCounter">0 / 200</span>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h6 class="mb-3"><i class="bi bi-palette"></i> Text-Styling</h6>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Schriftart</label>
+                            {{ form.text_font }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Schriftgröße</label>
+                            {{ form.text_size }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Textfarbe</label>
+                            {{ form.text_color }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Position</label>
+                            {{ form.text_position }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Hintergrund</label>
+                            {{ form.text_background_color }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Hintergrund-Transparenz</label>
+                            {{ form.text_background_opacity }}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'ideopin:wizard_step1_edit' project.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Zurück
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            Weiter <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-eye"></i> Vorschau</h6>
+            </div>
+            <div class="card-body">
+                <div class="pin-preview" id="textPreview">
+                    <div class="bg-secondary rounded p-5 text-white"
+                         style="min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                        <span id="previewText" style="font-size: 24px; text-align: center;">
+                            {{ project.overlay_text|default:"Dein Text hier..." }}
+                        </span>
+                    </div>
+                </div>
+                <p class="text-muted mt-3 small">
+                    <strong>Keywords:</strong> {{ project.keywords }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textInput = document.querySelector('#{{ form.overlay_text.id_for_label }}');
+    const textCounter = document.getElementById('textCounter');
+    const previewText = document.getElementById('previewText');
+    const generateBtn = document.getElementById('generateTextBtn');
+
+    // Text counter
+    function updateCounter() {
+        const len = textInput.value.length;
+        textCounter.textContent = `${len} / 200`;
+        textCounter.className = 'text-counter';
+        if (len > 180) textCounter.classList.add('danger');
+        else if (len > 150) textCounter.classList.add('warning');
+
+        // Update preview
+        previewText.textContent = textInput.value || 'Dein Text hier...';
+    }
+
+    textInput.addEventListener('input', updateCounter);
+    updateCounter();
+
+    // Generate text via AI
+    generateBtn.addEventListener('click', async function() {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_generate_text" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                textInput.value = data.text;
+                updateCounter();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (e) {
+            alert('Fehler bei der Textgenerierung');
+        }
+
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+    });
+});
+</script>
+{% endblock %}

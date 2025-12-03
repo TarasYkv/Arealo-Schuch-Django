@@ -1,0 +1,127 @@
+{% extends 'ideopin/base_wizard.html' %}
+
+{% block wizard_content %}
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-check-circle"></i> Dein Pinterest Pin ist fertig!</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="pin-preview mb-4">
+                    {% if project.final_image %}
+                        <img src="{{ project.final_image.url }}" alt="Fertiger Pin" class="img-fluid rounded"
+                             style="max-height: 500px;">
+                    {% elif project.generated_image %}
+                        <img src="{{ project.generated_image.url }}" alt="Fertiger Pin" class="img-fluid rounded"
+                             style="max-height: 500px;">
+                    {% else %}
+                        <div class="alert alert-warning">
+                            Kein Bild generiert. Gehe zurück zu Schritt 3 um ein Bild zu erstellen.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'ideopin:download_image' project.id %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-download"></i> Bild herunterladen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-link-45deg"></i> Pin-Link</h6>
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <input type="text" class="form-control" value="{{ project.pin_url }}" readonly id="pinUrl">
+                    <button class="btn btn-outline-primary" type="button" onclick="copyToClipboard('pinUrl')">
+                        <i class="bi bi-clipboard"></i> Kopieren
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-card-text"></i> Pin-Beschreibung</h6>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control mb-2" rows="5" readonly id="pinDescription">{{ project.seo_description }}</textarea>
+                <button class="btn btn-outline-primary" onclick="copyToClipboard('pinDescription')">
+                    <i class="bi bi-clipboard"></i> Beschreibung kopieren
+                </button>
+                <small class="text-muted ms-2">{{ project.seo_description|length }} / 500 Zeichen</small>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Pin-Details</h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td><strong>Keywords:</strong></td>
+                        <td>{{ project.keywords }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Overlay-Text:</strong></td>
+                        <td>{{ project.overlay_text }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Format:</strong></td>
+                        <td>{{ project.get_pin_format_display }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Erstellt:</strong></td>
+                        <td>{{ project.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+            <a href="{% url 'ideopin:wizard_step1' %}" class="btn btn-success">
+                <i class="bi bi-plus-lg"></i> Neuen Pin erstellen
+            </a>
+            <a href="{% url 'ideopin:project_duplicate' project.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-copy"></i> Pin duplizieren
+            </a>
+            <a href="{% url 'ideopin:project_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> Alle Pins
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    const text = element.value || element.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        // Show success feedback
+        const btn = event.target.closest('button');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check"></i> Kopiert!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(err => {
+        alert('Kopieren fehlgeschlagen');
+    });
+}
+</script>
+{% endblock %}
