@@ -212,9 +212,9 @@ class PinSettings(models.Model):
     ]
 
     GEMINI_MODEL_CHOICES = [
-        # Native Multimodal (Produktextraktion + Text)
-        ('gemini-2.5-flash-preview-09-2025', 'Gemini 2.5 Flash (Nano Banana)'),
-        ('gemini-3-pro-image-preview', 'Gemini 3 Pro Image (Neueste)'),
+        # Gemini Image Generation (Nano Banana - Produktextraktion + Text)
+        ('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image (Nano Banana)'),
+        ('gemini-2.0-flash-exp-image-generation', 'Gemini 2.0 Flash Exp'),
         # Imagen 4 (High-End Bildgenerierung)
         ('imagen-4.0-generate-001', 'Imagen 4 Standard'),
         ('imagen-4.0-fast-generate-001', 'Imagen 4 Fast'),
@@ -258,7 +258,7 @@ class PinSettings(models.Model):
     gemini_model = models.CharField(
         max_length=50,
         choices=GEMINI_MODEL_CHOICES,
-        default='gemini-2.5-flash-preview-09-2025',
+        default='gemini-2.5-flash-image',
         verbose_name="Gemini Modell",
         help_text="Nano Banana kann Produkte extrahieren und Text perfekt rendern"
     )

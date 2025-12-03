@@ -17,11 +17,12 @@ class GeminiImageService:
 
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
-    # Verfügbare Modelle - Stand Ende 2025
+    # Verfügbare Modelle für Bildgenerierung
+    # Hinweis: Nur Modelle mit "-image" Suffix können Bilder generieren!
     AVAILABLE_MODELS = {
-        # Native Multimodal-Modelle (können Bilder im Chat bearbeiten)
-        'gemini-2.5-flash-preview-09-2025': 'Gemini 2.5 Flash (Nano Banana)',
-        'gemini-3-pro-image-preview': 'Gemini 3 Pro Image (Neueste)',
+        # Gemini Image Generation Modelle (Nano Banana)
+        'gemini-2.5-flash-image': 'Gemini 2.5 Flash Image (Nano Banana)',
+        'gemini-2.0-flash-exp-image-generation': 'Gemini 2.0 Flash Exp',
         # Imagen 4 Familie (spezialisierte Bildgenerierung)
         'imagen-4.0-generate-001': 'Imagen 4 Standard',
         'imagen-4.0-fast-generate-001': 'Imagen 4 Fast',
@@ -35,7 +36,7 @@ class GeminiImageService:
         'imagen-4.0-ultra-generate-001',
     ]
 
-    DEFAULT_MODEL = 'gemini-2.5-flash-preview-09-2025'
+    DEFAULT_MODEL = 'gemini-2.5-flash-image'
 
     def __init__(self, api_key: str):
         self.api_key = api_key
