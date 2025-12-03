@@ -20,11 +20,11 @@ class GeminiImageService:
 
     # Verfügbare Modelle - Nano Banana Familie
     AVAILABLE_MODELS = {
-        'gemini-2.0-flash-exp': 'Gemini 2.0 Flash (Nano Banana)',
-        'gemini-2.0-flash-preview-image-generation': 'Gemini 2.0 Flash Preview',
+        'gemini-2.0-flash-preview-image-generation': 'Gemini 2.0 Flash (Nano Banana)',
+        'gemini-2.5-flash-preview-image-generation': 'Gemini 2.5 Flash (Nano Banana Pro)',
     }
 
-    DEFAULT_MODEL = 'gemini-2.0-flash-exp'
+    DEFAULT_MODEL = 'gemini-2.0-flash-preview-image-generation'
 
     def __init__(self, api_key: str):
         self.api_key = api_key
