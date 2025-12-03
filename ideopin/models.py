@@ -258,9 +258,9 @@ class PinSettings(models.Model):
     gemini_model = models.CharField(
         max_length=50,
         choices=GEMINI_MODEL_CHOICES,
-        default='gemini-3-pro-image-preview',
+        default='gemini-2.5-flash-image',
         verbose_name="Gemini Modell",
-        help_text="Nano Banana Pro: 4K, bestes Text-Rendering, bis zu 14 Referenzbilder"
+        help_text="Nano Banana: Schnell und zuverlässig. Pro-Version hat oft Kapazitätsprobleme."
     )
 
     default_font = models.CharField(
