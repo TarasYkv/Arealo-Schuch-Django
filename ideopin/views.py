@@ -233,16 +233,21 @@ def api_generate_image(request, project_id):
         from .ideogram_service import IdeogramService
         service = IdeogramService(request.user.ideogram_api_key)
 
-        # Get user's preferred model from settings
+        # Get user's preferred model and style from settings
         selected_model = None
+        selected_style = None
         try:
             pin_settings = PinSettings.objects.get(user=request.user)
             selected_model = pin_settings.ideogram_model
+            selected_style = pin_settings.ideogram_style
         except PinSettings.DoesNotExist:
-            pass  # Will use default model
+            pass  # Will use defaults
 
         # Get dimensions from format
         width, height = project.get_format_dimensions()
+
+        # Check if product image is provided
+        has_product_image = bool(project.product_image)
 
         # Baue den Prompt basierend auf dem text_integration_mode
         if project.text_integration_mode == 'ideogram' and project.overlay_text:
@@ -251,15 +256,17 @@ def api_generate_image(request, project_id):
                 background_description=project.background_description,
                 overlay_text=project.overlay_text,
                 text_position=project.text_position,
-                text_style='modern',  # TODO: Könnte später konfigurierbar sein
-                keywords=project.keywords
+                text_style='modern',
+                keywords=project.keywords,
+                has_product_image=has_product_image
             )
             logger.info(f"Generating image WITH integrated text: {project.overlay_text}")
         else:
             # Nur Hintergrund generieren (für PIL-Overlay oder ohne Text)
             prompt = IdeogramService.build_prompt_without_text(
                 background_description=project.background_description,
-                keywords=project.keywords
+                keywords=project.keywords,
+                has_product_image=has_product_image
             )
             logger.info("Generating image WITHOUT text (for PIL overlay or no text)")
 
@@ -268,7 +275,8 @@ def api_generate_image(request, project_id):
             reference_image=project.product_image if project.product_image else None,
             width=width,
             height=height,
-            model=selected_model
+            model=selected_model,
+            style=selected_style
         )
 
         if result.get('success'):

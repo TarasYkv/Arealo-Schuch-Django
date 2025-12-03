@@ -131,6 +131,7 @@ class PinSettingsForm(forms.ModelForm):
         exclude = ['user', 'created_at', 'updated_at']
         widgets = {
             'ideogram_model': forms.Select(attrs={'class': 'form-select'}),
+            'ideogram_style': forms.Select(attrs={'class': 'form-select'}),
             'default_font': forms.Select(attrs={'class': 'form-select'}, choices=[
                 ('Arial', 'Arial'),
                 ('Helvetica', 'Helvetica'),

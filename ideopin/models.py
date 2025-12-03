@@ -198,6 +198,14 @@ class PinSettings(models.Model):
         ('V_1_TURBO', 'Ideogram 1.0 Turbo'),
     ]
 
+    IDEOGRAM_STYLE_CHOICES = [
+        ('REALISTIC', 'Realistisch'),
+        ('DESIGN', 'Design/Grafisch'),
+        ('RENDER_3D', '3D Render'),
+        ('ANIME', 'Anime'),
+        ('GENERAL', 'Automatisch'),
+    ]
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -211,6 +219,15 @@ class PinSettings(models.Model):
         default='V_2A_TURBO',
         verbose_name="Ideogram Modell",
         help_text="V_2A_TURBO ist am besten für Text-Overlays geeignet"
+    )
+
+    # Ideogram Style-Einstellung
+    ideogram_style = models.CharField(
+        max_length=20,
+        choices=IDEOGRAM_STYLE_CHOICES,
+        default='REALISTIC',
+        verbose_name="Bild-Style",
+        help_text="Realistisch ist für Produkt-Pins am besten geeignet"
     )
 
     default_font = models.CharField(

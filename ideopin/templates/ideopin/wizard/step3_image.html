@@ -88,10 +88,19 @@
                     </div>
 
                     <div class="mb-4">
-                        <button type="button" class="btn btn-success btn-lg w-100" id="generateImageBtn"
-                                {% if not has_ideogram_key %}disabled{% endif %}>
-                            <i class="bi bi-magic"></i> Bild mit Ideogram generieren
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success btn-lg flex-grow-1" id="generateImageBtn"
+                                    {% if not has_ideogram_key %}disabled{% endif %}>
+                                <i class="bi bi-magic"></i> Bild generieren
+                            </button>
+                            {% if project.generated_image %}
+                            <button type="button" class="btn btn-outline-warning btn-lg" id="regenerateImageBtn"
+                                    {% if not has_ideogram_key %}disabled{% endif %}
+                                    title="Neues Bild generieren">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                            {% endif %}
+                        </div>
                         <div class="form-text text-center mt-1">
                             {% if project.text_integration_mode == 'ideogram' %}
                             <span class="text-success"><i class="bi bi-check"></i> Text wird automatisch ins Bild integriert</span>
@@ -167,82 +176,105 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generateImageBtn');
+    const regenerateBtn = document.getElementById('regenerateImageBtn');
     const applyOverlayBtn = document.getElementById('applyOverlayBtn');
     const imagePreview = document.getElementById('imagePreview');
     const step3Form = document.getElementById('step3Form');
 
-    // Generate image via AJAX
-    if (generateBtn) {
-        generateBtn.addEventListener('click', async function() {
-            // Zuerst Formular-Daten speichern via AJAX
-            const formData = new FormData(step3Form);
+    // Gemeinsame Funktion für Bildgenerierung
+    async function generateImage(button, isRegenerate = false) {
+        const formData = new FormData(step3Form);
+        const originalHtml = button.innerHTML;
 
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Speichere Einstellungen...';
+        button.disabled = true;
+        if (regenerateBtn) regenerateBtn.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Speichere...';
 
-            try {
-                // 1. Erst Formular speichern
-                const saveResponse = await fetch('{% url "ideopin:api_save_step3" project.id %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: formData
-                });
-                const saveData = await saveResponse.json();
+        try {
+            // 1. Erst Formular speichern
+            const saveResponse = await fetch('{% url "ideopin:api_save_step3" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: formData
+            });
+            const saveData = await saveResponse.json();
 
-                if (!saveData.success) {
-                    alert('Fehler beim Speichern: ' + saveData.error);
-                    this.disabled = false;
-                    this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
-                    return;
-                }
-
-                // 2. Dann Bild generieren
-                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere Bild... (kann bis zu 2 Min dauern)';
-
-                const response = await fetch('{% url "ideopin:api_generate_image" project.id %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    // Zeige das neue Bild
-                    const badge = data.is_final
-                        ? '<span class="badge bg-success mt-2"><i class="bi bi-magic"></i> Ideogram Design</span>'
-                        : '<span class="badge bg-info mt-2">Generiert</span>';
-                    imagePreview.innerHTML = `
-                        <img src="${data.image_url}?t=${Date.now()}" alt="Generiertes Bild" class="img-fluid">
-                        ${badge}
-                    `;
-
-                    // Erfolgs-Meldung
-                    this.innerHTML = '<i class="bi bi-check-circle"></i> Bild erfolgreich generiert!';
-                    this.classList.remove('btn-success');
-                    this.classList.add('btn-outline-success');
-
-                    // Nach 2 Sekunden Button zurücksetzen
-                    setTimeout(() => {
-                        this.disabled = false;
-                        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Neues Bild generieren';
-                        this.classList.remove('btn-outline-success');
-                        this.classList.add('btn-success');
-                    }, 2000);
-                } else {
-                    alert('Fehler bei der Bildgenerierung: ' + data.error);
-                    this.disabled = false;
-                    this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
-                }
-            } catch (e) {
-                console.error('Error:', e);
-                alert('Fehler bei der Bildgenerierung: ' + e.message);
-                this.disabled = false;
-                this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
+            if (!saveData.success) {
+                throw new Error('Speichern fehlgeschlagen: ' + saveData.error);
             }
-        });
+
+            // 2. Dann Bild generieren
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere Bild... (bis zu 2 Min)';
+
+            const response = await fetch('{% url "ideopin:api_generate_image" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Zeige das neue Bild
+                const badge = data.is_final
+                    ? '<span class="badge bg-success mt-2"><i class="bi bi-magic"></i> Ideogram Design</span>'
+                    : '<span class="badge bg-info mt-2">Generiert</span>';
+                imagePreview.innerHTML = `
+                    <img src="${data.image_url}?t=${Date.now()}" alt="Generiertes Bild" class="img-fluid">
+                    ${badge}
+                `;
+
+                // Erfolgs-Meldung kurz anzeigen
+                button.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';
+                button.classList.add('btn-outline-success');
+                button.classList.remove('btn-success');
+
+                // Regenerate-Button anzeigen falls noch nicht vorhanden
+                if (!regenerateBtn) {
+                    const btnContainer = generateBtn.parentElement;
+                    const newRegenBtn = document.createElement('button');
+                    newRegenBtn.type = 'button';
+                    newRegenBtn.className = 'btn btn-outline-warning btn-lg';
+                    newRegenBtn.id = 'regenerateImageBtn';
+                    newRegenBtn.title = 'Neues Bild generieren';
+                    newRegenBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+                    newRegenBtn.addEventListener('click', () => generateImage(newRegenBtn, true));
+                    btnContainer.appendChild(newRegenBtn);
+                }
+
+                // Nach 2 Sekunden zurücksetzen
+                setTimeout(() => {
+                    button.disabled = false;
+                    if (regenerateBtn) regenerateBtn.disabled = false;
+                    if (document.getElementById('regenerateImageBtn')) {
+                        document.getElementById('regenerateImageBtn').disabled = false;
+                    }
+                    button.innerHTML = '<i class="bi bi-magic"></i> Bild generieren';
+                    button.classList.remove('btn-outline-success');
+                    button.classList.add('btn-success');
+                }, 2000);
+            } else {
+                throw new Error(data.error || 'Unbekannter Fehler bei der Bildgenerierung');
+            }
+        } catch (e) {
+            console.error('Error:', e);
+            alert('Fehler: ' + e.message);
+            button.disabled = false;
+            if (regenerateBtn) regenerateBtn.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    }
+
+    // Generate button click
+    if (generateBtn) {
+        generateBtn.addEventListener('click', () => generateImage(generateBtn, false));
+    }
+
+    // Regenerate button click
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', () => generateImage(regenerateBtn, true));
     }
 
     // Apply PIL overlay
