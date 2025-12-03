@@ -14,6 +14,7 @@ class CustomUser(AbstractUser):
     google_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Google API Key")
     youtube_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="YouTube API Key")
     ideogram_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Ideogram API Key")
+    gemini_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Gemini API Key")
     
     # Firmeninfo-Felder für Naturmacher
     company_info = models.TextField(blank=True, verbose_name="Firmeninformationen", 

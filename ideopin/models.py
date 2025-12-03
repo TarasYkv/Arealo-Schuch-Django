@@ -206,10 +206,29 @@ class PinSettings(models.Model):
         ('GENERAL', 'Automatisch'),
     ]
 
+    AI_PROVIDER_CHOICES = [
+        ('ideogram', 'Ideogram'),
+        ('gemini', 'Google Gemini (Imagen 3)'),
+    ]
+
+    GEMINI_MODEL_CHOICES = [
+        ('imagen-3.0-generate-002', 'Imagen 3 (Beste Qualität)'),
+        ('imagen-3.0-fast-generate-001', 'Imagen 3 Fast (Schneller)'),
+    ]
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='pin_settings'
+    )
+
+    # AI Provider Auswahl
+    ai_provider = models.CharField(
+        max_length=20,
+        choices=AI_PROVIDER_CHOICES,
+        default='gemini',
+        verbose_name="KI-Anbieter",
+        help_text="Gemini (Imagen 3) ist empfohlen für beste Text- und Bildqualität"
     )
 
     # Ideogram Modell-Einstellung
@@ -228,6 +247,15 @@ class PinSettings(models.Model):
         default='REALISTIC',
         verbose_name="Bild-Style",
         help_text="Realistisch ist für Produkt-Pins am besten geeignet"
+    )
+
+    # Gemini Modell-Einstellung
+    gemini_model = models.CharField(
+        max_length=50,
+        choices=GEMINI_MODEL_CHOICES,
+        default='imagen-3.0-generate-002',
+        verbose_name="Gemini Modell",
+        help_text="Imagen 3 liefert beste Qualität, Fast ist schneller"
     )
 
     default_font = models.CharField(

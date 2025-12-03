@@ -220,64 +220,111 @@ def api_generate_overlay_text(request, project_id):
 @login_required
 @require_POST
 def api_generate_image(request, project_id):
-    """API: Generiert Bild via Ideogram.ai"""
+    """API: Generiert Bild via Gemini oder Ideogram"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
-    if not request.user.ideogram_api_key:
-        return JsonResponse({
-            'success': False,
-            'error': 'Kein Ideogram API-Key konfiguriert. Bitte in Ihrem Profil hinterlegen.'
-        }, status=400)
-
+    # Get user's preferred AI provider and settings
+    ai_provider = 'gemini'  # Default to Gemini
+    selected_model = None
+    selected_style = None
     try:
-        from .ideogram_service import IdeogramService
-        service = IdeogramService(request.user.ideogram_api_key)
-
-        # Get user's preferred model and style from settings
-        selected_model = None
-        selected_style = None
-        try:
-            pin_settings = PinSettings.objects.get(user=request.user)
+        pin_settings = PinSettings.objects.get(user=request.user)
+        ai_provider = pin_settings.ai_provider
+        if ai_provider == 'ideogram':
             selected_model = pin_settings.ideogram_model
             selected_style = pin_settings.ideogram_style
-        except PinSettings.DoesNotExist:
-            pass  # Will use defaults
+        else:
+            selected_model = pin_settings.gemini_model
+    except PinSettings.DoesNotExist:
+        pass  # Will use defaults
 
+    # Check API key based on provider
+    if ai_provider == 'gemini':
+        if not request.user.gemini_api_key:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Gemini API-Key konfiguriert. Bitte in den API-Einstellungen hinterlegen.'
+            }, status=400)
+    else:
+        if not request.user.ideogram_api_key:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Ideogram API-Key konfiguriert. Bitte in den API-Einstellungen hinterlegen.'
+            }, status=400)
+
+    try:
         # Get dimensions from format
         width, height = project.get_format_dimensions()
 
         # Check if product image is provided
         has_product_image = bool(project.product_image)
 
-        # Baue den Prompt basierend auf dem text_integration_mode
-        if project.text_integration_mode == 'ideogram' and project.overlay_text:
-            # Text soll von Ideogram direkt ins Bild integriert werden
-            prompt = IdeogramService.build_prompt_with_text(
-                background_description=project.background_description,
-                overlay_text=project.overlay_text,
-                text_position=project.text_position,
-                text_style='modern',
-                keywords=project.keywords,
-                has_product_image=has_product_image
-            )
-            logger.info(f"Generating image WITH integrated text: {project.overlay_text}")
-        else:
-            # Nur Hintergrund generieren (für PIL-Overlay oder ohne Text)
-            prompt = IdeogramService.build_prompt_without_text(
-                background_description=project.background_description,
-                keywords=project.keywords,
-                has_product_image=has_product_image
-            )
-            logger.info("Generating image WITHOUT text (for PIL overlay or no text)")
+        # Select the appropriate service
+        if ai_provider == 'gemini':
+            from .gemini_service import GeminiImageService
+            service = GeminiImageService(request.user.gemini_api_key)
 
-        result = service.generate_image(
-            prompt=prompt,
-            reference_image=project.product_image if project.product_image else None,
-            width=width,
-            height=height,
-            model=selected_model,
-            style=selected_style
-        )
+            # Baue den Prompt basierend auf dem text_integration_mode
+            if project.text_integration_mode == 'ideogram' and project.overlay_text:
+                # Text soll direkt ins Bild integriert werden
+                prompt = GeminiImageService.build_prompt_with_text(
+                    background_description=project.background_description,
+                    overlay_text=project.overlay_text,
+                    text_position=project.text_position,
+                    text_style='modern',
+                    keywords=project.keywords,
+                    has_product_image=has_product_image
+                )
+                logger.info(f"[Gemini] Generating image WITH integrated text: {project.overlay_text}")
+            else:
+                # Nur Hintergrund generieren (für PIL-Overlay oder ohne Text)
+                prompt = GeminiImageService.build_prompt_without_text(
+                    background_description=project.background_description,
+                    keywords=project.keywords,
+                    has_product_image=has_product_image
+                )
+                logger.info("[Gemini] Generating image WITHOUT text (for PIL overlay or no text)")
+
+            result = service.generate_image(
+                prompt=prompt,
+                reference_image=project.product_image if project.product_image else None,
+                width=width,
+                height=height,
+                model=selected_model
+            )
+        else:
+            from .ideogram_service import IdeogramService
+            service = IdeogramService(request.user.ideogram_api_key)
+
+            # Baue den Prompt basierend auf dem text_integration_mode
+            if project.text_integration_mode == 'ideogram' and project.overlay_text:
+                # Text soll von Ideogram direkt ins Bild integriert werden
+                prompt = IdeogramService.build_prompt_with_text(
+                    background_description=project.background_description,
+                    overlay_text=project.overlay_text,
+                    text_position=project.text_position,
+                    text_style='modern',
+                    keywords=project.keywords,
+                    has_product_image=has_product_image
+                )
+                logger.info(f"[Ideogram] Generating image WITH integrated text: {project.overlay_text}")
+            else:
+                # Nur Hintergrund generieren (für PIL-Overlay oder ohne Text)
+                prompt = IdeogramService.build_prompt_without_text(
+                    background_description=project.background_description,
+                    keywords=project.keywords,
+                    has_product_image=has_product_image
+                )
+                logger.info("[Ideogram] Generating image WITHOUT text (for PIL overlay or no text)")
+
+            result = service.generate_image(
+                prompt=prompt,
+                reference_image=project.product_image if project.product_image else None,
+                width=width,
+                height=height,
+                model=selected_model,
+                style=selected_style
+            )
 
         if result.get('success'):
             # Save the generated image
@@ -526,5 +573,6 @@ def settings_view(request):
         'form': form,
         'has_ideogram_key': bool(request.user.ideogram_api_key),
         'has_openai_key': bool(request.user.openai_api_key),
+        'has_gemini_key': bool(request.user.gemini_api_key),
     }
     return render(request, 'ideopin/settings.html', context)

@@ -27,7 +27,18 @@
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                {% if has_gemini_key %}
+                                    <span class="badge bg-success me-2"><i class="bi bi-check"></i></span>
+                                    <span>Gemini API-Key konfiguriert</span>
+                                {% else %}
+                                    <span class="badge bg-danger me-2"><i class="bi bi-x"></i></span>
+                                    <span class="text-danger">Gemini API-Key fehlt</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
                             <div class="d-flex align-items-center">
                                 {% if has_ideogram_key %}
                                     <span class="badge bg-success me-2"><i class="bi bi-check"></i></span>
@@ -38,7 +49,7 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="d-flex align-items-center">
                                 {% if has_openai_key %}
                                     <span class="badge bg-success me-2"><i class="bi bi-check"></i></span>
@@ -74,20 +85,48 @@
                     <form method="post">
                         {% csrf_token %}
 
-                        <h6 class="mb-3"><i class="bi bi-cpu"></i> Ideogram KI-Einstellungen</h6>
+                        <h6 class="mb-3"><i class="bi bi-robot"></i> KI-Anbieter</h6>
                         <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label">Modell für Bildgenerierung</label>
-                                {{ form.ideogram_model }}
+                            <div class="col-12">
+                                <label class="form-label">Bildgenerierung mit</label>
+                                {{ form.ai_provider }}
                                 <div class="form-text">
-                                    <strong>Empfohlen:</strong> 2a Turbo für beste Text-Integration
+                                    <strong>Empfohlen:</strong> Gemini (Imagen 3) für beste Text- und Bildqualität
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Bild-Style</label>
-                                {{ form.ideogram_style }}
-                                <div class="form-text">
-                                    <strong>Empfohlen:</strong> Realistisch für Produkt-Pins
+                        </div>
+
+                        <!-- Gemini Einstellungen -->
+                        <div id="gemini-settings" class="mb-4">
+                            <h6 class="mb-3"><i class="bi bi-google"></i> Gemini/Imagen 3 Einstellungen</h6>
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Imagen Modell</label>
+                                    {{ form.gemini_model }}
+                                    <div class="form-text">
+                                        Imagen 3 = Beste Qualität, Fast = Schneller
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ideogram Einstellungen -->
+                        <div id="ideogram-settings" class="mb-4">
+                            <h6 class="mb-3"><i class="bi bi-cpu"></i> Ideogram Einstellungen</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Modell</label>
+                                    {{ form.ideogram_model }}
+                                    <div class="form-text">
+                                        2a Turbo für beste Text-Integration
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Bild-Style</label>
+                                    {{ form.ideogram_style }}
+                                    <div class="form-text">
+                                        Realistisch für Produkt-Pins
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -157,22 +196,18 @@
                     </p>
 
                     <hr>
-                    <h6>Ideogram Modelle</h6>
+                    <h6>KI-Anbieter Vergleich</h6>
                     <ul class="small text-muted">
-                        <li><strong>2a Turbo</strong> - Beste Text-Integration, schnell</li>
-                        <li><strong>2a</strong> - Höchste Bildqualität</li>
-                        <li><strong>2.0 / 2.0 Turbo</strong> - Gute Balance</li>
-                        <li><strong>1.0 / 1.0 Turbo</strong> - Ältere Version</li>
+                        <li><strong>Gemini (Imagen 3)</strong> - Beste Text-Qualität, exakte Schreibweise</li>
+                        <li><strong>Ideogram</strong> - Gute Bildqualität, Text manchmal fehlerhaft</li>
                     </ul>
 
                     <hr>
-                    <h6>Bild-Styles</h6>
-                    <ul class="small text-muted">
-                        <li><strong>Realistisch</strong> - Foto-ähnlich, ideal für Produkte</li>
-                        <li><strong>Design</strong> - Grafisch, für Marketing</li>
-                        <li><strong>3D Render</strong> - 3D-Look</li>
-                        <li><strong>Automatisch</strong> - Ideogram wählt</li>
-                    </ul>
+                    <h6>Gemini API-Key</h6>
+                    <p class="small text-muted">
+                        Den Gemini API-Key erhältst du auf
+                        <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a>.
+                    </p>
 
                     <hr>
                     <h6>Pinterest Format-Empfehlung</h6>
@@ -186,4 +221,29 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const providerSelect = document.getElementById('ai_provider_select');
+    const geminiSettings = document.getElementById('gemini-settings');
+    const ideogramSettings = document.getElementById('ideogram-settings');
+
+    function toggleProviderSettings() {
+        const provider = providerSelect.value;
+        if (provider === 'gemini') {
+            geminiSettings.style.display = 'block';
+            ideogramSettings.style.display = 'none';
+        } else {
+            geminiSettings.style.display = 'none';
+            ideogramSettings.style.display = 'block';
+        }
+    }
+
+    // Initial toggle
+    toggleProviderSettings();
+
+    // Listen for changes
+    providerSelect.addEventListener('change', toggleProviderSettings);
+});
+</script>
 {% endblock %}
