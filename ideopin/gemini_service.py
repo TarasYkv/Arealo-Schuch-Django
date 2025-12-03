@@ -111,17 +111,26 @@ class GeminiImageService:
                 })
                 logger.info("Reference image added to Gemini request")
 
+        # Bestimme Bildgröße basierend auf Aspect Ratio
+        # Für Pinterest-Formate nehmen wir 2K für bessere Qualität
+        image_size = "2K"
+
         payload = {
             "contents": [{
                 "parts": parts
             }],
             "generationConfig": {
                 "responseModalities": ["TEXT", "IMAGE"],
+                "imageConfig": {
+                    "aspectRatio": aspect_ratio,
+                    "imageSize": image_size
+                }
             }
         }
 
         logger.info(f"Calling Gemini API: {url}")
         logger.info(f"Prompt: {prompt[:100]}...")
+        logger.info(f"Aspect Ratio: {aspect_ratio}, Image Size: {image_size}")
 
         response = requests.post(
             url,
@@ -320,7 +329,11 @@ class GeminiImageService:
         text_position: str = 'center',
         text_style: str = 'modern',
         keywords: str = '',
-        has_product_image: bool = False
+        has_product_image: bool = False,
+        text_color: str = '#FFFFFF',
+        text_effect: str = 'shadow',
+        text_secondary_color: str = '#000000',
+        style_preset: str = 'modern_bold'
     ) -> str:
         """
         Baut einen optimierten Prompt für Gemini MIT integriertem Text.
@@ -336,15 +349,42 @@ class GeminiImageService:
         }
         position_text = position_map.get(text_position, 'prominently displayed')
 
-        style_descriptions = {
-            'modern': 'modern, bold sans-serif typography',
-            'elegant': 'elegant serif typography',
-            'playful': 'playful, hand-written style',
-            'bold': 'bold, impactful typography',
-            'minimal': 'minimalist typography',
-            'vintage': 'vintage retro typography',
+        # Style-Preset zu Beschreibung
+        style_preset_descriptions = {
+            'modern_bold': 'modern, bold sans-serif typography with strong visual impact',
+            'elegant_serif': 'elegant serif typography with classic, refined styling',
+            'playful_color': 'playful, colorful typography with fun, energetic feel',
+            'minimal_clean': 'minimalist, clean typography with lots of whitespace',
+            'dark_contrast': 'high-contrast dark theme with bold white or bright text',
+            'bright_fresh': 'bright, fresh typography with light colors and clean lines',
+            'vintage_retro': 'vintage retro typography with nostalgic styling',
+            'professional': 'professional business typography, clean and corporate',
         }
-        style_desc = style_descriptions.get(text_style, style_descriptions['modern'])
+        style_desc = style_preset_descriptions.get(style_preset, style_preset_descriptions['modern_bold'])
+
+        # Text-Effekt zu Beschreibung
+        effect_descriptions = {
+            'shadow': 'with a subtle drop shadow for depth',
+            'outline': 'with a contrasting outline/stroke around the letters',
+            'glow': 'with a soft glowing effect',
+            'frame': 'inside a decorative frame or border',
+            'banner': 'on a ribbon or banner background',
+            'badge': 'inside a badge or stamp design',
+            'none': ''
+        }
+        effect_desc = effect_descriptions.get(text_effect, '')
+
+        # Farbe zu Beschreibung
+        def hex_to_color_name(hex_color):
+            color_map = {
+                '#FFFFFF': 'white', '#000000': 'black', '#FF0000': 'red',
+                '#00FF00': 'green', '#0000FF': 'blue', '#FFFF00': 'yellow',
+                '#FF6600': 'orange', '#800080': 'purple', '#FFC0CB': 'pink',
+            }
+            return color_map.get(hex_color.upper(), hex_color)
+
+        text_color_name = hex_to_color_name(text_color)
+        secondary_color_name = hex_to_color_name(text_secondary_color)
 
         prompt_parts = []
 
@@ -361,22 +401,28 @@ class GeminiImageService:
             if background_description:
                 prompt_parts.append(f"Create a Pinterest pin with this scene: {background_description.strip()}")
 
-        # Text-Integration - Gemini ist sehr gut mit Text
+        # Text-Integration mit detailliertem Styling
         if overlay_text:
-            prompt_parts.append(
-                f'Add the text "{overlay_text}" {position_text} using {style_desc}. '
-                f'The text must be perfectly spelled, large, bold and highly readable with strong contrast. '
-                f'Make sure every letter is correct and clearly visible.'
-            )
+            text_styling = f'Add the text "{overlay_text}" {position_text}. '
+            text_styling += f'Use {style_desc}. '
+            text_styling += f'The text color should be {text_color_name}'
+            if effect_desc:
+                text_styling += f' {effect_desc}'
+                if text_effect in ['shadow', 'outline']:
+                    text_styling += f' in {secondary_color_name}'
+            text_styling += '. '
+            text_styling += 'The text must be perfectly spelled, LARGE, bold and highly readable with strong contrast. '
+            text_styling += 'Make sure every letter is correct and clearly visible against the background.'
+            prompt_parts.append(text_styling)
 
-        # Format und Qualität
+        # Format und Qualität - WICHTIG: Vertikales Pinterest-Format explizit betonen
         prompt_parts.append(
-            "Create a vertical Pinterest pin format (2:3 ratio). "
-            "Professional quality, high resolution, visually striking design."
+            "IMPORTANT: Create a VERTICAL Pinterest pin image with 2:3 aspect ratio (portrait orientation, taller than wide). "
+            "Professional quality, high resolution, visually striking design optimized for Pinterest."
         )
 
         final_prompt = " ".join(prompt_parts)
-        logger.info(f"Built Gemini prompt with text: {final_prompt[:200]}...")
+        logger.info(f"Built Gemini prompt with text: {final_prompt[:300]}...")
         return final_prompt
 
     @staticmethod
