@@ -152,8 +152,10 @@ if os.getenv('DB_ENGINE') == 'mysql':
                 'charset': 'utf8mb4',
                 'use_unicode': True,
             },
-            # Connection Pooling: Connections 10 Minuten wiederverwenden
+            # Connection Health Checks: Prüft Verbindung vor Wiederverwendung (Django 4.1+)
+            # Löst PythonAnywhere MySQL "Lost connection" Fehler
             'CONN_MAX_AGE': 600,
+            'CONN_HEALTH_CHECKS': True,
         }
     }
 else:
