@@ -50,13 +50,56 @@
                     </div>
 
                     <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-fonts"></i> Text-Integration
+                        </label>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                {% for radio in form.text_integration_mode %}
+                                <div class="form-check mb-2">
+                                    {{ radio.tag }}
+                                    <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                        {% if radio.choice_value == 'ideogram' %}
+                                            <strong>Von Ideogram designen lassen</strong>
+                                            <small class="d-block text-muted">
+                                                Text wird direkt ins Bild integriert mit professionellem Design
+                                            </small>
+                                        {% elif radio.choice_value == 'pil' %}
+                                            <strong>Nachträglich hinzufügen (PIL)</strong>
+                                            <small class="d-block text-muted">
+                                                Text wird nach der Bildgenerierung als Overlay hinzugefügt
+                                            </small>
+                                        {% else %}
+                                            <strong>Kein Text</strong>
+                                            <small class="d-block text-muted">
+                                                Nur Hintergrundbild ohne Text-Overlay
+                                            </small>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% if project.overlay_text %}
+                        <div class="alert alert-info mt-2 mb-0">
+                            <small><i class="bi bi-info-circle"></i> Text: "{{ project.overlay_text }}"</small>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
                         <button type="button" class="btn btn-success btn-lg w-100" id="generateImageBtn"
                                 {% if not has_ideogram_key %}disabled{% endif %}>
                             <i class="bi bi-magic"></i> Bild mit Ideogram generieren
                         </button>
+                        <div class="form-text text-center mt-1">
+                            {% if project.text_integration_mode == 'ideogram' %}
+                            <span class="text-success"><i class="bi bi-check"></i> Text wird automatisch ins Bild integriert</span>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    {% if project.generated_image %}
+                    {% if project.generated_image and project.text_integration_mode == 'pil' %}
                     <div class="mb-4">
                         <button type="button" class="btn btn-outline-primary w-100" id="applyOverlayBtn">
                             <i class="bi bi-fonts"></i> Text-Overlay anwenden
@@ -88,10 +131,20 @@
                 <div class="pin-preview" id="imagePreview">
                     {% if project.final_image %}
                         <img src="{{ project.final_image.url }}" alt="Finales Bild" class="img-fluid">
-                        <span class="badge bg-success mt-2">Mit Text-Overlay</span>
+                        {% if project.text_integration_mode == 'ideogram' %}
+                            <span class="badge bg-success mt-2"><i class="bi bi-magic"></i> Ideogram Design</span>
+                        {% else %}
+                            <span class="badge bg-success mt-2">Mit Text-Overlay</span>
+                        {% endif %}
                     {% elif project.generated_image %}
                         <img src="{{ project.generated_image.url }}" alt="Generiertes Bild" class="img-fluid">
-                        <span class="badge bg-info mt-2">Generiert (ohne Overlay)</span>
+                        {% if project.text_integration_mode == 'none' %}
+                            <span class="badge bg-secondary mt-2">Ohne Text</span>
+                        {% elif project.text_integration_mode == 'pil' %}
+                            <span class="badge bg-info mt-2">Bereit für Text-Overlay</span>
+                        {% else %}
+                            <span class="badge bg-info mt-2">Generiert</span>
+                        {% endif %}
                     {% else %}
                         <div class="bg-light rounded p-5 text-muted">
                             <i class="bi bi-image" style="font-size: 48px;"></i>

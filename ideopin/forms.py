@@ -75,7 +75,7 @@ class Step3ImageForm(forms.ModelForm):
 
     class Meta:
         model = PinProject
-        fields = ['product_image', 'background_description', 'pin_format']
+        fields = ['product_image', 'background_description', 'pin_format', 'text_integration_mode']
         widgets = {
             'product_image': forms.FileInput(attrs={
                 'class': 'form-control',
@@ -87,6 +87,9 @@ class Step3ImageForm(forms.ModelForm):
                 'placeholder': 'Beschreibe den gewünschten Hintergrund...'
             }),
             'pin_format': forms.Select(attrs={'class': 'form-select'}),
+            'text_integration_mode': forms.RadioSelect(attrs={
+                'class': 'form-check-input'
+            }),
         }
 
 

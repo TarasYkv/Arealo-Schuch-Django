@@ -67,6 +67,20 @@ class PinProject(models.Model):
         default='1000x1500',
         verbose_name="Pin-Format"
     )
+
+    # Text-Integration Modus
+    text_integration_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('ideogram', 'Von Ideogram ins Bild integrieren'),
+            ('pil', 'Nachträglich mit PIL hinzufügen'),
+            ('none', 'Kein Text-Overlay'),
+        ],
+        default='ideogram',
+        verbose_name="Text-Integration",
+        help_text="Wie soll der Text ins Bild integriert werden?"
+    )
+
     generated_image = models.ImageField(
         upload_to='ideopin/generated/',
         blank=True,

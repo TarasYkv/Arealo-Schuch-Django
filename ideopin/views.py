@@ -236,8 +236,27 @@ def api_generate_image(request, project_id):
         # Get dimensions from format
         width, height = project.get_format_dimensions()
 
+        # Baue den Prompt basierend auf dem text_integration_mode
+        if project.text_integration_mode == 'ideogram' and project.overlay_text:
+            # Text soll von Ideogram direkt ins Bild integriert werden
+            prompt = IdeogramService.build_prompt_with_text(
+                background_description=project.background_description,
+                overlay_text=project.overlay_text,
+                text_position=project.text_position,
+                text_style='modern',  # TODO: Könnte später konfigurierbar sein
+                keywords=project.keywords
+            )
+            logger.info(f"Generating image WITH integrated text: {project.overlay_text}")
+        else:
+            # Nur Hintergrund generieren (für PIL-Overlay oder ohne Text)
+            prompt = IdeogramService.build_prompt_without_text(
+                background_description=project.background_description,
+                keywords=project.keywords
+            )
+            logger.info("Generating image WITHOUT text (for PIL overlay or no text)")
+
         result = service.generate_image(
-            prompt=project.background_description,
+            prompt=prompt,
             reference_image=project.product_image if project.product_image else None,
             width=width,
             height=height
@@ -255,9 +274,14 @@ def api_generate_image(request, project_id):
             filename = f"generated_{project.id}.png"
             project.generated_image.save(filename, ContentFile(image_data), save=True)
 
+            # Bei Ideogram-Modus ist das generierte Bild auch das finale Bild
+            if project.text_integration_mode == 'ideogram' and project.overlay_text:
+                project.final_image.save(f"final_{project.id}.png", ContentFile(image_data), save=True)
+
             return JsonResponse({
                 'success': True,
-                'image_url': project.generated_image.url
+                'image_url': project.generated_image.url,
+                'is_final': project.text_integration_mode == 'ideogram'
             })
         else:
             return JsonResponse({

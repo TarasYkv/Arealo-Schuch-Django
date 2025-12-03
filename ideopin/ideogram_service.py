@@ -246,3 +246,108 @@ class IdeogramService:
             {"id": "V_1_TURBO", "name": "Ideogram V1 Turbo (Fast)"},
             {"id": "V_1", "name": "Ideogram V1"},
         ]
+
+    @staticmethod
+    def build_prompt_with_text(
+        background_description: str,
+        overlay_text: str,
+        text_position: str = 'center',
+        text_style: str = 'modern',
+        keywords: str = ''
+    ) -> str:
+        """
+        Baut einen optimierten Prompt für Bildgenerierung MIT integriertem Text.
+
+        Ideogram ist besonders gut darin, Text in Bilder zu integrieren.
+        Diese Methode erstellt einen Prompt, der:
+        - Den Text als Teil des Designs beschreibt
+        - Styling-Anweisungen für den Text enthält
+        - Die Position des Textes berücksichtigt
+
+        Args:
+            background_description: Beschreibung des Hintergrunds
+            overlay_text: Der Text, der im Bild erscheinen soll
+            text_position: Position des Textes (top, center, bottom)
+            text_style: Stil des Textes
+            keywords: Zusätzliche Keywords für Kontext
+
+        Returns:
+            Optimierter Prompt für Ideogram
+        """
+        # Position mapping für natürliche Sprache
+        position_map = {
+            'top': 'at the top of the image',
+            'center': 'prominently in the center',
+            'bottom': 'at the bottom of the image'
+        }
+        position_text = position_map.get(text_position, 'prominently displayed')
+
+        # Style-Beschreibungen für verschiedene Text-Stile
+        style_descriptions = {
+            'modern': 'clean, modern typography with bold sans-serif font',
+            'elegant': 'elegant, sophisticated serif typography',
+            'playful': 'fun, playful hand-written style typography',
+            'bold': 'bold, impactful typography that stands out',
+            'minimal': 'minimalist, subtle typography',
+            'vintage': 'vintage, retro-style typography',
+        }
+        style_desc = style_descriptions.get(text_style, style_descriptions['modern'])
+
+        # Baue den optimierten Prompt
+        prompt_parts = []
+
+        # Hauptszene/Hintergrund
+        if background_description:
+            prompt_parts.append(background_description.strip())
+
+        # Text-Integration (Ideograms Stärke!)
+        if overlay_text:
+            # Ideogram braucht den Text in Anführungszeichen für beste Ergebnisse
+            text_instruction = f'The text "{overlay_text}" is displayed {position_text}, using {style_desc}'
+            prompt_parts.append(text_instruction)
+
+        # Zusätzliche Qualitäts-Keywords für Pinterest
+        quality_keywords = [
+            "Pinterest pin design",
+            "high quality",
+            "professional graphic design",
+            "visually appealing",
+            "eye-catching"
+        ]
+        prompt_parts.extend(quality_keywords)
+
+        # Kombiniere alles
+        final_prompt = ". ".join(prompt_parts)
+
+        logger.info(f"Built Ideogram prompt with text: {final_prompt[:100]}...")
+        return final_prompt
+
+    @staticmethod
+    def build_prompt_without_text(background_description: str, keywords: str = '') -> str:
+        """
+        Baut einen Prompt für Bildgenerierung OHNE Text.
+        Für Fälle, wo PIL-Overlay oder kein Text gewünscht ist.
+
+        Args:
+            background_description: Beschreibung des Hintergrunds
+            keywords: Zusätzliche Keywords
+
+        Returns:
+            Prompt für Ideogram ohne Text-Anweisungen
+        """
+        prompt_parts = []
+
+        if background_description:
+            prompt_parts.append(background_description.strip())
+
+        # Pinterest-optimierte Keywords
+        quality_keywords = [
+            "Pinterest pin background",
+            "high quality",
+            "professional",
+            "clean design",
+            "space for text overlay"
+        ]
+        prompt_parts.extend(quality_keywords)
+
+        return ". ".join(prompt_parts)
