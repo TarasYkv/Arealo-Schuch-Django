@@ -212,13 +212,13 @@ class PinSettings(models.Model):
     ]
 
     GEMINI_MODEL_CHOICES = [
-        # Gemini Image Generation (Nano Banana - Produktextraktion + Text)
-        ('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image (Nano Banana)'),
-        ('gemini-2.0-flash-exp-image-generation', 'Gemini 2.0 Flash Exp'),
+        # Gemini Image Generation (Nano Banana)
+        ('gemini-3-pro-image-preview', 'Gemini 3 Pro Image (Nano Banana Pro - Beste Qualität)'),
+        ('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image (Nano Banana - Schnell)'),
         # Imagen 4 (High-End Bildgenerierung)
+        ('imagen-4.0-ultra-generate-001', 'Imagen 4 Ultra'),
         ('imagen-4.0-generate-001', 'Imagen 4 Standard'),
         ('imagen-4.0-fast-generate-001', 'Imagen 4 Fast'),
-        ('imagen-4.0-ultra-generate-001', 'Imagen 4 Ultra (Beste Qualität)'),
     ]
 
     user = models.OneToOneField(
@@ -258,9 +258,9 @@ class PinSettings(models.Model):
     gemini_model = models.CharField(
         max_length=50,
         choices=GEMINI_MODEL_CHOICES,
-        default='gemini-2.5-flash-image',
+        default='gemini-3-pro-image-preview',
         verbose_name="Gemini Modell",
-        help_text="Nano Banana kann Produkte extrahieren und Text perfekt rendern"
+        help_text="Nano Banana Pro: 4K, bestes Text-Rendering, bis zu 14 Referenzbilder"
     )
 
     default_font = models.CharField(
