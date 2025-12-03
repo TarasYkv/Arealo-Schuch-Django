@@ -1,30 +1,41 @@
 import logging
 import base64
 import requests
-from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
 
 class GeminiImageService:
     """
-    Service für Google Gemini Image Generation (Nano Banana / Nano Banana Pro)
+    Service für Google Gemini/Imagen Image Generation
 
-    Diese Modelle können:
-    - Bilder mit Text-Overlay generieren
-    - Produkte aus Referenzbildern extrahieren und in neue Bilder integrieren
-    - Text korrekt und ohne Fehler rendern
+    Unterstützt:
+    - Gemini 2.5 Flash (Nano Banana) - Native Bildgenerierung mit Chat
+    - Gemini 3 Pro Image - Neueste Generation
+    - Imagen 4 Familie - Spezialisierte Bildgenerierung
     """
 
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
-    # Verfügbare Modelle - Nano Banana Familie
+    # Verfügbare Modelle - Stand Ende 2025
     AVAILABLE_MODELS = {
-        'gemini-2.0-flash-preview-image-generation': 'Gemini 2.0 Flash (Nano Banana)',
-        'gemini-2.5-flash-preview-image-generation': 'Gemini 2.5 Flash (Nano Banana Pro)',
+        # Native Multimodal-Modelle (können Bilder im Chat bearbeiten)
+        'gemini-2.5-flash-preview-09-2025': 'Gemini 2.5 Flash (Nano Banana)',
+        'gemini-3-pro-image-preview': 'Gemini 3 Pro Image (Neueste)',
+        # Imagen 4 Familie (spezialisierte Bildgenerierung)
+        'imagen-4.0-generate-001': 'Imagen 4 Standard',
+        'imagen-4.0-fast-generate-001': 'Imagen 4 Fast',
+        'imagen-4.0-ultra-generate-001': 'Imagen 4 Ultra (Beste Qualität)',
     }
 
-    DEFAULT_MODEL = 'gemini-2.0-flash-preview-image-generation'
+    # Modelle die predict nutzen (Imagen)
+    PREDICT_MODELS = [
+        'imagen-4.0-generate-001',
+        'imagen-4.0-fast-generate-001',
+        'imagen-4.0-ultra-generate-001',
+    ]
+
+    DEFAULT_MODEL = 'gemini-2.5-flash-preview-09-2025'
 
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -42,77 +53,32 @@ class GeminiImageService:
         model: str = None
     ) -> dict:
         """
-        Generiert ein Bild mit Gemini (Nano Banana)
+        Generiert ein Bild mit Gemini/Imagen
 
         Args:
             prompt: Beschreibung des gewünschten Bildes
             reference_image: Optional - Produktbild das integriert werden soll
             width: Bildbreite
             height: Bildhöhe
-            model: Gemini Modell
+            model: Modell-ID
 
         Returns:
             dict mit 'success', 'image_data' (base64) oder 'error'
         """
         selected_model = model if model and model in self.AVAILABLE_MODELS else self.DEFAULT_MODEL
-        logger.info(f"Using Gemini model: {selected_model}")
+        logger.info(f"Using model: {selected_model}")
 
         try:
             # Bestimme Aspect Ratio
             aspect_ratio = self._get_aspect_ratio(width, height)
 
-            # API Endpoint für generateContent
-            url = f"{self.BASE_URL}/models/{selected_model}:generateContent"
-
-            # Baue die Request Parts
-            parts = [{"text": prompt}]
-
-            # Wenn Referenzbild vorhanden, füge es hinzu
-            if reference_image:
-                image_b64 = self._read_image_as_base64(reference_image)
-                if image_b64:
-                    parts.append({
-                        "inline_data": {
-                            "mime_type": "image/png",
-                            "data": image_b64
-                        }
-                    })
-                    logger.info("Reference image added to request")
-
-            payload = {
-                "contents": [{
-                    "parts": parts
-                }],
-                "generationConfig": {
-                    "responseModalities": ["TEXT", "IMAGE"],
-                }
-            }
-
-            logger.info(f"Calling Gemini API: {url}")
-            logger.info(f"Prompt: {prompt[:100]}...")
-
-            response = requests.post(
-                url,
-                json=payload,
-                headers=self.headers,
-                timeout=180  # Längerer Timeout für Bildgenerierung
-            )
-
-            if response.status_code == 200:
-                return self._parse_response(response.json())
+            # Wähle API-Endpunkt basierend auf Modell-Typ
+            if selected_model in self.PREDICT_MODELS:
+                # Imagen 4 nutzt predict Endpoint
+                return self._generate_with_imagen(prompt, aspect_ratio, selected_model)
             else:
-                error_msg = f"API Fehler: {response.status_code}"
-                try:
-                    error_data = response.json()
-                    if 'error' in error_data:
-                        error_msg = error_data['error'].get('message', error_msg)
-                except:
-                    pass
-                logger.error(f"Gemini API error: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg
-                }
+                # Gemini nutzt generateContent Endpoint
+                return self._generate_with_gemini(prompt, reference_image, aspect_ratio, selected_model)
 
         except requests.exceptions.Timeout:
             return {
@@ -120,10 +86,108 @@ class GeminiImageService:
                 'error': 'Timeout bei der Bildgenerierung. Bitte erneut versuchen.'
             }
         except Exception as e:
-            logger.error(f"Error in Gemini image generation: {e}")
+            logger.error(f"Error in image generation: {e}")
             return {
                 'success': False,
                 'error': str(e)
+            }
+
+    def _generate_with_gemini(self, prompt: str, reference_image, aspect_ratio: str, model: str) -> dict:
+        """Generiert Bild mit Gemini (generateContent API)"""
+        url = f"{self.BASE_URL}/models/{model}:generateContent"
+
+        # Baue die Request Parts
+        parts = [{"text": prompt}]
+
+        # Wenn Referenzbild vorhanden, füge es hinzu
+        if reference_image:
+            image_b64 = self._read_image_as_base64(reference_image)
+            if image_b64:
+                parts.append({
+                    "inline_data": {
+                        "mime_type": "image/png",
+                        "data": image_b64
+                    }
+                })
+                logger.info("Reference image added to Gemini request")
+
+        payload = {
+            "contents": [{
+                "parts": parts
+            }],
+            "generationConfig": {
+                "responseModalities": ["TEXT", "IMAGE"],
+            }
+        }
+
+        logger.info(f"Calling Gemini API: {url}")
+        logger.info(f"Prompt: {prompt[:100]}...")
+
+        response = requests.post(
+            url,
+            json=payload,
+            headers=self.headers,
+            timeout=180
+        )
+
+        if response.status_code == 200:
+            return self._parse_gemini_response(response.json())
+        else:
+            error_msg = f"API Fehler: {response.status_code}"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_msg = error_data['error'].get('message', error_msg)
+            except:
+                pass
+            logger.error(f"Gemini API error: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg
+            }
+
+    def _generate_with_imagen(self, prompt: str, aspect_ratio: str, model: str) -> dict:
+        """Generiert Bild mit Imagen 4 (predict API)"""
+        url = f"{self.BASE_URL}/models/{model}:predict"
+
+        payload = {
+            "instances": [
+                {
+                    "prompt": prompt
+                }
+            ],
+            "parameters": {
+                "sampleCount": 1,
+                "aspectRatio": aspect_ratio,
+                "personGeneration": "allow_adult",
+                "safetyFilterLevel": "block_medium_and_above"
+            }
+        }
+
+        logger.info(f"Calling Imagen API: {url}")
+        logger.info(f"Prompt: {prompt[:100]}...")
+
+        response = requests.post(
+            url,
+            json=payload,
+            headers=self.headers,
+            timeout=180
+        )
+
+        if response.status_code == 200:
+            return self._parse_imagen_response(response.json())
+        else:
+            error_msg = f"API Fehler: {response.status_code}"
+            try:
+                error_data = response.json()
+                if 'error' in error_data:
+                    error_msg = error_data['error'].get('message', error_msg)
+            except:
+                pass
+            logger.error(f"Imagen API error: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg
             }
 
     def _read_image_as_base64(self, reference_image) -> str:
@@ -144,7 +208,7 @@ class GeminiImageService:
             logger.error(f"Error reading reference image: {e}")
             return None
 
-    def _parse_response(self, data: dict) -> dict:
+    def _parse_gemini_response(self, data: dict) -> dict:
         """Parst die Gemini API Response und extrahiert das Bild"""
         try:
             if "candidates" not in data or len(data["candidates"]) == 0:
@@ -162,7 +226,7 @@ class GeminiImageService:
                 if "inlineData" in part:
                     image_data = part["inlineData"].get("data")
                     if image_data:
-                        logger.info("Image successfully extracted from response")
+                        logger.info("Image successfully extracted from Gemini response")
                         return {
                             'success': True,
                             'image_data': image_data
@@ -171,7 +235,7 @@ class GeminiImageService:
                 if "inline_data" in part:
                     image_data = part["inline_data"].get("data")
                     if image_data:
-                        logger.info("Image successfully extracted from response")
+                        logger.info("Image successfully extracted from Gemini response")
                         return {
                             'success': True,
                             'image_data': image_data
@@ -197,6 +261,30 @@ class GeminiImageService:
             return {
                 'success': False,
                 'error': f'Fehler beim Parsen der Antwort: {str(e)}'
+            }
+
+    def _parse_imagen_response(self, data: dict) -> dict:
+        """Parst die Imagen API Response und extrahiert das Bild"""
+        try:
+            if "predictions" in data and len(data["predictions"]) > 0:
+                image_b64 = data["predictions"][0].get("bytesBase64Encoded")
+                if image_b64:
+                    logger.info("Image successfully extracted from Imagen response")
+                    return {
+                        'success': True,
+                        'image_data': image_b64
+                    }
+
+            return {
+                'success': False,
+                'error': 'Keine Bilddaten in der Imagen-Antwort'
+            }
+
+        except Exception as e:
+            logger.error(f"Error parsing Imagen response: {e}")
+            return {
+                'success': False,
+                'error': f'Fehler beim Parsen der Imagen-Antwort: {str(e)}'
             }
 
     def _get_aspect_ratio(self, width: int, height: int) -> str:
