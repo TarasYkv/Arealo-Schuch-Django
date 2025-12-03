@@ -233,6 +233,14 @@ def api_generate_image(request, project_id):
         from .ideogram_service import IdeogramService
         service = IdeogramService(request.user.ideogram_api_key)
 
+        # Get user's preferred model from settings
+        selected_model = None
+        try:
+            pin_settings = PinSettings.objects.get(user=request.user)
+            selected_model = pin_settings.ideogram_model
+        except PinSettings.DoesNotExist:
+            pass  # Will use default model
+
         # Get dimensions from format
         width, height = project.get_format_dimensions()
 
@@ -259,7 +267,8 @@ def api_generate_image(request, project_id):
             prompt=prompt,
             reference_image=project.product_image if project.product_image else None,
             width=width,
-            height=height
+            height=height,
+            model=selected_model
         )
 
         if result.get('success'):

@@ -189,10 +189,28 @@ class PinSettings(models.Model):
         ('600x900', 'Kompakt (600x900)'),
     ]
 
+    IDEOGRAM_MODEL_CHOICES = [
+        ('V_2A_TURBO', 'Ideogram 2a Turbo (Beste Text-Integration)'),
+        ('V_2A', 'Ideogram 2a (Höchste Qualität)'),
+        ('V_2', 'Ideogram 2.0'),
+        ('V_2_TURBO', 'Ideogram 2.0 Turbo (Schnell)'),
+        ('V_1', 'Ideogram 1.0'),
+        ('V_1_TURBO', 'Ideogram 1.0 Turbo'),
+    ]
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='pin_settings'
+    )
+
+    # Ideogram Modell-Einstellung
+    ideogram_model = models.CharField(
+        max_length=20,
+        choices=IDEOGRAM_MODEL_CHOICES,
+        default='V_2A_TURBO',
+        verbose_name="Ideogram Modell",
+        help_text="V_2A_TURBO ist am besten für Text-Overlays geeignet"
     )
 
     default_font = models.CharField(

@@ -26,7 +26,19 @@ class IdeogramService:
             "Content-Type": "application/json"
         }
 
-    def generate_image(self, prompt: str, reference_image=None, width: int = 1000, height: int = 1500) -> dict:
+    # Verfügbare Modelle
+    AVAILABLE_MODELS = {
+        'V_2A_TURBO': 'Ideogram 2a Turbo (Beste Text-Integration)',
+        'V_2A': 'Ideogram 2a (Höchste Qualität)',
+        'V_2': 'Ideogram 2.0',
+        'V_2_TURBO': 'Ideogram 2.0 Turbo (Schnell)',
+        'V_1': 'Ideogram 1.0',
+        'V_1_TURBO': 'Ideogram 1.0 Turbo',
+    }
+
+    DEFAULT_MODEL = 'V_2A_TURBO'  # Best for text overlays
+
+    def generate_image(self, prompt: str, reference_image=None, width: int = 1000, height: int = 1500, model: str = None) -> dict:
         """
         Generiert ein Bild mit Ideogram.ai
 
@@ -35,10 +47,15 @@ class IdeogramService:
             reference_image: Optional - Django ImageField oder Pfad zum Referenzbild
             width: Bildbreite
             height: Bildhöhe
+            model: Ideogram Modell (V_2A_TURBO, V_2A, V_2, V_2_TURBO, V_1, V_1_TURBO)
 
         Returns:
             dict mit 'success', 'image_data' (base64) oder 'error'
         """
+        # Use provided model or default
+        selected_model = model if model and model in self.AVAILABLE_MODELS else self.DEFAULT_MODEL
+        logger.info(f"Using Ideogram model: {selected_model}")
+
         try:
             # Determine aspect ratio
             aspect_ratio = self.ASPECT_RATIOS.get((width, height), "ASPECT_2_3")
@@ -48,14 +65,14 @@ class IdeogramService:
                 "image_request": {
                     "prompt": prompt,
                     "aspect_ratio": aspect_ratio,
-                    "model": "V_2",  # Latest model
+                    "model": selected_model,
                     "magic_prompt_option": "AUTO"
                 }
             }
 
             # If reference image provided, use remix endpoint
             if reference_image:
-                return self._generate_with_reference(prompt, reference_image, aspect_ratio)
+                return self._generate_with_reference(prompt, reference_image, aspect_ratio, selected_model)
 
             # Standard generation
             response = requests.post(
@@ -109,7 +126,7 @@ class IdeogramService:
                 'error': str(e)
             }
 
-    def _generate_with_reference(self, prompt: str, reference_image, aspect_ratio: str) -> dict:
+    def _generate_with_reference(self, prompt: str, reference_image, aspect_ratio: str, model: str = None) -> dict:
         """
         Generiert ein Bild mit Referenzbild (Remix)
 
@@ -117,7 +134,10 @@ class IdeogramService:
             prompt: Beschreibung
             reference_image: Django ImageField oder Pfad
             aspect_ratio: Aspect ratio string
+            model: Ideogram Modell
         """
+        selected_model = model or self.DEFAULT_MODEL
+
         try:
             # Read the reference image
             if hasattr(reference_image, 'read'):
@@ -141,7 +161,7 @@ class IdeogramService:
                 "image_request": {
                     "prompt": prompt,
                     "aspect_ratio": aspect_ratio,
-                    "model": "V_2",
+                    "model": selected_model,
                     "magic_prompt_option": "AUTO",
                     "image_weight": 50  # Balance between prompt and reference
                 },
@@ -157,7 +177,7 @@ class IdeogramService:
                 'image_request': str({
                     "prompt": prompt,
                     "aspect_ratio": aspect_ratio,
-                    "model": "V_2",
+                    "model": selected_model,
                     "magic_prompt_option": "AUTO"
                 })
             }
@@ -190,21 +210,22 @@ class IdeogramService:
             else:
                 # Fallback to standard generation if remix fails
                 logger.warning(f"Remix failed with {response.status_code}, falling back to standard generation")
-                return self._generate_standard(prompt, aspect_ratio)
+                return self._generate_standard(prompt, aspect_ratio, selected_model)
 
         except Exception as e:
             logger.error(f"Error in Ideogram remix generation: {e}")
             # Fallback to standard generation
-            return self._generate_standard(prompt, aspect_ratio)
+            return self._generate_standard(prompt, aspect_ratio, selected_model)
 
-    def _generate_standard(self, prompt: str, aspect_ratio: str) -> dict:
+    def _generate_standard(self, prompt: str, aspect_ratio: str, model: str = None) -> dict:
         """Fallback: Standard-Generierung ohne Referenzbild"""
+        selected_model = model if model and model in self.AVAILABLE_MODELS else self.DEFAULT_MODEL
         try:
             payload = {
                 "image_request": {
                     "prompt": prompt,
                     "aspect_ratio": aspect_ratio,
-                    "model": "V_2",
+                    "model": selected_model,
                     "magic_prompt_option": "AUTO"
                 }
             }
