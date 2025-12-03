@@ -169,19 +169,38 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generateImageBtn');
     const applyOverlayBtn = document.getElementById('applyOverlayBtn');
     const imagePreview = document.getElementById('imagePreview');
+    const step3Form = document.getElementById('step3Form');
 
-    // Generate image
+    // Generate image via AJAX
     if (generateBtn) {
         generateBtn.addEventListener('click', async function() {
-            // Save form first
-            document.getElementById('step3Form').submit();
-            return;
+            // Zuerst Formular-Daten speichern via AJAX
+            const formData = new FormData(step3Form);
 
-            // Alternative: AJAX generation (disabled for now)
             this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere Bild...';
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Speichere Einstellungen...';
 
             try {
+                // 1. Erst Formular speichern
+                const saveResponse = await fetch('{% url "ideopin:api_save_step3" project.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: formData
+                });
+                const saveData = await saveResponse.json();
+
+                if (!saveData.success) {
+                    alert('Fehler beim Speichern: ' + saveData.error);
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
+                    return;
+                }
+
+                // 2. Dann Bild generieren
+                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere Bild... (kann bis zu 2 Min dauern)';
+
                 const response = await fetch('{% url "ideopin:api_generate_image" project.id %}', {
                     method: 'POST',
                     headers: {
@@ -191,21 +210,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.success) {
-                    imagePreview.innerHTML = `<img src="${data.image_url}" alt="Generiertes Bild" class="img-fluid">`;
-                    location.reload();
+                    // Zeige das neue Bild
+                    const badge = data.is_final
+                        ? '<span class="badge bg-success mt-2"><i class="bi bi-magic"></i> Ideogram Design</span>'
+                        : '<span class="badge bg-info mt-2">Generiert</span>';
+                    imagePreview.innerHTML = `
+                        <img src="${data.image_url}?t=${Date.now()}" alt="Generiertes Bild" class="img-fluid">
+                        ${badge}
+                    `;
+
+                    // Erfolgs-Meldung
+                    this.innerHTML = '<i class="bi bi-check-circle"></i> Bild erfolgreich generiert!';
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-success');
+
+                    // Nach 2 Sekunden Button zurücksetzen
+                    setTimeout(() => {
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Neues Bild generieren';
+                        this.classList.remove('btn-outline-success');
+                        this.classList.add('btn-success');
+                    }, 2000);
                 } else {
-                    alert('Fehler: ' + data.error);
+                    alert('Fehler bei der Bildgenerierung: ' + data.error);
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
                 }
             } catch (e) {
-                alert('Fehler bei der Bildgenerierung');
+                console.error('Error:', e);
+                alert('Fehler bei der Bildgenerierung: ' + e.message);
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
             }
-
-            this.disabled = false;
-            this.innerHTML = '<i class="bi bi-magic"></i> Bild mit Ideogram generieren';
         });
     }
 
-    // Apply overlay
+    // Apply PIL overlay
     if (applyOverlayBtn) {
         applyOverlayBtn.addEventListener('click', async function() {
             this.disabled = true;
@@ -222,18 +262,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (data.success) {
                     imagePreview.innerHTML = `
-                        <img src="${data.image_url}" alt="Finales Bild" class="img-fluid">
+                        <img src="${data.image_url}?t=${Date.now()}" alt="Finales Bild" class="img-fluid">
                         <span class="badge bg-success mt-2">Mit Text-Overlay</span>
                     `;
+                    this.innerHTML = '<i class="bi bi-check-circle"></i> Overlay angewendet!';
                 } else {
                     alert('Fehler: ' + data.error);
+                    this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
                 }
             } catch (e) {
                 alert('Fehler beim Anwenden des Overlays');
+                this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
             }
 
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
         });
     }
 });

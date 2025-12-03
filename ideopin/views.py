@@ -299,6 +299,36 @@ def api_generate_image(request, project_id):
 
 @login_required
 @require_POST
+def api_save_step3(request, project_id):
+    """API: Speichert Step 3 Formular-Daten ohne Weiterleitung"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        form = Step3ImageForm(request.POST, request.FILES, instance=project)
+        if form.is_valid():
+            project = form.save(commit=False)
+            # Nicht den Status ändern - wir wollen nicht weiterleiten
+            project.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Einstellungen gespeichert'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formular ungültig: ' + str(form.errors)
+            }, status=400)
+
+    except Exception as e:
+        logger.error(f"Error saving step3: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_apply_text_overlay(request, project_id):
     """API: Wendet Text-Overlay auf das Bild an"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)

@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/generate-image/<int:project_id>/', views.api_generate_image, name='api_generate_image'),
     path('api/apply-overlay/<int:project_id>/', views.api_apply_text_overlay, name='api_apply_overlay'),
     path('api/generate-seo/<int:project_id>/', views.api_generate_seo_description, name='api_generate_seo'),
+    path('api/save-step3/<int:project_id>/', views.api_save_step3, name='api_save_step3'),
 
     # Management
     path('projects/', views.project_list, name='project_list'),
