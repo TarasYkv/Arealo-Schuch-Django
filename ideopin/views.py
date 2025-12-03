@@ -240,11 +240,26 @@ def api_generate_styling(request, project_id):
     """API: Generiert optimales Text-Styling via KI"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
-    if not project.overlay_text:
+    # Text aus Request-Body lesen (falls vom Frontend gesendet)
+    try:
+        data = json.loads(request.body) if request.body else {}
+        current_text = data.get('overlay_text', '').strip()
+    except json.JSONDecodeError:
+        current_text = ''
+
+    # Fallback auf gespeicherten Text
+    overlay_text = current_text or project.overlay_text
+
+    if not overlay_text:
         return JsonResponse({
             'success': False,
             'error': 'Bitte zuerst einen Overlay-Text eingeben.'
         }, status=400)
+
+    # Text speichern falls neu
+    if current_text and current_text != project.overlay_text:
+        project.overlay_text = current_text
+        project.save(update_fields=['overlay_text'])
 
     if not request.user.openai_api_key:
         return JsonResponse({
@@ -257,7 +272,7 @@ def api_generate_styling(request, project_id):
         ai_service = PinAIService(request.user)
         result = ai_service.generate_text_styling(
             keywords=project.keywords,
-            overlay_text=project.overlay_text,
+            overlay_text=overlay_text,
             pin_format=project.pin_format or '1000x1500'
         )
 

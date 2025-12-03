@@ -288,16 +288,30 @@ class GeminiImageService:
             }
 
     def _get_aspect_ratio(self, width: int, height: int) -> str:
-        """Bestimmt das Aspect Ratio"""
+        """Bestimmt das Aspect Ratio basierend auf Bildmaßen"""
         ratio = width / height
+
+        # Exakte Formate zuerst prüfen
+        if width == 1000 and height == 1500:
+            return "2:3"  # Pinterest Standard
+        elif width == 1080 and height == 1920:
+            return "9:16"  # Story Format
+        elif width == 600 and height == 900:
+            return "2:3"  # Kompakt Pinterest
+        elif width == height:
+            return "1:1"  # Quadratisch
+
+        # Fallback basierend auf Verhältnis
         if ratio > 1.5:
             return "16:9"
-        elif ratio < 0.7:
-            return "9:16"  # Pinterest-Format
+        elif ratio < 0.6:
+            return "9:16"
+        elif 0.6 <= ratio < 0.75:
+            return "2:3"  # Pinterest-Format (hochkant)
         elif 0.9 <= ratio <= 1.1:
             return "1:1"
         else:
-            return "3:4"  # Standard Pinterest
+            return "3:4"
 
     @staticmethod
     def build_prompt_with_text(
