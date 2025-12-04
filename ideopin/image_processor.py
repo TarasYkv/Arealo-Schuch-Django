@@ -9,7 +9,9 @@ class PinImageProcessor:
     """Bildverarbeitung für Pinterest Pins mit Text-Overlay"""
 
     # Standard fonts to try (cross-platform)
+    # Fallback-Fonts für Server und lokale Entwicklung
     FONT_PATHS = {
+        # Sans-Serif (Modern)
         'Arial': [
             '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf',
             '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
@@ -21,6 +23,43 @@ class PinImageProcessor:
             '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
             'C:/Windows/Fonts/arial.ttf',
         ],
+        'Verdana': [
+            '/usr/share/fonts/truetype/msttcorefonts/Verdana.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            'C:/Windows/Fonts/verdana.ttf',
+        ],
+        'Tahoma': [
+            '/usr/share/fonts/truetype/msttcorefonts/Tahoma.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            'C:/Windows/Fonts/tahoma.ttf',
+        ],
+        'Trebuchet MS': [
+            '/usr/share/fonts/truetype/msttcorefonts/Trebuchet_MS.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            'C:/Windows/Fonts/trebuc.ttf',
+        ],
+        # Google Fonts (Fallback zu DejaVu/Liberation)
+        'Roboto': [
+            '/usr/share/fonts/truetype/roboto/Roboto-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Open Sans': [
+            '/usr/share/fonts/truetype/open-sans/OpenSans-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Montserrat': [
+            '/usr/share/fonts/truetype/montserrat/Montserrat-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Lato': [
+            '/usr/share/fonts/truetype/lato/Lato-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Poppins': [
+            '/usr/share/fonts/truetype/poppins/Poppins-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        # Serif (Klassisch)
         'Times New Roman': [
             '/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf',
             '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
@@ -31,14 +70,73 @@ class PinImageProcessor:
             '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
             'C:/Windows/Fonts/georgia.ttf',
         ],
-        'Verdana': [
-            '/usr/share/fonts/truetype/msttcorefonts/Verdana.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-            'C:/Windows/Fonts/verdana.ttf',
+        'Palatino': [
+            '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
+            'C:/Windows/Fonts/pala.ttf',
         ],
+        'Garamond': [
+            '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
+            'C:/Windows/Fonts/GARA.TTF',
+        ],
+        'Playfair Display': [
+            '/usr/share/fonts/truetype/playfair-display/PlayfairDisplay-Regular.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
+        ],
+        'Merriweather': [
+            '/usr/share/fonts/truetype/merriweather/Merriweather-Regular.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf',
+        ],
+        # Display (Auffällig)
         'Impact': [
             '/usr/share/fonts/truetype/msttcorefonts/Impact.ttf',
             'C:/Windows/Fonts/impact.ttf',
+        ],
+        'Anton': [
+            '/usr/share/fonts/truetype/anton/Anton-Regular.ttf',
+            '/usr/share/fonts/truetype/msttcorefonts/Impact.ttf',
+        ],
+        'Bebas Neue': [
+            '/usr/share/fonts/truetype/bebas-neue/BebasNeue-Regular.ttf',
+            '/usr/share/fonts/truetype/msttcorefonts/Impact.ttf',
+        ],
+        'Oswald': [
+            '/usr/share/fonts/truetype/oswald/Oswald-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Raleway': [
+            '/usr/share/fonts/truetype/raleway/Raleway-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        # Script & Handwriting
+        'Brush Script MT': [
+            'C:/Windows/Fonts/BRUSHSCI.TTF',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Comic Sans MS': [
+            '/usr/share/fonts/truetype/msttcorefonts/Comic_Sans_MS.ttf',
+            'C:/Windows/Fonts/comic.ttf',
+        ],
+        'Pacifico': [
+            '/usr/share/fonts/truetype/pacifico/Pacifico-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Dancing Script': [
+            '/usr/share/fonts/truetype/dancing-script/DancingScript-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        'Great Vibes': [
+            '/usr/share/fonts/truetype/great-vibes/GreatVibes-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        ],
+        # Monospace
+        'Courier New': [
+            '/usr/share/fonts/truetype/msttcorefonts/Courier_New.ttf',
+            '/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf',
+            'C:/Windows/Fonts/cour.ttf',
+        ],
+        'Consolas': [
+            '/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf',
+            'C:/Windows/Fonts/consola.ttf',
         ],
     }
 

@@ -125,13 +125,12 @@
                         </div>
                     </div>
 
-                    {% if project.generated_image and project.text_integration_mode == 'pil' %}
-                    <div class="mb-4">
+                    <!-- PIL Overlay Button - wird dynamisch angezeigt -->
+                    <div class="mb-4" id="pilOverlayContainer" style="{% if not project.generated_image or project.text_integration_mode != 'pil' %}display: none;{% endif %}">
                         <button type="button" class="btn btn-outline-primary w-100" id="applyOverlayBtn">
                             <i class="bi bi-fonts"></i> Text-Overlay anwenden
                         </button>
                     </div>
-                    {% endif %}
 
                     <hr class="my-4">
 
@@ -158,25 +157,29 @@
                     {% if project.final_image %}
                         <img src="{{ project.final_image.url }}" alt="Finales Bild" class="img-fluid">
                         {% if project.text_integration_mode == 'ideogram' %}
-                            <span class="badge bg-success mt-2"><i class="bi bi-magic"></i> Ideogram Design</span>
+                            <span class="badge bg-success mt-2"><i class="bi bi-magic"></i> KI-generierter Text</span>
                         {% else %}
-                            <span class="badge bg-success mt-2">Mit Text-Overlay</span>
+                            <span class="badge bg-success mt-2"><i class="bi bi-fonts"></i> Mit Text-Overlay</span>
                         {% endif %}
                     {% elif project.generated_image %}
                         <img src="{{ project.generated_image.url }}" alt="Generiertes Bild" class="img-fluid">
                         {% if project.text_integration_mode == 'none' %}
                             <span class="badge bg-secondary mt-2">Ohne Text</span>
                         {% elif project.text_integration_mode == 'pil' %}
-                            <span class="badge bg-info mt-2">Bereit für Text-Overlay</span>
+                            <span class="badge bg-warning text-dark mt-2"><i class="bi bi-fonts"></i> Warte auf Text-Overlay</span>
                         {% else %}
                             <span class="badge bg-info mt-2">Generiert</span>
                         {% endif %}
                     {% else %}
-                        <div class="bg-light rounded p-5 text-muted">
+                        <div class="bg-light rounded p-5 text-muted text-center">
                             <i class="bi bi-image" style="font-size: 48px;"></i>
                             <p class="mt-2 mb-0">Noch kein Bild generiert</p>
                         </div>
                     {% endif %}
+                </div>
+                <!-- Model-Info Badge -->
+                <div id="modelInfoBadge" class="mt-2 text-center" style="display: none;">
+                    <span class="badge bg-dark"><i class="bi bi-cpu"></i> <span id="modelInfoText"></span></span>
                 </div>
 
                 <div class="mt-3 small text-muted">
@@ -193,15 +196,22 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generateImageBtn');
-    const regenerateBtn = document.getElementById('regenerateImageBtn');
+    let regenerateBtn = document.getElementById('regenerateImageBtn');
     const applyOverlayBtn = document.getElementById('applyOverlayBtn');
     const imagePreview = document.getElementById('imagePreview');
+    const modelInfoBadge = document.getElementById('modelInfoBadge');
+    const modelInfoText = document.getElementById('modelInfoText');
+    const pilOverlayContainer = document.getElementById('pilOverlayContainer');
     const step3Form = document.getElementById('step3Form');
+
+    // Text-Integration Mode Radio Buttons
+    const textModeRadios = document.querySelectorAll('input[name="text_integration_mode"]');
 
     // Gemeinsame Funktion für Bildgenerierung
     async function generateImage(button, isRegenerate = false) {
         const formData = new FormData(step3Form);
         const originalHtml = button.innerHTML;
+        const currentTextMode = document.querySelector('input[name="text_integration_mode"]:checked')?.value || 'ideogram';
 
         button.disabled = true;
         if (regenerateBtn) regenerateBtn.disabled = true;
@@ -234,14 +244,36 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (data.success) {
-                // Zeige das neue Bild
-                const badge = data.is_final
-                    ? '<span class="badge bg-success mt-2"><i class="bi bi-magic"></i> Ideogram Design</span>'
-                    : '<span class="badge bg-info mt-2">Generiert</span>';
+                // Badge basierend auf Text-Modus und Anbieter
+                let badge = '';
+                if (data.is_final) {
+                    badge = '<span class="badge bg-success mt-2"><i class="bi bi-magic"></i> KI-generierter Text</span>';
+                } else if (data.text_mode === 'pil') {
+                    badge = '<span class="badge bg-warning text-dark mt-2"><i class="bi bi-fonts"></i> Warte auf Text-Overlay</span>';
+                } else if (data.text_mode === 'none') {
+                    badge = '<span class="badge bg-secondary mt-2">Ohne Text</span>';
+                } else {
+                    badge = '<span class="badge bg-info mt-2">Generiert</span>';
+                }
+
                 imagePreview.innerHTML = `
                     <img src="${data.image_url}?t=${Date.now()}" alt="Generiertes Bild" class="img-fluid">
                     ${badge}
                 `;
+
+                // Model-Info Badge anzeigen
+                if (data.ai_provider && data.model) {
+                    const providerIcon = data.ai_provider === 'gemini' ? 'bi-google' : 'bi-stars';
+                    modelInfoText.innerHTML = `<i class="bi ${providerIcon}"></i> ${data.model}`;
+                    modelInfoBadge.style.display = 'block';
+                }
+
+                // PIL Overlay Button anzeigen/verstecken
+                if (data.text_mode === 'pil' && pilOverlayContainer) {
+                    pilOverlayContainer.style.display = 'block';
+                } else if (pilOverlayContainer) {
+                    pilOverlayContainer.style.display = 'none';
+                }
 
                 // Erfolgs-Meldung kurz anzeigen
                 button.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';
@@ -259,16 +291,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     newRegenBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
                     newRegenBtn.addEventListener('click', () => generateImage(newRegenBtn, true));
                     btnContainer.appendChild(newRegenBtn);
+                    regenerateBtn = newRegenBtn;
                 }
 
                 // Nach 2 Sekunden zurücksetzen
                 setTimeout(() => {
                     button.disabled = false;
                     if (regenerateBtn) regenerateBtn.disabled = false;
-                    if (document.getElementById('regenerateImageBtn')) {
-                        document.getElementById('regenerateImageBtn').disabled = false;
-                    }
-                    button.innerHTML = '<i class="bi bi-magic"></i> Bild generieren';
+                    button.innerHTML = originalHtml;
                     button.classList.remove('btn-outline-success');
                     button.classList.add('btn-success');
                 }, 2000);
@@ -312,21 +342,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     imagePreview.innerHTML = `
                         <img src="${data.image_url}?t=${Date.now()}" alt="Finales Bild" class="img-fluid">
-                        <span class="badge bg-success mt-2">Mit Text-Overlay</span>
+                        <span class="badge bg-success mt-2"><i class="bi bi-fonts"></i> Mit Text-Overlay</span>
                     `;
                     this.innerHTML = '<i class="bi bi-check-circle"></i> Overlay angewendet!';
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-success');
+
+                    // Nach 2 Sekunden Button Text zurücksetzen
+                    setTimeout(() => {
+                        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Overlay erneut anwenden';
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-outline-primary');
+                        this.disabled = false;
+                    }, 2000);
                 } else {
                     alert('Fehler: ' + data.error);
                     this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
+                    this.disabled = false;
                 }
             } catch (e) {
-                alert('Fehler beim Anwenden des Overlays');
+                alert('Fehler beim Anwenden des Overlays: ' + e.message);
                 this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
+                this.disabled = false;
             }
-
-            this.disabled = false;
         });
     }
+
+    // Bei Änderung des Text-Integration-Modus
+    textModeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            // PIL Button Container anzeigen/verstecken basierend auf Auswahl
+            // und ob ein Bild existiert
+            const hasImage = imagePreview.querySelector('img') !== null;
+            if (this.value === 'pil' && hasImage && pilOverlayContainer) {
+                pilOverlayContainer.style.display = 'block';
+            } else if (pilOverlayContainer) {
+                pilOverlayContainer.style.display = 'none';
+            }
+        });
+    });
 });
 </script>
 {% endblock %}

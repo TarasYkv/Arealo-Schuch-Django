@@ -567,10 +567,33 @@ def api_generate_image(request, project_id):
             if project.text_integration_mode == 'ideogram' and project.overlay_text:
                 project.final_image.save(f"final_{project.id}.png", ContentFile(image_data), save=True)
 
+            # Model-Name für Anzeige formatieren
+            model_display = selected_model or ('gemini-2.5-flash-image' if ai_provider == 'gemini' else 'V_2A_TURBO')
+            if ai_provider == 'gemini':
+                model_names = {
+                    'gemini-3-pro-image-preview': 'Gemini 3 Pro',
+                    'gemini-2.5-flash-image': 'Gemini 2.5 Flash',
+                    'imagen-4.0-ultra-generate-001': 'Imagen 4 Ultra',
+                    'imagen-4.0-generate-001': 'Imagen 4',
+                    'imagen-4.0-fast-generate-001': 'Imagen 4 Fast',
+                }
+                model_display = model_names.get(model_display, model_display)
+            else:
+                model_names = {
+                    'V_2A_TURBO': 'Ideogram 2a Turbo',
+                    'V_2A': 'Ideogram 2a',
+                    'V_2': 'Ideogram 2.0',
+                    'V_2_TURBO': 'Ideogram 2.0 Turbo',
+                }
+                model_display = model_names.get(model_display, model_display)
+
             return JsonResponse({
                 'success': True,
                 'image_url': project.generated_image.url,
-                'is_final': project.text_integration_mode == 'ideogram'
+                'is_final': project.text_integration_mode == 'ideogram',
+                'ai_provider': ai_provider,
+                'model': model_display,
+                'text_mode': project.text_integration_mode
             })
         else:
             return JsonResponse({
