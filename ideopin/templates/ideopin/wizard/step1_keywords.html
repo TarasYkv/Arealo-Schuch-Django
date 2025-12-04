@@ -20,10 +20,27 @@
                         <label for="{{ form.keywords.id_for_label }}" class="form-label fw-bold">
                             Keywords
                         </label>
-                        {{ form.keywords }}
+                        <div class="input-group">
+                            {{ form.keywords }}
+                            <button type="button" class="btn btn-outline-primary" id="generateKeywordsBtn" title="Verwandte Keywords generieren">
+                                <i class="bi bi-magic"></i> Keywords erweitern
+                            </button>
+                        </div>
                         <div class="form-text">
-                            Tipp: Gib die wichtigsten Suchbegriffe ein, getrennt durch Kommas.
-                            Z.B.: "DIY Geschenk, Muttertag, Selbstgemacht, Kreativ"
+                            Tipp: Gib ein Haupt-Keyword ein und klicke auf "Keywords erweitern" für weitere Vorschläge mit hohem Suchvolumen.
+                        </div>
+                    </div>
+
+                    <!-- Keyword Suggestions -->
+                    <div id="keywordSuggestions" class="mb-4" style="display: none;">
+                        <label class="form-label fw-bold text-success">
+                            <i class="bi bi-lightbulb"></i> Vorgeschlagene Keywords
+                        </label>
+                        <div id="keywordTags" class="d-flex flex-wrap gap-2">
+                            <!-- Keywords werden hier eingefügt -->
+                        </div>
+                        <div class="form-text mt-2">
+                            Klicke auf ein Keyword, um es hinzuzufügen.
                         </div>
                     </div>
 
@@ -40,4 +57,96 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const generateBtn = document.getElementById('generateKeywordsBtn');
+    const keywordsInput = document.getElementById('{{ form.keywords.id_for_label }}');
+    const suggestionsDiv = document.getElementById('keywordSuggestions');
+    const keywordTagsDiv = document.getElementById('keywordTags');
+
+    generateBtn.addEventListener('click', async function() {
+        const currentKeywords = keywordsInput.value.trim();
+
+        if (!currentKeywords) {
+            alert('Bitte zuerst ein Keyword eingeben.');
+            return;
+        }
+
+        // Erstes Keyword als Seed verwenden
+        const seedKeyword = currentKeywords.split(',')[0].trim();
+
+        // Button deaktivieren und Ladeanzeige
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_generate_keywords" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    keyword: seedKeyword
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.keywords) {
+                displayKeywordSuggestions(data.keywords);
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Fehler beim Generieren der Keywords.');
+        } finally {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-magic"></i> Keywords erweitern';
+        }
+    });
+
+    function displayKeywordSuggestions(keywords) {
+        keywordTagsDiv.innerHTML = '';
+
+        // Aktuelle Keywords als Set für Duplikat-Prüfung
+        const currentKeywords = keywordsInput.value.toLowerCase().split(',').map(k => k.trim());
+
+        keywords.forEach(keyword => {
+            const isAlreadyAdded = currentKeywords.includes(keyword.toLowerCase());
+
+            const tag = document.createElement('button');
+            tag.type = 'button';
+            tag.className = `btn btn-sm ${isAlreadyAdded ? 'btn-secondary' : 'btn-outline-success'}`;
+            tag.textContent = keyword;
+            tag.disabled = isAlreadyAdded;
+
+            if (!isAlreadyAdded) {
+                tag.addEventListener('click', function() {
+                    addKeyword(keyword);
+                    tag.className = 'btn btn-sm btn-secondary';
+                    tag.disabled = true;
+                });
+            }
+
+            keywordTagsDiv.appendChild(tag);
+        });
+
+        suggestionsDiv.style.display = 'block';
+    }
+
+    function addKeyword(keyword) {
+        const currentValue = keywordsInput.value.trim();
+        if (currentValue) {
+            keywordsInput.value = currentValue + ', ' + keyword;
+        } else {
+            keywordsInput.value = keyword;
+        }
+    }
+});
+</script>
 {% endblock %}

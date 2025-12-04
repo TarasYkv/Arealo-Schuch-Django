@@ -266,6 +266,49 @@ def wizard_result(request, project_id):
 
 @login_required
 @require_POST
+def api_generate_keywords(request):
+    """API: Generiert verwandte Keywords mit hohem Suchvolumen"""
+    if not request.user.openai_api_key:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein OpenAI API-Key konfiguriert. Bitte in Ihrem Profil hinterlegen.'
+        }, status=400)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+        seed_keyword = data.get('keyword', '').strip()
+
+        if not seed_keyword:
+            return JsonResponse({
+                'success': False,
+                'error': 'Bitte ein Keyword eingeben.'
+            }, status=400)
+
+        from .ai_service import PinAIService
+        ai_service = PinAIService(request.user)
+        result = ai_service.generate_related_keywords(seed_keyword)
+
+        if result.get('success'):
+            return JsonResponse({
+                'success': True,
+                'keywords': result['keywords']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Unbekannter Fehler')
+            }, status=500)
+
+    except Exception as e:
+        logger.error(f"Error generating keywords: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_generate_overlay_text(request, project_id):
     """API: Generiert catchy Pin-Text aus Keywords via GPT"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)

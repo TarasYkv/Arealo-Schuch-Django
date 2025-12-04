@@ -251,6 +251,74 @@ Regeln:
                 'error': str(e)
             }
 
+    def generate_related_keywords(self, seed_keyword: str) -> dict:
+        """
+        Generiert verwandte Keywords mit hohem Suchvolumen für Pinterest.
+
+        Args:
+            seed_keyword: Das Ausgangs-Keyword
+
+        Returns:
+            Dict mit success, keywords (Liste) und optional error
+        """
+        if not self.client:
+            return {
+                'success': False,
+                'error': 'OpenAI API-Key nicht konfiguriert'
+            }
+
+        try:
+            prompt = f"""Du bist ein Pinterest SEO-Experte und Keyword-Researcher.
+
+Ausgangs-Keyword: "{seed_keyword}"
+
+Generiere 8-12 verwandte Keywords, die:
+1. Zum Thema passen und auf Pinterest relevant sind
+2. Ein hohes Suchvolumen haben (beliebte Suchbegriffe)
+3. Für Pinterest Pin-Erstellung geeignet sind
+4. Long-Tail Keywords und Variationen enthalten
+5. Sowohl deutsche als auch englische Keywords (je nach Thema)
+
+Antworte NUR mit einer kommagetrennten Liste der Keywords, ohne Nummerierung oder Erklärungen.
+Beispiel-Format: keyword1, keyword2, keyword3, keyword4
+
+Fokussiere auf:
+- Trending Topics im Bereich
+- Saisonale Begriffe falls relevant
+- Action-Keywords (DIY, Tipps, Ideen, Anleitung)
+- Spezifische Nischen-Keywords"""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "Du bist ein Pinterest SEO-Experte. Antworte nur mit Keywords."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=200,
+                temperature=0.8
+            )
+
+            result_text = response.choices[0].message.content.strip()
+
+            # Keywords parsen (kommagetrennt)
+            keywords = [kw.strip() for kw in result_text.split(',') if kw.strip()]
+
+            # Original-Keyword am Anfang behalten falls nicht vorhanden
+            if seed_keyword.lower() not in [kw.lower() for kw in keywords]:
+                keywords.insert(0, seed_keyword)
+
+            return {
+                'success': True,
+                'keywords': keywords
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating related keywords: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def _get_fallback_styling(self, overlay_text: str) -> dict:
         """Fallback-Styling wenn KI-Generierung fehlschlägt"""
         text_length = len(overlay_text)
