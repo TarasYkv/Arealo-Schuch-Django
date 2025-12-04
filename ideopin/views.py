@@ -18,37 +18,70 @@ logger = logging.getLogger(__name__)
 
 def resize_and_crop_to_format(img: Image.Image, target_width: int, target_height: int) -> Image.Image:
     """
-    Skaliert und croppt ein Bild auf das Zielformat.
+    Skaliert ein Bild auf das Zielformat OHNE Text abzuschneiden.
 
     Strategie:
-    1. Bild so skalieren, dass es das Zielformat vollständig ausfüllt
-    2. Überschüssige Bereiche mittig abschneiden
+    1. Bild so skalieren, dass es komplett ins Zielformat passt (letterbox)
+    2. Leere Bereiche mit passender Hintergrundfarbe füllen
     """
     orig_width, orig_height = img.size
     target_ratio = target_width / target_height
     orig_ratio = orig_width / orig_height
 
     if orig_ratio > target_ratio:
-        # Bild ist breiter als Ziel - auf Höhe skalieren, dann horizontal croppen
-        new_height = target_height
-        new_width = int(orig_width * (target_height / orig_height))
-    else:
-        # Bild ist höher als Ziel - auf Breite skalieren, dann vertikal croppen
+        # Bild ist breiter als Ziel - auf Breite skalieren, oben/unten Padding
         new_width = target_width
         new_height = int(orig_height * (target_width / orig_width))
+    else:
+        # Bild ist höher als Ziel - auf Höhe skalieren, links/rechts Padding
+        new_height = target_height
+        new_width = int(orig_width * (target_height / orig_height))
 
-    # Skalieren
+    # Skalieren mit hoher Qualität
     img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    # Mittig croppen
-    left = (new_width - target_width) // 2
-    top = (new_height - target_height) // 2
-    right = left + target_width
-    bottom = top + target_height
+    # Hintergrundfarbe aus den Bildrändern ermitteln (Durchschnitt der Ecken)
+    bg_color = get_dominant_edge_color(img)
 
-    img = img.crop((left, top, right, bottom))
+    # Neues Bild mit Hintergrundfarbe erstellen
+    result = Image.new('RGB', (target_width, target_height), bg_color)
 
-    return img
+    # Skaliertes Bild mittig platzieren
+    paste_x = (target_width - new_width) // 2
+    paste_y = (target_height - new_height) // 2
+    result.paste(img, (paste_x, paste_y))
+
+    return result
+
+
+def get_dominant_edge_color(img: Image.Image) -> tuple:
+    """
+    Ermittelt die dominante Farbe an den Bildrändern.
+    Verwendet die Durchschnittsfarbe der äußeren Pixel.
+    """
+    width, height = img.size
+    pixels = []
+
+    # Obere und untere Kante samplen
+    for x in range(0, width, max(1, width // 20)):
+        pixels.append(img.getpixel((x, 0)))
+        pixels.append(img.getpixel((x, height - 1)))
+
+    # Linke und rechte Kante samplen
+    for y in range(0, height, max(1, height // 20)):
+        pixels.append(img.getpixel((0, y)))
+        pixels.append(img.getpixel((width - 1, y)))
+
+    # Durchschnitt berechnen
+    if not pixels:
+        return (0, 0, 0)
+
+    # Handle both RGB and RGBA
+    r = sum(p[0] for p in pixels) // len(pixels)
+    g = sum(p[1] for p in pixels) // len(pixels)
+    b = sum(p[2] for p in pixels) // len(pixels)
+
+    return (r, g, b)
 
 
 # ==================== WIZARD VIEWS ====================
