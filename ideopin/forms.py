@@ -142,7 +142,7 @@ class PinSettingsForm(forms.ModelForm):
 
     class Meta:
         model = PinSettings
-        exclude = ['user', 'created_at', 'updated_at']
+        exclude = ['user', 'created_at', 'updated_at', 'default_style_preset', 'default_text_effect', 'default_auto_font_size', 'enable_auto_styling']
         widgets = {
             'ai_provider': forms.Select(attrs={'class': 'form-select', 'id': 'ai_provider_select'}),
             'ideogram_model': forms.Select(attrs={'class': 'form-select'}),
