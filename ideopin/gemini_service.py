@@ -111,26 +111,17 @@ class GeminiImageService:
                 })
                 logger.info("Reference image added to Gemini request")
 
-        # Bestimme Bildgröße basierend auf Aspect Ratio
-        # Für Pinterest-Formate nehmen wir 2K für bessere Qualität
-        image_size = "2K"
-
         payload = {
             "contents": [{
                 "parts": parts
             }],
             "generationConfig": {
                 "responseModalities": ["TEXT", "IMAGE"],
-                "imageConfig": {
-                    "aspectRatio": aspect_ratio,
-                    "imageSize": image_size
-                }
             }
         }
 
         logger.info(f"Calling Gemini API: {url}")
         logger.info(f"Prompt: {prompt[:100]}...")
-        logger.info(f"Aspect Ratio: {aspect_ratio}, Image Size: {image_size}")
 
         response = requests.post(
             url,
