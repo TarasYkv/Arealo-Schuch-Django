@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib import messages
+from PIL import Image
 
 from .models import PinProject, PinSettings
 from .forms import (
@@ -13,6 +14,41 @@ from .forms import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def resize_and_crop_to_format(img: Image.Image, target_width: int, target_height: int) -> Image.Image:
+    """
+    Skaliert und croppt ein Bild auf das Zielformat.
+
+    Strategie:
+    1. Bild so skalieren, dass es das Zielformat vollständig ausfüllt
+    2. Überschüssige Bereiche mittig abschneiden
+    """
+    orig_width, orig_height = img.size
+    target_ratio = target_width / target_height
+    orig_ratio = orig_width / orig_height
+
+    if orig_ratio > target_ratio:
+        # Bild ist breiter als Ziel - auf Höhe skalieren, dann horizontal croppen
+        new_height = target_height
+        new_width = int(orig_width * (target_height / orig_height))
+    else:
+        # Bild ist höher als Ziel - auf Breite skalieren, dann vertikal croppen
+        new_width = target_width
+        new_height = int(orig_height * (target_width / orig_width))
+
+    # Skalieren
+    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # Mittig croppen
+    left = (new_width - target_width) // 2
+    top = (new_height - target_height) // 2
+    right = left + target_width
+    bottom = top + target_height
+
+    img = img.crop((left, top, right, bottom))
+
+    return img
 
 
 # ==================== WIZARD VIEWS ====================
@@ -431,10 +467,22 @@ def api_generate_image(request, project_id):
             # Save the generated image
             from django.core.files.base import ContentFile
             import base64
+            import io
 
             image_data = result['image_data']
             if isinstance(image_data, str):
                 image_data = base64.b64decode(image_data)
+
+            # Bild auf gewähltes Format skalieren/croppen
+            img = Image.open(io.BytesIO(image_data))
+            img = resize_and_crop_to_format(img, width, height)
+            logger.info(f"Image resized to {width}x{height}")
+
+            # Bild als PNG speichern
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG', quality=95)
+            buffer.seek(0)
+            image_data = buffer.read()
 
             filename = f"generated_{project.id}.png"
             project.generated_image.save(filename, ContentFile(image_data), save=True)
