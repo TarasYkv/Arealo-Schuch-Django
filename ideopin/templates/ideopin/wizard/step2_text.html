@@ -36,9 +36,17 @@
                     <!-- Auto-Styling Section -->
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0"><i class="bi bi-palette"></i> Text-Styling</h6>
-                        <button type="button" class="btn btn-success" id="autoStyleBtn">
+                        <button type="button" class="btn btn-success" id="autoStyleBtn" data-bs-toggle="tooltip" data-bs-placement="left" title="KI analysiert deine Keywords und den Text, um automatisch passende Schriftart, Farben, Effekte und Position zu wählen">
                             <i class="bi bi-magic"></i> Auto-Styling
                         </button>
+                    </div>
+
+                    <div class="alert alert-secondary mb-3">
+                        <small>
+                            <i class="bi bi-info-circle"></i> <strong>Auto-Styling:</strong>
+                            Die KI analysiert deine Keywords und den Overlay-Text, um automatisch ein passendes Design zu erstellen:
+                            Style-Preset, Schriftart, Farben, Effekte und Position werden basierend auf dem Thema optimiert.
+                        </small>
                     </div>
 
                     <div id="stylingReasoning" class="alert alert-info d-none mb-3">
@@ -214,22 +222,61 @@ document.addEventListener('DOMContentLoaded', function() {
         previewText.style.color = color;
 
         // Apply text effect
+        previewText.style.webkitTextStroke = '';
+        previewText.style.background = '';
+        previewText.style.webkitBackgroundClip = '';
+        previewText.style.webkitTextFillColor = '';
+
         switch(effect) {
+            // Schatten-Varianten
             case 'shadow':
-                previewText.style.textShadow = `3px 3px 6px ${secondaryColor}`;
-                previewText.style.webkitTextStroke = '';
+            case 'shadow_soft':
+                previewText.style.textShadow = `3px 3px 8px ${secondaryColor}`;
                 break;
+            case 'shadow_hard':
+                previewText.style.textShadow = `4px 4px 0px ${secondaryColor}`;
+                break;
+            case 'shadow_long':
+                previewText.style.textShadow = `2px 2px 0 ${secondaryColor}, 4px 4px 0 ${secondaryColor}, 6px 6px 0 ${secondaryColor}`;
+                break;
+            case 'shadow_3d':
+                previewText.style.textShadow = `1px 1px 0 ${secondaryColor}, 2px 2px 0 ${secondaryColor}, 3px 3px 0 ${secondaryColor}, 4px 4px 0 ${secondaryColor}`;
+                break;
+
+            // Outline/Kontur
             case 'outline':
+            case 'outline_thin':
                 previewText.style.textShadow = 'none';
+                previewText.style.webkitTextStroke = `1px ${secondaryColor}`;
+                break;
+            case 'outline_thick':
+                previewText.style.textShadow = 'none';
+                previewText.style.webkitTextStroke = `3px ${secondaryColor}`;
+                break;
+            case 'outline_double':
+                previewText.style.textShadow = `0 0 2px ${secondaryColor}, 0 0 4px ${secondaryColor}`;
                 previewText.style.webkitTextStroke = `2px ${secondaryColor}`;
                 break;
+
+            // Leuchteffekte
             case 'glow':
-                previewText.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}, 0 0 30px ${color}`;
-                previewText.style.webkitTextStroke = '';
+            case 'glow_soft':
+                previewText.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
                 break;
+            case 'glow_neon':
+                previewText.style.textShadow = `0 0 5px ${color}, 0 0 10px ${color}, 0 0 20px ${color}, 0 0 40px ${secondaryColor}`;
+                break;
+
+            // Gradient
+            case 'gradient_text':
+                previewText.style.background = `linear-gradient(135deg, ${color}, ${secondaryColor})`;
+                previewText.style.webkitBackgroundClip = 'text';
+                previewText.style.webkitTextFillColor = 'transparent';
+                previewText.style.textShadow = 'none';
+                break;
+
             default:
                 previewText.style.textShadow = 'none';
-                previewText.style.webkitTextStroke = '';
         }
 
         // Apply background

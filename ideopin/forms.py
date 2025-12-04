@@ -47,14 +47,7 @@ class Step2TextForm(forms.ModelForm):
                 'class': 'form-select',
                 'id': 'style_preset_select'
             }),
-            'text_font': forms.Select(attrs={'class': 'form-select'}, choices=[
-                ('Arial', 'Arial'),
-                ('Helvetica', 'Helvetica'),
-                ('Times New Roman', 'Times New Roman'),
-                ('Georgia', 'Georgia'),
-                ('Verdana', 'Verdana'),
-                ('Impact', 'Impact'),
-            ]),
+            'text_font': forms.Select(attrs={'class': 'form-select'}, choices=PinProject.FONT_CHOICES),
             'text_size': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': 12,
@@ -155,14 +148,7 @@ class PinSettingsForm(forms.ModelForm):
             'ideogram_model': forms.Select(attrs={'class': 'form-select'}),
             'ideogram_style': forms.Select(attrs={'class': 'form-select'}),
             'gemini_model': forms.Select(attrs={'class': 'form-select'}),
-            'default_font': forms.Select(attrs={'class': 'form-select'}, choices=[
-                ('Arial', 'Arial'),
-                ('Helvetica', 'Helvetica'),
-                ('Times New Roman', 'Times New Roman'),
-                ('Georgia', 'Georgia'),
-                ('Verdana', 'Verdana'),
-                ('Impact', 'Impact'),
-            ]),
+            'default_font': forms.Select(attrs={'class': 'form-select'}, choices=PinProject.FONT_CHOICES),
             'default_text_size': forms.NumberInput(attrs={
                 'class': 'form-control',
                 'min': 12,

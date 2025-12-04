@@ -150,30 +150,50 @@ Analysiere das Thema und erstelle ein passendes, kontrastreiches Styling.
 
 Antworte NUR im folgenden JSON-Format (keine Erklärungen):
 {{
-    "style_preset": "modern_bold|elegant_serif|playful_color|minimal_clean|dark_contrast|bright_fresh|vintage_retro|professional",
-    "text_font": "Arial|Helvetica|Georgia|Impact|Verdana|Times New Roman",
+    "style_preset": "<siehe Liste unten>",
+    "text_font": "<siehe Liste unten>",
     "text_size": <optimale Schriftgröße 24-96 basierend auf Textlänge>,
     "text_color": "<Hex-Farbe für Text>",
     "text_secondary_color": "<Hex-Farbe für Outline/Schatten>",
     "text_background_color": "<Hex-Farbe für Hintergrund oder leer>",
     "text_background_opacity": <0.0-1.0>,
-    "text_effect": "none|shadow|outline|glow|frame|banner|badge",
+    "text_effect": "<siehe Liste unten>",
     "text_position": "top|center|bottom",
     "text_padding": <15-40>,
     "reasoning": "<kurze Begründung für die Wahl>"
 }}
+
+Style-Presets (wähle das passendste):
+- modern_bold, minimal_clean, tech_futuristic, geometric (Modern)
+- elegant_serif, luxury_gold, wedding_romantic, art_deco (Elegant)
+- playful_color, neon_glow, pastel_soft, gradient_vibrant, rainbow (Bunt)
+- dark_contrast, midnight_blue, noir_dramatic (Dunkel)
+- bright_fresh, summer_beach, spring_floral (Hell)
+- vintage_retro, retro_70s, polaroid (Retro)
+- professional, corporate_blue, startup (Business)
+- food_warm, nature_organic, fitness_energy, kids_playful, christmas, halloween (Themen)
+
+Schriftarten:
+- Sans-Serif: Arial, Helvetica, Verdana, Roboto, Open Sans, Montserrat, Lato, Poppins
+- Serif: Times New Roman, Georgia, Palatino, Garamond, Playfair Display, Merriweather
+- Display: Impact, Anton, Bebas Neue, Oswald, Raleway
+- Script: Brush Script MT, Pacifico, Dancing Script, Great Vibes
+
+Text-Effekte:
+- Schatten: shadow, shadow_soft, shadow_hard, shadow_long, shadow_3d
+- Kontur: outline, outline_thin, outline_thick, outline_double
+- Glow: glow, glow_neon, glow_soft
+- Hintergrund: highlight, box, rounded_box, pill
+- Spezial: frame, banner, badge, stamp, gradient_text
+- none (kein Effekt)
 
 Regeln:
 - Kurze Texte (< 30 Zeichen): große Schrift (60-96px)
 - Mittlere Texte (30-60 Zeichen): mittlere Schrift (42-60px)
 - Lange Texte (> 60 Zeichen): kleinere Schrift (24-42px)
 - Immer hohen Kontrast zwischen Text und Hintergrund
-- Bei hellen Themen: dunkle Schrift oder Outline
-- Bei dunklen Themen: helle Schrift mit Schatten
 - Für Pinterest: Bold, auffällig, leicht lesbar
-- Professionelle Themen: Serifenschrift, dezente Farben
-- Lifestyle/Food: warme, einladende Farben
-- Tech/Modern: kühle, klare Farben"""
+- Wähle Preset/Font/Effekt passend zum Thema"""
 
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -197,12 +217,33 @@ Regeln:
 
             styling = json.loads(result_text)
 
-            # Validierung und Defaults
-            valid_presets = ['custom', 'modern_bold', 'elegant_serif', 'playful_color', 'minimal_clean',
-                           'dark_contrast', 'bright_fresh', 'vintage_retro', 'professional']
-            valid_effects = ['none', 'shadow', 'outline', 'glow', 'frame', 'banner', 'badge']
+            # Validierung und Defaults - erweiterte Listen
+            valid_presets = [
+                'custom', 'modern_bold', 'minimal_clean', 'tech_futuristic', 'geometric',
+                'elegant_serif', 'luxury_gold', 'wedding_romantic', 'art_deco',
+                'playful_color', 'neon_glow', 'pastel_soft', 'gradient_vibrant', 'rainbow',
+                'dark_contrast', 'midnight_blue', 'noir_dramatic',
+                'bright_fresh', 'summer_beach', 'spring_floral',
+                'vintage_retro', 'retro_70s', 'polaroid',
+                'professional', 'corporate_blue', 'startup',
+                'food_warm', 'nature_organic', 'fitness_energy', 'kids_playful', 'christmas', 'halloween'
+            ]
+            valid_effects = [
+                'none', 'shadow', 'shadow_soft', 'shadow_hard', 'shadow_long', 'shadow_3d',
+                'outline', 'outline_thin', 'outline_thick', 'outline_double',
+                'glow', 'glow_neon', 'glow_soft',
+                'highlight', 'underline', 'box', 'rounded_box', 'pill',
+                'frame', 'banner', 'badge', 'stamp', 'torn_paper', 'gradient_text'
+            ]
             valid_positions = ['top', 'center', 'bottom']
-            valid_fonts = ['Arial', 'Helvetica', 'Georgia', 'Impact', 'Verdana', 'Times New Roman']
+            valid_fonts = [
+                'Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Trebuchet MS',
+                'Roboto', 'Open Sans', 'Montserrat', 'Lato', 'Poppins',
+                'Times New Roman', 'Georgia', 'Palatino', 'Garamond', 'Playfair Display', 'Merriweather',
+                'Impact', 'Anton', 'Bebas Neue', 'Oswald', 'Raleway',
+                'Brush Script MT', 'Comic Sans MS', 'Pacifico', 'Dancing Script', 'Great Vibes',
+                'Courier New', 'Consolas'
+            ]
 
             styling['style_preset'] = styling.get('style_preset', 'modern_bold')
             if styling['style_preset'] not in valid_presets:

@@ -31,25 +31,115 @@ class PinProject(models.Model):
     # Styling-Preset Optionen
     STYLE_PRESET_CHOICES = [
         ('custom', 'Benutzerdefiniert'),
+        # Modern & Clean
         ('modern_bold', 'Modern & Bold'),
-        ('elegant_serif', 'Elegant & Klassisch'),
-        ('playful_color', 'Verspielt & Bunt'),
         ('minimal_clean', 'Minimalistisch'),
+        ('tech_futuristic', 'Tech & Futuristisch'),
+        ('geometric', 'Geometrisch & Modern'),
+        # Elegant & Classic
+        ('elegant_serif', 'Elegant & Klassisch'),
+        ('luxury_gold', 'Luxuriös & Gold'),
+        ('wedding_romantic', 'Romantisch & Hochzeit'),
+        ('art_deco', 'Art Déco'),
+        # Colorful & Fun
+        ('playful_color', 'Verspielt & Bunt'),
+        ('neon_glow', 'Neon & Leuchtend'),
+        ('pastel_soft', 'Pastell & Sanft'),
+        ('gradient_vibrant', 'Gradient & Leuchtend'),
+        ('rainbow', 'Regenbogen'),
+        # Dark & Moody
         ('dark_contrast', 'Dunkel & Kontrastreich'),
+        ('midnight_blue', 'Mitternachtsblau'),
+        ('noir_dramatic', 'Film Noir'),
+        # Light & Fresh
         ('bright_fresh', 'Hell & Frisch'),
+        ('summer_beach', 'Sommer & Strand'),
+        ('spring_floral', 'Frühling & Blumen'),
+        # Retro & Vintage
         ('vintage_retro', 'Vintage & Retro'),
+        ('retro_70s', '70er Jahre'),
+        ('polaroid', 'Polaroid'),
+        # Business & Professional
         ('professional', 'Business & Professionell'),
+        ('corporate_blue', 'Corporate Blau'),
+        ('startup', 'Startup Modern'),
+        # Special Themes
+        ('food_warm', 'Food & Warm'),
+        ('nature_organic', 'Natur & Organisch'),
+        ('fitness_energy', 'Fitness & Energie'),
+        ('kids_playful', 'Kinder & Verspielt'),
+        ('christmas', 'Weihnachten'),
+        ('halloween', 'Halloween'),
+    ]
+
+    # Schriftarten-Optionen
+    FONT_CHOICES = [
+        # Sans-Serif (Modern)
+        ('Arial', 'Arial'),
+        ('Helvetica', 'Helvetica'),
+        ('Verdana', 'Verdana'),
+        ('Tahoma', 'Tahoma'),
+        ('Trebuchet MS', 'Trebuchet MS'),
+        ('Roboto', 'Roboto'),
+        ('Open Sans', 'Open Sans'),
+        ('Montserrat', 'Montserrat'),
+        ('Lato', 'Lato'),
+        ('Poppins', 'Poppins'),
+        # Serif (Klassisch)
+        ('Times New Roman', 'Times New Roman'),
+        ('Georgia', 'Georgia'),
+        ('Palatino', 'Palatino'),
+        ('Garamond', 'Garamond'),
+        ('Playfair Display', 'Playfair Display'),
+        ('Merriweather', 'Merriweather'),
+        # Display (Auffällig)
+        ('Impact', 'Impact'),
+        ('Anton', 'Anton'),
+        ('Bebas Neue', 'Bebas Neue'),
+        ('Oswald', 'Oswald'),
+        ('Raleway', 'Raleway'),
+        # Script & Handwriting
+        ('Brush Script MT', 'Brush Script'),
+        ('Comic Sans MS', 'Comic Sans'),
+        ('Pacifico', 'Pacifico'),
+        ('Dancing Script', 'Dancing Script'),
+        ('Great Vibes', 'Great Vibes'),
+        # Monospace
+        ('Courier New', 'Courier New'),
+        ('Consolas', 'Consolas'),
     ]
 
     # Text-Effekt Optionen
     TEXT_EFFECT_CHOICES = [
         ('none', 'Kein Effekt'),
-        ('shadow', 'Schatten'),
-        ('outline', 'Kontur/Outline'),
+        # Schatten-Varianten
+        ('shadow', 'Schatten (Standard)'),
+        ('shadow_soft', 'Weicher Schatten'),
+        ('shadow_hard', 'Harter Schatten'),
+        ('shadow_long', 'Langer Schatten'),
+        ('shadow_3d', '3D-Schatten'),
+        # Outline/Kontur
+        ('outline', 'Kontur (Standard)'),
+        ('outline_thin', 'Dünne Kontur'),
+        ('outline_thick', 'Dicke Kontur'),
+        ('outline_double', 'Doppelte Kontur'),
+        # Leuchteffekte
         ('glow', 'Leuchteffekt'),
+        ('glow_neon', 'Neon-Glow'),
+        ('glow_soft', 'Sanftes Leuchten'),
+        # Hintergrund-Elemente
+        ('highlight', 'Textmarker'),
+        ('underline', 'Unterstrichen'),
+        ('box', 'Box/Kasten'),
+        ('rounded_box', 'Abgerundeter Kasten'),
+        ('pill', 'Pill-Form'),
+        # Spezielle Effekte
         ('frame', 'Rahmen'),
         ('banner', 'Banner/Ribbon'),
         ('badge', 'Badge/Stempel'),
+        ('stamp', 'Vintage Stempel'),
+        ('torn_paper', 'Zerrissenes Papier'),
+        ('gradient_text', 'Gradient-Text'),
     ]
 
     user = models.ForeignKey(
