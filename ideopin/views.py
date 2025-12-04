@@ -443,7 +443,9 @@ def api_generate_image(request, project_id):
             selected_style = pin_settings.ideogram_style
         else:
             selected_model = pin_settings.gemini_model
+        logger.info(f"[IdeoPin] Loaded settings: ai_provider={ai_provider}, model={selected_model}, style={selected_style}")
     except PinSettings.DoesNotExist:
+        logger.warning("[IdeoPin] No PinSettings found for user, using defaults")
         pass  # Will use defaults
 
     # Check API key based on provider
@@ -812,10 +814,15 @@ def settings_view(request):
             settings_obj = form.save(commit=False)
             settings_obj.user = request.user
             settings_obj.save()
+            logger.info(f"[IdeoPin Settings] Saved: ai_provider={settings_obj.ai_provider}, gemini_model={settings_obj.gemini_model}, ideogram_model={settings_obj.ideogram_model}")
             messages.success(request, 'Einstellungen wurden gespeichert.')
             return redirect('ideopin:settings')
+        else:
+            logger.error(f"[IdeoPin Settings] Form errors: {form.errors}")
     else:
         form = PinSettingsForm(instance=pin_settings)
+        if pin_settings:
+            logger.info(f"[IdeoPin Settings] Loaded: ai_provider={pin_settings.ai_provider}, gemini_model={pin_settings.gemini_model}")
 
     context = {
         'form': form,

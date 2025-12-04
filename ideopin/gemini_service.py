@@ -65,8 +65,14 @@ class GeminiImageService:
         Returns:
             dict mit 'success', 'image_data' (base64) oder 'error'
         """
-        selected_model = model if model and model in self.AVAILABLE_MODELS else self.DEFAULT_MODEL
-        logger.info(f"Using model: {selected_model}")
+        logger.info(f"[Gemini] Received model parameter: '{model}'")
+        logger.info(f"[Gemini] Available models: {list(self.AVAILABLE_MODELS.keys())}")
+        if model and model in self.AVAILABLE_MODELS:
+            selected_model = model
+            logger.info(f"[Gemini] Using requested model: {selected_model}")
+        else:
+            selected_model = self.DEFAULT_MODEL
+            logger.warning(f"[Gemini] Model '{model}' not found or None, using default: {selected_model}")
 
         try:
             # Bestimme Aspect Ratio
