@@ -116,8 +116,8 @@ class GeminiImageService:
                 "parts": parts
             }],
             "generationConfig": {
-                "responseModalities": ["IMAGE"],
-                "aspectRatio": aspect_ratio
+                "response_modalities": ["IMAGE"],
+                "aspect_ratio": aspect_ratio
             }
         }
 
