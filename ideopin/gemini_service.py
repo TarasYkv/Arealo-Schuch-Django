@@ -116,12 +116,16 @@ class GeminiImageService:
                 "parts": parts
             }],
             "generationConfig": {
-                "responseModalities": ["TEXT", "IMAGE"]
+                "responseModalities": ["TEXT", "IMAGE"],
+                "imageConfig": {
+                    "aspectRatio": aspect_ratio
+                }
             }
         }
 
         logger.info(f"Calling Gemini API: {url}")
         logger.info(f"Prompt: {prompt[:100]}...")
+        logger.info(f"Aspect Ratio: {aspect_ratio}")
 
         response = requests.post(
             url,
