@@ -30,4 +30,8 @@ urlpatterns = [
     path('duplicate/<int:project_id>/', views.project_duplicate, name='project_duplicate'),
     path('download/<int:project_id>/', views.download_image, name='download_image'),
     path('settings/', views.settings_view, name='settings'),
+
+    # Pinterest API
+    path('api/pinterest/boards/', views.api_pinterest_boards, name='api_pinterest_boards'),
+    path('api/pinterest/post/<int:project_id>/', views.api_post_to_pinterest, name='api_post_to_pinterest'),
 ]

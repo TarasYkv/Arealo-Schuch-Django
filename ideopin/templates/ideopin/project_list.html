@@ -4,6 +4,36 @@
 {% block title %}Meine Pins - IdeoPin{% endblock %}
 
 {% block content %}
+<style>
+.pinterest-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #E60023;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    z-index: 10;
+}
+.pinterest-badge i {
+    margin-right: 4px;
+}
+.card-img-top-wrapper {
+    position: relative;
+}
+.btn-pinterest {
+    background-color: #E60023;
+    color: white;
+    border: none;
+}
+.btn-pinterest:hover {
+    background-color: #BD081C;
+    color: white;
+}
+</style>
+
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3 mb-0">
@@ -19,12 +49,25 @@
         </div>
     </div>
 
+    {% if pinterest_connected %}
+    <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+        <i class="bi bi-pinterest me-2"></i>
+        <strong>Pinterest verbunden!</strong> Du kannst Pins direkt auf Pinterest posten.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
     {% if projects %}
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
         {% for project in projects %}
         <div class="col">
             <div class="card h-100 shadow-sm">
-                <div class="card-img-top bg-light" style="height: 200px; overflow: hidden;">
+                <div class="card-img-top-wrapper bg-light" style="height: 200px; overflow: hidden;">
+                    {% if project.pinterest_posted %}
+                        <span class="pinterest-badge">
+                            <i class="bi bi-check-circle-fill"></i>Gepostet
+                        </span>
+                    {% endif %}
                     {% if project.final_image %}
                         <img src="{{ project.final_image.url }}" alt="Pin"
                              style="width: 100%; height: 100%; object-fit: cover;">
@@ -47,20 +90,27 @@
                     </p>
                     {% endif %}
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="badge bg-{{ project.status|default:'secondary' }}">
-                            {% if project.status == 'completed' %}
-                                <i class="bi bi-check-circle"></i> Fertig
-                            {% elif project.status == 'draft' %}
-                                <i class="bi bi-pencil"></i> Entwurf
-                            {% else %}
-                                <i class="bi bi-clock"></i> In Bearbeitung
+                        <div>
+                            <span class="badge bg-{% if project.status == 'completed' %}success{% elif project.status == 'draft' %}secondary{% else %}primary{% endif %}">
+                                {% if project.status == 'completed' %}
+                                    <i class="bi bi-check-circle"></i> Fertig
+                                {% elif project.status == 'draft' %}
+                                    <i class="bi bi-pencil"></i> Entwurf
+                                {% else %}
+                                    <i class="bi bi-clock"></i> In Bearbeitung
+                                {% endif %}
+                            </span>
+                            {% if project.pinterest_posted %}
+                                <span class="badge bg-danger ms-1" title="Auf Pinterest gepostet am {{ project.pinterest_posted_at|date:'d.m.Y H:i' }}">
+                                    <i class="bi bi-pinterest"></i>
+                                </span>
                             {% endif %}
-                        </span>
+                        </div>
                         <small class="text-muted">{{ project.updated_at|date:"d.m.Y" }}</small>
                     </div>
                 </div>
                 <div class="card-footer bg-white border-top-0">
-                    <div class="btn-group w-100" role="group">
+                    <div class="btn-group w-100 mb-2" role="group">
                         {% if project.status == 'completed' %}
                             <a href="{% url 'ideopin:wizard_result' project.id %}" class="btn btn-outline-primary btn-sm">
                                 <i class="bi bi-eye"></i> Ansehen
@@ -81,6 +131,21 @@
                             </button>
                         </form>
                     </div>
+                    {% if project.status == 'completed' and pinterest_connected %}
+                        {% if project.pinterest_posted %}
+                            <a href="https://www.pinterest.com/pin/{{ project.pinterest_pin_id }}/"
+                               target="_blank" class="btn btn-outline-danger btn-sm w-100">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Auf Pinterest ansehen
+                            </a>
+                        {% else %}
+                            <button type="button" class="btn btn-pinterest btn-sm w-100"
+                                    data-bs-toggle="modal" data-bs-target="#pinterestModal"
+                                    data-project-id="{{ project.id }}"
+                                    data-project-title="{{ project.keywords|truncatechars:30 }}">
+                                <i class="bi bi-pinterest me-1"></i>Auf Pinterest posten
+                            </button>
+                        {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -97,4 +162,144 @@
     </div>
     {% endif %}
 </div>
+
+{% if pinterest_connected %}
+<!-- Pinterest Post Modal -->
+<div class="modal fade" id="pinterestModal" tabindex="-1" aria-labelledby="pinterestModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #E60023, #BD081C); color: white;">
+                <h5 class="modal-title" id="pinterestModalLabel">
+                    <i class="bi bi-pinterest me-2"></i>Auf Pinterest posten
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3"><strong>Pin:</strong> <span id="modal-project-title"></span></p>
+                <div class="mb-3">
+                    <label for="modal-board-select" class="form-label">Board auswählen:</label>
+                    <select class="form-select" id="modal-board-select">
+                        <option value="">Boards werden geladen...</option>
+                    </select>
+                </div>
+                <div id="modal-result" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-pinterest" id="modal-post-btn" onclick="postPinFromModal()">
+                    <i class="bi bi-pinterest me-1"></i>Jetzt posten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentProjectId = null;
+let boardsLoaded = false;
+
+// Modal-Event-Handler
+document.getElementById('pinterestModal').addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    currentProjectId = button.getAttribute('data-project-id');
+    const projectTitle = button.getAttribute('data-project-title');
+
+    document.getElementById('modal-project-title').textContent = projectTitle;
+    document.getElementById('modal-result').style.display = 'none';
+    document.getElementById('modal-post-btn').disabled = false;
+    document.getElementById('modal-post-btn').innerHTML = '<i class="bi bi-pinterest me-1"></i>Jetzt posten';
+
+    if (!boardsLoaded) {
+        loadBoards();
+    }
+});
+
+function loadBoards() {
+    const select = document.getElementById('modal-board-select');
+    select.innerHTML = '<option value="">Boards werden geladen...</option>';
+    select.disabled = true;
+
+    fetch('{% url "ideopin:api_pinterest_boards" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.boards) {
+                select.innerHTML = '<option value="">Board auswählen...</option>';
+                data.boards.forEach(board => {
+                    const option = document.createElement('option');
+                    option.value = board.id;
+                    option.textContent = board.name + (board.pin_count ? ` (${board.pin_count} Pins)` : '');
+                    select.appendChild(option);
+                });
+                select.disabled = false;
+                boardsLoaded = true;
+            } else {
+                select.innerHTML = '<option value="">Fehler beim Laden</option>';
+            }
+        })
+        .catch(error => {
+            select.innerHTML = '<option value="">Netzwerkfehler</option>';
+        });
+}
+
+function postPinFromModal() {
+    const boardId = document.getElementById('modal-board-select').value;
+    const resultDiv = document.getElementById('modal-result');
+    const postBtn = document.getElementById('modal-post-btn');
+
+    if (!boardId) {
+        alert('Bitte wähle ein Board aus.');
+        return;
+    }
+
+    postBtn.disabled = true;
+    postBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Wird gepostet...';
+
+    fetch(`/ideopin/api/pinterest/post/${currentProjectId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ board_id: boardId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        resultDiv.style.display = 'block';
+
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>Erfolgreich gepostet!
+                    <a href="${data.pin_url}" target="_blank" class="d-block mt-2">Pin ansehen</a>
+                </div>
+            `;
+            postBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Gepostet!';
+
+            // Seite nach 2 Sekunden neu laden
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>${data.error}
+                </div>
+            `;
+            postBtn.disabled = false;
+            postBtn.innerHTML = '<i class="bi bi-pinterest me-1"></i>Erneut versuchen';
+        }
+    })
+    .catch(error => {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>Netzwerkfehler
+            </div>
+        `;
+        postBtn.disabled = false;
+        postBtn.innerHTML = '<i class="bi bi-pinterest me-1"></i>Erneut versuchen';
+    });
+}
+</script>
+{% endif %}
 {% endblock %}

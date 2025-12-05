@@ -29,6 +29,51 @@
                 </div>
             </div>
         </div>
+
+        <!-- Pinterest Posting Card -->
+        <div class="card shadow-sm mt-4">
+            <div class="card-header text-white" style="background: linear-gradient(135deg, #E60023, #BD081C);">
+                <h6 class="mb-0"><i class="bi bi-pinterest"></i> Auf Pinterest posten</h6>
+            </div>
+            <div class="card-body">
+                {% if project.pinterest_posted %}
+                    <div class="alert alert-success mb-3">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <strong>Bereits gepostet!</strong><br>
+                        <small>Board: {{ project.pinterest_board_name|default:"Unbekannt" }} &bull; {{ project.pinterest_posted_at|date:"d.m.Y H:i" }}</small>
+                    </div>
+                    {% if project.pinterest_pin_id %}
+                        <a href="https://www.pinterest.com/pin/{{ project.pinterest_pin_id }}/"
+                           target="_blank" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Pin auf Pinterest ansehen
+                        </a>
+                    {% endif %}
+                {% elif pinterest_connected %}
+                    <div id="pinterest-posting-section">
+                        <div class="mb-3">
+                            <label for="pinterest-board" class="form-label">Board auswählen:</label>
+                            <select class="form-select" id="pinterest-board" name="board_id">
+                                <option value="">Board laden...</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn w-100" id="btn-post-pinterest"
+                                style="background-color: #E60023; color: white;"
+                                onclick="postToPinterest()">
+                            <i class="bi bi-pinterest me-2"></i>Jetzt auf Pinterest posten
+                        </button>
+                        <div id="pinterest-result" class="mt-3" style="display: none;"></div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning mb-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Pinterest ist noch nicht verbunden.
+                    </div>
+                    <a href="{% url 'accounts:neue_api_einstellungen' %}" class="btn btn-outline-danger">
+                        <i class="bi bi-gear me-1"></i>Pinterest verbinden
+                    </a>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <div class="col-lg-6">
@@ -81,11 +126,17 @@
                         <td><strong>Erstellt:</strong></td>
                         <td>{{ project.created_at|date:"d.m.Y H:i" }}</td>
                     </tr>
+                    {% if project.pinterest_posted %}
+                    <tr>
+                        <td><strong>Pinterest-Status:</strong></td>
+                        <td><span class="badge bg-success"><i class="bi bi-check"></i> Gepostet</span></td>
+                    </tr>
+                    {% endif %}
                 </table>
             </div>
         </div>
 
-        <div class="mt-4 d-flex gap-2">
+        <div class="mt-4 d-flex gap-2 flex-wrap">
             <a href="{% url 'ideopin:wizard_step1' %}" class="btn btn-success">
                 <i class="bi bi-plus-lg"></i> Neuen Pin erstellen
             </a>
@@ -102,6 +153,9 @@
 
 {% block wizard_js %}
 <script>
+const projectId = {{ project.id }};
+const csrfToken = '{{ csrf_token }}';
+
 function copyToClipboard(elementId) {
     const element = document.getElementById(elementId);
     const text = element.value || element.textContent;
@@ -123,5 +177,112 @@ function copyToClipboard(elementId) {
         alert('Kopieren fehlgeschlagen');
     });
 }
+
+{% if pinterest_connected and not project.pinterest_posted %}
+// Pinterest-Boards beim Laden abrufen
+document.addEventListener('DOMContentLoaded', function() {
+    loadPinterestBoards();
+});
+
+function loadPinterestBoards() {
+    const select = document.getElementById('pinterest-board');
+    select.innerHTML = '<option value="">Boards werden geladen...</option>';
+    select.disabled = true;
+
+    fetch('{% url "ideopin:api_pinterest_boards" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.boards) {
+                select.innerHTML = '<option value="">Board auswählen...</option>';
+                data.boards.forEach(board => {
+                    const option = document.createElement('option');
+                    option.value = board.id;
+                    option.textContent = board.name + (board.pin_count ? ` (${board.pin_count} Pins)` : '');
+                    select.appendChild(option);
+                });
+                select.disabled = false;
+            } else {
+                select.innerHTML = '<option value="">Fehler beim Laden</option>';
+                console.error('Pinterest boards error:', data.error);
+            }
+        })
+        .catch(error => {
+            select.innerHTML = '<option value="">Netzwerkfehler</option>';
+            console.error('Pinterest boards fetch error:', error);
+        });
+}
+
+function postToPinterest() {
+    const boardSelect = document.getElementById('pinterest-board');
+    const boardId = boardSelect.value;
+    const resultDiv = document.getElementById('pinterest-result');
+    const postBtn = document.getElementById('btn-post-pinterest');
+
+    if (!boardId) {
+        alert('Bitte wähle ein Board aus.');
+        return;
+    }
+
+    // Button deaktivieren und Loading anzeigen
+    postBtn.disabled = true;
+    postBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird gepostet...';
+
+    fetch('{% url "ideopin:api_post_to_pinterest" project.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            board_id: boardId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        resultDiv.style.display = 'block';
+
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <strong>Erfolgreich gepostet!</strong><br>
+                    <a href="${data.pin_url}" target="_blank" class="mt-2 d-inline-block">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Pin auf Pinterest ansehen
+                    </a>
+                </div>
+            `;
+            postBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Gepostet!';
+            postBtn.classList.remove('btn-danger');
+            postBtn.classList.add('btn-success');
+            boardSelect.disabled = true;
+
+            // Seite nach 2 Sekunden neu laden um Status zu aktualisieren
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Fehler:</strong> ${data.error}
+                </div>
+            `;
+            postBtn.disabled = false;
+            postBtn.innerHTML = '<i class="bi bi-pinterest me-2"></i>Erneut versuchen';
+        }
+    })
+    .catch(error => {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Netzwerkfehler:</strong> ${error.message}
+            </div>
+        `;
+        postBtn.disabled = false;
+        postBtn.innerHTML = '<i class="bi bi-pinterest me-2"></i>Erneut versuchen';
+    });
+}
+{% endif %}
 </script>
 {% endblock %}

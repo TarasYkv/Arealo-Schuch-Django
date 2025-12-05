@@ -557,7 +557,7 @@ body.bg-dark .password-toggle:hover {
                             <i class="fas fa-check-circle me-2"></i>
                             {{ shopify_stores.count }} Shopify Store{{ shopify_stores.count|pluralize }} verbunden.
                         </div>
-                        
+
                         <div class="mb-3">
                             <label class="form-label">Ihre Stores:</label>
                             <select class="form-select form-select-sm">
@@ -566,12 +566,12 @@ body.bg-dark .password-toggle:hover {
                                 {% endfor %}
                             </select>
                         </div>
-                        
+
                         <div class="d-flex gap-2">
                             <a href="{% url 'shopify_manager:dashboard' %}" class="btn btn-warning btn-sm">
                                 <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                             </a>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
                                     onclick="testShopifyConnection()">
                                 <i class="fas fa-vial me-1"></i>Verbindung testen
                             </button>
@@ -589,10 +589,132 @@ body.bg-dark .password-toggle:hover {
                     {% endif %}
 
                     <div class="mt-auto">
-                        <a href="https://partners.shopify.com/1234567/apps" 
-                           target="_blank" 
+                        <a href="https://partners.shopify.com/1234567/apps"
+                           target="_blank"
                            class="btn btn-outline-primary btn-sm">
                             <i class="fas fa-external-link-alt me-1"></i>Shopify Partner Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pinterest API Integration -->
+        <div class="col-lg-6">
+            <div class="card api-provider-card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #E60023, #BD081C);">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-pinterest fa-2x me-3" style="font-size: 2rem;"></i>
+                        <div>
+                            <h5 class="mb-0">Pinterest API</h5>
+                            <small class="opacity-75">Pin-Posting Integration</small>
+                        </div>
+                    </div>
+                    <div class="api-status-indicator">
+                        <div class="status-light {% if pinterest_connected %}connected{% else %}disconnected{% endif %}"></div>
+                        <small class="fw-bold">
+                            {% if pinterest_connected %}
+                                Verbunden{% if pinterest_settings.pinterest_username %} (@{{ pinterest_settings.pinterest_username }}){% endif %}
+                            {% elif pinterest_configured %}
+                                Autorisierung erforderlich
+                            {% else %}
+                                Nicht konfiguriert
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    {% if pinterest_connected %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Pinterest ist verbunden{% if pinterest_settings.pinterest_username %} als <strong>@{{ pinterest_settings.pinterest_username }}</strong>{% endif %}.
+                            Sie können jetzt Pins direkt auf Pinterest posten.
+                        </div>
+                        <div class="d-flex gap-2 mb-3">
+                            <a href="{% url 'ideopin:wizard_step1' %}" class="btn btn-sm" style="background-color: #E60023; color: white;">
+                                <i class="bi bi-plus-lg me-1"></i>Neuen Pin erstellen
+                            </a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="testPinterestConnection()">
+                                <i class="fas fa-vial me-1"></i>Testen
+                            </button>
+                        </div>
+                        <form method="post" action="{% url 'accounts:pinterest_disconnect' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm"
+                                    onclick="return confirm('Pinterest-Verbindung wirklich trennen?');">
+                                <i class="fas fa-unlink me-1"></i>Verbindung trennen
+                            </button>
+                        </form>
+                    {% elif pinterest_configured %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            App konfiguriert, aber noch nicht mit Pinterest verbunden.
+                        </div>
+                        <div class="d-grid mb-3">
+                            <a href="{% url 'accounts:pinterest_oauth_start' %}" class="btn" style="background-color: #E60023; color: white;">
+                                <i class="bi bi-pinterest me-2"></i>Mit Pinterest verbinden
+                            </a>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100"
+                                data-bs-toggle="collapse" data-bs-target="#pinterestCredentialsEdit">
+                            <i class="fas fa-edit me-1"></i>Credentials bearbeiten
+                        </button>
+                        <div class="collapse mt-3" id="pinterestCredentialsEdit">
+                            <form method="post" action="{% url 'accounts:pinterest_settings_save' %}">
+                                {% csrf_token %}
+                                <div class="mb-2">
+                                    <input type="text" class="form-control form-control-sm" name="pinterest_app_id"
+                                           placeholder="App ID" value="{{ pinterest_settings.app_id|default:'' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <input type="password" class="form-control form-control-sm" name="pinterest_app_secret"
+                                           placeholder="App Secret">
+                                </div>
+                                <button type="submit" class="btn btn-sm" style="background-color: #E60023; color: white;">
+                                    <i class="fas fa-save me-1"></i>Aktualisieren
+                                </button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Um Pins direkt auf Pinterest zu posten, benötigen Sie eine Pinterest Developer App.
+                        </div>
+                        <form method="post" action="{% url 'accounts:pinterest_settings_save' %}" class="mb-3">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="pinterest_app_id" class="form-label">App ID:</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                    <input type="text" class="form-control" id="pinterest_app_id"
+                                           name="pinterest_app_id" placeholder="Ihre Pinterest App ID">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="pinterest_app_secret" class="form-label">App Secret:</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="pinterest_app_secret"
+                                           name="pinterest_app_secret" placeholder="Ihr Pinterest App Secret">
+                                    <button class="password-toggle" type="button"
+                                            onclick="togglePasswordVisibility('pinterest_app_secret', this)">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn" style="background-color: #E60023; color: white;">
+                                <i class="fas fa-save me-1"></i>Speichern & Verbinden
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <div class="mt-auto">
+                        <a href="https://developers.pinterest.com/apps/"
+                           target="_blank"
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>Pinterest Developer Portal
                         </a>
                     </div>
                 </div>
@@ -692,6 +814,15 @@ body.bg-dark .password-toggle:hover {
                                 </span>
                             </div>
                         </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-3 {% if pinterest_connected %}border-success bg-light{% elif pinterest_configured %}border-warning{% else %}border-secondary{% endif %}">
+                                <i class="bi bi-pinterest fa-2x mb-2" style="font-size: 2rem; {% if pinterest_connected %}color: #198754 !important;{% elif pinterest_configured %}color: #ffc107 !important;{% else %}color: #6c757d !important;{% endif %}"></i>
+                                <h6>Pinterest</h6>
+                                <span class="badge {% if pinterest_connected %}bg-success{% elif pinterest_configured %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {% if pinterest_connected %}Verbunden{% elif pinterest_configured %}Auth. nötig{% else %}Ausstehend{% endif %}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -777,6 +908,51 @@ function testZohoConnection() {
 function testShopifyConnection() {
     // Similar test implementation for Shopify
     testApiKey('shopify');
+}
+
+function testPinterestConnection() {
+    const button = document.querySelector('[onclick="testPinterestConnection()"]');
+    if (!button) return;
+
+    const originalText = button.innerHTML;
+
+    // Show loading state
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Teste...';
+    button.disabled = true;
+
+    fetch('{% url "accounts:pinterest_test_connection" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                button.innerHTML = '<i class="fas fa-check me-1"></i>Verbunden';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-success');
+            } else {
+                button.innerHTML = '<i class="fas fa-times me-1"></i>Fehler';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-danger');
+                alert('Pinterest-Test fehlgeschlagen: ' + (data.error || 'Unbekannter Fehler'));
+            }
+
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.classList.remove('btn-success', 'btn-danger');
+                button.classList.add('btn-outline-secondary');
+                button.disabled = false;
+            }, 2000);
+        })
+        .catch(error => {
+            button.innerHTML = '<i class="fas fa-times me-1"></i>Fehler';
+            button.classList.remove('btn-outline-secondary');
+            button.classList.add('btn-danger');
+
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.classList.remove('btn-danger');
+                button.classList.add('btn-outline-secondary');
+                button.disabled = false;
+            }, 2000);
+        });
 }
 
 // Auto-hide alerts after 5 seconds

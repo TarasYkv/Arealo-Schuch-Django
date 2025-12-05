@@ -1123,6 +1123,88 @@ class FeatureAccess(models.Model):
             )
 
 
+class PinterestAPISettings(models.Model):
+    """Model für Pinterest API-Einstellungen pro Benutzer (OAuth2)"""
+
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='pinterest_settings')
+
+    # OAuth2 App Credentials (vom User in den Einstellungen eingegeben)
+    app_id = EncryptedCharField(max_length=255, blank=True, verbose_name="Pinterest App ID")
+    app_secret = EncryptedCharField(max_length=500, blank=True, verbose_name="Pinterest App Secret")
+
+    # OAuth2 Tokens (werden nach Autorisierung gefüllt)
+    access_token = EncryptedCharField(max_length=1000, blank=True, null=True)
+    refresh_token = EncryptedCharField(max_length=1000, blank=True, null=True)
+    token_expires_at = models.DateTimeField(blank=True, null=True)
+
+    # Scopes die autorisiert wurden
+    authorized_scopes = models.TextField(blank=True, default='',
+                                        help_text="Kommagetrennte Liste der autorisierten Scopes")
+
+    # Status und Konfiguration
+    is_configured = models.BooleanField(default=False, verbose_name="Konfiguriert")
+    is_connected = models.BooleanField(default=False, verbose_name="Verbunden")
+    pinterest_username = models.CharField(max_length=100, blank=True, verbose_name="Pinterest Benutzername")
+
+    last_test_success = models.DateTimeField(blank=True, null=True, verbose_name="Letzter erfolgreicher Test")
+    last_error = models.TextField(blank=True, verbose_name="Letzter Fehler")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Pinterest API Einstellung"
+        verbose_name_plural = "Pinterest API Einstellungen"
+
+    def __str__(self):
+        status = "Verbunden" if self.is_connected else "Nicht verbunden"
+        return f"{self.user.username} - Pinterest ({status})"
+
+    @property
+    def auth_url(self):
+        """Gibt die Pinterest OAuth2 Autorisierungs-URL zurück"""
+        return 'https://www.pinterest.com/oauth/'
+
+    @property
+    def token_url(self):
+        """Gibt die Pinterest Token-URL zurück"""
+        return 'https://api.pinterest.com/v5/oauth/token'
+
+    @property
+    def api_base_url(self):
+        """Gibt die Pinterest API Basis-URL zurück"""
+        return 'https://api.pinterest.com/v5'
+
+    def get_configuration_status(self):
+        """Gibt den Konfigurationsstatus zurück"""
+        if not self.app_id or not self.app_secret:
+            return 'Nicht konfiguriert'
+        elif not self.access_token:
+            return 'Autorisierung erforderlich'
+        elif self.is_connected:
+            if self.pinterest_username:
+                return f'Verbunden als @{self.pinterest_username}'
+            return 'Verbunden'
+        else:
+            return 'Konfiguriert (nicht autorisiert)'
+
+    def is_token_valid(self):
+        """Prüft ob das Access Token noch gültig ist"""
+        from django.utils import timezone
+        if not self.access_token or not self.token_expires_at:
+            return False
+        # Token als ungültig betrachten wenn es in weniger als 5 Minuten abläuft
+        return self.token_expires_at > timezone.now() + timezone.timedelta(minutes=5)
+
+    def needs_refresh(self):
+        """Prüft ob das Token erneuert werden muss"""
+        from django.utils import timezone
+        if not self.refresh_token or not self.token_expires_at:
+            return False
+        # Token erneuern wenn es in weniger als 1 Stunde abläuft
+        return self.token_expires_at < timezone.now() + timezone.timedelta(hours=1)
+
+
 class PageSnapshot(models.Model):
     """Snapshots of page edits for backup and versioning"""
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='page_snapshots')
@@ -1130,9 +1212,9 @@ class PageSnapshot(models.Model):
     html_content = models.TextField(blank=True)
     changes = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         ordering = ['-created_at']
-        
+
     def __str__(self):
         return f"{self.page} - {self.user.username} - {self.created_at}"

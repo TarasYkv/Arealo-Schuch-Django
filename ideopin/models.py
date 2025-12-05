@@ -313,6 +313,39 @@ class PinProject(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Pinterest-Posting Status
+    pinterest_posted = models.BooleanField(
+        default=False,
+        verbose_name="Auf Pinterest gepostet"
+    )
+    pinterest_pin_id = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Pinterest Pin ID",
+        help_text="ID des geposteten Pins auf Pinterest"
+    )
+    pinterest_board_id = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Pinterest Board ID",
+        help_text="ID des Boards auf das der Pin gepostet wurde"
+    )
+    pinterest_board_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Pinterest Board Name"
+    )
+    pinterest_posted_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Gepostet am"
+    )
+    pinterest_post_error = models.TextField(
+        blank=True,
+        verbose_name="Posting-Fehler",
+        help_text="Letzter Fehler beim Posten auf Pinterest"
+    )
+
     class Meta:
         ordering = ['-updated_at']
         verbose_name = "Pin Projekt"
@@ -331,6 +364,20 @@ class PinProject(models.Model):
             '600x900': (600, 900),
         }
         return format_map.get(self.pin_format, (1000, 1500))
+
+    def get_pinterest_url(self):
+        """Gibt die Pinterest-URL des geposteten Pins zurück"""
+        if self.pinterest_pin_id:
+            return f"https://www.pinterest.com/pin/{self.pinterest_pin_id}/"
+        return None
+
+    def get_final_image_for_upload(self):
+        """Gibt das finale Bild für den Pinterest-Upload zurück"""
+        if self.final_image:
+            return self.final_image
+        elif self.generated_image:
+            return self.generated_image
+        return None
 
 
 class PinSettings(models.Model):

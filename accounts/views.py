@@ -444,7 +444,7 @@ def canva_oauth_callback(request):
 def canva_disconnect(request):
     """Trennt die Canva-Verbindung"""
     from naturmacher.models import CanvaAPISettings
-    
+
     if request.method == 'POST':
         try:
             canva_settings = CanvaAPISettings.objects.get(user=request.user)
@@ -452,12 +452,205 @@ def canva_disconnect(request):
             canva_settings.refresh_token = ''
             canva_settings.token_expires_at = None
             canva_settings.save()
-            
+
             messages.success(request, 'Canva-Verbindung wurde getrennt.')
         except CanvaAPISettings.DoesNotExist:
             pass
-    
+
     return redirect('accounts:neue_api_einstellungen')
+
+
+# ==================== PINTEREST OAUTH VIEWS ====================
+
+@login_required
+def pinterest_settings_save(request):
+    """Speichert die Pinterest App-Credentials"""
+    from .models import PinterestAPISettings
+
+    if request.method == 'POST':
+        app_id = request.POST.get('pinterest_app_id', '').strip()
+        app_secret = request.POST.get('pinterest_app_secret', '').strip()
+
+        if not app_id or not app_secret:
+            messages.error(request, 'Bitte geben Sie sowohl App ID als auch App Secret ein.')
+            return redirect('accounts:neue_api_einstellungen')
+
+        # Hole oder erstelle die Settings
+        pinterest_settings, created = PinterestAPISettings.objects.get_or_create(
+            user=request.user,
+            defaults={'app_id': app_id, 'app_secret': app_secret}
+        )
+
+        if not created:
+            pinterest_settings.app_id = app_id
+            pinterest_settings.app_secret = app_secret
+
+        pinterest_settings.is_configured = True
+        pinterest_settings.save()
+
+        messages.success(request, 'Pinterest App-Credentials wurden gespeichert. Klicken Sie auf "Mit Pinterest verbinden" um die Autorisierung abzuschließen.')
+
+    return redirect('accounts:neue_api_einstellungen')
+
+
+@login_required
+def pinterest_oauth_start(request):
+    """Startet den Pinterest OAuth-Prozess"""
+    from .models import PinterestAPISettings
+    from ideopin.pinterest_service import PinterestAPIService
+
+    try:
+        pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+    except PinterestAPISettings.DoesNotExist:
+        messages.error(request, 'Bitte konfigurieren Sie zuerst Ihre Pinterest App-Credentials.')
+        return redirect('accounts:neue_api_einstellungen')
+
+    if not pinterest_settings.app_id or not pinterest_settings.app_secret:
+        messages.error(request, 'Pinterest App ID und App Secret sind erforderlich.')
+        return redirect('accounts:neue_api_einstellungen')
+
+    try:
+        service = PinterestAPIService(pinterest_settings)
+        redirect_uri = request.build_absolute_uri(reverse('accounts:pinterest_oauth_callback'))
+        state = f'user_{request.user.id}_{secrets.token_urlsafe(16)}'
+
+        # State in Session speichern für Validierung
+        request.session['pinterest_oauth_state'] = state
+
+        auth_url = service.get_authorization_url(redirect_uri, state)
+        return redirect(auth_url)
+    except Exception as e:
+        logger.error(f"[Pinterest] OAuth-Start Fehler: {e}")
+        messages.error(request, f'Fehler beim Starten der Pinterest-Autorisierung: {str(e)}')
+        return redirect('accounts:neue_api_einstellungen')
+
+
+@login_required
+def pinterest_oauth_callback(request):
+    """Verarbeitet den Pinterest OAuth-Callback"""
+    from .models import PinterestAPISettings
+    from ideopin.pinterest_service import PinterestAPIService
+
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    error = request.GET.get('error')
+    error_description = request.GET.get('error_description', '')
+
+    if error:
+        messages.error(request, f'Pinterest-Autorisierung fehlgeschlagen: {error_description or error}')
+        return redirect('accounts:neue_api_einstellungen')
+
+    if not code:
+        messages.error(request, 'Kein Autorisierungscode von Pinterest erhalten.')
+        return redirect('accounts:neue_api_einstellungen')
+
+    # State validieren
+    expected_state = request.session.get('pinterest_oauth_state')
+    if not state or not expected_state or not state.startswith(f'user_{request.user.id}_'):
+        messages.error(request, 'Sicherheitsfehler: Ungültiger State-Parameter.')
+        return redirect('accounts:neue_api_einstellungen')
+
+    # State aus Session löschen
+    del request.session['pinterest_oauth_state']
+
+    try:
+        pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+        service = PinterestAPIService(pinterest_settings)
+        redirect_uri = request.build_absolute_uri(reverse('accounts:pinterest_oauth_callback'))
+
+        # Token-Austausch
+        result = service.exchange_code_for_token(code, redirect_uri)
+
+        if result.get('success'):
+            # Tokens speichern
+            pinterest_settings.access_token = result.get('access_token')
+            pinterest_settings.refresh_token = result.get('refresh_token')
+            expires_in = result.get('expires_in', 2592000)  # 30 Tage default
+            pinterest_settings.token_expires_at = timezone.now() + timedelta(seconds=expires_in)
+            pinterest_settings.authorized_scopes = result.get('scope', '')
+            pinterest_settings.is_connected = True
+            pinterest_settings.last_error = ''
+            pinterest_settings.save()
+
+            # Benutzerinformationen abrufen
+            service.access_token = pinterest_settings.access_token
+            user_info = service.get_user_info()
+            if user_info.get('success'):
+                pinterest_settings.pinterest_username = user_info.get('username', '')
+                pinterest_settings.last_test_success = timezone.now()
+                pinterest_settings.save()
+
+            messages.success(request, f'Pinterest erfolgreich verbunden! Sie können jetzt Pins direkt auf Pinterest posten.')
+        else:
+            pinterest_settings.last_error = result.get('error', 'Unbekannter Fehler')
+            pinterest_settings.save()
+            messages.error(request, f'Fehler beim Token-Austausch: {result.get("error")}')
+
+    except PinterestAPISettings.DoesNotExist:
+        messages.error(request, 'Pinterest-Einstellungen nicht gefunden.')
+    except Exception as e:
+        logger.error(f"[Pinterest] OAuth-Callback Fehler: {e}")
+        messages.error(request, f'Fehler bei der Pinterest-Autorisierung: {str(e)}')
+
+    return redirect('accounts:neue_api_einstellungen')
+
+
+@login_required
+def pinterest_disconnect(request):
+    """Trennt die Pinterest-Verbindung"""
+    from .models import PinterestAPISettings
+
+    if request.method == 'POST':
+        try:
+            pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+            pinterest_settings.access_token = ''
+            pinterest_settings.refresh_token = ''
+            pinterest_settings.token_expires_at = None
+            pinterest_settings.is_connected = False
+            pinterest_settings.pinterest_username = ''
+            pinterest_settings.save()
+
+            messages.success(request, 'Pinterest-Verbindung wurde getrennt.')
+        except PinterestAPISettings.DoesNotExist:
+            pass
+
+    return redirect('accounts:neue_api_einstellungen')
+
+
+@login_required
+def pinterest_test_connection(request):
+    """Testet die Pinterest-Verbindung"""
+    from .models import PinterestAPISettings
+    from ideopin.pinterest_service import PinterestAPIService
+
+    try:
+        pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+        service = PinterestAPIService(pinterest_settings)
+
+        result = service.test_connection()
+
+        if result.get('success'):
+            return JsonResponse({
+                'success': True,
+                'message': result.get('message'),
+                'username': result.get('username'),
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error'),
+            })
+    except PinterestAPISettings.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Pinterest nicht konfiguriert',
+        })
+    except Exception as e:
+        logger.error(f"[Pinterest] Verbindungstest Fehler: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+        })
 
 
 @login_required
@@ -683,7 +876,14 @@ def neue_api_einstellungen_view(request):
         shopify_stores = ShopifyStore.objects.filter(user=user)
     except:
         shopify_stores = []
-    
+
+    # Hole Pinterest API Settings für den Benutzer
+    try:
+        from .models import PinterestAPISettings
+        pinterest_settings = PinterestAPISettings.objects.get(user=user)
+    except PinterestAPISettings.DoesNotExist:
+        pinterest_settings = None
+
     # Erstelle maskierte Versionen der API-Keys für die Anzeige
     context = {
         'user': user,
@@ -699,8 +899,12 @@ def neue_api_einstellungen_view(request):
         'shopify_configured': len(shopify_stores) > 0,
         'zoho_settings': zoho_settings,
         'shopify_stores': shopify_stores,
+        # Pinterest
+        'pinterest_settings': pinterest_settings,
+        'pinterest_configured': bool(pinterest_settings and pinterest_settings.app_id and pinterest_settings.app_secret),
+        'pinterest_connected': bool(pinterest_settings and pinterest_settings.is_connected),
     }
-    
+
     return render(request, 'accounts/api_einstellungen.html', context)
 
 

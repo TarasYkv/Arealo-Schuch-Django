@@ -254,10 +254,20 @@ def wizard_result(request, project_id):
     project.status = 'completed'
     project.save()
 
+    # Pinterest-Verbindungsstatus prüfen
+    pinterest_connected = False
+    try:
+        from accounts.models import PinterestAPISettings
+        pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+        pinterest_connected = pinterest_settings.is_connected
+    except:
+        pass
+
     context = {
         'project': project,
         'step': 6,
         'total_steps': 6,
+        'pinterest_connected': pinterest_connected,
     }
     return render(request, 'ideopin/wizard/result.html', context)
 
@@ -815,8 +825,18 @@ def project_list(request):
     """Liste aller Pin-Projekte"""
     projects = PinProject.objects.filter(user=request.user).order_by('-updated_at')
 
+    # Pinterest-Verbindungsstatus prüfen
+    pinterest_connected = False
+    try:
+        from accounts.models import PinterestAPISettings
+        pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+        pinterest_connected = pinterest_settings.is_connected
+    except:
+        pass
+
     context = {
         'projects': projects,
+        'pinterest_connected': pinterest_connected,
     }
     return render(request, 'ideopin/project_list.html', context)
 
@@ -906,3 +926,140 @@ def settings_view(request):
         'has_gemini_key': bool(request.user.gemini_api_key),
     }
     return render(request, 'ideopin/settings.html', context)
+
+
+# ==================== PINTEREST API VIEWS ====================
+
+@login_required
+def api_pinterest_boards(request):
+    """API: Ruft die Pinterest-Boards des Benutzers ab"""
+    try:
+        from accounts.models import PinterestAPISettings
+        from .pinterest_service import PinterestAPIService
+
+        pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+
+        if not pinterest_settings.is_connected:
+            return JsonResponse({
+                'success': False,
+                'error': 'Pinterest ist nicht verbunden'
+            }, status=400)
+
+        service = PinterestAPIService(pinterest_settings)
+        result = service.get_boards()
+
+        if result.get('success'):
+            return JsonResponse({
+                'success': True,
+                'boards': result['boards']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Fehler beim Laden der Boards')
+            }, status=500)
+
+    except PinterestAPISettings.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Pinterest nicht konfiguriert'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"[Pinterest] Boards laden fehlgeschlagen: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_post_to_pinterest(request, project_id):
+    """API: Postet einen Pin auf Pinterest"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        from accounts.models import PinterestAPISettings
+        from .pinterest_service import PinterestAPIService
+
+        # Request-Body parsen
+        data = json.loads(request.body) if request.body else {}
+        board_id = data.get('board_id')
+
+        if not board_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Bitte wähle ein Board aus'
+            }, status=400)
+
+        # Pinterest-Settings holen
+        pinterest_settings = PinterestAPISettings.objects.get(user=request.user)
+
+        if not pinterest_settings.is_connected:
+            return JsonResponse({
+                'success': False,
+                'error': 'Pinterest ist nicht verbunden. Bitte zuerst verbinden.'
+            }, status=400)
+
+        # Prüfen ob bereits gepostet
+        if project.pinterest_posted:
+            return JsonResponse({
+                'success': False,
+                'error': 'Dieser Pin wurde bereits auf Pinterest gepostet'
+            }, status=400)
+
+        # Prüfen ob Bild vorhanden
+        if not project.get_final_image_for_upload():
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Bild vorhanden. Bitte zuerst ein Bild generieren.'
+            }, status=400)
+
+        # Board-Name für Speicherung holen
+        service = PinterestAPIService(pinterest_settings)
+        boards_result = service.get_boards()
+        board_name = 'Unbekannt'
+        if boards_result.get('success'):
+            for board in boards_result.get('boards', []):
+                if str(board.get('id')) == str(board_id):
+                    board_name = board.get('name', 'Unbekannt')
+                    break
+
+        # Pin posten
+        result = service.post_pin_from_project(project, board_id)
+
+        if result.get('success'):
+            # Board-Name speichern
+            project.pinterest_board_name = board_name
+            project.save()
+
+            logger.info(f"[Pinterest] Pin {project.id} erfolgreich auf Board '{board_name}' gepostet")
+
+            return JsonResponse({
+                'success': True,
+                'pin_id': result.get('pin_id'),
+                'pin_url': result.get('pin_url'),
+                'message': f'Pin erfolgreich auf "{board_name}" gepostet!'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Fehler beim Posten')
+            }, status=500)
+
+    except PinterestAPISettings.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Pinterest nicht konfiguriert'
+        }, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige Anfrage'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"[Pinterest] Posting fehlgeschlagen: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

@@ -26,6 +26,14 @@ urlpatterns = [
     path('canva-oauth-start/', views.canva_oauth_start, name='canva_oauth_start'),
     path('canva-oauth-callback/', views.canva_oauth_callback, name='canva_oauth_callback'),
     path('canva-disconnect/', views.canva_disconnect, name='canva_disconnect'),
+
+    # Pinterest Integration
+    path('pinterest-settings-save/', views.pinterest_settings_save, name='pinterest_settings_save'),
+    path('pinterest-oauth-start/', views.pinterest_oauth_start, name='pinterest_oauth_start'),
+    path('pinterest-oauth-callback/', views.pinterest_oauth_callback, name='pinterest_oauth_callback'),
+    path('pinterest-disconnect/', views.pinterest_disconnect, name='pinterest_disconnect'),
+    path('api/pinterest-test/', views.pinterest_test_connection, name='pinterest_test_connection'),
+
     path('neue-api-einstellungen/', views.neue_api_einstellungen_view, name='neue_api_einstellungen'),
     path('firmeninfo/', views.company_info_view, name='company_info'),
     path('test-app-permissions/', views.test_app_permissions_view, name='test_app_permissions'),
