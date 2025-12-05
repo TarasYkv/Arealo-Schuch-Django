@@ -64,13 +64,28 @@
                         <div id="pinterest-result" class="mt-3" style="display: none;"></div>
                     </div>
                 {% else %}
-                    <div class="alert alert-warning mb-3">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Pinterest ist noch nicht verbunden.
-                    </div>
-                    <a href="{% url 'accounts:neue_api_einstellungen' %}" class="btn btn-outline-danger">
-                        <i class="bi bi-gear me-1"></i>Pinterest verbinden
-                    </a>
+                    <!-- Pin It Button - funktioniert ohne API -->
+                    <p class="text-muted mb-3">
+                        <small>Öffnet Pinterest zum Erstellen des Pins</small>
+                    </p>
+                    {% if project.final_image or project.generated_image %}
+                        <button type="button" class="btn w-100" id="btn-pin-it"
+                                style="background-color: #E60023; color: white;"
+                                onclick="openPinterestShare()">
+                            <i class="bi bi-pinterest me-2"></i>Auf Pinterest teilen
+                        </button>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Du kannst Board und Details direkt bei Pinterest auswählen.
+                            </small>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Kein Bild vorhanden. Gehe zurück zu Schritt 3.
+                        </div>
+                    {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -155,6 +170,38 @@
 <script>
 const projectId = {{ project.id }};
 const csrfToken = '{{ csrf_token }}';
+
+// Pinterest Pin It - funktioniert ohne API
+function openPinterestShare() {
+    // Vollständige URLs für Pinterest erstellen
+    const baseUrl = window.location.origin;
+    {% if project.final_image %}
+    const imageUrl = baseUrl + '{{ project.final_image.url }}';
+    {% elif project.generated_image %}
+    const imageUrl = baseUrl + '{{ project.generated_image.url }}';
+    {% else %}
+    const imageUrl = '';
+    {% endif %}
+
+    const linkUrl = '{{ project.pin_url|escapejs }}' || window.location.href;
+    const description = `{{ project.seo_description|escapejs }}`;
+
+    if (!imageUrl) {
+        alert('Kein Bild vorhanden. Bitte zuerst ein Bild generieren.');
+        return;
+    }
+
+    // Pinterest Share URL erstellen
+    const params = new URLSearchParams({
+        url: linkUrl,
+        media: imageUrl,
+        description: description
+    });
+
+    // Pinterest-Fenster öffnen
+    const pinterestUrl = `https://www.pinterest.com/pin/create/button/?${params.toString()}`;
+    window.open(pinterestUrl, 'pinterest-share', 'width=750,height=600,scrollbars=yes');
+}
 
 function copyToClipboard(elementId) {
     const element = document.getElementById(elementId);

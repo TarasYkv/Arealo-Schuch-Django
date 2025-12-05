@@ -131,18 +131,25 @@
                             </button>
                         </form>
                     </div>
-                    {% if project.status == 'completed' and pinterest_connected %}
+                    {% if project.status == 'completed' %}
                         {% if project.pinterest_posted %}
                             <a href="https://www.pinterest.com/pin/{{ project.pinterest_pin_id }}/"
                                target="_blank" class="btn btn-outline-danger btn-sm w-100">
                                 <i class="bi bi-box-arrow-up-right me-1"></i>Auf Pinterest ansehen
                             </a>
-                        {% else %}
+                        {% elif pinterest_connected %}
+                            <!-- OAuth-basiertes Posting -->
                             <button type="button" class="btn btn-pinterest btn-sm w-100"
                                     data-bs-toggle="modal" data-bs-target="#pinterestModal"
                                     data-project-id="{{ project.id }}"
                                     data-project-title="{{ project.keywords|truncatechars:30 }}">
                                 <i class="bi bi-pinterest me-1"></i>Auf Pinterest posten
+                            </button>
+                        {% elif project.final_image or project.generated_image %}
+                            <!-- Pin It Button - funktioniert ohne API -->
+                            <button type="button" class="btn btn-pinterest btn-sm w-100"
+                                    onclick="openPinterestShare('{{ project.final_image.url|default:project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}')">
+                                <i class="bi bi-pinterest me-1"></i>Auf Pinterest teilen
                             </button>
                         {% endif %}
                     {% endif %}
@@ -302,4 +309,24 @@ function postPinFromModal() {
 }
 </script>
 {% endif %}
+
+<!-- Pin It Funktion - funktioniert immer ohne API -->
+<script>
+function openPinterestShare(imageUrl, linkUrl, description) {
+    // Vollständige Bild-URL erstellen
+    const baseUrl = window.location.origin;
+    const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : baseUrl + imageUrl;
+
+    // Pinterest Share URL erstellen
+    const params = new URLSearchParams({
+        url: linkUrl || window.location.href,
+        media: fullImageUrl,
+        description: description || ''
+    });
+
+    // Pinterest-Fenster öffnen
+    const pinterestUrl = `https://www.pinterest.com/pin/create/button/?${params.toString()}`;
+    window.open(pinterestUrl, 'pinterest-share', 'width=750,height=600,scrollbars=yes');
+}
+</script>
 {% endblock %}
