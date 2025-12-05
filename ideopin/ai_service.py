@@ -65,8 +65,16 @@ Antworte NUR mit dem Text, ohne Anführungszeichen oder Erklärungen."""
                 'error': str(e)
             }
 
-    def generate_seo_description(self, keywords: str, image_description: str) -> dict:
-        """Generiert eine Pinterest-optimierte SEO-Beschreibung via GPT"""
+    def generate_seo_description(self, keywords: str, image_description: str, image_base64: str = None, overlay_text: str = None) -> dict:
+        """
+        Generiert die PERFEKTE Pinterest Pin-Beschreibung via GPT.
+
+        Strategie:
+        1. Haupt-Keyword aus der Keyword-Liste extrahieren und priorisieren
+        2. Optional: Bild mit OpenAI Vision analysieren
+        3. Motivierende, leicht lesbare Beschreibung erstellen
+        4. Passende Hashtags hinzufügen
+        """
         if not self.client:
             return {
                 'success': False,
@@ -74,29 +82,69 @@ Antworte NUR mit dem Text, ohne Anführungszeichen oder Erklärungen."""
             }
 
         try:
-            prompt = f"""Du bist ein Pinterest SEO-Experte. Erstelle eine optimierte Pin-Beschreibung.
+            # Extrahiere das Haupt-Keyword (erstes Keyword ist am wichtigsten)
+            keyword_list = [k.strip() for k in keywords.split(',') if k.strip()]
+            main_keyword = keyword_list[0] if keyword_list else keywords
+            secondary_keywords = keyword_list[1:5] if len(keyword_list) > 1 else []
 
-Keywords: {keywords}
-Bildbeschreibung: {image_description or 'Nicht angegeben'}
+            # Bild-Analyse wenn Bild vorhanden
+            image_analysis = None
+            if image_base64:
+                image_analysis = self._analyze_image_for_seo(image_base64)
+                logger.info(f"Image analysis result: {image_analysis[:100] if image_analysis else 'None'}...")
 
-Anforderungen:
-- Maximal 500 Zeichen
-- Beginne mit einem starken Hook
-- Integriere die Keywords natürlich
-- Füge 3-5 relevante Hashtags am Ende hinzu
-- Call-to-Action einbauen (z.B. "Jetzt entdecken", "Mehr erfahren")
-- Emotionale Ansprache
-- Pinterest-SEO-optimiert (Keywords in den ersten 100 Zeichen)
+            prompt = f"""Du bist ein Pinterest Marketing-Experte. Erstelle die PERFEKTE Pin-Beschreibung.
 
-Antworte NUR mit der Beschreibung, ohne zusätzliche Erklärungen."""
+🎯 HAUPT-KEYWORD (WICHTIGSTER BEGRIFF - muss prominent vorkommen):
+"{main_keyword}"
+
+📝 Weitere Keywords: {', '.join(secondary_keywords) if secondary_keywords else 'keine'}
+
+🖼️ Bild-Inhalt: {image_analysis or image_description or 'Nicht angegeben'}
+
+📌 Text auf dem Pin: {overlay_text or 'Nicht angegeben'}
+
+═══════════════════════════════════════════════════════════════
+
+ERSTELLE EINE PINTEREST-BESCHREIBUNG MIT FOLGENDER STRUKTUR:
+
+1. HOOK (erste 100 Zeichen - KRITISCH für SEO!):
+   - Beginne DIREKT mit dem Haupt-Keyword "{main_keyword}"
+   - Emotionaler Einstieg der neugierig macht
+   - Nutze Power-Wörter wie: Entdecke, Perfekt, Geheim, Einfach, Schnell
+
+2. MITTELTEIL (motivierend & leicht lesbar):
+   - Kurze, knackige Sätze (max. 10-15 Wörter pro Satz)
+   - Nutzen/Benefit für den Leser hervorheben
+   - Weitere Keywords natürlich einbauen
+   - Emotionen wecken (Freude, Neugier, Inspiration)
+
+3. CALL-TO-ACTION:
+   - Motiviere zum Klicken: "Jetzt entdecken", "Mehr erfahren", "Lass dich inspirieren"
+   - Oder Frage stellen: "Bereit für...?", "Willst du...?"
+
+4. HASHTAGS (am Ende, 4-6 Stück):
+   - #{{Haupt-Keyword}} MUSS dabei sein
+   - Mix aus populären und spezifischen Tags
+   - Deutsch und Englisch mischen für mehr Reichweite
+
+═══════════════════════════════════════════════════════════════
+
+REGELN:
+✓ Maximal 480 Zeichen (inkl. Hashtags)
+✓ Keine Emojis im Fließtext (nur bei Hashtags optional)
+✓ Kein Werbe-Sprech, authentisch und hilfreich
+✓ Leicht lesbar, als würdest du einem Freund erzählen
+
+Antworte NUR mit der fertigen Beschreibung, ohne Erklärungen."""
 
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "Du bist ein Pinterest SEO-Experte für deutschsprachige Pins."},
+                    {"role": "system", "content": "Du bist ein Pinterest SEO-Experte. Du schreibst Beschreibungen, die Menschen zum Klicken motivieren."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=200,
+                max_tokens=300,
                 temperature=0.7
             )
 
@@ -108,7 +156,8 @@ Antworte NUR mit der Beschreibung, ohne zusätzliche Erklärungen."""
 
             return {
                 'success': True,
-                'description': description
+                'description': description,
+                'main_keyword': main_keyword
             }
 
         except Exception as e:
@@ -117,6 +166,42 @@ Antworte NUR mit der Beschreibung, ohne zusätzliche Erklärungen."""
                 'success': False,
                 'error': str(e)
             }
+
+    def _analyze_image_for_seo(self, image_base64: str) -> str:
+        """Analysiert ein Bild mit OpenAI Vision für SEO-Beschreibung"""
+        try:
+            # Prüfe ob das Modell Vision unterstützt
+            vision_models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-vision-preview', 'gpt-4-turbo']
+            model_to_use = self.model if any(v in self.model for v in vision_models) else 'gpt-4o-mini'
+
+            response = self.client.chat.completions.create(
+                model=model_to_use,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Beschreibe dieses Pinterest-Pin-Bild in 2-3 kurzen Sätzen auf Deutsch. Fokussiere auf: Was ist zu sehen? Welche Stimmung vermittelt es? Was macht es ansprechend? Keine Hashtags, nur Beschreibung."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{image_base64}",
+                                    "detail": "low"  # Schneller und günstiger
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=150
+            )
+
+            return response.choices[0].message.content.strip()
+
+        except Exception as e:
+            logger.warning(f"Image analysis failed (will continue without): {e}")
+            return None
 
     def generate_text_styling(self, keywords: str, overlay_text: str, pin_format: str = '1000x1500') -> dict:
         """

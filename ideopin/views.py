@@ -694,7 +694,7 @@ def api_apply_text_overlay(request, project_id):
 @login_required
 @require_POST
 def api_generate_seo_description(request, project_id):
-    """API: Generiert SEO-optimierte Pin-Beschreibung via GPT"""
+    """API: Generiert die PERFEKTE Pinterest Pin-Beschreibung via GPT + Vision"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
     if not request.user.openai_api_key:
@@ -705,19 +705,37 @@ def api_generate_seo_description(request, project_id):
 
     try:
         from .ai_service import PinAIService
+        import base64
+
         ai_service = PinAIService(request.user)
+
+        # Bild als Base64 laden für Vision-Analyse
+        image_base64 = None
+        image_to_analyze = project.final_image or project.generated_image
+        if image_to_analyze:
+            try:
+                with image_to_analyze.open('rb') as f:
+                    image_base64 = base64.b64encode(f.read()).decode('utf-8')
+                logger.info(f"[SEO] Image loaded for analysis: {len(image_base64)} chars")
+            except Exception as e:
+                logger.warning(f"[SEO] Could not load image for analysis: {e}")
+
         result = ai_service.generate_seo_description(
             keywords=project.keywords,
-            image_description=project.background_description
+            image_description=project.background_description,
+            image_base64=image_base64,
+            overlay_text=project.overlay_text
         )
 
         if result.get('success'):
             project.seo_description = result['description']
             project.seo_description_ai_generated = True
             project.save()
+            logger.info(f"[SEO] Generated description with main keyword: {result.get('main_keyword')}")
             return JsonResponse({
                 'success': True,
-                'description': result['description']
+                'description': result['description'],
+                'main_keyword': result.get('main_keyword')
             })
         else:
             return JsonResponse({
