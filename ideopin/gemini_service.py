@@ -502,19 +502,23 @@ class GeminiImageService:
             if spelled_text != overlay_text:
                 text_styling += f'Letter-by-letter spelling: {spelled_text}\n'
 
-            text_styling += f'Position: {position_text}. '
-            text_styling += f'Typography style: {style_desc}. '
-            text_styling += f'Text color: {text_color_name}'
+            text_styling += f'\nTEXT STYLING (MUST FOLLOW EXACTLY):\n'
+            text_styling += f'- Position: {position_text}\n'
+            text_styling += f'- Typography/Font style: {style_desc}\n'
+            text_styling += f'- Text color: {text_color_name}\n'
             if effect_desc:
-                text_styling += f' {effect_desc}'
-                if text_effect in ['shadow', 'outline']:
-                    text_styling += f' in {secondary_color_name}'
-            text_styling += '.\n'
-            text_styling += 'SPELLING RULES:\n'
+                text_styling += f'- Text effect: {effect_desc}'
+                # Prüfe auf alle Schatten- und Outline-Varianten
+                if text_effect.startswith('shadow') or text_effect.startswith('outline'):
+                    text_styling += f' using {secondary_color_name} color'
+                text_styling += '\n'
+
+            text_styling += f'\nSPELLING RULES:\n'
             text_styling += '- Every single letter must be EXACTLY correct - no substitutions, no missing letters\n'
             text_styling += '- Double-check each word before rendering\n'
             text_styling += '- The text must be LARGE, bold, and highly readable\n'
             text_styling += '- Ensure strong contrast against the background\n'
+            text_styling += '- Apply the typography style and effects specified above\n'
             text_styling += '- If unsure about a letter, refer to the letter-by-letter spelling above'
             prompt_parts.append(text_styling)
 
