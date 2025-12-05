@@ -76,20 +76,25 @@
                             <i class="bi bi-x-circle me-1"></i>Markierung entfernen
                         </button>
                     {% elif project.final_image or project.generated_image %}
-                        <p class="text-muted mb-3">
-                            <small>Öffnet Pinterest zum Merken des Pins</small>
-                        </p>
-                        <button type="button" class="btn w-100" id="btn-pin-it"
+                        <!-- Pin erstellen (erscheint unter "Erstellt") -->
+                        <button type="button" class="btn w-100 mb-2" id="btn-create-pin"
                                 style="background-color: #E60023; color: white;"
-                                onclick="openPinterestShare()">
-                            <i class="bi bi-pinterest me-2"></i>Auf Pinterest merken
+                                onclick="createPinterestPin()">
+                            <i class="bi bi-plus-circle me-2"></i>Pin erstellen
                         </button>
-                        <div class="mt-3">
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Der Pin wird automatisch als gepostet markiert.
-                            </small>
-                        </div>
+                        <p class="text-muted small mb-3">
+                            <i class="bi bi-star-fill text-warning me-1"></i>
+                            Erscheint unter "Erstellt" im Profil
+                        </p>
+
+                        <!-- Pin merken (erscheint unter "Gemerkt") -->
+                        <button type="button" class="btn btn-outline-secondary w-100" id="btn-pin-it"
+                                onclick="openPinterestShare()">
+                            <i class="bi bi-bookmark me-2"></i>Auf Pinterest merken
+                        </button>
+                        <p class="text-muted small mt-1 mb-0">
+                            Erscheint unter "Gemerkt"
+                        </p>
                     {% else %}
                         <div class="alert alert-warning mb-0">
                             <i class="bi bi-exclamation-triangle me-2"></i>
@@ -222,6 +227,82 @@ async function openPinterestShare() {
         setTimeout(() => window.location.reload(), 1000);
     } catch (e) {
         console.log('Konnte nicht als gepostet markieren:', e);
+    }
+}
+
+// Pin erstellen - Bild herunterladen, Text kopieren, Pinterest öffnen
+async function createPinterestPin() {
+    const btn = document.getElementById('btn-create-pin');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird vorbereitet...';
+
+    try {
+        // 1. Bild-URL und Infos sammeln
+        const baseUrl = window.location.origin;
+        {% if project.final_image %}
+        const imageUrl = baseUrl + '{{ project.final_image.url }}';
+        const imageName = 'pin_{{ project.id }}_final.png';
+        {% elif project.generated_image %}
+        const imageUrl = baseUrl + '{{ project.generated_image.url }}';
+        const imageName = 'pin_{{ project.id }}.png';
+        {% else %}
+        const imageUrl = '';
+        const imageName = 'pin.png';
+        {% endif %}
+
+        const linkUrl = '{{ project.pin_url|escapejs }}' || window.location.href;
+        const description = `{{ project.seo_description|escapejs }}`;
+
+        if (!imageUrl) {
+            alert('Kein Bild vorhanden.');
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            return;
+        }
+
+        // 2. Text für Zwischenablage vorbereiten
+        const clipboardText = `${description}\n\n🔗 ${linkUrl}`;
+
+        // 3. In Zwischenablage kopieren
+        await navigator.clipboard.writeText(clipboardText);
+
+        // 4. Bild herunterladen
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = imageName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+
+        // 5. Pinterest Pin-Erstellung öffnen
+        window.open('https://www.pinterest.com/pin-creation-tool/', '_blank');
+
+        // 6. Als gepostet markieren
+        await fetch('{% url "ideopin:api_mark_as_posted" project.id %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+
+        // 7. Erfolgs-Feedback
+        btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Bereit!';
+        btn.classList.remove('btn-primary');
+        btn.style.backgroundColor = '#10b981';
+
+        // Info-Modal anzeigen
+        alert('✅ Bild heruntergeladen!\n✅ Beschreibung in Zwischenablage kopiert!\n\n👉 Jetzt bei Pinterest:\n1. Bild hochladen (aus Downloads)\n2. Text einfügen (Strg+V)\n3. Veröffentlichen');
+
+        setTimeout(() => window.location.reload(), 2000);
+
+    } catch (e) {
+        console.error('Fehler:', e);
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
     }
 }
 
