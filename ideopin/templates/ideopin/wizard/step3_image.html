@@ -72,7 +72,7 @@
                                 <div class="form-check mb-2">
                                     <input type="radio" name="text_integration_mode" value="ideogram"
                                            class="form-check-input" id="text_mode_ideogram"
-                                           {% if project.text_integration_mode == 'ideogram' %}checked{% endif %}>
+                                           {% if project.text_integration_mode != 'none' %}checked{% endif %}>
                                     <label class="form-check-label" for="text_mode_ideogram">
                                         <strong>Von KI designen lassen</strong>
                                         <small class="d-block text-muted">
@@ -80,18 +80,7 @@
                                         </small>
                                     </label>
                                 </div>
-                                <div class="form-check mb-2">
-                                    <input type="radio" name="text_integration_mode" value="pil"
-                                           class="form-check-input" id="text_mode_pil"
-                                           {% if project.text_integration_mode == 'pil' %}checked{% endif %}>
-                                    <label class="form-check-label" for="text_mode_pil">
-                                        <strong>Nachträglich hinzufügen (PIL)</strong>
-                                        <small class="d-block text-muted">
-                                            Text wird nach der Bildgenerierung als Overlay hinzugefügt
-                                        </small>
-                                    </label>
-                                </div>
-                                <div class="form-check mb-2">
+                                <div class="form-check">
                                     <input type="radio" name="text_integration_mode" value="none"
                                            class="form-check-input" id="text_mode_none"
                                            {% if project.text_integration_mode == 'none' %}checked{% endif %}>
@@ -179,13 +168,6 @@
                         </button>
                     </div>
 
-                    <!-- PIL Overlay Button - wird dynamisch angezeigt -->
-                    <div class="mb-4" id="pilOverlayContainer" style="{% if not project.generated_image or project.text_integration_mode != 'pil' %}display: none;{% endif %}">
-                        <button type="button" class="btn btn-outline-primary w-100" id="applyOverlayBtn">
-                            <i class="bi bi-fonts"></i> Text-Overlay anwenden
-                        </button>
-                    </div>
-
                     <hr class="my-4">
 
                     <div class="d-flex justify-content-between">
@@ -252,11 +234,9 @@
 document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generateImageBtn');
     let regenerateBtn = document.getElementById('regenerateImageBtn');
-    const applyOverlayBtn = document.getElementById('applyOverlayBtn');
     const imagePreview = document.getElementById('imagePreview');
     const modelInfoBadge = document.getElementById('modelInfoBadge');
     const modelInfoText = document.getElementById('modelInfoText');
-    const pilOverlayContainer = document.getElementById('pilOverlayContainer');
     const step3Form = document.getElementById('step3Form');
 
     // Bild-Quelle Toggle
@@ -313,12 +293,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Model-Info Badge verstecken
                     if (modelInfoBadge) {
                         modelInfoBadge.style.display = 'none';
-                    }
-
-                    // PIL Overlay Button anzeigen wenn pil mode
-                    const currentTextMode = document.querySelector('input[name="text_integration_mode"]:checked')?.value;
-                    if (currentTextMode === 'pil' && pilOverlayContainer) {
-                        pilOverlayContainer.style.display = 'block';
                     }
 
                     this.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';
@@ -463,64 +437,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (regenerateBtn) {
         regenerateBtn.addEventListener('click', () => generateImage(regenerateBtn, true));
     }
-
-    // Apply PIL overlay
-    if (applyOverlayBtn) {
-        applyOverlayBtn.addEventListener('click', async function() {
-            this.disabled = true;
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Wende Overlay an...';
-
-            try {
-                const response = await fetch('{% url "ideopin:api_apply_overlay" project.id %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    imagePreview.innerHTML = `
-                        <img src="${data.image_url}?t=${Date.now()}" alt="Finales Bild" class="img-fluid">
-                        <span class="badge bg-success mt-2"><i class="bi bi-fonts"></i> Mit Text-Overlay</span>
-                    `;
-                    this.innerHTML = '<i class="bi bi-check-circle"></i> Overlay angewendet!';
-                    this.classList.remove('btn-outline-primary');
-                    this.classList.add('btn-success');
-
-                    // Nach 2 Sekunden Button Text zurücksetzen
-                    setTimeout(() => {
-                        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Overlay erneut anwenden';
-                        this.classList.remove('btn-success');
-                        this.classList.add('btn-outline-primary');
-                        this.disabled = false;
-                    }, 2000);
-                } else {
-                    alert('Fehler: ' + data.error);
-                    this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
-                    this.disabled = false;
-                }
-            } catch (e) {
-                alert('Fehler beim Anwenden des Overlays: ' + e.message);
-                this.innerHTML = '<i class="bi bi-fonts"></i> Text-Overlay anwenden';
-                this.disabled = false;
-            }
-        });
-    }
-
-    // Bei Änderung des Text-Integration-Modus
-    textModeRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            // PIL Button Container anzeigen/verstecken basierend auf Auswahl
-            // und ob ein Bild existiert
-            const hasImage = imagePreview.querySelector('img') !== null;
-            if (this.value === 'pil' && hasImage && pilOverlayContainer) {
-                pilOverlayContainer.style.display = 'block';
-            } else if (pilOverlayContainer) {
-                pilOverlayContainer.style.display = 'none';
-            }
-        });
-    });
 
     // Background Description Generator
     const generateBackgroundBtn = document.getElementById('generateBackgroundBtn');
