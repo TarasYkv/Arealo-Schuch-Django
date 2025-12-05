@@ -214,7 +214,14 @@ async function openPinterestShare() {
     {% endif %}
 
     const linkUrl = '{{ project.pin_url|escapejs }}' || window.location.href;
+    const title = `{{ project.pin_title|escapejs }}`;
     const description = `{{ project.seo_description|escapejs }}`;
+
+    // Kombiniere Titel + Beschreibung für Pinterest
+    let fullDescription = description;
+    if (title) {
+        fullDescription = `${title}\n\n${description}`;
+    }
 
     if (!imageUrl) {
         alert('Kein Bild vorhanden. Bitte zuerst ein Bild generieren.');
@@ -225,7 +232,7 @@ async function openPinterestShare() {
     const params = new URLSearchParams({
         url: linkUrl,
         media: imageUrl,
-        description: description
+        description: fullDescription
     });
 
     // Pinterest-Fenster öffnen

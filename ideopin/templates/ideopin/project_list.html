@@ -186,7 +186,7 @@
                             </button>
                             <!-- Pin merken - erscheint unter "Gemerkt" -->
                             <button type="button" class="btn btn-outline-secondary btn-sm w-100"
-                                    onclick="openPinterestShare('{{ project.final_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }})">
+                                    onclick="openPinterestShare('{{ project.final_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.pin_title|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }})">
                                 <i class="bi bi-bookmark me-1"></i>Auf Pinterest merken
                             </button>
                         {% elif project.generated_image %}
@@ -197,7 +197,7 @@
                             </button>
                             <!-- Pin merken - erscheint unter "Gemerkt" -->
                             <button type="button" class="btn btn-outline-secondary btn-sm w-100"
-                                    onclick="openPinterestShare('{{ project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }})">
+                                    onclick="openPinterestShare('{{ project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.pin_title|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }})">
                                 <i class="bi bi-bookmark me-1"></i>Auf Pinterest merken
                             </button>
                         {% endif %}
@@ -361,16 +361,22 @@ function postPinFromModal() {
 
 <!-- Pin It Funktion - funktioniert immer ohne API -->
 <script>
-async function openPinterestShare(imageUrl, linkUrl, description, projectId) {
+async function openPinterestShare(imageUrl, linkUrl, title, description, projectId) {
     // Vollständige Bild-URL erstellen
     const baseUrl = window.location.origin;
     const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : baseUrl + imageUrl;
+
+    // Kombiniere Titel + Beschreibung für Pinterest
+    let fullDescription = description || '';
+    if (title) {
+        fullDescription = `${title}\n\n${description || ''}`;
+    }
 
     // Pinterest Share URL erstellen
     const params = new URLSearchParams({
         url: linkUrl || window.location.href,
         media: fullImageUrl,
-        description: description || ''
+        description: fullDescription
     });
 
     // Pinterest-Fenster öffnen
