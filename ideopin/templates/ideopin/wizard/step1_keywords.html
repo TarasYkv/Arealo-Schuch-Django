@@ -40,7 +40,8 @@
                             <!-- Keywords werden hier eingefügt -->
                         </div>
                         <div class="form-text mt-2">
-                            Klicke auf ein Keyword, um es hinzuzufügen.
+                            <i class="bi bi-plus-circle"></i> Klicke auf ein Keyword zum Hinzufügen &nbsp;|&nbsp;
+                            <i class="bi bi-pinterest text-danger"></i> Klicke auf das Pinterest-Icon um Suchvolumen zu prüfen
                         </div>
                     </div>
 
@@ -137,12 +138,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const isAlreadyAdded = currentKeywords.has(keywordLower);
             shownSuggestions.add(keywordLower);
 
+            // Container für Keyword + Pinterest-Link
+            const tagGroup = document.createElement('div');
+            tagGroup.className = 'btn-group';
+            tagGroup.dataset.keyword = keywordLower;
+
+            // Keyword-Button
             const tag = document.createElement('button');
             tag.type = 'button';
             tag.className = `btn btn-sm ${isAlreadyAdded ? 'btn-secondary' : 'btn-outline-success'}`;
             tag.textContent = keyword;
             tag.disabled = isAlreadyAdded;
-            tag.dataset.keyword = keywordLower;
 
             if (!isAlreadyAdded) {
                 tag.addEventListener('click', function() {
@@ -152,7 +158,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
 
-            keywordTagsDiv.appendChild(tag);
+            // Pinterest-Recherche-Link
+            const pinterestLink = document.createElement('a');
+            pinterestLink.href = `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(keyword)}`;
+            pinterestLink.target = '_blank';
+            pinterestLink.className = 'btn btn-sm btn-outline-danger';
+            pinterestLink.title = `"${keyword}" auf Pinterest suchen`;
+            pinterestLink.innerHTML = '<i class="bi bi-pinterest"></i>';
+
+            tagGroup.appendChild(tag);
+            tagGroup.appendChild(pinterestLink);
+            keywordTagsDiv.appendChild(tagGroup);
             addedCount++;
         });
 
@@ -176,11 +192,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateTagStatus(keywordLower, isAdded) {
-        const tags = keywordTagsDiv.querySelectorAll('button');
-        tags.forEach(tag => {
-            if (tag.dataset.keyword === keywordLower && isAdded) {
-                tag.className = 'btn btn-sm btn-secondary';
-                tag.disabled = true;
+        const tagGroups = keywordTagsDiv.querySelectorAll('.btn-group');
+        tagGroups.forEach(group => {
+            if (group.dataset.keyword === keywordLower && isAdded) {
+                const btn = group.querySelector('button');
+                if (btn) {
+                    btn.className = 'btn btn-sm btn-secondary';
+                    btn.disabled = true;
+                }
             }
         });
     }
