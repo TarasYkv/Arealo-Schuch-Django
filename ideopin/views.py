@@ -636,6 +636,186 @@ def api_generate_image(request, project_id):
 
 @login_required
 @require_POST
+def api_generate_image_variants(request, project_id):
+    """API: Generiert mehrere Bild-Varianten zur Auswahl"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+        variant_count = min(data.get('count', 3), 4)  # Max 4 Varianten
+    except:
+        variant_count = 3
+
+    # Format und Dimensionen
+    format_dimensions = {
+        '1000x1500': (1000, 1500),
+        '1000x1000': (1000, 1000),
+        '1080x1920': (1080, 1920),
+        '600x900': (600, 900),
+    }
+    width, height = format_dimensions.get(project.pin_format, (1000, 1500))
+
+    # API Provider
+    ai_provider = getattr(request.user, 'ai_provider', 'ideogram') or 'ideogram'
+    has_product_image = bool(project.product_image)
+
+    # Service initialisieren
+    if ai_provider == 'gemini':
+        from .gemini_service import GeminiImageService
+        service = GeminiImageService(request.user.gemini_api_key)
+
+        if project.text_integration_mode == 'ideogram' and project.overlay_text:
+            prompt = GeminiImageService.build_prompt_with_text(
+                background_description=project.background_description,
+                overlay_text=project.overlay_text,
+                text_position=project.text_position,
+                text_style='modern',
+                keywords=project.keywords,
+                has_product_image=has_product_image,
+                text_color=project.text_color or '#FFFFFF',
+                text_effect=project.text_effect or 'shadow',
+                text_secondary_color=project.text_secondary_color or '#000000',
+                style_preset=project.style_preset or 'modern_bold'
+            )
+        else:
+            prompt = GeminiImageService.build_prompt_without_text(
+                background_description=project.background_description,
+                keywords=project.keywords,
+                has_product_image=has_product_image
+            )
+    else:
+        from .ideogram_service import IdeogramService
+        service = IdeogramService(request.user.ideogram_api_key)
+
+        if project.text_integration_mode == 'ideogram' and project.overlay_text:
+            prompt = IdeogramService.build_prompt_with_text(
+                background_description=project.background_description,
+                overlay_text=project.overlay_text,
+                text_position=project.text_position,
+                text_style='modern',
+                keywords=project.keywords,
+                has_product_image=has_product_image,
+                text_color=project.text_color or '#FFFFFF',
+                text_effect=project.text_effect or 'shadow',
+                text_secondary_color=project.text_secondary_color or '#000000',
+                style_preset=project.style_preset or 'modern_bold'
+            )
+        else:
+            prompt = IdeogramService.build_prompt_without_text(
+                background_description=project.background_description,
+                keywords=project.keywords,
+                has_product_image=has_product_image
+            )
+
+    logger.info(f"Generating {variant_count} image variants for project {project_id}")
+
+    # Varianten generieren
+    variants = []
+    import base64
+    import io
+
+    for i in range(variant_count):
+        try:
+            result = service.generate_image(
+                prompt=prompt,
+                reference_image=project.product_image if project.product_image else None,
+                width=width,
+                height=height
+            )
+
+            if result.get('success'):
+                image_data = result['image_data']
+                if isinstance(image_data, str):
+                    # Bereits base64-encoded
+                    variants.append({
+                        'index': i,
+                        'image_data': f"data:image/png;base64,{image_data}"
+                    })
+                else:
+                    variants.append({
+                        'index': i,
+                        'image_data': f"data:image/png;base64,{base64.b64encode(image_data).decode('utf-8')}"
+                    })
+            else:
+                logger.warning(f"Variant {i} failed: {result.get('error')}")
+
+        except Exception as e:
+            logger.error(f"Error generating variant {i}: {e}")
+
+    if variants:
+        return JsonResponse({
+            'success': True,
+            'variants': variants,
+            'count': len(variants)
+        })
+    else:
+        return JsonResponse({
+            'success': False,
+            'error': 'Keine Varianten konnten generiert werden'
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_select_variant(request, project_id):
+    """API: Wählt eine Variante aus und speichert sie"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+        image_data_url = data.get('image_data')
+
+        if not image_data_url:
+            return JsonResponse({'success': False, 'error': 'Keine Bilddaten'}, status=400)
+
+        # Base64 extrahieren
+        import base64
+        from django.core.files.base import ContentFile
+
+        # Format: data:image/png;base64,XXXXX
+        if ',' in image_data_url:
+            image_data = base64.b64decode(image_data_url.split(',')[1])
+        else:
+            image_data = base64.b64decode(image_data_url)
+
+        # Bild auf Format skalieren
+        import io
+        img = Image.open(io.BytesIO(image_data))
+
+        format_dimensions = {
+            '1000x1500': (1000, 1500),
+            '1000x1000': (1000, 1000),
+            '1080x1920': (1080, 1920),
+            '600x900': (600, 900),
+        }
+        width, height = format_dimensions.get(project.pin_format, (1000, 1500))
+        img = resize_and_crop_to_format(img, width, height)
+
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG', quality=95)
+        buffer.seek(0)
+        image_data = buffer.read()
+
+        # Speichern
+        filename = f"generated_{project.id}.png"
+        project.generated_image.save(filename, ContentFile(image_data), save=True)
+
+        # Bei Ideogram-Modus auch als final speichern
+        if project.text_integration_mode == 'ideogram' and project.overlay_text:
+            project.final_image.save(f"final_{project.id}.png", ContentFile(image_data), save=True)
+
+        return JsonResponse({
+            'success': True,
+            'image_url': project.generated_image.url
+        })
+
+    except Exception as e:
+        logger.error(f"Error selecting variant: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
 def api_save_step3(request, project_id):
     """API: Speichert Step 3 Formular-Daten ohne Weiterleitung"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
