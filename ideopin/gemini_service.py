@@ -369,7 +369,9 @@ class GeminiImageService:
         text_color: str = '#FFFFFF',
         text_effect: str = 'shadow',
         text_secondary_color: str = '#000000',
-        style_preset: str = 'modern_bold'
+        style_preset: str = 'modern_bold',
+        text_background_enabled: bool = False,
+        text_background_creative: bool = False
     ) -> str:
         """
         Baut einen optimierten Prompt für Gemini MIT integriertem Text.
@@ -413,6 +415,19 @@ class GeminiImageService:
             # Wenn Text buchstabiert wurde, füge die Buchstabierung hinzu
             if spelled_text != overlay_text:
                 text_styling += f'Spelling: {spelled_text}\n\n'
+
+            # Text-Hintergrund Anweisungen
+            if text_background_enabled:
+                text_styling += f'TEXT BACKGROUND DESIGN:\n'
+                text_styling += '- Place the text on a solid or semi-transparent background shape\n'
+                text_styling += '- The background shape should fit the text perfectly with appropriate padding\n'
+                text_styling += '- Choose a background color that complements the image but creates contrast for the text\n'
+                if text_background_creative:
+                    text_styling += '- Use CREATIVE shapes for the background: banner, ribbon, splash, brush stroke, torn paper, badge, stamp, or artistic geometric forms\n'
+                    text_styling += '- The shape should add visual interest and match the mood of the image\n'
+                else:
+                    text_styling += '- Use a clean, simple shape: rectangle, rounded rectangle, or pill shape\n'
+                text_styling += '\n'
 
             text_styling += f'TYPOGRAPHY DESIGN:\n'
             text_styling += '- Choose typography that MATCHES the mood and theme of the background image\n'

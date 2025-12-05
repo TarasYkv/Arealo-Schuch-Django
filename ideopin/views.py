@@ -504,7 +504,9 @@ def api_generate_image(request, project_id):
                     text_color=project.text_color or '#FFFFFF',
                     text_effect=project.text_effect or 'shadow',
                     text_secondary_color=project.text_secondary_color or '#000000',
-                    style_preset=project.style_preset or 'modern_bold'
+                    style_preset=project.style_preset or 'modern_bold',
+                    text_background_enabled=project.text_background_enabled,
+                    text_background_creative=project.text_background_creative
                 )
                 logger.info(f"[Gemini] Generating image WITH integrated text: {project.overlay_text}")
                 logger.info(f"[Gemini] Styling from DB: preset={project.style_preset}, effect={project.text_effect}, color={project.text_color}, secondary={project.text_secondary_color}")
@@ -542,7 +544,9 @@ def api_generate_image(request, project_id):
                     text_color=project.text_color or '#FFFFFF',
                     text_effect=project.text_effect or 'shadow',
                     text_secondary_color=project.text_secondary_color or '#000000',
-                    style_preset=project.style_preset or 'modern_bold'
+                    style_preset=project.style_preset or 'modern_bold',
+                    text_background_enabled=project.text_background_enabled,
+                    text_background_creative=project.text_background_creative
                 )
                 logger.info(f"[Ideogram] Generating image WITH integrated text: {project.overlay_text}")
                 logger.info(f"[Ideogram] Styling: preset={project.style_preset}, effect={project.text_effect}, color={project.text_color}")
@@ -675,7 +679,9 @@ def api_generate_image_variants(request, project_id):
                 text_color=project.text_color or '#FFFFFF',
                 text_effect=project.text_effect or 'shadow',
                 text_secondary_color=project.text_secondary_color or '#000000',
-                style_preset=project.style_preset or 'modern_bold'
+                style_preset=project.style_preset or 'modern_bold',
+                text_background_enabled=project.text_background_enabled,
+                text_background_creative=project.text_background_creative
             )
         else:
             prompt = GeminiImageService.build_prompt_without_text(
@@ -698,7 +704,9 @@ def api_generate_image_variants(request, project_id):
                 text_color=project.text_color or '#FFFFFF',
                 text_effect=project.text_effect or 'shadow',
                 text_secondary_color=project.text_secondary_color or '#000000',
-                style_preset=project.style_preset or 'modern_bold'
+                style_preset=project.style_preset or 'modern_bold',
+                text_background_enabled=project.text_background_enabled,
+                text_background_creative=project.text_background_creative
             )
         else:
             prompt = IdeogramService.build_prompt_without_text(

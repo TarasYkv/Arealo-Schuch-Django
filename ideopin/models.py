@@ -163,6 +163,18 @@ class PinProject(models.Model):
     )
     overlay_text_ai_generated = models.BooleanField(default=False)
 
+    # Text-Hintergrund Optionen
+    text_background_enabled = models.BooleanField(
+        default=False,
+        verbose_name="Text-Hintergrund",
+        help_text="Text auf einem formpassenden Hintergrund platzieren"
+    )
+    text_background_creative = models.BooleanField(
+        default=False,
+        verbose_name="Kreative Formen",
+        help_text="Hintergrund kann kreative Formen haben (Banner, Ribbon, etc.)"
+    )
+
     # Schritt 3: Bild
     product_image = models.ImageField(
         upload_to='ideopin/products/',

@@ -38,6 +38,25 @@
                         <div class="form-text">Wo soll der Text im Bild platziert werden?</div>
                     </div>
 
+                    <!-- Text-Hintergrund Optionen -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Text-Hintergrund</label>
+                        <div class="form-check mb-2">
+                            {{ form.text_background_enabled }}
+                            <label class="form-check-label" for="text_background_enabled">
+                                Text auf formpassendem Hintergrund platzieren
+                            </label>
+                            <div class="form-text">Der Text wird auf einem farblich passenden Hintergrund-Element platziert</div>
+                        </div>
+                        <div class="form-check ms-4" id="creativeFormsOption" style="display: none;">
+                            {{ form.text_background_creative }}
+                            <label class="form-check-label" for="text_background_creative">
+                                Kreative Formen erlauben
+                            </label>
+                            <div class="form-text">Hintergrund kann kreative Formen haben (Banner, Ribbon, Splash, etc.)</div>
+                        </div>
+                    </div>
+
                     <div class="alert alert-info">
                         <i class="bi bi-magic"></i>
                         <strong>KI-Design:</strong> Die KI wählt automatisch Schriftart, Farben und Effekte,
@@ -110,6 +129,41 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateTextBtn = document.getElementById('generateTextBtn');
     const positionSelect = document.querySelector('[name="text_position"]');
     const pinPreview = document.getElementById('textPreview');
+    const textBgEnabled = document.getElementById('text_background_enabled');
+    const textBgCreative = document.getElementById('text_background_creative');
+    const creativeFormsOption = document.getElementById('creativeFormsOption');
+
+    // Text-Hintergrund Option: Zeige/Verstecke kreative Formen Option
+    function updateCreativeFormsVisibility() {
+        if (textBgEnabled && textBgEnabled.checked) {
+            creativeFormsOption.style.display = 'block';
+        } else {
+            creativeFormsOption.style.display = 'none';
+            if (textBgCreative) textBgCreative.checked = false;
+        }
+        updatePreviewBackground();
+    }
+
+    // Preview mit/ohne Hintergrund aktualisieren
+    function updatePreviewBackground() {
+        if (textBgEnabled && textBgEnabled.checked) {
+            previewContainer.style.background = 'rgba(0,0,0,0.6)';
+            previewContainer.style.borderRadius = textBgCreative && textBgCreative.checked ? '20px 5px 20px 5px' : '8px';
+            previewContainer.style.padding = '15px 25px';
+        } else {
+            previewContainer.style.background = 'transparent';
+            previewContainer.style.borderRadius = '0';
+            previewContainer.style.padding = '20px';
+        }
+    }
+
+    if (textBgEnabled) {
+        textBgEnabled.addEventListener('change', updateCreativeFormsVisibility);
+        updateCreativeFormsVisibility();
+    }
+    if (textBgCreative) {
+        textBgCreative.addEventListener('change', updatePreviewBackground);
+    }
 
     // Text counter & preview update
     function updateCounter() {

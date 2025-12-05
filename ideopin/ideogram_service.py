@@ -295,7 +295,9 @@ class IdeogramService:
         text_color: str = '#FFFFFF',
         text_effect: str = 'shadow',
         text_secondary_color: str = '#000000',
-        style_preset: str = 'modern_bold'
+        style_preset: str = 'modern_bold',
+        text_background_enabled: bool = False,
+        text_background_creative: bool = False
     ) -> str:
         """
         Baut einen optimierten Prompt für Bildgenerierung MIT integriertem Text.
@@ -314,6 +316,8 @@ class IdeogramService:
             text_effect: (ignoriert - KI wählt passenden Effekt)
             text_secondary_color: (ignoriert)
             style_preset: (ignoriert - KI wählt passenden Style)
+            text_background_enabled: Text auf Hintergrund-Form platzieren
+            text_background_creative: Kreative Formen für Hintergrund erlauben
 
         Returns:
             Optimierter Prompt für Ideogram
@@ -356,6 +360,26 @@ class IdeogramService:
             text_instruction = (
                 f'CRITICAL TEXT REQUIREMENT: Display the exact text "{overlay_text}" {position_text}. '
                 f'Letter-by-letter spelling for accuracy: {spelled_text}. '
+            )
+
+            # Text-Hintergrund Anweisungen
+            if text_background_enabled:
+                text_instruction += (
+                    f'TEXT BACKGROUND: Place the text on a solid or semi-transparent background shape. '
+                    f'The background shape should fit the text with appropriate padding. '
+                    f'Choose a background color that creates contrast for the text. '
+                )
+                if text_background_creative:
+                    text_instruction += (
+                        f'Use CREATIVE shapes for the background: banner, ribbon, splash, brush stroke, '
+                        f'torn paper, badge, stamp, or artistic geometric forms that match the image mood. '
+                    )
+                else:
+                    text_instruction += (
+                        f'Use a clean, simple shape: rectangle, rounded rectangle, or pill shape. '
+                    )
+
+            text_instruction += (
                 f'TYPOGRAPHY DESIGN: '
                 f'- Choose typography that MATCHES the mood and theme of the background image. '
                 f'- Use colors that create STRONG CONTRAST for readability but harmonize with the image palette. '

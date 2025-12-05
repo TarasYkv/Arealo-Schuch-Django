@@ -25,6 +25,8 @@ class Step2TextForm(forms.ModelForm):
         fields = [
             'overlay_text',
             'text_position',
+            'text_background_enabled',
+            'text_background_creative',
         ]
         widgets = {
             'overlay_text': forms.Textarea(attrs={
@@ -34,6 +36,14 @@ class Step2TextForm(forms.ModelForm):
                 'maxlength': 200
             }),
             'text_position': forms.Select(attrs={'class': 'form-select'}),
+            'text_background_enabled': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'id': 'text_background_enabled'
+            }),
+            'text_background_creative': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'id': 'text_background_creative'
+            }),
         }
 
 
