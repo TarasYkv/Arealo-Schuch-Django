@@ -1023,6 +1023,55 @@ def api_pinterest_boards(request):
 
 @login_required
 @require_POST
+def api_mark_as_posted(request, project_id):
+    """API: Markiert einen Pin manuell als auf Pinterest gepostet"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        project.pinterest_posted = True
+        project.pinterest_posted_at = timezone.now()
+        project.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Pin als gepostet markiert'
+        })
+
+    except Exception as e:
+        logger.error(f"Error marking pin as posted: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_unmark_as_posted(request, project_id):
+    """API: Entfernt die 'gepostet' Markierung von einem Pin"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        project.pinterest_posted = False
+        project.pinterest_pin_id = ''
+        project.pinterest_posted_at = None
+        project.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Markierung entfernt'
+        })
+
+    except Exception as e:
+        logger.error(f"Error unmarking pin as posted: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_post_to_pinterest(request, project_id):
     """API: Postet einen Pin auf Pinterest"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)

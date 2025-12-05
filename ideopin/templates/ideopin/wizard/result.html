@@ -65,19 +65,32 @@
                     </div>
                 {% else %}
                     <!-- Pin It Button - funktioniert ohne API -->
-                    <p class="text-muted mb-3">
-                        <small>Öffnet Pinterest zum Erstellen des Pins</small>
-                    </p>
-                    {% if project.final_image or project.generated_image %}
-                        <button type="button" class="btn w-100" id="btn-pin-it"
+                    {% if project.pinterest_posted %}
+                        <!-- Bereits als gepostet markiert -->
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            <strong>Als gepostet markiert!</strong><br>
+                            <small>{{ project.pinterest_posted_at|date:"d.m.Y H:i" }}</small>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="unmarkAsPosted()">
+                            <i class="bi bi-x-circle me-1"></i>Markierung entfernen
+                        </button>
+                    {% elif project.final_image or project.generated_image %}
+                        <p class="text-muted mb-3">
+                            <small>Öffnet Pinterest zum Erstellen des Pins</small>
+                        </p>
+                        <button type="button" class="btn w-100 mb-2" id="btn-pin-it"
                                 style="background-color: #E60023; color: white;"
                                 onclick="openPinterestShare()">
                             <i class="bi bi-pinterest me-2"></i>Auf Pinterest teilen
                         </button>
+                        <button type="button" class="btn btn-outline-success btn-sm w-100" id="btn-mark-posted" onclick="markAsPosted()">
+                            <i class="bi bi-check-circle me-1"></i>Als gepostet markieren
+                        </button>
                         <div class="mt-3">
                             <small class="text-muted">
                                 <i class="bi bi-info-circle me-1"></i>
-                                Du kannst Board und Details direkt bei Pinterest auswählen.
+                                Nach dem Teilen auf Pinterest, klicke "Als gepostet markieren".
                             </small>
                         </div>
                     {% else %}
@@ -201,6 +214,60 @@ function openPinterestShare() {
     // Pinterest-Fenster öffnen
     const pinterestUrl = `https://www.pinterest.com/pin/create/button/?${params.toString()}`;
     window.open(pinterestUrl, 'pinterest-share', 'width=750,height=600,scrollbars=yes');
+}
+
+// Als gepostet markieren
+async function markAsPosted() {
+    const btn = document.getElementById('btn-mark-posted');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Markiere...';
+
+    try {
+        const response = await fetch('{% url "ideopin:api_mark_as_posted" project.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Seite neu laden um Status zu aktualisieren
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+// Markierung entfernen
+async function unmarkAsPosted() {
+    if (!confirm('Markierung wirklich entfernen?')) return;
+
+    try {
+        const response = await fetch('{% url "ideopin:api_unmark_as_posted" project.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+    }
 }
 
 function copyToClipboard(elementId) {

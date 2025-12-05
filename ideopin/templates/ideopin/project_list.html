@@ -150,29 +150,52 @@
                     </div>
                     {% if project.status == 'completed' %}
                         {% if project.pinterest_posted %}
-                            <a href="https://www.pinterest.com/pin/{{ project.pinterest_pin_id }}/"
-                               target="_blank" class="btn btn-outline-danger btn-sm w-100">
-                                <i class="bi bi-box-arrow-up-right me-1"></i>Auf Pinterest ansehen
-                            </a>
+                            <!-- Bereits gepostet -->
+                            {% if project.pinterest_pin_id %}
+                                <a href="https://www.pinterest.com/pin/{{ project.pinterest_pin_id }}/"
+                                   target="_blank" class="btn btn-outline-danger btn-sm w-100 mb-1">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Auf Pinterest ansehen
+                                </a>
+                            {% else %}
+                                <div class="text-center text-success small mb-1">
+                                    <i class="bi bi-check-circle-fill"></i> Gepostet am {{ project.pinterest_posted_at|date:"d.m.Y" }}
+                                </div>
+                            {% endif %}
+                            <button type="button" class="btn btn-outline-secondary btn-sm w-100"
+                                    onclick="unmarkAsPosted({{ project.id }})">
+                                <i class="bi bi-x-circle me-1"></i>Markierung entfernen
+                            </button>
                         {% elif pinterest_connected %}
                             <!-- OAuth-basiertes Posting -->
-                            <button type="button" class="btn btn-pinterest btn-sm w-100"
+                            <button type="button" class="btn btn-pinterest btn-sm w-100 mb-1"
                                     data-bs-toggle="modal" data-bs-target="#pinterestModal"
                                     data-project-id="{{ project.id }}"
                                     data-project-title="{{ project.keywords|truncatechars:30 }}">
                                 <i class="bi bi-pinterest me-1"></i>Auf Pinterest posten
                             </button>
+                            <button type="button" class="btn btn-outline-success btn-sm w-100"
+                                    onclick="markAsPosted({{ project.id }})">
+                                <i class="bi bi-check-circle me-1"></i>Als gepostet markieren
+                            </button>
                         {% elif project.final_image %}
                             <!-- Pin It Button - mit final_image -->
-                            <button type="button" class="btn btn-pinterest btn-sm w-100"
+                            <button type="button" class="btn btn-pinterest btn-sm w-100 mb-1"
                                     onclick="openPinterestShare('{{ project.final_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}')">
                                 <i class="bi bi-pinterest me-1"></i>Auf Pinterest teilen
                             </button>
+                            <button type="button" class="btn btn-outline-success btn-sm w-100"
+                                    onclick="markAsPosted({{ project.id }})">
+                                <i class="bi bi-check-circle me-1"></i>Als gepostet markieren
+                            </button>
                         {% elif project.generated_image %}
                             <!-- Pin It Button - mit generated_image -->
-                            <button type="button" class="btn btn-pinterest btn-sm w-100"
+                            <button type="button" class="btn btn-pinterest btn-sm w-100 mb-1"
                                     onclick="openPinterestShare('{{ project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}')">
                                 <i class="bi bi-pinterest me-1"></i>Auf Pinterest teilen
+                            </button>
+                            <button type="button" class="btn btn-outline-success btn-sm w-100"
+                                    onclick="markAsPosted({{ project.id }})">
+                                <i class="bi bi-check-circle me-1"></i>Als gepostet markieren
                             </button>
                         {% endif %}
                     {% endif %}
@@ -350,6 +373,68 @@ function openPinterestShare(imageUrl, linkUrl, description) {
     // Pinterest-Fenster öffnen
     const pinterestUrl = `https://www.pinterest.com/pin/create/button/?${params.toString()}`;
     window.open(pinterestUrl, 'pinterest-share', 'width=750,height=600,scrollbars=yes');
+}
+
+// Als gepostet markieren
+async function markAsPosted(projectId) {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const response = await fetch(`/ideopin/api/pinterest/mark-posted/${projectId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+// Markierung entfernen
+async function unmarkAsPosted(projectId) {
+    if (!confirm('Markierung wirklich entfernen?')) return;
+
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const response = await fetch(`/ideopin/api/pinterest/unmark-posted/${projectId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
 }
 </script>
 {% endblock %}

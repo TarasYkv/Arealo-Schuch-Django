@@ -35,4 +35,6 @@ urlpatterns = [
     # Pinterest API
     path('api/pinterest/boards/', views.api_pinterest_boards, name='api_pinterest_boards'),
     path('api/pinterest/post/<int:project_id>/', views.api_post_to_pinterest, name='api_post_to_pinterest'),
+    path('api/pinterest/mark-posted/<int:project_id>/', views.api_mark_as_posted, name='api_mark_as_posted'),
+    path('api/pinterest/unmark-posted/<int:project_id>/', views.api_unmark_as_posted, name='api_unmark_as_posted'),
 ]
