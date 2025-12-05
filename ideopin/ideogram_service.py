@@ -356,8 +356,11 @@ class IdeogramService:
             text_instruction = (
                 f'CRITICAL TEXT REQUIREMENT: Display the exact text "{overlay_text}" {position_text}. '
                 f'Letter-by-letter spelling for accuracy: {spelled_text}. '
-                f'TYPOGRAPHY: Choose a beautiful, professional typography style that perfectly contrasts with the background. '
-                f'Use colors and effects that make the text pop and stand out beautifully against the image. '
+                f'TYPOGRAPHY DESIGN: '
+                f'- Choose typography that MATCHES the mood and theme of the background image. '
+                f'- Use colors that create STRONG CONTRAST for readability but harmonize with the image palette. '
+                f'- Add subtle effects (shadow, glow, outline) that complement the image style. '
+                f'- The text should feel like a natural, professional part of the design. '
                 f'SPELLING RULES: '
                 f'- Every letter must be EXACTLY correct, no substitutions, no missing letters. '
                 f'- The text "{overlay_text}" must be large, bold, highly readable. '

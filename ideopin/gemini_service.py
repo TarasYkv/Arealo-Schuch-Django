@@ -414,15 +414,16 @@ class GeminiImageService:
             if spelled_text != overlay_text:
                 text_styling += f'Spelling: {spelled_text}\n\n'
 
-            text_styling += f'TYPOGRAPHY:\n'
-            text_styling += '- Choose a beautiful, professional typography style that perfectly contrasts with the background\n'
-            text_styling += '- Use colors and effects that make the text pop and stand out beautifully against the image\n'
-            text_styling += '- The text must be highly readable and eye-catching\n\n'
+            text_styling += f'TYPOGRAPHY DESIGN:\n'
+            text_styling += '- Choose typography that MATCHES the mood and theme of the background image\n'
+            text_styling += '- Use colors that create STRONG CONTRAST for readability but harmonize with the image palette\n'
+            text_styling += '- Add subtle effects (shadow, glow, outline) that complement the image style\n'
+            text_styling += '- The text should feel like a natural, professional part of the design\n\n'
 
             text_styling += f'TEXT RULES:\n'
             text_styling += '- Spelling must be 100% accurate\n'
             text_styling += '- Text must be LARGE and bold\n'
-            text_styling += '- Strong contrast against background'
+            text_styling += '- High contrast for readability, but colors that fit the image'
             prompt_parts.append(text_styling)
 
         # Format und Qualität - WICHTIG: Vertikales Pinterest-Format explizit betonen
