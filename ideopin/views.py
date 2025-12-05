@@ -862,14 +862,28 @@ def api_generate_seo_description(request, project_id):
 @login_required
 def project_list(request):
     """Liste aller Pin-Projekte"""
-    # Nicht gepostete zuerst, dann nach Aktualisierungsdatum
-    projects = PinProject.objects.filter(user=request.user).order_by('pinterest_posted', '-updated_at')
+    # Filter-Parameter auslesen
+    filter_by = request.GET.get('filter', 'all')
 
-    # Statistiken berechnen
-    total_count = projects.count()
-    posted_count = projects.filter(pinterest_posted=True).count()
-    completed_count = projects.filter(status='completed').count()
+    # Basis-Queryset
+    all_projects = PinProject.objects.filter(user=request.user)
+
+    # Statistiken berechnen (immer auf alle Projekte)
+    total_count = all_projects.count()
+    posted_count = all_projects.filter(pinterest_posted=True).count()
+    completed_count = all_projects.filter(status='completed').count()
     to_post_count = completed_count - posted_count  # Fertig aber noch nicht gepostet
+    drafts_count = total_count - completed_count  # Nicht fertige Pins
+
+    # Filter anwenden
+    if filter_by == 'posted':
+        projects = all_projects.filter(pinterest_posted=True).order_by('-pinterest_posted_at')
+    elif filter_by == 'not_posted':
+        projects = all_projects.filter(pinterest_posted=False, status='completed').order_by('-updated_at')
+    elif filter_by == 'drafts':
+        projects = all_projects.exclude(status='completed').order_by('-updated_at')
+    else:  # 'all'
+        projects = all_projects.order_by('pinterest_posted', '-updated_at')
 
     # Pinterest-Verbindungsstatus prüfen
     pinterest_connected = False
@@ -887,6 +901,8 @@ def project_list(request):
         'posted_count': posted_count,
         'completed_count': completed_count,
         'to_post_count': to_post_count,
+        'drafts_count': drafts_count,
+        'current_filter': filter_by,
     }
     return render(request, 'ideopin/project_list.html', context)
 
