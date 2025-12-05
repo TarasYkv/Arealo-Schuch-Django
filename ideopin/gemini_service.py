@@ -374,6 +374,8 @@ class GeminiImageService:
         """
         Baut einen optimierten Prompt für Gemini MIT integriertem Text.
 
+        Die KI wählt selbst den besten Text-Style passend zum Bild.
+
         Gemini (Nano Banana) kann:
         - Text perfekt und ohne Fehler rendern
         - Produkte aus Referenzbildern extrahieren und integrieren
@@ -384,96 +386,6 @@ class GeminiImageService:
             'bottom': 'at the bottom of the image'
         }
         position_text = position_map.get(text_position, 'prominently displayed')
-
-        # Style-Preset zu Beschreibung
-        style_preset_descriptions = {
-            # Modern & Clean
-            'modern_bold': 'modern, bold sans-serif typography with strong visual impact',
-            'minimal_clean': 'minimalist, clean typography with lots of whitespace',
-            'tech_futuristic': 'futuristic tech-style typography with sleek, digital aesthetic',
-            'geometric': 'geometric modern typography with clean lines and shapes',
-            # Elegant & Classic
-            'elegant_serif': 'elegant serif typography with classic, refined styling',
-            'luxury_gold': 'luxurious gold-accented typography with premium feel',
-            'wedding_romantic': 'romantic, soft typography with elegant script accents',
-            'art_deco': 'Art Déco inspired typography with geometric elegance',
-            # Colorful & Fun
-            'playful_color': 'playful, colorful typography with fun, energetic feel',
-            'neon_glow': 'vibrant neon glowing typography with electric colors',
-            'pastel_soft': 'soft pastel-colored typography with gentle, dreamy feel',
-            'gradient_vibrant': 'vibrant gradient typography with dynamic color transitions',
-            'rainbow': 'colorful rainbow typography with playful multi-color effect',
-            # Dark & Moody
-            'dark_contrast': 'high-contrast dark theme with bold white or bright text',
-            'midnight_blue': 'deep midnight blue theme with elegant light text',
-            'noir_dramatic': 'dramatic film noir style with high contrast black and white',
-            # Light & Fresh
-            'bright_fresh': 'bright, fresh typography with light colors and clean lines',
-            'summer_beach': 'sunny beach-inspired typography with warm, tropical colors',
-            'spring_floral': 'delicate spring-inspired typography with floral accents',
-            # Retro & Vintage
-            'vintage_retro': 'vintage retro typography with nostalgic styling',
-            'retro_70s': '1970s retro typography with groovy, warm earth tones',
-            'polaroid': 'polaroid-inspired typography with vintage photo aesthetic',
-            # Business & Professional
-            'professional': 'professional business typography, clean and corporate',
-            'corporate_blue': 'corporate blue-toned typography with trustworthy feel',
-            'startup': 'modern startup typography with innovative, tech-forward style',
-            # Special Themes
-            'food_warm': 'warm, appetizing typography perfect for food content',
-            'nature_organic': 'organic, natural typography with earthy, green tones',
-            'fitness_energy': 'energetic, dynamic typography with bold, motivating style',
-            'kids_playful': 'playful, child-friendly typography with fun colors',
-            'christmas': 'festive Christmas typography with red, green, and gold',
-            'halloween': 'spooky Halloween typography with orange, purple, and black',
-        }
-        style_desc = style_preset_descriptions.get(style_preset, style_preset_descriptions['modern_bold'])
-
-        # Text-Effekt zu Beschreibung
-        effect_descriptions = {
-            'none': '',
-            # Schatten-Varianten
-            'shadow': 'with a subtle drop shadow for depth',
-            'shadow_soft': 'with a soft, diffused shadow for gentle depth',
-            'shadow_hard': 'with a hard, defined drop shadow',
-            'shadow_long': 'with a long dramatic shadow extending from the text',
-            'shadow_3d': 'with a 3D layered shadow effect creating depth',
-            # Outline/Kontur
-            'outline': 'with a contrasting outline/stroke around the letters',
-            'outline_thin': 'with a thin, delicate outline around the letters',
-            'outline_thick': 'with a thick, bold outline around the letters',
-            'outline_double': 'with a double-line outline effect',
-            # Leuchteffekte
-            'glow': 'with a soft glowing effect',
-            'glow_neon': 'with a bright neon glow effect like a neon sign',
-            'glow_soft': 'with a subtle, soft ambient glow',
-            # Hintergrund-Elemente
-            'highlight': 'with a text highlighter effect behind the text',
-            'underline': 'with a decorative underline accent',
-            'box': 'inside a rectangular box background',
-            'rounded_box': 'inside a rounded rectangle box background',
-            'pill': 'inside a pill-shaped background',
-            # Spezielle Effekte
-            'frame': 'inside a decorative frame or border',
-            'banner': 'on a ribbon or banner background',
-            'badge': 'inside a badge or stamp design',
-            'stamp': 'styled as a vintage rubber stamp',
-            'torn_paper': 'on a torn paper background effect',
-            'gradient_text': 'with gradient colors flowing through the text',
-        }
-        effect_desc = effect_descriptions.get(text_effect, '')
-
-        # Farbe zu Beschreibung
-        def hex_to_color_name(hex_color):
-            color_map = {
-                '#FFFFFF': 'white', '#000000': 'black', '#FF0000': 'red',
-                '#00FF00': 'green', '#0000FF': 'blue', '#FFFF00': 'yellow',
-                '#FF6600': 'orange', '#800080': 'purple', '#FFC0CB': 'pink',
-            }
-            return color_map.get(hex_color.upper(), hex_color)
-
-        text_color_name = hex_to_color_name(text_color)
-        secondary_color_name = hex_to_color_name(text_secondary_color)
 
         prompt_parts = []
 
@@ -490,40 +402,26 @@ class GeminiImageService:
             if background_description:
                 prompt_parts.append(f"Create a Pinterest pin with this scene: {background_description.strip()}")
 
-        # Text-Integration mit detailliertem Styling und Rechtschreibhilfe
+        # Text-Integration - KI wählt selbst den besten Style
         if overlay_text:
             # Buchstabiere lange Wörter für bessere Genauigkeit
             spelled_text = spell_out_text(overlay_text)
 
-            # Farbe besonders hervorheben - KI-Modelle neigen zu Schwarz-Weiß
-            color_emphasis = f'The text MUST be {text_color_name.upper()} colored - NOT black, NOT white unless specified.'
-            if text_color_name.lower() in ['white', 'weiß', '#ffffff']:
-                color_emphasis = f'The text MUST be WHITE colored.'
-            elif text_color_name.lower() in ['black', 'schwarz', '#000000']:
-                color_emphasis = f'The text MUST be BLACK colored.'
-
             text_styling = f'CRITICAL TEXT REQUIREMENT:\n'
-            text_styling += f'Display text: "{overlay_text}"\n'
-            text_styling += f'{color_emphasis}\n\n'
+            text_styling += f'Display text: "{overlay_text}" {position_text}\n\n'
 
             # Wenn Text buchstabiert wurde, füge die Buchstabierung hinzu
             if spelled_text != overlay_text:
                 text_styling += f'Spelling: {spelled_text}\n\n'
 
-            text_styling += f'MANDATORY TEXT STYLING:\n'
-            text_styling += f'1. COLOR: {text_color_name.upper()} text (this is critical!)\n'
-            text_styling += f'2. POSITION: {position_text}\n'
-            text_styling += f'3. STYLE: {style_desc}\n'
-            if effect_desc:
-                text_styling += f'4. EFFECT: {effect_desc}'
-                if text_effect.startswith('shadow') or text_effect.startswith('outline'):
-                    text_styling += f' in {secondary_color_name}'
-                text_styling += '\n'
+            text_styling += f'TYPOGRAPHY:\n'
+            text_styling += '- Choose a beautiful, professional typography style that perfectly contrasts with the background\n'
+            text_styling += '- Use colors and effects that make the text pop and stand out beautifully against the image\n'
+            text_styling += '- The text must be highly readable and eye-catching\n\n'
 
-            text_styling += f'\nTEXT RULES:\n'
+            text_styling += f'TEXT RULES:\n'
             text_styling += '- Spelling must be 100% accurate\n'
             text_styling += '- Text must be LARGE and bold\n'
-            text_styling += f'- Use {text_color_name} color for the text - do not deviate!\n'
             text_styling += '- Strong contrast against background'
             prompt_parts.append(text_styling)
 
