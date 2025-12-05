@@ -21,6 +21,20 @@
                             Ziel-URL
                         </label>
                         {{ form.pin_url }}
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertPrefix('https://')">
+                                https://
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertPrefix('https://www.')">
+                                https://www.
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSuffix('.de')">
+                                .de
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertSuffix('.com')">
+                                .com
+                            </button>
+                        </div>
                         <div class="form-text">
                             Beispiel: https://deinshop.de/produkt-seite
                         </div>
@@ -47,4 +61,27 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+const urlInput = document.getElementById('{{ form.pin_url.id_for_label }}');
+
+function insertPrefix(text) {
+    // Entferne existierendes http:// oder https:// wenn vorhanden
+    let currentValue = urlInput.value;
+    currentValue = currentValue.replace(/^https?:\/\/(www\.)?/i, '');
+    urlInput.value = text + currentValue;
+    urlInput.focus();
+}
+
+function insertSuffix(text) {
+    // Füge Suffix am Ende hinzu (oder ersetze existierende TLD)
+    let currentValue = urlInput.value;
+    // Entferne existierende TLD am Ende wenn vorhanden
+    currentValue = currentValue.replace(/\.(de|com|net|org|at|ch|eu|io)$/i, '');
+    urlInput.value = currentValue + text;
+    urlInput.focus();
+}
+</script>
 {% endblock %}
