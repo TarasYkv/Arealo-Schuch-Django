@@ -43,10 +43,18 @@
 
                     <div class="mb-4">
                         <label class="form-label fw-bold">Hintergrund-Beschreibung</label>
-                        {{ form.background_description }}
+                        <div class="input-group mb-2">
+                            {{ form.background_description }}
+                            <button type="button" class="btn btn-outline-primary" id="generateBackgroundBtn" title="KI erstellt eine realistische Beschreibung aus deinen Stichwörtern">
+                                <i class="bi bi-magic"></i>
+                            </button>
+                        </div>
                         <div class="form-text">
-                            Beschreibe den gewünschten Hintergrund.
-                            Z.B.: "Heller, minimalistischer Hintergrund mit pastellfarbenen Blumen"
+                            <strong>Option 1:</strong> Schreibe eine detaillierte Beschreibung selbst.<br>
+                            <strong>Option 2:</strong> Gib Stichwörter ein (z.B. "Küche, Kochen, Familie") und klicke auf <i class="bi bi-magic"></i> – die KI erstellt eine fotorealistische Beschreibung.
+                        </div>
+                        <div id="backgroundGeneratorInfo" class="alert alert-info mt-2 d-none">
+                            <small><i class="bi bi-camera"></i> <strong>Fotorealismus:</strong> Die KI optimiert deine Stichwörter für realistische Bilder mit echten Farben, natürlichem Licht und realistischen Schatten.</small>
                         </div>
                     </div>
 
@@ -381,6 +389,55 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Background Description Generator
+    const generateBackgroundBtn = document.getElementById('generateBackgroundBtn');
+    const backgroundInput = document.getElementById('id_background_description');
+    const backgroundGeneratorInfo = document.getElementById('backgroundGeneratorInfo');
+
+    if (generateBackgroundBtn && backgroundInput) {
+        generateBackgroundBtn.addEventListener('click', async function() {
+            const keywords = backgroundInput.value.trim();
+
+            if (!keywords) {
+                alert('Bitte gib zuerst Stichwörter oder eine kurze Beschreibung ein.');
+                return;
+            }
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const response = await fetch('{% url "ideopin:api_generate_background" project.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        keywords: keywords,
+                        project_keywords: '{{ project.keywords|escapejs }}'
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    backgroundInput.value = data.description;
+                    backgroundGeneratorInfo.classList.remove('d-none');
+                    setTimeout(() => {
+                        backgroundGeneratorInfo.classList.add('d-none');
+                    }, 5000);
+                } else {
+                    alert('Fehler: ' + data.error);
+                }
+            } catch (e) {
+                alert('Fehler bei der Generierung: ' + e.message);
+            }
+
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-magic"></i>';
+        });
+    }
 });
 </script>
 {% endblock %}

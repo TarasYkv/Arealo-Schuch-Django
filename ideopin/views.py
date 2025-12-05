@@ -693,6 +693,63 @@ def api_apply_text_overlay(request, project_id):
 
 @login_required
 @require_POST
+def api_generate_background_description(request, project_id):
+    """API: Generiert eine fotorealistische Hintergrund-Beschreibung aus Stichwörtern"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    if not request.user.openai_api_key:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein OpenAI API-Key konfiguriert. Bitte in den API-Einstellungen hinterlegen.'
+        }, status=400)
+
+    try:
+        import json
+        data = json.loads(request.body)
+        user_keywords = data.get('keywords', '')
+        project_keywords = data.get('project_keywords', project.keywords)
+
+        if not user_keywords:
+            return JsonResponse({
+                'success': False,
+                'error': 'Bitte gib Stichwörter ein.'
+            }, status=400)
+
+        from .ai_service import PinAIService
+        ai_service = PinAIService(request.user)
+
+        result = ai_service.generate_realistic_background_description(
+            user_input=user_keywords,
+            project_keywords=project_keywords
+        )
+
+        if result.get('success'):
+            logger.info(f"[Background] Generated realistic description: {result['description'][:100]}...")
+            return JsonResponse({
+                'success': True,
+                'description': result['description']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Unbekannter Fehler')
+            }, status=500)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige Anfrage'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error generating background description: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_generate_seo_description(request, project_id):
     """API: Generiert die PERFEKTE Pinterest Pin-Beschreibung via GPT + Vision"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)

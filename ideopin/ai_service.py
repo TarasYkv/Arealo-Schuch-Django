@@ -17,6 +17,92 @@ class PinAIService:
         else:
             self.client = None
 
+    def generate_realistic_background_description(self, user_input: str, project_keywords: str = '') -> dict:
+        """
+        Generiert eine fotorealistische Hintergrund-Beschreibung aus Stichwörtern.
+
+        Fokus auf:
+        - Fotorealismus (echte Fotos, keine Illustrationen)
+        - Natürliche Farben und Beleuchtung
+        - Realistische Schatten und Tiefenschärfe
+        - Echte Menschen und authentische Szenarien
+        """
+        if not self.client:
+            return {
+                'success': False,
+                'error': 'OpenAI API-Key nicht konfiguriert'
+            }
+
+        try:
+            prompt = f"""Du bist ein Experte für fotorealistische Bildgenerierung.
+Erstelle aus den folgenden Stichwörtern eine detaillierte Beschreibung für ein FOTOREALISTISCHES Bild.
+
+STICHWÖRTER VOM NUTZER: {user_input}
+THEMA/KEYWORDS DES PINS: {project_keywords or 'Nicht angegeben'}
+
+═══════════════════════════════════════════════════════════════
+
+ERSTELLE EINE BESCHREIBUNG DIE FOLGENDES GARANTIERT:
+
+1. FOTOREALISMUS (WICHTIGSTE REGEL!):
+   - Das Bild soll wie ein echtes Foto aussehen
+   - KEINE Illustrationen, Cartoons oder künstlerische Stile
+   - Schreibe explizit: "photorealistic", "real photograph", "DSLR quality"
+
+2. NATÜRLICHE BELEUCHTUNG:
+   - Beschreibe die Lichtquelle (Tageslicht, goldene Stunde, Studioblitz)
+   - Natürliche, weiche Schatten
+   - Realistische Lichtreflexionen
+
+3. ECHTE FARBEN:
+   - Keine übersättigten oder künstlichen Farben
+   - Natürliche Hauttöne bei Menschen
+   - Authentische Materialfarben
+
+4. TIEFENSCHÄRFE & FOKUS:
+   - Beschreibe Vordergrund, Mittelgrund, Hintergrund
+   - Bokeh-Effekt im Hintergrund wenn sinnvoll
+   - Klarer Fokuspunkt
+
+5. AUTHENTIZITÄT:
+   - Echte Menschen (keine perfekten Models, authentische Posen)
+   - Realistische Szenarien aus dem Alltag
+   - Glaubwürdige Umgebungen
+
+═══════════════════════════════════════════════════════════════
+
+FORMAT DER BESCHREIBUNG:
+- Maximal 3-4 Sätze
+- Englisch (für beste Bildgenerierung)
+- Beginne mit "Photorealistic photograph of..."
+- Inkludiere Kamera-Details wenn passend (z.B. "shot with 85mm lens, f/1.8")
+
+Antworte NUR mit der Beschreibung, ohne Erklärungen."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "Du bist ein Experte für fotorealistische Bildgenerierung. Du schreibst Prompts die zu echten, authentischen Fotos führen."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=200,
+                temperature=0.7
+            )
+
+            description = response.choices[0].message.content.strip()
+
+            return {
+                'success': True,
+                'description': description
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating background description: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def generate_overlay_text(self, keywords: str) -> dict:
         """Generiert einen catchy, kurzen Pin-Text aus Keywords via GPT"""
         if not self.client:
