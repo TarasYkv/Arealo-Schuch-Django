@@ -185,7 +185,7 @@ const projectId = {{ project.id }};
 const csrfToken = '{{ csrf_token }}';
 
 // Pinterest Pin It - funktioniert ohne API
-function openPinterestShare() {
+async function openPinterestShare() {
     // Vollständige URLs für Pinterest erstellen
     const baseUrl = window.location.origin;
     {% if project.final_image %}
@@ -214,6 +214,18 @@ function openPinterestShare() {
     // Pinterest-Fenster öffnen
     const pinterestUrl = `https://www.pinterest.com/pin/create/button/?${params.toString()}`;
     window.open(pinterestUrl, 'pinterest-share', 'width=750,height=600,scrollbars=yes');
+
+    // Automatisch als gepostet markieren
+    try {
+        await fetch('{% url "ideopin:api_mark_as_posted" project.id %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        // Seite neu laden um Status zu aktualisieren
+        setTimeout(() => window.location.reload(), 1000);
+    } catch (e) {
+        console.log('Konnte nicht als gepostet markieren:', e);
+    }
 }
 
 // Als gepostet markieren

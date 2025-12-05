@@ -180,23 +180,15 @@
                             </button>
                         {% elif project.final_image %}
                             <!-- Pin It Button - mit final_image -->
-                            <button type="button" class="btn btn-pinterest btn-sm w-100 mb-1"
-                                    onclick="openPinterestShare('{{ project.final_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}')">
+                            <button type="button" class="btn btn-pinterest btn-sm w-100"
+                                    onclick="openPinterestShare('{{ project.final_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }})">
                                 <i class="bi bi-pinterest me-1"></i>Auf Pinterest teilen
-                            </button>
-                            <button type="button" class="btn btn-outline-success btn-sm w-100"
-                                    onclick="markAsPosted({{ project.id }})">
-                                <i class="bi bi-check-circle me-1"></i>Als gepostet markieren
                             </button>
                         {% elif project.generated_image %}
                             <!-- Pin It Button - mit generated_image -->
-                            <button type="button" class="btn btn-pinterest btn-sm w-100 mb-1"
-                                    onclick="openPinterestShare('{{ project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}')">
+                            <button type="button" class="btn btn-pinterest btn-sm w-100"
+                                    onclick="openPinterestShare('{{ project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }})">
                                 <i class="bi bi-pinterest me-1"></i>Auf Pinterest teilen
-                            </button>
-                            <button type="button" class="btn btn-outline-success btn-sm w-100"
-                                    onclick="markAsPosted({{ project.id }})">
-                                <i class="bi bi-check-circle me-1"></i>Als gepostet markieren
                             </button>
                         {% endif %}
                     {% endif %}
@@ -359,7 +351,7 @@ function postPinFromModal() {
 
 <!-- Pin It Funktion - funktioniert immer ohne API -->
 <script>
-function openPinterestShare(imageUrl, linkUrl, description) {
+async function openPinterestShare(imageUrl, linkUrl, description, projectId) {
     // Vollständige Bild-URL erstellen
     const baseUrl = window.location.origin;
     const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : baseUrl + imageUrl;
@@ -374,6 +366,20 @@ function openPinterestShare(imageUrl, linkUrl, description) {
     // Pinterest-Fenster öffnen
     const pinterestUrl = `https://www.pinterest.com/pin/create/button/?${params.toString()}`;
     window.open(pinterestUrl, 'pinterest-share', 'width=750,height=600,scrollbars=yes');
+
+    // Automatisch als gepostet markieren
+    if (projectId) {
+        try {
+            await fetch(`/ideopin/api/pinterest/mark-posted/${projectId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            // Seite neu laden um Status zu aktualisieren
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (e) {
+            console.log('Konnte nicht als gepostet markieren:', e);
+        }
+    }
 }
 
 // Als gepostet markieren
