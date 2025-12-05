@@ -1,16 +1,16 @@
 {% extends 'ideopin/base_wizard.html' %}
 
 {% block wizard_content %}
-<div class="row">
-    <div class="col-lg-7">
+<div class="row justify-content-center">
+    <div class="col-lg-8">
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0"><i class="bi bi-fonts"></i> Schritt 2: Text-Overlay erstellen</h5>
             </div>
             <div class="card-body">
                 <p class="text-muted mb-4">
-                    Der Text erscheint als Overlay auf deinem Pin-Bild.
-                    Lass Text und Styling von der KI generieren oder passe alles manuell an.
+                    Gib den Text ein, der auf deinem Pin erscheinen soll.
+                    Die KI wählt automatisch ein passendes Design mit Farben und Effekten, die zum Bild kontrastieren.
                 </p>
 
                 <form method="post" id="step2Form">
@@ -31,86 +31,17 @@
                         </div>
                     </div>
 
-                    <hr>
-
-                    <!-- Auto-Styling Section -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="mb-0"><i class="bi bi-palette"></i> Text-Styling</h6>
-                        <button type="button" class="btn btn-success" id="autoStyleBtn" data-bs-toggle="tooltip" data-bs-placement="left" title="KI analysiert deine Keywords und den Text, um automatisch passende Schriftart, Farben, Effekte und Position zu wählen">
-                            <i class="bi bi-magic"></i> Auto-Styling
-                        </button>
+                    <!-- Position -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Text-Position</label>
+                        {{ form.text_position }}
+                        <div class="form-text">Wo soll der Text im Bild platziert werden?</div>
                     </div>
 
-                    <div class="alert alert-secondary mb-3">
-                        <small>
-                            <i class="bi bi-info-circle"></i> <strong>Auto-Styling:</strong>
-                            Die KI analysiert deine Keywords und den Overlay-Text, um automatisch ein passendes Design zu erstellen:
-                            Style-Preset, Schriftart, Farben, Effekte und Position werden basierend auf dem Thema optimiert.
-                        </small>
-                    </div>
-
-                    <div id="stylingReasoning" class="alert alert-info d-none mb-3">
-                        <i class="bi bi-lightbulb"></i> <span id="reasoningText"></span>
-                    </div>
-
-                    <!-- Style Preset -->
-                    <div class="mb-3">
-                        <label class="form-label">Style-Preset</label>
-                        {{ form.style_preset }}
-                        <small class="form-text text-muted">Vordefinierte Styling-Kombination</small>
-                    </div>
-
-                    <div class="row g-3">
-                        <!-- Schriftart & Größe -->
-                        <div class="col-md-6">
-                            <label class="form-label">Schriftart</label>
-                            {{ form.text_font }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Schriftgröße</label>
-                            {{ form.text_size }}
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Auto</label>
-                            <div class="form-check mt-2">
-                                {{ form.auto_font_size }}
-                            </div>
-                        </div>
-
-                        <!-- Farben -->
-                        <div class="col-md-4">
-                            <label class="form-label">Textfarbe</label>
-                            {{ form.text_color }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Sekundärfarbe</label>
-                            {{ form.text_secondary_color }}
-                            <small class="form-text text-muted">Für Outline/Schatten</small>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Position</label>
-                            {{ form.text_position }}
-                        </div>
-
-                        <!-- Effekte -->
-                        <div class="col-md-6">
-                            <label class="form-label">Text-Effekt</label>
-                            {{ form.text_effect }}
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Padding</label>
-                            {{ form.text_padding }}
-                        </div>
-
-                        <!-- Hintergrund -->
-                        <div class="col-md-4">
-                            <label class="form-label">Hintergrundfarbe</label>
-                            {{ form.text_background_color }}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Transparenz</label>
-                            {{ form.text_background_opacity }}
-                        </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-magic"></i>
+                        <strong>KI-Design:</strong> Die KI wählt automatisch Schriftart, Farben und Effekte,
+                        die perfekt zum generierten Hintergrundbild passen und optimal kontrastieren.
                     </div>
 
                     <hr class="my-4">
@@ -126,18 +57,17 @@
                 </form>
             </div>
         </div>
-    </div>
 
-    <div class="col-lg-5">
-        <div class="card shadow-sm sticky-top" style="top: 20px;">
+        <!-- Vorschau-Card -->
+        <div class="card shadow-sm mt-4">
             <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-eye"></i> Live-Vorschau</h6>
+                <h6 class="mb-0"><i class="bi bi-eye"></i> Text-Vorschau</h6>
             </div>
             <div class="card-body">
                 <div class="pin-preview" id="textPreview" style="
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     border-radius: 12px;
-                    min-height: 400px;
+                    min-height: 200px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -150,7 +80,7 @@
                         padding: 20px;
                     ">
                         <span id="previewText" style="
-                            font-size: 32px;
+                            font-size: 28px;
                             font-weight: bold;
                             color: #FFFFFF;
                             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
@@ -161,8 +91,8 @@
                         </span>
                     </div>
                 </div>
-                <p class="text-muted mt-3 small">
-                    <strong>Keywords:</strong> {{ project.keywords|truncatewords:10 }}
+                <p class="text-muted mt-3 small text-center">
+                    <i class="bi bi-info-circle"></i> Das finale Styling wird von der KI beim Generieren des Bildes erstellt
                 </p>
             </div>
         </div>
@@ -178,20 +108,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewText = document.getElementById('previewText');
     const previewContainer = document.getElementById('previewTextContainer');
     const generateTextBtn = document.getElementById('generateTextBtn');
-    const autoStyleBtn = document.getElementById('autoStyleBtn');
-    const stylingReasoning = document.getElementById('stylingReasoning');
-    const reasoningText = document.getElementById('reasoningText');
-
-    // Form elements
-    const fontSelect = document.querySelector('[name="text_font"]');
-    const sizeInput = document.querySelector('[name="text_size"]');
-    const colorInput = document.querySelector('[name="text_color"]');
-    const secondaryColorInput = document.querySelector('[name="text_secondary_color"]');
     const positionSelect = document.querySelector('[name="text_position"]');
-    const effectSelect = document.querySelector('[name="text_effect"]');
-    const bgColorInput = document.querySelector('[name="text_background_color"]');
-    const bgOpacityInput = document.querySelector('[name="text_background_opacity"]');
-    const paddingInput = document.querySelector('[name="text_padding"]');
+    const pinPreview = document.getElementById('textPreview');
 
     // Text counter & preview update
     function updateCounter() {
@@ -204,104 +122,18 @@ document.addEventListener('DOMContentLoaded', function() {
         previewText.textContent = textInput.value || 'Dein Text hier...';
     }
 
-    // Update preview styling
-    function updatePreviewStyling() {
-        const font = fontSelect?.value || 'Arial';
-        const size = parseInt(sizeInput?.value) || 48;
-        const color = colorInput?.value || '#FFFFFF';
-        const secondaryColor = secondaryColorInput?.value || '#000000';
+    // Update preview position
+    function updatePreviewPosition() {
         const position = positionSelect?.value || 'center';
-        const effect = effectSelect?.value || 'none';
-        const bgColor = bgColorInput?.value || '';
-        const bgOpacity = parseFloat(bgOpacityInput?.value) || 0.7;
-        const padding = parseInt(paddingInput?.value) || 20;
-
-        // Apply font and size
-        previewText.style.fontFamily = font;
-        previewText.style.fontSize = `${Math.min(size, 48)}px`;
-        previewText.style.color = color;
-
-        // Apply text effect
-        previewText.style.webkitTextStroke = '';
-        previewText.style.background = '';
-        previewText.style.webkitBackgroundClip = '';
-        previewText.style.webkitTextFillColor = '';
-
-        switch(effect) {
-            // Schatten-Varianten
-            case 'shadow':
-            case 'shadow_soft':
-                previewText.style.textShadow = `3px 3px 8px ${secondaryColor}`;
-                break;
-            case 'shadow_hard':
-                previewText.style.textShadow = `4px 4px 0px ${secondaryColor}`;
-                break;
-            case 'shadow_long':
-                previewText.style.textShadow = `2px 2px 0 ${secondaryColor}, 4px 4px 0 ${secondaryColor}, 6px 6px 0 ${secondaryColor}`;
-                break;
-            case 'shadow_3d':
-                previewText.style.textShadow = `1px 1px 0 ${secondaryColor}, 2px 2px 0 ${secondaryColor}, 3px 3px 0 ${secondaryColor}, 4px 4px 0 ${secondaryColor}`;
-                break;
-
-            // Outline/Kontur
-            case 'outline':
-            case 'outline_thin':
-                previewText.style.textShadow = 'none';
-                previewText.style.webkitTextStroke = `1px ${secondaryColor}`;
-                break;
-            case 'outline_thick':
-                previewText.style.textShadow = 'none';
-                previewText.style.webkitTextStroke = `3px ${secondaryColor}`;
-                break;
-            case 'outline_double':
-                previewText.style.textShadow = `0 0 2px ${secondaryColor}, 0 0 4px ${secondaryColor}`;
-                previewText.style.webkitTextStroke = `2px ${secondaryColor}`;
-                break;
-
-            // Leuchteffekte
-            case 'glow':
-            case 'glow_soft':
-                previewText.style.textShadow = `0 0 10px ${color}, 0 0 20px ${color}`;
-                break;
-            case 'glow_neon':
-                previewText.style.textShadow = `0 0 5px ${color}, 0 0 10px ${color}, 0 0 20px ${color}, 0 0 40px ${secondaryColor}`;
-                break;
-
-            // Gradient
-            case 'gradient_text':
-                previewText.style.background = `linear-gradient(135deg, ${color}, ${secondaryColor})`;
-                previewText.style.webkitBackgroundClip = 'text';
-                previewText.style.webkitTextFillColor = 'transparent';
-                previewText.style.textShadow = 'none';
-                break;
-
-            default:
-                previewText.style.textShadow = 'none';
-        }
-
-        // Apply background
-        if (bgColor && effect !== 'none') {
-            const r = parseInt(bgColor.slice(1,3), 16);
-            const g = parseInt(bgColor.slice(3,5), 16);
-            const b = parseInt(bgColor.slice(5,7), 16);
-            previewContainer.style.backgroundColor = `rgba(${r},${g},${b},${bgOpacity})`;
-            previewContainer.style.borderRadius = '8px';
-        } else {
-            previewContainer.style.backgroundColor = 'transparent';
-        }
-
-        // Apply padding
-        previewContainer.style.padding = `${padding}px`;
-
-        // Apply position
-        const pinPreview = document.getElementById('textPreview');
         switch(position) {
             case 'top':
                 pinPreview.style.alignItems = 'flex-start';
                 previewContainer.style.marginTop = '20px';
+                previewContainer.style.marginBottom = '0';
                 break;
             case 'bottom':
                 pinPreview.style.alignItems = 'flex-end';
+                previewContainer.style.marginTop = '0';
                 previewContainer.style.marginBottom = '20px';
                 break;
             default:
@@ -314,15 +146,10 @@ document.addEventListener('DOMContentLoaded', function() {
     textInput.addEventListener('input', updateCounter);
     updateCounter();
 
-    // Add change listeners for all styling inputs
-    [fontSelect, sizeInput, colorInput, secondaryColorInput, positionSelect,
-     effectSelect, bgColorInput, bgOpacityInput, paddingInput].forEach(el => {
-        if (el) el.addEventListener('change', updatePreviewStyling);
-        if (el) el.addEventListener('input', updatePreviewStyling);
-    });
-
-    // Initial preview update
-    updatePreviewStyling();
+    if (positionSelect) {
+        positionSelect.addEventListener('change', updatePreviewPosition);
+        updatePreviewPosition();
+    }
 
     // Generate text via AI
     generateTextBtn.addEventListener('click', async function() {
@@ -351,68 +178,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         this.disabled = false;
         this.innerHTML = '<i class="bi bi-magic"></i> Text generieren';
-    });
-
-    // Auto-Styling via AI
-    autoStyleBtn.addEventListener('click', async function() {
-        if (!textInput.value.trim()) {
-            alert('Bitte zuerst einen Overlay-Text eingeben.');
-            return;
-        }
-
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analysiere...';
-
-        try {
-            const response = await fetch('{% url "ideopin:api_generate_styling" project.id %}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    overlay_text: textInput.value.trim()
-                })
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                const styling = data.styling;
-
-                // Apply styling to form fields
-                if (fontSelect) fontSelect.value = styling.text_font || 'Arial';
-                if (sizeInput) sizeInput.value = styling.text_size || 48;
-                if (colorInput) colorInput.value = styling.text_color || '#FFFFFF';
-                if (secondaryColorInput) secondaryColorInput.value = styling.text_secondary_color || '#000000';
-                if (positionSelect) positionSelect.value = styling.text_position || 'center';
-                if (effectSelect) effectSelect.value = styling.text_effect || 'none';
-                if (bgColorInput) bgColorInput.value = styling.text_background_color || '#000000';
-                if (bgOpacityInput) bgOpacityInput.value = styling.text_background_opacity || 0.7;
-                if (paddingInput) paddingInput.value = styling.text_padding || 20;
-
-                // Update style preset
-                const presetSelect = document.querySelector('[name="style_preset"]');
-                if (presetSelect) presetSelect.value = styling.style_preset || 'modern_bold';
-
-                // Show reasoning
-                if (data.reasoning) {
-                    reasoningText.textContent = data.reasoning;
-                    stylingReasoning.classList.remove('d-none');
-                }
-
-                // Update preview
-                updatePreviewStyling();
-
-            } else {
-                alert('Fehler: ' + data.error);
-            }
-        } catch (e) {
-            console.error(e);
-            alert('Fehler beim Auto-Styling');
-        }
-
-        this.disabled = false;
-        this.innerHTML = '<i class="bi bi-magic"></i> Auto-Styling';
     });
 });
 </script>
