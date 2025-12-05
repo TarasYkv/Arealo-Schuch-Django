@@ -67,6 +67,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const suggestionsDiv = document.getElementById('keywordSuggestions');
     const keywordTagsDiv = document.getElementById('keywordTags');
 
+    // Set um bereits angezeigte Vorschläge zu tracken
+    const shownSuggestions = new Set();
+
     generateBtn.addEventListener('click', async function() {
         const currentKeywords = keywordsInput.value.trim();
 
@@ -75,8 +78,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Erstes Keyword als Seed verwenden
-        const seedKeyword = currentKeywords.split(',')[0].trim();
+        // Alle Keywords für mehr Variation verwenden
+        const allKeywords = currentKeywords.split(',').map(k => k.trim()).filter(k => k);
+        // Zufälliges Keyword als Seed wählen (für Variation bei wiederholtem Klicken)
+        const seedKeyword = allKeywords[Math.floor(Math.random() * allKeywords.length)];
 
         // Button deaktivieren und Ladeanzeige
         generateBtn.disabled = true;
@@ -90,14 +95,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    keyword: seedKeyword
+                    keyword: seedKeyword,
+                    existing_keywords: allKeywords  // Bestehende Keywords mitschicken
                 })
             });
 
             const data = await response.json();
 
             if (data.success && data.keywords) {
-                displayKeywordSuggestions(data.keywords);
+                addKeywordSuggestions(data.keywords);
             } else {
                 alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
             }
@@ -110,20 +116,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function displayKeywordSuggestions(keywords) {
-        keywordTagsDiv.innerHTML = '';
-
+    function addKeywordSuggestions(keywords) {
         // Aktuelle Keywords als Set für Duplikat-Prüfung
-        const currentKeywords = keywordsInput.value.toLowerCase().split(',').map(k => k.trim());
+        const currentKeywords = new Set(
+            keywordsInput.value.toLowerCase().split(',').map(k => k.trim()).filter(k => k)
+        );
+
+        let addedCount = 0;
 
         keywords.forEach(keyword => {
-            const isAlreadyAdded = currentKeywords.includes(keyword.toLowerCase());
+            const keywordLower = keyword.toLowerCase();
+
+            // Überspringen wenn bereits in Vorschlägen angezeigt oder bereits als Keyword hinzugefügt
+            if (shownSuggestions.has(keywordLower)) {
+                // Nur Status aktualisieren falls bereits hinzugefügt
+                updateTagStatus(keywordLower, currentKeywords.has(keywordLower));
+                return;
+            }
+
+            const isAlreadyAdded = currentKeywords.has(keywordLower);
+            shownSuggestions.add(keywordLower);
 
             const tag = document.createElement('button');
             tag.type = 'button';
             tag.className = `btn btn-sm ${isAlreadyAdded ? 'btn-secondary' : 'btn-outline-success'}`;
             tag.textContent = keyword;
             tag.disabled = isAlreadyAdded;
+            tag.dataset.keyword = keywordLower;
 
             if (!isAlreadyAdded) {
                 tag.addEventListener('click', function() {
@@ -134,9 +153,36 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             keywordTagsDiv.appendChild(tag);
+            addedCount++;
         });
 
         suggestionsDiv.style.display = 'block';
+
+        // Info wenn keine neuen Keywords gefunden wurden
+        if (addedCount === 0) {
+            // Kurze Meldung anzeigen
+            const infoMsg = document.createElement('span');
+            infoMsg.className = 'badge bg-info ms-2';
+            infoMsg.textContent = 'Keine neuen Vorschläge';
+            infoMsg.id = 'noNewSuggestionsMsg';
+
+            // Entfernen nach 2 Sekunden
+            const existingMsg = document.getElementById('noNewSuggestionsMsg');
+            if (existingMsg) existingMsg.remove();
+
+            keywordTagsDiv.appendChild(infoMsg);
+            setTimeout(() => infoMsg.remove(), 2000);
+        }
+    }
+
+    function updateTagStatus(keywordLower, isAdded) {
+        const tags = keywordTagsDiv.querySelectorAll('button');
+        tags.forEach(tag => {
+            if (tag.dataset.keyword === keywordLower && isAdded) {
+                tag.className = 'btn btn-sm btn-secondary';
+                tag.disabled = true;
+            }
+        });
     }
 
     function addKeyword(keyword) {
