@@ -5,6 +5,41 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+def spell_out_text(text: str, min_word_length: int = 6) -> str:
+    """
+    Buchstabiert lange Wörter im Text für bessere KI-Textgenauigkeit.
+
+    Beispiel: "Geburtstagsgeschenke" -> "G-e-b-u-r-t-s-t-a-g-s-g-e-s-c-h-e-n-k-e"
+
+    Args:
+        text: Der zu buchstabierende Text
+        min_word_length: Minimale Wortlänge für Buchstabierung (Default: 6)
+
+    Returns:
+        Text mit buchstabierten langen Wörtern
+    """
+    words = text.split()
+    spelled_words = []
+
+    for word in words:
+        # Entferne Satzzeichen für die Längenprüfung
+        clean_word = ''.join(c for c in word if c.isalnum())
+
+        if len(clean_word) >= min_word_length:
+            # Buchstabiere das Wort, behalte Satzzeichen am Ende
+            trailing_punct = ''
+            if word and not word[-1].isalnum():
+                trailing_punct = word[-1]
+                word = word[:-1]
+
+            spelled = '-'.join(list(word))
+            spelled_words.append(f'"{word}" (spelled: {spelled}){trailing_punct}')
+        else:
+            spelled_words.append(word)
+
+    return ' '.join(spelled_words)
+
+
 class GeminiImageService:
     """
     Service für Google Gemini/Imagen Image Generation
@@ -455,18 +490,32 @@ class GeminiImageService:
             if background_description:
                 prompt_parts.append(f"Create a Pinterest pin with this scene: {background_description.strip()}")
 
-        # Text-Integration mit detailliertem Styling
+        # Text-Integration mit detailliertem Styling und Rechtschreibhilfe
         if overlay_text:
-            text_styling = f'Add the text "{overlay_text}" {position_text}. '
-            text_styling += f'Use {style_desc}. '
-            text_styling += f'The text color should be {text_color_name}'
+            # Buchstabiere lange Wörter für bessere Genauigkeit
+            spelled_text = spell_out_text(overlay_text)
+
+            text_styling = f'CRITICAL TEXT REQUIREMENT: Render the following text EXACTLY as specified.\n'
+            text_styling += f'Text to display: "{overlay_text}"\n'
+
+            # Wenn Text buchstabiert wurde, füge die Buchstabierung hinzu
+            if spelled_text != overlay_text:
+                text_styling += f'Letter-by-letter spelling: {spelled_text}\n'
+
+            text_styling += f'Position: {position_text}. '
+            text_styling += f'Typography style: {style_desc}. '
+            text_styling += f'Text color: {text_color_name}'
             if effect_desc:
                 text_styling += f' {effect_desc}'
                 if text_effect in ['shadow', 'outline']:
                     text_styling += f' in {secondary_color_name}'
-            text_styling += '. '
-            text_styling += 'The text must be perfectly spelled, LARGE, bold and highly readable with strong contrast. '
-            text_styling += 'Make sure every letter is correct and clearly visible against the background.'
+            text_styling += '.\n'
+            text_styling += 'SPELLING RULES:\n'
+            text_styling += '- Every single letter must be EXACTLY correct - no substitutions, no missing letters\n'
+            text_styling += '- Double-check each word before rendering\n'
+            text_styling += '- The text must be LARGE, bold, and highly readable\n'
+            text_styling += '- Ensure strong contrast against the background\n'
+            text_styling += '- If unsure about a letter, refer to the letter-by-letter spelling above'
             prompt_parts.append(text_styling)
 
         # Format und Qualität - WICHTIG: Vertikales Pinterest-Format explizit betonen
