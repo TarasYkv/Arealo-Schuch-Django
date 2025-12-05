@@ -123,6 +123,21 @@
 
         <div class="card shadow-sm mb-4">
             <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-type-h1"></i> Pin-Titel</h6>
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <input type="text" class="form-control" value="{{ project.pin_title }}" readonly id="pinTitle">
+                    <button class="btn btn-outline-primary" type="button" onclick="copyToClipboard('pinTitle')">
+                        <i class="bi bi-clipboard"></i> Kopieren
+                    </button>
+                </div>
+                <small class="text-muted">{{ project.pin_title|length }} / 100 Zeichen</small>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
                 <h6 class="mb-0"><i class="bi bi-card-text"></i> Pin-Beschreibung</h6>
             </div>
             <div class="card-body">
@@ -252,6 +267,7 @@ async function createPinterestPin() {
         {% endif %}
 
         const linkUrl = '{{ project.pin_url|escapejs }}' || window.location.href;
+        const title = `{{ project.pin_title|escapejs }}`;
         const description = `{{ project.seo_description|escapejs }}`;
 
         if (!imageUrl) {
@@ -261,8 +277,13 @@ async function createPinterestPin() {
             return;
         }
 
-        // 2. Text für Zwischenablage vorbereiten
-        const clipboardText = `${description}\n\n🔗 ${linkUrl}`;
+        // 2. Text für Zwischenablage vorbereiten (Titel + Beschreibung + Link)
+        let clipboardText = '';
+        if (title) {
+            clipboardText = `${title}\n\n${description}\n\n🔗 ${linkUrl}`;
+        } else {
+            clipboardText = `${description}\n\n🔗 ${linkUrl}`;
+        }
 
         // 3. In Zwischenablage kopieren
         await navigator.clipboard.writeText(clipboardText);

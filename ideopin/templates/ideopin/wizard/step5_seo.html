@@ -5,17 +5,35 @@
     <div class="col-lg-7">
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="bi bi-search"></i> Schritt 5: SEO Pin-Beschreibung</h5>
+                <h5 class="mb-0"><i class="bi bi-search"></i> Schritt 5: SEO Titel & Beschreibung</h5>
             </div>
             <div class="card-body">
                 <p class="text-muted mb-4">
-                    Die Pin-Beschreibung ist wichtig für Pinterest SEO.
-                    Lass sie von der KI generieren oder schreibe deine eigene.
+                    Titel und Beschreibung sind wichtig für Pinterest SEO.
+                    Lass beides von der KI generieren oder schreibe es selbst.
                 </p>
 
                 <form method="post" id="step5Form">
                     {% csrf_token %}
 
+                    <!-- Pin-Titel -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Pin-Titel</label>
+                        <div class="input-group mb-2">
+                            {{ form.pin_title }}
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="generateTitleBtn">
+                                <i class="bi bi-magic"></i> KI generieren
+                            </button>
+                            <span class="text-counter" id="titleCounter">0 / 100</span>
+                        </div>
+                        <div class="form-text">
+                            Der Titel erscheint als Überschrift auf Pinterest. Ideal: 40-70 Zeichen.
+                        </div>
+                    </div>
+
+                    <!-- Pin-Beschreibung -->
                     <div class="mb-4">
                         <label class="form-label fw-bold">Pin-Beschreibung</label>
                         <div class="input-group mb-2">
@@ -35,10 +53,10 @@
                     <div class="alert alert-success">
                         <h6><i class="bi bi-check-circle"></i> Pinterest SEO Tipps:</h6>
                         <ul class="mb-0 small">
-                            <li>Keywords in den ersten 100 Zeichen platzieren</li>
+                            <li><strong>Titel:</strong> Haupt-Keyword am Anfang, neugierig machen</li>
+                            <li><strong>Beschreibung:</strong> Keywords in den ersten 100 Zeichen</li>
                             <li>Call-to-Action einbauen (z.B. "Jetzt entdecken")</li>
-                            <li>3-5 relevante Hashtags am Ende</li>
-                            <li>Emotionale Ansprache nutzen</li>
+                            <li>3-5 relevante Hashtags am Ende der Beschreibung</li>
                         </ul>
                     </div>
 
@@ -82,12 +100,30 @@
 {% block wizard_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Titel-Elemente
+    const titleInput = document.querySelector('#{{ form.pin_title.id_for_label }}');
+    const titleCounter = document.getElementById('titleCounter');
+    const generateTitleBtn = document.getElementById('generateTitleBtn');
+
+    // Beschreibung-Elemente
     const seoInput = document.querySelector('#{{ form.seo_description.id_for_label }}');
     const seoCounter = document.getElementById('seoCounter');
-    const generateBtn = document.getElementById('generateSeoBtn');
+    const generateSeoBtn = document.getElementById('generateSeoBtn');
 
-    // Counter
-    function updateCounter() {
+    // Title Counter
+    function updateTitleCounter() {
+        const len = titleInput.value.length;
+        titleCounter.textContent = `${len} / 100`;
+        titleCounter.className = 'text-counter';
+        if (len > 90) titleCounter.classList.add('danger');
+        else if (len > 70) titleCounter.classList.add('warning');
+    }
+
+    titleInput.addEventListener('input', updateTitleCounter);
+    updateTitleCounter();
+
+    // SEO Counter
+    function updateSeoCounter() {
         const len = seoInput.value.length;
         seoCounter.textContent = `${len} / 500`;
         seoCounter.className = 'text-counter';
@@ -95,11 +131,39 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (len > 400) seoCounter.classList.add('warning');
     }
 
-    seoInput.addEventListener('input', updateCounter);
-    updateCounter();
+    seoInput.addEventListener('input', updateSeoCounter);
+    updateSeoCounter();
+
+    // Generate Title
+    generateTitleBtn.addEventListener('click', async function() {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_generate_title" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                titleInput.value = data.title;
+                updateTitleCounter();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (e) {
+            alert('Fehler bei der Generierung');
+        }
+
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+    });
 
     // Generate SEO description
-    generateBtn.addEventListener('click', async function() {
+    generateSeoBtn.addEventListener('click', async function() {
         this.disabled = true;
         this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
 
@@ -114,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (data.success) {
                 seoInput.value = data.description;
-                updateCounter();
+                updateSeoCounter();
             } else {
                 alert('Fehler: ' + data.error);
             }

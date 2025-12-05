@@ -85,12 +85,17 @@ class Step4LinkForm(forms.ModelForm):
 
 
 class Step5SEOForm(forms.ModelForm):
-    """Schritt 5: SEO-Beschreibung"""
+    """Schritt 5: SEO-Titel und Beschreibung"""
 
     class Meta:
         model = PinProject
-        fields = ['seo_description']
+        fields = ['pin_title', 'seo_description']
         widgets = {
+            'pin_title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Klickstarker Pin-Titel...',
+                'maxlength': 100
+            }),
             'seo_description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 5,

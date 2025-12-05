@@ -215,7 +215,15 @@ class PinProject(models.Model):
         help_text="Zielseite des Pinterest Pins"
     )
 
-    # Schritt 5: SEO Beschreibung
+    # Schritt 5: SEO Titel und Beschreibung
+    pin_title = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Pin-Titel",
+        help_text="Pinterest Pin-Titel (max. 100 Zeichen)"
+    )
+    pin_title_ai_generated = models.BooleanField(default=False)
+
     seo_description = models.TextField(
         blank=True,
         max_length=500,

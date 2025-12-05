@@ -181,7 +181,7 @@
                         {% elif project.final_image %}
                             <!-- Pin erstellen - erscheint unter "Erstellt" -->
                             <button type="button" class="btn btn-pinterest btn-sm w-100 mb-1"
-                                    onclick="createPinterestPin('{{ project.final_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }}, 'pin_{{ project.id }}_final.png')">
+                                    onclick="createPinterestPin('{{ project.final_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.pin_title|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }}, 'pin_{{ project.id }}_final.png')">
                                 <i class="bi bi-plus-circle me-1"></i>Pin erstellen
                             </button>
                             <!-- Pin merken - erscheint unter "Gemerkt" -->
@@ -192,7 +192,7 @@
                         {% elif project.generated_image %}
                             <!-- Pin erstellen - erscheint unter "Erstellt" -->
                             <button type="button" class="btn btn-pinterest btn-sm w-100 mb-1"
-                                    onclick="createPinterestPin('{{ project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }}, 'pin_{{ project.id }}.png')">
+                                    onclick="createPinterestPin('{{ project.generated_image.url }}', '{{ project.pin_url|escapejs }}', '{{ project.pin_title|escapejs }}', '{{ project.seo_description|escapejs|truncatechars:480 }}', {{ project.id }}, 'pin_{{ project.id }}.png')">
                                 <i class="bi bi-plus-circle me-1"></i>Pin erstellen
                             </button>
                             <!-- Pin merken - erscheint unter "Gemerkt" -->
@@ -393,7 +393,7 @@ async function openPinterestShare(imageUrl, linkUrl, description, projectId) {
 }
 
 // Pin erstellen - Bild herunterladen, Text kopieren, Pinterest öffnen
-async function createPinterestPin(imageUrl, linkUrl, description, projectId, imageName) {
+async function createPinterestPin(imageUrl, linkUrl, title, description, projectId, imageName) {
     const btn = event.target.closest('button');
     const originalHtml = btn.innerHTML;
     btn.disabled = true;
@@ -404,8 +404,13 @@ async function createPinterestPin(imageUrl, linkUrl, description, projectId, ima
         const baseUrl = window.location.origin;
         const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : baseUrl + imageUrl;
 
-        // Text für Zwischenablage vorbereiten
-        const clipboardText = `${description}\n\n🔗 ${linkUrl || window.location.href}`;
+        // Text für Zwischenablage vorbereiten (Titel + Beschreibung + Link)
+        let clipboardText = '';
+        if (title) {
+            clipboardText = `${title}\n\n${description}\n\n🔗 ${linkUrl || window.location.href}`;
+        } else {
+            clipboardText = `${description}\n\n🔗 ${linkUrl || window.location.href}`;
+        }
 
         // In Zwischenablage kopieren
         await navigator.clipboard.writeText(clipboardText);

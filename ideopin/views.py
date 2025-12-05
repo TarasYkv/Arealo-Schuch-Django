@@ -985,6 +985,52 @@ def api_generate_background_description(request, project_id):
 
 @login_required
 @require_POST
+def api_generate_pin_title(request, project_id):
+    """API: Generiert einen optimalen Pinterest Pin-Titel via GPT"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    if not request.user.openai_api_key:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein OpenAI API-Key konfiguriert. Bitte in Ihrem Profil hinterlegen.'
+        }, status=400)
+
+    try:
+        from .ai_service import PinAIService
+
+        ai_service = PinAIService(request.user)
+
+        result = ai_service.generate_pin_title(
+            keywords=project.keywords,
+            overlay_text=project.overlay_text
+        )
+
+        if result.get('success'):
+            project.pin_title = result['title']
+            project.pin_title_ai_generated = True
+            project.save()
+            logger.info(f"[Title] Generated title: {result['title'][:50]}...")
+            return JsonResponse({
+                'success': True,
+                'title': result['title'],
+                'main_keyword': result.get('main_keyword')
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Unbekannter Fehler')
+            }, status=500)
+
+    except Exception as e:
+        logger.error(f"Error generating pin title: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_generate_seo_description(request, project_id):
     """API: Generiert die PERFEKTE Pinterest Pin-Beschreibung via GPT + Vision"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)

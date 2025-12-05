@@ -253,6 +253,89 @@ Antworte NUR mit der fertigen Beschreibung, ohne Erklärungen."""
                 'error': str(e)
             }
 
+    def generate_pin_title(self, keywords: str, overlay_text: str = '') -> dict:
+        """
+        Generiert einen optimalen Pinterest Pin-Titel.
+
+        Der Titel sollte:
+        - Kurz und prägnant sein (max. 100 Zeichen)
+        - Das Haupt-Keyword enthalten
+        - Neugierig machen und zum Klicken animieren
+        """
+        if not self.client:
+            return {
+                'success': False,
+                'error': 'OpenAI API-Key nicht konfiguriert'
+            }
+
+        try:
+            # Extrahiere das Haupt-Keyword
+            keyword_list = [k.strip() for k in keywords.split(',') if k.strip()]
+            main_keyword = keyword_list[0] if keyword_list else keywords
+
+            prompt = f"""Du bist ein Pinterest Marketing-Experte. Erstelle einen perfekten Pin-Titel.
+
+🎯 HAUPT-KEYWORD: "{main_keyword}"
+📝 Weitere Keywords: {', '.join(keyword_list[1:5]) if len(keyword_list) > 1 else 'keine'}
+💬 Text-Overlay auf dem Pin: {overlay_text or 'Nicht angegeben'}
+
+═══════════════════════════════════════════════════════════════
+
+ERSTELLE EINEN PINTEREST PIN-TITEL MIT FOLGENDEN REGELN:
+
+1. LÄNGE: Maximal 100 Zeichen (ideal: 40-70 Zeichen)
+
+2. STRUKTUR (wähle eine):
+   - "[Zahl] [Keyword] [Nutzen]" (z.B. "10 Geschenkideen für Frauen, die sie lieben wird")
+   - "[Keyword]: [Versprechen]" (z.B. "Geburtstagstorte: So gelingt sie garantiert")
+   - "[Frage mit Keyword]?" (z.B. "Suchst du das perfekte Geschenk?")
+   - "[Wie/Was/Warum] [Keyword] [Ergebnis]" (z.B. "Wie du das perfekte Outfit findest")
+
+3. ENTHÄLT:
+   - Das Haupt-Keyword "{main_keyword}" prominent am Anfang
+   - Power-Wörter: Perfekt, Einfach, Geheim, DIY, Tipps, Ideen, Inspiration
+   - Nutzen oder Versprechen für den Leser
+
+4. VERMEIDEN:
+   - Clickbait ohne Substanz
+   - Zu generische Titel
+   - Übertreibungen
+
+═══════════════════════════════════════════════════════════════
+
+Antworte NUR mit dem Titel, ohne Anführungszeichen oder Erklärungen."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "Du bist ein Pinterest Marketing-Experte. Du erstellst klickstarke Titel."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=100,
+                temperature=0.8
+            )
+
+            title = response.choices[0].message.content.strip()
+            # Remove quotes if present
+            title = title.strip('"\'')
+
+            # Ensure max 100 chars
+            if len(title) > 100:
+                title = title[:97] + '...'
+
+            return {
+                'success': True,
+                'title': title,
+                'main_keyword': main_keyword
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating pin title: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
     def _analyze_image_for_seo(self, image_base64: str) -> str:
         """Analysiert ein Bild mit OpenAI Vision für SEO-Beschreibung"""
         try:

@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/generate-variants/<int:project_id>/', views.api_generate_image_variants, name='api_generate_variants'),
     path('api/select-variant/<int:project_id>/', views.api_select_variant, name='api_select_variant'),
     path('api/apply-overlay/<int:project_id>/', views.api_apply_text_overlay, name='api_apply_overlay'),
+    path('api/generate-title/<int:project_id>/', views.api_generate_pin_title, name='api_generate_title'),
     path('api/generate-seo/<int:project_id>/', views.api_generate_seo_description, name='api_generate_seo'),
     path('api/save-step3/<int:project_id>/', views.api_save_step3, name='api_save_step3'),
     path('api/upload-custom-image/<int:project_id>/', views.api_upload_custom_image, name='api_upload_custom_image'),
