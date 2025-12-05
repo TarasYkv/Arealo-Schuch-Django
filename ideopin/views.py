@@ -507,7 +507,8 @@ def api_generate_image(request, project_id):
                     style_preset=project.style_preset or 'modern_bold'
                 )
                 logger.info(f"[Gemini] Generating image WITH integrated text: {project.overlay_text}")
-                logger.info(f"[Gemini] Styling: preset={project.style_preset}, effect={project.text_effect}, color={project.text_color}")
+                logger.info(f"[Gemini] Styling from DB: preset={project.style_preset}, effect={project.text_effect}, color={project.text_color}, secondary={project.text_secondary_color}")
+                logger.info(f"[Gemini] Full prompt: {prompt[:500]}...")
             else:
                 # Nur Hintergrund generieren (für PIL-Overlay oder ohne Text)
                 prompt = GeminiImageService.build_prompt_without_text(

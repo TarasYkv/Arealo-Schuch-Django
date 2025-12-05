@@ -495,31 +495,36 @@ class GeminiImageService:
             # Buchstabiere lange Wörter für bessere Genauigkeit
             spelled_text = spell_out_text(overlay_text)
 
-            text_styling = f'CRITICAL TEXT REQUIREMENT: Render the following text EXACTLY as specified.\n'
-            text_styling += f'Text to display: "{overlay_text}"\n'
+            # Farbe besonders hervorheben - KI-Modelle neigen zu Schwarz-Weiß
+            color_emphasis = f'The text MUST be {text_color_name.upper()} colored - NOT black, NOT white unless specified.'
+            if text_color_name.lower() in ['white', 'weiß', '#ffffff']:
+                color_emphasis = f'The text MUST be WHITE colored.'
+            elif text_color_name.lower() in ['black', 'schwarz', '#000000']:
+                color_emphasis = f'The text MUST be BLACK colored.'
+
+            text_styling = f'CRITICAL TEXT REQUIREMENT:\n'
+            text_styling += f'Display text: "{overlay_text}"\n'
+            text_styling += f'{color_emphasis}\n\n'
 
             # Wenn Text buchstabiert wurde, füge die Buchstabierung hinzu
             if spelled_text != overlay_text:
-                text_styling += f'Letter-by-letter spelling: {spelled_text}\n'
+                text_styling += f'Spelling: {spelled_text}\n\n'
 
-            text_styling += f'\nTEXT STYLING (MUST FOLLOW EXACTLY):\n'
-            text_styling += f'- Position: {position_text}\n'
-            text_styling += f'- Typography/Font style: {style_desc}\n'
-            text_styling += f'- Text color: {text_color_name}\n'
+            text_styling += f'MANDATORY TEXT STYLING:\n'
+            text_styling += f'1. COLOR: {text_color_name.upper()} text (this is critical!)\n'
+            text_styling += f'2. POSITION: {position_text}\n'
+            text_styling += f'3. STYLE: {style_desc}\n'
             if effect_desc:
-                text_styling += f'- Text effect: {effect_desc}'
-                # Prüfe auf alle Schatten- und Outline-Varianten
+                text_styling += f'4. EFFECT: {effect_desc}'
                 if text_effect.startswith('shadow') or text_effect.startswith('outline'):
-                    text_styling += f' using {secondary_color_name} color'
+                    text_styling += f' in {secondary_color_name}'
                 text_styling += '\n'
 
-            text_styling += f'\nSPELLING RULES:\n'
-            text_styling += '- Every single letter must be EXACTLY correct - no substitutions, no missing letters\n'
-            text_styling += '- Double-check each word before rendering\n'
-            text_styling += '- The text must be LARGE, bold, and highly readable\n'
-            text_styling += '- Ensure strong contrast against the background\n'
-            text_styling += '- Apply the typography style and effects specified above\n'
-            text_styling += '- If unsure about a letter, refer to the letter-by-letter spelling above'
+            text_styling += f'\nTEXT RULES:\n'
+            text_styling += '- Spelling must be 100% accurate\n'
+            text_styling += '- Text must be LARGE and bold\n'
+            text_styling += f'- Use {text_color_name} color for the text - do not deviate!\n'
+            text_styling += '- Strong contrast against background'
             prompt_parts.append(text_styling)
 
         # Format und Qualität - WICHTIG: Vertikales Pinterest-Format explizit betonen
