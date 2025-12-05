@@ -6,6 +6,41 @@ from io import BytesIO
 logger = logging.getLogger(__name__)
 
 
+def spell_out_text(text: str, min_word_length: int = 5) -> str:
+    """
+    Buchstabiert lange Wörter im Text für bessere KI-Textgenauigkeit.
+
+    Beispiel: "Küche" -> '"Küche" (spelled: K-ü-c-h-e)'
+
+    Args:
+        text: Der zu buchstabierende Text
+        min_word_length: Minimale Wortlänge für Buchstabierung (Default: 5)
+
+    Returns:
+        Text mit buchstabierten langen Wörtern
+    """
+    words = text.split()
+    spelled_words = []
+
+    for word in words:
+        # Entferne Satzzeichen für die Längenprüfung
+        clean_word = ''.join(c for c in word if c.isalnum())
+
+        if len(clean_word) >= min_word_length:
+            # Buchstabiere das Wort, behalte Satzzeichen am Ende
+            trailing_punct = ''
+            if word and not word[-1].isalnum():
+                trailing_punct = word[-1]
+                word = word[:-1]
+
+            spelled = '-'.join(list(word))
+            spelled_words.append(f'"{word}" (spelled: {spelled}){trailing_punct}')
+        else:
+            spelled_words.append(word)
+
+    return ' '.join(spelled_words)
+
+
 class IdeogramService:
     """Service für Ideogram.ai API Integration"""
 
@@ -316,14 +351,30 @@ class IdeogramService:
 
         # Text-Integration (Ideograms Stärke!)
         if overlay_text:
-            # Ideogram braucht den Text in Anführungszeichen für beste Ergebnisse
-            # Betone kontrastreichen, gut lesbaren Text in Pinterest-optimierter Größe
+            # Text buchstabieren für bessere Genauigkeit
+            spelled_text = spell_out_text(overlay_text)
+
+            # Wortanzahl für Komplexitäts-Hinweis
+            word_count = len(overlay_text.split())
+
+            # Ideogram braucht den Text mehrfach und buchstabiert für beste Ergebnisse
             text_instruction = (
-                f'The text "{overlay_text}" is displayed {position_text}, using {style_desc}. '
-                f'The text must be large, bold and highly readable with strong contrast against the background. '
-                f'Optimal text size for Pinterest pins.'
+                f'CRITICAL TEXT REQUIREMENT: Display the exact text "{overlay_text}" {position_text}. '
+                f'Letter-by-letter spelling for accuracy: {spelled_text}. '
+                f'Typography: {style_desc}. '
+                f'SPELLING RULES: '
+                f'- Every letter must be EXACTLY correct, no substitutions, no missing letters. '
+                f'- The text "{overlay_text}" must be large, bold, highly readable with strong contrast. '
+                f'- Double-check each character matches: "{overlay_text}". '
+                f'Pinterest pin optimal text size.'
             )
             prompt_parts.append(text_instruction)
+
+            # Bei langen Texten extra Warnung
+            if word_count > 3:
+                prompt_parts.append(
+                    f'VERIFY SPELLING: Each word must be exact - "{overlay_text}"'
+                )
 
         # Zusätzliche Qualitäts-Keywords für Pinterest
         quality_keywords = [
