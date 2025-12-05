@@ -47,7 +47,7 @@ ERSTELLE EINE BESCHREIBUNG DIE FOLGENDES GARANTIERT:
 1. FOTOREALISMUS (WICHTIGSTE REGEL!):
    - Das Bild soll wie ein echtes Foto aussehen
    - KEINE Illustrationen, Cartoons oder künstlerische Stile
-   - Schreibe explizit: "photorealistic", "real photograph", "DSLR quality"
+   - Erwähne: fotorealistisch, echtes Foto, professionelle Qualität
 
 2. NATÜRLICHE BELEUCHTUNG:
    - Beschreibe die Lichtquelle (Tageslicht, goldene Stunde, Studioblitz)
@@ -73,9 +73,9 @@ ERSTELLE EINE BESCHREIBUNG DIE FOLGENDES GARANTIERT:
 
 FORMAT DER BESCHREIBUNG:
 - Maximal 3-4 Sätze
-- Englisch (für beste Bildgenerierung)
-- Beginne mit "Photorealistic photograph of..."
-- Inkludiere Kamera-Details wenn passend (z.B. "shot with 85mm lens, f/1.8")
+- Auf DEUTSCH schreiben
+- Beginne mit "Fotorealistisches Foto von..."
+- Inkludiere Kamera-Details wenn passend (z.B. "aufgenommen mit 85mm Objektiv, f/1.8")
 
 Antworte NUR mit der Beschreibung, ohne Erklärungen."""
 
