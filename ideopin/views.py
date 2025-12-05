@@ -823,7 +823,14 @@ def api_generate_seo_description(request, project_id):
 @login_required
 def project_list(request):
     """Liste aller Pin-Projekte"""
-    projects = PinProject.objects.filter(user=request.user).order_by('-updated_at')
+    # Nicht gepostete zuerst, dann nach Aktualisierungsdatum
+    projects = PinProject.objects.filter(user=request.user).order_by('pinterest_posted', '-updated_at')
+
+    # Statistiken berechnen
+    total_count = projects.count()
+    posted_count = projects.filter(pinterest_posted=True).count()
+    completed_count = projects.filter(status='completed').count()
+    to_post_count = completed_count - posted_count  # Fertig aber noch nicht gepostet
 
     # Pinterest-Verbindungsstatus prüfen
     pinterest_connected = False
@@ -837,6 +844,10 @@ def project_list(request):
     context = {
         'projects': projects,
         'pinterest_connected': pinterest_connected,
+        'total_count': total_count,
+        'posted_count': posted_count,
+        'completed_count': completed_count,
+        'to_post_count': to_post_count,
     }
     return render(request, 'ideopin/project_list.html', context)
 
