@@ -537,9 +537,14 @@ def api_generate_image(request, project_id):
                     text_position=project.text_position,
                     text_style='modern',
                     keywords=project.keywords,
-                    has_product_image=has_product_image
+                    has_product_image=has_product_image,
+                    text_color=project.text_color or '#FFFFFF',
+                    text_effect=project.text_effect or 'shadow',
+                    text_secondary_color=project.text_secondary_color or '#000000',
+                    style_preset=project.style_preset or 'modern_bold'
                 )
                 logger.info(f"[Ideogram] Generating image WITH integrated text: {project.overlay_text}")
+                logger.info(f"[Ideogram] Styling: preset={project.style_preset}, effect={project.text_effect}, color={project.text_color}")
             else:
                 # Nur Hintergrund generieren (für PIL-Overlay oder ohne Text)
                 prompt = IdeogramService.build_prompt_without_text(

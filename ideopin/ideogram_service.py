@@ -291,7 +291,11 @@ class IdeogramService:
         text_position: str = 'center',
         text_style: str = 'modern',
         keywords: str = '',
-        has_product_image: bool = False
+        has_product_image: bool = False,
+        text_color: str = '#FFFFFF',
+        text_effect: str = 'shadow',
+        text_secondary_color: str = '#000000',
+        style_preset: str = 'modern_bold'
     ) -> str:
         """
         Baut einen optimierten Prompt für Bildgenerierung MIT integriertem Text.
@@ -301,14 +305,19 @@ class IdeogramService:
         - Das Produktbild (falls vorhanden) als Hauptelement beschreibt
         - Den Hintergrund als Setting beschreibt
         - Den Text als Teil des Designs integriert
+        - Styling-Optionen aus Schritt 2 berücksichtigt
 
         Args:
             background_description: Beschreibung des Hintergrunds
             overlay_text: Der Text, der im Bild erscheinen soll
             text_position: Position des Textes (top, center, bottom)
-            text_style: Stil des Textes
+            text_style: Stil des Textes (legacy)
             keywords: Zusätzliche Keywords für Kontext
             has_product_image: Ob ein Produktbild als Referenz übergeben wird
+            text_color: Textfarbe als Hex
+            text_effect: Text-Effekt (shadow, outline, glow, etc.)
+            text_secondary_color: Sekundärfarbe für Effekte
+            style_preset: Style-Preset aus Schritt 2
 
         Returns:
             Optimierter Prompt für Ideogram
@@ -321,16 +330,82 @@ class IdeogramService:
         }
         position_text = position_map.get(text_position, 'prominently displayed')
 
-        # Style-Beschreibungen für verschiedene Text-Stile
-        style_descriptions = {
-            'modern': 'clean, modern typography with bold sans-serif font',
-            'elegant': 'elegant, sophisticated serif typography',
-            'playful': 'fun, playful hand-written style typography',
-            'bold': 'bold, impactful typography that stands out',
-            'minimal': 'minimalist, subtle typography',
-            'vintage': 'vintage, retro-style typography',
+        # Style-Preset zu Beschreibung (wie bei Gemini)
+        style_preset_descriptions = {
+            # Modern & Clean
+            'modern_bold': 'modern, bold sans-serif typography with strong visual impact',
+            'minimal_clean': 'minimalist, clean typography with lots of whitespace',
+            'tech_futuristic': 'futuristic tech-style typography with sleek, digital aesthetic',
+            'geometric': 'geometric modern typography with clean lines and shapes',
+            # Elegant & Classic
+            'elegant_serif': 'elegant serif typography with classic, refined styling',
+            'luxury_gold': 'luxurious gold-accented typography with premium feel',
+            'wedding_romantic': 'romantic, soft typography with elegant script accents',
+            'art_deco': 'Art Déco inspired typography with geometric elegance',
+            # Colorful & Fun
+            'playful_color': 'playful, colorful typography with fun, energetic feel',
+            'neon_glow': 'vibrant neon glowing typography with electric colors',
+            'pastel_soft': 'soft pastel-colored typography with gentle, dreamy feel',
+            'gradient_vibrant': 'vibrant gradient typography with dynamic color transitions',
+            'rainbow': 'colorful rainbow typography with playful multi-color effect',
+            # Dark & Moody
+            'dark_contrast': 'high-contrast dark theme with bold white or bright text',
+            'midnight_blue': 'deep midnight blue theme with elegant light text',
+            'noir_dramatic': 'dramatic film noir style with high contrast black and white',
+            # Light & Fresh
+            'bright_fresh': 'bright, fresh typography with light colors and clean lines',
+            'summer_beach': 'sunny beach-inspired typography with warm, tropical colors',
+            'spring_floral': 'delicate spring-inspired typography with floral accents',
+            # Retro & Vintage
+            'vintage_retro': 'vintage retro typography with nostalgic styling',
+            'retro_70s': '1970s retro typography with groovy, warm earth tones',
+            'polaroid': 'polaroid-inspired typography with vintage photo aesthetic',
+            # Business & Professional
+            'professional': 'professional business typography, clean and corporate',
+            'corporate_blue': 'corporate blue-toned typography with trustworthy feel',
+            'startup': 'modern startup typography with innovative, tech-forward style',
+            # Special Themes
+            'food_warm': 'warm, appetizing typography perfect for food content',
+            'nature_organic': 'organic, natural typography with earthy, green tones',
+            'fitness_energy': 'energetic, dynamic typography with bold, motivating style',
+            'kids_playful': 'playful, child-friendly typography with fun colors',
+            'christmas': 'festive Christmas typography with red, green, and gold',
+            'halloween': 'spooky Halloween typography with orange, purple, and black',
         }
-        style_desc = style_descriptions.get(text_style, style_descriptions['modern'])
+        style_desc = style_preset_descriptions.get(style_preset, style_preset_descriptions['modern_bold'])
+
+        # Text-Effekt zu Beschreibung
+        effect_descriptions = {
+            'none': '',
+            'shadow': 'with a subtle drop shadow for depth',
+            'shadow_soft': 'with a soft, diffused shadow',
+            'shadow_hard': 'with a hard, defined drop shadow',
+            'shadow_long': 'with a long dramatic shadow',
+            'shadow_3d': 'with a 3D layered shadow effect',
+            'outline': 'with a clean outline border',
+            'outline_thin': 'with a thin outline border',
+            'outline_thick': 'with a thick bold outline',
+            'outline_double': 'with a double outline effect',
+            'glow': 'with a soft glow effect',
+            'glow_soft': 'with a gentle, diffused glow',
+            'glow_neon': 'with a vibrant neon glow effect',
+            'emboss': 'with an embossed 3D effect',
+            'gradient_text': 'with gradient colors flowing through the text',
+        }
+        effect_desc = effect_descriptions.get(text_effect, '')
+
+        # Farbe zu Beschreibung
+        def hex_to_color_name(hex_color):
+            color_map = {
+                '#FFFFFF': 'white', '#000000': 'black', '#FF0000': 'red',
+                '#00FF00': 'green', '#0000FF': 'blue', '#FFFF00': 'yellow',
+                '#FF6600': 'orange', '#800080': 'purple', '#FFC0CB': 'pink',
+                '#FFD700': 'gold', '#C0C0C0': 'silver', '#8B4513': 'brown',
+            }
+            return color_map.get(hex_color.upper(), hex_color)
+
+        text_color_name = hex_to_color_name(text_color)
+        secondary_color_name = hex_to_color_name(text_secondary_color)
 
         # Baue den optimierten Prompt
         prompt_parts = []
@@ -357,14 +432,25 @@ class IdeogramService:
             # Wortanzahl für Komplexitäts-Hinweis
             word_count = len(overlay_text.split())
 
+            # Styling-Beschreibung zusammenbauen
+            styling_parts = [f'{text_color_name} colored text']
+            if effect_desc:
+                styling_parts.append(effect_desc)
+                if text_effect in ['shadow', 'shadow_soft', 'shadow_hard', 'shadow_long', 'shadow_3d']:
+                    styling_parts.append(f'in {secondary_color_name}')
+                elif text_effect in ['outline', 'outline_thin', 'outline_thick', 'outline_double']:
+                    styling_parts.append(f'with {secondary_color_name} outline')
+            styling_text = ', '.join(styling_parts)
+
             # Ideogram braucht den Text mehrfach und buchstabiert für beste Ergebnisse
             text_instruction = (
                 f'CRITICAL TEXT REQUIREMENT: Display the exact text "{overlay_text}" {position_text}. '
                 f'Letter-by-letter spelling for accuracy: {spelled_text}. '
-                f'Typography: {style_desc}. '
+                f'Typography style: {style_desc}. '
+                f'Text appearance: {styling_text}. '
                 f'SPELLING RULES: '
                 f'- Every letter must be EXACTLY correct, no substitutions, no missing letters. '
-                f'- The text "{overlay_text}" must be large, bold, highly readable with strong contrast. '
+                f'- The text "{overlay_text}" must be large, bold, highly readable. '
                 f'- Double-check each character matches: "{overlay_text}". '
                 f'Pinterest pin optimal text size.'
             )
