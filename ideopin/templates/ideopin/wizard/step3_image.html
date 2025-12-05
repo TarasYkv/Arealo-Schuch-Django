@@ -111,7 +111,41 @@
                         {% endif %}
                     </div>
 
+                    <!-- Bild-Quelle Auswahl -->
                     <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-image"></i> Bild-Quelle
+                        </label>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <!-- Option 1: KI generieren -->
+                                <div class="form-check mb-3">
+                                    <input type="radio" name="image_source" value="ai"
+                                           class="form-check-input" id="image_source_ai" checked>
+                                    <label class="form-check-label" for="image_source_ai">
+                                        <strong><i class="bi bi-magic"></i> Mit KI generieren</strong>
+                                        <small class="d-block text-muted">
+                                            Bild wird basierend auf Hintergrund-Beschreibung erstellt
+                                        </small>
+                                    </label>
+                                </div>
+                                <!-- Option 2: Eigenes Bild -->
+                                <div class="form-check">
+                                    <input type="radio" name="image_source" value="upload"
+                                           class="form-check-input" id="image_source_upload">
+                                    <label class="form-check-label" for="image_source_upload">
+                                        <strong><i class="bi bi-upload"></i> Eigenes Bild hochladen</strong>
+                                        <small class="d-block text-muted">
+                                            Verwende ein eigenes Bild statt KI-Generierung
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KI-Generierung Buttons (Standard) -->
+                    <div class="mb-4" id="aiGenerationSection">
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-success btn-lg flex-grow-1" id="generateImageBtn"
                                     {% if not has_required_key %}disabled{% endif %}>
@@ -131,6 +165,18 @@
                             <span class="text-success"><i class="bi bi-check"></i> Text wird automatisch ins Bild integriert</span>
                             {% endif %}
                         </div>
+                    </div>
+
+                    <!-- Eigenes Bild Upload (versteckt standardmäßig) -->
+                    <div class="mb-4" id="uploadSection" style="display: none;">
+                        <label class="form-label">Eigenes Bild auswählen:</label>
+                        {{ form.custom_image }}
+                        <div class="form-text">
+                            Empfohlen: PNG oder JPG, mindestens 1000px breit
+                        </div>
+                        <button type="button" class="btn btn-primary btn-lg w-100 mt-3" id="uploadImageBtn">
+                            <i class="bi bi-upload"></i> Bild hochladen & verwenden
+                        </button>
                     </div>
 
                     <!-- PIL Overlay Button - wird dynamisch angezeigt -->
@@ -211,6 +257,91 @@ document.addEventListener('DOMContentLoaded', function() {
     const modelInfoText = document.getElementById('modelInfoText');
     const pilOverlayContainer = document.getElementById('pilOverlayContainer');
     const step3Form = document.getElementById('step3Form');
+
+    // Bild-Quelle Toggle
+    const aiGenerationSection = document.getElementById('aiGenerationSection');
+    const uploadSection = document.getElementById('uploadSection');
+    const imageSourceRadios = document.querySelectorAll('input[name="image_source"]');
+    const uploadImageBtn = document.getElementById('uploadImageBtn');
+    const customImageInput = document.getElementById('id_custom_image');
+
+    // Toggle zwischen KI und Upload
+    imageSourceRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'ai') {
+                aiGenerationSection.style.display = 'block';
+                uploadSection.style.display = 'none';
+            } else {
+                aiGenerationSection.style.display = 'none';
+                uploadSection.style.display = 'block';
+            }
+        });
+    });
+
+    // Eigenes Bild hochladen
+    if (uploadImageBtn && customImageInput) {
+        uploadImageBtn.addEventListener('click', async function() {
+            const file = customImageInput.files[0];
+            if (!file) {
+                alert('Bitte wähle zuerst ein Bild aus.');
+                return;
+            }
+
+            const originalHtml = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Wird hochgeladen...';
+
+            const formData = new FormData(step3Form);
+
+            try {
+                const response = await fetch('{% url "ideopin:api_upload_custom_image" project.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    imagePreview.innerHTML = `
+                        <img src="${data.image_url}?t=${Date.now()}" alt="Hochgeladenes Bild" class="img-fluid">
+                        <span class="badge bg-info mt-2"><i class="bi bi-upload"></i> Eigenes Bild</span>
+                    `;
+
+                    // Model-Info Badge verstecken
+                    if (modelInfoBadge) {
+                        modelInfoBadge.style.display = 'none';
+                    }
+
+                    // PIL Overlay Button anzeigen wenn pil mode
+                    const currentTextMode = document.querySelector('input[name="text_integration_mode"]:checked')?.value;
+                    if (currentTextMode === 'pil' && pilOverlayContainer) {
+                        pilOverlayContainer.style.display = 'block';
+                    }
+
+                    this.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-success');
+
+                    setTimeout(() => {
+                        this.innerHTML = originalHtml;
+                        this.classList.remove('btn-success');
+                        this.classList.add('btn-primary');
+                        this.disabled = false;
+                    }, 2000);
+                } else {
+                    alert('Fehler: ' + data.error);
+                    this.innerHTML = originalHtml;
+                    this.disabled = false;
+                }
+            } catch (e) {
+                alert('Fehler beim Hochladen: ' + e.message);
+                this.innerHTML = originalHtml;
+                this.disabled = false;
+            }
+        });
+    }
 
     // Text-Integration Mode Radio Buttons
     const textModeRadios = document.querySelectorAll('input[name="text_integration_mode"]');

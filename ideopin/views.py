@@ -158,6 +158,12 @@ def wizard_step3(request, project_id):
         form = Step3ImageForm(request.POST, request.FILES, instance=project)
         if form.is_valid():
             project = form.save(commit=False)
+
+            # Eigenes Bild hochgeladen? -> Als generated_image speichern
+            custom_image = form.cleaned_data.get('custom_image')
+            if custom_image:
+                project.generated_image = custom_image
+
             project.status = 'step3'
             project.save()
             return redirect('ideopin:wizard_step4', project_id=project.id)
@@ -645,6 +651,38 @@ def api_save_step3(request, project_id):
 
     except Exception as e:
         logger.error(f"Error saving step3: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_upload_custom_image(request, project_id):
+    """API: Lädt ein eigenes Bild hoch und speichert es als generated_image"""
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        custom_image = request.FILES.get('custom_image')
+        if not custom_image:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Bild hochgeladen'
+            }, status=400)
+
+        # Bild speichern
+        project.generated_image = custom_image
+        project.save()
+
+        return JsonResponse({
+            'success': True,
+            'image_url': project.generated_image.url,
+            'message': 'Bild erfolgreich hochgeladen'
+        })
+
+    except Exception as e:
+        logger.error(f"Error uploading custom image: {e}")
         return JsonResponse({
             'success': False,
             'error': str(e)

@@ -87,6 +87,16 @@ class Step2TextForm(forms.ModelForm):
 class Step3ImageForm(forms.ModelForm):
     """Schritt 3: Bild-Einstellungen"""
 
+    # Zusätzliches Feld für eigenes Bild-Upload
+    custom_image = forms.ImageField(
+        required=False,
+        label='Eigenes Bild hochladen',
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/*'
+        })
+    )
+
     class Meta:
         model = PinProject
         fields = ['product_image', 'background_description', 'pin_format', 'text_integration_mode']
