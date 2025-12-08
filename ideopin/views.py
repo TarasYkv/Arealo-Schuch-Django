@@ -438,6 +438,40 @@ def api_get_keyword_history(request):
 
 
 @login_required
+def api_get_link_history(request):
+    """API: Gibt alle einzigartigen Links des Benutzers zurück"""
+    try:
+        # Alle Links aus den Projekten des Benutzers sammeln
+        projects = PinProject.objects.filter(user=request.user).exclude(pin_url='').values_list('pin_url', flat=True)
+
+        # Links deduplizieren (Case-insensitive)
+        seen_links = set()
+        unique_links = []
+        for link in projects:
+            if link:
+                link_lower = link.lower().strip()
+                if link_lower not in seen_links:
+                    seen_links.add(link_lower)
+                    unique_links.append(link.strip())
+
+        # Alphabetisch sortieren
+        sorted_links = sorted(unique_links, key=str.lower)
+
+        return JsonResponse({
+            'success': True,
+            'links': sorted_links,
+            'count': len(sorted_links)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting link history: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
 @require_POST
 def api_generate_overlay_text(request, project_id):
     """API: Generiert catchy Pin-Text aus Keywords via GPT"""
