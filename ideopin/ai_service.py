@@ -217,12 +217,12 @@ ERSTELLE EINE PINTEREST-BESCHREIBUNG MIT FOLGENDER STRUKTUR:
 ═══════════════════════════════════════════════════════════════
 
 REGELN:
-✓ MAXIMAL 450 Zeichen (inkl. Hashtags) - STRIKT einhalten!
+✓ EXAKT 470-490 Zeichen (inkl. Hashtags) - STRIKT einhalten!
 ✓ Keine Emojis im Fließtext (nur bei Hashtags optional)
 ✓ Kein Werbe-Sprech, authentisch und hilfreich
 ✓ Leicht lesbar, als würdest du einem Freund erzählen
 
-WICHTIG: Die Beschreibung MUSS unter 450 Zeichen bleiben!
+WICHTIG: Die Beschreibung MUSS zwischen 470-490 Zeichen lang sein! Nicht weniger, nicht mehr als 490!
 
 Antworte NUR mit der fertigen Beschreibung, ohne Erklärungen."""
 
@@ -238,9 +238,9 @@ Antworte NUR mit der fertigen Beschreibung, ohne Erklärungen."""
 
             description = response.choices[0].message.content.strip()
 
-            # Ensure max 500 chars
-            if len(description) > 500:
-                description = description[:497] + '...'
+            # Ensure max 490 chars (ideal: 470-490)
+            if len(description) > 490:
+                description = description[:487] + '...'
 
             return {
                 'success': True,

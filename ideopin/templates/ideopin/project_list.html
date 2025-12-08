@@ -410,12 +410,14 @@ async function createPinterestPin(imageUrl, linkUrl, title, description, project
         const baseUrl = window.location.origin;
         const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : baseUrl + imageUrl;
 
-        // Text für Zwischenablage vorbereiten (Titel + Beschreibung + Link)
+        // Text für Zwischenablage vorbereiten (Titel + Beschreibung + Link ohne https://)
+        const usedLink = linkUrl || window.location.href;
+        const cleanLink = usedLink.replace(/^https?:\/\//, '');
         let clipboardText = '';
         if (title) {
-            clipboardText = `${title}\n\n${description}\n\n🔗 ${linkUrl || window.location.href}`;
+            clipboardText = `${title}\n\n${description}\n\n🔗 ${cleanLink}`;
         } else {
-            clipboardText = `${description}\n\n🔗 ${linkUrl || window.location.href}`;
+            clipboardText = `${description}\n\n🔗 ${cleanLink}`;
         }
 
         // In Zwischenablage kopieren
