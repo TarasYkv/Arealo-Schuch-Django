@@ -206,9 +206,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Generate text via AI
-    generateTextBtn.addEventListener('click', async function() {
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+    async function generateText() {
+        generateTextBtn.disabled = true;
+        generateTextBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
 
         try {
             const response = await fetch('{% url "ideopin:api_generate_text" project.id %}', {
@@ -224,15 +224,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 textInput.value = data.text;
                 updateCounter();
             } else {
-                alert('Fehler: ' + data.error);
+                console.error('Fehler: ' + data.error);
             }
         } catch (e) {
-            alert('Fehler bei der Textgenerierung');
+            console.error('Fehler bei der Textgenerierung:', e);
         }
 
-        this.disabled = false;
-        this.innerHTML = '<i class="bi bi-magic"></i> Text generieren';
-    });
+        generateTextBtn.disabled = false;
+        generateTextBtn.innerHTML = '<i class="bi bi-magic"></i> Text generieren';
+    }
+
+    generateTextBtn.addEventListener('click', generateText);
+
+    // Automatisch Text generieren wenn Feld leer ist
+    if (!textInput.value.trim()) {
+        generateText();
+    }
 });
 </script>
 {% endblock %}

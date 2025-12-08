@@ -165,12 +165,12 @@ class PinProject(models.Model):
 
     # Text-Hintergrund Optionen
     text_background_enabled = models.BooleanField(
-        default=False,
+        default=True,
         verbose_name="Text-Hintergrund",
         help_text="Text auf einem formpassenden Hintergrund platzieren"
     )
     text_background_creative = models.BooleanField(
-        default=False,
+        default=True,
         verbose_name="Kreative Formen",
         help_text="Hintergrund kann kreative Formen haben (Banner, Ribbon, etc.)"
     )
