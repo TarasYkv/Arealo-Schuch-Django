@@ -134,10 +134,10 @@ document.addEventListener('DOMContentLoaded', function() {
     seoInput.addEventListener('input', updateSeoCounter);
     updateSeoCounter();
 
-    // Generate Title
-    generateTitleBtn.addEventListener('click', async function() {
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+    // Generate Title Funktion
+    async function generateTitle() {
+        generateTitleBtn.disabled = true;
+        generateTitleBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
 
         try {
             const response = await fetch('{% url "ideopin:api_generate_title" project.id %}', {
@@ -152,20 +152,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 titleInput.value = data.title;
                 updateTitleCounter();
             } else {
-                alert('Fehler: ' + data.error);
+                console.error('Fehler: ' + data.error);
             }
         } catch (e) {
-            alert('Fehler bei der Generierung');
+            console.error('Fehler bei der Titel-Generierung:', e);
         }
 
-        this.disabled = false;
-        this.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
-    });
+        generateTitleBtn.disabled = false;
+        generateTitleBtn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+    }
 
-    // Generate SEO description
-    generateSeoBtn.addEventListener('click', async function() {
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+    // Generate SEO Beschreibung Funktion
+    async function generateSeoDescription() {
+        generateSeoBtn.disabled = true;
+        generateSeoBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
 
         try {
             const response = await fetch('{% url "ideopin:api_generate_seo" project.id %}', {
@@ -180,15 +180,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 seoInput.value = data.description;
                 updateSeoCounter();
             } else {
-                alert('Fehler: ' + data.error);
+                console.error('Fehler: ' + data.error);
             }
         } catch (e) {
-            alert('Fehler bei der Generierung');
+            console.error('Fehler bei der SEO-Generierung:', e);
         }
 
-        this.disabled = false;
-        this.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
-    });
+        generateSeoBtn.disabled = false;
+        generateSeoBtn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+    }
+
+    // Event Listener für Buttons
+    generateTitleBtn.addEventListener('click', generateTitle);
+    generateSeoBtn.addEventListener('click', generateSeoDescription);
+
+    // Automatisch generieren wenn Felder leer sind
+    if (!titleInput.value.trim()) {
+        generateTitle();
+    }
+    if (!seoInput.value.trim()) {
+        generateSeoDescription();
+    }
 });
 </script>
 {% endblock %}

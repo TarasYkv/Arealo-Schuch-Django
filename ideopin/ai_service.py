@@ -273,37 +273,24 @@ Antworte NUR mit der fertigen Beschreibung, ohne Erklärungen."""
             keyword_list = [k.strip() for k in keywords.split(',') if k.strip()]
             main_keyword = keyword_list[0] if keyword_list else keywords
 
-            prompt = f"""Du bist ein Pinterest Marketing-Experte. Erstelle einen perfekten Pin-Titel.
+            prompt = f"""Erstelle einen ansprechenden Pinterest Pin-Titel auf Deutsch.
 
-🎯 HAUPT-KEYWORD: "{main_keyword}"
-📝 Weitere Keywords: {', '.join(keyword_list[1:5]) if len(keyword_list) > 1 else 'keine'}
-💬 Text-Overlay auf dem Pin: {overlay_text or 'Nicht angegeben'}
+KEYWORD: "{main_keyword}"
+{f'TEXT AUF DEM PIN: "{overlay_text}"' if overlay_text else ''}
 
-═══════════════════════════════════════════════════════════════
+REGELN:
+- Maximal 60-80 Zeichen
+- Das Keyword "{main_keyword}" muss enthalten sein
+- Natürlich und ansprechend formulieren
+- KEINE Zahlen am Anfang (nicht "10 Tipps...", "5 Ideen...")
 
-ERSTELLE EINEN PINTEREST PIN-TITEL MIT FOLGENDEN REGELN:
+GUTE BEISPIELE:
+- "Traumhafte Geschenkideen für jeden Anlass"
+- "So findest du das perfekte Outfit"
+- "Deine Inspiration für moderne Wohnzimmer"
+- "Entdecke kreative DIY-Ideen für Zuhause"
 
-1. LÄNGE: Maximal 100 Zeichen (ideal: 40-70 Zeichen)
-
-2. STRUKTUR (wähle eine):
-   - "[Zahl] [Keyword] [Nutzen]" (z.B. "10 Geschenkideen für Frauen, die sie lieben wird")
-   - "[Keyword]: [Versprechen]" (z.B. "Geburtstagstorte: So gelingt sie garantiert")
-   - "[Frage mit Keyword]?" (z.B. "Suchst du das perfekte Geschenk?")
-   - "[Wie/Was/Warum] [Keyword] [Ergebnis]" (z.B. "Wie du das perfekte Outfit findest")
-
-3. ENTHÄLT:
-   - Das Haupt-Keyword "{main_keyword}" prominent am Anfang
-   - Power-Wörter: Perfekt, Einfach, Geheim, DIY, Tipps, Ideen, Inspiration
-   - Nutzen oder Versprechen für den Leser
-
-4. VERMEIDEN:
-   - Clickbait ohne Substanz
-   - Zu generische Titel
-   - Übertreibungen
-
-═══════════════════════════════════════════════════════════════
-
-Antworte NUR mit dem Titel, ohne Anführungszeichen oder Erklärungen."""
+Antworte NUR mit dem Titel, nichts anderes."""
 
             response = self.client.chat.completions.create(
                 model=self.model,
