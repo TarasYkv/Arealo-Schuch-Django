@@ -325,6 +325,40 @@ def api_generate_keywords(request):
 
 
 @login_required
+def api_get_keyword_history(request):
+    """API: Gibt alle einzigartigen Keywords des Benutzers zurück"""
+    try:
+        # Alle Keywords aus den Projekten des Benutzers sammeln
+        projects = PinProject.objects.filter(user=request.user).exclude(keywords='').values_list('keywords', flat=True)
+
+        # Keywords extrahieren und deduplizieren
+        all_keywords = set()
+        for keywords_str in projects:
+            if keywords_str:
+                # Komma-getrennte Keywords aufsplitten
+                for keyword in keywords_str.split(','):
+                    keyword = keyword.strip()
+                    if keyword:
+                        all_keywords.add(keyword)
+
+        # Alphabetisch sortieren
+        sorted_keywords = sorted(all_keywords, key=str.lower)
+
+        return JsonResponse({
+            'success': True,
+            'keywords': sorted_keywords,
+            'count': len(sorted_keywords)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting keyword history: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
 @require_POST
 def api_generate_overlay_text(request, project_id):
     """API: Generiert catchy Pin-Text aus Keywords via GPT"""

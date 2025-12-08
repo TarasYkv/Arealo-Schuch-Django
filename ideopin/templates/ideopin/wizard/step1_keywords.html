@@ -22,6 +22,9 @@
                         </label>
                         <div class="input-group">
                             {{ form.keywords }}
+                            <button type="button" class="btn btn-outline-secondary" id="keywordHistoryBtn" title="Frühere Keywords anzeigen">
+                                <i class="bi bi-clock-history"></i>
+                            </button>
                             <button type="button" class="btn btn-outline-primary" id="generateKeywordsBtn" title="Verwandte Keywords generieren">
                                 <i class="bi bi-magic"></i> Keywords erweitern
                             </button>
@@ -58,18 +61,117 @@
         </div>
     </div>
 </div>
+
+<!-- Keyword-Verlauf Modal -->
+<div class="modal fade" id="keywordHistoryModal" tabindex="-1" aria-labelledby="keywordHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="keywordHistoryModalLabel">
+                    <i class="bi bi-clock-history"></i> Frühere Keywords
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="keywordHistoryLoading" class="text-center py-4">
+                    <span class="spinner-border spinner-border-sm"></span> Lade Keywords...
+                </div>
+                <div id="keywordHistoryEmpty" class="text-center py-4 text-muted" style="display: none;">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    Noch keine Keywords gespeichert.
+                </div>
+                <div id="keywordHistoryContent" style="display: none;">
+                    <p class="text-muted mb-3">
+                        <small>Klicke auf ein Keyword, um es hinzuzufügen:</small>
+                    </p>
+                    <div id="keywordHistoryTags" class="d-flex flex-wrap gap-2">
+                        <!-- Keywords werden hier eingefügt -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span id="keywordHistoryCount" class="text-muted me-auto"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block wizard_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generateKeywordsBtn');
+    const keywordHistoryBtn = document.getElementById('keywordHistoryBtn');
     const keywordsInput = document.getElementById('{{ form.keywords.id_for_label }}');
     const suggestionsDiv = document.getElementById('keywordSuggestions');
     const keywordTagsDiv = document.getElementById('keywordTags');
 
+    // Modal-Elemente
+    const historyModal = new bootstrap.Modal(document.getElementById('keywordHistoryModal'));
+    const historyLoading = document.getElementById('keywordHistoryLoading');
+    const historyEmpty = document.getElementById('keywordHistoryEmpty');
+    const historyContent = document.getElementById('keywordHistoryContent');
+    const historyTags = document.getElementById('keywordHistoryTags');
+    const historyCount = document.getElementById('keywordHistoryCount');
+
     // Set um bereits angezeigte Vorschläge zu tracken
     const shownSuggestions = new Set();
+
+    // Keyword-Verlauf Button
+    keywordHistoryBtn.addEventListener('click', async function() {
+        historyModal.show();
+        historyLoading.style.display = 'block';
+        historyEmpty.style.display = 'none';
+        historyContent.style.display = 'none';
+        historyTags.innerHTML = '';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_keyword_history" %}');
+            const data = await response.json();
+
+            historyLoading.style.display = 'none';
+
+            if (data.success && data.keywords && data.keywords.length > 0) {
+                // Aktuelle Keywords für Duplikat-Check
+                const currentKeywords = new Set(
+                    keywordsInput.value.toLowerCase().split(',').map(k => k.trim()).filter(k => k)
+                );
+
+                data.keywords.forEach(keyword => {
+                    const isAlreadyAdded = currentKeywords.has(keyword.toLowerCase());
+
+                    const tag = document.createElement('button');
+                    tag.type = 'button';
+                    tag.className = `btn btn-sm ${isAlreadyAdded ? 'btn-secondary' : 'btn-outline-primary'}`;
+                    tag.textContent = keyword;
+                    tag.disabled = isAlreadyAdded;
+
+                    if (!isAlreadyAdded) {
+                        tag.addEventListener('click', function() {
+                            addKeyword(keyword);
+                            tag.className = 'btn btn-sm btn-secondary';
+                            tag.disabled = true;
+                            currentKeywords.add(keyword.toLowerCase());
+                        });
+                    }
+
+                    historyTags.appendChild(tag);
+                });
+
+                historyCount.textContent = `${data.count} Keywords gespeichert`;
+                historyContent.style.display = 'block';
+            } else {
+                historyEmpty.style.display = 'block';
+                historyCount.textContent = '';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            historyLoading.style.display = 'none';
+            historyEmpty.innerHTML = '<i class="bi bi-exclamation-triangle text-danger fs-1 d-block mb-2"></i>Fehler beim Laden.';
+            historyEmpty.style.display = 'block';
+        }
+    });
 
     generateBtn.addEventListener('click', async function() {
         const currentKeywords = keywordsInput.value.trim();
