@@ -28,17 +28,23 @@
 
                     <div class="mb-4">
                         <label class="form-label fw-bold">Produktbild (optional)</label>
-                        {{ form.product_image }}
+                        <div class="input-group">
+                            {{ form.product_image }}
+                            <button type="button" class="btn btn-outline-secondary" id="productImageHistoryBtn" title="Frühere Produktbilder">
+                                <i class="bi bi-clock-history"></i>
+                            </button>
+                        </div>
                         <div class="form-text">
                             Wird als Referenz für die Bildgenerierung verwendet.
                         </div>
-                        {% if project.product_image %}
-                        <div class="mt-2">
-                            <img src="{{ project.product_image.url }}" alt="Produktbild"
-                                 style="max-width: 100px; border-radius: 8px;">
-                            <span class="text-success ms-2"><i class="bi bi-check"></i> Hochgeladen</span>
+                        <div id="currentProductImage" class="mt-2" {% if not project.product_image %}style="display: none;"{% endif %}>
+                            <img src="{% if project.product_image %}{{ project.product_image.url }}{% endif %}" alt="Produktbild"
+                                 id="productImagePreview" style="max-width: 100px; border-radius: 8px;">
+                            <span class="text-success ms-2"><i class="bi bi-check"></i> Ausgewählt</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeProductImageBtn" title="Produktbild entfernen">
+                                <i class="bi bi-x"></i>
+                            </button>
                         </div>
-                        {% endif %}
                     </div>
 
                     <div class="mb-4">
@@ -227,6 +233,40 @@
     </div>
 </div>
 
+<!-- Produktbild-Verlauf Modal -->
+<div class="modal fade" id="productImageHistoryModal" tabindex="-1" aria-labelledby="productImageHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productImageHistoryModalLabel">
+                    <i class="bi bi-clock-history"></i> Frühere Produktbilder
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="productImageHistoryLoading" class="text-center py-4">
+                    <span class="spinner-border spinner-border-sm"></span> Lade Bilder...
+                </div>
+                <div id="productImageHistoryEmpty" class="text-center py-4 text-muted" style="display: none;">
+                    <i class="bi bi-image fs-1 d-block mb-2"></i>
+                    Noch keine Produktbilder hochgeladen.
+                </div>
+                <div id="productImageHistoryContent" style="display: none;">
+                    <p class="text-muted mb-3">
+                        <small>Klicke auf ein Bild, um es auszuwählen:</small>
+                    </p>
+                    <div id="productImageHistoryGrid" class="row g-3">
+                        <!-- Bilder werden hier eingefügt -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span id="productImageHistoryCount" class="text-muted me-auto"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block wizard_js %}
@@ -238,6 +278,104 @@ document.addEventListener('DOMContentLoaded', function() {
     const modelInfoBadge = document.getElementById('modelInfoBadge');
     const modelInfoText = document.getElementById('modelInfoText');
     const step3Form = document.getElementById('step3Form');
+
+    // Produktbild-Verlauf Elemente
+    const productImageHistoryBtn = document.getElementById('productImageHistoryBtn');
+    const productImageHistoryModal = new bootstrap.Modal(document.getElementById('productImageHistoryModal'));
+    const productImageHistoryLoading = document.getElementById('productImageHistoryLoading');
+    const productImageHistoryEmpty = document.getElementById('productImageHistoryEmpty');
+    const productImageHistoryContent = document.getElementById('productImageHistoryContent');
+    const productImageHistoryGrid = document.getElementById('productImageHistoryGrid');
+    const productImageHistoryCount = document.getElementById('productImageHistoryCount');
+    const currentProductImage = document.getElementById('currentProductImage');
+    const productImagePreview = document.getElementById('productImagePreview');
+    const removeProductImageBtn = document.getElementById('removeProductImageBtn');
+    const productImageInput = document.getElementById('id_product_image');
+
+    // Produktbild-Verlauf Button
+    productImageHistoryBtn.addEventListener('click', async function() {
+        productImageHistoryModal.show();
+        productImageHistoryLoading.style.display = 'block';
+        productImageHistoryEmpty.style.display = 'none';
+        productImageHistoryContent.style.display = 'none';
+        productImageHistoryGrid.innerHTML = '';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_product_image_history" %}');
+            const data = await response.json();
+
+            productImageHistoryLoading.style.display = 'none';
+
+            if (data.success && data.images && data.images.length > 0) {
+                data.images.forEach(image => {
+                    const col = document.createElement('div');
+                    col.className = 'col-4 col-md-3';
+
+                    const card = document.createElement('div');
+                    card.className = 'card h-100 product-image-card';
+                    card.style.cursor = 'pointer';
+                    card.innerHTML = `
+                        <img src="${image.url}" class="card-img-top" style="height: 120px; object-fit: cover;" alt="Produktbild">
+                        <div class="card-body p-2">
+                            <small class="text-muted d-block text-truncate">${image.keywords || 'Ohne Keywords'}</small>
+                            <small class="text-muted">${image.date}</small>
+                        </div>
+                    `;
+
+                    card.addEventListener('click', async function() {
+                        // Bild auswählen
+                        try {
+                            const setResponse = await fetch('{% url "ideopin:api_set_product_image" project.id %}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': '{{ csrf_token }}',
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ source_project_id: image.id })
+                            });
+                            const setData = await setResponse.json();
+
+                            if (setData.success) {
+                                productImagePreview.src = setData.image_url;
+                                currentProductImage.style.display = 'block';
+                                productImageHistoryModal.hide();
+                            } else {
+                                alert('Fehler: ' + setData.error);
+                            }
+                        } catch (e) {
+                            console.error('Error:', e);
+                            alert('Fehler beim Auswählen des Bildes');
+                        }
+                    });
+
+                    col.appendChild(card);
+                    productImageHistoryGrid.appendChild(col);
+                });
+
+                productImageHistoryCount.textContent = `${data.count} Bilder`;
+                productImageHistoryContent.style.display = 'block';
+            } else {
+                productImageHistoryEmpty.style.display = 'block';
+                productImageHistoryCount.textContent = '';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            productImageHistoryLoading.style.display = 'none';
+            productImageHistoryEmpty.innerHTML = '<i class="bi bi-exclamation-triangle text-danger fs-1 d-block mb-2"></i>Fehler beim Laden.';
+            productImageHistoryEmpty.style.display = 'block';
+        }
+    });
+
+    // Produktbild entfernen
+    if (removeProductImageBtn) {
+        removeProductImageBtn.addEventListener('click', function() {
+            productImagePreview.src = '';
+            currentProductImage.style.display = 'none';
+            if (productImageInput) {
+                productImageInput.value = '';
+            }
+        });
+    }
 
     // Bild-Quelle Toggle
     const aiGenerationSection = document.getElementById('aiGenerationSection');

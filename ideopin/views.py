@@ -325,6 +325,85 @@ def api_generate_keywords(request):
 
 
 @login_required
+def api_get_product_image_history(request):
+    """API: Gibt alle einzigartigen Produktbilder des Benutzers zurück"""
+    try:
+        # Alle Projekte mit Produktbildern sammeln
+        projects = PinProject.objects.filter(
+            user=request.user,
+            product_image__isnull=False
+        ).exclude(product_image='').values('id', 'product_image', 'keywords', 'created_at').order_by('-created_at')
+
+        # Deduplizieren basierend auf dem Bildpfad
+        seen_images = set()
+        unique_images = []
+
+        for project in projects:
+            image_path = project['product_image']
+            if image_path and image_path not in seen_images:
+                seen_images.add(image_path)
+                unique_images.append({
+                    'id': project['id'],
+                    'url': f'/media/{image_path}',
+                    'keywords': project['keywords'][:50] + '...' if len(project['keywords'] or '') > 50 else project['keywords'],
+                    'date': project['created_at'].strftime('%d.%m.%Y') if project['created_at'] else ''
+                })
+
+        return JsonResponse({
+            'success': True,
+            'images': unique_images,
+            'count': len(unique_images)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting product image history: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_set_product_image_from_history(request, project_id):
+    """API: Setzt das Produktbild aus einem früheren Projekt"""
+    try:
+        project = get_object_or_404(PinProject, id=project_id, user=request.user)
+        data = json.loads(request.body) if request.body else {}
+        source_project_id = data.get('source_project_id')
+
+        if not source_project_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Quell-Projekt angegeben'
+            }, status=400)
+
+        source_project = get_object_or_404(PinProject, id=source_project_id, user=request.user)
+
+        if not source_project.product_image:
+            return JsonResponse({
+                'success': False,
+                'error': 'Das Quell-Projekt hat kein Produktbild'
+            }, status=400)
+
+        # Kopiere das Produktbild (Referenz, nicht die Datei selbst)
+        project.product_image = source_project.product_image
+        project.save()
+
+        return JsonResponse({
+            'success': True,
+            'image_url': project.product_image.url
+        })
+
+    except Exception as e:
+        logger.error(f"Error setting product image from history: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
 def api_get_keyword_history(request):
     """API: Gibt alle einzigartigen Keywords des Benutzers zurück"""
     try:

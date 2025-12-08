@@ -17,6 +17,8 @@ urlpatterns = [
     # API-Endpunkte
     path('api/generate-keywords/', views.api_generate_keywords, name='api_generate_keywords'),
     path('api/keyword-history/', views.api_get_keyword_history, name='api_keyword_history'),
+    path('api/product-image-history/', views.api_get_product_image_history, name='api_product_image_history'),
+    path('api/set-product-image/<int:project_id>/', views.api_set_product_image_from_history, name='api_set_product_image'),
     path('api/generate-text/<int:project_id>/', views.api_generate_overlay_text, name='api_generate_text'),
     path('api/generate-styling/<int:project_id>/', views.api_generate_styling, name='api_generate_styling'),
     path('api/generate-background/<int:project_id>/', views.api_generate_background_description, name='api_generate_background'),
