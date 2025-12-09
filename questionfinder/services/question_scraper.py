@@ -198,31 +198,48 @@ class MultiSourceQuestionFinder:
                     'limit': 25,
                 }
 
+                logger.info(f"Reddit: Anfrage an r/{subreddit} für '{keyword}'")
+
                 response = self.session.get(
                     url,
                     params=params,
-                    headers={'User-Agent': 'QuestionFinder/1.0'},
+                    headers={'User-Agent': 'QuestionFinder/1.0 (by /u/questionfinder)'},
                     timeout=self.timeout
                 )
+
+                logger.info(f"Reddit r/{subreddit}: Status {response.status_code}")
 
                 if response.status_code == 200:
                     data = response.json()
                     posts = data.get('data', {}).get('children', [])
+                    logger.info(f"Reddit r/{subreddit}: {len(posts)} Posts gefunden")
 
                     for post in posts:
                         title = post.get('data', {}).get('title', '')
-                        if title and self._is_question(title):
+                        # Alle Titel nehmen, nicht nur Fragen
+                        if title and len(title) > 10:
                             cleaned = self._clean_question(title)
                             if cleaned and len(cleaned) > 15 and cleaned not in questions:
                                 questions.append(cleaned)
 
-                time.sleep(random.uniform(0.5, 1.0))  # Reddit Rate-Limit beachten
+                elif response.status_code == 403:
+                    logger.warning(f"Reddit r/{subreddit}: Zugriff verweigert (403)")
+                elif response.status_code == 429:
+                    logger.warning(f"Reddit r/{subreddit}: Rate-Limit erreicht (429)")
+                else:
+                    logger.warning(f"Reddit r/{subreddit}: Unerwarteter Status {response.status_code}")
 
+                time.sleep(random.uniform(0.5, 1.0))
+
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"Reddit r/{subreddit}: Verbindungsfehler (evtl. Whitelist): {e}")
+                continue
             except Exception as e:
-                logger.debug(f"Reddit r/{subreddit} Fehler: {e}")
+                logger.error(f"Reddit r/{subreddit} Fehler: {type(e).__name__}: {e}")
                 continue
 
-        return questions[:15]  # Max 15 Reddit-Fragen
+        logger.info(f"Reddit gesamt: {len(questions)} Fragen gefunden")
+        return questions[:15]
 
     def _get_quora_questions(self, keyword: str) -> List[str]:
         """
@@ -233,6 +250,7 @@ class MultiSourceQuestionFinder:
         try:
             # Quora Suche
             search_url = f"https://www.quora.com/search?q={quote_plus(keyword)}"
+            logger.info(f"Quora: Anfrage für '{keyword}'")
 
             response = self.session.get(
                 search_url,
@@ -240,6 +258,8 @@ class MultiSourceQuestionFinder:
                 timeout=self.timeout,
                 allow_redirects=True
             )
+
+            logger.info(f"Quora: Status {response.status_code}, Länge {len(response.text)}")
 
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
@@ -250,14 +270,18 @@ class MultiSourceQuestionFinder:
                     'a.q-box span',
                     'div.q-text span',
                     'span[class*="question"]',
+                    'a[href*="/unanswered/"]',
+                    'div[class*="Question"]',
                 ]
 
                 for selector in selectors:
                     try:
                         elements = soup.select(selector)
+                        if elements:
+                            logger.debug(f"Quora Selector '{selector}': {len(elements)} Elemente")
                         for el in elements:
                             text = el.get_text(strip=True)
-                            if self._is_question(text):
+                            if text and len(text) > 15:
                                 cleaned = self._clean_question(text)
                                 if cleaned and len(cleaned) > 15 and cleaned not in questions:
                                     questions.append(cleaned)
@@ -274,11 +298,20 @@ class MultiSourceQuestionFinder:
                         if cleaned and keyword.lower() in cleaned.lower():
                             if cleaned not in questions:
                                 questions.append(cleaned)
+                    logger.info(f"Quora Fallback: {len(questions)} Fragen via Regex")
 
+            elif response.status_code == 403:
+                logger.warning("Quora: Zugriff verweigert (403)")
+            else:
+                logger.warning(f"Quora: Unerwarteter Status {response.status_code}")
+
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Quora: Verbindungsfehler (evtl. Whitelist): {e}")
         except Exception as e:
-            logger.debug(f"Quora Fehler: {e}")
+            logger.error(f"Quora Fehler: {type(e).__name__}: {e}")
 
-        return questions[:10]  # Max 10 Quora-Fragen
+        logger.info(f"Quora gesamt: {len(questions)} Fragen gefunden")
+        return questions[:10]
 
     def _is_question(self, text: str) -> bool:
         """Prüft ob ein Text eine Frage ist"""
