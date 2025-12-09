@@ -66,18 +66,12 @@ class MultiSourceQuestionFinder:
         # Kleine Pause
         time.sleep(random.uniform(0.5, 1.0))
 
-        # 3. StackExchange (ersetzt Quora - auf Whitelist)
-        try:
-            stackexchange_questions = self._get_stackexchange_questions(keyword)
-            if stackexchange_questions:
-                existing = [q['question'] for q in all_questions]
-                for q in stackexchange_questions:
-                    if q not in existing:
-                        all_questions.append({'question': q, 'source': 'stackexchange'})
-                sources_used.append('stackexchange')
-                logger.info(f"StackExchange: {len(stackexchange_questions)} Fragen gefunden")
-        except Exception as e:
-            logger.error(f"StackExchange Fehler: {e}")
+        # 3. StackExchange deaktiviert (NICHT auf PythonAnywhere Whitelist)
+        # try:
+        #     stackexchange_questions = self._get_stackexchange_questions(keyword)
+        #     ...
+        # except Exception as e:
+        #     logger.error(f"StackExchange Fehler: {e}")
 
         # Duplikate entfernen
         unique_questions = self._deduplicate_questions_with_source(all_questions)
@@ -182,28 +176,28 @@ class MultiSourceQuestionFinder:
     def _get_reddit_questions(self, keyword: str) -> List[str]:
         """
         Sucht Fragen auf Reddit (international)
-        Verwendet old.reddit.com für bessere Kompatibilität
         Fragen werden später von der KI übersetzt
         """
         questions = []
 
-        # Besserer User-Agent für Reddit
+        # Reddit benötigt einen spezifischen User-Agent
         reddit_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36',
+            'User-Agent': 'python:questionfinder:v1.0 (by /u/workloom)',
             'Accept': 'application/json',
         }
 
         try:
-            # Globale Reddit-Suche (alle Subreddits)
-            url = "https://old.reddit.com/search.json"
+            # Globale Reddit-Suche
+            url = "https://www.reddit.com/search.json"
             params = {
                 'q': keyword,
                 'sort': 'relevance',
-                'limit': 30,
-                't': 'all',
+                'limit': 25,
+                't': 'year',  # Letztes Jahr
+                'type': 'link',
             }
 
-            logger.info(f"Reddit: Globale Suche für '{keyword}'")
+            logger.info(f"Reddit: Suche '{keyword}' auf www.reddit.com")
 
             response = self.session.get(
                 url,
@@ -212,36 +206,45 @@ class MultiSourceQuestionFinder:
                 timeout=self.timeout
             )
 
-            logger.info(f"Reddit: Status {response.status_code}")
+            logger.info(f"Reddit: Status={response.status_code}, Länge={len(response.text)}")
 
             if response.status_code == 200:
                 try:
                     data = response.json()
                     posts = data.get('data', {}).get('children', [])
-                    logger.info(f"Reddit: {len(posts)} Posts gefunden")
+                    logger.info(f"Reddit: {len(posts)} Posts in Response")
 
                     for post in posts:
-                        title = post.get('data', {}).get('title', '')
+                        post_data = post.get('data', {})
+                        title = post_data.get('title', '')
+                        subreddit = post_data.get('subreddit', '')
+
                         if title and len(title) > 10:
                             cleaned = self._clean_question(title)
                             if cleaned and len(cleaned) > 15 and cleaned not in questions:
                                 questions.append(cleaned)
+                                logger.debug(f"Reddit r/{subreddit}: {cleaned[:50]}...")
+
                 except json.JSONDecodeError as e:
                     logger.error(f"Reddit: JSON Parse Error: {e}")
+                    logger.error(f"Reddit Response (first 500 chars): {response.text[:500]}")
 
             elif response.status_code == 403:
-                logger.warning("Reddit: Zugriff verweigert (403)")
+                logger.error("Reddit: 403 Forbidden - User-Agent Problem?")
             elif response.status_code == 429:
-                logger.warning("Reddit: Rate-Limit erreicht (429)")
+                logger.error("Reddit: 429 Rate-Limit - Zu viele Anfragen")
             else:
-                logger.warning(f"Reddit: Status {response.status_code}")
+                logger.error(f"Reddit: Unerwarteter Status {response.status_code}")
+                logger.error(f"Reddit Response: {response.text[:200]}")
 
         except requests.exceptions.ConnectionError as e:
-            logger.error(f"Reddit: Verbindungsfehler: {e}")
+            logger.error(f"Reddit: ConnectionError - {str(e)[:100]}")
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Reddit: Timeout - {e}")
         except Exception as e:
-            logger.error(f"Reddit Fehler: {type(e).__name__}: {e}")
+            logger.error(f"Reddit: {type(e).__name__}: {e}", exc_info=True)
 
-        logger.info(f"Reddit gesamt: {len(questions)} Fragen gefunden")
+        logger.info(f"Reddit: {len(questions)} Fragen extrahiert")
         return questions[:15]
 
     def _get_stackexchange_questions(self, keyword: str) -> List[str]:
