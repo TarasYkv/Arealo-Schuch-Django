@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     'stats',
     'keyengine',
     'ideopin',
+    'questionfinder',
 ]
 
 

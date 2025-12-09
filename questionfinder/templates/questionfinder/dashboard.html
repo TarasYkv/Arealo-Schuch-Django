@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}QuestionFinder - Fragen aus Google extrahieren{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'questionfinder/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <h1 class="h3 mb-0">
+                    <span class="qf-icon">&#x2753;</span> QuestionFinder
+                </h1>
+                <a href="{% url 'questionfinder:saved_questions' %}" class="btn btn-primary">
+                    <i class="fas fa-bookmark me-2"></i>Gespeicherte Fragen ({{ saved_count }})
+                </a>
+            </div>
+            <p class="text-muted mt-2">
+                Extrahiere Fragen aus Google People Also Ask und erweitere sie mit KI
+            </p>
+        </div>
+    </div>
+
+    <!-- Tool Erklarung -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="qf-info-card">
+                <div class="info-card-content">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center mb-3 mb-md-0">
+                            <div class="info-icon">
+                                <i class="fas fa-question-circle"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-10">
+                            <h3 class="info-title">
+                                Fragen-Recherche Tool - Was fragen deine Kunden?
+                            </h3>
+                            <p class="info-description">
+                                QuestionFinder findet alle Fragen, die Menschen zu deinem Thema bei Google stellen.
+                                Die KI kategorisiert die Fragen nach Intent und generiert <strong>zusatzliche relevante Fragen</strong>.
+                            </p>
+                            <div class="info-workflow">
+                                <div class="workflow-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-text">Keyword eingeben</div>
+                                </div>
+                                <div class="workflow-arrow">&#x2192;</div>
+                                <div class="workflow-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-text">Google-Fragen finden</div>
+                                </div>
+                                <div class="workflow-arrow">&#x2192;</div>
+                                <div class="workflow-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-text">KI kategorisiert</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if not has_api_key %}
+    <!-- API-Key Warnung -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>OpenAI API-Key fehlt!</strong>
+                Web-Scraping funktioniert, aber KI-Kategorisierung ist deaktiviert.
+                <a href="{% url 'superconfig:dashboard' %}" class="alert-link">API-Key einrichten</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Suchformular -->
+    <div class="row mb-4">
+        <div class="col-md-6 mx-auto">
+            <div class="card qf-generator-card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title text-center mb-3">
+                        <i class="fas fa-search me-2"></i>Fragen-Suche
+                    </h5>
+
+                    <form id="search-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="keyword" class="form-label">Keyword eingeben</label>
+                            <input type="text" class="form-control form-control-lg"
+                                   id="keyword" name="keyword"
+                                   placeholder="z.B. Python lernen"
+                                   required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="search-btn">
+                            <i class="fas fa-search me-2"></i>
+                            Fragen finden
+                        </button>
+                    </form>
+
+                    <div id="loading" class="text-center mt-3 d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Suche lauft...</span>
+                        </div>
+                        <p class="text-muted mt-2">Durchsuche Google und analysiere Fragen...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Letzte Suchen -->
+    {% if recent_searches %}
+    <div class="row mb-4">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>Letzte Suchen
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for search in recent_searches %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="search-keyword" data-keyword="{{ search.keyword }}">
+                                <i class="fas fa-search text-muted me-2"></i>{{ search.keyword }}
+                            </span>
+                            <div>
+                                <span class="badge bg-primary">{{ search.questions_found }} gefunden</span>
+                                {% if search.ai_questions_generated > 0 %}
+                                <span class="badge bg-success">+{{ search.ai_questions_generated }} KI</span>
+                                {% endif %}
+                                <small class="text-muted ms-2">{{ search.search_date|date:"d.m.Y H:i" }}</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Ergebnisse -->
+    <div id="results-section" class="row" style="display: none;">
+        <!-- Gescrapte Fragen -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-globe me-2"></i>Google Fragen
+                        <span class="badge bg-light text-primary ms-2" id="scraped-count">0</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="scraped-questions" class="questions-list">
+                        <!-- Dynamisch gefullt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KI-generierte Fragen -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-robot me-2"></i>KI-Erweiterung
+                        <span class="badge bg-light text-success ms-2" id="ai-count">0</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="ai-questions" class="questions-list">
+                        <!-- Dynamisch gefullt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="toast" class="toast align-items-center" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-message"></div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'questionfinder/js/app.js' %}?v={% now 'U' %}"></script>
+{% endblock %}

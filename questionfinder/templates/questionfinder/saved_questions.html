@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Gespeicherte Fragen - QuestionFinder{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'questionfinder/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-bookmark me-2"></i>Gespeicherte Fragen
+                    <span class="badge bg-primary ms-2">{{ total_count }}</span>
+                </h1>
+                <a href="{% url 'questionfinder:dashboard' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Zuruck zur Suche
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if total_count == 0 %}
+    <!-- Keine Fragen -->
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card text-center">
+                <div class="card-body py-5">
+                    <i class="fas fa-bookmark fa-3x text-muted mb-3"></i>
+                    <h5>Noch keine Fragen gespeichert</h5>
+                    <p class="text-muted">Starte eine Suche und speichere interessante Fragen.</p>
+                    <a href="{% url 'questionfinder:dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>Fragen suchen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+
+    <!-- Informational -->
+    {% if grouped_questions.informational %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informational
+                        <span class="badge bg-light text-info ms-2">{{ grouped_questions.informational|length }}</span>
+                    </h5>
+                    <small>Fragen nach Informationen und Wissen</small>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for q in grouped_questions.informational %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center question-item {% if q.is_used %}used{% endif %}" data-id="{{ q.id }}">
+                            <div class="question-content">
+                                <span class="question-text">{{ q.question }}</span>
+                                {% if q.category %}
+                                <span class="badge bg-secondary ms-2">{{ q.category }}</span>
+                                {% endif %}
+                                <small class="text-muted d-block">Keyword: {{ q.keyword }}</small>
+                            </div>
+                            <div class="question-actions">
+                                <button class="btn btn-sm btn-outline-success toggle-used-btn" title="Als verwendet markieren">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-btn" title="Loschen">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Commercial -->
+    {% if grouped_questions.commercial %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shopping-cart me-2"></i>Commercial
+                        <span class="badge bg-dark text-warning ms-2">{{ grouped_questions.commercial|length }}</span>
+                    </h5>
+                    <small>Recherche vor dem Kauf</small>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for q in grouped_questions.commercial %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center question-item {% if q.is_used %}used{% endif %}" data-id="{{ q.id }}">
+                            <div class="question-content">
+                                <span class="question-text">{{ q.question }}</span>
+                                {% if q.category %}
+                                <span class="badge bg-secondary ms-2">{{ q.category }}</span>
+                                {% endif %}
+                                <small class="text-muted d-block">Keyword: {{ q.keyword }}</small>
+                            </div>
+                            <div class="question-actions">
+                                <button class="btn btn-sm btn-outline-success toggle-used-btn" title="Als verwendet markieren">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-btn" title="Loschen">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Transactional -->
+    {% if grouped_questions.transactional %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-credit-card me-2"></i>Transactional
+                        <span class="badge bg-light text-success ms-2">{{ grouped_questions.transactional|length }}</span>
+                    </h5>
+                    <small>Kaufabsicht vorhanden</small>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for q in grouped_questions.transactional %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center question-item {% if q.is_used %}used{% endif %}" data-id="{{ q.id }}">
+                            <div class="question-content">
+                                <span class="question-text">{{ q.question }}</span>
+                                {% if q.category %}
+                                <span class="badge bg-secondary ms-2">{{ q.category }}</span>
+                                {% endif %}
+                                <small class="text-muted d-block">Keyword: {{ q.keyword }}</small>
+                            </div>
+                            <div class="question-actions">
+                                <button class="btn btn-sm btn-outline-success toggle-used-btn" title="Als verwendet markieren">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-btn" title="Loschen">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Navigational -->
+    {% if grouped_questions.navigational %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-compass me-2"></i>Navigational
+                        <span class="badge bg-light text-secondary ms-2">{{ grouped_questions.navigational|length }}</span>
+                    </h5>
+                    <small>Suche nach spezifischer Website/Marke</small>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for q in grouped_questions.navigational %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center question-item {% if q.is_used %}used{% endif %}" data-id="{{ q.id }}">
+                            <div class="question-content">
+                                <span class="question-text">{{ q.question }}</span>
+                                {% if q.category %}
+                                <span class="badge bg-secondary ms-2">{{ q.category }}</span>
+                                {% endif %}
+                                <small class="text-muted d-block">Keyword: {{ q.keyword }}</small>
+                            </div>
+                            <div class="question-actions">
+                                <button class="btn btn-sm btn-outline-success toggle-used-btn" title="Als verwendet markieren">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-btn" title="Loschen">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+
+<!-- Toast Notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="toast" class="toast align-items-center" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-message"></div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                      document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+
+    // Toggle Used
+    document.querySelectorAll('.toggle-used-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const item = this.closest('.question-item');
+            const id = item.dataset.id;
+
+            try {
+                const response = await fetch(`/questionfinder/toggle-used/${id}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    item.classList.toggle('used', data.is_used);
+                    showToast(data.is_used ? 'Als verwendet markiert' : 'Markierung entfernt', 'success');
+                }
+            } catch (error) {
+                showToast('Fehler beim Aktualisieren', 'danger');
+            }
+        });
+    });
+
+    // Delete
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            if (!confirm('Frage wirklich loschen?')) return;
+
+            const item = this.closest('.question-item');
+            const id = item.dataset.id;
+
+            try {
+                const response = await fetch(`/questionfinder/delete/${id}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    item.remove();
+                    showToast('Frage geloscht', 'success');
+                }
+            } catch (error) {
+                showToast('Fehler beim Loschen', 'danger');
+            }
+        });
+    });
+
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('toast');
+        const toastBody = document.getElementById('toast-message');
+
+        toastBody.textContent = message;
+        toastEl.classList.remove('bg-success', 'bg-danger', 'text-white');
+        toastEl.classList.add(`bg-${type}`, 'text-white');
+
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+});
+</script>
+{% endblock %}
