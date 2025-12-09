@@ -66,18 +66,18 @@ class MultiSourceQuestionFinder:
         # Kleine Pause
         time.sleep(random.uniform(0.5, 1.0))
 
-        # 3. Quora
+        # 3. StackExchange (ersetzt Quora - auf Whitelist)
         try:
-            quora_questions = self._get_quora_questions(keyword)
-            if quora_questions:
+            stackexchange_questions = self._get_stackexchange_questions(keyword)
+            if stackexchange_questions:
                 existing = [q['question'] for q in all_questions]
-                for q in quora_questions:
+                for q in stackexchange_questions:
                     if q not in existing:
-                        all_questions.append({'question': q, 'source': 'quora'})
-                sources_used.append('quora')
-                logger.info(f"Quora: {len(quora_questions)} Fragen gefunden")
+                        all_questions.append({'question': q, 'source': 'stackexchange'})
+                sources_used.append('stackexchange')
+                logger.info(f"StackExchange: {len(stackexchange_questions)} Fragen gefunden")
         except Exception as e:
-            logger.error(f"Quora Fehler: {e}")
+            logger.error(f"StackExchange Fehler: {e}")
 
         # Duplikate entfernen
         unique_questions = self._deduplicate_questions_with_source(all_questions)
@@ -182,20 +182,29 @@ class MultiSourceQuestionFinder:
     def _get_reddit_questions(self, keyword: str) -> List[str]:
         """
         Sucht Fragen auf Reddit (r/FragReddit, r/de, r/germany)
+        Verwendet old.reddit.com für bessere Kompatibilität
         """
         questions = []
 
         # Suche in deutschen Subreddits
-        subreddits = ['FragReddit', 'de', 'germany']
+        subreddits = ['FragReddit', 'de']
+
+        # Besserer User-Agent für Reddit
+        reddit_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+        }
 
         for subreddit in subreddits:
             try:
-                url = f"https://www.reddit.com/r/{subreddit}/search.json"
+                # Verwende old.reddit.com - oft zuverlässiger
+                url = f"https://old.reddit.com/r/{subreddit}/search.json"
                 params = {
                     'q': keyword,
                     'restrict_sr': 'on',
                     'sort': 'relevance',
                     'limit': 25,
+                    't': 'all',
                 }
 
                 logger.info(f"Reddit: Anfrage an r/{subreddit} für '{keyword}'")
@@ -203,36 +212,39 @@ class MultiSourceQuestionFinder:
                 response = self.session.get(
                     url,
                     params=params,
-                    headers={'User-Agent': 'QuestionFinder/1.0 (by /u/questionfinder)'},
+                    headers=reddit_headers,
                     timeout=self.timeout
                 )
 
                 logger.info(f"Reddit r/{subreddit}: Status {response.status_code}")
 
                 if response.status_code == 200:
-                    data = response.json()
-                    posts = data.get('data', {}).get('children', [])
-                    logger.info(f"Reddit r/{subreddit}: {len(posts)} Posts gefunden")
+                    try:
+                        data = response.json()
+                        posts = data.get('data', {}).get('children', [])
+                        logger.info(f"Reddit r/{subreddit}: {len(posts)} Posts gefunden")
 
-                    for post in posts:
-                        title = post.get('data', {}).get('title', '')
-                        # Alle Titel nehmen, nicht nur Fragen
-                        if title and len(title) > 10:
-                            cleaned = self._clean_question(title)
-                            if cleaned and len(cleaned) > 15 and cleaned not in questions:
-                                questions.append(cleaned)
+                        for post in posts:
+                            title = post.get('data', {}).get('title', '')
+                            if title and len(title) > 10:
+                                cleaned = self._clean_question(title)
+                                if cleaned and len(cleaned) > 15 and cleaned not in questions:
+                                    questions.append(cleaned)
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Reddit r/{subreddit}: JSON Parse Error: {e}")
+                        logger.debug(f"Response: {response.text[:500]}")
 
                 elif response.status_code == 403:
                     logger.warning(f"Reddit r/{subreddit}: Zugriff verweigert (403)")
                 elif response.status_code == 429:
                     logger.warning(f"Reddit r/{subreddit}: Rate-Limit erreicht (429)")
                 else:
-                    logger.warning(f"Reddit r/{subreddit}: Unerwarteter Status {response.status_code}")
+                    logger.warning(f"Reddit r/{subreddit}: Status {response.status_code}")
 
-                time.sleep(random.uniform(0.5, 1.0))
+                time.sleep(random.uniform(1.0, 2.0))  # Längere Pause für Reddit
 
             except requests.exceptions.ConnectionError as e:
-                logger.error(f"Reddit r/{subreddit}: Verbindungsfehler (evtl. Whitelist): {e}")
+                logger.error(f"Reddit r/{subreddit}: Verbindungsfehler: {e}")
                 continue
             except Exception as e:
                 logger.error(f"Reddit r/{subreddit} Fehler: {type(e).__name__}: {e}")
@@ -241,76 +253,69 @@ class MultiSourceQuestionFinder:
         logger.info(f"Reddit gesamt: {len(questions)} Fragen gefunden")
         return questions[:15]
 
-    def _get_quora_questions(self, keyword: str) -> List[str]:
+    def _get_stackexchange_questions(self, keyword: str) -> List[str]:
         """
-        Scrapet Fragen von Quora
+        Sucht Fragen auf StackExchange (stackoverflow, superuser, etc.)
+        API ist kostenlos und auf PythonAnywhere Whitelist
         """
         questions = []
 
+        # StackExchange Sites für deutsche/allgemeine Fragen
+        sites = ['stackoverflow', 'superuser', 'askubuntu']
+
         try:
-            # Quora Suche
-            search_url = f"https://www.quora.com/search?q={quote_plus(keyword)}"
-            logger.info(f"Quora: Anfrage für '{keyword}'")
+            # StackExchange API - kostenlos, kein Key nötig für einfache Suchen
+            url = "https://api.stackexchange.com/2.3/search"
+            params = {
+                'order': 'desc',
+                'sort': 'relevance',
+                'intitle': keyword,
+                'site': 'stackoverflow',
+                'pagesize': 20,
+                'filter': 'default',
+            }
+
+            logger.info(f"StackExchange: Anfrage für '{keyword}'")
 
             response = self.session.get(
-                search_url,
+                url,
+                params=params,
                 headers=self.headers,
-                timeout=self.timeout,
-                allow_redirects=True
+                timeout=self.timeout
             )
 
-            logger.info(f"Quora: Status {response.status_code}, Länge {len(response.text)}")
+            logger.info(f"StackExchange: Status {response.status_code}")
 
             if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
+                try:
+                    data = response.json()
+                    items = data.get('items', [])
+                    logger.info(f"StackExchange: {len(items)} Fragen gefunden")
 
-                # Quora Frage-Selektoren (können sich ändern)
-                selectors = [
-                    'span.q-text',
-                    'a.q-box span',
-                    'div.q-text span',
-                    'span[class*="question"]',
-                    'a[href*="/unanswered/"]',
-                    'div[class*="Question"]',
-                ]
-
-                for selector in selectors:
-                    try:
-                        elements = soup.select(selector)
-                        if elements:
-                            logger.debug(f"Quora Selector '{selector}': {len(elements)} Elemente")
-                        for el in elements:
-                            text = el.get_text(strip=True)
-                            if text and len(text) > 15:
-                                cleaned = self._clean_question(text)
-                                if cleaned and len(cleaned) > 15 and cleaned not in questions:
-                                    questions.append(cleaned)
-                    except Exception:
-                        continue
-
-                # Fallback: Suche nach Frage-Patterns im HTML
-                if not questions:
-                    text_content = soup.get_text()
-                    question_pattern = r'([A-ZÄÖÜ][^.!?\n]{15,120}\?)'
-                    matches = re.findall(question_pattern, text_content)
-                    for match in matches:
-                        cleaned = self._clean_question(match)
-                        if cleaned and keyword.lower() in cleaned.lower():
-                            if cleaned not in questions:
+                    for item in items:
+                        title = item.get('title', '')
+                        if title and len(title) > 10:
+                            # HTML-Entities dekodieren
+                            import html
+                            title = html.unescape(title)
+                            cleaned = self._clean_question(title)
+                            if cleaned and cleaned not in questions:
                                 questions.append(cleaned)
-                    logger.info(f"Quora Fallback: {len(questions)} Fragen via Regex")
 
-            elif response.status_code == 403:
-                logger.warning("Quora: Zugriff verweigert (403)")
+                except json.JSONDecodeError as e:
+                    logger.error(f"StackExchange: JSON Parse Error: {e}")
+
+            elif response.status_code == 400:
+                logger.warning("StackExchange: Bad Request (400)")
             else:
-                logger.warning(f"Quora: Unerwarteter Status {response.status_code}")
+                logger.warning(f"StackExchange: Status {response.status_code}")
 
         except requests.exceptions.ConnectionError as e:
-            logger.error(f"Quora: Verbindungsfehler (evtl. Whitelist): {e}")
+            logger.error(f"StackExchange: Verbindungsfehler: {e}")
         except Exception as e:
-            logger.error(f"Quora Fehler: {type(e).__name__}: {e}")
+            logger.error(f"StackExchange Fehler: {type(e).__name__}: {e}")
 
-        logger.info(f"Quora gesamt: {len(questions)} Fragen gefunden")
+        logger.info(f"StackExchange gesamt: {len(questions)} Fragen gefunden")
         return questions[:10]
 
     def _is_question(self, text: str) -> bool:
