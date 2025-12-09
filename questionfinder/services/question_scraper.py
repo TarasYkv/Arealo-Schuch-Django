@@ -175,74 +175,53 @@ class MultiSourceQuestionFinder:
 
     def _get_reddit_questions(self, keyword: str) -> List[str]:
         """
-        Sucht Fragen auf Reddit (international)
+        Sucht Fragen auf Reddit via RSS-Feed (keine Auth nötig)
         Fragen werden später von der KI übersetzt
         """
         questions = []
 
-        # Reddit benötigt einen spezifischen User-Agent
-        reddit_headers = {
-            'User-Agent': 'python:questionfinder:v1.0 (by /u/workloom)',
-            'Accept': 'application/json',
-        }
-
         try:
-            # Globale Reddit-Suche
-            url = "https://www.reddit.com/search.json"
+            # RSS-Feed statt JSON API (funktioniert ohne Auth!)
+            url = f"https://www.reddit.com/search.rss"
             params = {
                 'q': keyword,
                 'sort': 'relevance',
                 'limit': 25,
-                't': 'year',  # Letztes Jahr
-                'type': 'link',
             }
 
-            logger.info(f"Reddit: Suche '{keyword}' auf www.reddit.com")
+            logger.info(f"Reddit RSS: Suche '{keyword}'")
 
             response = self.session.get(
                 url,
                 params=params,
-                headers=reddit_headers,
+                headers=self.headers,  # Browser-Headers
                 timeout=self.timeout
             )
 
-            logger.info(f"Reddit: Status={response.status_code}, Länge={len(response.text)}")
+            logger.info(f"Reddit RSS: Status={response.status_code}")
 
             if response.status_code == 200:
-                try:
-                    data = response.json()
-                    posts = data.get('data', {}).get('children', [])
-                    logger.info(f"Reddit: {len(posts)} Posts in Response")
+                # RSS/XML parsen
+                soup = BeautifulSoup(response.text, 'xml')
+                entries = soup.find_all('entry')
+                logger.info(f"Reddit RSS: {len(entries)} Einträge gefunden")
 
-                    for post in posts:
-                        post_data = post.get('data', {})
-                        title = post_data.get('title', '')
-                        subreddit = post_data.get('subreddit', '')
-
+                for entry in entries:
+                    title_tag = entry.find('title')
+                    if title_tag:
+                        title = title_tag.get_text(strip=True)
                         if title and len(title) > 10:
                             cleaned = self._clean_question(title)
                             if cleaned and len(cleaned) > 15 and cleaned not in questions:
                                 questions.append(cleaned)
-                                logger.debug(f"Reddit r/{subreddit}: {cleaned[:50]}...")
-
-                except json.JSONDecodeError as e:
-                    logger.error(f"Reddit: JSON Parse Error: {e}")
-                    logger.error(f"Reddit Response (first 500 chars): {response.text[:500]}")
 
             elif response.status_code == 403:
-                logger.error("Reddit: 403 Forbidden - User-Agent Problem?")
-            elif response.status_code == 429:
-                logger.error("Reddit: 429 Rate-Limit - Zu viele Anfragen")
+                logger.warning("Reddit RSS: 403 - Blockiert")
             else:
-                logger.error(f"Reddit: Unerwarteter Status {response.status_code}")
-                logger.error(f"Reddit Response: {response.text[:200]}")
+                logger.warning(f"Reddit RSS: Status {response.status_code}")
 
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"Reddit: ConnectionError - {str(e)[:100]}")
-        except requests.exceptions.Timeout as e:
-            logger.error(f"Reddit: Timeout - {e}")
         except Exception as e:
-            logger.error(f"Reddit: {type(e).__name__}: {e}", exc_info=True)
+            logger.error(f"Reddit RSS Fehler: {type(e).__name__}: {e}")
 
         logger.info(f"Reddit: {len(questions)} Fragen extrahiert")
         return questions[:15]
