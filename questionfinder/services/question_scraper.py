@@ -95,6 +95,22 @@ class MultiSourceQuestionFinder:
         except Exception as e:
             logger.error(f"DuckDuckGo Fehler: {e}")
 
+        # Kleine Pause
+        time.sleep(random.uniform(0.3, 0.6))
+
+        # 5. Yahoo Fragen
+        try:
+            yahoo_questions = self._get_yahoo_questions(keyword)
+            if yahoo_questions:
+                existing = [q['question'] for q in all_questions]
+                for q in yahoo_questions:
+                    if q not in existing:
+                        all_questions.append({'question': q, 'source': 'yahoo'})
+                sources_used.append('yahoo')
+                logger.info(f"Yahoo: {len(yahoo_questions)} Fragen gefunden")
+        except Exception as e:
+            logger.error(f"Yahoo Fehler: {e}")
+
         # Duplikate entfernen
         unique_questions = self._deduplicate_questions_with_source(all_questions)
 
@@ -348,6 +364,64 @@ class MultiSourceQuestionFinder:
                 continue
 
         logger.info(f"DuckDuckGo: {len(questions)} Suggestions gefunden")
+        return questions[:10]
+
+    def _get_yahoo_questions(self, keyword: str) -> List[str]:
+        """
+        Sucht Fragen via Yahoo Autocomplete
+        ff.search.yahoo.com ist auf PythonAnywhere Whitelist
+        """
+        questions = []
+
+        # Frage-Präfixe für Yahoo
+        question_prefixes = [
+            'was ist', 'wie', 'warum', 'wann', 'wo',
+            'welche', 'kann man', 'gibt es',
+        ]
+
+        # Einfache Headers für Yahoo (komplexe Headers lösen Consent-Page aus)
+        yahoo_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+        }
+
+        for prefix in question_prefixes[:6]:
+            try:
+                query = f"{prefix} {keyword}"
+                url = "https://ff.search.yahoo.com/gossip"
+                params = {
+                    'command': query,
+                    'output': 'json',
+                    'nresults': 10,
+                }
+
+                response = self.session.get(
+                    url,
+                    params=params,
+                    headers=yahoo_headers,
+                    timeout=self.timeout
+                )
+
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        results = data.get('gossip', {}).get('results', [])
+                        for item in results:
+                            phrase = item.get('key', '')
+                            if phrase and len(phrase) > 10:
+                                cleaned = self._clean_question(phrase)
+                                if cleaned and cleaned not in questions:
+                                    questions.append(cleaned)
+                    except json.JSONDecodeError:
+                        pass
+
+                time.sleep(random.uniform(0.1, 0.2))
+
+            except Exception as e:
+                logger.debug(f"Yahoo Prefix '{prefix}' Fehler: {e}")
+                continue
+
+        logger.info(f"Yahoo: {len(questions)} Suggestions gefunden")
         return questions[:10]
 
     def _get_stackexchange_questions(self, keyword: str) -> List[str]:
