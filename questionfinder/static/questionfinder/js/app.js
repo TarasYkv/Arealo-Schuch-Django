@@ -9,10 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchBtn = document.getElementById('search-btn');
     const loadingDiv = document.getElementById('loading');
     const resultsSection = document.getElementById('results-section');
-    const scrapedQuestions = document.getElementById('scraped-questions');
-    const aiQuestions = document.getElementById('ai-questions');
-    const scrapedCount = document.getElementById('scraped-count');
-    const aiCount = document.getElementById('ai-count');
+    const allQuestionsDiv = document.getElementById('all-questions');
+    const totalCount = document.getElementById('total-count');
 
     // CSRF Token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
@@ -70,28 +68,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Ergebnisse anzeigen
     function displayResults(data) {
-        // Counters aktualisieren
-        scrapedCount.textContent = data.total_found;
-        aiCount.textContent = data.total_generated;
+        // Alle Fragen sammeln
+        let allQuestions = [];
 
-        // Gescrapte Fragen
-        scrapedQuestions.innerHTML = '';
+        // Internet-Fragen (Google, Reddit, Quora)
         if (data.scraped_questions && data.scraped_questions.length > 0) {
             data.scraped_questions.forEach(q => {
-                scrapedQuestions.appendChild(createQuestionItem(q, 'google_paa'));
+                allQuestions.push({
+                    question: q.question || q,
+                    intent: q.intent || 'informational',
+                    category: q.category || '',
+                    source: q.source || 'google'
+                });
             });
-        } else {
-            scrapedQuestions.innerHTML = '<div class="p-3 text-muted text-center">Keine Fragen gefunden</div>';
         }
 
         // KI-generierte Fragen
-        aiQuestions.innerHTML = '';
         if (data.ai_generated_questions && data.ai_generated_questions.length > 0) {
             data.ai_generated_questions.forEach(q => {
-                aiQuestions.appendChild(createQuestionItem(q, 'ai_generated'));
+                allQuestions.push({
+                    question: q.question || q,
+                    intent: q.intent || 'informational',
+                    category: q.category || '',
+                    source: 'ai'
+                });
+            });
+        }
+
+        // Counter aktualisieren
+        totalCount.textContent = allQuestions.length;
+
+        // Alle Fragen anzeigen
+        allQuestionsDiv.innerHTML = '';
+        if (allQuestions.length > 0) {
+            allQuestions.forEach(q => {
+                allQuestionsDiv.appendChild(createQuestionItem(q, q.source));
             });
         } else {
-            aiQuestions.innerHTML = '<div class="p-3 text-muted text-center">KI-Erweiterung nicht verfugbar (API-Key benotigt)</div>';
+            allQuestionsDiv.innerHTML = '<div class="p-3 text-muted text-center">Keine Fragen gefunden</div>';
         }
 
         // Ergebnisse anzeigen
@@ -104,10 +118,11 @@ document.addEventListener('DOMContentLoaded', function() {
             'google': '<span class="badge bg-primary source-badge"><i class="fab fa-google"></i> Google</span>',
             'reddit': '<span class="badge bg-danger source-badge"><i class="fab fa-reddit"></i> Reddit</span>',
             'quora': '<span class="badge bg-warning text-dark source-badge"><i class="fas fa-q"></i> Quora</span>',
+            'ai': '<span class="badge bg-success source-badge"><i class="fas fa-robot"></i> KI</span>',
             'ai_generated': '<span class="badge bg-success source-badge"><i class="fas fa-robot"></i> KI</span>',
             'google_paa': '<span class="badge bg-primary source-badge"><i class="fab fa-google"></i> Google</span>'
         };
-        return badges[source] || '<span class="badge bg-secondary source-badge">Unbekannt</span>';
+        return badges[source] || '<span class="badge bg-secondary source-badge">' + source + '</span>';
     }
 
     // Fragen-Item erstellen
