@@ -98,20 +98,34 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsSection.style.display = 'flex';
     }
 
+    // Source Badge erstellen
+    function getSourceBadge(source) {
+        const badges = {
+            'google': '<span class="badge bg-primary source-badge"><i class="fab fa-google"></i> Google</span>',
+            'reddit': '<span class="badge bg-danger source-badge"><i class="fab fa-reddit"></i> Reddit</span>',
+            'quora': '<span class="badge bg-warning text-dark source-badge"><i class="fas fa-q"></i> Quora</span>',
+            'ai_generated': '<span class="badge bg-success source-badge"><i class="fas fa-robot"></i> KI</span>',
+            'google_paa': '<span class="badge bg-primary source-badge"><i class="fab fa-google"></i> Google</span>'
+        };
+        return badges[source] || '<span class="badge bg-secondary source-badge">Unbekannt</span>';
+    }
+
     // Fragen-Item erstellen
-    function createQuestionItem(q, source) {
+    function createQuestionItem(q, defaultSource) {
         const div = document.createElement('div');
         div.className = 'question-item d-flex justify-content-between align-items-start';
 
         const question = q.question || q;
         const intent = q.intent || 'informational';
         const category = q.category || '';
+        const source = q.source || defaultSource;
 
         div.innerHTML = `
             <div class="question-content">
                 <span class="question-text">${escapeHtml(question)}</span>
                 <div class="mt-1">
-                    <span class="badge intent-${intent}">${intent}</span>
+                    ${getSourceBadge(source)}
+                    <span class="badge intent-${intent} ms-1">${intent}</span>
                     ${category ? `<span class="badge bg-secondary ms-1">${escapeHtml(category)}</span>` : ''}
                 </div>
             </div>

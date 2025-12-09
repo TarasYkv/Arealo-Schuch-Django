@@ -31,15 +31,17 @@ class MultiSourceQuestionFinder:
     def search_questions(self, keyword: str, language: str = 'de') -> Dict[str, Any]:
         """
         Sucht nach Fragen aus allen Quellen
+        Jede Frage enthält ihre Herkunft (source)
         """
-        all_questions = []
+        all_questions = []  # Liste von dicts: {'question': str, 'source': str}
         sources_used = []
 
         # 1. Google Autocomplete (Hauptquelle)
         try:
             google_questions = self._get_google_autocomplete_questions(keyword)
             if google_questions:
-                all_questions.extend(google_questions)
+                for q in google_questions:
+                    all_questions.append({'question': q, 'source': 'google'})
                 sources_used.append('google_autocomplete')
                 logger.info(f"Google Autocomplete: {len(google_questions)} Fragen gefunden")
         except Exception as e:
@@ -52,7 +54,10 @@ class MultiSourceQuestionFinder:
         try:
             reddit_questions = self._get_reddit_questions(keyword)
             if reddit_questions:
-                all_questions.extend([q for q in reddit_questions if q not in all_questions])
+                existing = [q['question'] for q in all_questions]
+                for q in reddit_questions:
+                    if q not in existing:
+                        all_questions.append({'question': q, 'source': 'reddit'})
                 sources_used.append('reddit')
                 logger.info(f"Reddit: {len(reddit_questions)} Fragen gefunden")
         except Exception as e:
@@ -65,20 +70,23 @@ class MultiSourceQuestionFinder:
         try:
             quora_questions = self._get_quora_questions(keyword)
             if quora_questions:
-                all_questions.extend([q for q in quora_questions if q not in all_questions])
+                existing = [q['question'] for q in all_questions]
+                for q in quora_questions:
+                    if q not in existing:
+                        all_questions.append({'question': q, 'source': 'quora'})
                 sources_used.append('quora')
                 logger.info(f"Quora: {len(quora_questions)} Fragen gefunden")
         except Exception as e:
             logger.error(f"Quora Fehler: {e}")
 
-        # Duplikate entfernen und sortieren
-        unique_questions = self._deduplicate_questions(all_questions)
+        # Duplikate entfernen
+        unique_questions = self._deduplicate_questions_with_source(all_questions)
 
         logger.info(f"Gesamt: {len(unique_questions)} einzigartige Fragen aus {sources_used}")
 
         return {
             'success': True,
-            'paa_questions': unique_questions[:20],
+            'paa_questions': unique_questions[:25],
             'related_questions': [],
             'keyword': keyword,
             'sources': sources_used,
@@ -310,14 +318,36 @@ class MultiSourceQuestionFinder:
         return text
 
     def _deduplicate_questions(self, questions: List[str]) -> List[str]:
-        """Entfernt ähnliche Duplikate"""
+        """Entfernt ähnliche Duplikate (für einfache String-Listen)"""
         unique = []
         for q in questions:
             q_lower = q.lower()
-            # Prüfe ob sehr ähnliche Frage bereits existiert
             is_duplicate = False
             for existing in unique:
                 existing_lower = existing.lower()
+                if q_lower in existing_lower or existing_lower in q_lower:
+                    is_duplicate = True
+                    break
+                q_words = set(q_lower.split())
+                existing_words = set(existing_lower.split())
+                if len(q_words) > 3 and len(existing_words) > 3:
+                    overlap = len(q_words & existing_words) / min(len(q_words), len(existing_words))
+                    if overlap > 0.8:
+                        is_duplicate = True
+                        break
+            if not is_duplicate:
+                unique.append(q)
+        return unique
+
+    def _deduplicate_questions_with_source(self, questions: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Entfernt ähnliche Duplikate (für Fragen mit Source-Info)"""
+        unique = []
+        for item in questions:
+            q = item['question']
+            q_lower = q.lower()
+            is_duplicate = False
+            for existing_item in unique:
+                existing_lower = existing_item['question'].lower()
                 # Einfacher Ähnlichkeitscheck
                 if q_lower in existing_lower or existing_lower in q_lower:
                     is_duplicate = True
@@ -330,10 +360,8 @@ class MultiSourceQuestionFinder:
                     if overlap > 0.8:
                         is_duplicate = True
                         break
-
             if not is_duplicate:
-                unique.append(q)
-
+                unique.append(item)
         return unique
 
 

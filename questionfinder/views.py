@@ -45,6 +45,7 @@ def dashboard(request):
 def search_questions(request):
     """
     AJAX Endpoint: Sucht und analysiert Fragen zu einem Keyword
+    Quellen: Google Autocomplete, Reddit, Quora
     """
     keyword = request.POST.get('keyword', '').strip()
 
@@ -54,14 +55,19 @@ def search_questions(request):
             'error': 'Bitte gib ein Keyword ein'
         })
 
-    # 1. Google-Scraping
+    # 1. Multi-Source Scraping (Google, Reddit, Quora)
     scraper = GoogleQuestionScraper()
     scrape_result = scraper.search_questions(keyword)
 
     if not scrape_result['success']:
         return JsonResponse(scrape_result)
 
-    all_questions = scrape_result['paa_questions'] + scrape_result['related_questions']
+    # paa_questions ist jetzt eine Liste von dicts: {'question': str, 'source': str}
+    scraped_questions = scrape_result['paa_questions']
+    sources_used = scrape_result.get('sources', [])
+
+    # Extrahiere nur die Frage-Texte für KI-Kategorisierung
+    question_texts = [q['question'] if isinstance(q, dict) else q for q in scraped_questions]
 
     # 2. KI-Kategorisierung (wenn API-Key vorhanden)
     ai_service = QuestionAIService(request.user)
@@ -70,25 +76,46 @@ def search_questions(request):
 
     if ai_service.has_api_key():
         # Gefundene Fragen kategorisieren
-        if all_questions:
-            cat_result = ai_service.categorize_questions(all_questions, keyword)
+        if question_texts:
+            cat_result = ai_service.categorize_questions(question_texts, keyword)
             if cat_result['success']:
-                categorized_questions = cat_result['categorized']
+                # Füge Source-Info zu kategorisierten Fragen hinzu
+                categorized = cat_result['categorized']
+                for i, cat_q in enumerate(categorized):
+                    if i < len(scraped_questions):
+                        orig = scraped_questions[i]
+                        if isinstance(orig, dict):
+                            cat_q['source'] = orig['source']
+                        else:
+                            cat_q['source'] = 'google'
+                categorized_questions = categorized
 
         # Zusätzliche Fragen generieren
         gen_result = ai_service.generate_additional_questions(
             keyword,
-            existing_questions=all_questions,
+            existing_questions=question_texts,
             count=10
         )
         if gen_result['success']:
             ai_generated = gen_result['questions']
     else:
-        # Ohne KI: Nur Basis-Kategorisierung
-        categorized_questions = [
-            {'question': q, 'intent': 'informational', 'category': 'Allgemein'}
-            for q in all_questions
-        ]
+        # Ohne KI: Nur Basis-Kategorisierung mit Source
+        categorized_questions = []
+        for q in scraped_questions:
+            if isinstance(q, dict):
+                categorized_questions.append({
+                    'question': q['question'],
+                    'intent': 'informational',
+                    'category': 'Allgemein',
+                    'source': q['source']
+                })
+            else:
+                categorized_questions.append({
+                    'question': q,
+                    'intent': 'informational',
+                    'category': 'Allgemein',
+                    'source': 'google'
+                })
 
     # Suche speichern
     search = QuestionSearch.objects.create(
@@ -105,7 +132,8 @@ def search_questions(request):
         'scraped_questions': categorized_questions,
         'ai_generated_questions': ai_generated,
         'total_found': len(categorized_questions),
-        'total_generated': len(ai_generated)
+        'total_generated': len(ai_generated),
+        'sources_used': sources_used
     })
 
 
