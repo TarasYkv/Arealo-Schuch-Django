@@ -82,18 +82,18 @@ class MultiSourceQuestionFinder:
         # Kleine Pause
         time.sleep(random.uniform(0.3, 0.6))
 
-        # 4. Amazon Fragen
+        # 4. DuckDuckGo Fragen (statt Amazon - auf PythonAnywhere Whitelist)
         try:
-            amazon_questions = self._get_amazon_questions(keyword)
-            if amazon_questions:
+            ddg_questions = self._get_duckduckgo_questions(keyword)
+            if ddg_questions:
                 existing = [q['question'] for q in all_questions]
-                for q in amazon_questions:
+                for q in ddg_questions:
                     if q not in existing:
-                        all_questions.append({'question': q, 'source': 'amazon'})
-                sources_used.append('amazon')
-                logger.info(f"Amazon: {len(amazon_questions)} Fragen gefunden")
+                        all_questions.append({'question': q, 'source': 'duckduckgo'})
+                sources_used.append('duckduckgo')
+                logger.info(f"DuckDuckGo: {len(ddg_questions)} Fragen gefunden")
         except Exception as e:
-            logger.error(f"Amazon Fehler: {e}")
+            logger.error(f"DuckDuckGo Fehler: {e}")
 
         # Duplikate entfernen
         unique_questions = self._deduplicate_questions_with_source(all_questions)
@@ -299,75 +299,55 @@ class MultiSourceQuestionFinder:
         logger.info(f"Bing: {len(questions)} Suggestions gefunden")
         return questions[:10]
 
-    def _get_amazon_questions(self, keyword: str) -> List[str]:
+    def _get_duckduckgo_questions(self, keyword: str) -> List[str]:
         """
-        Sucht Fragen auf Amazon (Produktfragen)
-        Nutzt Amazon Suchvorschläge
+        Sucht Fragen via DuckDuckGo Autocomplete
+        Auf PythonAnywhere Whitelist!
         """
         questions = []
 
-        try:
-            # Amazon Autocomplete API
-            url = "https://completion.amazon.de/api/2017/suggestions"
-            params = {
-                'mid': 'A1PA6795UKMFR9',  # Amazon.de Marketplace ID
-                'alias': 'aps',
-                'prefix': keyword,
-                'event': 'onKeyPress',
-                'limit': 11,
-                'fb': 1,
-                'suggestion-type': 'KEYWORD',
-            }
-
-            logger.info(f"Amazon: Suche für '{keyword}'")
-
-            response = self.session.get(
-                url,
-                params=params,
-                headers=self.headers,
-                timeout=self.timeout
-            )
-
-            logger.info(f"Amazon: Status={response.status_code}")
-
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    suggestions = data.get('suggestions', [])
-
-                    for s in suggestions:
-                        value = s.get('value', '')
-                        if value and len(value) > 5:
-                            # Formatiere als Frage wenn sinnvoll
-                            if not self._is_question(value):
-                                # Mache Produkt-Suche zu einer Frage
-                                question = f"Welche {value} sind die besten?"
-                            else:
-                                question = value
-                            cleaned = self._clean_question(question)
-                            if cleaned and cleaned not in questions:
-                                questions.append(cleaned)
-
-                except json.JSONDecodeError:
-                    logger.debug("Amazon: Keine JSON-Antwort")
-
-        except Exception as e:
-            logger.error(f"Amazon Fehler: {type(e).__name__}: {e}")
-
-        # Zusätzlich: Frage-Präfixe mit Keyword
-        question_templates = [
-            f"Was ist der beste {keyword}?",
-            f"Welcher {keyword} ist empfehlenswert?",
-            f"{keyword} Testsieger?",
-            f"{keyword} Erfahrungen?",
-            f"{keyword} kaufen worauf achten?",
+        # Frage-Präfixe für DuckDuckGo
+        question_prefixes = [
+            'was ist', 'wie', 'warum', 'wann', 'wo',
+            'welche', 'kann man', 'gibt es', 'ist',
+            'was kostet', 'wie lange',
         ]
 
-        for template in question_templates:
-            if template not in questions:
-                questions.append(template)
+        for prefix in question_prefixes[:8]:
+            try:
+                query = f"{prefix} {keyword}"
+                url = "https://duckduckgo.com/ac/"
+                params = {
+                    'q': query,
+                    'kl': 'de-de',
+                }
 
-        logger.info(f"Amazon: {len(questions)} Fragen/Vorschläge")
+                response = self.session.get(
+                    url,
+                    params=params,
+                    headers=self.headers,
+                    timeout=self.timeout
+                )
+
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        for item in data:
+                            phrase = item.get('phrase', '')
+                            if phrase and len(phrase) > 10:
+                                cleaned = self._clean_question(phrase)
+                                if cleaned and cleaned not in questions:
+                                    questions.append(cleaned)
+                    except json.JSONDecodeError:
+                        pass
+
+                time.sleep(random.uniform(0.1, 0.2))
+
+            except Exception as e:
+                logger.debug(f"DuckDuckGo Prefix '{prefix}' Fehler: {e}")
+                continue
+
+        logger.info(f"DuckDuckGo: {len(questions)} Suggestions gefunden")
         return questions[:10]
 
     def _get_stackexchange_questions(self, keyword: str) -> List[str]:
