@@ -66,12 +66,34 @@ class MultiSourceQuestionFinder:
         # Kleine Pause
         time.sleep(random.uniform(0.5, 1.0))
 
-        # 3. StackExchange deaktiviert (NICHT auf PythonAnywhere Whitelist)
-        # try:
-        #     stackexchange_questions = self._get_stackexchange_questions(keyword)
-        #     ...
-        # except Exception as e:
-        #     logger.error(f"StackExchange Fehler: {e}")
+        # 3. Bing Autosuggest
+        try:
+            bing_questions = self._get_bing_suggestions(keyword)
+            if bing_questions:
+                existing = [q['question'] for q in all_questions]
+                for q in bing_questions:
+                    if q not in existing:
+                        all_questions.append({'question': q, 'source': 'bing'})
+                sources_used.append('bing')
+                logger.info(f"Bing: {len(bing_questions)} Fragen gefunden")
+        except Exception as e:
+            logger.error(f"Bing Fehler: {e}")
+
+        # Kleine Pause
+        time.sleep(random.uniform(0.3, 0.6))
+
+        # 4. Amazon Fragen
+        try:
+            amazon_questions = self._get_amazon_questions(keyword)
+            if amazon_questions:
+                existing = [q['question'] for q in all_questions]
+                for q in amazon_questions:
+                    if q not in existing:
+                        all_questions.append({'question': q, 'source': 'amazon'})
+                sources_used.append('amazon')
+                logger.info(f"Amazon: {len(amazon_questions)} Fragen gefunden")
+        except Exception as e:
+            logger.error(f"Amazon Fehler: {e}")
 
         # Duplikate entfernen
         unique_questions = self._deduplicate_questions_with_source(all_questions)
@@ -225,6 +247,128 @@ class MultiSourceQuestionFinder:
 
         logger.info(f"Reddit: {len(questions)} Fragen extrahiert")
         return questions[:15]
+
+    def _get_bing_suggestions(self, keyword: str) -> List[str]:
+        """
+        Holt Fragen via Bing Autosuggest
+        Ähnlich wie Google, aber andere Vorschläge
+        """
+        questions = []
+
+        # Frage-Präfixe für Bing
+        question_prefixes = [
+            'was ist', 'wie', 'warum', 'wann', 'wo',
+            'welche', 'kann man', 'ist', 'gibt es',
+        ]
+
+        for prefix in question_prefixes[:6]:
+            try:
+                query = f"{prefix} {keyword}"
+                url = "https://www.bing.com/AS/Suggestions"
+                params = {
+                    'qry': query,
+                    'cvid': '1',
+                    'mkt': 'de-DE',
+                }
+
+                response = self.session.get(
+                    url,
+                    params=params,
+                    headers=self.headers,
+                    timeout=self.timeout
+                )
+
+                if response.status_code == 200:
+                    # Bing gibt HTML zurück, parse die Suggestions
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    suggestions = soup.find_all('li')
+
+                    for li in suggestions:
+                        text = li.get_text(strip=True)
+                        if text and len(text) > 10:
+                            cleaned = self._clean_question(text)
+                            if cleaned and cleaned not in questions:
+                                questions.append(cleaned)
+
+                time.sleep(random.uniform(0.1, 0.2))
+
+            except Exception as e:
+                logger.debug(f"Bing Prefix '{prefix}' Fehler: {e}")
+                continue
+
+        logger.info(f"Bing: {len(questions)} Suggestions gefunden")
+        return questions[:10]
+
+    def _get_amazon_questions(self, keyword: str) -> List[str]:
+        """
+        Sucht Fragen auf Amazon (Produktfragen)
+        Nutzt Amazon Suchvorschläge
+        """
+        questions = []
+
+        try:
+            # Amazon Autocomplete API
+            url = "https://completion.amazon.de/api/2017/suggestions"
+            params = {
+                'mid': 'A1PA6795UKMFR9',  # Amazon.de Marketplace ID
+                'alias': 'aps',
+                'prefix': keyword,
+                'event': 'onKeyPress',
+                'limit': 11,
+                'fb': 1,
+                'suggestion-type': 'KEYWORD',
+            }
+
+            logger.info(f"Amazon: Suche für '{keyword}'")
+
+            response = self.session.get(
+                url,
+                params=params,
+                headers=self.headers,
+                timeout=self.timeout
+            )
+
+            logger.info(f"Amazon: Status={response.status_code}")
+
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    suggestions = data.get('suggestions', [])
+
+                    for s in suggestions:
+                        value = s.get('value', '')
+                        if value and len(value) > 5:
+                            # Formatiere als Frage wenn sinnvoll
+                            if not self._is_question(value):
+                                # Mache Produkt-Suche zu einer Frage
+                                question = f"Welche {value} sind die besten?"
+                            else:
+                                question = value
+                            cleaned = self._clean_question(question)
+                            if cleaned and cleaned not in questions:
+                                questions.append(cleaned)
+
+                except json.JSONDecodeError:
+                    logger.debug("Amazon: Keine JSON-Antwort")
+
+        except Exception as e:
+            logger.error(f"Amazon Fehler: {type(e).__name__}: {e}")
+
+        # Zusätzlich: Frage-Präfixe mit Keyword
+        question_templates = [
+            f"Was ist der beste {keyword}?",
+            f"Welcher {keyword} ist empfehlenswert?",
+            f"{keyword} Testsieger?",
+            f"{keyword} Erfahrungen?",
+            f"{keyword} kaufen worauf achten?",
+        ]
+
+        for template in question_templates:
+            if template not in questions:
+                questions.append(template)
+
+        logger.info(f"Amazon: {len(questions)} Fragen/Vorschläge")
+        return questions[:10]
 
     def _get_stackexchange_questions(self, keyword: str) -> List[str]:
         """

@@ -129,8 +129,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function getSourceBadge(source) {
         const badges = {
             'google': '<span class="badge bg-primary source-badge"><i class="fab fa-google"></i> Google</span>',
+            'bing': '<span class="badge bg-info source-badge"><i class="fab fa-microsoft"></i> Bing</span>',
             'reddit': '<span class="badge bg-danger source-badge"><i class="fab fa-reddit"></i> Reddit</span>',
-            'stackexchange': '<span class="badge bg-warning text-dark source-badge"><i class="fab fa-stack-overflow"></i> Stack</span>',
+            'amazon': '<span class="badge bg-warning text-dark source-badge"><i class="fab fa-amazon"></i> Amazon</span>',
             'ai': '<span class="badge bg-success source-badge"><i class="fas fa-robot"></i> KI</span>',
             'ai_generated': '<span class="badge bg-success source-badge"><i class="fas fa-robot"></i> KI</span>',
             'google_paa': '<span class="badge bg-primary source-badge"><i class="fab fa-google"></i> Google</span>'
