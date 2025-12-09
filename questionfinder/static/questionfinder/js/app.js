@@ -12,6 +12,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const allQuestionsDiv = document.getElementById('all-questions');
     const totalCount = document.getElementById('total-count');
 
+    // Debug: Check if elements exist
+    console.log('Elements found:', {
+        allQuestionsDiv: !!allQuestionsDiv,
+        totalCount: !!totalCount,
+        resultsSection: !!resultsSection
+    });
+
     // CSRF Token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
 
@@ -96,9 +103,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Counter aktualisieren
-        totalCount.textContent = allQuestions.length;
+        if (totalCount) {
+            totalCount.textContent = allQuestions.length;
+        }
 
         // Alle Fragen anzeigen
+        if (!allQuestionsDiv) {
+            console.error('Element #all-questions not found!');
+            return;
+        }
         allQuestionsDiv.innerHTML = '';
         if (allQuestions.length > 0) {
             allQuestions.forEach(q => {
