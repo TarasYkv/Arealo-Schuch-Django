@@ -241,3 +241,85 @@ Antworte NUR mit einem JSON-Objekt:
     def has_api_key(self) -> bool:
         """Prüft ob ein API-Key verfügbar ist"""
         return self.api_key is not None
+
+    def translate_questions_to_german(
+        self,
+        questions: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Übersetzt Fragen auf Deutsch (behält bereits deutsche Fragen bei)
+
+        Args:
+            questions: Liste von Fragen-Dicts mit 'question' und 'source'
+
+        Returns:
+            Liste mit übersetzten Fragen
+        """
+        if not self.client:
+            logger.warning("Keine Übersetzung möglich: Kein API-Key")
+            return questions
+
+        if not questions:
+            return []
+
+        # Nur Fragen die wahrscheinlich nicht deutsch sind
+        to_translate = []
+        already_german = []
+
+        for q in questions:
+            question_text = q.get('question', '') if isinstance(q, dict) else q
+            # Einfache Heuristik: Deutsche Fragewörter
+            german_indicators = ['was ', 'wie ', 'warum ', 'wann ', 'wo ', 'wer ',
+                                'welche', 'ist ', 'sind ', 'kann ', 'gibt ']
+            if any(question_text.lower().startswith(ind) for ind in german_indicators):
+                already_german.append(q)
+            else:
+                to_translate.append(q)
+
+        if not to_translate:
+            return questions
+
+        try:
+            # Batch-Übersetzung
+            questions_text = [q.get('question', q) if isinstance(q, dict) else q
+                           for q in to_translate]
+
+            system_prompt = """Du bist ein Übersetzer. Übersetze die folgenden Fragen auf Deutsch.
+Behalte den Sinn und die Fragestruktur bei. Antworte NUR mit dem JSON-Format."""
+
+            user_prompt = f"""Übersetze diese Fragen auf Deutsch:
+
+{chr(10).join(f'{i+1}. {q}' for i, q in enumerate(questions_text))}
+
+Antworte mit JSON:
+{{"translations": ["Frage 1 auf Deutsch?", "Frage 2 auf Deutsch?", ...]}}"""
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000,
+                response_format={"type": "json_object"}
+            )
+
+            content = response.choices[0].message.content
+            parsed = json.loads(content)
+            translations = parsed.get('translations', [])
+
+            # Übersetzte Fragen zurück zusammenführen
+            for i, q in enumerate(to_translate):
+                if i < len(translations):
+                    if isinstance(q, dict):
+                        q['question'] = translations[i]
+                    else:
+                        to_translate[i] = translations[i]
+
+            logger.info(f"Übersetzt: {len(translations)} Fragen auf Deutsch")
+            return already_german + to_translate
+
+        except Exception as e:
+            logger.error(f"Übersetzungsfehler: {e}")
+            return questions  # Gib Original zurück bei Fehler

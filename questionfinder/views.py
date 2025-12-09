@@ -66,11 +66,18 @@ def search_questions(request):
     scraped_questions = scrape_result['paa_questions']
     sources_used = scrape_result.get('sources', [])
 
+    # 2. KI-Service initialisieren
+    ai_service = QuestionAIService(request.user)
+
+    # 3. Fragen auf Deutsch übersetzen (wenn API-Key vorhanden)
+    if ai_service.has_api_key() and scraped_questions:
+        logger.info(f"Übersetze {len(scraped_questions)} Fragen auf Deutsch...")
+        scraped_questions = ai_service.translate_questions_to_german(scraped_questions)
+
     # Extrahiere nur die Frage-Texte für KI-Kategorisierung
     question_texts = [q['question'] if isinstance(q, dict) else q for q in scraped_questions]
 
-    # 2. KI-Kategorisierung (wenn API-Key vorhanden)
-    ai_service = QuestionAIService(request.user)
+    # 4. KI-Kategorisierung + Generierung
     categorized_questions = []
     ai_generated = []
 

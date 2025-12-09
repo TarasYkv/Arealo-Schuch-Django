@@ -181,13 +181,11 @@ class MultiSourceQuestionFinder:
 
     def _get_reddit_questions(self, keyword: str) -> List[str]:
         """
-        Sucht Fragen auf Reddit (r/FragReddit, r/de, r/germany)
+        Sucht Fragen auf Reddit (international)
         Verwendet old.reddit.com für bessere Kompatibilität
+        Fragen werden später von der KI übersetzt
         """
         questions = []
-
-        # Suche in deutschen Subreddits
-        subreddits = ['FragReddit', 'de']
 
         # Besserer User-Agent für Reddit
         reddit_headers = {
@@ -195,60 +193,53 @@ class MultiSourceQuestionFinder:
             'Accept': 'application/json',
         }
 
-        for subreddit in subreddits:
-            try:
-                # Verwende old.reddit.com - oft zuverlässiger
-                url = f"https://old.reddit.com/r/{subreddit}/search.json"
-                params = {
-                    'q': keyword,
-                    'restrict_sr': 'on',
-                    'sort': 'relevance',
-                    'limit': 25,
-                    't': 'all',
-                }
+        try:
+            # Globale Reddit-Suche (alle Subreddits)
+            url = "https://old.reddit.com/search.json"
+            params = {
+                'q': keyword,
+                'sort': 'relevance',
+                'limit': 30,
+                't': 'all',
+            }
 
-                logger.info(f"Reddit: Anfrage an r/{subreddit} für '{keyword}'")
+            logger.info(f"Reddit: Globale Suche für '{keyword}'")
 
-                response = self.session.get(
-                    url,
-                    params=params,
-                    headers=reddit_headers,
-                    timeout=self.timeout
-                )
+            response = self.session.get(
+                url,
+                params=params,
+                headers=reddit_headers,
+                timeout=self.timeout
+            )
 
-                logger.info(f"Reddit r/{subreddit}: Status {response.status_code}")
+            logger.info(f"Reddit: Status {response.status_code}")
 
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        posts = data.get('data', {}).get('children', [])
-                        logger.info(f"Reddit r/{subreddit}: {len(posts)} Posts gefunden")
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    posts = data.get('data', {}).get('children', [])
+                    logger.info(f"Reddit: {len(posts)} Posts gefunden")
 
-                        for post in posts:
-                            title = post.get('data', {}).get('title', '')
-                            if title and len(title) > 10:
-                                cleaned = self._clean_question(title)
-                                if cleaned and len(cleaned) > 15 and cleaned not in questions:
-                                    questions.append(cleaned)
-                    except json.JSONDecodeError as e:
-                        logger.error(f"Reddit r/{subreddit}: JSON Parse Error: {e}")
-                        logger.debug(f"Response: {response.text[:500]}")
+                    for post in posts:
+                        title = post.get('data', {}).get('title', '')
+                        if title and len(title) > 10:
+                            cleaned = self._clean_question(title)
+                            if cleaned and len(cleaned) > 15 and cleaned not in questions:
+                                questions.append(cleaned)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Reddit: JSON Parse Error: {e}")
 
-                elif response.status_code == 403:
-                    logger.warning(f"Reddit r/{subreddit}: Zugriff verweigert (403)")
-                elif response.status_code == 429:
-                    logger.warning(f"Reddit r/{subreddit}: Rate-Limit erreicht (429)")
-                else:
-                    logger.warning(f"Reddit r/{subreddit}: Status {response.status_code}")
+            elif response.status_code == 403:
+                logger.warning("Reddit: Zugriff verweigert (403)")
+            elif response.status_code == 429:
+                logger.warning("Reddit: Rate-Limit erreicht (429)")
+            else:
+                logger.warning(f"Reddit: Status {response.status_code}")
 
-                time.sleep(random.uniform(1.0, 2.0))  # Längere Pause für Reddit
-
-            except requests.exceptions.ConnectionError as e:
-                logger.error(f"Reddit r/{subreddit}: Verbindungsfehler: {e}")
-                continue
-            except Exception as e:
-                logger.error(f"Reddit r/{subreddit} Fehler: {type(e).__name__}: {e}")
-                continue
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Reddit: Verbindungsfehler: {e}")
+        except Exception as e:
+            logger.error(f"Reddit Fehler: {type(e).__name__}: {e}")
 
         logger.info(f"Reddit gesamt: {len(questions)} Fragen gefunden")
         return questions[:15]
