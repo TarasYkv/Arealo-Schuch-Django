@@ -329,6 +329,12 @@ class MultiSourceQuestionFinder:
             'was kostet', 'wie lange',
         ]
 
+        # Einfache Headers für DuckDuckGo
+        ddg_headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+        }
+
         for prefix in question_prefixes[:8]:
             try:
                 query = f"{prefix} {keyword}"
@@ -341,7 +347,7 @@ class MultiSourceQuestionFinder:
                 response = self.session.get(
                     url,
                     params=params,
-                    headers=self.headers,
+                    headers=ddg_headers,
                     timeout=self.timeout
                 )
 
