@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Neuer Charakter - ImageForge{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'imageforge/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{% url 'imageforge:character_list' %}" class="text-decoration-none text-muted">
+                <i class="fas fa-arrow-left me-2"></i>Zurueck
+            </a>
+            <h1 class="h3 mt-2 mb-0">
+                <i class="fas fa-user-plus me-2"></i>Neuen Charakter erstellen
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form action="{% url 'imageforge:character_create' %}" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="name" class="form-label fw-bold">Name *</label>
+                            <input type="text" name="name" id="name" class="form-control" required
+                                   placeholder="z.B. Max Mustermann, Firmen-Maskottchen">
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="description" class="form-label fw-bold">Beschreibung</label>
+                            <textarea name="description" id="description" class="form-control" rows="3"
+                                      placeholder="Beschreibung des Charakters fuer bessere KI-Prompts"></textarea>
+                            <div class="form-text">
+                                Optional: Beschreibe den Charakter (Alter, Stil, besondere Merkmale)
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Referenzbilder *</label>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Lade 2-10 Bilder des Charakters hoch. Mehr Bilder = bessere KI-Erkennung.
+                                Das erste Bild wird als Hauptbild verwendet.
+                            </div>
+                            <div class="multi-upload-zone" id="multi-upload-zone">
+                                <input type="file" name="images" id="character-images" accept="image/*"
+                                       multiple class="d-none" required>
+                                <div class="upload-placeholder">
+                                    <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                                    <p>Bilder hierher ziehen oder klicken</p>
+                                    <small class="text-muted">PNG, JPG, WebP (max. 10 Bilder)</small>
+                                </div>
+                            </div>
+                            <div id="image-previews" class="image-preview-grid mt-3"></div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'imageforge:character_list' %}" class="btn btn-secondary">Abbrechen</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Charakter speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Tipps</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li class="mb-2">Verwende hochwertige Bilder mit guter Beleuchtung</li>
+                        <li class="mb-2">Zeige das Gesicht aus verschiedenen Winkeln</li>
+                        <li class="mb-2">Vermeide starke Filter oder Bearbeitung</li>
+                        <li class="mb-2">Neutrale Hintergruende funktionieren am besten</li>
+                        <li>Je mehr Bilder, desto besser die Erkennung</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'imageforge/js/app.js' %}"></script>
+{% endblock %}

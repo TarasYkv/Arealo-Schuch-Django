@@ -196,6 +196,8 @@ class AppPermission(models.Model):
         ('myprompter', 'MyPrompter'),
         ('keyengine', 'KeyEngine'),
         ('ideopin', 'IdeoPin - Pinterest Generator'),
+        ('imageforge', 'ImageForge - KI Bildgenerierung'),
+        ('questionfinder', 'QuestionFinder'),
 
         # Schuch Tools
         ('schuch', 'Schuch'),

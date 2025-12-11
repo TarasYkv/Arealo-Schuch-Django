@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ character.name }} - ImageForge{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'imageforge/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'imageforge:character_list' %}" class="text-decoration-none text-muted">
+                        <i class="fas fa-arrow-left me-2"></i>Zurueck
+                    </a>
+                    <h1 class="h3 mt-2 mb-0">{{ character.name }}</h1>
+                </div>
+                <div>
+                    <a href="{% url 'imageforge:character_edit' character.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-2"></i>Bearbeiten
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Bilder -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0">Referenzbilder ({{ character.image_count }})</h6>
+                </div>
+                <div class="card-body">
+                    <div class="character-images-grid">
+                        {% for img in character.images.all %}
+                        <div class="character-image-item {% if img.is_primary %}primary{% endif %}">
+                            <img src="{{ img.image.url }}" alt="Referenzbild">
+                            {% if img.is_primary %}
+                            <span class="badge bg-primary">Hauptbild</span>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-images fa-2x mb-2"></i>
+                            <p>Keine Bilder vorhanden</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Details</h6>
+                </div>
+                <div class="card-body">
+                    {% if character.description %}
+                    <h6>Beschreibung</h6>
+                    <p class="text-muted">{{ character.description }}</p>
+                    {% endif %}
+
+                    <h6>Erstellt</h6>
+                    <p class="text-muted">{{ character.created_at|date:"d.m.Y H:i" }}</p>
+
+                    <h6>Generierungen</h6>
+                    <p class="text-muted">{{ character.generations.count }} Bilder mit diesem Charakter</p>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <a href="{% url 'imageforge:dashboard' %}?character={{ character.id }}" class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-magic me-2"></i>Bild mit diesem Charakter erstellen
+                    </a>
+                    <form action="{% url 'imageforge:character_delete' character.id %}" method="post"
+                          onsubmit="return confirm('Charakter wirklich loeschen?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-trash me-2"></i>Loeschen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

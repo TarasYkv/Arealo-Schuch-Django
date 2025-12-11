@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Verlauf - ImageForge{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'imageforge/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'imageforge:dashboard' %}" class="text-decoration-none text-muted">
+                        <i class="fas fa-arrow-left me-2"></i>Zurueck
+                    </a>
+                    <h1 class="h3 mt-2 mb-0">
+                        <i class="fas fa-history me-2"></i>Generierungs-Verlauf
+                    </h1>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generierungen Grid -->
+    {% if generations %}
+    <div class="row">
+        {% for gen in generations %}
+        <div class="col-md-6 col-lg-4 col-xl-3 mb-4">
+            <div class="card h-100 generation-card">
+                <a href="{% url 'imageforge:generation_detail' gen.id %}" class="text-decoration-none">
+                    {% if gen.generated_image %}
+                    <img src="{{ gen.generated_image.url }}" class="card-img-top" alt="Generierung">
+                    {% else %}
+                    <div class="card-img-top no-image-placeholder">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>Fehler bei Generierung</span>
+                    </div>
+                    {% endif %}
+                </a>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge bg-secondary mb-2">{{ gen.mode_display }}</span>
+                            <p class="card-text small text-truncate" title="{{ gen.background_prompt }}">
+                                {{ gen.background_prompt|truncatechars:50 }}
+                            </p>
+                        </div>
+                        {% if gen.is_favorite %}
+                        <i class="fas fa-star text-warning"></i>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">{{ gen.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">{{ gen.get_ai_model_display }}</small>
+                        <form action="{% url 'imageforge:delete_generation' gen.id %}" method="post" class="d-inline"
+                              onsubmit="return confirm('Wirklich loeschen?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-images fa-4x text-muted mb-3"></i>
+                <h4>Noch keine Generierungen</h4>
+                <p class="text-muted">Erstelle dein erstes KI-generiertes Bild</p>
+                <a href="{% url 'imageforge:dashboard' %}" class="btn btn-primary">
+                    <i class="fas fa-magic me-2"></i>Jetzt starten
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

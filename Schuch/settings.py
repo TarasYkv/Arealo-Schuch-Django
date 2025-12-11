@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     'keyengine',
     'ideopin',
     'questionfinder',
+    'imageforge',
 ]
 
 

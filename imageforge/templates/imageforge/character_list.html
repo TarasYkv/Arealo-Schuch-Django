@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Charaktere - ImageForge{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'imageforge/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'imageforge:dashboard' %}" class="text-decoration-none text-muted">
+                        <i class="fas fa-arrow-left me-2"></i>Zurueck
+                    </a>
+                    <h1 class="h3 mt-2 mb-0">
+                        <i class="fas fa-users me-2"></i>Meine Charaktere
+                    </h1>
+                </div>
+                <a href="{% url 'imageforge:character_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Neuer Charakter
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charaktere Grid -->
+    {% if characters %}
+    <div class="row">
+        {% for char in characters %}
+        <div class="col-md-6 col-lg-4 col-xl-3 mb-4">
+            <div class="card h-100 character-card">
+                <a href="{% url 'imageforge:character_detail' char.id %}" class="text-decoration-none">
+                    {% if char.primary_image %}
+                    <img src="{{ char.primary_image.image.url }}" class="card-img-top" alt="{{ char.name }}">
+                    {% else %}
+                    <div class="card-img-top no-image-placeholder">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    {% endif %}
+                </a>
+                <div class="card-body">
+                    <h5 class="card-title">{{ char.name }}</h5>
+                    {% if char.description %}
+                    <p class="card-text small text-muted text-truncate">{{ char.description }}</p>
+                    {% endif %}
+                    <small class="text-muted">{{ char.image_count }} Bilder</small>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'imageforge:character_edit' char.id %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{% url 'imageforge:character_delete' char.id %}" method="post" class="d-inline"
+                              onsubmit="return confirm('Charakter wirklich loeschen?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-user-plus fa-4x text-muted mb-3"></i>
+                <h4>Noch keine Charaktere</h4>
+                <p class="text-muted">Erstelle deinen ersten Charakter fuer KI-generierte Bilder</p>
+                <a href="{% url 'imageforge:character_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Charakter erstellen
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

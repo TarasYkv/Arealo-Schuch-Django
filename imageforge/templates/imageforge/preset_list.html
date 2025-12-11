@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Presets - ImageForge{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'imageforge/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'imageforge:dashboard' %}" class="text-decoration-none text-muted">
+                        <i class="fas fa-arrow-left me-2"></i>Zurueck
+                    </a>
+                    <h1 class="h3 mt-2 mb-0">
+                        <i class="fas fa-sliders-h me-2"></i>Meine Presets
+                    </h1>
+                </div>
+            </div>
+            <p class="text-muted mt-2">
+                Presets speichern deine bevorzugten Einstellungen fuer schnelle Wiederverwendung
+            </p>
+        </div>
+    </div>
+
+    <!-- Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Presets werden automatisch gespeichert wenn du im Generator auf "Als Preset speichern" klickst.
+            </div>
+        </div>
+    </div>
+
+    <!-- Presets -->
+    {% if presets %}
+    <div class="row">
+        {% for preset in presets %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title">{{ preset.name }}</h5>
+                        {% if preset.is_default %}
+                        <span class="badge bg-primary">Standard</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="preset-settings mt-3">
+                        {% for key, value in preset.settings.items %}
+                        <div class="preset-setting">
+                            <span class="setting-key">{{ key }}:</span>
+                            <span class="setting-value">{{ value }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <small class="text-muted d-block mt-3">
+                        Erstellt: {{ preset.created_at|date:"d.m.Y" }}
+                    </small>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <form action="{% url 'imageforge:delete_preset' preset.id %}" method="post" class="d-inline"
+                          onsubmit="return confirm('Preset wirklich loeschen?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-trash me-1"></i>Loeschen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-sliders-h fa-4x text-muted mb-3"></i>
+                <h4>Noch keine Presets</h4>
+                <p class="text-muted">Speichere deine Lieblingseinstellungen im Generator als Preset</p>
+                <a href="{% url 'imageforge:dashboard' %}" class="btn btn-primary">
+                    <i class="fas fa-magic me-2"></i>Zum Generator
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
