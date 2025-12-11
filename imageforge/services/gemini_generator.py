@@ -32,6 +32,8 @@ class GeminiGenerator(BaseImageGenerator):
         'imagen-4.0-ultra-generate-001': 'Imagen 4 Ultra',
         'imagen-4.0-generate-001': 'Imagen 4 Standard',
         'imagen-4.0-fast-generate-001': 'Imagen 4 Fast',
+        # Imagen 3 (Legacy)
+        'imagen-3.0-generate-002': 'Imagen 3 (Bewährt)',
     }
 
     # Modelle die predict API nutzen (Imagen)
@@ -39,6 +41,7 @@ class GeminiGenerator(BaseImageGenerator):
         'imagen-4.0-ultra-generate-001',
         'imagen-4.0-generate-001',
         'imagen-4.0-fast-generate-001',
+        'imagen-3.0-generate-002',
     ]
 
     DEFAULT_MODEL = 'gemini-2.5-flash-image'

@@ -8,7 +8,38 @@ document.addEventListener('DOMContentLoaded', function() {
     initProductUpload();
     initMultiUpload();
     initGenerateForm();
+    initModelHints();
 });
+
+/**
+ * Model Hints - Zeigt Tipps basierend auf gewähltem Modell
+ */
+function initModelHints() {
+    const modelSelect = document.getElementById('ai-model-select');
+    const hintText = document.getElementById('model-hint-text');
+
+    if (!modelSelect || !hintText) return;
+
+    const hints = {
+        // Nano Banana
+        'gemini-2.5-flash-image': 'Schnell, guter Text in Bildern, bis 14 Referenzbilder. Ideal für Produktfotos & Social Media.',
+        'gemini-3-pro-image-preview': 'Profi-Qualität bis 4K, perfekter Text, komplexe Kompositionen. Ideal für Print & Marketing.',
+        // Imagen 4
+        'imagen-4.0-ultra-generate-001': 'Höchste Bildqualität, fotorealistisch. Ideal für hochwertige Werbung & Kataloge.',
+        'imagen-4.0-generate-001': 'Ausgewogene Qualität & Geschwindigkeit. Guter Allrounder für die meisten Anwendungen.',
+        'imagen-4.0-fast-generate-001': 'Schnelle Generierung, gute Qualität. Ideal für Previews & schnelle Iterationen.',
+        // Imagen 3
+        'imagen-3.0-generate-002': 'Bewährtes Modell, stabil und zuverlässig. Gut für konsistente Ergebnisse.',
+        // DALL-E
+        'dall-e-3': 'Kreativ & künstlerisch, gute Prompt-Interpretation. Ideal für Illustrationen & kreative Konzepte.',
+        'dall-e-2': 'Schnell & günstig, einfache Generierung. Gut für schnelle Entwürfe.'
+    };
+
+    modelSelect.addEventListener('change', function() {
+        const hint = hints[this.value] || 'Wähle ein Modell für mehr Infos.';
+        hintText.textContent = hint;
+    });
+}
 
 /**
  * Mode Selector
