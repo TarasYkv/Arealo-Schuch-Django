@@ -3,7 +3,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('ImageForge JS loaded');
     // Initialize components
     initModeSelector();
     initProductUpload();
@@ -20,15 +19,10 @@ function initModeSelector() {
     const productSection = document.querySelector('.product-upload-section');
     const characterSection = document.querySelector('.character-section');
 
-    console.log('Mode options found:', modeOptions.length);
-    if (!modeOptions.length) {
-        console.log('No mode options found, exiting');
-        return;
-    }
+    if (!modeOptions.length) return;
 
     modeOptions.forEach(option => {
         option.addEventListener('click', function() {
-            console.log('Mode clicked:', this.dataset.mode);
             // Update active state
             modeOptions.forEach(o => o.classList.remove('active'));
             this.classList.add('active');

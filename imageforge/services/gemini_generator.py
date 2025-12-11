@@ -2,8 +2,9 @@
 Gemini/Imagen Image Generator für ImageForge
 
 Unterstützt:
-- Gemini 2.0 Flash - Native Bildgenerierung
-- Imagen 3 - Spezialisierte Bildgenerierung
+- Gemini 2.5 Flash Image (Nano Banana) - Schnelle Bildgenerierung
+- Gemini 3 Pro Image (Nano Banana Pro) - Beste Qualität
+- Imagen 4 Familie - Spezialisierte Bildgenerierung
 """
 
 import logging
@@ -24,14 +25,23 @@ class GeminiGenerator(BaseImageGenerator):
 
     # Verfügbare Modelle
     AVAILABLE_MODELS = {
-        'gemini-2.0-flash-preview-image-generation': 'Gemini 2.0 Flash (Schnell & Gut)',
-        'imagen-3.0-generate-002': 'Imagen 3 (Hohe Qualität)',
+        # Gemini (Nano Banana)
+        'gemini-2.5-flash-image': 'Nano Banana (Schnell)',
+        'gemini-3-pro-image-preview': 'Nano Banana Pro (Beste Qualität)',
+        # Imagen 4
+        'imagen-4.0-ultra-generate-001': 'Imagen 4 Ultra',
+        'imagen-4.0-generate-001': 'Imagen 4 Standard',
+        'imagen-4.0-fast-generate-001': 'Imagen 4 Fast',
     }
 
     # Modelle die predict API nutzen (Imagen)
-    PREDICT_MODELS = ['imagen-3.0-generate-002']
+    PREDICT_MODELS = [
+        'imagen-4.0-ultra-generate-001',
+        'imagen-4.0-generate-001',
+        'imagen-4.0-fast-generate-001',
+    ]
 
-    DEFAULT_MODEL = 'gemini-2.0-flash-preview-image-generation'
+    DEFAULT_MODEL = 'gemini-2.5-flash-image'
 
     def __init__(self, api_key: str):
         super().__init__(api_key)
