@@ -30,9 +30,10 @@ function initModelHints() {
         'imagen-4.0-fast-generate-001': 'Schnelle Generierung, gute Qualität. Ideal für Previews & schnelle Iterationen.',
         // Imagen 3
         'imagen-3.0-generate-002': 'Bewährtes Modell, stabil und zuverlässig. Gut für konsistente Ergebnisse.',
-        // DALL-E
+        // OpenAI
+        'gpt-image-1': 'GPT-4o basiert, bis 4K, transparente Hintergründe, perfekter Text. Bestes OpenAI-Modell!',
         'dall-e-3': 'Kreativ & künstlerisch, gute Prompt-Interpretation. Ideal für Illustrationen & kreative Konzepte.',
-        'dall-e-2': 'Schnell & günstig, einfache Generierung. Gut für schnelle Entwürfe.'
+        'dall-e-2': 'Schnell & günstig, einfache Generierung. Gut für schnelle Entwürfe & Variationen.'
     };
 
     modelSelect.addEventListener('change', function() {

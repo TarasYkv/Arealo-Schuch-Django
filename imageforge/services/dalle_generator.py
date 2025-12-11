@@ -1,8 +1,9 @@
 """
-DALL-E Image Generator für ImageForge
+OpenAI Image Generator für ImageForge
 
 Unterstützt:
-- DALL-E 3 - Höchste Qualität, versteht komplexe Prompts
+- GPT-4o Image (gpt-image-1) - Neuestes Modell, bis 4K, transparente Hintergründe
+- DALL-E 3 - Kreativ & künstlerisch, versteht komplexe Prompts
 - DALL-E 2 - Schneller, gut für einfache Bilder
 """
 
@@ -24,15 +25,17 @@ class DalleGenerator(BaseImageGenerator):
 
     # Verfügbare Modelle
     AVAILABLE_MODELS = {
-        'dall-e-3': 'DALL-E 3 (Beste Qualität)',
+        'gpt-image-1': 'GPT-4o Image (Beste Qualität, bis 4K)',
+        'dall-e-3': 'DALL-E 3 (Kreativ & künstlerisch)',
         'dall-e-2': 'DALL-E 2 (Schnell)',
     }
 
     # Unterstützte Größen pro Modell
+    GPT_IMAGE_SIZES = ['1024x1024', '1024x1536', '1536x1024']
     DALLE3_SIZES = ['1024x1024', '1792x1024', '1024x1792']
     DALLE2_SIZES = ['256x256', '512x512', '1024x1024']
 
-    DEFAULT_MODEL = 'dall-e-3'
+    DEFAULT_MODEL = 'gpt-image-1'
 
     def __init__(self, api_key: str):
         super().__init__(api_key)
@@ -90,12 +93,23 @@ class DalleGenerator(BaseImageGenerator):
                 "prompt": prompt,
                 "n": 1,
                 "size": size,
-                "response_format": "b64_json"
             }
 
-            # Qualität nur für DALL-E 3
-            if selected_model == 'dall-e-3' and quality == 'hd':
-                payload["quality"] = "hd"
+            # Modell-spezifische Optionen
+            if selected_model == 'gpt-image-1':
+                payload["response_format"] = "b64_json"
+                payload["output_format"] = "png"
+                # GPT-Image-1 Qualität: low, medium, high
+                if quality == 'hd':
+                    payload["quality"] = "high"
+                else:
+                    payload["quality"] = "medium"
+            elif selected_model == 'dall-e-3':
+                payload["response_format"] = "b64_json"
+                if quality == 'hd':
+                    payload["quality"] = "hd"
+            else:
+                payload["response_format"] = "b64_json"
 
             logger.info(f"Calling DALL-E API: {selected_model}, Size: {size}")
             logger.info(f"Prompt: {prompt[:100]}...")
@@ -176,12 +190,20 @@ class DalleGenerator(BaseImageGenerator):
         """
         Bestimmt die beste unterstützte Größe für das Modell.
 
+        GPT-Image-1 Größen: 1024x1024, 1024x1536, 1536x1024
         DALL-E 3 Größen: 1024x1024, 1792x1024, 1024x1792
         DALL-E 2 Größen: 256x256, 512x512, 1024x1024
         """
         ratio = width / height
 
-        if model == 'dall-e-3':
+        if model == 'gpt-image-1':
+            if ratio > 1.3:
+                return '1536x1024'  # Landscape
+            elif ratio < 0.8:
+                return '1024x1536'  # Portrait
+            else:
+                return '1024x1024'  # Square
+        elif model == 'dall-e-3':
             if ratio > 1.5:
                 return '1792x1024'  # Landscape
             elif ratio < 0.7:
