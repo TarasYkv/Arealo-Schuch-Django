@@ -24,8 +24,8 @@ def dashboard(request):
     presets = StylePreset.objects.filter(user=request.user)
     recent_generations = ImageGeneration.objects.filter(user=request.user)[:6]
 
-    # API-Key Verfuegbarkeit pruefen (gemini_api_key ODER google_api_key)
-    has_google_key = bool(getattr(request.user, 'gemini_api_key', None) or getattr(request.user, 'google_api_key', None))
+    # API-Key Verfuegbarkeit pruefen
+    has_google_key = bool(getattr(request.user, 'gemini_api_key', None))
     has_openai_key = bool(getattr(request.user, 'openai_api_key', None))
     has_any_key = has_google_key or has_openai_key
 
@@ -82,8 +82,7 @@ def generate_image(request):
                 }, status=400)
             generator = DalleGenerator(api_key)
         else:
-            # Gemini/Google: Pruefe beide Key-Felder
-            api_key = getattr(request.user, 'gemini_api_key', None) or getattr(request.user, 'google_api_key', None)
+            api_key = getattr(request.user, 'gemini_api_key', None)
             if not api_key:
                 return JsonResponse({
                     'error': 'Gemini API-Key nicht konfiguriert. Bitte in den Einstellungen hinterlegen.'
