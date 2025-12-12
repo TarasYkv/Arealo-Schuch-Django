@@ -1592,6 +1592,9 @@ def api_upload_post(request, project_id):
                 'error': 'Upload-Post API-Key nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
             }, status=400)
 
+        # API-Key auf ASCII normalisieren (entferne Nicht-ASCII-Zeichen)
+        api_key_clean = upload_post_api_key.encode('ascii', 'ignore').decode('ascii').strip()
+
         # Request Body parsen
         data = json.loads(request.body)
         platforms = data.get('platforms', ['pinterest'])
@@ -1629,7 +1632,7 @@ def api_upload_post(request, project_id):
         api_url = 'https://api.upload-post.com/api/upload_photos'
 
         headers = {
-            'Authorization': f'Apikey {upload_post_api_key}',
+            'Authorization': f'Apikey {api_key_clean}',
         }
 
         # Upload-Post User-ID holen
@@ -1757,11 +1760,14 @@ def api_upload_post_boards(request):
                 'error': 'Upload-Post API-Key nicht konfiguriert.'
             }, status=400)
 
+        # API-Key auf ASCII normalisieren (entferne Nicht-ASCII-Zeichen)
+        api_key_clean = upload_post_api_key.encode('ascii', 'ignore').decode('ascii').strip()
+
         # Upload-Post API aufrufen
         api_url = 'https://api.upload-post.com/api/uploadposts/pinterest/boards'
 
         headers = {
-            'Authorization': f'Apikey {upload_post_api_key}',
+            'Authorization': f'Apikey {api_key_clean}',
         }
 
         # Session mit Retry-Logik erstellen
