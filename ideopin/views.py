@@ -270,11 +270,15 @@ def wizard_result(request, project_id):
     except:
         pass
 
+    # Upload-Post API-Key prüfen
+    upload_post_configured = bool(request.user.upload_post_api_key)
+
     context = {
         'project': project,
         'step': 6,
         'total_steps': 6,
         'pinterest_connected': pinterest_connected,
+        'upload_post_configured': upload_post_configured,
     }
     return render(request, 'ideopin/wizard/result.html', context)
 
@@ -1561,6 +1565,124 @@ def api_post_to_pinterest(request, project_id):
         }, status=400)
     except Exception as e:
         logger.error(f"[Pinterest] Posting fehlgeschlagen: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_upload_post(request, project_id):
+    """API: Postet einen Pin über Upload-Post.com auf Pinterest und andere Plattformen"""
+    import requests
+    import base64
+
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        # Upload-Post API-Key vom User holen
+        upload_post_api_key = request.user.upload_post_api_key
+
+        if not upload_post_api_key:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload-Post API-Key nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
+            }, status=400)
+
+        # Request Body parsen
+        data = json.loads(request.body)
+        platforms = data.get('platforms', ['pinterest'])
+
+        # Prüfen ob Bild vorhanden
+        image_file = project.get_final_image_for_upload()
+        if not image_file:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Bild vorhanden. Bitte zuerst ein Bild generieren.'
+            }, status=400)
+
+        # Bild lesen und Base64 kodieren
+        image_file.seek(0)
+        image_data = image_file.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+
+        # Dateiendung bestimmen
+        image_name = getattr(image_file, 'name', 'pin.png')
+        if '.jpg' in image_name.lower() or '.jpeg' in image_name.lower():
+            media_type = 'image/jpeg'
+        else:
+            media_type = 'image/png'
+
+        # Pin-Link erstellen (Ziel-URL für den Pin)
+        pin_link = project.pin_url or request.build_absolute_uri(f'/ideopin/result/{project.id}/')
+
+        # Beschreibung vorbereiten (Titel + SEO-Beschreibung)
+        description = f"{project.pin_title}\n\n{project.seo_description}" if project.pin_title else project.seo_description
+
+        # Upload-Post API aufrufen
+        api_url = 'https://api.upload-post.com/api/upload_photos'
+
+        headers = {
+            'Authorization': f'Apikey {upload_post_api_key}',
+            'Content-Type': 'application/json'
+        }
+
+        payload = {
+            'photo': f'data:{media_type};base64,{image_base64}',
+            'title': project.pin_title or 'Pinterest Pin',
+            'description': description,
+            'link': pin_link,
+            'platforms': platforms  # z.B. ['pinterest', 'instagram', 'facebook']
+        }
+
+        logger.info(f"[Upload-Post] Posting Pin {project.id} auf Plattformen: {platforms}")
+
+        response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+
+        if response.status_code == 200:
+            result = response.json()
+
+            # Als gepostet markieren
+            from django.utils import timezone
+            project.pinterest_posted = True
+            project.pinterest_posted_at = timezone.now()
+            project.pinterest_board_name = f"Upload-Post ({', '.join(platforms)})"
+            project.save()
+
+            logger.info(f"[Upload-Post] Pin {project.id} erfolgreich gepostet: {result}")
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Pin erfolgreich auf {", ".join(platforms)} gepostet!',
+                'result': result
+            })
+        else:
+            error_msg = f"API Fehler: {response.status_code}"
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', error_data.get('message', error_msg))
+            except:
+                error_msg = response.text[:200]
+
+            logger.error(f"[Upload-Post] Fehler: {error_msg}")
+            return JsonResponse({
+                'success': False,
+                'error': error_msg
+            }, status=response.status_code)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige Anfrage'
+        }, status=400)
+    except requests.exceptions.Timeout:
+        return JsonResponse({
+            'success': False,
+            'error': 'Zeitüberschreitung bei der API-Anfrage'
+        }, status=504)
+    except Exception as e:
+        logger.error(f"[Upload-Post] Posting fehlgeschlagen: {e}")
         return JsonResponse({
             'success': False,
             'error': str(e)

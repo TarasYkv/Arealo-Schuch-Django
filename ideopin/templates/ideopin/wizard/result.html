@@ -104,6 +104,63 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Upload-Post API Card -->
+        {% if upload_post_configured %}
+        <div class="card shadow-sm mt-4">
+            <div class="card-header text-white" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                <h6 class="mb-0"><i class="bi bi-cloud-upload"></i> API-Post (Upload-Post.com)</h6>
+            </div>
+            <div class="card-body">
+                {% if project.pinterest_posted %}
+                    <div class="alert alert-success mb-3">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <strong>Bereits gepostet!</strong><br>
+                        <small>{{ project.pinterest_board_name|default:"Upload-Post" }} &bull; {{ project.pinterest_posted_at|date:"d.m.Y H:i" }}</small>
+                    </div>
+                {% elif project.final_image or project.generated_image %}
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Postet direkt über die Upload-Post API auf Pinterest und andere Plattformen.
+                    </div>
+                    <div id="upload-post-section">
+                        <div class="mb-3">
+                            <label class="form-label">Plattformen auswählen:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="pinterest" id="platform-pinterest" checked>
+                                <label class="form-check-label" for="platform-pinterest">
+                                    <i class="bi bi-pinterest text-danger me-1"></i> Pinterest
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="instagram" id="platform-instagram">
+                                <label class="form-check-label" for="platform-instagram">
+                                    <i class="bi bi-instagram text-purple me-1"></i> Instagram
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="facebook" id="platform-facebook">
+                                <label class="form-check-label" for="platform-facebook">
+                                    <i class="bi bi-facebook text-primary me-1"></i> Facebook
+                                </label>
+                            </div>
+                        </div>
+                        <button type="button" class="btn w-100" id="btn-upload-post"
+                                style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;"
+                                onclick="postViaUploadPost()">
+                            <i class="bi bi-cloud-upload me-2"></i>Jetzt via API posten
+                        </button>
+                        <div id="upload-post-result" class="mt-3" style="display: none;"></div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Kein Bild vorhanden. Gehe zurück zu Schritt 3.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="col-lg-6">
@@ -410,6 +467,84 @@ function copyToClipboard(elementId) {
         alert('Kopieren fehlgeschlagen');
     });
 }
+
+// Upload-Post API Funktion
+{% if upload_post_configured and not project.pinterest_posted %}
+function postViaUploadPost() {
+    const btn = document.getElementById('btn-upload-post');
+    const resultDiv = document.getElementById('upload-post-result');
+    const originalHtml = btn.innerHTML;
+
+    // Ausgewählte Plattformen sammeln
+    const platforms = [];
+    if (document.getElementById('platform-pinterest')?.checked) platforms.push('pinterest');
+    if (document.getElementById('platform-instagram')?.checked) platforms.push('instagram');
+    if (document.getElementById('platform-facebook')?.checked) platforms.push('facebook');
+
+    if (platforms.length === 0) {
+        alert('Bitte wähle mindestens eine Plattform aus.');
+        return;
+    }
+
+    // Button deaktivieren und Loading anzeigen
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird gepostet...';
+
+    fetch('{% url "ideopin:api_upload_post" project.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            platforms: platforms
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        resultDiv.style.display = 'block';
+
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <strong>${data.message}</strong>
+                </div>
+            `;
+            btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Gepostet!';
+            btn.style.background = '#10b981';
+
+            // Checkboxen deaktivieren
+            document.querySelectorAll('#upload-post-section input[type="checkbox"]').forEach(cb => cb.disabled = true);
+
+            // Seite nach 2 Sekunden neu laden
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Fehler:</strong> ${data.error}
+                </div>
+            `;
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    })
+    .catch(error => {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Netzwerkfehler:</strong> ${error.message}
+            </div>
+        `;
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+{% endif %}
 
 {% if pinterest_connected and not project.pinterest_posted %}
 // Pinterest-Boards beim Laden abrufen

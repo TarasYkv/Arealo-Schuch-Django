@@ -854,11 +854,21 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Gemini API-Key ein.')
 
+        elif action == 'update_upload_post':
+            upload_post_key = request.POST.get('upload_post_api_key', '').strip()
+            if upload_post_key:
+                user.upload_post_api_key = upload_post_key
+                user.save()
+                messages.success(request, 'Upload-Post API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Upload-Post API-Key ein.')
+
         elif action == 'clear_keys':
             user.openai_api_key = ''
             user.youtube_api_key = ''
             user.ideogram_api_key = ''
             user.gemini_api_key = ''
+            user.upload_post_api_key = ''
             user.save()
             messages.success(request, 'Alle API-Keys wurden gelöscht.')
         
@@ -891,10 +901,12 @@ def neue_api_einstellungen_view(request):
         'youtube_key_masked': '••••••••' + user.youtube_api_key[-4:] if user.youtube_api_key and len(user.youtube_api_key) > 4 else '',
         'ideogram_key_masked': '••••••••' + user.ideogram_api_key[-4:] if user.ideogram_api_key and len(user.ideogram_api_key) > 4 else '',
         'gemini_key_masked': '••••••••' + user.gemini_api_key[-4:] if user.gemini_api_key and len(user.gemini_api_key) > 4 else '',
+        'upload_post_key_masked': '••••••••' + user.upload_post_api_key[-4:] if user.upload_post_api_key and len(user.upload_post_api_key) > 4 else '',
         'openai_configured': bool(user.openai_api_key),
         'youtube_configured': bool(user.youtube_api_key),
         'ideogram_configured': bool(user.ideogram_api_key),
         'gemini_configured': bool(user.gemini_api_key),
+        'upload_post_configured': bool(user.upload_post_api_key),
         'zoho_configured': bool(zoho_settings and zoho_settings.is_configured),
         'shopify_configured': len(shopify_stores) > 0,
         'zoho_settings': zoho_settings,

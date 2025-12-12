@@ -44,4 +44,7 @@ urlpatterns = [
     path('api/pinterest/post/<int:project_id>/', views.api_post_to_pinterest, name='api_post_to_pinterest'),
     path('api/pinterest/mark-posted/<int:project_id>/', views.api_mark_as_posted, name='api_mark_as_posted'),
     path('api/pinterest/unmark-posted/<int:project_id>/', views.api_unmark_as_posted, name='api_unmark_as_posted'),
+
+    # Upload-Post API
+    path('api/upload-post/<int:project_id>/', views.api_upload_post, name='api_upload_post'),
 ]
