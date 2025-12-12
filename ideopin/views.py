@@ -1675,9 +1675,15 @@ def api_upload_post(request, project_id):
             logger.info(f"[Upload-Post] Scheduled for: {scheduled_date}")
 
         # Reddit-spezifische Felder
-        if 'reddit' in platforms and subreddit:
-            form_data.append(('subreddit', subreddit))
-            logger.info(f"[Upload-Post] Reddit subreddit: r/{subreddit}")
+        if 'reddit' in platforms:
+            logger.info(f"[Upload-Post] Reddit in platforms, subreddit value: '{subreddit}'")
+            if subreddit:
+                # Versuche beide Parameter-Namen (API-Dokumentation unklar)
+                form_data.append(('subreddit', subreddit))
+                form_data.append(('reddit_subreddit', subreddit))
+                logger.info(f"[Upload-Post] Reddit subreddit: r/{subreddit}")
+            else:
+                logger.warning(f"[Upload-Post] Reddit selected but no subreddit provided!")
 
         # Bild als File hinzufügen
         files = {
