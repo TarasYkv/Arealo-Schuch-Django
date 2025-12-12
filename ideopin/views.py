@@ -273,12 +273,18 @@ def wizard_result(request, project_id):
     # Upload-Post API-Key prüfen
     upload_post_configured = bool(request.user.upload_post_api_key)
 
+    # Subreddits als Liste aufbereiten
+    subreddits_list = []
+    if request.user.upload_post_subreddits:
+        subreddits_list = [s.strip() for s in request.user.upload_post_subreddits.split(',') if s.strip()]
+
     context = {
         'project': project,
         'step': 6,
         'total_steps': 6,
         'pinterest_connected': pinterest_connected,
         'upload_post_configured': upload_post_configured,
+        'subreddits_list': subreddits_list,
     }
     return render(request, 'ideopin/wizard/result.html', context)
 

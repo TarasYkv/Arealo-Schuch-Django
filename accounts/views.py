@@ -857,9 +857,11 @@ def neue_api_einstellungen_view(request):
         elif action == 'update_upload_post':
             upload_post_key = request.POST.get('upload_post_api_key', '').strip()
             upload_post_user_id = request.POST.get('upload_post_user_id', '').strip()
+            upload_post_subreddits = request.POST.get('upload_post_subreddits', '').strip()
             if upload_post_key:
                 user.upload_post_api_key = upload_post_key
                 user.upload_post_user_id = upload_post_user_id
+                user.upload_post_subreddits = upload_post_subreddits
                 user.save()
                 messages.success(request, 'Upload-Post Einstellungen erfolgreich gespeichert.')
             else:
