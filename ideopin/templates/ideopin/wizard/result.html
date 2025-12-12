@@ -118,6 +118,66 @@
                         <strong>Bereits gepostet!</strong><br>
                         <small>{{ project.pinterest_board_name|default:"Upload-Post" }} &bull; {{ project.pinterest_posted_at|date:"d.m.Y H:i" }}</small>
                     </div>
+                    <!-- Trotzdem posten Button -->
+                    <button type="button" class="btn btn-outline-secondary w-100 mb-3" id="btn-repost-toggle" onclick="toggleRepostForm()">
+                        <i class="bi bi-arrow-repeat me-2"></i>Trotzdem posten
+                    </button>
+                    <!-- Verstecktes Repost-Formular -->
+                    <div id="repost-section" style="display: none;">
+                        <!-- Pinterest Board Auswahl -->
+                        <div class="mb-3">
+                            <label for="repost-board" class="form-label">
+                                <i class="bi bi-pinterest text-danger me-1"></i> Pinterest Board:
+                            </label>
+                            <select class="form-select" id="repost-board" name="pinterest_board_id">
+                                <option value="">Board laden...</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Zusätzliche Plattformen:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="instagram" id="repost-platform-instagram">
+                                <label class="form-check-label" for="repost-platform-instagram">
+                                    <i class="bi bi-instagram text-purple me-1"></i> Instagram
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="facebook" id="repost-platform-facebook">
+                                <label class="form-check-label" for="repost-platform-facebook">
+                                    <i class="bi bi-facebook text-primary me-1"></i> Facebook
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Zeitplanung -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="repost-schedule-enabled" onchange="toggleRepostScheduleFields()">
+                                <label class="form-check-label" for="repost-schedule-enabled">
+                                    <i class="bi bi-calendar-event me-1"></i> Zeitgesteuert veröffentlichen
+                                </label>
+                            </div>
+                            <div id="repost-schedule-fields" style="display: none;" class="mt-2 ps-4">
+                                <div class="row g-2">
+                                    <div class="col-7">
+                                        <input type="date" class="form-control form-control-sm" id="repost-schedule-date">
+                                    </div>
+                                    <div class="col-5">
+                                        <input type="time" class="form-control form-control-sm" id="repost-schedule-time" value="12:00">
+                                    </div>
+                                </div>
+                                <div class="form-text">Pin wird zum gewählten Zeitpunkt veröffentlicht</div>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn w-100" id="btn-repost"
+                                style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;"
+                                onclick="repostViaUploadPost()">
+                            <i class="bi bi-cloud-upload me-2"></i>Jetzt via API posten
+                        </button>
+                        <div id="repost-result" class="mt-3" style="display: none;"></div>
+                    </div>
                 {% elif project.final_image or project.generated_image %}
                     <div class="alert alert-info small mb-3">
                         <i class="bi bi-info-circle me-1"></i>
@@ -626,6 +686,164 @@ function postViaUploadPost() {
             setTimeout(() => {
                 window.location.reload();
             }, 2000);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Fehler:</strong> ${data.error}
+                </div>
+            `;
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    })
+    .catch(error => {
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Netzwerkfehler:</strong> ${error.message}
+            </div>
+        `;
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    });
+}
+{% endif %}
+
+{% if upload_post_configured and project.pinterest_posted %}
+// Repost-Funktionen für bereits gepostete Pins
+let repostBoardsLoaded = false;
+
+function toggleRepostForm() {
+    const section = document.getElementById('repost-section');
+    const btn = document.getElementById('btn-repost-toggle');
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        btn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Abbrechen';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-outline-danger');
+        // Boards laden wenn noch nicht geschehen
+        if (!repostBoardsLoaded) {
+            loadRepostBoards();
+            repostBoardsLoaded = true;
+        }
+        // Datum initialisieren
+        const dateInput = document.getElementById('repost-schedule-date');
+        if (dateInput && !dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.min = today;
+            dateInput.value = today;
+        }
+    } else {
+        section.style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Trotzdem posten';
+        btn.classList.remove('btn-outline-danger');
+        btn.classList.add('btn-outline-secondary');
+    }
+}
+
+function toggleRepostScheduleFields() {
+    const checkbox = document.getElementById('repost-schedule-enabled');
+    const fields = document.getElementById('repost-schedule-fields');
+    if (checkbox && fields) {
+        fields.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
+
+function loadRepostBoards() {
+    const select = document.getElementById('repost-board');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Boards werden geladen...</option>';
+    select.disabled = true;
+
+    fetch('{% url "ideopin:api_upload_post_boards" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.boards) {
+                select.innerHTML = '<option value="">Board auswählen...</option>';
+                const boards = Array.isArray(data.boards) ? data.boards : [];
+                boards.forEach(board => {
+                    const option = document.createElement('option');
+                    option.value = board.id || board.board_id || board.pinterest_board_id || '';
+                    const name = board.name || board.board_name || board.title || 'Unbenannt';
+                    const pinCount = board.pin_count || board.pins || '';
+                    option.textContent = name + (pinCount ? ` (${pinCount} Pins)` : '');
+                    select.appendChild(option);
+                });
+                select.disabled = false;
+            } else {
+                select.innerHTML = '<option value="">Fehler: ' + (data.error || 'Unbekannt') + '</option>';
+            }
+        })
+        .catch(error => {
+            select.innerHTML = '<option value="">Netzwerkfehler</option>';
+        });
+}
+
+function repostViaUploadPost() {
+    const btn = document.getElementById('btn-repost');
+    const resultDiv = document.getElementById('repost-result');
+    const boardSelect = document.getElementById('repost-board');
+    const originalHtml = btn.innerHTML;
+
+    const pinterestBoardId = boardSelect ? boardSelect.value : '';
+
+    if (!pinterestBoardId) {
+        alert('Bitte wähle ein Pinterest Board aus.');
+        return;
+    }
+
+    const platforms = ['pinterest'];
+    if (document.getElementById('repost-platform-instagram')?.checked) platforms.push('instagram');
+    if (document.getElementById('repost-platform-facebook')?.checked) platforms.push('facebook');
+
+    let scheduledDate = null;
+    const scheduleEnabled = document.getElementById('repost-schedule-enabled')?.checked;
+    if (scheduleEnabled) {
+        const dateVal = document.getElementById('repost-schedule-date')?.value;
+        const timeVal = document.getElementById('repost-schedule-time')?.value || '12:00';
+        if (dateVal) {
+            scheduledDate = `${dateVal}T${timeVal}:00Z`;
+        }
+    }
+
+    btn.disabled = true;
+    const statusText = scheduledDate ? 'Wird eingeplant...' : 'Wird gepostet...';
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${statusText}`;
+
+    const requestData = {
+        platforms: platforms,
+        pinterest_board_id: pinterestBoardId
+    };
+    if (scheduledDate) {
+        requestData.scheduled_date = scheduledDate;
+    }
+
+    fetch('{% url "ideopin:api_upload_post" project.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        resultDiv.style.display = 'block';
+
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <strong>${data.message}</strong>
+                </div>
+            `;
+            btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Gepostet!';
+            btn.style.background = '#10b981';
+            document.querySelectorAll('#repost-section input, #repost-section select').forEach(el => el.disabled = true);
+            setTimeout(() => window.location.reload(), 2000);
         } else {
             resultDiv.innerHTML = `
                 <div class="alert alert-danger">
