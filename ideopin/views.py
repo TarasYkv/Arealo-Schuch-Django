@@ -1592,8 +1592,8 @@ def api_upload_post(request, project_id):
                 'error': 'Upload-Post API-Key nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
             }, status=400)
 
-        # API-Key auf ASCII normalisieren (entferne Nicht-ASCII-Zeichen)
-        api_key_clean = upload_post_api_key.encode('ascii', 'ignore').decode('ascii').strip()
+        # API-Key trimmen
+        api_key_clean = upload_post_api_key.strip()
 
         # Request Body parsen
         data = json.loads(request.body)
@@ -1760,8 +1760,10 @@ def api_upload_post_boards(request):
                 'error': 'Upload-Post API-Key nicht konfiguriert.'
             }, status=400)
 
-        # API-Key auf ASCII normalisieren (entferne Nicht-ASCII-Zeichen)
-        api_key_clean = upload_post_api_key.encode('ascii', 'ignore').decode('ascii').strip()
+        # API-Key trimmen und Whitespace entfernen
+        api_key_clean = upload_post_api_key.strip()
+
+        logger.info(f"[Upload-Post] API-Key Länge: {len(api_key_clean)}, erste 4 Zeichen: {api_key_clean[:4]}...")
 
         # Upload-Post API aufrufen
         api_url = 'https://api.upload-post.com/api/uploadposts/pinterest/boards'
