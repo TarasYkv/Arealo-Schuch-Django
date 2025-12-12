@@ -1599,6 +1599,7 @@ def api_upload_post(request, project_id):
         data = json.loads(request.body)
         platforms = data.get('platforms', ['pinterest'])
         pinterest_board_id = data.get('pinterest_board_id', '')
+        scheduled_date = data.get('scheduled_date', '')  # ISO-8601 Format: 2024-12-31T23:45:00Z
 
         # Prüfen ob Bild vorhanden
         image_file = project.get_final_image_for_upload()
@@ -1661,6 +1662,11 @@ def api_upload_post(request, project_id):
             form_data.append(('pinterest_description', project.seo_description or ''))
             form_data.append(('pinterest_link', pin_link))
 
+        # Zeitplanung (optional)
+        if scheduled_date:
+            form_data.append(('scheduled_date', scheduled_date))
+            logger.info(f"[Upload-Post] Scheduled for: {scheduled_date}")
+
         # Bild als File hinzufügen
         files = {
             'photos[]': (image_name, io.BytesIO(image_data), content_type)
@@ -1701,14 +1707,26 @@ def api_upload_post(request, project_id):
             from django.utils import timezone
             project.pinterest_posted = True
             project.pinterest_posted_at = timezone.now()
-            project.pinterest_board_name = f"Upload-Post ({', '.join(platforms)})"
+
+            # Board-Name mit Planungsinfo speichern
+            if scheduled_date:
+                project.pinterest_board_name = f"Upload-Post ({', '.join(platforms)}) - Geplant: {scheduled_date}"
+            else:
+                project.pinterest_board_name = f"Upload-Post ({', '.join(platforms)})"
             project.save()
 
-            logger.info(f"[Upload-Post] Pin {project.id} erfolgreich gepostet: {result}")
+            # Erfolgsmeldung anpassen
+            if scheduled_date:
+                message = f'Pin wurde für {scheduled_date} auf {", ".join(platforms)} eingeplant!'
+            else:
+                message = f'Pin erfolgreich auf {", ".join(platforms)} gepostet!'
+
+            logger.info(f"[Upload-Post] Pin {project.id} erfolgreich: {result}")
 
             return JsonResponse({
                 'success': True,
-                'message': f'Pin erfolgreich auf {", ".join(platforms)} gepostet!',
+                'message': message,
+                'scheduled': bool(scheduled_date),
                 'result': result
             })
         else:

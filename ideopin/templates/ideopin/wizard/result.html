@@ -150,6 +150,28 @@
                                 </label>
                             </div>
                         </div>
+
+                        <!-- Zeitplanung -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="schedule-enabled" onchange="toggleScheduleFields()">
+                                <label class="form-check-label" for="schedule-enabled">
+                                    <i class="bi bi-calendar-event me-1"></i> Zeitgesteuert veröffentlichen
+                                </label>
+                            </div>
+                            <div id="schedule-fields" style="display: none;" class="mt-2 ps-4">
+                                <div class="row g-2">
+                                    <div class="col-7">
+                                        <input type="date" class="form-control form-control-sm" id="schedule-date">
+                                    </div>
+                                    <div class="col-5">
+                                        <input type="time" class="form-control form-control-sm" id="schedule-time" value="12:00">
+                                    </div>
+                                </div>
+                                <div class="form-text">Pin wird zum gewählten Zeitpunkt veröffentlicht</div>
+                            </div>
+                        </div>
+
                         <button type="button" class="btn w-100" id="btn-upload-post"
                                 style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;"
                                 onclick="postViaUploadPost()">
@@ -478,7 +500,22 @@ function copyToClipboard(elementId) {
 // Boards beim Laden abrufen
 document.addEventListener('DOMContentLoaded', function() {
     loadUploadPostBoards();
+    // Setze Minimum-Datum auf heute
+    const dateInput = document.getElementById('schedule-date');
+    if (dateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+        dateInput.value = today;
+    }
 });
+
+function toggleScheduleFields() {
+    const checkbox = document.getElementById('schedule-enabled');
+    const fields = document.getElementById('schedule-fields');
+    if (checkbox && fields) {
+        fields.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
 
 function loadUploadPostBoards() {
     const select = document.getElementById('upload-post-board');
@@ -534,9 +571,31 @@ function postViaUploadPost() {
     if (document.getElementById('platform-instagram')?.checked) platforms.push('instagram');
     if (document.getElementById('platform-facebook')?.checked) platforms.push('facebook');
 
+    // Zeitplanung prüfen
+    let scheduledDate = null;
+    const scheduleEnabled = document.getElementById('schedule-enabled')?.checked;
+    if (scheduleEnabled) {
+        const dateVal = document.getElementById('schedule-date')?.value;
+        const timeVal = document.getElementById('schedule-time')?.value || '12:00';
+        if (dateVal) {
+            // ISO-8601 Format erstellen: 2024-12-31T23:45:00Z
+            scheduledDate = `${dateVal}T${timeVal}:00Z`;
+        }
+    }
+
     // Button deaktivieren und Loading anzeigen
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird gepostet...';
+    const statusText = scheduledDate ? 'Wird eingeplant...' : 'Wird gepostet...';
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${statusText}`;
+
+    // Request-Daten vorbereiten
+    const requestData = {
+        platforms: platforms,
+        pinterest_board_id: pinterestBoardId
+    };
+    if (scheduledDate) {
+        requestData.scheduled_date = scheduledDate;
+    }
 
     fetch('{% url "ideopin:api_upload_post" project.id %}', {
         method: 'POST',
@@ -544,10 +603,7 @@ function postViaUploadPost() {
             'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken
         },
-        body: JSON.stringify({
-            platforms: platforms,
-            pinterest_board_id: pinterestBoardId
-        })
+        body: JSON.stringify(requestData)
     })
     .then(response => response.json())
     .then(data => {
