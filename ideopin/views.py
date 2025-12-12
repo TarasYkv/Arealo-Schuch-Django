@@ -1651,10 +1651,14 @@ def api_upload_post(request, project_id):
                 'error': 'Upload-Post User-ID nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
             }, status=400)
 
+        # Beschreibung und Link vorbereiten
+        description = project.seo_description or project.pin_title or ''
+        post_link = pin_link
+
         # Form-Daten vorbereiten (als Liste von Tupeln für mehrere gleiche Keys)
         form_data = [
             ('user', upload_post_user_id),
-            ('title', project.pin_title or 'Pinterest Pin'),
+            ('title', description),  # Beschreibung als Haupttext
         ]
 
         # Plattformen hinzufügen (jede als separates Feld)
@@ -1666,24 +1670,56 @@ def api_upload_post(request, project_id):
             if pinterest_board_id:
                 form_data.append(('pinterest_board_id', pinterest_board_id))
             form_data.append(('pinterest_title', project.pin_title or ''))
-            form_data.append(('pinterest_description', project.seo_description or ''))
-            form_data.append(('pinterest_link', pin_link))
+            form_data.append(('pinterest_description', description))
+            form_data.append(('pinterest_link', post_link))
 
-        # Zeitplanung (optional)
-        if scheduled_date:
-            form_data.append(('scheduled_date', scheduled_date))
-            logger.info(f"[Upload-Post] Scheduled for: {scheduled_date}")
+        # Instagram-spezifische Felder
+        if 'instagram' in platforms:
+            caption = f"{description}\n\n{post_link}" if post_link else description
+            form_data.append(('instagram_caption', caption))
+
+        # Facebook-spezifische Felder
+        if 'facebook' in platforms:
+            form_data.append(('facebook_text', description))
+            form_data.append(('facebook_link', post_link))
+
+        # X (Twitter) spezifische Felder
+        if 'x' in platforms:
+            # X hat Zeichenbegrenzung, Link am Ende
+            x_text = f"{description[:200]}..." if len(description) > 200 else description
+            x_text = f"{x_text}\n{post_link}" if post_link else x_text
+            form_data.append(('x_text', x_text))
+
+        # LinkedIn-spezifische Felder
+        if 'linkedin' in platforms:
+            form_data.append(('linkedin_text', description))
+            form_data.append(('linkedin_link', post_link))
+
+        # Threads-spezifische Felder
+        if 'threads' in platforms:
+            threads_text = f"{description}\n\n{post_link}" if post_link else description
+            form_data.append(('threads_caption', threads_text))
+
+        # Bluesky-spezifische Felder
+        if 'bluesky' in platforms:
+            bsky_text = f"{description}\n\n{post_link}" if post_link else description
+            form_data.append(('bluesky_text', bsky_text))
 
         # Reddit-spezifische Felder
         if 'reddit' in platforms:
             logger.info(f"[Upload-Post] Reddit in platforms, subreddit value: '{subreddit}'")
+            form_data.append(('reddit_title', project.pin_title or description[:100]))
             if subreddit:
-                # Versuche beide Parameter-Namen (API-Dokumentation unklar)
                 form_data.append(('subreddit', subreddit))
                 form_data.append(('reddit_subreddit', subreddit))
                 logger.info(f"[Upload-Post] Reddit subreddit: r/{subreddit}")
             else:
                 logger.warning(f"[Upload-Post] Reddit selected but no subreddit provided!")
+
+        # Zeitplanung (optional)
+        if scheduled_date:
+            form_data.append(('scheduled_date', scheduled_date))
+            logger.info(f"[Upload-Post] Scheduled for: {scheduled_date}")
 
         # Bild als File hinzufügen
         files = {
