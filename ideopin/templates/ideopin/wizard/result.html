@@ -124,14 +124,19 @@
                         Postet direkt über die Upload-Post API auf Pinterest und andere Plattformen.
                     </div>
                     <div id="upload-post-section">
+                        <!-- Pinterest Board Auswahl -->
                         <div class="mb-3">
-                            <label class="form-label">Plattformen auswählen:</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="pinterest" id="platform-pinterest" checked>
-                                <label class="form-check-label" for="platform-pinterest">
-                                    <i class="bi bi-pinterest text-danger me-1"></i> Pinterest
-                                </label>
-                            </div>
+                            <label for="upload-post-board" class="form-label">
+                                <i class="bi bi-pinterest text-danger me-1"></i> Pinterest Board:
+                            </label>
+                            <select class="form-select" id="upload-post-board" name="pinterest_board_id">
+                                <option value="">Board laden...</option>
+                            </select>
+                            <div class="form-text">Wähle das Board für deinen Pin</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Zusätzliche Plattformen:</label>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="instagram" id="platform-instagram">
                                 <label class="form-check-label" for="platform-instagram">
@@ -470,21 +475,64 @@ function copyToClipboard(elementId) {
 
 // Upload-Post API Funktion
 {% if upload_post_configured and not project.pinterest_posted %}
+// Boards beim Laden abrufen
+document.addEventListener('DOMContentLoaded', function() {
+    loadUploadPostBoards();
+});
+
+function loadUploadPostBoards() {
+    const select = document.getElementById('upload-post-board');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Boards werden geladen...</option>';
+    select.disabled = true;
+
+    fetch('{% url "ideopin:api_upload_post_boards" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.boards) {
+                select.innerHTML = '<option value="">Board auswählen...</option>';
+                // Boards können verschiedene Formate haben
+                const boards = Array.isArray(data.boards) ? data.boards : [];
+                boards.forEach(board => {
+                    const option = document.createElement('option');
+                    // Flexibles Format: board kann id/name oder board_id/board_name haben
+                    option.value = board.id || board.board_id || board.pinterest_board_id || '';
+                    const name = board.name || board.board_name || board.title || 'Unbenannt';
+                    const pinCount = board.pin_count || board.pins || '';
+                    option.textContent = name + (pinCount ? ` (${pinCount} Pins)` : '');
+                    select.appendChild(option);
+                });
+                select.disabled = false;
+            } else {
+                select.innerHTML = '<option value="">Fehler: ' + (data.error || 'Unbekannt') + '</option>';
+                console.error('Upload-Post boards error:', data.error);
+            }
+        })
+        .catch(error => {
+            select.innerHTML = '<option value="">Netzwerkfehler</option>';
+            console.error('Upload-Post boards fetch error:', error);
+        });
+}
+
 function postViaUploadPost() {
     const btn = document.getElementById('btn-upload-post');
     const resultDiv = document.getElementById('upload-post-result');
+    const boardSelect = document.getElementById('upload-post-board');
     const originalHtml = btn.innerHTML;
 
-    // Ausgewählte Plattformen sammeln
-    const platforms = [];
-    if (document.getElementById('platform-pinterest')?.checked) platforms.push('pinterest');
-    if (document.getElementById('platform-instagram')?.checked) platforms.push('instagram');
-    if (document.getElementById('platform-facebook')?.checked) platforms.push('facebook');
+    // Board-ID holen (erforderlich für Pinterest)
+    const pinterestBoardId = boardSelect ? boardSelect.value : '';
 
-    if (platforms.length === 0) {
-        alert('Bitte wähle mindestens eine Plattform aus.');
+    if (!pinterestBoardId) {
+        alert('Bitte wähle ein Pinterest Board aus.');
         return;
     }
+
+    // Plattformen sammeln (Pinterest ist immer dabei wenn Board ausgewählt)
+    const platforms = ['pinterest'];
+    if (document.getElementById('platform-instagram')?.checked) platforms.push('instagram');
+    if (document.getElementById('platform-facebook')?.checked) platforms.push('facebook');
 
     // Button deaktivieren und Loading anzeigen
     btn.disabled = true;
@@ -497,7 +545,8 @@ function postViaUploadPost() {
             'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
-            platforms: platforms
+            platforms: platforms,
+            pinterest_board_id: pinterestBoardId
         })
     })
     .then(response => response.json())
@@ -514,8 +563,8 @@ function postViaUploadPost() {
             btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Gepostet!';
             btn.style.background = '#10b981';
 
-            // Checkboxen deaktivieren
-            document.querySelectorAll('#upload-post-section input[type="checkbox"]').forEach(cb => cb.disabled = true);
+            // Inputs deaktivieren
+            document.querySelectorAll('#upload-post-section input, #upload-post-section select').forEach(el => el.disabled = true);
 
             // Seite nach 2 Sekunden neu laden
             setTimeout(() => {

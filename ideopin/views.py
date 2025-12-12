@@ -1730,3 +1730,78 @@ def api_upload_post(request, project_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required
+def api_upload_post_boards(request):
+    """API: Holt Pinterest Boards von Upload-Post.com"""
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+
+    try:
+        # Upload-Post API-Key vom User holen
+        upload_post_api_key = request.user.upload_post_api_key
+
+        if not upload_post_api_key:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload-Post API-Key nicht konfiguriert.'
+            }, status=400)
+
+        # Upload-Post API aufrufen
+        api_url = 'https://api.upload-post.com/api/uploadposts/pinterest/boards'
+
+        headers = {
+            'Authorization': f'Apikey {upload_post_api_key}',
+        }
+
+        # Session mit Retry-Logik erstellen
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=2,
+            backoff_factor=0.5,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+
+        response = None
+        try:
+            response = session.get(api_url, headers=headers, timeout=30, verify=True)
+        except requests.exceptions.SSLError as ssl_err:
+            logger.warning(f"[Upload-Post] SSL-Fehler bei Boards, versuche ohne Verifizierung: {ssl_err}")
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            response = session.get(api_url, headers=headers, timeout=30, verify=False)
+
+        logger.info(f"[Upload-Post] Boards Response: {response.status_code}")
+
+        if response.status_code == 200:
+            data = response.json()
+            # Antwort-Format anpassen (je nach API-Response)
+            boards = data if isinstance(data, list) else data.get('boards', data.get('data', []))
+
+            return JsonResponse({
+                'success': True,
+                'boards': boards
+            })
+        else:
+            error_msg = f"API Fehler: {response.status_code}"
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', error_data.get('message', error_msg))
+            except:
+                error_msg = response.text[:200]
+
+            return JsonResponse({
+                'success': False,
+                'error': error_msg
+            }, status=response.status_code)
+
+    except Exception as e:
+        logger.error(f"[Upload-Post] Boards abrufen fehlgeschlagen: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

@@ -47,4 +47,5 @@ urlpatterns = [
 
     # Upload-Post API
     path('api/upload-post/<int:project_id>/', views.api_upload_post, name='api_upload_post'),
+    path('api/upload-post/boards/', views.api_upload_post_boards, name='api_upload_post_boards'),
 ]
