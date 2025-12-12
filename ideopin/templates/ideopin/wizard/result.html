@@ -124,18 +124,15 @@
                     </button>
                     <!-- Verstecktes Repost-Formular -->
                     <div id="repost-section" style="display: none;">
-                        <!-- Pinterest Board Auswahl -->
+                        <!-- Plattformen Auswahl -->
                         <div class="mb-3">
-                            <label for="repost-board" class="form-label">
-                                <i class="bi bi-pinterest text-danger me-1"></i> Pinterest Board:
-                            </label>
-                            <select class="form-select" id="repost-board" name="pinterest_board_id">
-                                <option value="">Board laden...</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Zusätzliche Plattformen:</label>
+                            <label class="form-label">Plattformen:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="pinterest" id="repost-platform-pinterest" checked onchange="toggleRepostPinterestBoard()">
+                                <label class="form-check-label" for="repost-platform-pinterest">
+                                    <i class="bi bi-pinterest text-danger me-1"></i> Pinterest
+                                </label>
+                            </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="instagram" id="repost-platform-instagram">
                                 <label class="form-check-label" for="repost-platform-instagram">
@@ -148,6 +145,16 @@
                                     <i class="bi bi-facebook text-primary me-1"></i> Facebook
                                 </label>
                             </div>
+                        </div>
+
+                        <!-- Pinterest Board Auswahl (nur wenn Pinterest aktiviert) -->
+                        <div class="mb-3" id="repost-pinterest-board-section">
+                            <label for="repost-board" class="form-label">
+                                <i class="bi bi-pinterest text-danger me-1"></i> Pinterest Board:
+                            </label>
+                            <select class="form-select" id="repost-board" name="pinterest_board_id">
+                                <option value="">Board laden...</option>
+                            </select>
                         </div>
 
                         <!-- Zeitplanung -->
@@ -184,19 +191,15 @@
                         Postet direkt über die Upload-Post API auf Pinterest und andere Plattformen.
                     </div>
                     <div id="upload-post-section">
-                        <!-- Pinterest Board Auswahl -->
+                        <!-- Plattformen Auswahl -->
                         <div class="mb-3">
-                            <label for="upload-post-board" class="form-label">
-                                <i class="bi bi-pinterest text-danger me-1"></i> Pinterest Board:
-                            </label>
-                            <select class="form-select" id="upload-post-board" name="pinterest_board_id">
-                                <option value="">Board laden...</option>
-                            </select>
-                            <div class="form-text">Wähle das Board für deinen Pin</div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Zusätzliche Plattformen:</label>
+                            <label class="form-label">Plattformen:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="pinterest" id="platform-pinterest" checked onchange="togglePinterestBoard()">
+                                <label class="form-check-label" for="platform-pinterest">
+                                    <i class="bi bi-pinterest text-danger me-1"></i> Pinterest
+                                </label>
+                            </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" value="instagram" id="platform-instagram">
                                 <label class="form-check-label" for="platform-instagram">
@@ -209,6 +212,17 @@
                                     <i class="bi bi-facebook text-primary me-1"></i> Facebook
                                 </label>
                             </div>
+                        </div>
+
+                        <!-- Pinterest Board Auswahl (nur wenn Pinterest aktiviert) -->
+                        <div class="mb-3" id="pinterest-board-section">
+                            <label for="upload-post-board" class="form-label">
+                                <i class="bi bi-pinterest text-danger me-1"></i> Pinterest Board:
+                            </label>
+                            <select class="form-select" id="upload-post-board" name="pinterest_board_id">
+                                <option value="">Board laden...</option>
+                            </select>
+                            <div class="form-text">Wähle das Board für deinen Pin</div>
                         </div>
 
                         <!-- Zeitplanung -->
@@ -577,6 +591,14 @@ function toggleScheduleFields() {
     }
 }
 
+function togglePinterestBoard() {
+    const checkbox = document.getElementById('platform-pinterest');
+    const boardSection = document.getElementById('pinterest-board-section');
+    if (checkbox && boardSection) {
+        boardSection.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
+
 function loadUploadPostBoards() {
     const select = document.getElementById('upload-post-board');
     if (!select) return;
@@ -618,18 +640,24 @@ function postViaUploadPost() {
     const boardSelect = document.getElementById('upload-post-board');
     const originalHtml = btn.innerHTML;
 
-    // Board-ID holen (erforderlich für Pinterest)
-    const pinterestBoardId = boardSelect ? boardSelect.value : '';
+    // Plattformen sammeln
+    const platforms = [];
+    if (document.getElementById('platform-pinterest')?.checked) platforms.push('pinterest');
+    if (document.getElementById('platform-instagram')?.checked) platforms.push('instagram');
+    if (document.getElementById('platform-facebook')?.checked) platforms.push('facebook');
 
-    if (!pinterestBoardId) {
-        alert('Bitte wähle ein Pinterest Board aus.');
+    if (platforms.length === 0) {
+        alert('Bitte wähle mindestens eine Plattform aus.');
         return;
     }
 
-    // Plattformen sammeln (Pinterest ist immer dabei wenn Board ausgewählt)
-    const platforms = ['pinterest'];
-    if (document.getElementById('platform-instagram')?.checked) platforms.push('instagram');
-    if (document.getElementById('platform-facebook')?.checked) platforms.push('facebook');
+    // Board-ID holen (nur erforderlich wenn Pinterest aktiviert)
+    const pinterestBoardId = boardSelect ? boardSelect.value : '';
+
+    if (platforms.includes('pinterest') && !pinterestBoardId) {
+        alert('Bitte wähle ein Pinterest Board aus.');
+        return;
+    }
 
     // Zeitplanung prüfen
     let scheduledDate = null;
@@ -751,6 +779,14 @@ function toggleRepostScheduleFields() {
     }
 }
 
+function toggleRepostPinterestBoard() {
+    const checkbox = document.getElementById('repost-platform-pinterest');
+    const boardSection = document.getElementById('repost-pinterest-board-section');
+    if (checkbox && boardSection) {
+        boardSection.style.display = checkbox.checked ? 'block' : 'none';
+    }
+}
+
 function loadRepostBoards() {
     const select = document.getElementById('repost-board');
     if (!select) return;
@@ -788,16 +824,24 @@ function repostViaUploadPost() {
     const boardSelect = document.getElementById('repost-board');
     const originalHtml = btn.innerHTML;
 
-    const pinterestBoardId = boardSelect ? boardSelect.value : '';
+    // Plattformen sammeln
+    const platforms = [];
+    if (document.getElementById('repost-platform-pinterest')?.checked) platforms.push('pinterest');
+    if (document.getElementById('repost-platform-instagram')?.checked) platforms.push('instagram');
+    if (document.getElementById('repost-platform-facebook')?.checked) platforms.push('facebook');
 
-    if (!pinterestBoardId) {
-        alert('Bitte wähle ein Pinterest Board aus.');
+    if (platforms.length === 0) {
+        alert('Bitte wähle mindestens eine Plattform aus.');
         return;
     }
 
-    const platforms = ['pinterest'];
-    if (document.getElementById('repost-platform-instagram')?.checked) platforms.push('instagram');
-    if (document.getElementById('repost-platform-facebook')?.checked) platforms.push('facebook');
+    // Board-ID holen (nur erforderlich wenn Pinterest aktiviert)
+    const pinterestBoardId = boardSelect ? boardSelect.value : '';
+
+    if (platforms.includes('pinterest') && !pinterestBoardId) {
+        alert('Bitte wähle ein Pinterest Board aus.');
+        return;
+    }
 
     let scheduledDate = null;
     const scheduleEnabled = document.getElementById('repost-schedule-enabled')?.checked;
