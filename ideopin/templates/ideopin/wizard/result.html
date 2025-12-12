@@ -173,36 +173,9 @@
                                             <i class="bi bi-cloud me-1" style="color: #0085FF;"></i> Bluesky
                                         </label>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="reddit" id="repost-platform-reddit" onchange="toggleRepostRedditSubreddit()">
-                                        <label class="form-check-label" for="repost-platform-reddit">
-                                            <i class="bi bi-reddit me-1" style="color: #FF4500;"></i> Reddit
-                                        </label>
-                                    </div>
+                                    <!-- Reddit nur für Text-Posts unterstützt, nicht für Fotos -->
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Reddit Subreddit Auswahl (nur wenn Reddit aktiviert) -->
-                        <div class="mb-3" id="repost-reddit-subreddit-section" style="display: none;">
-                            <label for="repost-reddit-subreddit" class="form-label">
-                                <i class="bi bi-reddit me-1" style="color: #FF4500;"></i> Subreddit:
-                            </label>
-                            {% if subreddits_list %}
-                            <select class="form-select" id="repost-reddit-subreddit">
-                                <option value="">Subreddit auswählen...</option>
-                                {% for subreddit in subreddits_list %}
-                                <option value="{{ subreddit }}">r/{{ subreddit }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Weitere Subreddits in den <a href="{% url 'accounts:neue_api_einstellungen' %}">API-Einstellungen</a></div>
-                            {% else %}
-                            <div class="input-group">
-                                <span class="input-group-text">r/</span>
-                                <input type="text" class="form-control" id="repost-reddit-subreddit" placeholder="subreddit_name">
-                            </div>
-                            <div class="form-text">Subreddits in den <a href="{% url 'accounts:neue_api_einstellungen' %}">API-Einstellungen</a> konfigurieren</div>
-                            {% endif %}
                         </div>
 
                         <!-- Pinterest Board Auswahl (nur wenn Pinterest aktiviert) -->
@@ -298,36 +271,9 @@
                                             <i class="bi bi-cloud me-1" style="color: #0085FF;"></i> Bluesky
                                         </label>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="reddit" id="platform-reddit" onchange="toggleRedditSubreddit()">
-                                        <label class="form-check-label" for="platform-reddit">
-                                            <i class="bi bi-reddit me-1" style="color: #FF4500;"></i> Reddit
-                                        </label>
-                                    </div>
+                                    <!-- Reddit nur für Text-Posts unterstützt, nicht für Fotos -->
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Reddit Subreddit Auswahl (nur wenn Reddit aktiviert) -->
-                        <div class="mb-3" id="reddit-subreddit-section" style="display: none;">
-                            <label for="reddit-subreddit" class="form-label">
-                                <i class="bi bi-reddit me-1" style="color: #FF4500;"></i> Subreddit:
-                            </label>
-                            {% if subreddits_list %}
-                            <select class="form-select" id="reddit-subreddit">
-                                <option value="">Subreddit auswählen...</option>
-                                {% for subreddit in subreddits_list %}
-                                <option value="{{ subreddit }}">r/{{ subreddit }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Weitere Subreddits können in den <a href="{% url 'accounts:neue_api_einstellungen' %}">API-Einstellungen</a> hinzugefügt werden</div>
-                            {% else %}
-                            <div class="input-group">
-                                <span class="input-group-text">r/</span>
-                                <input type="text" class="form-control" id="reddit-subreddit" placeholder="subreddit_name">
-                            </div>
-                            <div class="form-text">Subreddits können in den <a href="{% url 'accounts:neue_api_einstellungen' %}">API-Einstellungen</a> vorkonfiguriert werden</div>
-                            {% endif %}
                         </div>
 
                         <!-- Pinterest Board Auswahl (nur wenn Pinterest aktiviert) -->
@@ -715,13 +661,6 @@ function togglePinterestBoard() {
     }
 }
 
-function toggleRedditSubreddit() {
-    const checkbox = document.getElementById('platform-reddit');
-    const subredditSection = document.getElementById('reddit-subreddit-section');
-    if (checkbox && subredditSection) {
-        subredditSection.style.display = checkbox.checked ? 'block' : 'none';
-    }
-}
 
 function loadUploadPostBoards() {
     const select = document.getElementById('upload-post-board');
@@ -764,7 +703,7 @@ function postViaUploadPost() {
     const boardSelect = document.getElementById('upload-post-board');
     const originalHtml = btn.innerHTML;
 
-    // Plattformen sammeln
+    // Plattformen sammeln (Reddit nur für Text-Posts unterstützt)
     const platforms = [];
     if (document.getElementById('platform-pinterest')?.checked) platforms.push('pinterest');
     if (document.getElementById('platform-instagram')?.checked) platforms.push('instagram');
@@ -773,7 +712,6 @@ function postViaUploadPost() {
     if (document.getElementById('platform-x')?.checked) platforms.push('x');
     if (document.getElementById('platform-linkedin')?.checked) platforms.push('linkedin');
     if (document.getElementById('platform-bluesky')?.checked) platforms.push('bluesky');
-    if (document.getElementById('platform-reddit')?.checked) platforms.push('reddit');
 
     if (platforms.length === 0) {
         alert('Bitte wähle mindestens eine Plattform aus.');
@@ -785,14 +723,6 @@ function postViaUploadPost() {
 
     if (platforms.includes('pinterest') && !pinterestBoardId) {
         alert('Bitte wähle ein Pinterest Board aus.');
-        return;
-    }
-
-    // Subreddit holen (nur erforderlich wenn Reddit aktiviert)
-    const subreddit = document.getElementById('reddit-subreddit')?.value?.trim() || '';
-
-    if (platforms.includes('reddit') && !subreddit) {
-        alert('Bitte gib einen Subreddit-Namen ein.');
         return;
     }
 
@@ -820,9 +750,6 @@ function postViaUploadPost() {
     };
     if (scheduledDate) {
         requestData.scheduled_date = scheduledDate;
-    }
-    if (subreddit) {
-        requestData.subreddit = subreddit;
     }
 
     fetch('{% url "ideopin:api_upload_post" project.id %}', {
@@ -927,13 +854,6 @@ function toggleRepostPinterestBoard() {
     }
 }
 
-function toggleRepostRedditSubreddit() {
-    const checkbox = document.getElementById('repost-platform-reddit');
-    const subredditSection = document.getElementById('repost-reddit-subreddit-section');
-    if (checkbox && subredditSection) {
-        subredditSection.style.display = checkbox.checked ? 'block' : 'none';
-    }
-}
 
 function loadRepostBoards() {
     const select = document.getElementById('repost-board');
@@ -972,7 +892,7 @@ function repostViaUploadPost() {
     const boardSelect = document.getElementById('repost-board');
     const originalHtml = btn.innerHTML;
 
-    // Plattformen sammeln
+    // Plattformen sammeln (Reddit nur für Text-Posts unterstützt)
     const platforms = [];
     if (document.getElementById('repost-platform-pinterest')?.checked) platforms.push('pinterest');
     if (document.getElementById('repost-platform-instagram')?.checked) platforms.push('instagram');
@@ -981,7 +901,6 @@ function repostViaUploadPost() {
     if (document.getElementById('repost-platform-x')?.checked) platforms.push('x');
     if (document.getElementById('repost-platform-linkedin')?.checked) platforms.push('linkedin');
     if (document.getElementById('repost-platform-bluesky')?.checked) platforms.push('bluesky');
-    if (document.getElementById('repost-platform-reddit')?.checked) platforms.push('reddit');
 
     if (platforms.length === 0) {
         alert('Bitte wähle mindestens eine Plattform aus.');
@@ -993,14 +912,6 @@ function repostViaUploadPost() {
 
     if (platforms.includes('pinterest') && !pinterestBoardId) {
         alert('Bitte wähle ein Pinterest Board aus.');
-        return;
-    }
-
-    // Subreddit holen (nur erforderlich wenn Reddit aktiviert)
-    const subreddit = document.getElementById('repost-reddit-subreddit')?.value?.trim() || '';
-
-    if (platforms.includes('reddit') && !subreddit) {
-        alert('Bitte gib einen Subreddit-Namen ein.');
         return;
     }
 
@@ -1024,9 +935,6 @@ function repostViaUploadPost() {
     };
     if (scheduledDate) {
         requestData.scheduled_date = scheduledDate;
-    }
-    if (subreddit) {
-        requestData.subreddit = subreddit;
     }
 
     fetch('{% url "ideopin:api_upload_post" project.id %}', {
