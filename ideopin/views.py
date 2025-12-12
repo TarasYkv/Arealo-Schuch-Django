@@ -1633,8 +1633,8 @@ def api_upload_post(request, project_id):
         }
 
         # Form-Daten vorbereiten (als Liste von Tupeln für mehrere gleiche Keys)
+        # Hinweis: 'user' Parameter wird nicht gesendet - Upload-Post nutzt den API-Key zur Identifikation
         form_data = [
-            ('user', request.user.username),
             ('title', project.pin_title or 'Pinterest Pin'),
         ]
 
