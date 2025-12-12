@@ -16,6 +16,7 @@ class CustomUser(AbstractUser):
     ideogram_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Ideogram API Key")
     gemini_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Gemini API Key")
     upload_post_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Upload-Post API Key")
+    upload_post_user_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="Upload-Post User ID")
     
     # Firmeninfo-Felder für Naturmacher
     company_info = models.TextField(blank=True, verbose_name="Firmeninformationen", 

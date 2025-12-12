@@ -856,10 +856,12 @@ def neue_api_einstellungen_view(request):
 
         elif action == 'update_upload_post':
             upload_post_key = request.POST.get('upload_post_api_key', '').strip()
+            upload_post_user_id = request.POST.get('upload_post_user_id', '').strip()
             if upload_post_key:
                 user.upload_post_api_key = upload_post_key
+                user.upload_post_user_id = upload_post_user_id
                 user.save()
-                messages.success(request, 'Upload-Post API-Key erfolgreich gespeichert.')
+                messages.success(request, 'Upload-Post Einstellungen erfolgreich gespeichert.')
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Upload-Post API-Key ein.')
 

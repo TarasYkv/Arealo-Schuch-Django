@@ -1632,10 +1632,17 @@ def api_upload_post(request, project_id):
             'Authorization': f'Apikey {upload_post_api_key}',
         }
 
+        # Upload-Post User-ID holen
+        upload_post_user_id = request.user.upload_post_user_id
+        if not upload_post_user_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload-Post User-ID nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
+            }, status=400)
+
         # Form-Daten vorbereiten (als Liste von Tupeln für mehrere gleiche Keys)
-        # 'user' ist ein Identifier für Upload-Post (kann beliebig sein, dient der Zuordnung)
         form_data = [
-            ('user', 'default'),
+            ('user', upload_post_user_id),
             ('title', project.pin_title or 'Pinterest Pin'),
         ]
 
