@@ -1700,7 +1700,8 @@ def api_upload_post(request, project_id):
 
         logger.info(f"[Upload-Post] Response Status: {response.status_code}, Body: {response.text[:500]}")
 
-        if response.status_code == 200:
+        # 200 = OK (sofort gepostet), 202 = Accepted (eingeplant)
+        if response.status_code in [200, 202]:
             result = response.json()
 
             # Als gepostet markieren
