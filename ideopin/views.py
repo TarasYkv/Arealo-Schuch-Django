@@ -1600,6 +1600,7 @@ def api_upload_post(request, project_id):
         platforms = data.get('platforms', ['pinterest'])
         pinterest_board_id = data.get('pinterest_board_id', '')
         scheduled_date = data.get('scheduled_date', '')  # ISO-8601 Format: 2024-12-31T23:45:00Z
+        subreddit = data.get('subreddit', '')  # Erforderlich für Reddit
 
         # Prüfen ob Bild vorhanden
         image_file = project.get_final_image_for_upload()
@@ -1666,6 +1667,11 @@ def api_upload_post(request, project_id):
         if scheduled_date:
             form_data.append(('scheduled_date', scheduled_date))
             logger.info(f"[Upload-Post] Scheduled for: {scheduled_date}")
+
+        # Reddit-spezifische Felder
+        if 'reddit' in platforms and subreddit:
+            form_data.append(('subreddit', subreddit))
+            logger.info(f"[Upload-Post] Reddit subreddit: r/{subreddit}")
 
         # Bild als File hinzufügen
         files = {
