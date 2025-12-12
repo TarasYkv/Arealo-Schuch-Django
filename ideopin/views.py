@@ -1578,8 +1578,7 @@ def api_upload_post(request, project_id):
     import requests
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
-    import base64
-    import ssl
+    import io
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
@@ -1596,6 +1595,7 @@ def api_upload_post(request, project_id):
         # Request Body parsen
         data = json.loads(request.body)
         platforms = data.get('platforms', ['pinterest'])
+        pinterest_board_id = data.get('pinterest_board_id', '')
 
         # Prüfen ob Bild vorhanden
         image_file = project.get_final_image_for_upload()
@@ -1605,38 +1605,54 @@ def api_upload_post(request, project_id):
                 'error': 'Kein Bild vorhanden. Bitte zuerst ein Bild generieren.'
             }, status=400)
 
-        # Bild lesen und Base64 kodieren
+        # Bild lesen
         image_file.seek(0)
         image_data = image_file.read()
-        image_base64 = base64.b64encode(image_data).decode('utf-8')
 
-        # Dateiendung bestimmen
+        # Dateiname und Typ bestimmen
         image_name = getattr(image_file, 'name', 'pin.png')
+        if not image_name:
+            image_name = 'pin.png'
+        # Nur Dateiname ohne Pfad
+        image_name = image_name.split('/')[-1]
         if '.jpg' in image_name.lower() or '.jpeg' in image_name.lower():
-            media_type = 'image/jpeg'
+            content_type = 'image/jpeg'
         else:
-            media_type = 'image/png'
+            content_type = 'image/png'
+            if not image_name.endswith('.png'):
+                image_name = 'pin.png'
 
         # Pin-Link erstellen (Ziel-URL für den Pin)
         pin_link = project.pin_url or request.build_absolute_uri(f'/ideopin/result/{project.id}/')
 
-        # Beschreibung vorbereiten (Titel + SEO-Beschreibung)
-        description = f"{project.pin_title}\n\n{project.seo_description}" if project.pin_title else project.seo_description
-
-        # Upload-Post API aufrufen
+        # Upload-Post API aufrufen (multipart/form-data)
         api_url = 'https://api.upload-post.com/api/upload_photos'
 
         headers = {
             'Authorization': f'Apikey {upload_post_api_key}',
-            'Content-Type': 'application/json'
         }
 
-        payload = {
-            'photo': f'data:{media_type};base64,{image_base64}',
-            'title': project.pin_title or 'Pinterest Pin',
-            'description': description,
-            'link': pin_link,
-            'platforms': platforms  # z.B. ['pinterest', 'instagram', 'facebook']
+        # Form-Daten vorbereiten (als Liste von Tupeln für mehrere gleiche Keys)
+        form_data = [
+            ('user', request.user.username),
+            ('title', project.pin_title or 'Pinterest Pin'),
+        ]
+
+        # Plattformen hinzufügen (jede als separates Feld)
+        for platform in platforms:
+            form_data.append(('platform[]', platform))
+
+        # Pinterest-spezifische Felder
+        if 'pinterest' in platforms:
+            if pinterest_board_id:
+                form_data.append(('pinterest_board_id', pinterest_board_id))
+            form_data.append(('pinterest_title', project.pin_title or ''))
+            form_data.append(('pinterest_description', project.seo_description or ''))
+            form_data.append(('pinterest_link', pin_link))
+
+        # Bild als File hinzufügen
+        files = {
+            'photos[]': (image_name, io.BytesIO(image_data), content_type)
         }
 
         logger.info(f"[Upload-Post] Posting Pin {project.id} auf Plattformen: {platforms}")
@@ -1655,13 +1671,17 @@ def api_upload_post(request, project_id):
         # Versuche zuerst mit SSL-Verifizierung, dann ohne als Fallback
         response = None
         try:
-            response = session.post(api_url, headers=headers, json=payload, timeout=90, verify=True)
+            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=90, verify=True)
         except requests.exceptions.SSLError as ssl_err:
             logger.warning(f"[Upload-Post] SSL-Fehler, versuche ohne Verifizierung: {ssl_err}")
             # Fallback: Ohne SSL-Verifizierung (nur wenn nötig)
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            response = session.post(api_url, headers=headers, json=payload, timeout=90, verify=False)
+            # BytesIO muss neu erstellt werden
+            files = {'photos[]': (image_name, io.BytesIO(image_data), content_type)}
+            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=90, verify=False)
+
+        logger.info(f"[Upload-Post] Response Status: {response.status_code}, Body: {response.text[:500]}")
 
         if response.status_code == 200:
             result = response.json()
