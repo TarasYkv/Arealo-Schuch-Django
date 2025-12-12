@@ -61,11 +61,6 @@ def generate_image(request):
         quality = request.POST.get('quality', 'standard')
         ai_model = request.POST.get('ai_model', 'gemini-2.0-flash-preview-image-generation')
 
-        # Text-Embedding (optional)
-        overlay_text = request.POST.get('overlay_text', '').strip()
-        text_background_enabled = request.POST.get('text_background_enabled') == '1'
-        text_background_creative = request.POST.get('text_background_creative') == '1'
-
         if not background_prompt:
             return JsonResponse({'error': 'Bitte Szenen-Beschreibung eingeben'}, status=400)
 
@@ -106,10 +101,7 @@ def generate_image(request):
             shadow=shadow_type,
             color_mood=color_mood,
             character_description=character_desc,
-            aspect_ratio=aspect_ratio,
-            overlay_text=overlay_text,
-            text_background_enabled=text_background_enabled,
-            text_background_creative=text_background_creative
+            aspect_ratio=aspect_ratio
         )
 
         # Referenzbilder sammeln
@@ -141,9 +133,6 @@ def generate_image(request):
             user=request.user,
             generation_mode=mode,
             background_prompt=background_prompt,
-            overlay_text=overlay_text,
-            text_background_enabled=text_background_enabled,
-            text_background_creative=text_background_creative,
             aspect_ratio=aspect_ratio,
             lighting_style=lighting_style,
             perspective=perspective,
