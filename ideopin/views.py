@@ -1592,8 +1592,8 @@ def api_upload_post(request, project_id):
                 'error': 'Upload-Post API-Key nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
             }, status=400)
 
-        # API-Key trimmen
-        api_key_clean = upload_post_api_key.strip()
+        # API-Key bereinigen - nur ASCII-druckbare Zeichen behalten
+        api_key_clean = ''.join(c for c in upload_post_api_key if c.isascii() and c.isprintable()).strip()
 
         # Request Body parsen
         data = json.loads(request.body)
@@ -1760,16 +1760,23 @@ def api_upload_post_boards(request):
                 'error': 'Upload-Post API-Key nicht konfiguriert.'
             }, status=400)
 
-        # API-Key trimmen und Whitespace entfernen
-        api_key_clean = upload_post_api_key.strip()
+        # API-Key bereinigen - nur ASCII-druckbare Zeichen behalten
+        import re
+        api_key_clean = ''.join(c for c in upload_post_api_key if c.isascii() and c.isprintable()).strip()
 
-        logger.info(f"[Upload-Post] API-Key Länge: {len(api_key_clean)}, erste 4 Zeichen: {api_key_clean[:4]}...")
+        if not api_key_clean:
+            return JsonResponse({
+                'success': False,
+                'error': 'API-Key enthält ungültige Zeichen. Bitte neu eingeben.'
+            }, status=400)
+
+        logger.info(f"[Upload-Post] API-Key Länge: {len(api_key_clean)}")
 
         # Upload-Post API aufrufen
         api_url = 'https://api.upload-post.com/api/uploadposts/pinterest/boards'
 
         headers = {
-            'Authorization': f'Apikey {api_key_clean}',
+            'Authorization': 'Apikey ' + api_key_clean,
         }
 
         # Session mit Retry-Logik erstellen
