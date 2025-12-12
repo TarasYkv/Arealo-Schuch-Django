@@ -193,6 +193,26 @@ class ImageGeneration(models.Model):
     )
 
     # =========================================================================
+    # TEXT-EMBEDDING (Optional)
+    # =========================================================================
+    overlay_text = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Text im Bild',
+        help_text='Optionaler Text der ins Bild eingebettet wird'
+    )
+    text_background_enabled = models.BooleanField(
+        default=False,
+        verbose_name='Text auf Hintergrund',
+        help_text='Text wird auf einem farblich passenden Hintergrund-Element platziert'
+    )
+    text_background_creative = models.BooleanField(
+        default=False,
+        verbose_name='Kreative Formen',
+        help_text='Hintergrund kann kreative Formen haben (Banner, Ribbon, Splash, etc.)'
+    )
+
+    # =========================================================================
     # EINSTELLUNGEN
     # =========================================================================
     aspect_ratio = models.CharField(

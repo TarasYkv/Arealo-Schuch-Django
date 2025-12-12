@@ -56,6 +56,32 @@ COLOR_MOOD_PROMPTS = {
 }
 
 
+# =============================================================================
+# TEXT-EMBEDDING PROMPTS
+# =============================================================================
+
+TEXT_EMBEDDING_BASE = """
+IMPORTANT TEXT OVERLAY INSTRUCTIONS:
+- Include the following text prominently in the image: "{text}"
+- The text must be clearly readable, with high contrast against the background
+- Use professional typography with clean, legible fonts
+- Text should be large enough to be easily readable
+- Ensure the text is properly integrated into the composition
+"""
+
+TEXT_BACKGROUND_PROMPT = """
+- Place the text on a solid or semi-transparent background shape
+- The background shape should have a color that contrasts well with the text
+- The shape should complement the overall design
+"""
+
+TEXT_CREATIVE_SHAPES_PROMPT = """
+- Use CREATIVE shapes for the text background: banner, ribbon, splash, brush stroke, torn paper, badge, stamp, explosion shape, speech bubble, or similar dynamic elements
+- The shape should add visual interest and energy to the design
+- Make the text background shape eye-catching but not overwhelming
+"""
+
+
 class PromptBuilder:
     """
     Baut optimierte Prompts für verschiedene Generierungs-Modi.
@@ -78,7 +104,10 @@ class PromptBuilder:
         color_mood: str = 'neutral',
         character_description: str = '',
         product_description: str = '',
-        aspect_ratio: str = '1:1'
+        aspect_ratio: str = '1:1',
+        overlay_text: str = '',
+        text_background_enabled: bool = False,
+        text_background_creative: bool = False
     ) -> str:
         """
         Baut einen vollständigen Prompt basierend auf Modus und Einstellungen.
@@ -94,36 +123,50 @@ class PromptBuilder:
             character_description: Beschreibung des Charakters (für character-Modi)
             product_description: Beschreibung des Produkts
             aspect_ratio: Bildformat
+            overlay_text: Optionaler Text der ins Bild eingebettet wird
+            text_background_enabled: Text auf Hintergrund-Element platzieren
+            text_background_creative: Kreative Formen für Text-Hintergrund erlauben
 
         Returns:
             Vollständiger, optimierter Prompt
         """
         if mode == 'background':
-            return self._build_background_prompt(
+            base_prompt = self._build_background_prompt(
                 background_description, lighting, perspective, style,
                 shadow, color_mood, aspect_ratio
             )
         elif mode == 'product':
-            return self._build_product_prompt(
+            base_prompt = self._build_product_prompt(
                 background_description, product_description, lighting,
                 perspective, style, shadow, color_mood, aspect_ratio
             )
         elif mode == 'character':
-            return self._build_character_prompt(
+            base_prompt = self._build_character_prompt(
                 background_description, character_description, lighting,
                 perspective, style, color_mood, aspect_ratio
             )
         elif mode == 'character_product':
-            return self._build_character_product_prompt(
+            base_prompt = self._build_character_product_prompt(
                 background_description, character_description, product_description,
                 lighting, perspective, style, color_mood, aspect_ratio
             )
         else:
             logger.warning(f"Unknown mode: {mode}, falling back to background")
-            return self._build_background_prompt(
+            base_prompt = self._build_background_prompt(
                 background_description, lighting, perspective, style,
                 shadow, color_mood, aspect_ratio
             )
+
+        # Text-Embedding hinzufügen falls aktiviert
+        if overlay_text and overlay_text.strip():
+            text_instructions = self._build_text_embedding_prompt(
+                overlay_text.strip(),
+                text_background_enabled,
+                text_background_creative
+            )
+            base_prompt = base_prompt + "\n\n" + text_instructions
+
+        return base_prompt
 
     def _build_background_prompt(
         self, description: str, lighting: str, perspective: str,
@@ -336,3 +379,36 @@ class PromptBuilder:
             '3:4': 'Portrait format (3:4 aspect ratio), vertical composition.',
         }
         return format_map.get(aspect_ratio, 'Square format (1:1 aspect ratio).')
+
+    def _build_text_embedding_prompt(
+        self,
+        text: str,
+        text_background_enabled: bool = False,
+        text_background_creative: bool = False
+    ) -> str:
+        """
+        Baut Prompt-Anweisungen für Text-Einbettung im Bild.
+
+        Args:
+            text: Der einzubettende Text
+            text_background_enabled: Text auf Hintergrund-Element platzieren
+            text_background_creative: Kreative Formen erlauben
+
+        Returns:
+            Prompt-String für Text-Einbettung
+        """
+        parts = []
+
+        # Basis-Text-Anweisungen
+        parts.append(TEXT_EMBEDDING_BASE.format(text=text).strip())
+
+        # Text-Hintergrund Optionen
+        if text_background_enabled:
+            parts.append(TEXT_BACKGROUND_PROMPT.strip())
+
+            if text_background_creative:
+                parts.append(TEXT_CREATIVE_SHAPES_PROMPT.strip())
+
+        result = "\n".join(parts)
+        logger.info(f"Built text embedding prompt for: '{text[:50]}...'")
+        return result

@@ -9,7 +9,51 @@ document.addEventListener('DOMContentLoaded', function() {
     initMultiUpload();
     initGenerateForm();
     initModelHints();
+    initTextEmbedding();
 });
+
+/**
+ * Text Embedding Options - Toggle basierend auf Text-Eingabe
+ */
+function initTextEmbedding() {
+    const overlayTextInput = document.getElementById('overlay-text');
+    const textOptions = document.getElementById('text-options');
+    const textBgEnabled = document.getElementById('text-bg-enabled');
+    const creativeShapesOption = document.getElementById('creative-shapes-option');
+
+    if (!overlayTextInput || !textOptions) return;
+
+    // Text-Optionen ein-/ausblenden basierend auf Text-Eingabe
+    function updateTextOptionsVisibility() {
+        const hasText = overlayTextInput.value.trim().length > 0;
+        textOptions.style.display = hasText ? 'block' : 'none';
+
+        // Kreative Formen nur anzeigen wenn Text-Hintergrund aktiviert
+        if (creativeShapesOption && textBgEnabled) {
+            creativeShapesOption.style.display = textBgEnabled.checked ? 'block' : 'none';
+        }
+    }
+
+    // Event Listener
+    overlayTextInput.addEventListener('input', updateTextOptionsVisibility);
+
+    if (textBgEnabled) {
+        textBgEnabled.addEventListener('change', function() {
+            if (creativeShapesOption) {
+                creativeShapesOption.style.display = this.checked ? 'block' : 'none';
+
+                // Wenn Text-Hintergrund deaktiviert, auch kreative Formen deaktivieren
+                if (!this.checked) {
+                    const creativeCheckbox = document.getElementById('text-bg-creative');
+                    if (creativeCheckbox) creativeCheckbox.checked = false;
+                }
+            }
+        });
+    }
+
+    // Initial state setzen
+    updateTextOptionsVisibility();
+}
 
 /**
  * Model Hints - Zeigt Tipps basierend auf gewähltem Modell
