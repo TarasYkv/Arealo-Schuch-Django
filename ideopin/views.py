@@ -1576,7 +1576,10 @@ def api_post_to_pinterest(request, project_id):
 def api_upload_post(request, project_id):
     """API: Postet einen Pin über Upload-Post.com auf Pinterest und andere Plattformen"""
     import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
     import base64
+    import ssl
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
@@ -1638,7 +1641,27 @@ def api_upload_post(request, project_id):
 
         logger.info(f"[Upload-Post] Posting Pin {project.id} auf Plattformen: {platforms}")
 
-        response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+        # Session mit Retry-Logik erstellen
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
+        # Versuche zuerst mit SSL-Verifizierung, dann ohne als Fallback
+        response = None
+        try:
+            response = session.post(api_url, headers=headers, json=payload, timeout=90, verify=True)
+        except requests.exceptions.SSLError as ssl_err:
+            logger.warning(f"[Upload-Post] SSL-Fehler, versuche ohne Verifizierung: {ssl_err}")
+            # Fallback: Ohne SSL-Verifizierung (nur wenn nötig)
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            response = session.post(api_url, headers=headers, json=payload, timeout=90, verify=False)
 
         if response.status_code == 200:
             result = response.json()
