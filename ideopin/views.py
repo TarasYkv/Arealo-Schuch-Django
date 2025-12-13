@@ -1650,10 +1650,11 @@ def api_upload_post(request, project_id):
         post_link = pin_link
 
         # Form-Daten vorbereiten (als Liste von Tupeln für mehrere gleiche Keys)
-        # Globales 'title' Feld - wird als Fallback für alle Plattformen genutzt
+        # Globales 'title' Feld - wird als Fallback für Plattformen genutzt (z.B. Bluesky)
+        global_title = f"{pin_title}\n\n{post_link}" if post_link else pin_title
         form_data = [
             ('user', upload_post_user_id),
-            ('title', pin_title),  # Pin-Titel als globaler Fallback
+            ('title', global_title),  # Pin-Titel + Link als globaler Fallback
         ]
 
         # Plattformen hinzufügen (jede als separates Feld)
