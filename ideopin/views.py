@@ -1669,9 +1669,10 @@ def api_upload_post(request, project_id):
             form_data.append(('pinterest_description', description))
             form_data.append(('pinterest_link', post_link))
 
-        # Instagram-spezifische Felder (Links NICHT klickbar in Captions!)
+        # Instagram-spezifische Felder (nur Beschreibung, kein Link - nicht klickbar)
         if 'instagram' in platforms:
-            form_data.append(('instagram_caption', description))
+            instagram_caption = project.seo_description or ''
+            form_data.append(('instagram_caption', instagram_caption))
 
         # Facebook-spezifische Felder (Link im Text wird klickbar)
         if 'facebook' in platforms:
