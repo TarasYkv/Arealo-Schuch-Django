@@ -366,6 +366,18 @@ class PinProject(models.Model):
         help_text="Letzter Fehler beim Posten auf Pinterest"
     )
 
+    # Upload-Post Plattform-Tracking
+    upload_post_platforms = models.TextField(
+        blank=True,
+        verbose_name="Upload-Post Plattformen",
+        help_text="Komma-getrennte Liste der Plattformen (instagram,facebook,x,linkedin,threads,bluesky)"
+    )
+    upload_post_posted_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Upload-Post gepostet am"
+    )
+
     class Meta:
         ordering = ['-updated_at']
         verbose_name = "Pin Projekt"

@@ -1758,8 +1758,20 @@ def api_upload_post(request, project_id):
 
             # Als gepostet markieren
             from django.utils import timezone
+            now = timezone.now()
+
+            # Upload-Post Plattformen speichern (neue Felder)
+            existing_platforms = project.upload_post_platforms.split(',') if project.upload_post_platforms else []
+            existing_platforms = [p.strip() for p in existing_platforms if p.strip()]
+            for platform in platforms:
+                if platform not in existing_platforms:
+                    existing_platforms.append(platform)
+            project.upload_post_platforms = ','.join(existing_platforms)
+            project.upload_post_posted_at = now
+
+            # Legacy: pinterest_posted für Kompatibilität
             project.pinterest_posted = True
-            project.pinterest_posted_at = timezone.now()
+            project.pinterest_posted_at = now
 
             # Board-Name mit Planungsinfo speichern
             if scheduled_date:
