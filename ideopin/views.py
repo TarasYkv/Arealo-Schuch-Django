@@ -1644,79 +1644,93 @@ def api_upload_post(request, project_id):
                 'error': 'Upload-Post User-ID nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
             }, status=400)
 
-        # Beschreibung und Link vorbereiten
-        description = project.seo_description or project.pin_title or ''
+        # ============================================================
+        # PLATTFORM-SPEZIFISCHE INHALTE (KEIN FALLBACK!)
+        # Jede Plattform bekommt exakt den gewünschten Inhalt
+        # ============================================================
+
         pin_title = project.pin_title or ''
+        seo_description = project.seo_description or ''
         post_link = pin_link
 
-        # Form-Daten vorbereiten (als Liste von Tupeln für mehrere gleiche Keys)
-        # Globales 'title' Feld - je nach Plattform unterschiedlich:
-        # - Mit Instagram: Nur Beschreibung (Links nicht klickbar)
-        # - Ohne Instagram (z.B. nur Bluesky): Titel + Link
-        if 'instagram' in platforms:
-            global_title = description  # Instagram-kompatibel
+        # Plattform-spezifische Inhalte definieren
+        content_pinterest_title = pin_title
+        content_pinterest_description = seo_description
+        content_pinterest_link = post_link
+
+        content_instagram = seo_description  # Nur Beschreibung, KEIN Link
+
+        content_facebook = f"{seo_description}\n\n{post_link}" if post_link else seo_description
+
+        # X: 280 Zeichen Limit
+        if post_link:
+            x_max_len = 280 - len(post_link) - 2
+            x_desc = seo_description[:x_max_len] if len(seo_description) > x_max_len else seo_description
+            content_x = f"{x_desc}\n{post_link}"
         else:
-            global_title = f"{pin_title}\n\n{post_link}" if post_link else pin_title  # Bluesky-kompatibel
+            content_x = seo_description[:280]
+
+        content_linkedin = f"{seo_description}\n\n{post_link}" if post_link else seo_description
+
+        # Threads: 500 Zeichen Limit
+        if post_link:
+            threads_max_len = 500 - len(post_link) - 2
+            threads_desc = seo_description[:threads_max_len] if len(seo_description) > threads_max_len else seo_description
+            content_threads = f"{threads_desc}\n\n{post_link}"
+        else:
+            content_threads = seo_description[:500]
+
+        # Bluesky: 300 Zeichen Limit, NUR Titel + Link
+        if post_link:
+            content_bluesky = f"{pin_title}\n\n{post_link}"[:300]
+        else:
+            content_bluesky = pin_title[:300]
+
+        # ============================================================
+        # FORM-DATEN AUFBAUEN
+        # ============================================================
 
         form_data = [
             ('user', upload_post_user_id),
-            ('title', global_title),
+            ('title', pin_title),  # Pflichtfeld, wird aber von plattform-spezifischen Feldern überschrieben
         ]
 
-        # Plattformen hinzufügen (jede als separates Feld)
+        # Plattformen hinzufügen
         for platform in platforms:
             form_data.append(('platform[]', platform))
 
-        # Pinterest-spezifische Felder
+        # Pinterest
         if 'pinterest' in platforms:
             if pinterest_board_id:
                 form_data.append(('pinterest_board_id', pinterest_board_id))
-            form_data.append(('pinterest_title', project.pin_title or ''))
-            form_data.append(('pinterest_description', description))
-            form_data.append(('pinterest_link', post_link))
+            form_data.append(('pinterest_title', content_pinterest_title))
+            form_data.append(('pinterest_description', content_pinterest_description))
+            form_data.append(('pinterest_link', content_pinterest_link))
 
-        # Instagram-spezifische Felder (nur Beschreibung, kein Link - nicht klickbar)
+        # Instagram (NUR Beschreibung, KEIN Link!)
         if 'instagram' in platforms:
-            instagram_caption = project.seo_description or ''
-            form_data.append(('instagram_caption', instagram_caption))
+            form_data.append(('instagram_caption', content_instagram))
 
-        # Facebook-spezifische Felder (Link im Text wird klickbar)
+        # Facebook
         if 'facebook' in platforms:
-            fb_text = f"{description}\n\n{post_link}" if post_link else description
-            form_data.append(('facebook_title', fb_text))
+            form_data.append(('facebook_title', content_facebook))
 
-        # X (Twitter) spezifische Felder (Link im Text wird klickbar)
+        # X (Twitter)
         if 'x' in platforms:
-            # X hat Zeichenbegrenzung (280 Zeichen), Link am Ende
-            max_desc_len = 280 - len(post_link) - 2 if post_link else 280
-            x_desc = description[:max_desc_len] if len(description) > max_desc_len else description
-            x_title = f"{x_desc}\n{post_link}" if post_link else x_desc
-            form_data.append(('x_title', x_title))
+            form_data.append(('x_title', content_x))
 
-        # LinkedIn-spezifische Felder (Link im Text wird klickbar)
+        # LinkedIn
         if 'linkedin' in platforms:
-            li_text = f"{description}\n\n{post_link}" if post_link else description
-            form_data.append(('linkedin_title', li_text))
-            form_data.append(('linkedin_description', li_text))
+            form_data.append(('linkedin_title', content_linkedin))
+            form_data.append(('linkedin_description', content_linkedin))
 
-        # Threads-spezifische Felder (500 Zeichen Limit, Link im Text wird klickbar)
+        # Threads
         if 'threads' in platforms:
-            if post_link:
-                max_desc_len = 500 - len(post_link) - 2
-                threads_desc = description[:max_desc_len] if len(description) > max_desc_len else description
-                threads_text = f"{threads_desc}\n\n{post_link}"
-            else:
-                threads_text = description[:500]
-            form_data.append(('threads_title', threads_text))
+            form_data.append(('threads_title', content_threads))
 
-        # Bluesky-spezifische Felder (300 Zeichen Limit, nur Titel + Link)
+        # Bluesky (Titel + Link)
         if 'bluesky' in platforms:
-            pin_title = project.pin_title or ''
-            if post_link:
-                bsky_text = f"{pin_title}\n\n{post_link}"
-            else:
-                bsky_text = pin_title
-            form_data.append(('bluesky_title', bsky_text[:300]))
+            form_data.append(('bluesky_title', content_bluesky))
 
         # Reddit: NICHT unterstützt für Foto-Uploads (nur Text-Posts möglich)
 
