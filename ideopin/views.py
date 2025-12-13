@@ -1670,32 +1670,28 @@ def api_upload_post(request, project_id):
         if 'instagram' in platforms:
             form_data.append(('instagram_caption', description))
 
-        # Facebook-spezifische Felder
+        # Facebook-spezifische Felder (kein Link-Support)
         if 'facebook' in platforms:
-            form_data.append(('facebook_text', description))
-            form_data.append(('facebook_link', post_link))
+            form_data.append(('facebook_title', description))
 
-        # X (Twitter) spezifische Felder
+        # X (Twitter) spezifische Felder (kein Link-Support, description ignoriert)
         if 'x' in platforms:
-            # X hat Zeichenbegrenzung, Link am Ende
-            x_text = f"{description[:200]}..." if len(description) > 200 else description
-            x_text = f"{x_text}\n{post_link}" if post_link else x_text
-            form_data.append(('x_text', x_text))
+            # X hat Zeichenbegrenzung (280 Zeichen)
+            x_title = description[:280] if len(description) > 280 else description
+            form_data.append(('x_title', x_title))
 
-        # LinkedIn-spezifische Felder
+        # LinkedIn-spezifische Felder (kein Link-Support)
         if 'linkedin' in platforms:
-            form_data.append(('linkedin_text', description))
-            form_data.append(('linkedin_link', post_link))
+            form_data.append(('linkedin_title', description))
+            form_data.append(('linkedin_description', description))
 
-        # Threads-spezifische Felder
+        # Threads-spezifische Felder (kein Link-Support, description wird ignoriert)
         if 'threads' in platforms:
-            threads_text = f"{description}\n\n{post_link}" if post_link else description
-            form_data.append(('threads_caption', threads_text))
+            form_data.append(('threads_title', description))
 
-        # Bluesky-spezifische Felder
+        # Bluesky-spezifische Felder (kein Link-Support, max 4 Bilder)
         if 'bluesky' in platforms:
-            bsky_text = f"{description}\n\n{post_link}" if post_link else description
-            form_data.append(('bluesky_text', bsky_text))
+            form_data.append(('bluesky_title', description))
 
         # Reddit: NICHT unterstützt für Foto-Uploads (nur Text-Posts möglich)
 
