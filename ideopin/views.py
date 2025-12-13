@@ -1692,7 +1692,7 @@ def api_upload_post(request, project_id):
 
         form_data = [
             ('user', upload_post_user_id),
-            ('title', pin_title),  # Pflichtfeld, wird aber von plattform-spezifischen Feldern überschrieben
+            ('title', content_instagram),  # Pflichtfeld - Instagram-kompatibel (Beschreibung + Link in Bio)
         ]
 
         # Plattformen hinzufügen
