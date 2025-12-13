@@ -1658,7 +1658,7 @@ def api_upload_post(request, project_id):
         content_pinterest_description = seo_description
         content_pinterest_link = post_link
 
-        content_instagram = seo_description  # Nur Beschreibung, KEIN Link
+        content_instagram = f"{seo_description}\n\n-> Link in Bio!" if seo_description else "-> Link in Bio!"
 
         content_facebook = f"{seo_description}\n\n{post_link}" if post_link else seo_description
 
