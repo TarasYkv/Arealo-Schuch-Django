@@ -273,18 +273,12 @@ def wizard_result(request, project_id):
     # Upload-Post API-Key prüfen
     upload_post_configured = bool(request.user.upload_post_api_key)
 
-    # Subreddits als Liste aufbereiten
-    subreddits_list = []
-    if request.user.upload_post_subreddits:
-        subreddits_list = [s.strip() for s in request.user.upload_post_subreddits.split(',') if s.strip()]
-
     context = {
         'project': project,
         'step': 6,
         'total_steps': 6,
         'pinterest_connected': pinterest_connected,
         'upload_post_configured': upload_post_configured,
-        'subreddits_list': subreddits_list,
     }
     return render(request, 'ideopin/wizard/result.html', context)
 
@@ -1606,7 +1600,6 @@ def api_upload_post(request, project_id):
         platforms = data.get('platforms', ['pinterest'])
         pinterest_board_id = data.get('pinterest_board_id', '')
         scheduled_date = data.get('scheduled_date', '')  # ISO-8601 Format: 2024-12-31T23:45:00Z
-        subreddit = data.get('subreddit', '')  # Erforderlich für Reddit
 
         # Prüfen ob Bild vorhanden
         image_file = project.get_final_image_for_upload()
@@ -1673,10 +1666,9 @@ def api_upload_post(request, project_id):
             form_data.append(('pinterest_description', description))
             form_data.append(('pinterest_link', post_link))
 
-        # Instagram-spezifische Felder
+        # Instagram-spezifische Felder (Links NICHT klickbar in Captions!)
         if 'instagram' in platforms:
-            caption = f"{description}\n\n{post_link}" if post_link else description
-            form_data.append(('instagram_caption', caption))
+            form_data.append(('instagram_caption', description))
 
         # Facebook-spezifische Felder
         if 'facebook' in platforms:
@@ -1705,16 +1697,7 @@ def api_upload_post(request, project_id):
             bsky_text = f"{description}\n\n{post_link}" if post_link else description
             form_data.append(('bluesky_text', bsky_text))
 
-        # Reddit-spezifische Felder
-        if 'reddit' in platforms:
-            logger.info(f"[Upload-Post] Reddit in platforms, subreddit value: '{subreddit}'")
-            form_data.append(('reddit_title', project.pin_title or description[:100]))
-            if subreddit:
-                form_data.append(('subreddit', subreddit))
-                form_data.append(('reddit_subreddit', subreddit))
-                logger.info(f"[Upload-Post] Reddit subreddit: r/{subreddit}")
-            else:
-                logger.warning(f"[Upload-Post] Reddit selected but no subreddit provided!")
+        # Reddit: NICHT unterstützt für Foto-Uploads (nur Text-Posts möglich)
 
         # Zeitplanung (optional)
         if scheduled_date:
