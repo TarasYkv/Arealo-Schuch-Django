@@ -1670,28 +1670,34 @@ def api_upload_post(request, project_id):
         if 'instagram' in platforms:
             form_data.append(('instagram_caption', description))
 
-        # Facebook-spezifische Felder (kein Link-Support)
+        # Facebook-spezifische Felder (Link im Text wird klickbar)
         if 'facebook' in platforms:
-            form_data.append(('facebook_title', description))
+            fb_text = f"{description}\n\n{post_link}" if post_link else description
+            form_data.append(('facebook_title', fb_text))
 
-        # X (Twitter) spezifische Felder (kein Link-Support, description ignoriert)
+        # X (Twitter) spezifische Felder (Link im Text wird klickbar)
         if 'x' in platforms:
-            # X hat Zeichenbegrenzung (280 Zeichen)
-            x_title = description[:280] if len(description) > 280 else description
+            # X hat Zeichenbegrenzung (280 Zeichen), Link am Ende
+            max_desc_len = 280 - len(post_link) - 2 if post_link else 280
+            x_desc = description[:max_desc_len] if len(description) > max_desc_len else description
+            x_title = f"{x_desc}\n{post_link}" if post_link else x_desc
             form_data.append(('x_title', x_title))
 
-        # LinkedIn-spezifische Felder (kein Link-Support)
+        # LinkedIn-spezifische Felder (Link im Text wird klickbar)
         if 'linkedin' in platforms:
-            form_data.append(('linkedin_title', description))
-            form_data.append(('linkedin_description', description))
+            li_text = f"{description}\n\n{post_link}" if post_link else description
+            form_data.append(('linkedin_title', li_text))
+            form_data.append(('linkedin_description', li_text))
 
-        # Threads-spezifische Felder (kein Link-Support, description wird ignoriert)
+        # Threads-spezifische Felder (Link im Text wird klickbar)
         if 'threads' in platforms:
-            form_data.append(('threads_title', description))
+            threads_text = f"{description}\n\n{post_link}" if post_link else description
+            form_data.append(('threads_title', threads_text))
 
-        # Bluesky-spezifische Felder (kein Link-Support, max 4 Bilder)
+        # Bluesky-spezifische Felder (Link im Text wird klickbar, max 4 Bilder)
         if 'bluesky' in platforms:
-            form_data.append(('bluesky_title', description))
+            bsky_text = f"{description}\n\n{post_link}" if post_link else description
+            form_data.append(('bluesky_title', bsky_text))
 
         # Reddit: NICHT unterstützt für Foto-Uploads (nur Text-Posts möglich)
 
