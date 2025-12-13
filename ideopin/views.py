@@ -1699,16 +1699,14 @@ def api_upload_post(request, project_id):
                 threads_text = description[:500]
             form_data.append(('threads_title', threads_text))
 
-        # Bluesky-spezifische Felder (300 Zeichen Limit, Link im Text wird klickbar)
+        # Bluesky-spezifische Felder (300 Zeichen Limit, nur Titel + Link)
         if 'bluesky' in platforms:
-            # Bluesky hat 300 Zeichen Limit, Link + 2 Newlines reservieren
+            pin_title = project.pin_title or ''
             if post_link:
-                max_desc_len = 300 - len(post_link) - 2
-                bsky_desc = description[:max_desc_len] if len(description) > max_desc_len else description
-                bsky_text = f"{bsky_desc}\n\n{post_link}"
+                bsky_text = f"{pin_title}\n\n{post_link}"
             else:
-                bsky_text = description[:300]
-            form_data.append(('bluesky_title', bsky_text))
+                bsky_text = pin_title
+            form_data.append(('bluesky_title', bsky_text[:300]))
 
         # Reddit: NICHT unterstützt für Foto-Uploads (nur Text-Posts möglich)
 
