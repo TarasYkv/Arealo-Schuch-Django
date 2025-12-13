@@ -1883,6 +1883,157 @@ def api_upload_post(request, project_id):
 
 
 @login_required
+def api_server_images(request):
+    """API: Gibt Server-Bilder zurück (ImageForge + Produktbilder)"""
+    import os
+    from django.conf import settings as django_settings
+
+    try:
+        images = []
+
+        # 1. ImageForge generierte Bilder
+        try:
+            from imageforge.models import ImageGeneration
+
+            imageforge_images = ImageGeneration.objects.filter(
+                user=request.user,
+                generated_image__isnull=False
+            ).exclude(generated_image='').order_by('-created_at')[:50]
+
+            for img in imageforge_images:
+                if img.generated_image:
+                    images.append({
+                        'path': str(img.generated_image),
+                        'url': img.generated_image.url,
+                        'name': f"ImageForge {img.created_at.strftime('%d.%m.%Y')}",
+                        'type': 'imageforge',
+                        'date': img.created_at.strftime('%d.%m.%Y %H:%M')
+                    })
+        except Exception as e:
+            logger.warning(f"Could not load ImageForge images: {e}")
+
+        # 2. Produktbilder aus IdeoPin-Projekten
+        product_images = PinProject.objects.filter(
+            user=request.user,
+            product_image__isnull=False
+        ).exclude(product_image='').order_by('-created_at')[:30]
+
+        seen_paths = set()
+        for proj in product_images:
+            if proj.product_image and str(proj.product_image) not in seen_paths:
+                seen_paths.add(str(proj.product_image))
+                images.append({
+                    'path': str(proj.product_image),
+                    'url': proj.product_image.url,
+                    'name': (proj.keywords[:30] + '...') if len(proj.keywords or '') > 30 else proj.keywords or 'Produktbild',
+                    'type': 'products',
+                    'date': proj.created_at.strftime('%d.%m.%Y %H:%M') if proj.created_at else ''
+                })
+
+        # 3. Generierte Bilder aus IdeoPin-Projekten
+        generated_images = PinProject.objects.filter(
+            user=request.user,
+            generated_image__isnull=False
+        ).exclude(generated_image='').order_by('-created_at')[:30]
+
+        for proj in generated_images:
+            if proj.generated_image and str(proj.generated_image) not in seen_paths:
+                seen_paths.add(str(proj.generated_image))
+                images.append({
+                    'path': str(proj.generated_image),
+                    'url': proj.generated_image.url,
+                    'name': (proj.keywords[:30] + '...') if len(proj.keywords or '') > 30 else proj.keywords or 'Pin-Bild',
+                    'type': 'imageforge',  # Als ImageForge markieren da generiert
+                    'date': proj.created_at.strftime('%d.%m.%Y %H:%M') if proj.created_at else ''
+                })
+
+        return JsonResponse({
+            'success': True,
+            'images': images,
+            'count': len(images)
+        })
+
+    except Exception as e:
+        logger.error(f"Error loading server images: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_use_server_image(request, project_id):
+    """API: Verwendet ein Server-Bild als generated_image für das Projekt"""
+    import os
+    import shutil
+    from django.conf import settings as django_settings
+    from django.core.files.base import ContentFile
+
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+        image_path = data.get('image_path', '').strip()
+
+        if not image_path:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Bildpfad angegeben'
+            }, status=400)
+
+        # Vollständigen Pfad erstellen
+        full_path = os.path.join(django_settings.MEDIA_ROOT, image_path)
+
+        # Sicherheitscheck: Pfad muss im MEDIA_ROOT sein
+        real_path = os.path.realpath(full_path)
+        real_media = os.path.realpath(django_settings.MEDIA_ROOT)
+        if not real_path.startswith(real_media):
+            return JsonResponse({
+                'success': False,
+                'error': 'Ungültiger Bildpfad'
+            }, status=400)
+
+        if not os.path.exists(full_path):
+            return JsonResponse({
+                'success': False,
+                'error': 'Bild nicht gefunden'
+            }, status=404)
+
+        # Bild kopieren und als generated_image speichern
+        with open(full_path, 'rb') as f:
+            image_data = f.read()
+
+        # Dateiname aus Pfad extrahieren
+        original_filename = os.path.basename(image_path)
+        ext = os.path.splitext(original_filename)[1] or '.png'
+        new_filename = f"server_{project.id}{ext}"
+
+        # Als generated_image speichern
+        project.generated_image.save(new_filename, ContentFile(image_data), save=True)
+
+        logger.info(f"[IdeoPin] Server image used: {image_path} -> {new_filename}")
+
+        return JsonResponse({
+            'success': True,
+            'image_url': project.generated_image.url,
+            'message': 'Bild erfolgreich übernommen'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige Anfrage'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error using server image: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
 def api_upload_post_boards(request):
     """API: Holt Pinterest Boards von Upload-Post.com"""
     import requests

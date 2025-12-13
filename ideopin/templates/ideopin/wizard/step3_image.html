@@ -125,13 +125,24 @@
                                     </label>
                                 </div>
                                 <!-- Option 2: Eigenes Bild -->
-                                <div class="form-check">
+                                <div class="form-check mb-3">
                                     <input type="radio" name="image_source" value="upload"
                                            class="form-check-input" id="image_source_upload">
                                     <label class="form-check-label" for="image_source_upload">
                                         <strong><i class="bi bi-upload"></i> Eigenes Bild hochladen</strong>
                                         <small class="d-block text-muted">
                                             Verwende ein eigenes Bild statt KI-Generierung
+                                        </small>
+                                    </label>
+                                </div>
+                                <!-- Option 3: Vom Server (ImageForge) -->
+                                <div class="form-check">
+                                    <input type="radio" name="image_source" value="server"
+                                           class="form-check-input" id="image_source_server">
+                                    <label class="form-check-label" for="image_source_server">
+                                        <strong><i class="bi bi-folder2-open"></i> Vom Server auswählen</strong>
+                                        <small class="d-block text-muted">
+                                            Bilder aus ImageForge oder bereits hochgeladene Bilder
                                         </small>
                                     </label>
                                 </div>
@@ -171,6 +182,36 @@
                         </div>
                         <button type="button" class="btn btn-primary btn-lg w-100 mt-3" id="uploadImageBtn">
                             <i class="bi bi-upload"></i> Bild hochladen & verwenden
+                        </button>
+                    </div>
+
+                    <!-- Server-Bilder Auswahl (versteckt standardmäßig) -->
+                    <div class="mb-4" id="serverImageSection" style="display: none;">
+                        <label class="form-label">Bild vom Server auswählen:</label>
+                        <div class="mb-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary active" data-filter="all">
+                                    Alle
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" data-filter="imageforge">
+                                    <i class="bi bi-magic"></i> ImageForge
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" data-filter="products">
+                                    <i class="bi bi-box"></i> Produktbilder
+                                </button>
+                            </div>
+                        </div>
+                        <div id="serverImageGallery" class="row g-2" style="max-height: 400px; overflow-y: auto;">
+                            <div class="col-12 text-center py-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Lädt...</span>
+                                </div>
+                                <p class="text-muted mt-2">Bilder werden geladen...</p>
+                            </div>
+                        </div>
+                        <input type="hidden" name="server_image_path" id="serverImagePath" value="">
+                        <button type="button" class="btn btn-success btn-lg w-100 mt-3" id="useServerImageBtn" disabled>
+                            <i class="bi bi-check"></i> Ausgewähltes Bild verwenden
                         </button>
                     </div>
 
@@ -380,21 +421,149 @@ document.addEventListener('DOMContentLoaded', function() {
     // Bild-Quelle Toggle
     const aiGenerationSection = document.getElementById('aiGenerationSection');
     const uploadSection = document.getElementById('uploadSection');
+    const serverImageSection = document.getElementById('serverImageSection');
     const imageSourceRadios = document.querySelectorAll('input[name="image_source"]');
     const uploadImageBtn = document.getElementById('uploadImageBtn');
     const customImageInput = document.getElementById('id_custom_image');
 
-    // Toggle zwischen KI und Upload
+    // Toggle zwischen KI, Upload und Server
     imageSourceRadios.forEach(radio => {
         radio.addEventListener('change', function() {
+            aiGenerationSection.style.display = 'none';
+            uploadSection.style.display = 'none';
+            serverImageSection.style.display = 'none';
+
             if (this.value === 'ai') {
                 aiGenerationSection.style.display = 'block';
-                uploadSection.style.display = 'none';
-            } else {
-                aiGenerationSection.style.display = 'none';
+            } else if (this.value === 'upload') {
                 uploadSection.style.display = 'block';
+            } else if (this.value === 'server') {
+                serverImageSection.style.display = 'block';
+                loadServerImages();
             }
         });
+    });
+
+    // Server-Bilder laden
+    let serverImagesLoaded = false;
+    let allServerImages = [];
+
+    async function loadServerImages() {
+        if (serverImagesLoaded) return;
+
+        const gallery = document.getElementById('serverImageGallery');
+
+        try {
+            const response = await fetch('{% url "ideopin:api_server_images" %}');
+            const data = await response.json();
+
+            if (data.success && data.images.length > 0) {
+                allServerImages = data.images;
+                renderServerImages(allServerImages);
+                serverImagesLoaded = true;
+            } else {
+                gallery.innerHTML = `
+                    <div class="col-12 text-center py-4">
+                        <i class="bi bi-image text-muted fs-1 d-block mb-2"></i>
+                        <p class="text-muted">Keine Bilder gefunden</p>
+                        <small class="text-muted">Erstelle Bilder in <a href="{% url 'imageforge:index' %}">ImageForge</a></small>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading server images:', error);
+            gallery.innerHTML = `
+                <div class="col-12 text-center py-4">
+                    <i class="bi bi-exclamation-triangle text-danger fs-1 d-block mb-2"></i>
+                    <p class="text-danger">Fehler beim Laden der Bilder</p>
+                </div>
+            `;
+        }
+    }
+
+    function renderServerImages(images) {
+        const gallery = document.getElementById('serverImageGallery');
+        gallery.innerHTML = '';
+
+        images.forEach(img => {
+            const col = document.createElement('div');
+            col.className = 'col-4 col-md-3';
+            col.innerHTML = `
+                <div class="card server-image-card" data-path="${img.path}" data-type="${img.type}" style="cursor: pointer;">
+                    <img src="${img.url}" class="card-img-top" style="height: 100px; object-fit: cover;" alt="${img.name}">
+                    <div class="card-body p-1 text-center">
+                        <small class="text-muted text-truncate d-block" style="font-size: 0.7rem;">${img.name}</small>
+                        <span class="badge ${img.type === 'imageforge' ? 'bg-primary' : 'bg-secondary'}" style="font-size: 0.6rem;">
+                            ${img.type === 'imageforge' ? 'ImageForge' : 'Produkt'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            gallery.appendChild(col);
+        });
+
+        // Click-Handler für Bildauswahl
+        document.querySelectorAll('.server-image-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.server-image-card').forEach(c => c.classList.remove('border-primary', 'border-2'));
+                this.classList.add('border-primary', 'border-2');
+                document.getElementById('serverImagePath').value = this.dataset.path;
+                document.getElementById('useServerImageBtn').disabled = false;
+            });
+        });
+    }
+
+    // Filter-Buttons für Server-Bilder
+    document.querySelectorAll('[data-filter]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            const filter = this.dataset.filter;
+            if (filter === 'all') {
+                renderServerImages(allServerImages);
+            } else {
+                renderServerImages(allServerImages.filter(img => img.type === filter));
+            }
+        });
+    });
+
+    // Server-Bild verwenden
+    document.getElementById('useServerImageBtn').addEventListener('click', async function() {
+        const imagePath = document.getElementById('serverImagePath').value;
+        if (!imagePath) return;
+
+        const originalHtml = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Wird übernommen...';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_use_server_image" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image_path: imagePath })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                imagePreview.innerHTML = `
+                    <img src="${data.image_url}?t=${Date.now()}" alt="Server-Bild" class="img-fluid">
+                    <span class="badge bg-success mt-2"><i class="bi bi-folder2-open"></i> Server-Bild</span>
+                `;
+                alert('Bild erfolgreich übernommen!');
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Fehler beim Übernehmen des Bildes.');
+        }
+
+        this.innerHTML = originalHtml;
+        this.disabled = false;
     });
 
     // Eigenes Bild hochladen
