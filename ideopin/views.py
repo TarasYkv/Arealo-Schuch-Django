@@ -1687,66 +1687,14 @@ def api_upload_post(request, project_id):
             content_bluesky = pin_title[:300]
 
         # ============================================================
-        # FORM-DATEN AUFBAUEN
+        # BLUESKY SEPARAT BEHANDELN (braucht anderen title!)
         # ============================================================
 
-        form_data = [
-            ('user', upload_post_user_id),
-            ('title', content_instagram),  # Pflichtfeld - Instagram-kompatibel (Beschreibung + Link in Bio)
-        ]
+        # Bluesky aus Hauptliste entfernen falls vorhanden
+        has_bluesky = 'bluesky' in platforms
+        other_platforms = [p for p in platforms if p != 'bluesky']
 
-        # Plattformen hinzufügen
-        for platform in platforms:
-            form_data.append(('platform[]', platform))
-
-        # Pinterest
-        if 'pinterest' in platforms:
-            if pinterest_board_id:
-                form_data.append(('pinterest_board_id', pinterest_board_id))
-            form_data.append(('pinterest_title', content_pinterest_title))
-            form_data.append(('pinterest_description', content_pinterest_description))
-            form_data.append(('pinterest_link', content_pinterest_link))
-
-        # Instagram (NUR Beschreibung, KEIN Link!)
-        if 'instagram' in platforms:
-            form_data.append(('instagram_caption', content_instagram))
-
-        # Facebook
-        if 'facebook' in platforms:
-            form_data.append(('facebook_title', content_facebook))
-
-        # X (Twitter)
-        if 'x' in platforms:
-            form_data.append(('x_title', content_x))
-
-        # LinkedIn
-        if 'linkedin' in platforms:
-            form_data.append(('linkedin_title', content_linkedin))
-            form_data.append(('linkedin_description', content_linkedin))
-
-        # Threads
-        if 'threads' in platforms:
-            form_data.append(('threads_title', content_threads))
-
-        # Bluesky (Titel + Link)
-        if 'bluesky' in platforms:
-            form_data.append(('bluesky_title', content_bluesky))
-
-        # Reddit: NICHT unterstützt für Foto-Uploads (nur Text-Posts möglich)
-
-        # Zeitplanung (optional)
-        if scheduled_date:
-            form_data.append(('scheduled_date', scheduled_date))
-            logger.info(f"[Upload-Post] Scheduled for: {scheduled_date}")
-
-        # Bild als File hinzufügen
-        files = {
-            'photos[]': (image_name, io.BytesIO(image_data), content_type)
-        }
-
-        logger.info(f"[Upload-Post] Posting Pin {project.id} auf Plattformen: {platforms}")
-
-        # Session mit Retry-Logik erstellen
+        # Session mit Retry-Logik erstellen (für alle Aufrufe)
         session = requests.Session()
         retry_strategy = Retry(
             total=3,
@@ -1757,33 +1705,121 @@ def api_upload_post(request, project_id):
         session.mount("https://", adapter)
         session.mount("http://", adapter)
 
-        # Versuche zuerst mit SSL-Verifizierung, dann ohne als Fallback
-        response = None
-        try:
-            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=90, verify=True)
-        except requests.exceptions.SSLError as ssl_err:
-            logger.warning(f"[Upload-Post] SSL-Fehler, versuche ohne Verifizierung: {ssl_err}")
-            # Fallback: Ohne SSL-Verifizierung (nur wenn nötig)
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            # BytesIO muss neu erstellt werden
+        all_results = []
+        posted_platforms = []
+
+        # ============================================================
+        # 1. ANDERE PLATTFORMEN (Instagram-kompatibel: Beschreibung)
+        # ============================================================
+        if other_platforms:
+            form_data = [
+                ('user', upload_post_user_id),
+                ('title', content_instagram),  # Beschreibung + "-> Link in Bio!"
+            ]
+
+            for platform in other_platforms:
+                form_data.append(('platform[]', platform))
+
+            # Pinterest
+            if 'pinterest' in other_platforms:
+                if pinterest_board_id:
+                    form_data.append(('pinterest_board_id', pinterest_board_id))
+                form_data.append(('pinterest_title', content_pinterest_title))
+                form_data.append(('pinterest_description', content_pinterest_description))
+                form_data.append(('pinterest_link', content_pinterest_link))
+
+            # Instagram
+            if 'instagram' in other_platforms:
+                form_data.append(('instagram_caption', content_instagram))
+
+            # Facebook
+            if 'facebook' in other_platforms:
+                form_data.append(('facebook_title', content_facebook))
+
+            # X (Twitter)
+            if 'x' in other_platforms:
+                form_data.append(('x_title', content_x))
+
+            # LinkedIn
+            if 'linkedin' in other_platforms:
+                form_data.append(('linkedin_title', content_linkedin))
+                form_data.append(('linkedin_description', content_linkedin))
+
+            # Threads
+            if 'threads' in other_platforms:
+                form_data.append(('threads_title', content_threads))
+
+            if scheduled_date:
+                form_data.append(('scheduled_date', scheduled_date))
+
             files = {'photos[]': (image_name, io.BytesIO(image_data), content_type)}
-            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=90, verify=False)
 
-        logger.info(f"[Upload-Post] Response Status: {response.status_code}, Body: {response.text[:500]}")
+            logger.info(f"[Upload-Post] Posting Pin {project.id} auf: {other_platforms}")
 
-        # 200 = OK (sofort gepostet), 202 = Accepted (eingeplant)
-        if response.status_code in [200, 202]:
-            result = response.json()
+            try:
+                response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=90, verify=True)
+            except requests.exceptions.SSLError as ssl_err:
+                logger.warning(f"[Upload-Post] SSL-Fehler, versuche ohne Verifizierung: {ssl_err}")
+                import urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                files = {'photos[]': (image_name, io.BytesIO(image_data), content_type)}
+                response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=90, verify=False)
 
-            # Als gepostet markieren
+            logger.info(f"[Upload-Post] Response (andere): {response.status_code}, {response.text[:300]}")
+
+            if response.status_code in [200, 202]:
+                all_results.append(response.json())
+                posted_platforms.extend(other_platforms)
+
+        # ============================================================
+        # 2. BLUESKY SEPARAT (Titel + Link!)
+        # ============================================================
+        if has_bluesky:
+            form_data_bluesky = [
+                ('user', upload_post_user_id),
+                ('title', content_bluesky),  # Titel + Link für Bluesky!
+                ('platform[]', 'bluesky'),
+            ]
+
+            if scheduled_date:
+                form_data_bluesky.append(('scheduled_date', scheduled_date))
+
+            files_bluesky = {'photos[]': (image_name, io.BytesIO(image_data), content_type)}
+
+            logger.info(f"[Upload-Post] Posting Pin {project.id} auf Bluesky (separat)")
+
+            try:
+                response_bluesky = session.post(api_url, headers=headers, data=form_data_bluesky, files=files_bluesky, timeout=90, verify=True)
+            except requests.exceptions.SSLError as ssl_err:
+                logger.warning(f"[Upload-Post] SSL-Fehler Bluesky, versuche ohne Verifizierung: {ssl_err}")
+                import urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                files_bluesky = {'photos[]': (image_name, io.BytesIO(image_data), content_type)}
+                response_bluesky = session.post(api_url, headers=headers, data=form_data_bluesky, files=files_bluesky, timeout=90, verify=False)
+
+            logger.info(f"[Upload-Post] Response (Bluesky): {response_bluesky.status_code}, {response_bluesky.text[:300]}")
+
+            if response_bluesky.status_code in [200, 202]:
+                all_results.append(response_bluesky.json())
+                posted_platforms.append('bluesky')
+
+            response = response_bluesky  # Für Fehlerbehandlung unten
+
+        # Dummy response für Erfolgslogik falls nur andere Plattformen
+        if other_platforms and not has_bluesky:
+            pass  # response ist bereits gesetzt
+
+        logger.info(f"[Upload-Post] Erfolgreich gepostet auf: {posted_platforms}")
+
+        # Erfolg wenn mindestens eine Plattform funktioniert hat
+        if posted_platforms:
             from django.utils import timezone
             now = timezone.now()
 
-            # Upload-Post Plattformen speichern (neue Felder)
+            # Upload-Post Plattformen speichern
             existing_platforms = project.upload_post_platforms.split(',') if project.upload_post_platforms else []
             existing_platforms = [p.strip() for p in existing_platforms if p.strip()]
-            for platform in platforms:
+            for platform in posted_platforms:
                 if platform not in existing_platforms:
                     existing_platforms.append(platform)
             project.upload_post_platforms = ','.join(existing_platforms)
@@ -1795,24 +1831,24 @@ def api_upload_post(request, project_id):
 
             # Board-Name mit Planungsinfo speichern
             if scheduled_date:
-                project.pinterest_board_name = f"Upload-Post ({', '.join(platforms)}) - Geplant: {scheduled_date}"
+                project.pinterest_board_name = f"Upload-Post ({', '.join(posted_platforms)}) - Geplant: {scheduled_date}"
             else:
-                project.pinterest_board_name = f"Upload-Post ({', '.join(platforms)})"
+                project.pinterest_board_name = f"Upload-Post ({', '.join(posted_platforms)})"
             project.save()
 
-            # Erfolgsmeldung anpassen
+            # Erfolgsmeldung
             if scheduled_date:
-                message = f'Pin wurde für {scheduled_date} auf {", ".join(platforms)} eingeplant!'
+                message = f'Pin wurde für {scheduled_date} auf {", ".join(posted_platforms)} eingeplant!'
             else:
-                message = f'Pin erfolgreich auf {", ".join(platforms)} gepostet!'
+                message = f'Pin erfolgreich auf {", ".join(posted_platforms)} gepostet!'
 
-            logger.info(f"[Upload-Post] Pin {project.id} erfolgreich: {result}")
+            logger.info(f"[Upload-Post] Pin {project.id} erfolgreich auf: {posted_platforms}")
 
             return JsonResponse({
                 'success': True,
                 'message': message,
                 'scheduled': bool(scheduled_date),
-                'result': result
+                'result': all_results
             })
         else:
             error_msg = f"API Fehler: {response.status_code}"
