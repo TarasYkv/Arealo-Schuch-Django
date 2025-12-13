@@ -1689,14 +1689,25 @@ def api_upload_post(request, project_id):
             form_data.append(('linkedin_title', li_text))
             form_data.append(('linkedin_description', li_text))
 
-        # Threads-spezifische Felder (Link im Text wird klickbar)
+        # Threads-spezifische Felder (500 Zeichen Limit, Link im Text wird klickbar)
         if 'threads' in platforms:
-            threads_text = f"{description}\n\n{post_link}" if post_link else description
+            if post_link:
+                max_desc_len = 500 - len(post_link) - 2
+                threads_desc = description[:max_desc_len] if len(description) > max_desc_len else description
+                threads_text = f"{threads_desc}\n\n{post_link}"
+            else:
+                threads_text = description[:500]
             form_data.append(('threads_title', threads_text))
 
-        # Bluesky-spezifische Felder (Link im Text wird klickbar, max 4 Bilder)
+        # Bluesky-spezifische Felder (300 Zeichen Limit, Link im Text wird klickbar)
         if 'bluesky' in platforms:
-            bsky_text = f"{description}\n\n{post_link}" if post_link else description
+            # Bluesky hat 300 Zeichen Limit, Link + 2 Newlines reservieren
+            if post_link:
+                max_desc_len = 300 - len(post_link) - 2
+                bsky_desc = description[:max_desc_len] if len(description) > max_desc_len else description
+                bsky_text = f"{bsky_desc}\n\n{post_link}"
+            else:
+                bsky_text = description[:300]
             form_data.append(('bluesky_title', bsky_text))
 
         # Reddit: NICHT unterstützt für Foto-Uploads (nur Text-Posts möglich)
