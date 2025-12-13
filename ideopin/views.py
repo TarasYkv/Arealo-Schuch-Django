@@ -1646,12 +1646,14 @@ def api_upload_post(request, project_id):
 
         # Beschreibung und Link vorbereiten
         description = project.seo_description or project.pin_title or ''
+        pin_title = project.pin_title or ''
         post_link = pin_link
 
         # Form-Daten vorbereiten (als Liste von Tupeln für mehrere gleiche Keys)
+        # Globales 'title' Feld - wird als Fallback für alle Plattformen genutzt
         form_data = [
             ('user', upload_post_user_id),
-            ('title', description),  # Beschreibung als Haupttext
+            ('title', pin_title),  # Pin-Titel als globaler Fallback
         ]
 
         # Plattformen hinzufügen (jede als separates Feld)
