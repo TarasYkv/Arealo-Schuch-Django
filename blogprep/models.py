@@ -412,7 +412,7 @@ class BlogPrepProject(models.Model):
                 total += len(field.split())
         return total
 
-    def generate_full_html(self, base_url=None, include_title_image=False):
+    def generate_full_html(self, base_url=None, include_title_image=False, include_section_images=True):
         """
         Generiert den vollständigen HTML-Content für den Blog.
 
@@ -421,6 +421,8 @@ class BlogPrepProject(models.Model):
                      Wenn angegeben, werden alle Bilder mit absoluten URLs versehen.
             include_title_image: Wenn False, wird das Titelbild NICHT im HTML eingefügt
                                 (für Shopify, wo es als Article Image gesetzt wird)
+            include_section_images: Wenn False, werden Abschnittsbilder (Base64) nicht eingefügt
+                                   (für Shopify wegen 1MB Limit)
         """
         html_parts = []
 
@@ -435,6 +437,8 @@ class BlogPrepProject(models.Model):
 
         def get_section_image_html(section_name):
             """Holt das Abschnittsbild für einen bestimmten Abschnitt"""
+            if not include_section_images:
+                return ''
             if not self.section_images:
                 return ''
             for img in self.section_images:

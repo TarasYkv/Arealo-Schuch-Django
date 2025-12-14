@@ -972,7 +972,8 @@ def api_export_to_shopify(request, project_id):
 
         # Generiere HTML mit absoluten Bild-URLs für Shopify
         # Titelbild NICHT im body_html (wird als Article Image gesetzt)
-        project.generate_full_html(base_url=base_url, include_title_image=False)
+        # Abschnittsbilder (Base64) NICHT inkludieren wegen Shopify 1MB Limit
+        project.generate_full_html(base_url=base_url, include_title_image=False, include_section_images=False)
         project.save()
 
         # Shopify API Call
