@@ -226,23 +226,46 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
             }
 
     def _generate_with_dalle(self, prompt: str, width: int, height: int) -> Dict:
-        """Generiert Bild mit OpenAI DALL-E"""
-        # DALL-E 3 Größen
+        """Generiert Bild mit OpenAI DALL-E oder GPT Image 1"""
+        # Größen bestimmen
         if width >= 1792 or height >= 1792:
             size = "1792x1024" if width > height else "1024x1792"
         else:
             size = "1024x1024"
 
-        response = self.openai_client.images.generate(
-            model=self.model,
-            prompt=prompt,
-            size=size,
-            quality="standard",
-            n=1,
-            response_format="b64_json"
-        )
+        # GPT Image 1 vs DALL-E 3 haben unterschiedliche Parameter
+        if self.model == 'gpt-image-1':
+            # GPT Image 1: kein response_format, gibt URL zurück
+            response = self.openai_client.images.generate(
+                model=self.model,
+                prompt=prompt,
+                size=size,
+                n=1
+            )
 
-        image_data = response.data[0].b64_json
+            # URL abrufen und zu Base64 konvertieren
+            image_url = response.data[0].url
+            img_response = requests.get(image_url, timeout=60)
+
+            if img_response.status_code == 200:
+                image_data = base64.b64encode(img_response.content).decode('utf-8')
+            else:
+                return {
+                    'success': False,
+                    'error': f'Fehler beim Herunterladen des Bildes: {img_response.status_code}',
+                    'model_used': self.model
+                }
+        else:
+            # DALL-E 3: unterstützt b64_json
+            response = self.openai_client.images.generate(
+                model=self.model,
+                prompt=prompt,
+                size=size,
+                quality="standard",
+                n=1,
+                response_format="b64_json"
+            )
+            image_data = response.data[0].b64_json
 
         return {
             'success': True,
