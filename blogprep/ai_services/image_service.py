@@ -42,8 +42,7 @@ class ImageService:
     # Verfügbare Modelle pro Provider (Stand: Dezember 2025)
     PROVIDER_MODELS = {
         'gemini': {
-            'gemini-2.5-flash-image': 'Gemini 2.5 Flash Image (Empfohlen)',
-            'imagen-3.0-generate-002': 'Imagen 3',
+            'gemini-2.0-flash-exp-image-generation': 'Gemini 2.0 Flash (Empfohlen)',
         },
         'dalle': {
             'gpt-image-1': 'GPT Image 1 (Empfohlen)',
@@ -66,9 +65,13 @@ class ImageService:
         if settings:
             self.provider = settings.image_provider
             self.model = settings.image_model
+            # Fallback für alte/ungültige Imagen-Modelle
+            if 'imagen' in self.model.lower():
+                logger.warning(f"Imagen model {self.model} nicht verfügbar, verwende Gemini stattdessen")
+                self.model = 'gemini-2.0-flash-exp-image-generation'
         else:
             self.provider = 'gemini'
-            self.model = 'gemini-2.5-flash-image'
+            self.model = 'gemini-2.0-flash-exp-image-generation'
 
         # Clients initialisieren
         self._init_clients()

@@ -119,13 +119,12 @@ class BlogPrepSettings(models.Model):
     )
 
     # Bild-Modelle (Stand: Dezember 2025)
+    # Hinweis: Imagen 3 erfordert Vertex AI Zugang - hier nur Gemini API-kompatible Modelle
     GEMINI_IMAGE_MODEL_CHOICES = [
-        ('gemini-2.5-flash-image', 'Gemini 2.5 Flash Image'),
-        ('imagen-3.0-generate-002', 'Imagen 3'),
+        ('gemini-2.0-flash-exp-image-generation', 'Gemini 2.0 Flash'),
     ]
     GEMINI_IMAGE_MODEL_DESCRIPTIONS = {
-        'gemini-2.5-flash-image': 'Neuestes Modell, Editing & Multi-Image, $0.039/Bild',
-        'imagen-3.0-generate-002': 'Hohe Qualität, fotorealistisch, $0.04/Bild',
+        'gemini-2.0-flash-exp-image-generation': 'Schnelle Bildgenerierung, funktioniert mit Gemini API Key',
     }
 
     DALLE_IMAGE_MODEL_CHOICES = [
@@ -139,7 +138,7 @@ class BlogPrepSettings(models.Model):
 
     image_model = models.CharField(
         max_length=50,
-        default='gemini-2.5-flash-image',
+        default='gemini-2.0-flash-exp-image-generation',
         verbose_name='Bild-Modell'
     )
 
