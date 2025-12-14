@@ -39,13 +39,18 @@
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Video-Skript</h5>
-        <span class="badge bg-info" id="scriptStats">
-            {% if project.video_script %}
-            {{ project.video_script|wordcount }} Wörter | ~{{ project.video_duration }} Min
-            {% else %}
-            Noch nicht generiert
-            {% endif %}
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-info" id="scriptStats">
+                {% if project.video_script %}
+                {{ project.video_script|wordcount }} Wörter | ~{{ project.video_duration }} Min
+                {% else %}
+                Noch nicht generiert
+                {% endif %}
+            </span>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyScript()" id="copyScriptBtn">
+                <i class="bi bi-clipboard me-1"></i>Kopieren
+            </button>
+        </div>
     </div>
     <div class="card-body">
         <textarea class="form-control" id="videoScript" rows="15"
@@ -102,6 +107,35 @@
     function saveVideoScript() {
         document.getElementById('videoScriptHidden').value = document.getElementById('videoScript').value;
         document.getElementById('videoDurationHidden').value = document.getElementById('videoDuration').value;
+    }
+
+    async function copyScript() {
+        const script = document.getElementById('videoScript').value;
+        if (!script) {
+            alert('Kein Skript zum Kopieren vorhanden.');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(script);
+            const btn = document.getElementById('copyScriptBtn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check me-1"></i>Kopiert!';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-success');
+
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-secondary');
+            }, 2000);
+        } catch (err) {
+            // Fallback für ältere Browser
+            const textarea = document.getElementById('videoScript');
+            textarea.select();
+            document.execCommand('copy');
+            alert('Skript wurde kopiert!');
+        }
     }
 
     // Auto-save on form submit
