@@ -96,20 +96,25 @@
         <div id="outlineEditor">
             {% if project.outline %}
             {% for item in project.outline %}
-            <div class="outline-item mb-3 p-3 bg-light rounded">
+            <div class="outline-item mb-3 p-3 bg-light rounded border-start border-4 border-primary">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
-                        <strong>{{ item.h2 }}</strong>
+                        <strong class="fs-5">{{ item.h2 }}</strong>
                         <span class="badge bg-secondary ms-2">{{ item.section }}</span>
                         <span class="badge bg-info ms-1">~{{ item.word_target }} Wörter</span>
                     </div>
                 </div>
                 {% if item.key_points %}
-                <ul class="mt-2 mb-0 small">
+                <ul class="mt-2 mb-2">
                     {% for point in item.key_points %}
                     <li>{{ point }}</li>
                     {% endfor %}
                 </ul>
+                {% endif %}
+                {% if item.research_reference %}
+                <p class="mb-0 small text-muted fst-italic">
+                    <i class="bi bi-link-45deg me-1"></i>Recherche-Bezug: {{ item.research_reference }}
+                </p>
                 {% endif %}
             </div>
             {% endfor %}
@@ -211,7 +216,7 @@
     }
 
     async function generateOutline() {
-        showLoading('Generiere Blog-Gliederung...');
+        showLoading('Generiere ausführliche Blog-Gliederung basierend auf Recherche...');
         const btn = document.getElementById('outlineBtn');
         btn.disabled = true;
 
@@ -222,25 +227,44 @@
                 outlineData = result.data.outline;
                 document.getElementById('outlineData').value = JSON.stringify(outlineData);
 
-                // Render outline
+                // Zeige unique_angle wenn vorhanden
                 let html = '';
+                if (result.data.unique_angle) {
+                    html += `<div class="alert alert-success mb-3">
+                        <i class="bi bi-star me-2"></i><strong>Unser Vorteil:</strong> ${result.data.unique_angle}
+                    </div>`;
+                }
+
+                // Render outline
                 outlineData.forEach(item => {
                     html += `
-                    <div class="outline-item mb-3 p-3 bg-light rounded">
+                    <div class="outline-item mb-3 p-3 bg-light rounded border-start border-4 border-primary">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
-                                <strong>${item.h2}</strong>
+                                <strong class="fs-5">${item.h2}</strong>
                                 <span class="badge bg-secondary ms-2">${item.section}</span>
                                 <span class="badge bg-info ms-1">~${item.word_target} Wörter</span>
                             </div>
                         </div>
                         ${item.key_points ? `
-                        <ul class="mt-2 mb-0 small">
+                        <ul class="mt-2 mb-2">
                             ${item.key_points.map(p => `<li>${p}</li>`).join('')}
                         </ul>
                         ` : ''}
+                        ${item.research_reference ? `
+                        <p class="mb-0 small text-muted fst-italic">
+                            <i class="bi bi-link-45deg me-1"></i>Recherche-Bezug: ${item.research_reference}
+                        </p>
+                        ` : ''}
                     </div>`;
                 });
+
+                // Zeige Gesamtwortziel
+                if (result.data.total_word_target) {
+                    html += `<p class="text-muted mt-3">
+                        <i class="bi bi-file-text me-1"></i>Gesamt: ~${result.data.total_word_target} Wörter
+                    </p>`;
+                }
 
                 document.getElementById('outlineEditor').innerHTML = html;
                 document.getElementById('nextBtn').disabled = false;

@@ -258,7 +258,7 @@ Antworte NUR mit dem JSON-Objekt."""
 
     def generate_outline(self, keyword: str, secondary_keywords: List[str], research_data: Dict) -> Dict:
         """
-        Generiert eine Blog-Gliederung basierend auf Keyword und Recherche.
+        Generiert eine ausführliche Blog-Gliederung basierend auf Keyword und Recherche.
 
         Args:
             keyword: Hauptkeyword
@@ -269,50 +269,86 @@ Antworte NUR mit dem JSON-Objekt."""
             Dict mit outline (Liste von H2-Überschriften)
         """
         system_prompt = """Du bist ein erfahrener Content-Stratege und SEO-Experte.
-Erstelle eine perfekte Blog-Gliederung die sowohl für Leser als auch Suchmaschinen optimiert ist."""
+Erstelle eine AUSFÜHRLICHE und DETAILLIERTE Blog-Gliederung basierend auf der Web-Recherche.
+Deine Gliederung muss die Erkenntnisse aus der Konkurrenzanalyse aufgreifen und BESSER sein als die analysierten Artikel."""
 
         topics = research_data.get('main_topics', [])
         questions = research_data.get('user_questions', [])
+        key_facts = research_data.get('key_facts', [])
+        pain_points = research_data.get('pain_points', [])
+        content_gaps = research_data.get('content_gaps', [])
+        related_keywords = research_data.get('related_keywords', [])
 
-        user_prompt = f"""Erstelle eine Blog-Gliederung zum Thema "{keyword}".
+        user_prompt = f"""Erstelle eine AUSFÜHRLICHE Blog-Gliederung zum Thema "{keyword}".
 
-SEKUNDÄRE KEYWORDS: {', '.join(secondary_keywords) if secondary_keywords else 'Keine'}
+=== RECHERCHE-ERGEBNISSE (aus Top-5 Suchergebnissen) ===
 
-WICHTIGE THEMEN AUS DER RECHERCHE:
-{chr(10).join(f'- {t}' for t in topics)}
+HAUPTTHEMEN DIE BEHANDELT WERDEN:
+{chr(10).join(f'- {t}' for t in topics) if topics else '- Keine Daten'}
+
+WICHTIGE FAKTEN & ERKENNTNISSE:
+{chr(10).join(f'- {f}' for f in key_facts) if key_facts else '- Keine Daten'}
 
 HÄUFIGE NUTZERFRAGEN:
-{chr(10).join(f'- {q}' for q in questions)}
+{chr(10).join(f'- {q}' for q in questions) if questions else '- Keine Daten'}
 
-ANFORDERUNGEN:
-- 4-6 H2-Überschriften
-- Gesamtlänge: ca. 2400 Wörter (verteilt auf die Abschnitte)
-- Lesedauer: 8-10 Minuten
-- Keyword "{keyword}" natürlich in Überschriften integrieren
-- Sekundäre Keywords sinnvoll einbauen
+PROBLEME & HERAUSFORDERUNGEN DER ZIELGRUPPE:
+{chr(10).join(f'- {p}' for p in pain_points) if pain_points else '- Keine Daten'}
 
-STRUKTUR:
-1. Einleitung mit persönlichem Einstieg
-2. Hauptteil mit konkreten Informationen/Tipps
-3. Do's und Don'ts oder Checkliste
-4. FAQ-Bereich
+CONTENT-LÜCKEN (was die Konkurrenz NICHT gut macht):
+{chr(10).join(f'- {g}' for g in content_gaps) if content_gaps else '- Keine Daten'}
+
+VERWANDTE KEYWORDS:
+{', '.join(related_keywords[:10]) if related_keywords else 'Keine'}
+
+SEKUNDÄRE KEYWORDS:
+{', '.join(secondary_keywords) if secondary_keywords else 'Keine'}
+
+=== ANFORDERUNGEN AN DIE GLIEDERUNG ===
+
+1. NUTZE DIE RECHERCHE-ERGEBNISSE:
+   - Greife die identifizierten Themen auf
+   - Beantworte die häufigen Nutzerfragen
+   - Adressiere die Pain Points der Zielgruppe
+   - Schließe die Content-Lücken der Konkurrenz
+
+2. STRUKTUR:
+   - 5-7 H2-Überschriften (mehr Detail = besser)
+   - Gesamtlänge: ca. 2800-3200 Wörter
+   - Lesedauer: 10-12 Minuten
+   - Jeder Abschnitt mit 4-6 konkreten Key Points
+
+3. ABSCHNITTE:
+   - Einleitung: Persönlicher Einstieg, Problem aufgreifen, Mehrwert versprechen
+   - Hauptteil 1: Grundlagen/Definition (was Anfänger wissen müssen)
+   - Hauptteil 2: Konkrete Informationen/Vergleiche/Empfehlungen
+   - Hauptteil 3: Praktische Tipps & Anleitungen
+   - Do's und Don'ts: Basierend auf den Pain Points
+   - Fazit: Zusammenfassung + Call-to-Action
+
+4. SEO-OPTIMIERUNG:
+   - Keyword "{keyword}" in mindestens 2 H2-Überschriften
+   - Sekundäre Keywords natürlich einbauen
+   - Überschriften als Fragen formulieren (wo sinnvoll)
 
 Erstelle als JSON:
 {{
     "outline": [
         {{
-            "h2": "Überschrift",
+            "h2": "Konkrete, aussagekräftige Überschrift",
             "section": "intro|main|tips",
-            "word_target": 800,
-            "key_points": ["Punkt 1", "Punkt 2"]
+            "word_target": 500,
+            "key_points": ["Detaillierter Punkt 1", "Detaillierter Punkt 2", "Detaillierter Punkt 3", "Detaillierter Punkt 4"],
+            "research_reference": "Welche Recherche-Erkenntnisse hier einfließen"
         }}
     ],
-    "total_word_target": 2400
+    "total_word_target": 3000,
+    "unique_angle": "Was macht diesen Artikel besser als die Konkurrenz?"
 }}
 
 Antworte NUR mit dem JSON-Objekt."""
 
-        result = self._call_llm(system_prompt, user_prompt, max_tokens=1500)
+        result = self._call_llm(system_prompt, user_prompt, max_tokens=2500)
 
         if not result['success']:
             return result

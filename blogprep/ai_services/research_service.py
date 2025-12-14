@@ -138,7 +138,7 @@ class WebResearchService:
                 href = link.get('href', '')
                 title = link.get_text(strip=True)
 
-                if href and title and not self._is_ad_or_blocked(href):
+                if href and title and not self._is_ad_or_blocked(href, title):
                     # Snippet finden (nächstes Text-Element)
                     snippet = ''
                     snippet_elem = link.find_next('td', class_='result-snippet')
@@ -210,7 +210,7 @@ class WebResearchService:
                     if 'uddg' in parsed:
                         url = parsed['uddg'][0]
 
-                if not url or self._is_ad_or_blocked(url):
+                if not url or self._is_ad_or_blocked(url, title):
                     continue
 
                 # Snippet
@@ -229,7 +229,7 @@ class WebResearchService:
 
         return results
 
-    def _is_ad_or_blocked(self, url: str) -> bool:
+    def _is_ad_or_blocked(self, url: str, title: str = '') -> bool:
         """Prüft ob URL eine Werbung oder blockierte Domain ist"""
         blocked_domains = [
             'ad.', 'ads.', 'advertising.',
@@ -238,12 +238,37 @@ class WebResearchService:
             'youtube.com', 'tiktok.com',
             'wikipedia.org',  # Wikipedia oft zu generisch
             'amazon.', 'ebay.',  # Shopping-Seiten
+            # DuckDuckGo eigene Seiten
+            'duckduckgo.com/duckduckgo-help',
+            'duckduckgo.com/about',
+            'duckduckgo.com/privacy',
+            'duckduckgo.com/settings',
+            'spreadprivacy.com',
+            'duck.co',
+        ]
+
+        # Blockierte Titel (z.B. "More Info", "Sponsored")
+        blocked_titles = [
+            'more info', 'mehr info', 'sponsored', 'anzeige',
+            'ad by', 'ads by', 'werbung',
         ]
 
         url_lower = url.lower()
+        title_lower = title.lower() if title else ''
+
+        # URL-Prüfung
         for blocked in blocked_domains:
             if blocked in url_lower:
                 return True
+
+        # Titel-Prüfung
+        for blocked in blocked_titles:
+            if blocked in title_lower:
+                return True
+
+        # Sehr kurze Titel sind oft keine echten Ergebnisse
+        if title and len(title) < 5:
+            return True
 
         return False
 
