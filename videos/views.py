@@ -778,7 +778,9 @@ def api_post_to_social(request, video_id):
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
     from django.utils import timezone
+    import logging
 
+    logger = logging.getLogger(__name__)
     video = get_object_or_404(Video, id=video_id, user=request.user)
 
     try:
@@ -815,13 +817,20 @@ def api_post_to_social(request, video_id):
                 'error': 'Keine Plattformen ausgewählt.'
             }, status=400)
 
-        # Video-Thumbnail oder Video-Datei für den Upload vorbereiten
-        # Upload-Post.com unterstützt Videos direkt
+        # Video-Datei prüfen
         video_file = video.video_file
         if not video_file:
             return JsonResponse({
                 'success': False,
                 'error': 'Kein Video vorhanden.'
+            }, status=400)
+
+        # Prüfe Dateigröße (Upload-Post hat möglicherweise Limits)
+        file_size_mb = video.file_size / (1024 * 1024)
+        if file_size_mb > 100:  # 100MB Limit
+            return JsonResponse({
+                'success': False,
+                'error': f'Video zu groß ({file_size_mb:.1f}MB). Maximum: 100MB'
             }, status=400)
 
         # Video-Datei lesen
@@ -845,7 +854,7 @@ def api_post_to_social(request, video_id):
         # Vollständige Beschreibung mit Hashtags
         full_description = f"{description}\n\n{hashtags}" if hashtags else description
 
-        # Upload-Post API aufrufen
+        # Upload-Post API aufrufen - Videos Endpoint
         api_url = 'https://api.upload-post.com/api/upload_videos'
 
         headers = {
@@ -888,25 +897,48 @@ def api_post_to_social(request, video_id):
         # Session mit Retry-Logik erstellen
         session = requests.Session()
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=1,
+            total=2,
+            backoff_factor=2,
             status_forcelist=[429, 500, 502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("https://", adapter)
         session.mount("http://", adapter)
 
+        logger.info(f"[Video Social] Posting Video {video.id} auf: {platforms}")
+
+        response = None
         try:
-            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=120, verify=True)
+            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=180, verify=True)
         except requests.exceptions.SSLError as ssl_err:
+            logger.warning(f"[Video Social] SSL-Fehler, versuche ohne Verifizierung: {ssl_err}")
             # Fallback ohne SSL-Verifizierung
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             files = {'videos[]': (video_name, io.BytesIO(video_data), content_type)}
-            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=120, verify=False)
+            try:
+                response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=180, verify=False)
+            except Exception as inner_e:
+                logger.error(f"[Video Social] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
+                return JsonResponse({
+                    'success': False,
+                    'error': f'SSL-Verbindungsfehler zu Upload-Post.com. Bitte später erneut versuchen.'
+                }, status=503)
+        except requests.exceptions.Timeout:
+            return JsonResponse({
+                'success': False,
+                'error': 'Timeout beim Upload. Das Video ist möglicherweise zu groß.'
+            }, status=504)
+        except requests.exceptions.ConnectionError as conn_err:
+            logger.error(f"[Video Social] Verbindungsfehler: {conn_err}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Verbindung zu Upload-Post.com fehlgeschlagen. Bitte später erneut versuchen.'
+            }, status=503)
 
-        if response.status_code in [200, 202]:
+        if response and response.status_code in [200, 202]:
             result = response.json()
+            logger.info(f"[Video Social] Erfolgreich gepostet: {result}")
 
             # Video-Model aktualisieren
             video.social_platforms_posted = ','.join(platforms)
@@ -924,22 +956,32 @@ def api_post_to_social(request, video_id):
                 'platforms': platforms,
                 'result': result
             })
-        else:
+        elif response:
             error_msg = f"Upload-Post Fehler: {response.status_code} - {response.text[:200]}"
+            logger.error(f"[Video Social] {error_msg}")
             video.social_post_error = error_msg
             video.save()
 
             return JsonResponse({
                 'success': False,
                 'error': error_msg
-            }, status=response.status_code)
+            }, status=400)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Unbekannter Fehler beim Upload'
+            }, status=500)
 
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
     except Exception as e:
         error_msg = f'Fehler: {str(e)}'
-        video.social_post_error = error_msg
-        video.save()
+        logger.exception(f"[Video Social] Exception: {error_msg}")
+        try:
+            video.social_post_error = error_msg
+            video.save()
+        except Exception:
+            pass
         return JsonResponse({'success': False, 'error': error_msg}, status=500)
 
 

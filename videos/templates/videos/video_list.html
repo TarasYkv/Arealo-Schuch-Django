@@ -714,15 +714,20 @@ async function postToSocial() {
     });
 
     if (platforms.length === 0) {
-        statusDiv.className = 'alert alert-warning';
-        statusDiv.textContent = 'Bitte mindestens eine Plattform auswählen.';
-        statusDiv.classList.remove('d-none');
+        if (statusDiv) {
+            statusDiv.className = 'alert alert-warning';
+            statusDiv.textContent = 'Bitte mindestens eine Plattform auswählen.';
+            statusDiv.classList.remove('d-none');
+        } else {
+            showToast('Bitte mindestens eine Plattform auswählen.', 'error');
+        }
         return;
     }
 
     // Zeitplanung ermitteln
     let scheduledDate = '';
-    if (document.getElementById('schedule-later').checked) {
+    const scheduleLater = document.getElementById('schedule-later');
+    if (scheduleLater && scheduleLater.checked) {
         const date = document.getElementById('schedule-date').value;
         const time = document.getElementById('schedule-time').value;
         if (date && time) {
@@ -731,8 +736,10 @@ async function postToSocial() {
     }
 
     // Button deaktivieren und Spinner zeigen
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Posten...';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Posten...';
+    }
 
     try {
         const response = await fetch(`/videos/api/social/post/${currentVideoId}/`, {
@@ -744,38 +751,54 @@ async function postToSocial() {
             body: JSON.stringify({
                 platforms: platforms,
                 scheduled_date: scheduledDate,
-                title: document.getElementById('social-title').value,
-                description: document.getElementById('social-description').value,
-                hashtags: document.getElementById('social-hashtags').value
+                title: document.getElementById('social-title')?.value || '',
+                description: document.getElementById('social-description')?.value || '',
+                hashtags: document.getElementById('social-hashtags')?.value || ''
             })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            statusDiv.className = 'alert alert-success';
-            statusDiv.textContent = data.message;
-            statusDiv.classList.remove('d-none');
+            if (statusDiv) {
+                statusDiv.className = 'alert alert-success';
+                statusDiv.textContent = data.message;
+                statusDiv.classList.remove('d-none');
+            }
 
             showToast(data.message, 'success');
 
             // Nach 2 Sekunden Modal schließen und Seite neu laden
             setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('socialModal')).hide();
+                const modal = document.getElementById('socialModal');
+                if (modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) modalInstance.hide();
+                }
                 location.reload();
             }, 2000);
         } else {
-            statusDiv.className = 'alert alert-danger';
-            statusDiv.textContent = data.error || 'Fehler beim Posten';
-            statusDiv.classList.remove('d-none');
+            const errorMsg = data.error || 'Fehler beim Posten';
+            if (statusDiv) {
+                statusDiv.className = 'alert alert-danger';
+                statusDiv.textContent = errorMsg;
+                statusDiv.classList.remove('d-none');
+            }
+            showToast(errorMsg, 'error');
         }
     } catch (error) {
-        statusDiv.className = 'alert alert-danger';
-        statusDiv.textContent = 'Netzwerkfehler: ' + error.message;
-        statusDiv.classList.remove('d-none');
+        const errorMsg = 'Netzwerkfehler: ' + error.message;
+        if (statusDiv) {
+            statusDiv.className = 'alert alert-danger';
+            statusDiv.textContent = errorMsg;
+            statusDiv.classList.remove('d-none');
+        }
+        showToast(errorMsg, 'error');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Posten';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Posten';
+        }
     }
 }
 </script>
