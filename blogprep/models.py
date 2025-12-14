@@ -119,12 +119,16 @@ class BlogPrepSettings(models.Model):
     )
 
     # Bild-Modelle (Stand: Dezember 2025)
-    # Hinweis: Imagen 3 erfordert Vertex AI Zugang - hier nur Gemini API-kompatible Modelle
+    # Nano Banana = Gemini 2.5 Flash Image, Nano Banana Pro = Gemini 3 Pro Image
     GEMINI_IMAGE_MODEL_CHOICES = [
+        ('gemini-3-pro-image-preview', 'Nano Banana Pro'),
+        ('gemini-2.5-flash-image', 'Nano Banana'),
         ('gemini-2.0-flash-exp-image-generation', 'Gemini 2.0 Flash'),
     ]
     GEMINI_IMAGE_MODEL_DESCRIPTIONS = {
-        'gemini-2.0-flash-exp-image-generation': 'Schnelle Bildgenerierung, funktioniert mit Gemini API Key',
+        'gemini-3-pro-image-preview': 'Beste Qualität, 2K/4K, präziser Text in Bildern',
+        'gemini-2.5-flash-image': 'Schnell & günstig, gute Qualität, $0.039/Bild',
+        'gemini-2.0-flash-exp-image-generation': 'Schnelle Bildgenerierung, Fallback-Option',
     }
 
     DALLE_IMAGE_MODEL_CHOICES = [
@@ -138,7 +142,7 @@ class BlogPrepSettings(models.Model):
 
     image_model = models.CharField(
         max_length=50,
-        default='gemini-2.0-flash-exp-image-generation',
+        default='gemini-2.5-flash-image',  # Nano Banana als Standard
         verbose_name='Bild-Modell'
     )
 

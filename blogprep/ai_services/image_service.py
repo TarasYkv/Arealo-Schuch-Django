@@ -40,9 +40,12 @@ class ImageService:
     GOOGLE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
     # Verfügbare Modelle pro Provider (Stand: Dezember 2025)
+    # Nano Banana = Gemini 2.5 Flash, Nano Banana Pro = Gemini 3 Pro
     PROVIDER_MODELS = {
         'gemini': {
-            'gemini-2.0-flash-exp-image-generation': 'Gemini 2.0 Flash (Empfohlen)',
+            'gemini-3-pro-image-preview': 'Nano Banana Pro (Beste Qualität)',
+            'gemini-2.5-flash-image': 'Nano Banana (Schnell & Günstig)',
+            'gemini-2.0-flash-exp-image-generation': 'Gemini 2.0 Flash (Fallback)',
         },
         'dalle': {
             'gpt-image-1': 'GPT Image 1 (Empfohlen)',
@@ -67,11 +70,11 @@ class ImageService:
             self.model = settings.image_model
             # Fallback für alte/ungültige Imagen-Modelle
             if 'imagen' in self.model.lower():
-                logger.warning(f"Imagen model {self.model} nicht verfügbar, verwende Gemini stattdessen")
-                self.model = 'gemini-2.0-flash-exp-image-generation'
+                logger.warning(f"Imagen model {self.model} nicht verfügbar, verwende Nano Banana stattdessen")
+                self.model = 'gemini-2.5-flash-image'
         else:
             self.provider = 'gemini'
-            self.model = 'gemini-2.0-flash-exp-image-generation'
+            self.model = 'gemini-2.5-flash-image'  # Nano Banana als Standard
 
         # Clients initialisieren
         self._init_clients()
