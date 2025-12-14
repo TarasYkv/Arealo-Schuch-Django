@@ -129,14 +129,6 @@
                                             </option>
                                             {% endfor %}
                                         </optgroup>
-                                        <!-- Anthropic -->
-                                        <optgroup label="Anthropic" class="provider-group" data-provider="anthropic">
-                                            {% for value, label in model_choices.anthropic %}
-                                            <option value="{{ value }}" {% if settings.ai_model == value %}selected{% endif %}>
-                                                {{ label }}
-                                            </option>
-                                            {% endfor %}
-                                        </optgroup>
                                     </select>
                                     <small id="aiModelDesc" class="text-muted"></small>
                                 </div>
@@ -159,11 +151,10 @@
                                 <div class="mb-3">
                                     <label class="form-label" for="image_model">Modell</label>
                                     <select class="form-control" id="image_model" name="image_model">
-                                        <!-- Gemini/Imagen -->
-                                        <optgroup label="Google Imagen" class="image-provider-group" data-provider="gemini">
+                                        <!-- Gemini -->
+                                        <optgroup label="Google Gemini" class="image-provider-group" data-provider="gemini">
                                             {% for value, label in image_model_choices.gemini %}
-                                            <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}
-                                                    data-desc="{{ image_model_descriptions.gemini|default_if_none:'' }}">
+                                            <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}>
                                                 {{ label }}
                                             </option>
                                             {% endfor %}
@@ -171,14 +162,6 @@
                                         <!-- DALL-E -->
                                         <optgroup label="OpenAI DALL-E" class="image-provider-group" data-provider="dalle">
                                             {% for value, label in image_model_choices.dalle %}
-                                            <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}>
-                                                {{ label }}
-                                            </option>
-                                            {% endfor %}
-                                        </optgroup>
-                                        <!-- Ideogram -->
-                                        <optgroup label="Ideogram" class="image-provider-group" data-provider="ideogram">
-                                            {% for value, label in image_model_choices.ideogram %}
                                             <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}>
                                                 {{ label }}
                                             </option>
@@ -252,28 +235,18 @@
 
 {% block extra_js %}
 <script>
-    // Modell-Beschreibungen aus Python
+    // Modell-Beschreibungen
     const modelDescriptions = {
         // OpenAI
         'gpt-4o': 'Bestes Preis-Leistungs-Verhältnis, multimodal, 128K Context',
         'gpt-4o-mini': 'Günstig & schnell, ideal für einfache Aufgaben',
         'gpt-4-turbo': 'Stark bei komplexen Aufgaben, 128K Context',
-        'gpt-4': 'Klassisches GPT-4, zuverlässig aber teurer',
         'o1': 'Reasoning-Modell für komplexe Logik, langsam aber gründlich',
         'o1-mini': 'Schnelleres Reasoning, gut für Code & Mathe',
-        'o3-mini': 'Neuestes Mini-Reasoning, beste Effizienz',
         // Gemini
         'gemini-2.0-flash': 'Neuestes Modell, sehr schnell, multimodal, 1M Context',
-        'gemini-2.0-flash-lite': 'Ultra-günstig, ideal für einfache Aufgaben',
         'gemini-1.5-pro': 'Beste Qualität bei Google, 2M Context möglich',
         'gemini-1.5-flash': 'Schnell & günstig, gut für längere Texte',
-        'gemini-1.5-flash-8b': 'Kleinste Version, extrem günstig',
-        // Anthropic
-        'claude-sonnet-4-20250514': 'Neuestes Modell, beste Balance aus Qualität & Speed',
-        'claude-3-7-sonnet-20250219': 'Extended Thinking, ideal für komplexe Analysen',
-        'claude-3-5-sonnet-20241022': 'Bewährt, sehr gut für Content-Erstellung',
-        'claude-3-5-haiku-20241022': 'Schnellstes Claude, günstig, gute Qualität',
-        'claude-3-opus-20240229': 'Stärkstes Claude 3, ideal für anspruchsvolle Aufgaben',
     };
 
     const imageModelDescriptions = {
@@ -283,12 +256,6 @@
         // DALL-E
         'dall-e-3': 'Beste Qualität, versteht komplexe Prompts, 1024px',
         'dall-e-2': 'Schneller & günstiger, weniger kreativ',
-        'gpt-image-1': 'Neues Modell, native GPT-Integration',
-        // Ideogram
-        'V_2': 'Beste Qualität, exzellent bei Text-in-Bild',
-        'V_2_TURBO': 'Schneller, gut für Iterationen',
-        'V_1': 'Bewährt, zuverlässig',
-        'V_1_TURBO': 'Schnellste Option',
     };
 
     // Filter Text-Modelle based on provider selection

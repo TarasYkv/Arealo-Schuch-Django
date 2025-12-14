@@ -144,28 +144,24 @@ def settings_view(request):
     model_choices = {
         'openai': BlogPrepSettings.OPENAI_MODEL_CHOICES,
         'gemini': BlogPrepSettings.GEMINI_MODEL_CHOICES,
-        'anthropic': BlogPrepSettings.ANTHROPIC_MODEL_CHOICES,
     }
 
     # Modell-Beschreibungen
     model_descriptions = {
         'openai': BlogPrepSettings.OPENAI_MODEL_DESCRIPTIONS,
         'gemini': BlogPrepSettings.GEMINI_MODEL_DESCRIPTIONS,
-        'anthropic': BlogPrepSettings.ANTHROPIC_MODEL_DESCRIPTIONS,
     }
 
     # Bild-Modell-Choices für Template
     image_model_choices = {
         'gemini': BlogPrepSettings.GEMINI_IMAGE_MODEL_CHOICES,
         'dalle': BlogPrepSettings.DALLE_IMAGE_MODEL_CHOICES,
-        'ideogram': BlogPrepSettings.IDEOGRAM_IMAGE_MODEL_CHOICES,
     }
 
     # Bild-Modell-Beschreibungen
     image_model_descriptions = {
         'gemini': BlogPrepSettings.GEMINI_IMAGE_MODEL_DESCRIPTIONS,
         'dalle': BlogPrepSettings.DALLE_IMAGE_MODEL_DESCRIPTIONS,
-        'ideogram': BlogPrepSettings.IDEOGRAM_IMAGE_MODEL_DESCRIPTIONS,
     }
 
     context = {
