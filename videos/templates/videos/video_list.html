@@ -648,7 +648,7 @@ document.getElementById('social-description').addEventListener('input', function
 // KI-Textgenerierung
 async function generateAIText() {
     const btn = document.getElementById('generate-ai-btn');
-    const inputText = document.getElementById('ai-input-text').value;
+    const inputText = document.getElementById('ai-input-text')?.value || '';
     const statusDiv = document.getElementById('social-status');
 
     // Ausgewählte Plattformen sammeln
@@ -658,8 +658,10 @@ async function generateAIText() {
     });
 
     // Button deaktivieren und Spinner zeigen
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Generiere...';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Generiere...';
+    }
 
     try {
         const response = await fetch(`/videos/api/social/generate/${currentVideoId}/`, {
@@ -677,28 +679,45 @@ async function generateAIText() {
         const data = await response.json();
 
         if (data.success) {
-            document.getElementById('social-title').value = data.title || '';
-            document.getElementById('social-description').value = data.description || '';
-            document.getElementById('social-hashtags').value = data.hashtags || '';
+            const titleEl = document.getElementById('social-title');
+            const descEl = document.getElementById('social-description');
+            const hashtagsEl = document.getElementById('social-hashtags');
+
+            if (titleEl) titleEl.value = data.title || '';
+            if (descEl) descEl.value = data.description || '';
+            if (hashtagsEl) hashtagsEl.value = data.hashtags || '';
 
             updateCharCount('social-title', 'title-count', 60);
             updateCharCount('social-description', 'description-count', 300);
 
-            statusDiv.className = 'alert alert-success';
-            statusDiv.textContent = 'Texte erfolgreich generiert!';
-            statusDiv.classList.remove('d-none');
+            if (statusDiv) {
+                statusDiv.className = 'alert alert-success';
+                statusDiv.textContent = 'Texte erfolgreich generiert!';
+                statusDiv.classList.remove('d-none');
+            }
+            showToast('Texte erfolgreich generiert!', 'success');
         } else {
-            statusDiv.className = 'alert alert-danger';
-            statusDiv.textContent = data.error || 'Fehler bei der Generierung';
-            statusDiv.classList.remove('d-none');
+            const errorMsg = data.error || 'Fehler bei der Generierung';
+            if (statusDiv) {
+                statusDiv.className = 'alert alert-danger';
+                statusDiv.textContent = errorMsg;
+                statusDiv.classList.remove('d-none');
+            }
+            showToast(errorMsg, 'error');
         }
     } catch (error) {
-        statusDiv.className = 'alert alert-danger';
-        statusDiv.textContent = 'Netzwerkfehler: ' + error.message;
-        statusDiv.classList.remove('d-none');
+        const errorMsg = 'Netzwerkfehler: ' + error.message;
+        if (statusDiv) {
+            statusDiv.className = 'alert alert-danger';
+            statusDiv.textContent = errorMsg;
+            statusDiv.classList.remove('d-none');
+        }
+        showToast(errorMsg, 'error');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-magic"></i> Generieren';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic"></i> Generieren';
+        }
     }
 }
 

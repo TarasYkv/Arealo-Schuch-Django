@@ -854,45 +854,40 @@ def api_post_to_social(request, video_id):
         # Vollständige Beschreibung mit Hashtags
         full_description = f"{description}\n\n{hashtags}" if hashtags else description
 
-        # Upload-Post API aufrufen - Videos Endpoint
-        api_url = 'https://api.upload-post.com/api/upload_videos'
+        # Upload-Post API aufrufen - Korrekter Endpoint laut Dokumentation
+        api_url = 'https://api.upload-post.com/api/upload'
 
         headers = {
             'Authorization': f'Apikey {api_key_clean}',
         }
 
-        # Form-Daten erstellen
+        # Form-Daten erstellen gemäß Upload-Post Dokumentation
         form_data = [
             ('user', upload_post_user_id),
-            ('title', full_description),  # Upload-Post nutzt title als Haupttext
+            ('title', title),  # Video-Titel
+            ('description', full_description),  # Beschreibung mit Hashtags
         ]
 
+        # Plattformen hinzufügen
         for platform in platforms:
             form_data.append(('platform[]', platform))
 
-        # Plattform-spezifische Inhalte
+        # Plattform-spezifische Parameter gemäß Upload-Post Dokumentation
         if 'instagram' in platforms:
-            form_data.append(('instagram_caption', full_description))
-
-        if 'facebook' in platforms:
-            form_data.append(('facebook_title', f"{description}\n\n{video_link}"))
-
-        if 'linkedin' in platforms:
-            form_data.append(('linkedin_title', f"{description}\n\n{video_link}"))
-            form_data.append(('linkedin_description', full_description))
-
-        if 'tiktok' in platforms:
-            form_data.append(('tiktok_title', full_description[:150]))  # TikTok hat 150 Zeichen Limit
+            form_data.append(('media_type', 'REELS'))  # Instagram Reels
 
         if 'youtube' in platforms:
-            form_data.append(('youtube_title', title))
-            form_data.append(('youtube_description', full_description))
+            form_data.append(('privacyStatus', 'public'))
+
+        if 'tiktok' in platforms:
+            form_data.append(('privacy_level', 'PUBLIC_TO_EVERYONE'))
 
         if scheduled_date:
             form_data.append(('scheduled_date', scheduled_date))
 
         import io
-        files = {'videos[]': (video_name, io.BytesIO(video_data), content_type)}
+        # Video-Feld heißt 'video' (singular) laut Dokumentation
+        files = {'video': (video_name, io.BytesIO(video_data), content_type)}
 
         # Session mit Retry-Logik erstellen
         session = requests.Session()
@@ -915,7 +910,10 @@ def api_post_to_social(request, video_id):
             # Fallback ohne SSL-Verifizierung
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            files = {'videos[]': (video_name, io.BytesIO(video_data), content_type)}
+            # Video-Datei neu lesen da BytesIO verbraucht wurde
+            video_file.seek(0)
+            video_data = video_file.read()
+            files = {'video': (video_name, io.BytesIO(video_data), content_type)}
             try:
                 response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=180, verify=False)
             except Exception as inner_e:
