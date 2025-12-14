@@ -442,8 +442,16 @@ class BlogPrepProject(models.Model):
             if not self.section_images:
                 return ''
             for img in self.section_images:
-                if img.get('section') == section_name and img.get('image_data'):
-                    return f'<div class="blog-section-image"><img src="data:image/png;base64,{img["image_data"]}" alt="{section_name}" style="width: 100%; max-width: 800px; height: auto; margin: 1rem 0;" /></div>'
+                if img.get('section') == section_name:
+                    # Bevorzuge URL (für Shopify), fallback auf Base64
+                    if img.get('image_url'):
+                        img_src = img['image_url']
+                        # Mache URL absolut wenn base_url gesetzt
+                        if base_url and img_src.startswith('/'):
+                            img_src = f"{base_url.rstrip('/')}{img_src}"
+                        return f'<div class="blog-section-image"><img src="{img_src}" alt="{section_name}" style="width: 100%; max-width: 800px; height: auto; margin: 1rem 0;" /></div>'
+                    elif img.get('image_data'):
+                        return f'<div class="blog-section-image"><img src="data:image/png;base64,{img["image_data"]}" alt="{section_name}" style="width: 100%; max-width: 800px; height: auto; margin: 1rem 0;" /></div>'
             return ''
 
         # Titelbild (nur wenn include_title_image=True)

@@ -884,3 +884,42 @@ Create the image now."""
         except Exception as e:
             logger.error(f"Error saving image to field: {e}")
             return False
+
+    def save_image_to_media(self, image_data: str, filename: str) -> str:
+        """
+        Speichert Base64-Bilddaten als Datei im Media-Verzeichnis.
+
+        Args:
+            image_data: Base64-kodierte Bilddaten
+            filename: Dateiname ohne Extension
+
+        Returns:
+            str: Relativer URL-Pfad zur Datei oder leerer String bei Fehler
+        """
+        from django.core.files.storage import default_storage
+        import os
+
+        try:
+            # Dekodiere Base64
+            image_bytes = base64.b64decode(image_data)
+
+            # Bestimme Extension
+            if PIL_AVAILABLE:
+                img = Image.open(BytesIO(image_bytes))
+                img_format = img.format or 'PNG'
+                extension = img_format.lower()
+            else:
+                extension = 'png'
+
+            # Erstelle Dateipfad
+            full_filename = f"blogprep/section_images/{filename}.{extension}"
+
+            # Speichere Datei
+            saved_path = default_storage.save(full_filename, ContentFile(image_bytes))
+
+            # Gib URL zurück
+            return default_storage.url(saved_path)
+
+        except Exception as e:
+            logger.error(f"Error saving image to media: {e}")
+            return ''

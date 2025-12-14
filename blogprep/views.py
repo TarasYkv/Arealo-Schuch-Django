@@ -639,11 +639,18 @@ def api_generate_section_image(request, project_id):
     result = image_service.generate_section_image(section_text, project.main_keyword)
 
     if result['success']:
-        # Füge zu section_images hinzu
+        # Speichere Bild als Datei für Shopify-kompatible URLs
+        import uuid
+        unique_id = str(uuid.uuid4())[:8]
+        filename = f"{project.id}_{section_name}_{unique_id}"
+        image_url = image_service.save_image_to_media(result['image_data'], filename)
+
+        # Füge zu section_images hinzu (mit URL UND base64 für lokale Anzeige)
         section_images = project.section_images or []
         section_images.append({
             'section': section_name,
             'image_data': result['image_data'],
+            'image_url': image_url,  # URL für Shopify Export
             'prompt': result.get('prompt', '')
         })
         project.section_images = section_images
@@ -655,6 +662,9 @@ def api_generate_section_image(request, project_id):
             'Section image generated',
             duration=result.get('duration', 0)
         )
+
+        # Füge URL zur Response hinzu
+        result['image_url'] = image_url
 
     return JsonResponse(result)
 
@@ -972,8 +982,8 @@ def api_export_to_shopify(request, project_id):
 
         # Generiere HTML mit absoluten Bild-URLs für Shopify
         # Titelbild NICHT im body_html (wird als Article Image gesetzt)
-        # Abschnittsbilder (Base64) NICHT inkludieren wegen Shopify 1MB Limit
-        project.generate_full_html(base_url=base_url, include_title_image=False, include_section_images=False)
+        # Abschnittsbilder werden jetzt als URLs inkludiert (nicht mehr Base64)
+        project.generate_full_html(base_url=base_url, include_title_image=False, include_section_images=True)
         project.save()
 
         # Shopify API Call
