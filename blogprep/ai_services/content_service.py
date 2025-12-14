@@ -178,41 +178,64 @@ class ContentService:
 
     def analyze_research(self, keyword: str, search_results: List[Dict]) -> Dict:
         """
-        Analysiert Web-Recherche-Ergebnisse und extrahiert wichtige Informationen.
+        Analysiert echte Web-Recherche-Ergebnisse und extrahiert wichtige Informationen.
 
         Args:
             keyword: Das Hauptkeyword
-            search_results: Liste von Suchergebnissen mit title, snippet, url
+            search_results: Liste von Suchergebnissen mit title, snippet, url, content
 
         Returns:
             Dict mit topics, related_keywords, questions
         """
         system_prompt = """Du bist ein SEO-Experte und Content-Stratege.
-Analysiere die Suchergebnisse und extrahiere die wichtigsten Informationen für einen Blogbeitrag."""
+Analysiere die echten Suchergebnisse aus dem Web und extrahiere die wichtigsten Informationen für einen Blogbeitrag.
+Du erhältst die tatsächlichen Inhalte der Top-Suchergebnisse."""
 
-        # Formatiere Suchergebnisse
+        # Formatiere Suchergebnisse mit echtem Inhalt
         results_text = ""
-        for i, result in enumerate(search_results[:10], 1):
-            results_text += f"\n{i}. {result.get('title', '')}\n"
-            results_text += f"   {result.get('snippet', '')}\n"
+        for i, result in enumerate(search_results[:5], 1):
+            results_text += f"\n{'='*50}\n"
+            results_text += f"SUCHERGEBNIS {i}:\n"
+            results_text += f"Titel: {result.get('title', '')}\n"
+            results_text += f"URL: {result.get('url', '')}\n"
+            results_text += f"Snippet: {result.get('snippet', '')}\n"
 
-        user_prompt = f"""Analysiere diese Suchergebnisse zum Keyword "{keyword}":
+            # Füge den extrahierten Seiteninhalt hinzu
+            content = result.get('content', '') or result.get('content_preview', '')
+            if content:
+                # Begrenze den Inhalt pro Ergebnis
+                content_preview = content[:1500] + '...' if len(content) > 1500 else content
+                results_text += f"\nSEITENINHALT:\n{content_preview}\n"
+
+        # Falls keine Ergebnisse, nur Keyword-basierte Analyse
+        if not results_text.strip():
+            results_text = f"(Keine Suchergebnisse verfügbar - analysiere basierend auf Keyword '{keyword}')"
+
+        user_prompt = f"""Analysiere diese echten Web-Suchergebnisse zum Keyword "{keyword}":
 
 {results_text}
+
+WICHTIG: Basiere deine Analyse auf den TATSÄCHLICHEN INHALTEN der gefundenen Seiten.
+Identifiziere:
+- Welche Themen werden von den Top-Ergebnissen behandelt?
+- Welche Keywords/Begriffe werden häufig verwendet?
+- Welche Fragen werden beantwortet?
+- Was fehlt in den bestehenden Artikeln?
 
 Erstelle eine strukturierte Analyse als JSON:
 
 {{
-    "main_topics": ["Die 5-7 wichtigsten Themen die behandelt werden"],
-    "related_keywords": ["10-15 verwandte Keywords und Suchbegriffe"],
-    "user_questions": ["8-10 häufige Fragen die Nutzer haben"],
-    "pain_points": ["5 Hauptprobleme/Herausforderungen der Zielgruppe"],
-    "content_gaps": ["Was fehlt in den bestehenden Artikeln?"]
+    "main_topics": ["Die 5-7 wichtigsten Themen die in den Ergebnissen behandelt werden"],
+    "related_keywords": ["10-15 verwandte Keywords und Begriffe aus den Inhalten"],
+    "user_questions": ["8-10 Fragen die die Artikel beantworten oder die Nutzer haben könnten"],
+    "pain_points": ["5 Hauptprobleme/Herausforderungen die angesprochen werden"],
+    "content_gaps": ["Was fehlt in den bestehenden Artikeln? Was könnten wir besser machen?"],
+    "key_facts": ["5-8 wichtige Fakten/Statistiken/Tipps aus den Artikeln"]
 }}
 
 Antworte NUR mit dem JSON-Objekt."""
 
-        result = self._call_llm(system_prompt, user_prompt, max_tokens=1500)
+        result = self._call_llm(system_prompt, user_prompt, max_tokens=2000)
 
         if not result['success']:
             return result

@@ -302,26 +302,40 @@ def wizard_step2(request, project_id):
 @login_required
 @require_POST
 def api_run_research(request, project_id):
-    """API: Führt Web-Recherche durch"""
+    """API: Führt echte Web-Recherche durch"""
     project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
     settings = get_user_settings(request.user)
 
-    # Hier würde die Web-Recherche stattfinden
-    # Für jetzt: Simulierte Recherche-Daten
+    # Echte Web-Recherche durchführen
+    from .ai_services import WebResearchService
 
+    research_service = WebResearchService()
+    web_results = research_service.search_and_analyze(project.main_keyword, num_results=5)
+
+    if not web_results['success']:
+        logger.warning(f"Web-Recherche fehlgeschlagen: {web_results.get('error')}")
+        # Fallback: Leere Suchergebnisse, KI analysiert nur Keyword
+        search_results = []
+    else:
+        search_results = web_results.get('search_results', [])
+        logger.info(f"Web-Recherche erfolgreich: {len(search_results)} Ergebnisse mit Inhalt")
+
+    # Content Service für KI-Analyse
     content_service = ContentService(request.user, settings)
 
-    # Simulierte Suchergebnisse (in Produktion: echte Web-Suche)
-    search_results = [
-        {'title': f'Top Ergebnis 1 für {project.main_keyword}', 'snippet': 'Wichtige Informationen...'},
-        {'title': f'Top Ergebnis 2 für {project.main_keyword}', 'snippet': 'Weitere Details...'},
-        {'title': f'Top Ergebnis 3 für {project.main_keyword}', 'snippet': 'Tipps und Tricks...'},
-    ]
-
-    # Analyse durchführen
+    # Analyse der echten Suchergebnisse durchführen
     result = content_service.analyze_research(project.main_keyword, search_results)
 
     if result['success']:
+        # Speichere auch die Quellen
+        result['data']['sources'] = [
+            {
+                'title': r.get('title', ''),
+                'url': r.get('url', ''),
+                'position': r.get('position', 0)
+            }
+            for r in search_results
+        ]
         project.research_data = result['data']
         project.save()
 

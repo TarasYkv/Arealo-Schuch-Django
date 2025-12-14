@@ -21,26 +21,64 @@
     <div class="card-body" id="researchResults">
         {% if project.research_data %}
         <div class="research-data">
-            {% if project.research_data.main_topics %}
-            <h6>Hauptthemen:</h6>
-            <ul>
-                {% for topic in project.research_data.main_topics %}
-                <li>{{ topic }}</li>
-                {% endfor %}
-            </ul>
+            {% if project.research_data.sources %}
+            <div class="alert alert-success mb-3">
+                <h6 class="mb-2"><i class="bi bi-check-circle me-2"></i>Analysierte Quellen (Top {{ project.research_data.sources|length }}):</h6>
+                <ul class="mb-0 small">
+                    {% for source in project.research_data.sources %}
+                    <li><a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.title|truncatechars:60 }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
             {% endif %}
 
-            {% if project.research_data.user_questions %}
-            <h6>Häufige Fragen:</h6>
-            <ul>
-                {% for question in project.research_data.user_questions %}
-                <li>{{ question }}</li>
-                {% endfor %}
-            </ul>
-            {% endif %}
+            <div class="row">
+                <div class="col-md-6">
+                    {% if project.research_data.main_topics %}
+                    <h6><i class="bi bi-tags me-1"></i>Hauptthemen:</h6>
+                    <ul>
+                        {% for topic in project.research_data.main_topics %}
+                        <li>{{ topic }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    {% if project.research_data.key_facts %}
+                    <h6><i class="bi bi-lightbulb me-1"></i>Wichtige Fakten:</h6>
+                    <ul>
+                        {% for fact in project.research_data.key_facts %}
+                        <li>{{ fact }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    {% if project.research_data.user_questions %}
+                    <h6><i class="bi bi-question-circle me-1"></i>Häufige Fragen:</h6>
+                    <ul>
+                        {% for question in project.research_data.user_questions %}
+                        <li>{{ question }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    {% if project.research_data.content_gaps %}
+                    <h6><i class="bi bi-arrow-up-circle me-1"></i>Content-Lücken:</h6>
+                    <ul class="small text-muted">
+                        {% for gap in project.research_data.content_gaps %}
+                        <li>{{ gap }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
         </div>
         {% else %}
-        <p class="text-muted">Klicke auf "Recherche starten" um die Top-Ergebnisse zu analysieren.</p>
+        <p class="text-muted">
+            <i class="bi bi-info-circle me-2"></i>
+            Klicke auf "Recherche starten" um die <strong>Top-5 Suchergebnisse</strong> zu analysieren.
+            Die KI liest die Inhalte der gefundenen Seiten und extrahiert relevante Informationen.
+        </p>
         {% endif %}
     </div>
 </div>
@@ -105,7 +143,7 @@
     let outlineData = {{ project.outline|safe|default:"[]" }};
 
     async function runResearch() {
-        showLoading('Führe Web-Recherche durch...');
+        showLoading('Führe echte Web-Recherche durch... (analysiere Top-5 Suchergebnisse)');
         const btn = document.getElementById('researchBtn');
         btn.disabled = true;
 
@@ -116,19 +154,47 @@
                 // Update UI with research results
                 let html = '<div class="research-data">';
 
+                // Zeige analysierte Quellen
+                if (result.data.sources && result.data.sources.length) {
+                    html += `<div class="alert alert-success mb-3">
+                        <h6 class="mb-2"><i class="bi bi-check-circle me-2"></i>Analysierte Quellen (Top ${result.data.sources.length}):</h6>
+                        <ul class="mb-0 small">`;
+                    result.data.sources.forEach(s => {
+                        const title = s.title.length > 60 ? s.title.substring(0, 60) + '...' : s.title;
+                        html += `<li><a href="${s.url}" target="_blank" rel="noopener">${title}</a></li>`;
+                    });
+                    html += '</ul></div>';
+                }
+
+                html += '<div class="row"><div class="col-md-6">';
+
                 if (result.data.main_topics && result.data.main_topics.length) {
-                    html += '<h6>Hauptthemen:</h6><ul>';
+                    html += '<h6><i class="bi bi-tags me-1"></i>Hauptthemen:</h6><ul>';
                     result.data.main_topics.forEach(t => html += `<li>${t}</li>`);
                     html += '</ul>';
                 }
 
+                if (result.data.key_facts && result.data.key_facts.length) {
+                    html += '<h6><i class="bi bi-lightbulb me-1"></i>Wichtige Fakten:</h6><ul>';
+                    result.data.key_facts.forEach(f => html += `<li>${f}</li>`);
+                    html += '</ul>';
+                }
+
+                html += '</div><div class="col-md-6">';
+
                 if (result.data.user_questions && result.data.user_questions.length) {
-                    html += '<h6>Häufige Fragen:</h6><ul>';
+                    html += '<h6><i class="bi bi-question-circle me-1"></i>Häufige Fragen:</h6><ul>';
                     result.data.user_questions.forEach(q => html += `<li>${q}</li>`);
                     html += '</ul>';
                 }
 
-                html += '</div>';
+                if (result.data.content_gaps && result.data.content_gaps.length) {
+                    html += '<h6><i class="bi bi-arrow-up-circle me-1"></i>Content-Lücken:</h6><ul class="small text-muted">';
+                    result.data.content_gaps.forEach(g => html += `<li>${g}</li>`);
+                    html += '</ul>';
+                }
+
+                html += '</div></div></div>';
                 document.getElementById('researchResults').innerHTML = html;
 
                 // Enable outline button
