@@ -890,11 +890,15 @@ def api_export_to_shopify(request, project_id):
         })
 
     try:
+        import base64
+        import requests
+
         # Basis-URL für absolute Bild-Links (z.B. https://www.workloom.de)
         base_url = request.build_absolute_uri('/').rstrip('/')
 
         # Generiere HTML mit absoluten Bild-URLs für Shopify
-        project.generate_full_html(base_url=base_url)
+        # Titelbild NICHT im body_html (wird als Article Image gesetzt)
+        project.generate_full_html(base_url=base_url, include_title_image=False)
         project.save()
 
         # Shopify API Call
@@ -902,8 +906,6 @@ def api_export_to_shopify(request, project_id):
         blog = project.shopify_blog
 
         # Erstelle Article via Shopify Admin API
-        import requests
-
         url = f"https://{store.shop_domain}/admin/api/2024-01/blogs/{blog.shopify_id}/articles.json"
 
         headers = {
@@ -920,6 +922,25 @@ def api_export_to_shopify(request, project_id):
                 'tags': ', '.join(project.secondary_keywords) if project.secondary_keywords else ''
             }
         }
+
+        # Titelbild als Article Featured Image (nicht im body_html)
+        if project.title_image:
+            try:
+                # Lese Bild und konvertiere zu Base64
+                with project.title_image.open('rb') as img_file:
+                    image_data = base64.b64encode(img_file.read()).decode('utf-8')
+                    article_data['article']['image'] = {
+                        'attachment': image_data,
+                        'alt': project.seo_title or project.title
+                    }
+            except Exception as img_error:
+                logger.warning(f"Could not read title image: {img_error}")
+                # Fallback: Verwende URL wenn lokales Lesen fehlschlägt
+                img_url = f"{base_url}{project.title_image.url}"
+                article_data['article']['image'] = {
+                    'src': img_url,
+                    'alt': project.seo_title or project.title
+                }
 
         # Meta-Description als Metafield
         if project.meta_description:

@@ -412,13 +412,15 @@ class BlogPrepProject(models.Model):
                 total += len(field.split())
         return total
 
-    def generate_full_html(self, base_url=None):
+    def generate_full_html(self, base_url=None, include_title_image=False):
         """
         Generiert den vollständigen HTML-Content für den Blog.
 
         Args:
             base_url: Optionale Basis-URL für absolute Bild-Links (z.B. 'https://www.workloom.de')
                      Wenn angegeben, werden alle Bilder mit absoluten URLs versehen.
+            include_title_image: Wenn False, wird das Titelbild NICHT im HTML eingefügt
+                                (für Shopify, wo es als Article Image gesetzt wird)
         """
         html_parts = []
 
@@ -431,18 +433,35 @@ class BlogPrepProject(models.Model):
                 return f"{base_url.rstrip('/')}{url}"
             return url
 
-        # Titelbild
-        if self.title_image:
+        def get_section_image_html(section_name):
+            """Holt das Abschnittsbild für einen bestimmten Abschnitt"""
+            if not self.section_images:
+                return ''
+            for img in self.section_images:
+                if img.get('section') == section_name and img.get('image_data'):
+                    return f'<div class="blog-section-image"><img src="data:image/png;base64,{img["image_data"]}" alt="{section_name}" style="width: 100%; max-width: 800px; height: auto; margin: 1rem 0;" /></div>'
+            return ''
+
+        # Titelbild (nur wenn include_title_image=True)
+        if include_title_image and self.title_image:
             img_url = get_image_url(self.title_image)
             html_parts.append(f'<img src="{img_url}" alt="{self.seo_title}" class="blog-title-image" style="width: 100%; max-width: 1200px; height: auto;" />')
 
         # Einleitung
         if self.content_intro:
             html_parts.append(f'<div class="blog-intro">{self.content_intro}</div>')
+            # Abschnittsbild für Einleitung
+            intro_img = get_section_image_html('intro')
+            if intro_img:
+                html_parts.append(intro_img)
 
         # Hauptteil
         if self.content_main:
             html_parts.append(f'<div class="blog-main">{self.content_main}</div>')
+            # Abschnittsbild für Hauptteil
+            main_img = get_section_image_html('main')
+            if main_img:
+                html_parts.append(main_img)
 
         # Diagramm
         if self.diagram_image:
@@ -452,6 +471,15 @@ class BlogPrepProject(models.Model):
         # Tipps
         if self.content_tips:
             html_parts.append(f'<div class="blog-tips">{self.content_tips}</div>')
+            # Abschnittsbild für Tipps
+            tips_img = get_section_image_html('tips')
+            if tips_img:
+                html_parts.append(tips_img)
+
+        # Benutzerdefinierte Abschnittsbilder
+        custom_img = get_section_image_html('custom')
+        if custom_img:
+            html_parts.append(custom_img)
 
         # FAQs
         if self.faqs:
