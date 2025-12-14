@@ -39,23 +39,16 @@ class ImageService:
     # Google API Base URL
     GOOGLE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 
-    # Verfügbare Modelle pro Provider
+    # Verfügbare Modelle pro Provider (Stand: Dezember 2025)
     PROVIDER_MODELS = {
         'gemini': {
-            'gemini-2.0-flash-preview-image-generation': 'Gemini 2.0 Flash (Empfohlen)',
-            'imagen-3.0-generate-001': 'Imagen 3 (Vertex AI)',
+            'gemini-2.5-flash-image': 'Gemini 2.5 Flash Image (Empfohlen)',
+            'imagen-3.0-generate-002': 'Imagen 3',
         },
         'dalle': {
-            'dall-e-3': 'DALL-E 3 (Beste Qualität)',
-            'dall-e-2': 'DALL-E 2 (Schneller)',
-            'gpt-image-1': 'GPT Image (Neu)',
+            'gpt-image-1': 'GPT Image 1 (Empfohlen)',
+            'dall-e-3': 'DALL-E 3',
         },
-        'ideogram': {
-            'V_2': 'Ideogram 2.0',
-            'V_2_TURBO': 'Ideogram 2.0 Turbo',
-            'V_1': 'Ideogram 1.0',
-            'V_1_TURBO': 'Ideogram 1.0 Turbo',
-        }
     }
 
     def __init__(self, user, settings=None):
@@ -75,7 +68,7 @@ class ImageService:
             self.model = settings.image_model
         else:
             self.provider = 'gemini'
-            self.model = 'gemini-2.0-flash-preview-image-generation'
+            self.model = 'gemini-2.5-flash-image'
 
         # Clients initialisieren
         self._init_clients()
@@ -266,11 +259,14 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
         else:
             aspect_ratio = "1:1"
 
-        # Imagen vs Gemini Native
-        if 'imagen' in self.model or 'imagegeneration' in self.model:
+        # Routing basierend auf Modelltyp
+        if 'imagen' in self.model:
             return self._generate_with_imagen(prompt, aspect_ratio)
+        elif 'gemini' in self.model:
+            # Gemini 2.5 Flash Image oder andere Gemini-Modelle
+            return self._generate_with_gemini_native(prompt, aspect_ratio)
         else:
-            # Gemini 2.0 Flash oder andere Gemini-Modelle
+            # Fallback zu Gemini Native
             return self._generate_with_gemini_native(prompt, aspect_ratio)
 
     def _generate_with_imagen(self, prompt: str, aspect_ratio: str) -> Dict:
