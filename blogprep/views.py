@@ -769,7 +769,7 @@ def api_generate_video_script(request, project_id):
     project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
     settings = get_user_settings(request.user)
 
-    duration = int(request.POST.get('duration', 5))
+    duration = float(request.POST.get('duration', 5))  # Float für Sekunden (0.25 = 15s)
 
     video_service = VideoService(request.user, settings)
 

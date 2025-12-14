@@ -320,9 +320,10 @@ class BlogPrepProject(models.Model):
         default=False,
         verbose_name='Video-Skript überspringen'
     )
-    video_duration = models.IntegerField(
+    video_duration = models.FloatField(
         default=5,
-        verbose_name='Video-Länge (Minuten)'
+        verbose_name='Video-Länge (Minuten)',
+        help_text='0.25 = 15 Sek, 0.5 = 30 Sek, 1 = 1 Min'
     )
     video_script = models.TextField(
         blank=True,
