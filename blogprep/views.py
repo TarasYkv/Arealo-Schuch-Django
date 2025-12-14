@@ -856,7 +856,7 @@ def wizard_step6(request, project_id):
             project.skip_video = True
         else:
             project.video_script = request.POST.get('video_script', '')
-            project.video_duration = int(request.POST.get('video_duration', 5))
+            project.video_duration = float(request.POST.get('video_duration', 5))
 
         project.status = 'step6'
         project.save()
