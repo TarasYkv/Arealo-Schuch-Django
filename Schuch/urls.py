@@ -69,6 +69,7 @@ urlpatterns = [
     path('ideopin/', include('ideopin.urls')),
     path('questionfinder/', include('questionfinder.urls')),
     path('imageforge/', include('imageforge.urls')),
+    path('blogprep/', include('blogprep.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
 
     # SEO: Sitemap und robots.txt

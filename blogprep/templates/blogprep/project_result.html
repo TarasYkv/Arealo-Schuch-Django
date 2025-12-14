@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ project.seo_title|default:project.title }} | BlogPrep{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'blogprep:project_list' %}">BlogPrep</a></li>
+                    <li class="breadcrumb-item active">{{ project.main_keyword|truncatechars:30 }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-2"></i>
+                        {{ project.seo_title|default:project.title }}
+                    </h5>
+                    {% if project.shopify_article_id %}
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i> Zu Shopify exportiert
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- Meta Info -->
+                    <div class="mb-4 p-3 bg-light rounded">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">Meta-Description:</small>
+                                <p class="mb-0">{{ project.meta_description|default:"-" }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Keywords:</small>
+                                <p class="mb-0">
+                                    <span class="badge bg-primary">{{ project.main_keyword }}</span>
+                                    {% for kw in project.secondary_keywords %}
+                                    <span class="badge bg-secondary">{{ kw }}</span>
+                                    {% endfor %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Full Content -->
+                    <div class="blog-content">
+                        {{ project.full_html_content|safe }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Script (if exists) -->
+            {% if project.video_script %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-film me-2"></i>Video-Skript
+                        <span class="badge bg-info">~{{ project.video_duration }} Min</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded" style="white-space: pre-wrap;">{{ project.video_script }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Stats Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Statistiken</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td>Wörter</td>
+                            <td class="text-end"><strong>{{ word_count }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>FAQs</td>
+                            <td class="text-end"><strong>{{ project.faqs|length }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>KI-Aufrufe</td>
+                            <td class="text-end"><strong>{{ logs.count }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Tokens (gesamt)</td>
+                            <td class="text-end"><strong>{{ total_tokens }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Generierungszeit</td>
+                            <td class="text-end"><strong>{{ total_duration }}s</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Images Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-images me-2"></i>Bilder</h6>
+                </div>
+                <div class="card-body">
+                    {% if project.title_image %}
+                    <div class="mb-3">
+                        <small class="text-muted">Titelbild:</small>
+                        <img src="{{ project.title_image.url }}" alt="Titelbild" class="img-fluid rounded">
+                    </div>
+                    {% endif %}
+
+                    {% if project.diagram_image %}
+                    <div class="mb-3">
+                        <small class="text-muted">Diagramm:</small>
+                        <img src="{{ project.diagram_image.url }}" alt="Diagramm" class="img-fluid rounded">
+                    </div>
+                    {% endif %}
+
+                    {% if not project.title_image and not project.diagram_image %}
+                    <p class="text-muted mb-0">Keine Bilder generiert</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-lightning me-2"></i>Aktionen</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'blogprep:wizard_step1_edit' project_id=project.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-pencil"></i> Bearbeiten
+                        </a>
+                        {% if not project.shopify_article_id %}
+                        <a href="{% url 'blogprep:wizard_step7' project_id=project.id %}" class="btn btn-success">
+                            <i class="bi bi-cloud-upload"></i> Zu Shopify exportieren
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'blogprep:project_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Zurück zur Liste
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Info -->
+            {% if project.shopify_article_id %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-shop me-2"></i>Shopify Export</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td>Store</td>
+                            <td class="text-end">{{ project.shopify_store.shop_name }}</td>
+                        </tr>
+                        <tr>
+                            <td>Blog</td>
+                            <td class="text-end">{{ project.shopify_blog.title }}</td>
+                        </tr>
+                        <tr>
+                            <td>Article ID</td>
+                            <td class="text-end"><code>{{ project.shopify_article_id }}</code></td>
+                        </tr>
+                        <tr>
+                            <td>Exportiert</td>
+                            <td class="text-end">{{ project.exported_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .blog-content h2 {
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        color: #1e293b;
+    }
+
+    .blog-content h3 {
+        margin-top: 1.5rem;
+        margin-bottom: 0.75rem;
+        color: #334155;
+    }
+
+    .blog-content p {
+        line-height: 1.7;
+        margin-bottom: 1rem;
+    }
+
+    .blog-content ul, .blog-content ol {
+        margin-bottom: 1rem;
+    }
+
+    .blog-content li {
+        margin-bottom: 0.5rem;
+    }
+
+    .blog-content table {
+        width: 100%;
+        margin-bottom: 1rem;
+        border-collapse: collapse;
+    }
+
+    .blog-content th, .blog-content td {
+        padding: 0.75rem;
+        border: 1px solid #e2e8f0;
+    }
+
+    .blog-content th {
+        background: #f8fafc;
+    }
+
+    .blog-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+    }
+
+    .blog-content .faq-item {
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 0.5rem;
+    }
+
+    .blog-content .faq-item h3 {
+        margin-top: 0;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}

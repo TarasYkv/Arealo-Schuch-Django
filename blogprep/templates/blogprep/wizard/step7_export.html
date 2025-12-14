@@ -1,0 +1,213 @@
+{% extends "blogprep/base_wizard.html" %}
+
+{% block wizard_content %}
+<h2><i class="bi bi-cloud-upload me-2"></i>Schritt 7: Export zu Shopify</h2>
+
+<div class="alert alert-success mb-4">
+    <i class="bi bi-check-circle me-2"></i>
+    Dein Blog ist bereit! Wähle einen Shopify Store und Blog aus, um den Artikel als Entwurf zu exportieren.
+</div>
+
+<!-- Summary -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Blog-Zusammenfassung</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Titel:</strong> {{ project.seo_title|default:project.title }}</p>
+                <p><strong>Keyword:</strong> {{ project.main_keyword }}</p>
+                <p><strong>Wörter:</strong> {{ project.get_word_count }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Titelbild:</strong>
+                    {% if project.title_image %}
+                    <span class="badge bg-success">Vorhanden</span>
+                    {% else %}
+                    <span class="badge bg-warning">Nicht vorhanden</span>
+                    {% endif %}
+                </p>
+                <p><strong>Diagramm:</strong>
+                    {% if project.diagram_image %}
+                    <span class="badge bg-success">Vorhanden</span>
+                    {% elif project.skip_diagram %}
+                    <span class="badge bg-secondary">Übersprungen</span>
+                    {% else %}
+                    <span class="badge bg-warning">Nicht vorhanden</span>
+                    {% endif %}
+                </p>
+                <p><strong>Video-Skript:</strong>
+                    {% if project.video_script %}
+                    <span class="badge bg-success">{{ project.video_duration }} Min</span>
+                    {% elif project.skip_video %}
+                    <span class="badge bg-secondary">Übersprungen</span>
+                    {% else %}
+                    <span class="badge bg-warning">Nicht vorhanden</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        {% if project.meta_description %}
+        <hr>
+        <p><strong>Meta-Description:</strong><br>
+            <small class="text-muted">{{ project.meta_description }}</small>
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Shopify Selection -->
+<form method="post" id="exportForm">
+    {% csrf_token %}
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-shop me-2"></i>Shopify Auswahl</h5>
+        </div>
+        <div class="card-body">
+            {% if stores %}
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Shopify Store</label>
+                        <select class="form-control" name="store_id" id="storeSelect" required>
+                            <option value="">-- Store auswählen --</option>
+                            {% for store in stores %}
+                            <option value="{{ store.id }}" {% if project.shopify_store_id == store.id %}selected{% endif %}>
+                                {{ store.shop_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Blog</label>
+                        <select class="form-control" name="blog_id" id="blogSelect" required>
+                            <option value="">-- Erst Store auswählen --</option>
+                            {% for blog in blogs %}
+                            <option value="{{ blog.id }}" data-store="{{ blog.store_id }}"
+                                    {% if project.shopify_blog_id == blog.id %}selected{% endif %}
+                                    style="display: none;">
+                                {{ blog.title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Kein Shopify Store verbunden.
+                <a href="{% url 'shopify_manager:store_add' %}">Store hinzufügen</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Vorschau</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#previewContent">
+                Anzeigen/Verbergen
+            </button>
+        </div>
+        <div class="collapse" id="previewContent">
+            <div class="card-body">
+                <div class="blog-preview" style="max-height: 500px; overflow-y: auto;">
+                    {{ project.full_html_content|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="wizard-actions">
+        <a href="{% url 'blogprep:wizard_step6' project_id=project.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <div>
+            {% if project.shopify_article_id %}
+            <span class="badge bg-success me-3">
+                <i class="bi bi-check-circle"></i> Bereits exportiert
+            </span>
+            {% endif %}
+            <button type="button" class="btn btn-success" onclick="exportToShopify()" {% if not stores %}disabled{% endif %}>
+                <i class="bi bi-cloud-upload"></i> Als Entwurf exportieren
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+    // Filter blogs by selected store
+    document.getElementById('storeSelect').addEventListener('change', function() {
+        const storeId = this.value;
+        const blogSelect = document.getElementById('blogSelect');
+        const options = blogSelect.querySelectorAll('option[data-store]');
+
+        // Reset and hide all
+        blogSelect.value = '';
+        options.forEach(opt => opt.style.display = 'none');
+
+        // Show matching blogs
+        if (storeId) {
+            options.forEach(opt => {
+                if (opt.dataset.store === storeId) {
+                    opt.style.display = 'block';
+                }
+            });
+        }
+    });
+
+    // Trigger on page load if store is pre-selected
+    const storeSelect = document.getElementById('storeSelect');
+    if (storeSelect.value) {
+        storeSelect.dispatchEvent(new Event('change'));
+    }
+
+    async function exportToShopify() {
+        const storeId = document.getElementById('storeSelect').value;
+        const blogId = document.getElementById('blogSelect').value;
+
+        if (!storeId || !blogId) {
+            alert('Bitte wähle einen Store und Blog aus.');
+            return;
+        }
+
+        // First save the selection
+        const form = document.getElementById('exportForm');
+        const formData = new FormData(form);
+
+        showLoading('Exportiere Blog zu Shopify...');
+
+        try {
+            // Save selection first
+            await fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            });
+
+            // Then export
+            const result = await apiCall('{% url "blogprep:api_export_to_shopify" project_id=project.id %}');
+
+            if (result.success) {
+                alert(result.message || 'Blog wurde erfolgreich exportiert!');
+                // Redirect to result page
+                window.location.href = '{% url "blogprep:project_result" project_id=project.id %}';
+            } else {
+                alert(result.error || 'Fehler beim Export');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+</script>
+{% endblock %}

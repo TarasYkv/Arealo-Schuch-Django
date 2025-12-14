@@ -1,0 +1,107 @@
+{% extends "blogprep/base_wizard.html" %}
+
+{% block wizard_content %}
+<h2><i class="bi bi-film me-2"></i>Schritt 6: Video-Skript <span class="badge bg-secondary">Optional</span></h2>
+
+<div class="alert alert-info mb-4">
+    Generiere ein gesprochenes Video-Skript basierend auf deinem Blog-Content.
+    Das Skript enthält nur den gesprochenen Text - keine Regieanweisungen.
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Video-Einstellungen</h5>
+    </div>
+    <div class="card-body">
+        <div class="row align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Video-Länge (Minuten)</label>
+                <select class="form-control" id="videoDuration">
+                    <option value="2">2 Minuten (~260 Wörter)</option>
+                    <option value="3">3 Minuten (~390 Wörter)</option>
+                    <option value="5" selected>5 Minuten (~650 Wörter)</option>
+                    <option value="7">7 Minuten (~910 Wörter)</option>
+                    <option value="10">10 Minuten (~1300 Wörter)</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="button" class="btn btn-primary" onclick="generateVideoScript()">
+                    <i class="bi bi-magic"></i> Skript generieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Video-Skript</h5>
+        <span class="badge bg-info" id="scriptStats">
+            {% if project.video_script %}
+            {{ project.video_script|wordcount }} Wörter | ~{{ project.video_duration }} Min
+            {% else %}
+            Noch nicht generiert
+            {% endif %}
+        </span>
+    </div>
+    <div class="card-body">
+        <textarea class="form-control" id="videoScript" rows="15"
+                  placeholder="Das Video-Skript wird hier erscheinen...">{{ project.video_script }}</textarea>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="video_script" id="videoScriptHidden" value="{{ project.video_script }}">
+    <input type="hidden" name="video_duration" id="videoDurationHidden" value="{{ project.video_duration|default:5 }}">
+
+    <div class="wizard-actions">
+        <a href="{% url 'blogprep:wizard_step5' project_id=project.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <div>
+            <button type="submit" name="skip_video" value="true" class="btn btn-outline-secondary me-2">
+                Überspringen <i class="bi bi-skip-forward"></i>
+            </button>
+            <button type="submit" class="btn btn-primary" onclick="saveVideoScript()">
+                Weiter zu Export <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+    async function generateVideoScript() {
+        const duration = document.getElementById('videoDuration').value;
+        showLoading(`Generiere ${duration}-Minuten Video-Skript...`);
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_generate_video_script" project_id=project.id %}', {
+                duration: duration
+            });
+
+            if (result.success && result.script) {
+                document.getElementById('videoScript').value = result.script;
+                document.getElementById('scriptStats').textContent =
+                    `${result.word_count} Wörter | ~${result.estimated_duration_minutes} Min`;
+            } else {
+                alert(result.error || 'Fehler beim Generieren des Skripts');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    function saveVideoScript() {
+        document.getElementById('videoScriptHidden').value = document.getElementById('videoScript').value;
+        document.getElementById('videoDurationHidden').value = document.getElementById('videoDuration').value;
+    }
+
+    // Auto-save on form submit
+    document.querySelector('form').addEventListener('submit', saveVideoScript);
+</script>
+{% endblock %}

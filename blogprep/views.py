@@ -1,0 +1,944 @@
+"""
+BlogPrep Views
+
+Wizard-basierte Blog-Erstellung in 7 Schritten:
+1. Keywords eingeben
+2. Recherche & Gliederung
+3. Content generieren
+4. Bilder erstellen
+5. Diagramm (optional)
+6. Video-Skript (optional)
+7. Export zu Shopify
+"""
+
+import logging
+import json
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods, require_POST
+from django.contrib import messages
+from django.utils import timezone
+from django.db.models import Q
+
+from .models import BlogPrepSettings, BlogPrepProject, BlogPrepGenerationLog
+from .ai_services import ContentService, ImageService, VideoService
+from shopify_manager.models import ShopifyStore, ShopifyBlog
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Hilfsfunktionen
+# ============================================================================
+
+def get_user_settings(user):
+    """Holt oder erstellt BlogPrepSettings für den User"""
+    settings, created = BlogPrepSettings.objects.get_or_create(user=user)
+    return settings
+
+
+def get_company_info(settings):
+    """Extrahiert Unternehmensinformationen aus den Settings"""
+    return {
+        'name': settings.company_name,
+        'description': settings.company_description,
+        'expertise': settings.company_expertise,
+        'products': settings.product_info
+    }
+
+
+def log_generation(project, step, provider, model, prompt, response, success=True, error='', duration=0, tokens_in=0, tokens_out=0):
+    """Erstellt einen Log-Eintrag für eine KI-Generierung"""
+    BlogPrepGenerationLog.objects.create(
+        project=project,
+        step=step,
+        provider=provider,
+        model=model,
+        prompt=prompt[:5000],
+        response=response[:10000] if response else '',
+        success=success,
+        error_message=error,
+        duration_seconds=duration,
+        tokens_input=tokens_in,
+        tokens_output=tokens_out
+    )
+
+
+# ============================================================================
+# Dashboard & Projekt-Liste
+# ============================================================================
+
+@login_required
+def project_list(request):
+    """Zeigt alle BlogPrep-Projekte des Users"""
+    projects = BlogPrepProject.objects.filter(user=request.user).order_by('-created_at')
+    settings = get_user_settings(request.user)
+
+    # Statistiken
+    stats = {
+        'total': projects.count(),
+        'in_progress': projects.exclude(status__in=['completed', 'published']).count(),
+        'completed': projects.filter(status='completed').count(),
+        'published': projects.filter(status='published').count()
+    }
+
+    context = {
+        'projects': projects,
+        'settings': settings,
+        'stats': stats
+    }
+    return render(request, 'blogprep/project_list.html', context)
+
+
+@login_required
+def project_delete(request, project_id):
+    """Löscht ein Projekt"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    if request.method == 'POST':
+        project.delete()
+        messages.success(request, 'Projekt wurde gelöscht.')
+        return redirect('blogprep:project_list')
+
+    return render(request, 'blogprep/project_confirm_delete.html', {'project': project})
+
+
+# ============================================================================
+# Settings
+# ============================================================================
+
+@login_required
+def settings_view(request):
+    """Einstellungen für BlogPrep"""
+    settings = get_user_settings(request.user)
+
+    if request.method == 'POST':
+        # Unternehmensinformationen
+        settings.company_name = request.POST.get('company_name', '')
+        settings.company_description = request.POST.get('company_description', '')
+        settings.company_expertise = request.POST.get('company_expertise', '')
+        settings.writing_style = request.POST.get('writing_style', 'du')
+
+        # Produkte
+        settings.product_info = request.POST.get('product_info', '')
+
+        # Produktlinks als Liste
+        product_links_text = request.POST.get('product_links', '')
+        settings.product_links = [
+            url.strip() for url in product_links_text.split('\n')
+            if url.strip() and url.strip().startswith('http')
+        ]
+
+        # KI-Einstellungen
+        settings.ai_provider = request.POST.get('ai_provider', 'openai')
+        settings.ai_model = request.POST.get('ai_model', 'gpt-4o')
+        settings.image_provider = request.POST.get('image_provider', 'gemini')
+        settings.image_model = request.POST.get('image_model', 'imagen-3.0-generate-002')
+
+        settings.save()
+        messages.success(request, 'Einstellungen wurden gespeichert.')
+        return redirect('blogprep:settings')
+
+    # Modell-Choices für Template
+    model_choices = {
+        'openai': BlogPrepSettings.OPENAI_MODEL_CHOICES,
+        'gemini': BlogPrepSettings.GEMINI_MODEL_CHOICES,
+        'anthropic': BlogPrepSettings.ANTHROPIC_MODEL_CHOICES,
+    }
+
+    context = {
+        'settings': settings,
+        'model_choices': model_choices,
+        'product_links_text': '\n'.join(settings.product_links) if settings.product_links else ''
+    }
+    return render(request, 'blogprep/settings.html', context)
+
+
+@login_required
+@require_POST
+def api_scrape_product_links(request):
+    """Scrapt Produktinformationen von den konfigurierten Links"""
+    settings = get_user_settings(request.user)
+
+    if not settings.product_links:
+        return JsonResponse({'success': False, 'error': 'Keine Produktlinks konfiguriert'})
+
+    # TODO: Implementiere Web-Scraping
+    # Hier würde das Scraping der Produktlinks stattfinden
+
+    return JsonResponse({
+        'success': True,
+        'message': f'{len(settings.product_links)} Links werden analysiert...'
+    })
+
+
+# ============================================================================
+# Wizard Step 1: Keywords
+# ============================================================================
+
+@login_required
+def wizard_step1(request, project_id=None):
+    """Schritt 1: Keywords eingeben"""
+    settings = get_user_settings(request.user)
+
+    # Existierendes Projekt laden oder neues erstellen
+    if project_id:
+        project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    else:
+        project = None
+
+    if request.method == 'POST':
+        main_keyword = request.POST.get('main_keyword', '').strip()
+        secondary_keywords_text = request.POST.get('secondary_keywords', '')
+
+        if not main_keyword:
+            messages.error(request, 'Bitte gib ein Hauptkeyword ein.')
+            return render(request, 'blogprep/wizard/step1_keywords.html', {
+                'project': project,
+                'settings': settings,
+                'step': 1
+            })
+
+        # Parse sekundäre Keywords
+        secondary_keywords = [
+            kw.strip() for kw in secondary_keywords_text.replace('\n', ',').split(',')
+            if kw.strip()
+        ]
+
+        # Projekt erstellen oder aktualisieren
+        if not project:
+            project = BlogPrepProject.objects.create(
+                user=request.user,
+                main_keyword=main_keyword,
+                secondary_keywords=secondary_keywords,
+                title=f"Blog: {main_keyword}",
+                status='step1'
+            )
+        else:
+            project.main_keyword = main_keyword
+            project.secondary_keywords = secondary_keywords
+            project.status = 'step1'
+            project.save()
+
+        return redirect('blogprep:wizard_step2', project_id=project.id)
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'step': 1
+    }
+    return render(request, 'blogprep/wizard/step1_keywords.html', context)
+
+
+@login_required
+@require_POST
+def api_suggest_keywords(request):
+    """API: Schlägt sekundäre Keywords vor"""
+    main_keyword = request.POST.get('main_keyword', '')
+
+    if not main_keyword:
+        return JsonResponse({'success': False, 'error': 'Kein Keyword angegeben'})
+
+    settings = get_user_settings(request.user)
+    content_service = ContentService(request.user, settings)
+
+    result = content_service.suggest_keywords(main_keyword)
+
+    return JsonResponse(result)
+
+
+# ============================================================================
+# Wizard Step 2: Recherche & Gliederung
+# ============================================================================
+
+@login_required
+def wizard_step2(request, project_id):
+    """Schritt 2: Recherche und Gliederung"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    if request.method == 'POST':
+        # Speichere editierte Gliederung
+        outline_json = request.POST.get('outline', '[]')
+        try:
+            project.outline = json.loads(outline_json)
+        except json.JSONDecodeError:
+            project.outline = []
+
+        project.status = 'step2'
+        project.save()
+
+        return redirect('blogprep:wizard_step3', project_id=project.id)
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'step': 2
+    }
+    return render(request, 'blogprep/wizard/step2_research.html', context)
+
+
+@login_required
+@require_POST
+def api_run_research(request, project_id):
+    """API: Führt Web-Recherche durch"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    # Hier würde die Web-Recherche stattfinden
+    # Für jetzt: Simulierte Recherche-Daten
+
+    content_service = ContentService(request.user, settings)
+
+    # Simulierte Suchergebnisse (in Produktion: echte Web-Suche)
+    search_results = [
+        {'title': f'Top Ergebnis 1 für {project.main_keyword}', 'snippet': 'Wichtige Informationen...'},
+        {'title': f'Top Ergebnis 2 für {project.main_keyword}', 'snippet': 'Weitere Details...'},
+        {'title': f'Top Ergebnis 3 für {project.main_keyword}', 'snippet': 'Tipps und Tricks...'},
+    ]
+
+    # Analyse durchführen
+    result = content_service.analyze_research(project.main_keyword, search_results)
+
+    if result['success']:
+        project.research_data = result['data']
+        project.save()
+
+        log_generation(
+            project, 'research', settings.ai_provider, settings.ai_model,
+            f'Research for: {project.main_keyword}',
+            json.dumps(result['data']),
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def api_generate_outline(request, project_id):
+    """API: Generiert Blog-Gliederung"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    content_service = ContentService(request.user, settings)
+
+    result = content_service.generate_outline(
+        project.main_keyword,
+        project.secondary_keywords,
+        project.research_data or {}
+    )
+
+    if result['success']:
+        project.outline = result['data'].get('outline', [])
+        project.save()
+
+        log_generation(
+            project, 'outline', settings.ai_provider, settings.ai_model,
+            f'Outline for: {project.main_keyword}',
+            json.dumps(result['data']),
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
+# ============================================================================
+# Wizard Step 3: Content generieren
+# ============================================================================
+
+@login_required
+def wizard_step3(request, project_id):
+    """Schritt 3: Content generieren"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    if request.method == 'POST':
+        # Speichere editierten Content
+        project.content_intro = request.POST.get('content_intro', '')
+        project.content_main = request.POST.get('content_main', '')
+        project.content_tips = request.POST.get('content_tips', '')
+        project.seo_title = request.POST.get('seo_title', '')
+        project.meta_description = request.POST.get('meta_description', '')
+        project.summary = request.POST.get('summary', '')
+
+        # FAQs
+        faqs_json = request.POST.get('faqs', '[]')
+        try:
+            project.faqs = json.loads(faqs_json)
+        except json.JSONDecodeError:
+            project.faqs = []
+
+        project.status = 'step3'
+        project.save()
+
+        return redirect('blogprep:wizard_step4', project_id=project.id)
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'step': 3
+    }
+    return render(request, 'blogprep/wizard/step3_content.html', context)
+
+
+@login_required
+@require_POST
+def api_generate_content_section(request, project_id):
+    """API: Generiert einen Content-Abschnitt"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    section_type = request.POST.get('section_type', 'intro')  # intro, main, tips
+
+    content_service = ContentService(request.user, settings)
+    company_info = get_company_info(settings)
+
+    # Finde den passenden Outline-Abschnitt
+    outline_section = {}
+    for item in project.outline:
+        if item.get('section') == section_type:
+            outline_section = item
+            break
+
+    result = content_service.generate_content_section(
+        section_type,
+        project.main_keyword,
+        outline_section,
+        company_info,
+        settings.writing_style
+    )
+
+    if result['success']:
+        # Speichere in passendem Feld
+        if section_type == 'intro':
+            project.content_intro = result['content']
+        elif section_type == 'main':
+            project.content_main = result['content']
+        elif section_type == 'tips':
+            project.content_tips = result['content']
+
+        project.save()
+
+        log_generation(
+            project, f'content_{section_type}', settings.ai_provider, settings.ai_model,
+            f'{section_type} for: {project.main_keyword}',
+            result['content'][:2000],
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def api_generate_faqs(request, project_id):
+    """API: Generiert FAQs"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    content_service = ContentService(request.user, settings)
+
+    result = content_service.generate_faqs(
+        project.main_keyword,
+        project.research_data or {},
+        project.summary
+    )
+
+    if result['success']:
+        project.faqs = result['faqs']
+        project.save()
+
+        log_generation(
+            project, 'faqs', settings.ai_provider, settings.ai_model,
+            f'FAQs for: {project.main_keyword}',
+            json.dumps(result['faqs']),
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def api_generate_seo_meta(request, project_id):
+    """API: Generiert SEO-Meta-Daten"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    content_service = ContentService(request.user, settings)
+
+    # Erstelle Zusammenfassung aus Content
+    content_summary = f"{project.content_intro[:500] if project.content_intro else ''}"
+
+    result = content_service.generate_seo_meta(project.main_keyword, content_summary)
+
+    if result['success']:
+        data = result['data']
+        project.seo_title = data.get('title', '')[:70]
+        project.meta_description = data.get('description', '')[:160]
+        project.summary = data.get('summary', '')
+        project.save()
+
+        log_generation(
+            project, 'seo', settings.ai_provider, settings.ai_model,
+            f'SEO for: {project.main_keyword}',
+            json.dumps(data),
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
+# ============================================================================
+# Wizard Step 4: Bilder
+# ============================================================================
+
+@login_required
+def wizard_step4(request, project_id):
+    """Schritt 4: Bilder erstellen"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    if request.method == 'POST':
+        project.status = 'step4'
+        project.save()
+        return redirect('blogprep:wizard_step5', project_id=project.id)
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'step': 4
+    }
+    return render(request, 'blogprep/wizard/step4_images.html', context)
+
+
+@login_required
+@require_POST
+def api_generate_title_image(request, project_id):
+    """API: Generiert das Titelbild"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    image_service = ImageService(request.user, settings)
+
+    result = image_service.generate_title_image(
+        project.main_keyword,
+        project.summary
+    )
+
+    if result['success']:
+        # Speichere Bild
+        saved = image_service.save_image_to_field(
+            result['image_data'],
+            project.title_image,
+            f"blogprep_title_{project.id}"
+        )
+
+        if saved:
+            project.title_image_prompt = result.get('prompt', '')
+            project.save()
+
+            log_generation(
+                project, 'image_title', settings.image_provider, settings.image_model,
+                result.get('prompt', ''),
+                'Image generated successfully',
+                duration=result.get('duration', 0)
+            )
+
+            return JsonResponse({
+                'success': True,
+                'image_url': project.title_image.url if project.title_image else None
+            })
+
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def api_generate_section_image(request, project_id):
+    """API: Generiert ein Abschnittsbild"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    section_text = request.POST.get('section_text', '')
+    section_name = request.POST.get('section_name', 'section')
+
+    if not section_text:
+        return JsonResponse({'success': False, 'error': 'Kein Text ausgewählt'})
+
+    image_service = ImageService(request.user, settings)
+
+    result = image_service.generate_section_image(section_text, project.main_keyword)
+
+    if result['success']:
+        # Füge zu section_images hinzu
+        section_images = project.section_images or []
+        section_images.append({
+            'section': section_name,
+            'image_data': result['image_data'],
+            'prompt': result.get('prompt', '')
+        })
+        project.section_images = section_images
+        project.save()
+
+        log_generation(
+            project, 'image_section', settings.image_provider, settings.image_model,
+            result.get('prompt', ''),
+            'Section image generated',
+            duration=result.get('duration', 0)
+        )
+
+    return JsonResponse(result)
+
+
+# ============================================================================
+# Wizard Step 5: Diagramm (Optional)
+# ============================================================================
+
+@login_required
+def wizard_step5(request, project_id):
+    """Schritt 5: Diagramm erstellen (optional)"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    if request.method == 'POST':
+        skip = request.POST.get('skip_diagram') == 'true'
+
+        if skip:
+            project.skip_diagram = True
+        else:
+            # Speichere Diagramm-Daten
+            diagram_type = request.POST.get('diagram_type', '')
+            diagram_data_json = request.POST.get('diagram_data', '{}')
+
+            try:
+                project.diagram_data = json.loads(diagram_data_json)
+            except json.JSONDecodeError:
+                project.diagram_data = {}
+
+            project.diagram_type = diagram_type
+
+        project.status = 'step5'
+        project.save()
+
+        return redirect('blogprep:wizard_step6', project_id=project.id)
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'step': 5,
+        'diagram_types': BlogPrepProject.DIAGRAM_TYPE_CHOICES
+    }
+    return render(request, 'blogprep/wizard/step5_diagram.html', context)
+
+
+@login_required
+@require_POST
+def api_analyze_for_diagram(request, project_id):
+    """API: Analysiert Content für Diagramm-Vorschlag"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    video_service = VideoService(request.user, settings)
+
+    # Kombiniere Content für Analyse
+    full_content = f"{project.content_intro}\n{project.content_main}\n{project.content_tips}"
+
+    result = video_service.analyze_for_diagram(full_content, project.main_keyword)
+
+    if result['success']:
+        project.diagram_data = result['data']
+        project.diagram_type = result['data'].get('diagram_type', 'bar')
+        project.save()
+
+        log_generation(
+            project, 'diagram', settings.ai_provider, settings.ai_model,
+            f'Diagram analysis for: {project.main_keyword}',
+            json.dumps(result['data']),
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
+@login_required
+@require_POST
+def api_generate_diagram_image(request, project_id):
+    """API: Generiert Diagramm als Bild"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    if not project.diagram_data:
+        return JsonResponse({'success': False, 'error': 'Keine Diagramm-Daten vorhanden'})
+
+    image_service = ImageService(request.user, settings)
+
+    result = image_service.generate_diagram_image(
+        project.diagram_type,
+        project.diagram_data,
+        project.main_keyword
+    )
+
+    if result['success']:
+        saved = image_service.save_image_to_field(
+            result['image_data'],
+            project.diagram_image,
+            f"blogprep_diagram_{project.id}"
+        )
+
+        if saved:
+            project.save()
+            return JsonResponse({
+                'success': True,
+                'image_url': project.diagram_image.url if project.diagram_image else None
+            })
+
+    return JsonResponse(result)
+
+
+# ============================================================================
+# Wizard Step 6: Video-Skript (Optional)
+# ============================================================================
+
+@login_required
+def wizard_step6(request, project_id):
+    """Schritt 6: Video-Skript erstellen (optional)"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    if request.method == 'POST':
+        skip = request.POST.get('skip_video') == 'true'
+
+        if skip:
+            project.skip_video = True
+        else:
+            project.video_script = request.POST.get('video_script', '')
+            project.video_duration = int(request.POST.get('video_duration', 5))
+
+        project.status = 'step6'
+        project.save()
+
+        return redirect('blogprep:wizard_step7', project_id=project.id)
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'step': 6
+    }
+    return render(request, 'blogprep/wizard/step6_video.html', context)
+
+
+@login_required
+@require_POST
+def api_generate_video_script(request, project_id):
+    """API: Generiert Video-Skript"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    duration = int(request.POST.get('duration', 5))
+
+    video_service = VideoService(request.user, settings)
+
+    # Kombiniere Content
+    full_content = f"{project.content_intro}\n{project.content_main}\n{project.content_tips}"
+
+    result = video_service.generate_video_script(
+        duration,
+        full_content,
+        project.main_keyword,
+        settings.company_name
+    )
+
+    if result['success']:
+        project.video_script = result['script']
+        project.video_duration = duration
+        project.save()
+
+        log_generation(
+            project, 'video_script', settings.ai_provider, settings.ai_model,
+            f'Video script ({duration} min) for: {project.main_keyword}',
+            result['script'][:2000],
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
+# ============================================================================
+# Wizard Step 7: Export zu Shopify
+# ============================================================================
+
+@login_required
+def wizard_step7(request, project_id):
+    """Schritt 7: Export zu Shopify"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    # Verfügbare Stores und Blogs
+    stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
+    blogs = ShopifyBlog.objects.filter(store__user=request.user)
+
+    if request.method == 'POST':
+        store_id = request.POST.get('store_id')
+        blog_id = request.POST.get('blog_id')
+
+        if store_id:
+            project.shopify_store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        if blog_id:
+            project.shopify_blog = ShopifyBlog.objects.get(id=blog_id)
+
+        project.status = 'step7'
+        project.save()
+
+        # HTML generieren
+        project.generate_full_html()
+        project.save()
+
+        messages.success(request, 'Projekt ist bereit zum Export!')
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'stores': stores,
+        'blogs': blogs,
+        'step': 7
+    }
+    return render(request, 'blogprep/wizard/step7_export.html', context)
+
+
+@login_required
+@require_POST
+def api_export_to_shopify(request, project_id):
+    """API: Exportiert Blog zu Shopify als Entwurf"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    if not project.shopify_store or not project.shopify_blog:
+        return JsonResponse({
+            'success': False,
+            'error': 'Bitte wähle einen Store und Blog aus'
+        })
+
+    try:
+        # Generiere HTML falls noch nicht geschehen
+        if not project.full_html_content:
+            project.generate_full_html()
+
+        # Shopify API Call
+        store = project.shopify_store
+        blog = project.shopify_blog
+
+        # Erstelle Article via Shopify Admin API
+        import requests
+
+        url = f"https://{store.shop_domain}/admin/api/2024-01/blogs/{blog.shopify_id}/articles.json"
+
+        headers = {
+            'X-Shopify-Access-Token': store.access_token,
+            'Content-Type': 'application/json'
+        }
+
+        article_data = {
+            'article': {
+                'title': project.seo_title or project.title,
+                'body_html': project.full_html_content,
+                'summary_html': project.summary,
+                'published': False,  # Als Entwurf
+                'tags': ', '.join(project.secondary_keywords) if project.secondary_keywords else ''
+            }
+        }
+
+        # Meta-Description als Metafield
+        if project.meta_description:
+            article_data['article']['metafields'] = [{
+                'namespace': 'global',
+                'key': 'description_tag',
+                'value': project.meta_description,
+                'type': 'single_line_text_field'
+            }]
+
+        response = requests.post(url, json=article_data, headers=headers, timeout=30)
+
+        if response.status_code in [200, 201]:
+            result = response.json()
+            article_id = result.get('article', {}).get('id')
+
+            project.shopify_article_id = str(article_id)
+            project.exported_at = timezone.now()
+            project.status = 'completed'
+            project.save()
+
+            return JsonResponse({
+                'success': True,
+                'article_id': article_id,
+                'message': 'Blog wurde als Entwurf zu Shopify exportiert!'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f'Shopify API Fehler: {response.text}'
+            })
+
+    except Exception as e:
+        logger.error(f"Shopify export error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@login_required
+def api_get_blogs_for_store(request, store_id):
+    """API: Gibt Blogs für einen Store zurück"""
+    blogs = ShopifyBlog.objects.filter(
+        store_id=store_id,
+        store__user=request.user
+    ).values('id', 'title', 'shopify_id')
+
+    return JsonResponse({'blogs': list(blogs)})
+
+
+# ============================================================================
+# Ergebnis-Ansicht
+# ============================================================================
+
+@login_required
+def project_result(request, project_id):
+    """Zeigt das fertige Ergebnis eines Projekts"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    # Generiere HTML falls noch nicht geschehen
+    if not project.full_html_content:
+        project.generate_full_html()
+        project.save()
+
+    # Logs für Statistiken
+    logs = project.generation_logs.all()
+    total_tokens = sum(log.tokens_input + log.tokens_output for log in logs)
+    total_duration = sum(log.duration_seconds for log in logs)
+
+    context = {
+        'project': project,
+        'settings': settings,
+        'logs': logs,
+        'total_tokens': total_tokens,
+        'total_duration': round(total_duration, 2),
+        'word_count': project.get_word_count()
+    }
+    return render(request, 'blogprep/project_result.html', context)

@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     'ideopin',
     'questionfinder',
     'imageforge',
+    'blogprep',
 ]
 
 

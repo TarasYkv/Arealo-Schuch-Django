@@ -1,0 +1,179 @@
+{% extends "blogprep/base_wizard.html" %}
+
+{% block wizard_content %}
+<h2><i class="bi bi-bar-chart me-2"></i>Schritt 5: Diagramm erstellen <span class="badge bg-secondary">Optional</span></h2>
+
+<div class="alert alert-info mb-4">
+    Die KI analysiert deinen Blog-Content und schlägt ein passendes Diagramm vor.
+    Du kannst diesen Schritt auch überspringen.
+</div>
+
+<!-- Diagram Analysis -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>Diagramm-Analyse</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="analyzeDiagram()" id="analyzeBtn">
+            <i class="bi bi-magic"></i> Analysieren & Vorschlagen
+        </button>
+    </div>
+    <div class="card-body">
+        {% if project.diagram_data %}
+        <div id="diagramSuggestion">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Vorgeschlagener Typ:</h6>
+                    <p><strong>{{ project.diagram_type|title }}</strong></p>
+
+                    <h6>Titel:</h6>
+                    <p>{{ project.diagram_data.title }}</p>
+
+                    {% if project.diagram_data.reasoning %}
+                    <h6>Begründung:</h6>
+                    <p class="text-muted">{{ project.diagram_data.reasoning }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    {% if project.diagram_data.labels %}
+                    <h6>Datenpunkte:</h6>
+                    <ul>
+                        {% for label in project.diagram_data.labels %}
+                        <li>{{ label }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-muted" id="analysisPending">
+            Klicke auf "Analysieren & Vorschlagen" um einen Diagramm-Vorschlag zu erhalten.
+        </p>
+        <div id="diagramSuggestion" style="display: none;"></div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Generate Diagram Image -->
+{% if project.diagram_data %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-image me-2"></i>Diagramm-Bild</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="generateDiagramImage()" id="diagramImageBtn">
+            <i class="bi bi-magic"></i> Bild generieren
+        </button>
+    </div>
+    <div class="card-body text-center">
+        {% if project.diagram_image %}
+        <img src="{{ project.diagram_image.url }}" alt="Diagramm" class="img-fluid rounded" style="max-height: 400px;">
+        {% else %}
+        <div id="diagramImagePlaceholder" class="p-5 bg-light rounded">
+            <i class="bi bi-bar-chart" style="font-size: 4rem; color: #d1d5db;"></i>
+            <p class="text-muted mt-3">Noch kein Diagramm-Bild generiert</p>
+        </div>
+        <div id="diagramImagePreview" style="display: none;">
+            <img src="" alt="Diagramm" class="img-fluid rounded" style="max-height: 400px;">
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="diagram_type" value="{{ project.diagram_type }}">
+    <input type="hidden" name="diagram_data" value='{{ project.diagram_data|safe|default:"{}" }}'>
+
+    <div class="wizard-actions">
+        <a href="{% url 'blogprep:wizard_step4' project_id=project.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <div>
+            <button type="submit" name="skip_diagram" value="true" class="btn btn-outline-secondary me-2">
+                Überspringen <i class="bi bi-skip-forward"></i>
+            </button>
+            <button type="submit" class="btn btn-primary">
+                Weiter zu Video <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+    async function analyzeDiagram() {
+        const btn = document.getElementById('analyzeBtn');
+        btn.disabled = true;
+        showLoading('Analysiere Content für Diagramm-Vorschlag...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_analyze_diagram" project_id=project.id %}');
+
+            if (result.success && result.data) {
+                document.getElementById('analysisPending')?.remove();
+                const suggestion = document.getElementById('diagramSuggestion');
+                suggestion.style.display = 'block';
+
+                suggestion.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Vorgeschlagener Typ:</h6>
+                            <p><strong>${result.data.diagram_type}</strong></p>
+
+                            <h6>Titel:</h6>
+                            <p>${result.data.title}</p>
+
+                            ${result.data.reasoning ? `
+                            <h6>Begründung:</h6>
+                            <p class="text-muted">${result.data.reasoning}</p>
+                            ` : ''}
+                        </div>
+                        <div class="col-md-6">
+                            ${result.data.labels ? `
+                            <h6>Datenpunkte:</h6>
+                            <ul>
+                                ${result.data.labels.map(l => `<li>${l}</li>`).join('')}
+                            </ul>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Reload page to show generate button
+                location.reload();
+            } else {
+                alert(result.error || 'Fehler bei der Analyse');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+
+    async function generateDiagramImage() {
+        const btn = document.getElementById('diagramImageBtn');
+        btn.disabled = true;
+        showLoading('Generiere Diagramm-Bild...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_generate_diagram_image" project_id=project.id %}');
+
+            if (result.success && result.image_url) {
+                document.getElementById('diagramImagePlaceholder')?.remove();
+                const preview = document.getElementById('diagramImagePreview');
+                preview.style.display = 'block';
+                preview.querySelector('img').src = result.image_url;
+            } else {
+                alert(result.error || 'Fehler beim Generieren des Diagramms');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

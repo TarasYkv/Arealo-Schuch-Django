@@ -1,0 +1,168 @@
+{% extends "blogprep/base_wizard.html" %}
+
+{% block wizard_content %}
+<h2><i class="bi bi-image me-2"></i>Schritt 4: Bilder erstellen</h2>
+
+<div class="alert alert-info mb-4">
+    Generiere ein Titelbild für deinen Blog und optional Bilder für einzelne Abschnitte.
+</div>
+
+<!-- Title Image -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-card-image me-2"></i>Titelbild</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="generateTitleImage()" id="titleImageBtn">
+            <i class="bi bi-magic"></i> Titelbild generieren
+        </button>
+    </div>
+    <div class="card-body text-center">
+        {% if project.title_image %}
+        <img src="{{ project.title_image.url }}" alt="Titelbild" class="img-fluid rounded mb-3" style="max-height: 300px;">
+        <p class="text-muted small">{{ project.title_image_prompt|truncatechars:200 }}</p>
+        {% else %}
+        <div id="titleImagePlaceholder" class="p-5 bg-light rounded">
+            <i class="bi bi-image" style="font-size: 4rem; color: #d1d5db;"></i>
+            <p class="text-muted mt-3">Noch kein Titelbild generiert</p>
+        </div>
+        {% endif %}
+        <div id="titleImagePreview" style="display: none;">
+            <img src="" alt="Titelbild Vorschau" class="img-fluid rounded mb-3" style="max-height: 300px;">
+        </div>
+    </div>
+</div>
+
+<!-- Section Images -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-images me-2"></i>Abschnittsbilder <span class="badge bg-secondary">Optional</span></h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            Markiere einen Textabschnitt und generiere ein passendes Bild dafür.
+        </p>
+
+        <div class="mb-3">
+            <label class="form-label">Text für Bildgenerierung</label>
+            <textarea class="form-control" id="sectionTextInput" rows="3"
+                      placeholder="Füge hier den Text ein, für den ein Bild generiert werden soll..."></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Abschnittsname</label>
+            <select class="form-control" id="sectionNameSelect">
+                <option value="intro">Einleitung</option>
+                <option value="main">Hauptteil</option>
+                <option value="tips">Tipps</option>
+                <option value="custom">Benutzerdefiniert</option>
+            </select>
+        </div>
+
+        <button type="button" class="btn btn-outline-primary" onclick="generateSectionImage()">
+            <i class="bi bi-magic"></i> Abschnittsbild generieren
+        </button>
+
+        <!-- Generated Section Images -->
+        {% if project.section_images %}
+        <div class="row mt-4" id="sectionImagesGrid">
+            {% for img in project.section_images %}
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <img src="data:image/png;base64,{{ img.image_data }}" class="card-img-top" alt="{{ img.section }}">
+                    <div class="card-body p-2">
+                        <small class="text-muted">{{ img.section }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div id="sectionImagesGrid" class="row mt-4"></div>
+        {% endif %}
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="wizard-actions">
+        <a href="{% url 'blogprep:wizard_step3' project_id=project.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <button type="submit" class="btn btn-primary">
+            Weiter zu Diagramm <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+    async function generateTitleImage() {
+        const btn = document.getElementById('titleImageBtn');
+        btn.disabled = true;
+        showLoading('Generiere Titelbild... (kann bis zu 60 Sekunden dauern)');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_generate_title_image" project_id=project.id %}');
+
+            if (result.success && result.image_url) {
+                document.getElementById('titleImagePlaceholder')?.remove();
+                const preview = document.getElementById('titleImagePreview');
+                preview.style.display = 'block';
+                preview.querySelector('img').src = result.image_url;
+            } else {
+                alert(result.error || 'Fehler beim Generieren des Titelbilds');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+
+    async function generateSectionImage() {
+        const text = document.getElementById('sectionTextInput').value;
+        const section = document.getElementById('sectionNameSelect').value;
+
+        if (!text) {
+            alert('Bitte gib einen Text für das Bild ein.');
+            return;
+        }
+
+        showLoading('Generiere Abschnittsbild...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_generate_section_image" project_id=project.id %}', {
+                section_text: text,
+                section_name: section
+            });
+
+            if (result.success && result.image_data) {
+                // Add to grid
+                const grid = document.getElementById('sectionImagesGrid');
+                const div = document.createElement('div');
+                div.className = 'col-md-4 mb-3';
+                div.innerHTML = `
+                    <div class="card">
+                        <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${section}">
+                        <div class="card-body p-2">
+                            <small class="text-muted">${section}</small>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(div);
+
+                // Clear input
+                document.getElementById('sectionTextInput').value = '';
+            } else {
+                alert(result.error || 'Fehler beim Generieren des Bildes');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+</script>
+{% endblock %}

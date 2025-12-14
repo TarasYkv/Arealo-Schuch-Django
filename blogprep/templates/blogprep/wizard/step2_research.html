@@ -1,0 +1,192 @@
+{% extends "blogprep/base_wizard.html" %}
+
+{% block wizard_content %}
+<h2><i class="bi bi-search me-2"></i>Schritt 2: Recherche & Gliederung</h2>
+
+<div class="alert alert-info mb-4">
+    <strong>Keyword:</strong> {{ project.main_keyword }}
+    {% if project.secondary_keywords %}
+    | <strong>Sekundär:</strong> {{ project.secondary_keywords|join:", " }}
+    {% endif %}
+</div>
+
+<!-- Research Section -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-globe me-2"></i>Web-Recherche</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="runResearch()" id="researchBtn">
+            <i class="bi bi-play"></i> Recherche starten
+        </button>
+    </div>
+    <div class="card-body" id="researchResults">
+        {% if project.research_data %}
+        <div class="research-data">
+            {% if project.research_data.main_topics %}
+            <h6>Hauptthemen:</h6>
+            <ul>
+                {% for topic in project.research_data.main_topics %}
+                <li>{{ topic }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if project.research_data.user_questions %}
+            <h6>Häufige Fragen:</h6>
+            <ul>
+                {% for question in project.research_data.user_questions %}
+                <li>{{ question }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-muted">Klicke auf "Recherche starten" um die Top-Ergebnisse zu analysieren.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Outline Section -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-list-ol me-2"></i>Gliederung</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="generateOutline()" id="outlineBtn"
+                {% if not project.research_data %}disabled{% endif %}>
+            <i class="bi bi-magic"></i> Gliederung generieren
+        </button>
+    </div>
+    <div class="card-body">
+        <div id="outlineEditor">
+            {% if project.outline %}
+            {% for item in project.outline %}
+            <div class="outline-item mb-3 p-3 bg-light rounded">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>{{ item.h2 }}</strong>
+                        <span class="badge bg-secondary ms-2">{{ item.section }}</span>
+                        <span class="badge bg-info ms-1">~{{ item.word_target }} Wörter</span>
+                    </div>
+                </div>
+                {% if item.key_points %}
+                <ul class="mt-2 mb-0 small">
+                    {% for point in item.key_points %}
+                    <li>{{ point }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="text-muted" id="outlinePlaceholder">
+                Führe zuerst die Recherche durch, dann generiere die Gliederung.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<form method="post" id="step2Form">
+    {% csrf_token %}
+    <input type="hidden" name="outline" id="outlineData"
+           value='{{ project.outline|safe|default:"[]" }}'>
+
+    <div class="wizard-actions">
+        <a href="{% url 'blogprep:wizard_step1_edit' project_id=project.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <button type="submit" class="btn btn-primary" {% if not project.outline %}disabled{% endif %} id="nextBtn">
+            Weiter zu Content <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+    let outlineData = {{ project.outline|safe|default:"[]" }};
+
+    async function runResearch() {
+        showLoading('Führe Web-Recherche durch...');
+        const btn = document.getElementById('researchBtn');
+        btn.disabled = true;
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_run_research" project_id=project.id %}');
+
+            if (result.success && result.data) {
+                // Update UI with research results
+                let html = '<div class="research-data">';
+
+                if (result.data.main_topics && result.data.main_topics.length) {
+                    html += '<h6>Hauptthemen:</h6><ul>';
+                    result.data.main_topics.forEach(t => html += `<li>${t}</li>`);
+                    html += '</ul>';
+                }
+
+                if (result.data.user_questions && result.data.user_questions.length) {
+                    html += '<h6>Häufige Fragen:</h6><ul>';
+                    result.data.user_questions.forEach(q => html += `<li>${q}</li>`);
+                    html += '</ul>';
+                }
+
+                html += '</div>';
+                document.getElementById('researchResults').innerHTML = html;
+
+                // Enable outline button
+                document.getElementById('outlineBtn').disabled = false;
+            } else {
+                alert(result.error || 'Fehler bei der Recherche');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+
+    async function generateOutline() {
+        showLoading('Generiere Blog-Gliederung...');
+        const btn = document.getElementById('outlineBtn');
+        btn.disabled = true;
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_generate_outline" project_id=project.id %}');
+
+            if (result.success && result.data && result.data.outline) {
+                outlineData = result.data.outline;
+                document.getElementById('outlineData').value = JSON.stringify(outlineData);
+
+                // Render outline
+                let html = '';
+                outlineData.forEach(item => {
+                    html += `
+                    <div class="outline-item mb-3 p-3 bg-light rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${item.h2}</strong>
+                                <span class="badge bg-secondary ms-2">${item.section}</span>
+                                <span class="badge bg-info ms-1">~${item.word_target} Wörter</span>
+                            </div>
+                        </div>
+                        ${item.key_points ? `
+                        <ul class="mt-2 mb-0 small">
+                            ${item.key_points.map(p => `<li>${p}</li>`).join('')}
+                        </ul>
+                        ` : ''}
+                    </div>`;
+                });
+
+                document.getElementById('outlineEditor').innerHTML = html;
+                document.getElementById('nextBtn').disabled = false;
+            } else {
+                alert(result.error || 'Fehler beim Generieren der Gliederung');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

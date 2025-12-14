@@ -1,0 +1,313 @@
+{% extends "blogprep/base_wizard.html" %}
+
+{% block wizard_content %}
+<h2><i class="bi bi-pencil-square me-2"></i>Schritt 3: Content erstellen</h2>
+
+<!-- Generation Progress -->
+<div class="generation-progress mb-4" id="generationProgress" style="display: none;">
+    <h6 class="mb-3">Generierungs-Fortschritt:</h6>
+    <div class="generation-item" id="gen-intro" data-status="pending">
+        <div class="status-icon"><i class="bi bi-circle"></i></div>
+        <span>Einleitung (~800 Wörter)</span>
+    </div>
+    <div class="generation-item" id="gen-main" data-status="pending">
+        <div class="status-icon"><i class="bi bi-circle"></i></div>
+        <span>Hauptteil (~800 Wörter)</span>
+    </div>
+    <div class="generation-item" id="gen-tips" data-status="pending">
+        <div class="status-icon"><i class="bi bi-circle"></i></div>
+        <span>Tipps & Do's/Don'ts (~800 Wörter)</span>
+    </div>
+    <div class="generation-item" id="gen-faqs" data-status="pending">
+        <div class="status-icon"><i class="bi bi-circle"></i></div>
+        <span>FAQs (5 Fragen)</span>
+    </div>
+    <div class="generation-item" id="gen-seo" data-status="pending">
+        <div class="status-icon"><i class="bi bi-circle"></i></div>
+        <span>SEO-Titel & Meta</span>
+    </div>
+</div>
+
+<!-- Quick Generate All -->
+<div class="mb-4">
+    <button type="button" class="btn btn-success" onclick="generateAllContent()">
+        <i class="bi bi-magic"></i> Alles automatisch generieren
+    </button>
+    <span class="text-muted ms-2">oder generiere einzelne Abschnitte unten</span>
+</div>
+
+<form method="post" id="contentForm">
+    {% csrf_token %}
+
+    <!-- SEO Meta -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-search me-2"></i>SEO-Daten</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateSection('seo')">
+                <i class="bi bi-magic"></i> Generieren
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">SEO-Titel <small class="text-muted">(max. 60 Zeichen)</small></label>
+                        <input type="text" class="form-control" name="seo_title" id="seo_title"
+                               value="{{ project.seo_title }}" maxlength="70">
+                        <small class="text-muted"><span id="seoTitleCount">{{ project.seo_title|length|default:0 }}</span>/60</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Meta-Description <small class="text-muted">(max. 155 Zeichen)</small></label>
+                        <input type="text" class="form-control" name="meta_description" id="meta_description"
+                               value="{{ project.meta_description }}" maxlength="160">
+                        <small class="text-muted"><span id="metaDescCount">{{ project.meta_description|length|default:0 }}</span>/155</small>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Zusammenfassung</label>
+                <textarea class="form-control" name="summary" id="summary" rows="2">{{ project.summary }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Einleitung -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-bookmark me-2"></i>Einleitung (~800 Wörter)</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateSection('intro')">
+                <i class="bi bi-magic"></i> Generieren
+            </button>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control content-editor" name="content_intro" id="content_intro"
+                      rows="12">{{ project.content_intro }}</textarea>
+            <small class="text-muted">Wörter: <span id="introWordCount">{{ project.content_intro|default:""|wordcount }}</span></small>
+        </div>
+    </div>
+
+    <!-- Hauptteil -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-card-text me-2"></i>Hauptteil (~800 Wörter)</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateSection('main')">
+                <i class="bi bi-magic"></i> Generieren
+            </button>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control content-editor" name="content_main" id="content_main"
+                      rows="12">{{ project.content_main }}</textarea>
+            <small class="text-muted">Wörter: <span id="mainWordCount">{{ project.content_main|default:""|wordcount }}</span></small>
+        </div>
+    </div>
+
+    <!-- Tipps -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Tipps & Do's/Don'ts (~800 Wörter)</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateSection('tips')">
+                <i class="bi bi-magic"></i> Generieren
+            </button>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control content-editor" name="content_tips" id="content_tips"
+                      rows="12">{{ project.content_tips }}</textarea>
+            <small class="text-muted">Wörter: <span id="tipsWordCount">{{ project.content_tips|default:""|wordcount }}</span></small>
+        </div>
+    </div>
+
+    <!-- FAQs -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-question-circle me-2"></i>FAQs</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateSection('faqs')">
+                <i class="bi bi-magic"></i> Generieren
+            </button>
+        </div>
+        <div class="card-body" id="faqsContainer">
+            {% if project.faqs %}
+            {% for faq in project.faqs %}
+            <div class="faq-item mb-3 p-3 bg-light rounded">
+                <div class="form-group mb-2">
+                    <label class="form-label small">Frage {{ forloop.counter }}</label>
+                    <input type="text" class="form-control faq-question" value="{{ faq.question }}">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label small">Antwort</label>
+                    <textarea class="form-control faq-answer" rows="2">{{ faq.answer }}</textarea>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="text-muted">Klicke auf "Generieren" um FAQs zu erstellen.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <input type="hidden" name="faqs" id="faqsData" value='{{ project.faqs|safe|default:"[]" }}'>
+
+    <div class="wizard-actions">
+        <a href="{% url 'blogprep:wizard_step2' project_id=project.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <button type="submit" class="btn btn-primary">
+            Weiter zu Bilder <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block wizard_js %}
+<script>
+    let faqsData = {{ project.faqs|safe|default:"[]" }};
+
+    // Character counters
+    document.getElementById('seo_title').addEventListener('input', function() {
+        document.getElementById('seoTitleCount').textContent = this.value.length;
+    });
+    document.getElementById('meta_description').addEventListener('input', function() {
+        document.getElementById('metaDescCount').textContent = this.value.length;
+    });
+
+    // Word counters
+    function updateWordCount(elementId, counterId) {
+        const text = document.getElementById(elementId).value;
+        const count = text.trim() ? text.trim().split(/\s+/).length : 0;
+        document.getElementById(counterId).textContent = count;
+    }
+
+    document.getElementById('content_intro').addEventListener('input', () => updateWordCount('content_intro', 'introWordCount'));
+    document.getElementById('content_main').addEventListener('input', () => updateWordCount('content_main', 'mainWordCount'));
+    document.getElementById('content_tips').addEventListener('input', () => updateWordCount('content_tips', 'tipsWordCount'));
+
+    function updateGenerationStatus(section, status) {
+        const item = document.getElementById(`gen-${section}`);
+        if (!item) return;
+
+        item.dataset.status = status;
+        item.className = `generation-item ${status}`;
+
+        const icon = item.querySelector('.status-icon i');
+        if (status === 'running') {
+            icon.className = 'bi bi-arrow-repeat';
+        } else if (status === 'completed') {
+            icon.className = 'bi bi-check';
+        } else if (status === 'error') {
+            icon.className = 'bi bi-x';
+        } else {
+            icon.className = 'bi bi-circle';
+        }
+    }
+
+    async function generateSection(section) {
+        const progressDiv = document.getElementById('generationProgress');
+        progressDiv.style.display = 'block';
+
+        updateGenerationStatus(section, 'running');
+
+        try {
+            let result;
+            if (section === 'faqs') {
+                result = await apiCall('{% url "blogprep:api_generate_faqs" project_id=project.id %}');
+                if (result.success && result.faqs) {
+                    faqsData = result.faqs;
+                    renderFaqs();
+                }
+            } else if (section === 'seo') {
+                result = await apiCall('{% url "blogprep:api_generate_seo_meta" project_id=project.id %}');
+                if (result.success && result.data) {
+                    document.getElementById('seo_title').value = result.data.title || '';
+                    document.getElementById('meta_description').value = result.data.description || '';
+                    document.getElementById('summary').value = result.data.summary || '';
+                    document.getElementById('seoTitleCount').textContent = (result.data.title || '').length;
+                    document.getElementById('metaDescCount').textContent = (result.data.description || '').length;
+                }
+            } else {
+                result = await apiCall('{% url "blogprep:api_generate_content" project_id=project.id %}', {
+                    section_type: section
+                });
+                if (result.success && result.content) {
+                    document.getElementById(`content_${section}`).value = result.content;
+                    updateWordCount(`content_${section}`, `${section}WordCount`);
+                }
+            }
+
+            if (result.success) {
+                updateGenerationStatus(section, 'completed');
+            } else {
+                updateGenerationStatus(section, 'error');
+                alert(result.error || 'Fehler bei der Generierung');
+            }
+        } catch (error) {
+            updateGenerationStatus(section, 'error');
+            alert('Fehler: ' + error.message);
+        }
+    }
+
+    async function generateAllContent() {
+        const sections = ['intro', 'main', 'tips', 'faqs', 'seo'];
+        const progressDiv = document.getElementById('generationProgress');
+        progressDiv.style.display = 'block';
+
+        for (const section of sections) {
+            await generateSection(section);
+            // Small delay between generations
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+
+    function renderFaqs() {
+        const container = document.getElementById('faqsContainer');
+        if (!faqsData || faqsData.length === 0) {
+            container.innerHTML = '<p class="text-muted">Keine FAQs generiert.</p>';
+            return;
+        }
+
+        let html = '';
+        faqsData.forEach((faq, index) => {
+            html += `
+            <div class="faq-item mb-3 p-3 bg-light rounded">
+                <div class="form-group mb-2">
+                    <label class="form-label small">Frage ${index + 1}</label>
+                    <input type="text" class="form-control faq-question" value="${faq.question}" onchange="updateFaq(${index}, 'question', this.value)">
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label small">Antwort</label>
+                    <textarea class="form-control faq-answer" rows="2" onchange="updateFaq(${index}, 'answer', this.value)">${faq.answer}</textarea>
+                </div>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+        document.getElementById('faqsData').value = JSON.stringify(faqsData);
+    }
+
+    function updateFaq(index, field, value) {
+        if (faqsData[index]) {
+            faqsData[index][field] = value;
+            document.getElementById('faqsData').value = JSON.stringify(faqsData);
+        }
+    }
+
+    // Save FAQs before form submit
+    document.getElementById('contentForm').addEventListener('submit', function() {
+        // Collect FAQs from form
+        const questions = document.querySelectorAll('.faq-question');
+        const answers = document.querySelectorAll('.faq-answer');
+        const faqs = [];
+
+        questions.forEach((q, i) => {
+            if (q.value && answers[i] && answers[i].value) {
+                faqs.push({
+                    question: q.value,
+                    answer: answers[i].value
+                });
+            }
+        });
+
+        document.getElementById('faqsData').value = JSON.stringify(faqs);
+    });
+</script>
+{% endblock %}

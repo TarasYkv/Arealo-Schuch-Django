@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}BlogPrep - Einstellungen | WorkLoom{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'blogprep:project_list' %}">BlogPrep</a></li>
+                    <li class="breadcrumb-item active">Einstellungen</li>
+                </ol>
+            </nav>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-gear me-2"></i>BlogPrep Einstellungen
+            </h1>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Unternehmensinformationen -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-building me-2"></i>Unternehmensinformationen</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-4">
+                            Diese Informationen werden verwendet, um personalisierte Blog-Inhalte zu erstellen.
+                        </p>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="company_name">Unternehmensname</label>
+                            <input type="text" class="form-control" id="company_name" name="company_name"
+                                   value="{{ settings.company_name }}"
+                                   placeholder="z.B. Mein Online-Shop">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="company_description">Unternehmensbeschreibung</label>
+                            <textarea class="form-control" id="company_description" name="company_description"
+                                      rows="4" placeholder="Beschreibe dein Unternehmen, seine Geschichte und Werte...">{{ settings.company_description }}</textarea>
+                            <small class="text-muted">Diese Beschreibung wird für den persönlichen Ton der Blogs verwendet.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="company_expertise">Fachgebiete & Expertise</label>
+                            <textarea class="form-control" id="company_expertise" name="company_expertise"
+                                      rows="3" placeholder="In welchen Bereichen bist du Experte?">{{ settings.company_expertise }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="writing_style">Schreibstil</label>
+                            <select class="form-control" id="writing_style" name="writing_style">
+                                {% for value, label in settings.WRITING_STYLE_CHOICES %}
+                                <option value="{{ value }}" {% if settings.writing_style == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Produktinformationen -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>Produktinformationen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="product_info">Produktbeschreibung</label>
+                            <textarea class="form-control" id="product_info" name="product_info"
+                                      rows="4" placeholder="Beschreibe deine Hauptprodukte oder Dienstleistungen...">{{ settings.product_info }}</textarea>
+                            <small class="text-muted">Diese Informationen werden subtil in die Blogs integriert.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="product_links">Produktlinks <span class="text-muted">(ein Link pro Zeile)</span></label>
+                            <textarea class="form-control" id="product_links" name="product_links"
+                                      rows="4" placeholder="https://mein-shop.de/produkt-1&#10;https://mein-shop.de/produkt-2">{{ product_links_text }}</textarea>
+                            <small class="text-muted">Diese URLs werden automatisch analysiert, um Produktinformationen zu extrahieren.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KI-Einstellungen -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>KI-Einstellungen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="mb-3">Text-Generierung</h6>
+
+                                <div class="mb-3">
+                                    <label class="form-label" for="ai_provider">KI-Anbieter</label>
+                                    <select class="form-control" id="ai_provider" name="ai_provider">
+                                        {% for value, label in settings.AI_PROVIDER_CHOICES %}
+                                        <option value="{{ value }}" {% if settings.ai_provider == value %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label" for="ai_model">Modell</label>
+                                    <select class="form-control" id="ai_model" name="ai_model">
+                                        <!-- OpenAI -->
+                                        <optgroup label="OpenAI" class="provider-group" data-provider="openai">
+                                            {% for value, label in model_choices.openai %}
+                                            <option value="{{ value }}" {% if settings.ai_model == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        <!-- Gemini -->
+                                        <optgroup label="Google Gemini" class="provider-group" data-provider="gemini">
+                                            {% for value, label in model_choices.gemini %}
+                                            <option value="{{ value }}" {% if settings.ai_model == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        <!-- Anthropic -->
+                                        <optgroup label="Anthropic" class="provider-group" data-provider="anthropic">
+                                            {% for value, label in model_choices.anthropic %}
+                                            <option value="{{ value }}" {% if settings.ai_model == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6 class="mb-3">Bild-Generierung</h6>
+
+                                <div class="mb-3">
+                                    <label class="form-label" for="image_provider">KI-Anbieter</label>
+                                    <select class="form-control" id="image_provider" name="image_provider">
+                                        {% for value, label in settings.IMAGE_PROVIDER_CHOICES %}
+                                        <option value="{{ value }}" {% if settings.image_provider == value %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label" for="image_model">Modell</label>
+                                    <select class="form-control" id="image_model" name="image_model">
+                                        {% for value, label in settings.GEMINI_IMAGE_MODEL_CHOICES %}
+                                        <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            API-Keys werden in deinen
+                            <a href="{% url 'accounts:neue_api_einstellungen' %}">Kontoeinstellungen</a>
+                            konfiguriert.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'blogprep:project_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Einstellungen speichern
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Tipps</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-3">
+                                <strong>Unternehmensbeschreibung:</strong>
+                                <p class="small text-muted mb-0">
+                                    Je detaillierter die Beschreibung, desto persönlicher werden die Blogs.
+                                </p>
+                            </li>
+                            <li class="mb-3">
+                                <strong>Produktlinks:</strong>
+                                <p class="small text-muted mb-0">
+                                    Füge Links zu deinen wichtigsten Produkten hinzu, damit die KI diese subtil einbinden kann.
+                                </p>
+                            </li>
+                            <li class="mb-3">
+                                <strong>KI-Modelle:</strong>
+                                <p class="small text-muted mb-0">
+                                    GPT-4o und Claude 3.5 Sonnet liefern die besten Ergebnisse, sind aber teurer.
+                                </p>
+                            </li>
+                            <li>
+                                <strong>Bildgenerierung:</strong>
+                                <p class="small text-muted mb-0">
+                                    Imagen 3 erstellt fotorealistische Bilder, ideal für Business-Blogs.
+                                </p>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Filter models based on provider selection
+    document.getElementById('ai_provider').addEventListener('change', function() {
+        const provider = this.value;
+        const modelSelect = document.getElementById('ai_model');
+
+        // Show only matching optgroup
+        modelSelect.querySelectorAll('optgroup').forEach(group => {
+            const options = group.querySelectorAll('option');
+            if (group.dataset.provider === provider) {
+                options.forEach(opt => opt.style.display = 'block');
+                // Select first option of visible group
+                if (options.length > 0) {
+                    modelSelect.value = options[0].value;
+                }
+            } else {
+                options.forEach(opt => opt.style.display = 'none');
+            }
+        });
+    });
+
+    // Trigger on page load
+    document.getElementById('ai_provider').dispatchEvent(new Event('change'));
+</script>
+{% endblock %}
