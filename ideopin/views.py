@@ -1600,6 +1600,7 @@ def api_upload_post(request, project_id):
         platforms = data.get('platforms', ['pinterest'])
         pinterest_board_id = data.get('pinterest_board_id', '')
         scheduled_date = data.get('scheduled_date', '')  # ISO-8601 Format: 2024-12-31T23:45:00Z
+        platform_options = data.get('platform_options', {})  # Plattform-spezifische Optionen
 
         # Prüfen ob Bild vorhanden
         image_file = project.get_final_image_for_upload()
@@ -1731,10 +1732,18 @@ def api_upload_post(request, project_id):
             # Instagram
             if 'instagram' in other_platforms:
                 form_data.append(('instagram_caption', content_instagram))
+                # Plattform-spezifische Optionen
+                if platform_options.get('media_type'):
+                    form_data.append(('media_type', platform_options['media_type']))
+                if platform_options.get('share_to_feed') is not None:
+                    form_data.append(('share_to_feed', 'true' if platform_options['share_to_feed'] else 'false'))
 
             # Facebook
             if 'facebook' in other_platforms:
                 form_data.append(('facebook_title', content_facebook))
+                # Plattform-spezifische Optionen
+                if platform_options.get('facebook_media_type'):
+                    form_data.append(('facebook_media_type', platform_options['facebook_media_type']))
 
             # X (Twitter)
             if 'x' in other_platforms:
@@ -1744,6 +1753,9 @@ def api_upload_post(request, project_id):
             if 'linkedin' in other_platforms:
                 form_data.append(('linkedin_title', content_linkedin))
                 form_data.append(('linkedin_description', content_linkedin))
+                # Plattform-spezifische Optionen
+                if platform_options.get('visibility'):
+                    form_data.append(('visibility', platform_options['visibility']))
 
             # Threads
             if 'threads' in other_platforms:
