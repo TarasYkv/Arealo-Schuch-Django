@@ -407,13 +407,29 @@ class BlogPrepProject(models.Model):
                 total += len(field.split())
         return total
 
-    def generate_full_html(self):
-        """Generiert den vollständigen HTML-Content für den Blog"""
+    def generate_full_html(self, base_url=None):
+        """
+        Generiert den vollständigen HTML-Content für den Blog.
+
+        Args:
+            base_url: Optionale Basis-URL für absolute Bild-Links (z.B. 'https://www.workloom.de')
+                     Wenn angegeben, werden alle Bilder mit absoluten URLs versehen.
+        """
         html_parts = []
+
+        def get_image_url(image_field):
+            """Konvertiert Bild-URL zu absoluter URL wenn base_url gesetzt"""
+            if not image_field:
+                return None
+            url = image_field.url
+            if base_url and url.startswith('/'):
+                return f"{base_url.rstrip('/')}{url}"
+            return url
 
         # Titelbild
         if self.title_image:
-            html_parts.append(f'<img src="{self.title_image.url}" alt="{self.seo_title}" class="blog-title-image" />')
+            img_url = get_image_url(self.title_image)
+            html_parts.append(f'<img src="{img_url}" alt="{self.seo_title}" class="blog-title-image" style="width: 100%; max-width: 1200px; height: auto;" />')
 
         # Einleitung
         if self.content_intro:
@@ -425,7 +441,8 @@ class BlogPrepProject(models.Model):
 
         # Diagramm
         if self.diagram_image:
-            html_parts.append(f'<div class="blog-diagram"><img src="{self.diagram_image.url}" alt="Diagramm" /></div>')
+            img_url = get_image_url(self.diagram_image)
+            html_parts.append(f'<div class="blog-diagram"><img src="{img_url}" alt="Diagramm" style="width: 100%; max-width: 1000px; height: auto;" /></div>')
 
         # Tipps
         if self.content_tips:

@@ -855,9 +855,12 @@ def api_export_to_shopify(request, project_id):
         })
 
     try:
-        # Generiere HTML falls noch nicht geschehen
-        if not project.full_html_content:
-            project.generate_full_html()
+        # Basis-URL für absolute Bild-Links (z.B. https://www.workloom.de)
+        base_url = request.build_absolute_uri('/').rstrip('/')
+
+        # Generiere HTML mit absoluten Bild-URLs für Shopify
+        project.generate_full_html(base_url=base_url)
+        project.save()
 
         # Shopify API Call
         store = project.shopify_store
