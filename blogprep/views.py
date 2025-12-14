@@ -134,22 +134,46 @@ def settings_view(request):
         settings.ai_provider = request.POST.get('ai_provider', 'openai')
         settings.ai_model = request.POST.get('ai_model', 'gpt-4o')
         settings.image_provider = request.POST.get('image_provider', 'gemini')
-        settings.image_model = request.POST.get('image_model', 'imagen-3.0-generate-002')
+        settings.image_model = request.POST.get('image_model', 'imagen-3.0-generate-001')
 
         settings.save()
         messages.success(request, 'Einstellungen wurden gespeichert.')
         return redirect('blogprep:settings')
 
-    # Modell-Choices für Template
+    # Text-Modell-Choices für Template
     model_choices = {
         'openai': BlogPrepSettings.OPENAI_MODEL_CHOICES,
         'gemini': BlogPrepSettings.GEMINI_MODEL_CHOICES,
         'anthropic': BlogPrepSettings.ANTHROPIC_MODEL_CHOICES,
     }
 
+    # Modell-Beschreibungen
+    model_descriptions = {
+        'openai': BlogPrepSettings.OPENAI_MODEL_DESCRIPTIONS,
+        'gemini': BlogPrepSettings.GEMINI_MODEL_DESCRIPTIONS,
+        'anthropic': BlogPrepSettings.ANTHROPIC_MODEL_DESCRIPTIONS,
+    }
+
+    # Bild-Modell-Choices für Template
+    image_model_choices = {
+        'gemini': BlogPrepSettings.GEMINI_IMAGE_MODEL_CHOICES,
+        'dalle': BlogPrepSettings.DALLE_IMAGE_MODEL_CHOICES,
+        'ideogram': BlogPrepSettings.IDEOGRAM_IMAGE_MODEL_CHOICES,
+    }
+
+    # Bild-Modell-Beschreibungen
+    image_model_descriptions = {
+        'gemini': BlogPrepSettings.GEMINI_IMAGE_MODEL_DESCRIPTIONS,
+        'dalle': BlogPrepSettings.DALLE_IMAGE_MODEL_DESCRIPTIONS,
+        'ideogram': BlogPrepSettings.IDEOGRAM_IMAGE_MODEL_DESCRIPTIONS,
+    }
+
     context = {
         'settings': settings,
         'model_choices': model_choices,
+        'model_descriptions': model_descriptions,
+        'image_model_choices': image_model_choices,
+        'image_model_descriptions': image_model_descriptions,
         'product_links_text': '\n'.join(settings.product_links) if settings.product_links else ''
     }
     return render(request, 'blogprep/settings.html', context)

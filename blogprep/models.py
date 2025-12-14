@@ -73,20 +73,57 @@ class BlogPrepSettings(models.Model):
         verbose_name='KI-Anbieter (Text)'
     )
 
+    # OpenAI Modelle mit Beschreibungen
     OPENAI_MODEL_CHOICES = [
-        ('gpt-4o', 'GPT-4o (Empfohlen)'),
-        ('gpt-4o-mini', 'GPT-4o Mini (Schneller)'),
+        ('gpt-4o', 'GPT-4o'),
+        ('gpt-4o-mini', 'GPT-4o Mini'),
         ('gpt-4-turbo', 'GPT-4 Turbo'),
+        ('gpt-4', 'GPT-4'),
+        ('o1', 'o1'),
+        ('o1-mini', 'o1 Mini'),
+        ('o3-mini', 'o3 Mini'),
     ]
+    OPENAI_MODEL_DESCRIPTIONS = {
+        'gpt-4o': 'Bestes Preis-Leistungs-Verhältnis, multimodal, 128K Context',
+        'gpt-4o-mini': 'Günstig & schnell, ideal für einfache Aufgaben',
+        'gpt-4-turbo': 'Stark bei komplexen Aufgaben, 128K Context',
+        'gpt-4': 'Klassisches GPT-4, zuverlässig aber teurer',
+        'o1': 'Reasoning-Modell für komplexe Logik, langsam aber gründlich',
+        'o1-mini': 'Schnelleres Reasoning, gut für Code & Mathe',
+        'o3-mini': 'Neuestes Mini-Reasoning, beste Effizienz',
+    }
+
+    # Gemini Modelle mit Beschreibungen
     GEMINI_MODEL_CHOICES = [
-        ('gemini-2.0-flash-exp', 'Gemini 2.0 Flash (Empfohlen)'),
+        ('gemini-2.0-flash', 'Gemini 2.0 Flash'),
+        ('gemini-2.0-flash-lite', 'Gemini 2.0 Flash Lite'),
         ('gemini-1.5-pro', 'Gemini 1.5 Pro'),
         ('gemini-1.5-flash', 'Gemini 1.5 Flash'),
+        ('gemini-1.5-flash-8b', 'Gemini 1.5 Flash 8B'),
     ]
+    GEMINI_MODEL_DESCRIPTIONS = {
+        'gemini-2.0-flash': 'Neuestes Modell, sehr schnell, multimodal, 1M Context',
+        'gemini-2.0-flash-lite': 'Ultra-günstig, ideal für einfache Aufgaben',
+        'gemini-1.5-pro': 'Beste Qualität bei Google, 2M Context möglich',
+        'gemini-1.5-flash': 'Schnell & günstig, gut für längere Texte',
+        'gemini-1.5-flash-8b': 'Kleinste Version, extrem günstig',
+    }
+
+    # Anthropic Modelle mit Beschreibungen
     ANTHROPIC_MODEL_CHOICES = [
-        ('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Empfohlen)'),
-        ('claude-3-5-haiku-20241022', 'Claude 3.5 Haiku (Schneller)'),
+        ('claude-sonnet-4-20250514', 'Claude Sonnet 4'),
+        ('claude-3-7-sonnet-20250219', 'Claude 3.7 Sonnet'),
+        ('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet'),
+        ('claude-3-5-haiku-20241022', 'Claude 3.5 Haiku'),
+        ('claude-3-opus-20240229', 'Claude 3 Opus'),
     ]
+    ANTHROPIC_MODEL_DESCRIPTIONS = {
+        'claude-sonnet-4-20250514': 'Neuestes Modell, beste Balance aus Qualität & Speed',
+        'claude-3-7-sonnet-20250219': 'Extended Thinking, ideal für komplexe Analysen',
+        'claude-3-5-sonnet-20241022': 'Bewährt, sehr gut für Content-Erstellung',
+        'claude-3-5-haiku-20241022': 'Schnellstes Claude, günstig, gute Qualität',
+        'claude-3-opus-20240229': 'Stärkstes Claude 3, ideal für anspruchsvolle Aufgaben',
+    }
 
     ai_model = models.CharField(
         max_length=50,
@@ -107,13 +144,43 @@ class BlogPrepSettings(models.Model):
         verbose_name='KI-Anbieter (Bilder)'
     )
 
+    # Bild-Modelle pro Provider mit Beschreibungen
     GEMINI_IMAGE_MODEL_CHOICES = [
-        ('imagen-3.0-generate-002', 'Imagen 3 (Empfohlen)'),
-        ('gemini-2.0-flash-exp', 'Gemini 2.0 Flash'),
+        ('imagen-3.0-generate-001', 'Imagen 3'),
+        ('imagegeneration@006', 'Imagen 2'),
     ]
+    GEMINI_IMAGE_MODEL_DESCRIPTIONS = {
+        'imagen-3.0-generate-001': 'Beste Bildqualität, fotorealistisch, hochdetailliert',
+        'imagegeneration@006': 'Schneller, günstiger, gute Qualität',
+    }
+
+    DALLE_IMAGE_MODEL_CHOICES = [
+        ('dall-e-3', 'DALL-E 3'),
+        ('dall-e-2', 'DALL-E 2'),
+        ('gpt-image-1', 'GPT Image'),
+    ]
+    DALLE_IMAGE_MODEL_DESCRIPTIONS = {
+        'dall-e-3': 'Beste Qualität, versteht komplexe Prompts, 1024px',
+        'dall-e-2': 'Schneller & günstiger, weniger kreativ',
+        'gpt-image-1': 'Neues Modell, native GPT-Integration',
+    }
+
+    IDEOGRAM_IMAGE_MODEL_CHOICES = [
+        ('V_2', 'Ideogram 2.0'),
+        ('V_2_TURBO', 'Ideogram 2.0 Turbo'),
+        ('V_1', 'Ideogram 1.0'),
+        ('V_1_TURBO', 'Ideogram 1.0 Turbo'),
+    ]
+    IDEOGRAM_IMAGE_MODEL_DESCRIPTIONS = {
+        'V_2': 'Beste Qualität, exzellent bei Text-in-Bild',
+        'V_2_TURBO': 'Schneller, gut für Iterationen',
+        'V_1': 'Bewährt, zuverlässig',
+        'V_1_TURBO': 'Schnellste Option',
+    }
+
     image_model = models.CharField(
         max_length=50,
-        default='imagen-3.0-generate-002',
+        default='imagen-3.0-generate-001',
         verbose_name='Bild-Modell'
     )
 

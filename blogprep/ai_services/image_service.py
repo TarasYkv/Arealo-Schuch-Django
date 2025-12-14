@@ -42,16 +42,19 @@ class ImageService:
     # Verfügbare Modelle pro Provider
     PROVIDER_MODELS = {
         'gemini': {
-            'imagen-3.0-generate-002': 'Imagen 3 (Empfohlen)',
-            'gemini-2.0-flash-exp': 'Gemini 2.0 Flash',
+            'imagen-3.0-generate-001': 'Imagen 3 (Beste Qualität)',
+            'imagegeneration@006': 'Imagen 2 (Schneller)',
         },
         'dalle': {
             'dall-e-3': 'DALL-E 3 (Beste Qualität)',
             'dall-e-2': 'DALL-E 2 (Schneller)',
+            'gpt-image-1': 'GPT Image (Neu)',
         },
         'ideogram': {
-            'V_2A_TURBO': 'Ideogram Turbo',
-            'V_2A': 'Ideogram Standard',
+            'V_2': 'Ideogram 2.0',
+            'V_2_TURBO': 'Ideogram 2.0 Turbo',
+            'V_1': 'Ideogram 1.0',
+            'V_1_TURBO': 'Ideogram 1.0 Turbo',
         }
     }
 
@@ -72,7 +75,7 @@ class ImageService:
             self.model = settings.image_model
         else:
             self.provider = 'gemini'
-            self.model = 'imagen-3.0-generate-002'
+            self.model = 'imagen-3.0-generate-001'
 
         # Clients initialisieren
         self._init_clients()
@@ -270,16 +273,19 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
             return self._generate_with_gemini_native(prompt, aspect_ratio)
 
     def _generate_with_imagen(self, prompt: str, aspect_ratio: str) -> Dict:
-        """Generiert Bild mit Google Imagen"""
-        url = f"{self.GOOGLE_BASE_URL}/models/{self.model}:predict"
+        """Generiert Bild mit Google Imagen über die Gemini API"""
+        # Imagen 3 verwendet generateImages Endpunkt
+        url = f"{self.GOOGLE_BASE_URL}/models/{self.model}:generateImages"
 
         payload = {
-            "instances": [{"prompt": prompt}],
-            "parameters": {
+            "prompt": prompt,
+            "config": {
+                "numberOfImages": 1,
                 "aspectRatio": aspect_ratio,
-                "sampleCount": 1,
-                "personGeneration": "allow_adult",
-                "safetySetting": "block_medium_and_above"
+                "personGeneration": "ALLOW_ADULT",
+                "outputOptions": {
+                    "mimeType": "image/png"
+                }
             }
         }
 
@@ -291,7 +297,10 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
         response = requests.post(url, json=payload, headers=headers, timeout=180)
 
         if response.status_code != 200:
-            error_detail = response.json().get('error', {}).get('message', response.text)
+            try:
+                error_detail = response.json().get('error', {}).get('message', response.text)
+            except:
+                error_detail = response.text
             return {
                 'success': False,
                 'error': f"Imagen API Error: {error_detail}",
@@ -299,8 +308,20 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
             }
 
         data = response.json()
-        predictions = data.get('predictions', [])
 
+        # Imagen 3 Response Format
+        generated_images = data.get('generatedImages', [])
+        if generated_images and 'image' in generated_images[0]:
+            image_data = generated_images[0]['image'].get('imageBytes')
+            if image_data:
+                return {
+                    'success': True,
+                    'image_data': image_data,
+                    'model_used': self.model
+                }
+
+        # Fallback für altes Format
+        predictions = data.get('predictions', [])
         if predictions and 'bytesBase64Encoded' in predictions[0]:
             return {
                 'success': True,
@@ -310,7 +331,7 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
 
         return {
             'success': False,
-            'error': 'Keine Bilddaten in der Antwort',
+            'error': f'Keine Bilddaten in der Antwort: {str(data)[:200]}',
             'model_used': self.model
         }
 

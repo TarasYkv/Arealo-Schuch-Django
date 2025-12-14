@@ -138,6 +138,7 @@
                                             {% endfor %}
                                         </optgroup>
                                     </select>
+                                    <small id="aiModelDesc" class="text-muted"></small>
                                 </div>
                             </div>
 
@@ -158,12 +159,33 @@
                                 <div class="mb-3">
                                     <label class="form-label" for="image_model">Modell</label>
                                     <select class="form-control" id="image_model" name="image_model">
-                                        {% for value, label in settings.GEMINI_IMAGE_MODEL_CHOICES %}
-                                        <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}>
-                                            {{ label }}
-                                        </option>
-                                        {% endfor %}
+                                        <!-- Gemini/Imagen -->
+                                        <optgroup label="Google Imagen" class="image-provider-group" data-provider="gemini">
+                                            {% for value, label in image_model_choices.gemini %}
+                                            <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}
+                                                    data-desc="{{ image_model_descriptions.gemini|default_if_none:'' }}">
+                                                {{ label }}
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        <!-- DALL-E -->
+                                        <optgroup label="OpenAI DALL-E" class="image-provider-group" data-provider="dalle">
+                                            {% for value, label in image_model_choices.dalle %}
+                                            <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        <!-- Ideogram -->
+                                        <optgroup label="Ideogram" class="image-provider-group" data-provider="ideogram">
+                                            {% for value, label in image_model_choices.ideogram %}
+                                            <option value="{{ value }}" {% if settings.image_model == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                            {% endfor %}
+                                        </optgroup>
                                     </select>
+                                    <small id="imageModelDesc" class="text-muted"></small>
                                 </div>
                             </div>
                         </div>
@@ -230,27 +252,127 @@
 
 {% block extra_js %}
 <script>
-    // Filter models based on provider selection
-    document.getElementById('ai_provider').addEventListener('change', function() {
-        const provider = this.value;
-        const modelSelect = document.getElementById('ai_model');
+    // Modell-Beschreibungen aus Python
+    const modelDescriptions = {
+        // OpenAI
+        'gpt-4o': 'Bestes Preis-Leistungs-Verhältnis, multimodal, 128K Context',
+        'gpt-4o-mini': 'Günstig & schnell, ideal für einfache Aufgaben',
+        'gpt-4-turbo': 'Stark bei komplexen Aufgaben, 128K Context',
+        'gpt-4': 'Klassisches GPT-4, zuverlässig aber teurer',
+        'o1': 'Reasoning-Modell für komplexe Logik, langsam aber gründlich',
+        'o1-mini': 'Schnelleres Reasoning, gut für Code & Mathe',
+        'o3-mini': 'Neuestes Mini-Reasoning, beste Effizienz',
+        // Gemini
+        'gemini-2.0-flash': 'Neuestes Modell, sehr schnell, multimodal, 1M Context',
+        'gemini-2.0-flash-lite': 'Ultra-günstig, ideal für einfache Aufgaben',
+        'gemini-1.5-pro': 'Beste Qualität bei Google, 2M Context möglich',
+        'gemini-1.5-flash': 'Schnell & günstig, gut für längere Texte',
+        'gemini-1.5-flash-8b': 'Kleinste Version, extrem günstig',
+        // Anthropic
+        'claude-sonnet-4-20250514': 'Neuestes Modell, beste Balance aus Qualität & Speed',
+        'claude-3-7-sonnet-20250219': 'Extended Thinking, ideal für komplexe Analysen',
+        'claude-3-5-sonnet-20241022': 'Bewährt, sehr gut für Content-Erstellung',
+        'claude-3-5-haiku-20241022': 'Schnellstes Claude, günstig, gute Qualität',
+        'claude-3-opus-20240229': 'Stärkstes Claude 3, ideal für anspruchsvolle Aufgaben',
+    };
+
+    const imageModelDescriptions = {
+        // Gemini/Imagen
+        'imagen-3.0-generate-001': 'Beste Bildqualität, fotorealistisch, hochdetailliert',
+        'imagegeneration@006': 'Schneller, günstiger, gute Qualität',
+        // DALL-E
+        'dall-e-3': 'Beste Qualität, versteht komplexe Prompts, 1024px',
+        'dall-e-2': 'Schneller & günstiger, weniger kreativ',
+        'gpt-image-1': 'Neues Modell, native GPT-Integration',
+        // Ideogram
+        'V_2': 'Beste Qualität, exzellent bei Text-in-Bild',
+        'V_2_TURBO': 'Schneller, gut für Iterationen',
+        'V_1': 'Bewährt, zuverlässig',
+        'V_1_TURBO': 'Schnellste Option',
+    };
+
+    // Filter Text-Modelle based on provider selection
+    const aiProviderSelect = document.getElementById('ai_provider');
+    const aiModelSelect = document.getElementById('ai_model');
+    const aiModelDesc = document.getElementById('aiModelDesc');
+
+    function updateTextModels() {
+        const provider = aiProviderSelect.value;
 
         // Show only matching optgroup
-        modelSelect.querySelectorAll('optgroup').forEach(group => {
+        aiModelSelect.querySelectorAll('optgroup').forEach(group => {
             const options = group.querySelectorAll('option');
             if (group.dataset.provider === provider) {
                 options.forEach(opt => opt.style.display = 'block');
-                // Select first option of visible group
-                if (options.length > 0) {
-                    modelSelect.value = options[0].value;
+                // Select first option of visible group if current selection is hidden
+                const currentValue = aiModelSelect.value;
+                const currentOption = aiModelSelect.querySelector(`option[value="${currentValue}"]`);
+                if (!currentOption || currentOption.closest('optgroup').dataset.provider !== provider) {
+                    if (options.length > 0) {
+                        aiModelSelect.value = options[0].value;
+                    }
                 }
             } else {
                 options.forEach(opt => opt.style.display = 'none');
             }
         });
-    });
+
+        updateTextModelDescription();
+    }
+
+    function updateTextModelDescription() {
+        const model = aiModelSelect.value;
+        const desc = modelDescriptions[model] || '';
+        if (aiModelDesc) {
+            aiModelDesc.textContent = desc;
+        }
+    }
+
+    aiProviderSelect.addEventListener('change', updateTextModels);
+    aiModelSelect.addEventListener('change', updateTextModelDescription);
+
+    // Filter Bild-Modelle based on image provider selection
+    const imageProviderSelect = document.getElementById('image_provider');
+    const imageModelSelect = document.getElementById('image_model');
+    const imageModelDesc = document.getElementById('imageModelDesc');
+
+    function updateImageModels() {
+        const provider = imageProviderSelect.value;
+
+        // Show only matching optgroup
+        imageModelSelect.querySelectorAll('optgroup').forEach(group => {
+            const options = group.querySelectorAll('option');
+            if (group.dataset.provider === provider) {
+                options.forEach(opt => opt.style.display = 'block');
+                // Select first option of visible group if current selection is hidden
+                const currentValue = imageModelSelect.value;
+                const currentOption = imageModelSelect.querySelector(`option[value="${currentValue}"]`);
+                if (!currentOption || currentOption.closest('optgroup').dataset.provider !== provider) {
+                    if (options.length > 0) {
+                        imageModelSelect.value = options[0].value;
+                    }
+                }
+            } else {
+                options.forEach(opt => opt.style.display = 'none');
+            }
+        });
+
+        updateImageModelDescription();
+    }
+
+    function updateImageModelDescription() {
+        const model = imageModelSelect.value;
+        const desc = imageModelDescriptions[model] || '';
+        if (imageModelDesc) {
+            imageModelDesc.textContent = desc;
+        }
+    }
+
+    imageProviderSelect.addEventListener('change', updateImageModels);
+    imageModelSelect.addEventListener('change', updateImageModelDescription);
 
     // Trigger on page load
-    document.getElementById('ai_provider').dispatchEvent(new Event('change'));
+    updateTextModels();
+    updateImageModels();
 </script>
 {% endblock %}
