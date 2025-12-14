@@ -143,16 +143,16 @@
     </div>
     <div class="card-body text-center">
         {% if project.diagram_image %}
-        <img src="{{ project.diagram_image.url }}" alt="Diagramm" class="img-fluid rounded" style="max-height: 400px;">
+        <img src="{{ project.diagram_image.url }}" alt="Diagramm" class="img-fluid rounded" style="max-height: 400px;" id="diagramImageExisting">
         {% else %}
         <div id="diagramImagePlaceholder" class="p-5 bg-light rounded">
             <i class="bi bi-bar-chart" style="font-size: 4rem; color: #d1d5db;"></i>
             <p class="text-muted mt-3">Noch kein Diagramm-Bild generiert</p>
         </div>
+        {% endif %}
         <div id="diagramImagePreview" style="display: none;">
             <img src="" alt="Diagramm" class="img-fluid rounded" style="max-height: 400px;">
         </div>
-        {% endif %}
     </div>
 </div>
 {% endif %}
@@ -378,10 +378,17 @@
             });
 
             if (result.success && result.image_url) {
+                // Verstecke/entferne Placeholder und vorhandenes Bild
                 document.getElementById('diagramImagePlaceholder')?.remove();
+                const existingImg = document.getElementById('diagramImageExisting');
+                if (existingImg) existingImg.style.display = 'none';
+
+                // Zeige Preview mit neuem Bild
                 const preview = document.getElementById('diagramImagePreview');
-                preview.style.display = 'block';
-                preview.querySelector('img').src = result.image_url;
+                if (preview) {
+                    preview.style.display = 'block';
+                    preview.querySelector('img').src = result.image_url;
+                }
             } else {
                 alert(result.error || 'Fehler beim Generieren des Diagramms');
             }
