@@ -132,12 +132,12 @@ class BlogPrepSettings(models.Model):
     }
 
     DALLE_IMAGE_MODEL_CHOICES = [
+        ('gpt-image-1', 'GPT Image 1'),
         ('dall-e-3', 'DALL-E 3'),
-        # ('gpt-image-1', 'GPT Image 1'),  # Erfordert verifizierte Organisation
     ]
     DALLE_IMAGE_MODEL_DESCRIPTIONS = {
-        'dall-e-3': 'Beste OpenAI Qualität, $0.04-0.12/Bild',
-        # 'gpt-image-1': 'Erfordert verifizierte Organisation',
+        'gpt-image-1': 'Neuestes Modell, beste Qualität, präzise Prompts',
+        'dall-e-3': 'Bewährt, gute Qualität, $0.04-0.12/Bild',
     }
 
     image_model = models.CharField(

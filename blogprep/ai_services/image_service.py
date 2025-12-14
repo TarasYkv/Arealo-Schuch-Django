@@ -48,8 +48,8 @@ class ImageService:
             'gemini-2.0-flash-exp-image-generation': 'Gemini 2.0 Flash (Fallback)',
         },
         'dalle': {
-            'dall-e-3': 'DALL-E 3 (Empfohlen)',
-            # 'gpt-image-1': 'GPT Image 1 (erfordert verifizierte Organisation)',
+            'gpt-image-1': 'GPT Image 1 (Beste Qualität)',
+            'dall-e-3': 'DALL-E 3',
         },
     }
 
