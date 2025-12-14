@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/upload-custom-image/<int:project_id>/', views.api_upload_custom_image, name='api_upload_custom_image'),
     path('api/server-images/', views.api_server_images, name='api_server_images'),
     path('api/use-server-image/<int:project_id>/', views.api_use_server_image, name='api_use_server_image'),
+    path('api/add-ai-text-overlay/<int:project_id>/', views.api_add_ai_text_overlay, name='api_add_ai_text_overlay'),
 
     # Management
     path('projects/', views.project_list, name='project_list'),

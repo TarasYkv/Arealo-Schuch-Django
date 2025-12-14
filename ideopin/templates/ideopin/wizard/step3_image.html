@@ -549,21 +549,84 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (data.success) {
-                imagePreview.innerHTML = `
-                    <img src="${data.image_url}?t=${Date.now()}" alt="Server-Bild" class="img-fluid">
-                    <span class="badge bg-success mt-2"><i class="bi bi-folder2-open"></i> Server-Bild</span>
-                `;
-                alert('Bild erfolgreich übernommen!');
+                // Prüfen ob "Von KI designen lassen" aktiv ist UND Text vorhanden
+                const textMode = document.querySelector('input[name="text_integration_mode"]:checked')?.value;
+                const hasOverlayText = '{{ project.overlay_text|default:"" }}' !== '';
+
+                if (textMode === 'ideogram' && hasOverlayText) {
+                    // KI Text-Overlay hinzufügen
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> KI fügt Text hinzu...';
+
+                    imagePreview.innerHTML = `
+                        <img src="${data.image_url}?t=${Date.now()}" alt="Server-Bild" class="img-fluid">
+                        <span class="badge bg-warning text-dark mt-2"><i class="bi bi-magic"></i> Text wird hinzugefügt...</span>
+                    `;
+
+                    try {
+                        const aiResponse = await fetch('{% url "ideopin:api_add_ai_text_overlay" project.id %}', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            }
+                        });
+                        const aiData = await aiResponse.json();
+
+                        if (aiData.success) {
+                            imagePreview.innerHTML = `
+                                <img src="${aiData.image_url}?t=${Date.now()}" alt="Bild mit KI-Text" class="img-fluid">
+                                <span class="badge bg-success mt-2"><i class="bi bi-magic"></i> KI-generierter Text</span>
+                            `;
+                            if (modelInfoBadge && aiData.model) {
+                                modelInfoText.innerHTML = `<i class="bi bi-google"></i> ${aiData.model}`;
+                                modelInfoBadge.style.display = 'block';
+                            }
+                        } else {
+                            // Fallback: Bild ohne Text zeigen
+                            imagePreview.innerHTML = `
+                                <img src="${data.image_url}?t=${Date.now()}" alt="Server-Bild" class="img-fluid">
+                                <span class="badge bg-warning text-dark mt-2"><i class="bi bi-exclamation-triangle"></i> Text-Overlay fehlgeschlagen</span>
+                            `;
+                            alert('KI Text-Overlay fehlgeschlagen: ' + aiData.error);
+                        }
+                    } catch (aiError) {
+                        imagePreview.innerHTML = `
+                            <img src="${data.image_url}?t=${Date.now()}" alt="Server-Bild" class="img-fluid">
+                            <span class="badge bg-success mt-2"><i class="bi bi-folder2-open"></i> Server-Bild (ohne KI-Text)</span>
+                        `;
+                        console.error('AI overlay error:', aiError);
+                    }
+                } else {
+                    // Kein KI-Text - nur das Bild anzeigen
+                    imagePreview.innerHTML = `
+                        <img src="${data.image_url}?t=${Date.now()}" alt="Server-Bild" class="img-fluid">
+                        <span class="badge bg-success mt-2"><i class="bi bi-folder2-open"></i> Server-Bild</span>
+                    `;
+                    if (modelInfoBadge) {
+                        modelInfoBadge.style.display = 'none';
+                    }
+                }
+
+                this.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';
+                this.classList.remove('btn-success');
+                this.classList.add('btn-outline-success');
+
+                setTimeout(() => {
+                    this.innerHTML = originalHtml;
+                    this.classList.remove('btn-outline-success');
+                    this.classList.add('btn-success');
+                    this.disabled = false;
+                }, 2000);
             } else {
                 alert('Fehler: ' + data.error);
+                this.innerHTML = originalHtml;
+                this.disabled = false;
             }
         } catch (error) {
             console.error('Error:', error);
             alert('Fehler beim Übernehmen des Bildes.');
+            this.innerHTML = originalHtml;
+            this.disabled = false;
         }
-
-        this.innerHTML = originalHtml;
-        this.disabled = false;
     });
 
     // Eigenes Bild hochladen
@@ -592,14 +655,61 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.success) {
-                    imagePreview.innerHTML = `
-                        <img src="${data.image_url}?t=${Date.now()}" alt="Hochgeladenes Bild" class="img-fluid">
-                        <span class="badge bg-info mt-2"><i class="bi bi-upload"></i> Eigenes Bild</span>
-                    `;
+                    // Prüfen ob "Von KI designen lassen" aktiv ist UND Text vorhanden
+                    const textMode = document.querySelector('input[name="text_integration_mode"]:checked')?.value;
+                    const hasOverlayText = '{{ project.overlay_text|default:"" }}' !== '';
 
-                    // Model-Info Badge verstecken
-                    if (modelInfoBadge) {
-                        modelInfoBadge.style.display = 'none';
+                    if (textMode === 'ideogram' && hasOverlayText) {
+                        // KI Text-Overlay hinzufügen
+                        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> KI fügt Text hinzu...';
+
+                        imagePreview.innerHTML = `
+                            <img src="${data.image_url}?t=${Date.now()}" alt="Hochgeladenes Bild" class="img-fluid">
+                            <span class="badge bg-warning text-dark mt-2"><i class="bi bi-magic"></i> Text wird hinzugefügt...</span>
+                        `;
+
+                        try {
+                            const aiResponse = await fetch('{% url "ideopin:api_add_ai_text_overlay" project.id %}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                }
+                            });
+                            const aiData = await aiResponse.json();
+
+                            if (aiData.success) {
+                                imagePreview.innerHTML = `
+                                    <img src="${aiData.image_url}?t=${Date.now()}" alt="Bild mit KI-Text" class="img-fluid">
+                                    <span class="badge bg-success mt-2"><i class="bi bi-magic"></i> KI-generierter Text</span>
+                                `;
+                                if (modelInfoBadge && aiData.model) {
+                                    modelInfoText.innerHTML = `<i class="bi bi-google"></i> ${aiData.model}`;
+                                    modelInfoBadge.style.display = 'block';
+                                }
+                            } else {
+                                // Fallback: Bild ohne Text zeigen
+                                imagePreview.innerHTML = `
+                                    <img src="${data.image_url}?t=${Date.now()}" alt="Hochgeladenes Bild" class="img-fluid">
+                                    <span class="badge bg-warning text-dark mt-2"><i class="bi bi-exclamation-triangle"></i> Text-Overlay fehlgeschlagen</span>
+                                `;
+                                alert('KI Text-Overlay fehlgeschlagen: ' + aiData.error);
+                            }
+                        } catch (aiError) {
+                            imagePreview.innerHTML = `
+                                <img src="${data.image_url}?t=${Date.now()}" alt="Hochgeladenes Bild" class="img-fluid">
+                                <span class="badge bg-info mt-2"><i class="bi bi-upload"></i> Eigenes Bild (ohne KI-Text)</span>
+                            `;
+                            console.error('AI overlay error:', aiError);
+                        }
+                    } else {
+                        // Kein KI-Text - nur das Bild anzeigen
+                        imagePreview.innerHTML = `
+                            <img src="${data.image_url}?t=${Date.now()}" alt="Hochgeladenes Bild" class="img-fluid">
+                            <span class="badge bg-info mt-2"><i class="bi bi-upload"></i> Eigenes Bild</span>
+                        `;
+                        if (modelInfoBadge) {
+                            modelInfoBadge.style.display = 'none';
+                        }
                     }
 
                     this.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';

@@ -481,3 +481,76 @@ class GeminiImageService:
         final_prompt = " ".join(prompt_parts)
         logger.info(f"Built Gemini prompt without text: {final_prompt[:200]}...")
         return final_prompt
+
+    @staticmethod
+    def build_prompt_for_text_overlay(
+        overlay_text: str,
+        text_position: str = 'center',
+        text_color: str = '#FFFFFF',
+        text_background_enabled: bool = False,
+        text_background_creative: bool = False
+    ) -> str:
+        """
+        Baut einen Prompt für das Hinzufügen von Text zu einem BESTEHENDEN Bild.
+
+        Das Bild wird als Referenz mitgesendet und die KI soll NUR den Text hinzufügen,
+        ohne den Hintergrund zu verändern.
+        """
+        position_map = {
+            'top': 'at the top of the image',
+            'center': 'in the center of the image',
+            'bottom': 'at the bottom of the image'
+        }
+        position_text = position_map.get(text_position, 'prominently displayed')
+
+        # Buchstabiere lange Wörter für bessere Genauigkeit
+        spelled_text = spell_out_text(overlay_text)
+
+        prompt_parts = []
+
+        # Hauptanweisung: Bild behalten, nur Text hinzufügen
+        prompt_parts.append(
+            "IMPORTANT: Take the provided image and ADD TEXT OVERLAY to it. "
+            "DO NOT change, modify, or regenerate the background image. "
+            "Keep the original image EXACTLY as it is - only add the text on top."
+        )
+
+        # Text-Anforderungen
+        text_section = f'\nTEXT TO ADD:\n'
+        text_section += f'Display text: "{overlay_text}" {position_text}\n'
+
+        if spelled_text != overlay_text:
+            text_section += f'Spelling: {spelled_text}\n'
+
+        prompt_parts.append(text_section)
+
+        # Text-Hintergrund Anweisungen
+        if text_background_enabled:
+            bg_section = '\nTEXT BACKGROUND:\n'
+            bg_section += '- Place the text on a solid or semi-transparent background shape\n'
+            bg_section += '- The background shape should fit the text with appropriate padding\n'
+            bg_section += '- Choose a color that creates contrast for readability\n'
+            if text_background_creative:
+                bg_section += '- Use CREATIVE shapes: banner, ribbon, splash, brush stroke, badge, or artistic forms\n'
+            else:
+                bg_section += '- Use clean shapes: rectangle, rounded rectangle, or pill shape\n'
+            prompt_parts.append(bg_section)
+
+        # Typografie-Anweisungen
+        typography_section = '\nTYPOGRAPHY DESIGN:\n'
+        typography_section += '- Choose typography that MATCHES the mood of the image\n'
+        typography_section += '- Use colors that create STRONG CONTRAST for readability\n'
+        typography_section += '- Add subtle effects (shadow, glow) for depth\n'
+        typography_section += '- Text must be LARGE, bold, and professional\n'
+        typography_section += '- Spelling must be 100% accurate\n'
+        prompt_parts.append(typography_section)
+
+        # Finale Anweisung
+        prompt_parts.append(
+            "\nOUTPUT: Return the SAME image with the text overlay added. "
+            "Maintain the original image quality and aspect ratio."
+        )
+
+        final_prompt = " ".join(prompt_parts)
+        logger.info(f"Built text overlay prompt: {final_prompt[:300]}...")
+        return final_prompt

@@ -1037,6 +1037,131 @@ def api_upload_custom_image(request, project_id):
 
 @login_required
 @require_POST
+def api_add_ai_text_overlay(request, project_id):
+    """
+    API: Fügt Text-Overlay zu einem bestehenden Bild mittels KI hinzu.
+
+    Das Bild (generated_image) wird an Gemini gesendet mit der Anweisung,
+    den Text darauf zu platzieren, ohne den Hintergrund zu verändern.
+    """
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+
+    # Prüfen ob Bild vorhanden
+    if not project.generated_image:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein Bild vorhanden. Bitte zuerst ein Bild hochladen oder auswählen.'
+        }, status=400)
+
+    # Prüfen ob Text vorhanden
+    if not project.overlay_text:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein Text zum Hinzufügen. Bitte zuerst Text in Schritt 2 eingeben.'
+        }, status=400)
+
+    # Prüfen ob Gemini API-Key vorhanden
+    if not request.user.gemini_api_key:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein Gemini API-Key konfiguriert. Bitte in den API-Einstellungen hinterlegen.'
+        }, status=400)
+
+    try:
+        from .gemini_service import GeminiImageService
+        from django.core.files.base import ContentFile
+        import base64
+        import io
+
+        # Gemini Service initialisieren
+        service = GeminiImageService(request.user.gemini_api_key)
+
+        # Prompt für Text-Overlay erstellen
+        prompt = GeminiImageService.build_prompt_for_text_overlay(
+            overlay_text=project.overlay_text,
+            text_position=project.text_position or 'center',
+            text_color=project.text_color or '#FFFFFF',
+            text_background_enabled=project.text_background_enabled,
+            text_background_creative=project.text_background_creative
+        )
+
+        # Bildgröße ermitteln
+        width, height = project.get_format_dimensions()
+
+        # Model aus Einstellungen holen
+        selected_model = None
+        try:
+            pin_settings = PinSettings.objects.get(user=request.user)
+            selected_model = pin_settings.gemini_model
+        except PinSettings.DoesNotExist:
+            pass
+
+        logger.info(f"[IdeoPin] Adding AI text overlay to image {project.id}")
+        logger.info(f"[IdeoPin] Text: {project.overlay_text}")
+
+        # Bild an Gemini senden mit dem Referenzbild
+        result = service.generate_image(
+            prompt=prompt,
+            reference_image=project.generated_image,
+            width=width,
+            height=height,
+            model=selected_model
+        )
+
+        if result.get('success'):
+            image_data = result['image_data']
+            if isinstance(image_data, str):
+                image_data = base64.b64decode(image_data)
+
+            # Bild auf gewähltes Format skalieren/croppen
+            img = Image.open(io.BytesIO(image_data))
+            img = resize_and_crop_to_format(img, width, height)
+
+            # Bild als PNG speichern
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG', quality=95)
+            buffer.seek(0)
+            image_data = buffer.read()
+
+            # Als final_image speichern (da Text jetzt drauf ist)
+            filename = f"final_{project.id}.png"
+            project.final_image.save(filename, ContentFile(image_data), save=True)
+
+            # Model-Name für Anzeige
+            model_display = selected_model or 'gemini-2.5-flash-image'
+            model_names = {
+                'gemini-3-pro-image-preview': 'Gemini 3 Pro',
+                'gemini-2.5-flash-image': 'Gemini 2.5 Flash',
+            }
+            model_display = model_names.get(model_display, model_display)
+
+            logger.info(f"[IdeoPin] AI text overlay successfully added to image {project.id}")
+
+            return JsonResponse({
+                'success': True,
+                'image_url': project.final_image.url,
+                'message': 'Text erfolgreich mit KI hinzugefügt',
+                'ai_provider': 'gemini',
+                'model': model_display
+            })
+        else:
+            error_msg = result.get('error', 'Unbekannter Fehler bei der KI-Textgenerierung')
+            logger.error(f"[IdeoPin] AI text overlay failed: {error_msg}")
+            return JsonResponse({
+                'success': False,
+                'error': error_msg
+            }, status=500)
+
+    except Exception as e:
+        logger.error(f"Error adding AI text overlay: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_apply_text_overlay(request, project_id):
     """API: Wendet Text-Overlay auf das Bild an"""
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
