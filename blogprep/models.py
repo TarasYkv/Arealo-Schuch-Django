@@ -146,12 +146,12 @@ class BlogPrepSettings(models.Model):
 
     # Bild-Modelle pro Provider mit Beschreibungen
     GEMINI_IMAGE_MODEL_CHOICES = [
-        ('imagen-3.0-generate-001', 'Imagen 3'),
-        ('imagegeneration@006', 'Imagen 2'),
+        ('gemini-2.0-flash-preview-image-generation', 'Gemini 2.0 Flash'),
+        ('imagen-3.0-generate-001', 'Imagen 3 (Vertex AI)'),
     ]
     GEMINI_IMAGE_MODEL_DESCRIPTIONS = {
-        'imagen-3.0-generate-001': 'Beste Bildqualität, fotorealistisch, hochdetailliert',
-        'imagegeneration@006': 'Schneller, günstiger, gute Qualität',
+        'gemini-2.0-flash-preview-image-generation': 'Schnell, native Bildgenerierung, funktioniert mit Gemini API Key',
+        'imagen-3.0-generate-001': 'Beste Qualität, erfordert Vertex AI Zugang',
     }
 
     DALLE_IMAGE_MODEL_CHOICES = [
@@ -180,7 +180,7 @@ class BlogPrepSettings(models.Model):
 
     image_model = models.CharField(
         max_length=50,
-        default='imagen-3.0-generate-001',
+        default='gemini-2.0-flash-preview-image-generation',
         verbose_name='Bild-Modell'
     )
 

@@ -42,8 +42,8 @@ class ImageService:
     # Verfügbare Modelle pro Provider
     PROVIDER_MODELS = {
         'gemini': {
-            'imagen-3.0-generate-001': 'Imagen 3 (Beste Qualität)',
-            'imagegeneration@006': 'Imagen 2 (Schneller)',
+            'gemini-2.0-flash-preview-image-generation': 'Gemini 2.0 Flash (Empfohlen)',
+            'imagen-3.0-generate-001': 'Imagen 3 (Vertex AI)',
         },
         'dalle': {
             'dall-e-3': 'DALL-E 3 (Beste Qualität)',
@@ -75,7 +75,7 @@ class ImageService:
             self.model = settings.image_model
         else:
             self.provider = 'gemini'
-            self.model = 'imagen-3.0-generate-001'
+            self.model = 'gemini-2.0-flash-preview-image-generation'
 
         # Clients initialisieren
         self._init_clients()
@@ -266,10 +266,11 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
         else:
             aspect_ratio = "1:1"
 
-        # Imagen vs Gemini
-        if 'imagen' in self.model:
+        # Imagen vs Gemini Native
+        if 'imagen' in self.model or 'imagegeneration' in self.model:
             return self._generate_with_imagen(prompt, aspect_ratio)
         else:
+            # Gemini 2.0 Flash oder andere Gemini-Modelle
             return self._generate_with_gemini_native(prompt, aspect_ratio)
 
     def _generate_with_imagen(self, prompt: str, aspect_ratio: str) -> Dict:
@@ -336,18 +337,30 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
         }
 
     def _generate_with_gemini_native(self, prompt: str, aspect_ratio: str) -> Dict:
-        """Generiert Bild mit Gemini Native Image Generation"""
+        """Generiert Bild mit Gemini 2.0 Flash Image Generation"""
         url = f"{self.GOOGLE_BASE_URL}/models/{self.model}:generateContent"
+
+        # Bild-Prompt optimieren
+        image_prompt = f"""Generate a professional, high-quality image for a blog post.
+
+Topic: {prompt}
+
+Style requirements:
+- Professional, modern design
+- Clear, appealing composition
+- Bright, friendly color palette
+- No text overlays
+- High-quality, stock-photo-like quality
+- Suitable for a business blog
+
+Create the image now."""
 
         payload = {
             "contents": [{
-                "parts": [{"text": prompt}]
+                "parts": [{"text": image_prompt}]
             }],
             "generationConfig": {
-                "responseModalities": ["TEXT", "IMAGE"],
-                "imageConfig": {
-                    "aspectRatio": aspect_ratio
-                }
+                "responseModalities": ["IMAGE", "TEXT"],
             }
         }
 
@@ -356,17 +369,43 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
             "x-goog-api-key": self.google_api_key
         }
 
-        response = requests.post(url, json=payload, headers=headers, timeout=180)
+        logger.info(f"Calling Gemini Image API: {url}")
+        logger.info(f"Model: {self.model}")
 
-        if response.status_code != 200:
-            error_detail = response.json().get('error', {}).get('message', response.text)
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=180)
+        except Exception as e:
+            logger.error(f"Request failed: {e}")
             return {
                 'success': False,
-                'error': f"Gemini API Error: {error_detail}",
+                'error': f"Request failed: {str(e)}",
                 'model_used': self.model
             }
 
-        data = response.json()
+        logger.info(f"Response status: {response.status_code}")
+
+        if response.status_code != 200:
+            try:
+                error_data = response.json()
+                error_detail = error_data.get('error', {}).get('message', response.text)
+            except:
+                error_detail = response.text[:500]
+            logger.error(f"Gemini API Error: {error_detail}")
+            return {
+                'success': False,
+                'error': f"Gemini API Error ({response.status_code}): {error_detail}",
+                'model_used': self.model
+            }
+
+        try:
+            data = response.json()
+        except Exception as e:
+            logger.error(f"JSON parse error: {e}")
+            return {
+                'success': False,
+                'error': f"JSON parse error: {str(e)}",
+                'model_used': self.model
+            }
 
         # Suche nach Bilddaten in der Antwort
         candidates = data.get('candidates', [])
@@ -374,15 +413,19 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
             parts = candidates[0].get('content', {}).get('parts', [])
             for part in parts:
                 if 'inlineData' in part:
-                    return {
-                        'success': True,
-                        'image_data': part['inlineData']['data'],
-                        'model_used': self.model
-                    }
+                    image_data = part['inlineData'].get('data')
+                    if image_data:
+                        logger.info("Image generated successfully")
+                        return {
+                            'success': True,
+                            'image_data': image_data,
+                            'model_used': self.model
+                        }
 
+        logger.error(f"No image in response: {str(data)[:300]}")
         return {
             'success': False,
-            'error': 'Keine Bilddaten in der Gemini-Antwort',
+            'error': f'Keine Bilddaten in der Gemini-Antwort. Response: {str(data)[:200]}',
             'model_used': self.model
         }
 
