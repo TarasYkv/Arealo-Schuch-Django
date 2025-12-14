@@ -159,34 +159,343 @@ Das Bild soll informativ und einladend wirken, ohne aufdringlich zu sein."""
         return prompt
 
     def _create_diagram_prompt(self, diagram_type: str, diagram_data: Dict, keyword: str) -> str:
-        """Erstellt einen Prompt für Diagramm-Generierung"""
-        type_descriptions = {
-            'bar': 'Balkendiagramm mit klar lesbaren Balken und Beschriftungen',
-            'pie': 'Kreisdiagramm/Tortendiagramm mit deutlichen Segmenten',
-            'line': 'Liniendiagramm mit klarem Verlauf',
-            'comparison': 'Vergleichsübersicht mit zwei oder mehr Kategorien',
-            'flow': 'Flussdiagramm mit Pfeilen und Schritten',
-            'timeline': 'Zeitstrahl mit chronologischen Ereignissen'
-        }
-
-        diagram_desc = type_descriptions.get(diagram_type, 'informatives Diagramm')
+        """Erstellt einen spezifischen Prompt für jeden Diagrammtyp"""
         title = diagram_data.get('title', f'Diagramm zu {keyword}')
-        data_points = diagram_data.get('labels', [])
+        subtitle = diagram_data.get('subtitle', '')
+        labels = diagram_data.get('labels', [])
+        values = diagram_data.get('values', [])
+        value_labels = diagram_data.get('value_labels', [])
+        steps = diagram_data.get('steps', [])
+        center_value = diagram_data.get('center_value', '')
+        key_insight = diagram_data.get('key_insight', '')
+        colors = diagram_data.get('colors', [])
 
-        prompt = f"""Erstelle ein professionelles {diagram_desc} zum Thema "{keyword}".
+        # Basis-Stil für alle Diagramme
+        base_style = """
+DESIGN-REGELN:
+- Modernes, cleanes Flat-Design
+- Gut lesbare Schriften (min. 14pt)
+- Professionelle Farbpalette
+- Weißer/heller Hintergrund
+- Kein 3D, keine Schatten
+- Hoher Kontrast für Lesbarkeit"""
+
+        # Spezifische Prompts für jeden Diagrammtyp
+        if diagram_type in ['bar_vertical', 'bar']:
+            data_str = ', '.join([f'"{l}": {v}' for l, v in zip(labels[:6], values[:6])]) if labels and values else ''
+            prompt = f"""Erstelle ein VERTIKALES BALKENDIAGRAMM für einen Business-Blog.
 
 TITEL: {title}
-DATENPUNKTE: {', '.join(str(d) for d in data_points[:5]) if data_points else 'Verschiedene Kategorien'}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
 
-STIL-ANFORDERUNGEN:
-- Klares, minimalistisches Design
+DATEN (Balken von links nach rechts):
+{data_str if data_str else ', '.join(labels[:6])}
+
+LAYOUT:
+- Vertikale Balken nebeneinander
+- Y-Achse mit Werten beschriftet
+- X-Achse mit Kategorien beschriftet
+- Jeder Balken hat eine eigene Farbe
+- Werte über oder in den Balken anzeigen
+{base_style}"""
+
+        elif diagram_type == 'bar_horizontal':
+            data_str = ', '.join([f'"{l}": {v}' for l, v in zip(labels[:6], values[:6])]) if labels and values else ''
+            prompt = f"""Erstelle ein HORIZONTALES BALKENDIAGRAMM für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+DATEN (Balken von oben nach unten):
+{data_str if data_str else ', '.join(labels[:6])}
+
+LAYOUT:
+- Horizontale Balken untereinander
+- Kategorien links vom Balken
+- Werte rechts vom Balken oder am Balkenende
+- Längster Balken oben (Ranking-Stil)
+- Unterschiedliche Farben oder Farbverlauf
+{base_style}"""
+
+        elif diagram_type == 'pie':
+            data_str = ', '.join([f'{l}: {v}%' for l, v in zip(labels[:5], values[:5])]) if labels and values else ''
+            prompt = f"""Erstelle ein KREISDIAGRAMM (Pie Chart) für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+SEGMENTE:
+{data_str if data_str else ', '.join(labels[:5])}
+
+LAYOUT:
+- Klar unterscheidbare Segmente
+- Prozentangaben IN oder NEBEN den Segmenten
+- Legende mit Kategorien und Farben
+- Größtes Segment beginnt bei 12 Uhr
+- Maximal 5-6 Segmente für Übersichtlichkeit
+{base_style}"""
+
+        elif diagram_type == 'donut':
+            prompt = f"""Erstelle ein RINGDIAGRAMM (Donut Chart) für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+{f'ZENTRALER WERT IN DER MITTE: {center_value}' if center_value else ''}
+
+SEGMENTE:
+{', '.join([f'{l}: {v}%' for l, v in zip(labels[:5], values[:5])]) if labels and values else ', '.join(labels[:5])}
+
+LAYOUT:
+- Ring mit großem Loch in der Mitte
+- Hauptkennzahl groß in der Mitte
+- Prozentangaben bei den Segmenten
+- Legende unterhalb oder rechts
+- Kontrastreiche Farben für Segmente
+{base_style}"""
+
+        elif diagram_type in ['line', 'area']:
+            chart_type = "LINIENDIAGRAMM" if diagram_type == 'line' else "FLÄCHENDIAGRAMM"
+            prompt = f"""Erstelle ein {chart_type} für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+DATENPUNKTE (X-Achse): {', '.join(str(l) for l in labels[:8])}
+WERTE (Y-Achse): {', '.join(str(v) for v in values[:8]) if values else 'Aufsteigender Trend'}
+
+LAYOUT:
+- Klare Linie{'n' if diagram_type == 'line' else ' mit gefüllter Fläche darunter'}
+- X-Achse: Zeitpunkte/Kategorien
+- Y-Achse: Werte mit Skalierung
+- Datenpunkte als kleine Kreise markiert
+- {'Mehrere Linien in verschiedenen Farben' if diagram_type == 'line' else 'Transparente Füllung unter der Linie'}
+- Grid-Linien zur Orientierung
+{base_style}"""
+
+        elif diagram_type == 'timeline':
+            events = steps if steps else labels
+            prompt = f"""Erstelle einen ZEITSTRAHL (Timeline) für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+EREIGNISSE/MEILENSTEINE:
+{chr(10).join([f'{i+1}. {e}' for i, e in enumerate(events[:7])])}
+
+LAYOUT:
+- Horizontale oder vertikale Zeitachse
+- Punkte/Marker für jedes Ereignis
+- Ereignisbeschreibungen neben den Markern
+- Verbindungslinie zwischen Ereignissen
+- Optionale Jahreszahlen/Daten
+- Abwechselnde Positionen (oben/unten oder links/rechts)
+{base_style}"""
+
+        elif diagram_type == 'flow':
+            flow_steps = steps if steps else labels
+            prompt = f"""Erstelle ein FLUSSDIAGRAMM für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+PROZESS-SCHRITTE:
+{chr(10).join([f'{i+1}. {s}' for i, s in enumerate(flow_steps[:6])])}
+
+LAYOUT:
+- Rechteckige Boxen für jeden Schritt
+- Pfeile zeigen den Fluss/die Richtung
+- Klare Beschriftung in jeder Box
+- Von oben nach unten ODER links nach rechts
+- Optionale Entscheidungsrauten (Ja/Nein)
+- Einheitliche Box-Größen
+{base_style}"""
+
+        elif diagram_type == 'funnel':
+            funnel_stages = steps if steps else labels
+            prompt = f"""Erstelle ein TRICHTERDIAGRAMM (Funnel) für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+STUFEN (von oben/breit nach unten/schmal):
+{chr(10).join([f'{i+1}. {s}' + (f' ({values[i]}%)' if i < len(values) else '') for i, s in enumerate(funnel_stages[:5])])}
+
+LAYOUT:
+- Trapezförmige Segmente
+- Oberstes Segment am breitesten
+- Unterstes Segment am schmalsten
+- Jedes Segment beschriftet
+- Prozent/Zahlen in den Segmenten
+- Unterschiedliche Farben pro Stufe
+{base_style}"""
+
+        elif diagram_type == 'steps':
+            process_steps = steps if steps else labels
+            prompt = f"""Erstelle ein SCHRITTE-DIAGRAMM (Step-by-Step) für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+SCHRITTE:
+{chr(10).join([f'Schritt {i+1}: {s}' for i, s in enumerate(process_steps[:6])])}
+
+LAYOUT:
+- Nummerierte Schritte in Kreisen oder Badges
+- Verbindungslinien oder Pfeile zwischen Schritten
+- Kurze Beschreibung unter/neben jedem Schritt
+- Horizontal oder vertikal angeordnet
+- Fortschritts-Stil (1→2→3→4)
+- Icons optional in den Schritt-Markern
+{base_style}"""
+
+        elif diagram_type == 'gauge':
+            prompt = f"""Erstelle ein TACHO/GAUGE-DIAGRAMM für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+HAUPTWERT: {center_value if center_value else values[0] if values else '75%'}
+SKALA: {', '.join(str(l) for l in labels[:5]) if labels else '0-100'}
+
+LAYOUT:
+- Halbkreis-Tacho oder Vollkreis-Gauge
+- Zeiger/Nadel auf dem aktuellen Wert
+- Farbzonen (rot/gelb/grün)
+- Großer Wert in der Mitte
+- Skala-Markierungen am Rand
+- Klare Beschriftung der Bereiche
+{base_style}"""
+
+        elif diagram_type == 'radar':
+            prompt = f"""Erstelle ein RADAR/SPINNENDIAGRAMM für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+KRITERIEN (Achsen): {', '.join(labels[:6])}
+WERTE: {', '.join([str(v) for v in values[:6]]) if values else 'Verschiedene Ausprägungen'}
+
+LAYOUT:
+- Sternförmiges Netz mit 5-6 Achsen
+- Jede Achse = ein Kriterium
+- Datenpunkte verbunden zu Polygon
+- Skala von Mitte (0) nach außen (max)
+- Beschriftung an jeder Achsenspitze
+- Optional: mehrere Datensätze überlagert
+{base_style}"""
+
+        elif diagram_type == 'comparison_table':
+            prompt = f"""Erstelle eine VISUELLE VERGLEICHSTABELLE für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+KATEGORIEN ZUM VERGLEICH: {', '.join(labels[:4])}
+{f'KRITERIEN: {", ".join(steps[:5])}' if steps else ''}
+
+LAYOUT:
+- Tabellenformat mit klaren Spalten
+- Header-Zeile hervorgehoben
+- Checkmarks/X für Ja/Nein Kriterien
+- Alternierend eingefärbte Zeilen
+- Icons statt Text wo möglich
+- Gewinnermarkierung optional
+{base_style}"""
+
+        elif diagram_type == 'checklist':
+            items = steps if steps else labels
+            prompt = f"""Erstelle eine VISUELLE CHECKLISTE für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+CHECKLISTEN-PUNKTE:
+{chr(10).join([f'☑ {item}' for item in items[:8]])}
+
+LAYOUT:
+- Aufgelistete Items mit Checkboxen
+- Grüne Häkchen für erledigte Punkte
+- Klare, gut lesbare Beschriftungen
+- Nummerierung optional
+- Gruppierung nach Kategorien möglich
+- Kompaktes, scanningfreundliches Design
+{base_style}"""
+
+        elif diagram_type == 'matrix':
+            prompt = f"""Erstelle eine 2x2 MATRIX für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+QUADRANTEN: {', '.join(labels[:4]) if labels else 'Vier Kategorien'}
+X-ACHSE: {diagram_data.get('axis_label_x', 'Niedrig → Hoch')}
+Y-ACHSE: {diagram_data.get('axis_label_y', 'Niedrig → Hoch')}
+
+LAYOUT:
+- 2x2 Raster mit 4 Quadranten
+- Achsenbeschriftungen
+- Jeder Quadrant farblich unterschieden
+- Titel/Label in jedem Quadranten
+- Beispiele/Items in den Quadranten
+- Klare Trennlinien
+{base_style}"""
+
+        elif diagram_type == 'icons_grid':
+            items = steps if steps else labels
+            prompt = f"""Erstelle ein ICON-RASTER für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+FEATURES/VORTEILE:
+{chr(10).join([f'• {item}' for item in items[:6]])}
+
+LAYOUT:
+- Raster mit Icons und Beschriftungen
+- 2-3 Spalten, 2-3 Zeilen
+- Großes Icon pro Feature
+- Kurzer Text unter jedem Icon
+- Einheitliche Icon-Größe
+- Klare visuelle Hierarchie
+{base_style}"""
+
+        elif diagram_type == 'stacked_bar':
+            prompt = f"""Erstelle ein GESTAPELTES BALKENDIAGRAMM für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+KATEGORIEN: {', '.join(labels[:4])}
+SEGMENTE PRO BALKEN: {', '.join(steps[:4]) if steps else 'Teil A, Teil B, Teil C'}
+
+LAYOUT:
+- Horizontale oder vertikale gestapelte Balken
+- Jeder Balken zeigt Zusammensetzung
+- Farbcodierte Segmente
+- Legende für Segment-Farben
+- Summe = 100% pro Balken
+- Beschriftung der Segmente
+{base_style}"""
+
+        else:
+            # Fallback für unbekannte Typen
+            prompt = f"""Erstelle ein informatives DIAGRAMM für einen Business-Blog.
+
+TITEL: {title}
+{f'UNTERTITEL: {subtitle}' if subtitle else ''}
+
+DATENPUNKTE: {', '.join(str(l) for l in labels[:6]) if labels else 'Verschiedene Kategorien'}
+
+LAYOUT:
+- Klares, übersichtliches Design
 - Gut lesbare Beschriftungen
-- Professionelle Farbpalette (Blau-, Grün- oder Erdtöne)
-- Weißer oder heller Hintergrund
-- Keine 3D-Effekte, flat design bevorzugt
-- Business-Blog geeignet
+- Professionelle Darstellung
+{base_style}"""
 
-Das Diagramm muss auf den ersten Blick verständlich sein."""
+        # Füge key_insight hinzu wenn vorhanden
+        if key_insight:
+            prompt += f"\n\nHAUPTAUSSAGE: {key_insight}"
 
         return prompt
 

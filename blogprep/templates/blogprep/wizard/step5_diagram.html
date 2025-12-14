@@ -64,34 +64,68 @@
     <div class="card-body">
         {% if project.diagram_data %}
         <div id="diagramSuggestion">
+            <!-- Diagramm-Typ Badge -->
+            <div class="mb-3">
+                <span class="badge bg-primary fs-6 px-3 py-2" id="diagramTypeBadge">
+                    <i class="bi bi-{{ project.diagram_type|default:'bar-chart' }} me-1"></i>
+                    {{ project.diagram_type|title }}
+                </span>
+            </div>
+
             <div class="row">
                 <div class="col-md-6">
-                    <h6>Vorgeschlagener Typ:</h6>
-                    <p><strong>{{ project.diagram_type|title }}</strong></p>
+                    <h6><i class="bi bi-card-heading me-1"></i>Titel:</h6>
+                    <p class="fs-5 fw-bold">{{ project.diagram_data.title }}</p>
 
-                    <h6>Titel:</h6>
-                    <p>{{ project.diagram_data.title }}</p>
+                    {% if project.diagram_data.subtitle %}
+                    <p class="text-muted">{{ project.diagram_data.subtitle }}</p>
+                    {% endif %}
+
+                    {% if project.diagram_data.key_insight %}
+                    <div class="alert alert-info py-2 mt-2">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        <strong>Kernaussage:</strong> {{ project.diagram_data.key_insight }}
+                    </div>
+                    {% endif %}
 
                     {% if project.diagram_data.reasoning %}
-                    <h6>Begründung:</h6>
-                    <p class="text-muted">{{ project.diagram_data.reasoning }}</p>
+                    <h6 class="mt-3"><i class="bi bi-chat-quote me-1"></i>Begründung:</h6>
+                    <p class="text-muted small">{{ project.diagram_data.reasoning }}</p>
                     {% endif %}
                 </div>
                 <div class="col-md-6">
                     {% if project.diagram_data.labels %}
-                    <h6>Datenpunkte:</h6>
-                    <ul>
+                    <h6><i class="bi bi-tag me-1"></i>Kategorien/Labels:</h6>
+                    <ul class="mb-3">
                         {% for label in project.diagram_data.labels %}
-                        <li>{{ label }}</li>
+                        <li>{{ label }}{% if project.diagram_data.values and forloop.counter0 < project.diagram_data.values|length %} <span class="badge bg-secondary">{{ project.diagram_data.values|slice:forloop.counter0|last }}</span>{% endif %}</li>
                         {% endfor %}
                     </ul>
+                    {% endif %}
+
+                    {% if project.diagram_data.steps %}
+                    <h6><i class="bi bi-list-ol me-1"></i>Schritte:</h6>
+                    <ol class="mb-3">
+                        {% for step in project.diagram_data.steps %}
+                        <li>{{ step }}</li>
+                        {% endfor %}
+                    </ol>
+                    {% endif %}
+
+                    {% if project.diagram_data.center_value %}
+                    <div class="alert alert-success py-2">
+                        <i class="bi bi-bullseye me-1"></i>
+                        <strong>Hauptwert:</strong> {{ project.diagram_data.center_value }}
+                    </div>
                     {% endif %}
                 </div>
             </div>
         </div>
         {% else %}
         <p class="text-muted" id="analysisPending">
+            <i class="bi bi-info-circle me-2"></i>
             Klicke auf "Analysieren & Vorschlagen" um einen Diagramm-Vorschlag zu erhalten.
+            Die KI analysiert deinen Blog-Content und wählt den passendsten Diagrammtyp aus.
         </p>
         <div id="diagramSuggestion" style="display: none;"></div>
         {% endif %}
@@ -195,10 +229,54 @@
         };
     }
 
+    // Diagramm-Typ Icons Mapping
+    const diagramTypeIcons = {
+        'bar_vertical': 'bar-chart',
+        'bar_horizontal': 'bar-chart-horizontal',
+        'bar': 'bar-chart',
+        'pie': 'pie-chart',
+        'donut': 'circle',
+        'line': 'graph-up',
+        'area': 'graph-up-arrow',
+        'timeline': 'calendar-range',
+        'flow': 'diagram-3',
+        'funnel': 'funnel',
+        'steps': 'signpost-split',
+        'gauge': 'speedometer2',
+        'radar': 'diagram-2',
+        'comparison_table': 'table',
+        'checklist': 'check2-square',
+        'matrix': 'grid-3x3',
+        'icons_grid': 'grid',
+        'stacked_bar': 'bar-chart-steps'
+    };
+
+    // Diagramm-Typ Namen (lesbar)
+    const diagramTypeNames = {
+        'bar_vertical': 'Vertikales Balkendiagramm',
+        'bar_horizontal': 'Horizontales Balkendiagramm',
+        'bar': 'Balkendiagramm',
+        'pie': 'Kreisdiagramm',
+        'donut': 'Ringdiagramm',
+        'line': 'Liniendiagramm',
+        'area': 'Flächendiagramm',
+        'timeline': 'Zeitstrahl',
+        'flow': 'Flussdiagramm',
+        'funnel': 'Trichterdiagramm',
+        'steps': 'Schritte-Diagramm',
+        'gauge': 'Tacho/Gauge',
+        'radar': 'Radar/Spinnendiagramm',
+        'comparison_table': 'Vergleichstabelle',
+        'checklist': 'Visuelle Checkliste',
+        'matrix': '2x2 Matrix',
+        'icons_grid': 'Icon-Raster',
+        'stacked_bar': 'Gestapeltes Balkendiagramm'
+    };
+
     async function analyzeDiagram() {
         const btn = document.getElementById('analyzeBtn');
         btn.disabled = true;
-        showLoading('Analysiere Content für Diagramm-Vorschlag...');
+        showLoading('Analysiere Content für Diagramm-Vorschlag... Die KI wählt den passendsten Diagrammtyp.');
 
         try {
             const result = await apiCall('{% url "blogprep:api_analyze_diagram" project_id=project.id %}');
@@ -208,33 +286,74 @@
                 const suggestion = document.getElementById('diagramSuggestion');
                 suggestion.style.display = 'block';
 
+                const d = result.data;
+                const icon = diagramTypeIcons[d.diagram_type] || 'bar-chart';
+                const typeName = diagramTypeNames[d.diagram_type] || d.diagram_type;
+
+                let labelsHtml = '';
+                if (d.labels && d.labels.length) {
+                    labelsHtml = `
+                        <h6><i class="bi bi-tag me-1"></i>Kategorien/Labels:</h6>
+                        <ul class="mb-3">
+                            ${d.labels.map((l, i) => `<li>${l}${d.values && d.values[i] !== undefined ? ` <span class="badge bg-secondary">${d.values[i]}</span>` : ''}</li>`).join('')}
+                        </ul>
+                    `;
+                }
+
+                let stepsHtml = '';
+                if (d.steps && d.steps.length) {
+                    stepsHtml = `
+                        <h6><i class="bi bi-list-ol me-1"></i>Schritte:</h6>
+                        <ol class="mb-3">
+                            ${d.steps.map(s => `<li>${s}</li>`).join('')}
+                        </ol>
+                    `;
+                }
+
                 suggestion.innerHTML = `
+                    <!-- Diagramm-Typ Badge -->
+                    <div class="mb-3">
+                        <span class="badge bg-primary fs-6 px-3 py-2">
+                            <i class="bi bi-${icon} me-1"></i>
+                            ${typeName}
+                        </span>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6">
-                            <h6>Vorgeschlagener Typ:</h6>
-                            <p><strong>${result.data.diagram_type}</strong></p>
+                            <h6><i class="bi bi-card-heading me-1"></i>Titel:</h6>
+                            <p class="fs-5 fw-bold">${d.title}</p>
 
-                            <h6>Titel:</h6>
-                            <p>${result.data.title}</p>
+                            ${d.subtitle ? `<p class="text-muted">${d.subtitle}</p>` : ''}
 
-                            ${result.data.reasoning ? `
-                            <h6>Begründung:</h6>
-                            <p class="text-muted">${result.data.reasoning}</p>
+                            ${d.key_insight ? `
+                            <div class="alert alert-info py-2 mt-2">
+                                <i class="bi bi-lightbulb me-1"></i>
+                                <strong>Kernaussage:</strong> ${d.key_insight}
+                            </div>
+                            ` : ''}
+
+                            ${d.reasoning ? `
+                            <h6 class="mt-3"><i class="bi bi-chat-quote me-1"></i>Begründung:</h6>
+                            <p class="text-muted small">${d.reasoning}</p>
                             ` : ''}
                         </div>
                         <div class="col-md-6">
-                            ${result.data.labels ? `
-                            <h6>Datenpunkte:</h6>
-                            <ul>
-                                ${result.data.labels.map(l => `<li>${l}</li>`).join('')}
-                            </ul>
+                            ${labelsHtml}
+                            ${stepsHtml}
+
+                            ${d.center_value ? `
+                            <div class="alert alert-success py-2">
+                                <i class="bi bi-bullseye me-1"></i>
+                                <strong>Hauptwert:</strong> ${d.center_value}
+                            </div>
                             ` : ''}
                         </div>
                     </div>
                 `;
 
                 // Reload page to show generate button
-                location.reload();
+                setTimeout(() => location.reload(), 500);
             } else {
                 alert(result.error || 'Fehler bei der Analyse');
             }
