@@ -659,6 +659,66 @@ def api_generate_section_image(request, project_id):
     return JsonResponse(result)
 
 
+@login_required
+@require_POST
+def api_suggest_section_images(request, project_id):
+    """API: Generiert Vorschläge für Abschnittsbilder basierend auf dem Content"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    content_service = ContentService(request.user, settings)
+
+    # Sammle Content für jeden Abschnitt
+    sections_content = {
+        'intro': project.content_intro or '',
+        'main': project.content_main or '',
+        'tips': project.content_tips or '',
+    }
+
+    # Generiere Vorschläge mit KI
+    system_prompt = """Du bist ein Experte für visuelle Content-Strategie.
+Erstelle prägnante Bildbeschreibungen für Blog-Abschnitte, die sich gut für KI-Bildgenerierung eignen."""
+
+    suggestions = {}  # Dict mit section als Key
+
+    section_labels = {
+        'intro': 'Einleitung',
+        'main': 'Hauptteil',
+        'tips': 'Tipps'
+    }
+
+    for section_name, content in sections_content.items():
+        if not content or len(content) < 100:
+            continue
+
+        # Kürze Content für Prompt
+        content_preview = content[:1000] if len(content) > 1000 else content
+
+        user_prompt = f"""Erstelle eine Bildbeschreibung für den Abschnitt "{section_labels.get(section_name, section_name)}" eines Blogs zum Thema "{project.main_keyword}".
+
+CONTENT DES ABSCHNITTS:
+{content_preview}
+
+ANFORDERUNGEN:
+- 2-3 Sätze, max. 150 Wörter
+- Beschreibe ein konkretes, visualisierbares Motiv
+- Passend zum Thema und Ton des Abschnitts
+- Keine Texte oder Schrift im Bild
+- Professionell, modern, ansprechend
+
+Antworte NUR mit der Bildbeschreibung (keine Erklärung, kein JSON)."""
+
+        result = content_service._call_llm(system_prompt, user_prompt, max_tokens=200, temperature=0.7)
+
+        if result['success']:
+            suggestions[section_name] = result['content'].strip()
+
+    return JsonResponse({
+        'success': True,
+        'suggestions': suggestions
+    })
+
+
 # ============================================================================
 # Wizard Step 5: Diagramm (Optional)
 # ============================================================================

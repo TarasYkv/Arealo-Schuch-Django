@@ -78,50 +78,67 @@
 
 <!-- Section Images -->
 <div class="card mb-4">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-images me-2"></i>Abschnittsbilder <span class="badge bg-secondary">Optional</span></h5>
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="suggestSectionImages()" id="suggestBtn">
+            <i class="bi bi-lightbulb"></i> Vorschläge generieren
+        </button>
     </div>
     <div class="card-body">
-        <p class="text-muted mb-3">
-            Markiere einen Textabschnitt und generiere ein passendes Bild dafür.
-        </p>
+        <!-- Vorschläge -->
+        <div id="suggestionsContainer" class="mb-4" style="display: none;">
+            <h6><i class="bi bi-lightbulb me-2"></i>Vorgeschlagene Bildbeschreibungen</h6>
+            <p class="text-muted small">Klicke auf einen Vorschlag, um ihn zu übernehmen.</p>
+            <div id="suggestionsList" class="row"></div>
+        </div>
+
+        <hr class="my-3">
 
         <div class="mb-3">
-            <label class="form-label">Text für Bildgenerierung</label>
+            <label class="form-label">Bildbeschreibung</label>
             <textarea class="form-control" id="sectionTextInput" rows="3"
-                      placeholder="Füge hier den Text ein, für den ein Bild generiert werden soll..."></textarea>
+                      placeholder="Beschreibe das gewünschte Bild oder klicke auf 'Vorschläge generieren'..."></textarea>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label">Abschnittsname</label>
-            <select class="form-control" id="sectionNameSelect">
-                <option value="intro">Einleitung</option>
-                <option value="main">Hauptteil</option>
-                <option value="tips">Tipps</option>
-                <option value="custom">Benutzerdefiniert</option>
-            </select>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Abschnitt</label>
+                <select class="form-control" id="sectionNameSelect">
+                    <option value="intro">Einleitung</option>
+                    <option value="main">Hauptteil</option>
+                    <option value="tips">Tipps</option>
+                    <option value="custom">Benutzerdefiniert</option>
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <button type="button" class="btn btn-primary w-100" onclick="generateSectionImage()" id="generateSectionBtn">
+                    <i class="bi bi-magic"></i> Abschnittsbild generieren
+                </button>
+            </div>
         </div>
-
-        <button type="button" class="btn btn-outline-primary" onclick="generateSectionImage()">
-            <i class="bi bi-magic"></i> Abschnittsbild generieren
-        </button>
 
         <!-- Generated Section Images -->
+        <h6 class="mt-4"><i class="bi bi-collection me-2"></i>Generierte Abschnittsbilder</h6>
         {% if project.section_images %}
-        <div class="row mt-4" id="sectionImagesGrid">
+        <div class="row mt-2" id="sectionImagesGrid">
             {% for img in project.section_images %}
             <div class="col-md-4 mb-3">
-                <div class="card">
+                <div class="card h-100">
                     <img src="data:image/png;base64,{{ img.image_data }}" class="card-img-top" alt="{{ img.section }}">
                     <div class="card-body p-2">
-                        <small class="text-muted">{{ img.section }}</small>
+                        <span class="badge bg-primary">{{ img.section }}</span>
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <div id="sectionImagesGrid" class="row mt-4"></div>
+        <div id="sectionImagesGrid" class="row mt-2">
+            <div class="col-12 text-center py-4 text-muted" id="noImagesPlaceholder">
+                <i class="bi bi-images" style="font-size: 2rem;"></i>
+                <p class="mt-2">Noch keine Abschnittsbilder generiert</p>
+            </div>
+        </div>
         {% endif %}
     </div>
 </div>
@@ -264,6 +281,80 @@
         } finally {
             hideLoading();
         }
+    }
+
+    async function suggestSectionImages() {
+        const btn = document.getElementById('suggestBtn');
+        btn.disabled = true;
+        showLoading('Generiere Bildvorschläge basierend auf deinem Content...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_suggest_section_images" project_id=project.id %}');
+
+            if (result.success && result.suggestions) {
+                const container = document.getElementById('suggestionsContainer');
+                const list = document.getElementById('suggestionsList');
+                container.style.display = 'block';
+
+                // Render suggestions
+                let html = '';
+                const sectionLabels = {
+                    'intro': 'Einleitung',
+                    'main': 'Hauptteil',
+                    'tips': 'Tipps'
+                };
+
+                for (const [section, suggestion] of Object.entries(result.suggestions)) {
+                    if (suggestion && suggestion.trim()) {
+                        const label = sectionLabels[section] || section;
+                        html += `
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 suggestion-card"
+                                 onclick="selectSuggestion('${section}', this)"
+                                 data-suggestion="${suggestion.replace(/"/g, '&quot;')}"
+                                 style="cursor: pointer; transition: all 0.2s;">
+                                <div class="card-body">
+                                    <span class="badge bg-primary mb-2">${label}</span>
+                                    <p class="card-text small">${suggestion}</p>
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                }
+
+                if (html) {
+                    list.innerHTML = html;
+                } else {
+                    list.innerHTML = '<div class="col-12"><p class="text-muted">Keine Vorschläge verfügbar. Bitte generiere zuerst Content in Schritt 3.</p></div>';
+                }
+            } else {
+                alert(result.error || 'Fehler beim Generieren der Vorschläge');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+
+    function selectSuggestion(section, element) {
+        // Fill text input
+        const suggestion = element.dataset.suggestion;
+        document.getElementById('sectionTextInput').value = suggestion;
+
+        // Select correct section
+        document.getElementById('sectionNameSelect').value = section;
+
+        // Visual feedback
+        document.querySelectorAll('.suggestion-card').forEach(card => {
+            card.classList.remove('border-primary', 'bg-light');
+        });
+        element.classList.add('border-primary', 'bg-light');
+
+        // Scroll to input
+        document.getElementById('sectionTextInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('sectionTextInput').focus();
     }
 </script>
 {% endblock %}
