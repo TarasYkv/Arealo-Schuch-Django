@@ -1007,10 +1007,6 @@ def api_save_step3(request, project_id):
 @require_POST
 def api_upload_custom_image(request, project_id):
     """API: Lädt ein eigenes Bild hoch und speichert es als generated_image"""
-    from .image_processor import PinImageProcessor
-    from django.core.files.base import ContentFile
-    import io
-
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
     try:
@@ -1021,67 +1017,9 @@ def api_upload_custom_image(request, project_id):
                 'error': 'Kein Bild hochgeladen'
             }, status=400)
 
-        # Text-Overlay Optionen aus dem Formular
-        enable_text_overlay = request.POST.get('enable_text_overlay') == 'on'
-        text_position = request.POST.get('text_position', 'center')
-        text_background = request.POST.get('text_background') == 'on'
-        creative_shapes = request.POST.get('creative_shapes') == 'on'
-
-        # Bild erst speichern
+        # Bild speichern
         project.generated_image = custom_image
         project.save()
-
-        # Text-Overlay anwenden wenn aktiviert und Text vorhanden
-        if enable_text_overlay and project.overlay_text:
-            try:
-                processor = PinImageProcessor(project.generated_image.path)
-
-                # Kreative Form bestimmen
-                creative_shape = None
-                if text_background and creative_shapes:
-                    # Zufällige kreative Form basierend auf Text
-                    import random
-                    random.seed(len(project.overlay_text))
-                    creative_shape = random.choice(['rounded', 'banner', 'ribbon', 'splash'])
-
-                # Hintergrundfarbe nur wenn aktiviert
-                bg_color = '#000000' if text_background else None
-
-                result_image = processor.add_text_overlay(
-                    text=project.overlay_text,
-                    font=project.text_font or 'Arial',
-                    size=project.text_size or 48,
-                    color=project.text_color or '#FFFFFF',
-                    position=text_position,
-                    background_color=bg_color,
-                    background_opacity=0.7,
-                    creative_shape=creative_shape
-                )
-
-                # Als final_image speichern
-                buffer = io.BytesIO()
-                result_image.save(buffer, format='PNG', quality=95)
-                buffer.seek(0)
-
-                filename = f"final_{project.id}.png"
-                project.final_image.save(filename, ContentFile(buffer.read()), save=True)
-
-                return JsonResponse({
-                    'success': True,
-                    'image_url': project.final_image.url,
-                    'message': 'Bild mit Text-Overlay erfolgreich erstellt',
-                    'has_overlay': True
-                })
-
-            except Exception as overlay_error:
-                logger.warning(f"Text overlay failed, returning original image: {overlay_error}")
-                # Bei Fehler nur das Originalbild zurückgeben
-                return JsonResponse({
-                    'success': True,
-                    'image_url': project.generated_image.url,
-                    'message': 'Bild hochgeladen (Text-Overlay fehlgeschlagen)',
-                    'has_overlay': False
-                })
 
         return JsonResponse({
             'success': True,
@@ -2043,20 +1981,12 @@ def api_use_server_image(request, project_id):
     import shutil
     from django.conf import settings as django_settings
     from django.core.files.base import ContentFile
-    from .image_processor import PinImageProcessor
-    import io as io_module
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
     try:
         data = json.loads(request.body)
         image_path = data.get('image_path', '').strip()
-
-        # Text-Overlay Optionen
-        enable_text_overlay = data.get('enable_text_overlay', False)
-        text_position = data.get('text_position', 'center')
-        text_background = data.get('text_background', True)
-        creative_shapes = data.get('creative_shapes', False)
 
         if not image_path:
             return JsonResponse({
@@ -2095,56 +2025,6 @@ def api_use_server_image(request, project_id):
         project.generated_image.save(new_filename, ContentFile(image_data), save=True)
 
         logger.info(f"[IdeoPin] Server image used: {image_path} -> {new_filename}")
-
-        # Text-Overlay anwenden wenn aktiviert und Text vorhanden
-        if enable_text_overlay and project.overlay_text:
-            try:
-                processor = PinImageProcessor(project.generated_image.path)
-
-                # Kreative Form bestimmen
-                creative_shape = None
-                if text_background and creative_shapes:
-                    import random
-                    random.seed(len(project.overlay_text))
-                    creative_shape = random.choice(['rounded', 'banner', 'ribbon', 'splash'])
-
-                # Hintergrundfarbe nur wenn aktiviert
-                bg_color = '#000000' if text_background else None
-
-                result_image = processor.add_text_overlay(
-                    text=project.overlay_text,
-                    font=project.text_font or 'Arial',
-                    size=project.text_size or 48,
-                    color=project.text_color or '#FFFFFF',
-                    position=text_position,
-                    background_color=bg_color,
-                    background_opacity=0.7,
-                    creative_shape=creative_shape
-                )
-
-                # Als final_image speichern
-                buffer = io_module.BytesIO()
-                result_image.save(buffer, format='PNG', quality=95)
-                buffer.seek(0)
-
-                filename = f"final_{project.id}.png"
-                project.final_image.save(filename, ContentFile(buffer.read()), save=True)
-
-                return JsonResponse({
-                    'success': True,
-                    'image_url': project.final_image.url,
-                    'message': 'Bild mit Text-Overlay erfolgreich erstellt',
-                    'has_overlay': True
-                })
-
-            except Exception as overlay_error:
-                logger.warning(f"Text overlay failed for server image: {overlay_error}")
-                return JsonResponse({
-                    'success': True,
-                    'image_url': project.generated_image.url,
-                    'message': 'Bild übernommen (Text-Overlay fehlgeschlagen)',
-                    'has_overlay': False
-                })
 
         return JsonResponse({
             'success': True,
