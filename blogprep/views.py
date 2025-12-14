@@ -976,14 +976,82 @@ def api_export_to_shopify(request, project_id):
     try:
         import base64
         import requests
+        from .shopify_files import ShopifyFilesService
 
-        # Basis-URL für absolute Bild-Links (z.B. https://www.workloom.de)
+        store = project.shopify_store
+        # Base URL für Fallback (falls Shopify Upload fehlschlägt)
         base_url = request.build_absolute_uri('/').rstrip('/')
 
-        # Generiere HTML mit absoluten Bild-URLs für Shopify
+        # Schritt 1: Abschnittsbilder zu Shopify hochladen (falls vorhanden)
+        if project.section_images:
+            shopify_files = ShopifyFilesService(store)
+            updated_section_images = []
+
+            for idx, img in enumerate(project.section_images):
+                section_name = img.get('section', f'section_{idx}')
+                image_data = img.get('image_data')
+
+                # Nur hochladen wenn Base64-Daten vorhanden und noch keine Shopify-URL
+                if image_data and not img.get('shopify_cdn_url'):
+                    filename = f"blogprep_{project.id}_{section_name}"
+                    alt_text = f"{project.main_keyword} - {section_name}"
+
+                    success, cdn_url, file_id = shopify_files.upload_image_from_base64(
+                        image_data, filename, alt_text
+                    )
+
+                    if success:
+                        img['shopify_cdn_url'] = cdn_url
+                        img['shopify_file_id'] = file_id
+                        # Setze image_url auf CDN URL für HTML-Generierung
+                        img['image_url'] = cdn_url
+                        logger.info(f"Bild '{section_name}' zu Shopify hochgeladen: {cdn_url}")
+                    else:
+                        logger.warning(f"Shopify Upload fehlgeschlagen für '{section_name}': {cdn_url}")
+                        # Fallback: Behalte lokale URL wenn vorhanden
+
+                updated_section_images.append(img)
+
+            project.section_images = updated_section_images
+            project.save()
+
+        # Schritt 2: Diagrammbild zu Shopify hochladen (falls vorhanden)
+        diagram_cdn_url = None
+        if project.diagram_image and not project.skip_diagram:
+            try:
+                shopify_files = ShopifyFilesService(store)
+                with project.diagram_image.open('rb') as img_file:
+                    diagram_data = base64.b64encode(img_file.read()).decode('utf-8')
+                    filename = f"blogprep_{project.id}_diagram"
+                    alt_text = f"{project.main_keyword} - Diagramm"
+
+                    success, cdn_url, file_id = shopify_files.upload_image_from_base64(
+                        diagram_data, filename, alt_text
+                    )
+
+                    if success:
+                        diagram_cdn_url = cdn_url
+                        logger.info(f"Diagramm zu Shopify hochgeladen: {cdn_url}")
+            except Exception as e:
+                logger.warning(f"Diagramm Upload fehlgeschlagen: {e}")
+
+        # Generiere HTML mit Shopify CDN URLs
         # Titelbild NICHT im body_html (wird als Article Image gesetzt)
-        # Abschnittsbilder werden jetzt als URLs inkludiert (nicht mehr Base64)
         project.generate_full_html(base_url=base_url, include_title_image=False, include_section_images=True)
+
+        # Ersetze Diagramm-URL im HTML durch Shopify CDN URL
+        if diagram_cdn_url and project.diagram_image:
+            local_diagram_url = project.diagram_image.url
+            # Ersetze sowohl relative als auch absolute URLs
+            project.full_html_content = project.full_html_content.replace(
+                f'src="{local_diagram_url}"',
+                f'src="{diagram_cdn_url}"'
+            )
+            project.full_html_content = project.full_html_content.replace(
+                f'src="{base_url}{local_diagram_url}"',
+                f'src="{diagram_cdn_url}"'
+            )
+
         project.save()
 
         # Shopify API Call
