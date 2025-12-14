@@ -7,6 +7,51 @@
     Generiere ein Titelbild für deinen Blog und optional Bilder für einzelne Abschnitte.
 </div>
 
+<!-- Model Selection -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>Bild-Modell wählen</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label">Anbieter</label>
+                <select class="form-control" id="imageProvider" onchange="updateImageModels()">
+                    {% for value, label in image_providers %}
+                    <option value="{{ value }}" {% if settings.image_provider == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Modell</label>
+                <select class="form-control" id="imageModel">
+                    {% for value, label in gemini_image_models %}
+                    <option value="{{ value }}" data-provider="gemini" {% if settings.image_model == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                    {% for value, label in dalle_image_models %}
+                    <option value="{{ value }}" data-provider="dalle" {% if settings.image_model == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">&nbsp;</label>
+                <p class="form-control-plaintext text-muted small" id="modelDescription">
+                    Wähle ein Modell für die Bildgenerierung
+                </p>
+            </div>
+        </div>
+        <small class="text-muted">
+            <i class="bi bi-lightbulb"></i> Tipp: Nano Banana ist schnell & günstig für einfache Bilder. Nano Banana Pro für beste Qualität.
+        </small>
+    </div>
+</div>
+
 <!-- Title Image -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -97,13 +142,66 @@
 
 {% block wizard_js %}
 <script>
+    // Modell-Beschreibungen
+    const imageModelDescriptions = {
+        'gemini-3-pro-image-preview': 'Nano Banana Pro - Beste Qualität, 2K/4K, präziser Text',
+        'gemini-2.5-flash-image': 'Nano Banana - Schnell & günstig, $0.039/Bild',
+        'gemini-2.0-flash-exp-image-generation': 'Gemini 2.0 Flash - Fallback-Option',
+        'gpt-image-1': 'GPT Image 1 - Neuestes OpenAI Modell, beste Qualität',
+        'dall-e-3': 'DALL-E 3 - Bewährt, gute Qualität',
+    };
+
+    function updateImageModels() {
+        const provider = document.getElementById('imageProvider').value;
+        const modelSelect = document.getElementById('imageModel');
+        const options = modelSelect.querySelectorAll('option');
+
+        options.forEach(opt => {
+            if (opt.dataset.provider === provider) {
+                opt.style.display = 'block';
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+
+        // Select first visible option
+        const visibleOptions = modelSelect.querySelectorAll(`option[data-provider="${provider}"]`);
+        if (visibleOptions.length > 0) {
+            modelSelect.value = visibleOptions[0].value;
+        }
+
+        updateModelDescription();
+    }
+
+    function updateModelDescription() {
+        const model = document.getElementById('imageModel').value;
+        const desc = imageModelDescriptions[model] || '';
+        document.getElementById('modelDescription').textContent = desc;
+    }
+
+    document.getElementById('imageModel').addEventListener('change', updateModelDescription);
+
+    // Init on page load
+    updateImageModels();
+
+    function getSelectedModel() {
+        return {
+            provider: document.getElementById('imageProvider').value,
+            model: document.getElementById('imageModel').value
+        };
+    }
+
     async function generateTitleImage() {
         const btn = document.getElementById('titleImageBtn');
         btn.disabled = true;
-        showLoading('Generiere Titelbild... (kann bis zu 60 Sekunden dauern)');
+        const modelInfo = getSelectedModel();
+        showLoading(`Generiere Titelbild mit ${modelInfo.model}... (kann bis zu 60 Sekunden dauern)`);
 
         try {
-            const result = await apiCall('{% url "blogprep:api_generate_title_image" project_id=project.id %}');
+            const result = await apiCall('{% url "blogprep:api_generate_title_image" project_id=project.id %}', {
+                image_provider: modelInfo.provider,
+                image_model: modelInfo.model
+            });
 
             if (result.success && result.image_url) {
                 document.getElementById('titleImagePlaceholder')?.remove();
@@ -124,18 +222,21 @@
     async function generateSectionImage() {
         const text = document.getElementById('sectionTextInput').value;
         const section = document.getElementById('sectionNameSelect').value;
+        const modelInfo = getSelectedModel();
 
         if (!text) {
             alert('Bitte gib einen Text für das Bild ein.');
             return;
         }
 
-        showLoading('Generiere Abschnittsbild...');
+        showLoading(`Generiere Abschnittsbild mit ${modelInfo.model}...`);
 
         try {
             const result = await apiCall('{% url "blogprep:api_generate_section_image" project_id=project.id %}', {
                 section_text: text,
-                section_name: section
+                section_name: section,
+                image_provider: modelInfo.provider,
+                image_model: modelInfo.model
             });
 
             if (result.success && result.image_data) {

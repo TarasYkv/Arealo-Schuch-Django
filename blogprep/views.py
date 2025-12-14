@@ -539,7 +539,11 @@ def wizard_step4(request, project_id):
     context = {
         'project': project,
         'settings': settings,
-        'step': 4
+        'step': 4,
+        # Bild-Modell Auswahl
+        'image_providers': BlogPrepSettings.IMAGE_PROVIDER_CHOICES,
+        'gemini_image_models': BlogPrepSettings.GEMINI_IMAGE_MODEL_CHOICES,
+        'dalle_image_models': BlogPrepSettings.DALLE_IMAGE_MODEL_CHOICES,
     }
     return render(request, 'blogprep/wizard/step4_images.html', context)
 
@@ -550,6 +554,15 @@ def api_generate_title_image(request, project_id):
     """API: Generiert das Titelbild"""
     project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
     settings = get_user_settings(request.user)
+
+    # Überschreibe Modell aus Request (falls angegeben)
+    custom_provider = request.POST.get('image_provider')
+    custom_model = request.POST.get('image_model')
+
+    if custom_provider:
+        settings.image_provider = custom_provider
+    if custom_model:
+        settings.image_model = custom_model
 
     image_service = ImageService(request.user, settings)
 
@@ -594,6 +607,15 @@ def api_generate_section_image(request, project_id):
 
     section_text = request.POST.get('section_text', '')
     section_name = request.POST.get('section_name', 'section')
+
+    # Überschreibe Modell aus Request (falls angegeben)
+    custom_provider = request.POST.get('image_provider')
+    custom_model = request.POST.get('image_model')
+
+    if custom_provider:
+        settings.image_provider = custom_provider
+    if custom_model:
+        settings.image_model = custom_model
 
     if not section_text:
         return JsonResponse({'success': False, 'error': 'Kein Text ausgewählt'})
@@ -659,7 +681,11 @@ def wizard_step5(request, project_id):
         'project': project,
         'settings': settings,
         'step': 5,
-        'diagram_types': BlogPrepProject.DIAGRAM_TYPE_CHOICES
+        'diagram_types': BlogPrepProject.DIAGRAM_TYPE_CHOICES,
+        # Bild-Modell Auswahl
+        'image_providers': BlogPrepSettings.IMAGE_PROVIDER_CHOICES,
+        'gemini_image_models': BlogPrepSettings.GEMINI_IMAGE_MODEL_CHOICES,
+        'dalle_image_models': BlogPrepSettings.DALLE_IMAGE_MODEL_CHOICES,
     }
     return render(request, 'blogprep/wizard/step5_diagram.html', context)
 
@@ -701,6 +727,15 @@ def api_generate_diagram_image(request, project_id):
     """API: Generiert Diagramm als Bild"""
     project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
     settings = get_user_settings(request.user)
+
+    # Überschreibe Modell aus Request (falls angegeben)
+    custom_provider = request.POST.get('image_provider')
+    custom_model = request.POST.get('image_model')
+
+    if custom_provider:
+        settings.image_provider = custom_provider
+    if custom_model:
+        settings.image_model = custom_model
 
     if not project.diagram_data:
         return JsonResponse({'success': False, 'error': 'Keine Diagramm-Daten vorhanden'})
