@@ -48,8 +48,8 @@ class ImageService:
             'gemini-2.0-flash-exp-image-generation': 'Gemini 2.0 Flash (Fallback)',
         },
         'dalle': {
-            'gpt-image-1': 'GPT Image 1 (Empfohlen)',
-            'dall-e-3': 'DALL-E 3',
+            'dall-e-3': 'DALL-E 3 (Empfohlen)',
+            # 'gpt-image-1': 'GPT Image 1 (erfordert verifizierte Organisation)',
         },
     }
 
@@ -243,18 +243,38 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
                 n=1
             )
 
-            # URL abrufen und zu Base64 konvertieren
-            image_url = response.data[0].url
-            img_response = requests.get(image_url, timeout=60)
-
-            if img_response.status_code == 200:
-                image_data = base64.b64encode(img_response.content).decode('utf-8')
-            else:
+            # Prüfe ob Daten vorhanden
+            if not response.data or len(response.data) == 0:
                 return {
                     'success': False,
-                    'error': f'Fehler beim Herunterladen des Bildes: {img_response.status_code}',
+                    'error': 'Keine Bilddaten von OpenAI erhalten',
                     'model_used': self.model
                 }
+
+            # URL abrufen und zu Base64 konvertieren
+            image_url = response.data[0].url
+
+            if not image_url:
+                # Falls URL None ist, versuche b64_json
+                if hasattr(response.data[0], 'b64_json') and response.data[0].b64_json:
+                    image_data = response.data[0].b64_json
+                else:
+                    return {
+                        'success': False,
+                        'error': 'Keine Bild-URL von OpenAI erhalten. Möglicherweise ist das Modell für Ihren Account nicht verfügbar.',
+                        'model_used': self.model
+                    }
+            else:
+                img_response = requests.get(image_url, timeout=60)
+
+                if img_response.status_code == 200:
+                    image_data = base64.b64encode(img_response.content).decode('utf-8')
+                else:
+                    return {
+                        'success': False,
+                        'error': f'Fehler beim Herunterladen des Bildes: {img_response.status_code}',
+                        'model_used': self.model
+                    }
         else:
             # DALL-E 3: unterstützt b64_json
             response = self.openai_client.images.generate(
@@ -265,6 +285,14 @@ Das Diagramm muss auf den ersten Blick verständlich sein."""
                 n=1,
                 response_format="b64_json"
             )
+
+            if not response.data or len(response.data) == 0:
+                return {
+                    'success': False,
+                    'error': 'Keine Bilddaten von OpenAI erhalten',
+                    'model_used': self.model
+                }
+
             image_data = response.data[0].b64_json
 
         return {
