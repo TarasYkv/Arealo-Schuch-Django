@@ -214,7 +214,8 @@ class PinImageProcessor:
         color: str = '#FFFFFF',
         position: str = 'center',
         background_color: str = None,
-        background_opacity: float = 0.7
+        background_opacity: float = 0.7,
+        creative_shape: str = None
     ) -> Image.Image:
         """
         Fügt Text-Overlay zum Bild hinzu.
@@ -224,9 +225,10 @@ class PinImageProcessor:
             font: Schriftart-Name
             size: Schriftgröße
             color: Textfarbe als Hex
-            position: 'top', 'center', oder 'bottom'
+            position: 'top', 'center', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'
             background_color: Hintergrundfarbe für Textbox (None für transparent)
             background_opacity: Transparenz des Hintergrunds (0-1)
+            creative_shape: Optionale kreative Form ('banner', 'ribbon', 'splash', 'rounded', None)
 
         Returns:
             PIL Image mit Text-Overlay
@@ -243,7 +245,7 @@ class PinImageProcessor:
 
         # Calculate text dimensions
         img_width, img_height = result.size
-        max_text_width = int(img_width * 0.9)  # 90% of image width
+        max_text_width = int(img_width * 0.85)  # 85% of image width for corner positions
 
         # Wrap text
         lines = self._wrap_text(text, pil_font, max_text_width)
@@ -256,39 +258,104 @@ class PinImageProcessor:
 
         total_text_height = sum(line_heights) + (len(lines) - 1) * 10  # 10px line spacing
 
+        # Calculate max line width for background
+        max_line_width = 0
+        for line in lines:
+            bbox = pil_font.getbbox(line)
+            max_line_width = max(max_line_width, bbox[2] - bbox[0])
+
         # Calculate position
         padding = 20
+        margin = 30  # Margin from edges
 
-        if position == 'top':
-            start_y = padding + 50
-        elif position == 'bottom':
-            start_y = img_height - total_text_height - padding - 50
+        # Vertical position
+        if position in ['top', 'top-left', 'top-right']:
+            start_y = margin + padding
+        elif position in ['bottom', 'bottom-left', 'bottom-right']:
+            start_y = img_height - total_text_height - margin - padding
         else:  # center
             start_y = (img_height - total_text_height) // 2
+
+        # Horizontal alignment
+        if position in ['top-left', 'bottom-left']:
+            text_align = 'left'
+            box_left = margin
+            box_right = margin + max_line_width + padding * 2
+        elif position in ['top-right', 'bottom-right']:
+            text_align = 'right'
+            box_left = img_width - margin - max_line_width - padding * 2
+            box_right = img_width - margin
+        else:  # center aligned
+            text_align = 'center'
+            box_left = (img_width - max_line_width) // 2 - padding
+            box_right = (img_width + max_line_width) // 2 + padding
+
+        box_top = start_y - padding
+        box_bottom = start_y + total_text_height + padding
 
         # Draw background box if specified
         if background_color:
             bg_rgb = self._hex_to_rgb(background_color)
             bg_alpha = int(background_opacity * 255)
 
-            # Calculate box dimensions
-            max_line_width = 0
-            for line in lines:
-                bbox = pil_font.getbbox(line)
-                max_line_width = max(max_line_width, bbox[2] - bbox[0])
-
-            box_left = (img_width - max_line_width) // 2 - padding
-            box_top = start_y - padding
-            box_right = (img_width + max_line_width) // 2 + padding
-            box_bottom = start_y + total_text_height + padding
-
             # Create semi-transparent overlay
             overlay = Image.new('RGBA', result.size, (0, 0, 0, 0))
             overlay_draw = ImageDraw.Draw(overlay)
-            overlay_draw.rectangle(
-                [box_left, box_top, box_right, box_bottom],
-                fill=(*bg_rgb, bg_alpha)
-            )
+
+            if creative_shape == 'rounded':
+                # Abgerundetes Rechteck
+                radius = min(20, (box_bottom - box_top) // 4)
+                overlay_draw.rounded_rectangle(
+                    [box_left, box_top, box_right, box_bottom],
+                    radius=radius,
+                    fill=(*bg_rgb, bg_alpha)
+                )
+            elif creative_shape == 'banner':
+                # Banner mit Ecken
+                points = [
+                    (box_left - 15, box_top),
+                    (box_right + 15, box_top),
+                    (box_right, box_bottom),
+                    (box_left, box_bottom)
+                ]
+                overlay_draw.polygon(points, fill=(*bg_rgb, bg_alpha))
+            elif creative_shape == 'ribbon':
+                # Ribbon/Schleife Effekt
+                ribbon_extend = 25
+                points = [
+                    (box_left - ribbon_extend, (box_top + box_bottom) // 2),
+                    (box_left, box_top),
+                    (box_right, box_top),
+                    (box_right + ribbon_extend, (box_top + box_bottom) // 2),
+                    (box_right, box_bottom),
+                    (box_left, box_bottom)
+                ]
+                overlay_draw.polygon(points, fill=(*bg_rgb, bg_alpha))
+            elif creative_shape == 'splash':
+                # Splash/Stern-ähnliche Form
+                import random
+                random.seed(len(text))  # Konsistente Form basierend auf Text
+                center_x = (box_left + box_right) // 2
+                center_y = (box_top + box_bottom) // 2
+                radius_x = (box_right - box_left) // 2 + 20
+                radius_y = (box_bottom - box_top) // 2 + 15
+                points = []
+                num_points = 12
+                for i in range(num_points):
+                    import math
+                    angle = (2 * math.pi * i) / num_points
+                    r_factor = 1.0 if i % 2 == 0 else 0.85
+                    x = center_x + int(radius_x * r_factor * math.cos(angle))
+                    y = center_y + int(radius_y * r_factor * math.sin(angle))
+                    points.append((x, y))
+                overlay_draw.polygon(points, fill=(*bg_rgb, bg_alpha))
+            else:
+                # Standard Rechteck
+                overlay_draw.rectangle(
+                    [box_left, box_top, box_right, box_bottom],
+                    fill=(*bg_rgb, bg_alpha)
+                )
+
             result = Image.alpha_composite(result, overlay)
             draw = ImageDraw.Draw(result)
 
@@ -299,7 +366,14 @@ class PinImageProcessor:
         for i, line in enumerate(lines):
             bbox = pil_font.getbbox(line)
             line_width = bbox[2] - bbox[0]
-            x = (img_width - line_width) // 2
+
+            # Calculate X position based on alignment
+            if text_align == 'left':
+                x = box_left + padding
+            elif text_align == 'right':
+                x = box_right - padding - line_width
+            else:  # center
+                x = (img_width - line_width) // 2
 
             # Draw shadow for better readability
             shadow_offset = max(2, size // 20)

@@ -215,6 +215,67 @@
                         </button>
                     </div>
 
+                    <!-- Text-Overlay Optionen (für eigene/Server-Bilder) -->
+                    <div class="mb-4" id="textOverlayOptionsSection" style="display: none;">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-fonts"></i> Text-Overlay Optionen
+                        </label>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <!-- Text-Overlay aktivieren -->
+                                <div class="form-check mb-3">
+                                    <input type="checkbox" class="form-check-input" id="enableTextOverlay" name="enable_text_overlay" checked>
+                                    <label class="form-check-label" for="enableTextOverlay">
+                                        <strong>Text-Overlay hinzufügen</strong>
+                                        <small class="d-block text-muted">
+                                            Fügt den Text "{{ project.overlay_text|default:'(Text aus Schritt 2)' }}" zum Bild hinzu
+                                        </small>
+                                    </label>
+                                </div>
+
+                                <!-- Optionen (nur sichtbar wenn Overlay aktiviert) -->
+                                <div id="textOverlayDetails">
+                                    <!-- Text-Position -->
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold">Text-Position</label>
+                                        <select class="form-select" name="text_position" id="textPosition">
+                                            <option value="center" selected>Mitte</option>
+                                            <option value="top">Oben</option>
+                                            <option value="bottom">Unten</option>
+                                            <option value="top-left">Oben links</option>
+                                            <option value="top-right">Oben rechts</option>
+                                            <option value="bottom-left">Unten links</option>
+                                            <option value="bottom-right">Unten rechts</option>
+                                        </select>
+                                        <div class="form-text">Wo soll der Text im Bild platziert werden?</div>
+                                    </div>
+
+                                    <!-- Text-Hintergrund -->
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" id="textBackground" name="text_background" checked>
+                                        <label class="form-check-label" for="textBackground">
+                                            <strong>Text-Hintergrund</strong>
+                                            <small class="d-block text-muted">
+                                                Text auf formpassendem Hintergrund platzieren
+                                            </small>
+                                        </label>
+                                    </div>
+
+                                    <!-- Kreative Formen -->
+                                    <div class="form-check" id="creativeShapesOption">
+                                        <input type="checkbox" class="form-check-input" id="creativeShapes" name="creative_shapes">
+                                        <label class="form-check-label" for="creativeShapes">
+                                            <strong>Kreative Formen erlauben</strong>
+                                            <small class="d-block text-muted">
+                                                Hintergrund kann kreative Formen haben (Banner, Ribbon, Splash, etc.)
+                                            </small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <hr class="my-4">
 
                     <div class="d-flex justify-content-between">
@@ -422,9 +483,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const aiGenerationSection = document.getElementById('aiGenerationSection');
     const uploadSection = document.getElementById('uploadSection');
     const serverImageSection = document.getElementById('serverImageSection');
+    const textOverlayOptionsSection = document.getElementById('textOverlayOptionsSection');
     const imageSourceRadios = document.querySelectorAll('input[name="image_source"]');
     const uploadImageBtn = document.getElementById('uploadImageBtn');
     const customImageInput = document.getElementById('id_custom_image');
+
+    // Text-Overlay Elemente
+    const enableTextOverlay = document.getElementById('enableTextOverlay');
+    const textOverlayDetails = document.getElementById('textOverlayDetails');
+    const textBackground = document.getElementById('textBackground');
+    const creativeShapesOption = document.getElementById('creativeShapesOption');
 
     // Toggle zwischen KI, Upload und Server
     imageSourceRadios.forEach(radio => {
@@ -432,17 +500,37 @@ document.addEventListener('DOMContentLoaded', function() {
             aiGenerationSection.style.display = 'none';
             uploadSection.style.display = 'none';
             serverImageSection.style.display = 'none';
+            textOverlayOptionsSection.style.display = 'none';
 
             if (this.value === 'ai') {
                 aiGenerationSection.style.display = 'block';
             } else if (this.value === 'upload') {
                 uploadSection.style.display = 'block';
+                textOverlayOptionsSection.style.display = 'block';
             } else if (this.value === 'server') {
                 serverImageSection.style.display = 'block';
+                textOverlayOptionsSection.style.display = 'block';
                 loadServerImages();
             }
         });
     });
+
+    // Text-Overlay Checkbox Toggle
+    if (enableTextOverlay && textOverlayDetails) {
+        enableTextOverlay.addEventListener('change', function() {
+            textOverlayDetails.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+
+    // Text-Hintergrund Checkbox Toggle (zeigt/versteckt kreative Formen)
+    if (textBackground && creativeShapesOption) {
+        textBackground.addEventListener('change', function() {
+            creativeShapesOption.style.display = this.checked ? 'block' : 'none';
+            if (!this.checked) {
+                document.getElementById('creativeShapes').checked = false;
+            }
+        });
+    }
 
     // Server-Bilder laden
     let serverImagesLoaded = false;
@@ -537,6 +625,15 @@ document.addEventListener('DOMContentLoaded', function() {
         this.disabled = true;
         this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Wird übernommen...';
 
+        // Text-Overlay Optionen sammeln
+        const textOverlayData = {
+            image_path: imagePath,
+            enable_text_overlay: document.getElementById('enableTextOverlay')?.checked || false,
+            text_position: document.getElementById('textPosition')?.value || 'center',
+            text_background: document.getElementById('textBackground')?.checked || false,
+            creative_shapes: document.getElementById('creativeShapes')?.checked || false
+        };
+
         try {
             const response = await fetch('{% url "ideopin:api_use_server_image" project.id %}', {
                 method: 'POST',
@@ -544,16 +641,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-CSRFToken': '{{ csrf_token }}',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ image_path: imagePath })
+                body: JSON.stringify(textOverlayData)
             });
             const data = await response.json();
 
             if (data.success) {
+                const badge = data.has_overlay
+                    ? '<span class="badge bg-success mt-2"><i class="bi bi-fonts"></i> Mit Text-Overlay</span>'
+                    : '<span class="badge bg-success mt-2"><i class="bi bi-folder2-open"></i> Server-Bild</span>';
                 imagePreview.innerHTML = `
                     <img src="${data.image_url}?t=${Date.now()}" alt="Server-Bild" class="img-fluid">
-                    <span class="badge bg-success mt-2"><i class="bi bi-folder2-open"></i> Server-Bild</span>
+                    ${badge}
                 `;
-                alert('Bild erfolgreich übernommen!');
+                alert(data.message || 'Bild erfolgreich übernommen!');
             } else {
                 alert('Fehler: ' + data.error);
             }
@@ -592,9 +692,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.success) {
+                    const badge = data.has_overlay
+                        ? '<span class="badge bg-success mt-2"><i class="bi bi-fonts"></i> Mit Text-Overlay</span>'
+                        : '<span class="badge bg-info mt-2"><i class="bi bi-upload"></i> Eigenes Bild</span>';
                     imagePreview.innerHTML = `
                         <img src="${data.image_url}?t=${Date.now()}" alt="Hochgeladenes Bild" class="img-fluid">
-                        <span class="badge bg-info mt-2"><i class="bi bi-upload"></i> Eigenes Bild</span>
+                        ${badge}
                     `;
 
                     // Model-Info Badge verstecken
@@ -605,6 +708,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';
                     this.classList.remove('btn-primary');
                     this.classList.add('btn-success');
+
+                    // Erfolgsmeldung
+                    if (data.message) {
+                        alert(data.message);
+                    }
 
                     setTimeout(() => {
                         this.innerHTML = originalHtml;
