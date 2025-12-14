@@ -810,6 +810,7 @@ def api_post_to_social(request, video_id):
         title = data.get('title', video.title)
         description = data.get('description', video.description)
         hashtags = data.get('hashtags', '')
+        platform_options = data.get('platform_options', {})
 
         if not platforms:
             return JsonResponse({
@@ -873,14 +874,39 @@ def api_post_to_social(request, video_id):
             form_data.append(('platform[]', platform))
 
         # Plattform-spezifische Parameter gemäß Upload-Post Dokumentation
+        # Instagram Optionen
         if 'instagram' in platforms:
-            form_data.append(('media_type', 'REELS'))  # Instagram Reels
+            ig_opts = platform_options.get('instagram', {})
+            form_data.append(('media_type', ig_opts.get('media_type', 'REELS')))
+            if ig_opts.get('share_to_feed', True):
+                form_data.append(('share_to_feed', 'true'))
 
-        if 'youtube' in platforms:
-            form_data.append(('privacyStatus', 'public'))
-
+        # TikTok Optionen
         if 'tiktok' in platforms:
-            form_data.append(('privacy_level', 'PUBLIC_TO_EVERYONE'))
+            tt_opts = platform_options.get('tiktok', {})
+            form_data.append(('privacy_level', tt_opts.get('privacy_level', 'PUBLIC_TO_EVERYONE')))
+            if tt_opts.get('disable_comment', False):
+                form_data.append(('disable_comment', 'true'))
+            if tt_opts.get('disable_duet', False):
+                form_data.append(('disable_duet', 'true'))
+
+        # YouTube Optionen
+        if 'youtube' in platforms:
+            yt_opts = platform_options.get('youtube', {})
+            form_data.append(('privacyStatus', yt_opts.get('privacyStatus', 'public')))
+            form_data.append(('categoryId', yt_opts.get('categoryId', '22')))
+            if yt_opts.get('madeForKids', False):
+                form_data.append(('madeForKids', 'true'))
+
+        # Facebook Optionen
+        if 'facebook' in platforms:
+            fb_opts = platform_options.get('facebook', {})
+            form_data.append(('facebook_media_type', fb_opts.get('facebook_media_type', 'REELS')))
+
+        # LinkedIn Optionen
+        if 'linkedin' in platforms:
+            li_opts = platform_options.get('linkedin', {})
+            form_data.append(('visibility', li_opts.get('visibility', 'PUBLIC')))
 
         if scheduled_date:
             form_data.append(('scheduled_date', scheduled_date))
