@@ -569,3 +569,395 @@ def api_storage_status(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Fehler beim Abrufen des Speicherstatus: {str(e)}'}, status=500)
+
+
+# ==================== SOCIAL MEDIA POSTING ====================
+
+@login_required
+@require_POST
+def api_generate_social_text(request, video_id):
+    """API: KI-gestützte Generierung von Titel, Beschreibung und Hashtags für Social Media"""
+    import json
+
+    video = get_object_or_404(Video, id=video_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+        user_input = data.get('input_text', '')
+        platforms = data.get('platforms', [])
+
+        if not user_input:
+            # Fallback auf Video-Titel und Beschreibung
+            user_input = f"{video.title}. {video.description}"
+
+        # KI-API auswählen basierend auf verfügbaren Keys
+        user = request.user
+        result = None
+
+        # OpenAI versuchen
+        if user.openai_api_key:
+            result = _generate_with_openai(user, user_input, platforms)
+        # Anthropic als Fallback
+        elif user.anthropic_api_key:
+            result = _generate_with_anthropic(user, user_input, platforms)
+        # Gemini als Fallback
+        elif user.gemini_api_key:
+            result = _generate_with_gemini(user, user_input, platforms)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein KI-API-Key konfiguriert. Bitte in den Einstellungen einen OpenAI, Anthropic oder Gemini API-Key hinzufügen.'
+            }, status=400)
+
+        if result:
+            return JsonResponse({
+                'success': True,
+                'title': result.get('title', ''),
+                'description': result.get('description', ''),
+                'hashtags': result.get('hashtags', '')
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'KI-Generierung fehlgeschlagen. Bitte versuche es erneut.'
+            }, status=500)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
+def _generate_with_openai(user, input_text, platforms):
+    """Generiert Social Media Texte mit OpenAI"""
+    try:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=user.openai_api_key)
+
+        platform_str = ', '.join(platforms) if platforms else 'Instagram, Facebook, LinkedIn, TikTok, YouTube'
+
+        prompt = f"""Erstelle optimierte Social Media Inhalte für ein Video basierend auf diesem Text:
+
+"{input_text}"
+
+Zielplattformen: {platform_str}
+
+Erstelle:
+1. Einen kurzen, ansprechenden Titel (max. 60 Zeichen)
+2. Eine Beschreibung (max. 300 Zeichen) mit Call-to-Action
+3. Relevante Hashtags (5-10 Stück, mit # Zeichen)
+
+Antworte NUR im JSON-Format:
+{{"title": "...", "description": "...", "hashtags": "#tag1 #tag2 #tag3"}}"""
+
+        response = client.chat.completions.create(
+            model=user.preferred_openai_model or 'gpt-4o-mini',
+            messages=[
+                {"role": "system", "content": "Du bist ein Social Media Marketing Experte. Antworte immer auf Deutsch und nur im JSON-Format."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
+            temperature=0.7
+        )
+
+        import json
+        content = response.choices[0].message.content.strip()
+        # JSON aus der Antwort extrahieren
+        if content.startswith('```json'):
+            content = content[7:]
+        if content.startswith('```'):
+            content = content[3:]
+        if content.endswith('```'):
+            content = content[:-3]
+
+        return json.loads(content.strip())
+
+    except Exception as e:
+        print(f"OpenAI Error: {e}")
+        return None
+
+
+def _generate_with_anthropic(user, input_text, platforms):
+    """Generiert Social Media Texte mit Anthropic"""
+    try:
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=user.anthropic_api_key)
+
+        platform_str = ', '.join(platforms) if platforms else 'Instagram, Facebook, LinkedIn, TikTok, YouTube'
+
+        prompt = f"""Erstelle optimierte Social Media Inhalte für ein Video basierend auf diesem Text:
+
+"{input_text}"
+
+Zielplattformen: {platform_str}
+
+Erstelle:
+1. Einen kurzen, ansprechenden Titel (max. 60 Zeichen)
+2. Eine Beschreibung (max. 300 Zeichen) mit Call-to-Action
+3. Relevante Hashtags (5-10 Stück, mit # Zeichen)
+
+Antworte NUR im JSON-Format:
+{{"title": "...", "description": "...", "hashtags": "#tag1 #tag2 #tag3"}}"""
+
+        response = client.messages.create(
+            model=user.preferred_anthropic_model or 'claude-3-5-sonnet-20241022',
+            max_tokens=500,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        import json
+        content = response.content[0].text.strip()
+        # JSON aus der Antwort extrahieren
+        if content.startswith('```json'):
+            content = content[7:]
+        if content.startswith('```'):
+            content = content[3:]
+        if content.endswith('```'):
+            content = content[:-3]
+
+        return json.loads(content.strip())
+
+    except Exception as e:
+        print(f"Anthropic Error: {e}")
+        return None
+
+
+def _generate_with_gemini(user, input_text, platforms):
+    """Generiert Social Media Texte mit Google Gemini"""
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=user.gemini_api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        platform_str = ', '.join(platforms) if platforms else 'Instagram, Facebook, LinkedIn, TikTok, YouTube'
+
+        prompt = f"""Erstelle optimierte Social Media Inhalte für ein Video basierend auf diesem Text:
+
+"{input_text}"
+
+Zielplattformen: {platform_str}
+
+Erstelle:
+1. Einen kurzen, ansprechenden Titel (max. 60 Zeichen)
+2. Eine Beschreibung (max. 300 Zeichen) mit Call-to-Action
+3. Relevante Hashtags (5-10 Stück, mit # Zeichen)
+
+Antworte NUR im JSON-Format:
+{{"title": "...", "description": "...", "hashtags": "#tag1 #tag2 #tag3"}}"""
+
+        response = model.generate_content(prompt)
+
+        import json
+        content = response.text.strip()
+        # JSON aus der Antwort extrahieren
+        if content.startswith('```json'):
+            content = content[7:]
+        if content.startswith('```'):
+            content = content[3:]
+        if content.endswith('```'):
+            content = content[:-3]
+
+        return json.loads(content.strip())
+
+    except Exception as e:
+        print(f"Gemini Error: {e}")
+        return None
+
+
+@login_required
+@require_POST
+def api_post_to_social(request, video_id):
+    """API: Postet ein Video über Upload-Post.com auf Social Media Plattformen"""
+    import json
+    import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    from django.utils import timezone
+
+    video = get_object_or_404(Video, id=video_id, user=request.user)
+
+    try:
+        # Upload-Post API-Key vom User holen
+        upload_post_api_key = request.user.upload_post_api_key
+        upload_post_user_id = request.user.upload_post_user_id
+
+        if not upload_post_api_key:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload-Post API-Key nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
+            }, status=400)
+
+        if not upload_post_user_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload-Post User-ID nicht konfiguriert. Bitte in den API-Einstellungen hinzufügen.'
+            }, status=400)
+
+        # API-Key bereinigen
+        api_key_clean = ''.join(c for c in upload_post_api_key if c.isascii() and c.isprintable()).strip()
+
+        # Request Body parsen
+        data = json.loads(request.body)
+        platforms = data.get('platforms', [])
+        scheduled_date = data.get('scheduled_date', '')  # ISO-8601 Format
+        title = data.get('title', video.title)
+        description = data.get('description', video.description)
+        hashtags = data.get('hashtags', '')
+
+        if not platforms:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Plattformen ausgewählt.'
+            }, status=400)
+
+        # Video-Thumbnail oder Video-Datei für den Upload vorbereiten
+        # Upload-Post.com unterstützt Videos direkt
+        video_file = video.video_file
+        if not video_file:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Video vorhanden.'
+            }, status=400)
+
+        # Video-Datei lesen
+        video_file.seek(0)
+        video_data = video_file.read()
+        video_name = video_file.name.split('/')[-1]
+
+        # Content Type bestimmen
+        if video_name.endswith('.mp4'):
+            content_type = 'video/mp4'
+        elif video_name.endswith('.webm'):
+            content_type = 'video/webm'
+        elif video_name.endswith('.mov'):
+            content_type = 'video/quicktime'
+        else:
+            content_type = 'video/mp4'
+
+        # Video-Link erstellen (öffentlicher Link zum Video)
+        video_link = request.build_absolute_uri(f'/videos/v/{video.unique_id}/')
+
+        # Vollständige Beschreibung mit Hashtags
+        full_description = f"{description}\n\n{hashtags}" if hashtags else description
+
+        # Upload-Post API aufrufen
+        api_url = 'https://api.upload-post.com/api/upload_videos'
+
+        headers = {
+            'Authorization': f'Apikey {api_key_clean}',
+        }
+
+        # Form-Daten erstellen
+        form_data = [
+            ('user', upload_post_user_id),
+            ('title', full_description),  # Upload-Post nutzt title als Haupttext
+        ]
+
+        for platform in platforms:
+            form_data.append(('platform[]', platform))
+
+        # Plattform-spezifische Inhalte
+        if 'instagram' in platforms:
+            form_data.append(('instagram_caption', full_description))
+
+        if 'facebook' in platforms:
+            form_data.append(('facebook_title', f"{description}\n\n{video_link}"))
+
+        if 'linkedin' in platforms:
+            form_data.append(('linkedin_title', f"{description}\n\n{video_link}"))
+            form_data.append(('linkedin_description', full_description))
+
+        if 'tiktok' in platforms:
+            form_data.append(('tiktok_title', full_description[:150]))  # TikTok hat 150 Zeichen Limit
+
+        if 'youtube' in platforms:
+            form_data.append(('youtube_title', title))
+            form_data.append(('youtube_description', full_description))
+
+        if scheduled_date:
+            form_data.append(('scheduled_date', scheduled_date))
+
+        import io
+        files = {'videos[]': (video_name, io.BytesIO(video_data), content_type)}
+
+        # Session mit Retry-Logik erstellen
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
+        try:
+            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=120, verify=True)
+        except requests.exceptions.SSLError as ssl_err:
+            # Fallback ohne SSL-Verifizierung
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            files = {'videos[]': (video_name, io.BytesIO(video_data), content_type)}
+            response = session.post(api_url, headers=headers, data=form_data, files=files, timeout=120, verify=False)
+
+        if response.status_code in [200, 202]:
+            result = response.json()
+
+            # Video-Model aktualisieren
+            video.social_platforms_posted = ','.join(platforms)
+            video.social_posted_at = timezone.now() if not scheduled_date else None
+            video.social_scheduled_at = scheduled_date if scheduled_date else None
+            video.social_post_title = title
+            video.social_post_description = description
+            video.social_post_hashtags = hashtags
+            video.social_post_error = ''
+            video.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Video erfolgreich auf {", ".join(platforms)} gepostet!' if not scheduled_date else f'Video für {scheduled_date} geplant!',
+                'platforms': platforms,
+                'result': result
+            })
+        else:
+            error_msg = f"Upload-Post Fehler: {response.status_code} - {response.text[:200]}"
+            video.social_post_error = error_msg
+            video.save()
+
+            return JsonResponse({
+                'success': False,
+                'error': error_msg
+            }, status=response.status_code)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        error_msg = f'Fehler: {str(e)}'
+        video.social_post_error = error_msg
+        video.save()
+        return JsonResponse({'success': False, 'error': error_msg}, status=500)
+
+
+@login_required
+def api_social_status(request, video_id):
+    """API: Holt den Social Media Posting-Status eines Videos"""
+    video = get_object_or_404(Video, id=video_id, user=request.user)
+
+    platforms_posted = video.social_platforms_posted.split(',') if video.social_platforms_posted else []
+
+    return JsonResponse({
+        'success': True,
+        'video_id': video.id,
+        'platforms_posted': platforms_posted,
+        'posted_at': video.social_posted_at.isoformat() if video.social_posted_at else None,
+        'scheduled_at': video.social_scheduled_at.isoformat() if video.social_scheduled_at else None,
+        'title': video.social_post_title,
+        'description': video.social_post_description,
+        'hashtags': video.social_post_hashtags,
+        'error': video.social_post_error
+    })

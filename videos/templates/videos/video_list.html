@@ -197,9 +197,20 @@
                                 <div class="btn-group" role="group">
                                     <a href="{% url 'videos:detail' video.id %}" class="btn btn-sm btn-primary">View</a>
                                     <button type="button" class="btn btn-sm btn-info" onclick="copyLink('{{ request.scheme }}://{{ request.get_host }}{% url 'videos:view' video.unique_id %}')">
-                                        <i class="fas fa-link"></i> Link kopieren
+                                        <i class="fas fa-link"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="openSocialModal({{ video.id }}, '{{ video.title|escapejs }}', '{{ video.description|escapejs|truncatechars:100 }}')" title="Auf Social Media posten">
+                                        <i class="fas fa-share-alt"></i>
                                     </button>
                                 </div>
+                                {% if video.social_platforms_posted %}
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        Gepostet: {{ video.social_platforms_posted }}
+                                    </small>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -383,13 +394,389 @@
 }
 </style>
 
+<!-- Social Media Modal -->
+<div class="modal fade" id="socialModal" tabindex="-1" aria-labelledby="socialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="socialModalLabel">
+                    <i class="fas fa-share-alt me-2"></i>Video auf Social Media posten
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="social-video-id">
+
+                <!-- Plattform-Auswahl -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="fas fa-globe me-1"></i> Plattformen auswählen
+                    </label>
+                    <div class="row g-2">
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input" type="checkbox" value="instagram" id="platform-instagram">
+                                <label class="form-check-label" for="platform-instagram">
+                                    <i class="fab fa-instagram" style="color: #E4405F;"></i> Instagram
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input" type="checkbox" value="facebook" id="platform-facebook">
+                                <label class="form-check-label" for="platform-facebook">
+                                    <i class="fab fa-facebook" style="color: #1877F2;"></i> Facebook
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input" type="checkbox" value="linkedin" id="platform-linkedin">
+                                <label class="form-check-label" for="platform-linkedin">
+                                    <i class="fab fa-linkedin" style="color: #0A66C2;"></i> LinkedIn
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input" type="checkbox" value="tiktok" id="platform-tiktok">
+                                <label class="form-check-label" for="platform-tiktok">
+                                    <i class="fab fa-tiktok" style="color: #000000;"></i> TikTok
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input" type="checkbox" value="youtube" id="platform-youtube">
+                                <label class="form-check-label" for="platform-youtube">
+                                    <i class="fab fa-youtube" style="color: #FF0000;"></i> YouTube
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zeitplanung -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="fas fa-clock me-1"></i> Zeitplanung
+                    </label>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="schedule-type" id="schedule-now" value="now" checked>
+                                <label class="form-check-label" for="schedule-now">
+                                    Jetzt posten
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="schedule-type" id="schedule-later" value="later">
+                                <label class="form-check-label" for="schedule-later">
+                                    Planen für später
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="schedule-datetime-wrapper" class="mt-2" style="display: none;">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <input type="date" class="form-control" id="schedule-date">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="time" class="form-control" id="schedule-time">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- KI-Textgenerierung -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="fas fa-robot me-1"></i> KI-Textgenerierung
+                    </label>
+                    <div class="input-group mb-2">
+                        <textarea class="form-control" id="ai-input-text" rows="2"
+                                  placeholder="Beschreibe das Video oder gib Kontext ein, um passende Texte zu generieren..."></textarea>
+                        <button class="btn btn-outline-primary" type="button" id="generate-ai-btn" onclick="generateAIText()">
+                            <i class="fas fa-magic"></i> Generieren
+                        </button>
+                    </div>
+                    <small class="text-muted">Optional: Text eingeben, aus dem die KI Titel, Beschreibung und Hashtags erstellt</small>
+                </div>
+
+                <!-- Titel -->
+                <div class="mb-3">
+                    <label for="social-title" class="form-label fw-bold">
+                        <i class="fas fa-heading me-1"></i> Titel
+                    </label>
+                    <input type="text" class="form-control" id="social-title" maxlength="60" placeholder="Titel für das Video">
+                    <small class="text-muted"><span id="title-count">0</span>/60 Zeichen</small>
+                </div>
+
+                <!-- Beschreibung -->
+                <div class="mb-3">
+                    <label for="social-description" class="form-label fw-bold">
+                        <i class="fas fa-align-left me-1"></i> Beschreibung
+                    </label>
+                    <textarea class="form-control" id="social-description" rows="3" maxlength="300"
+                              placeholder="Beschreibung mit Call-to-Action"></textarea>
+                    <small class="text-muted"><span id="description-count">0</span>/300 Zeichen</small>
+                </div>
+
+                <!-- Hashtags -->
+                <div class="mb-3">
+                    <label for="social-hashtags" class="form-label fw-bold">
+                        <i class="fas fa-hashtag me-1"></i> Hashtags
+                    </label>
+                    <textarea class="form-control" id="social-hashtags" rows="2"
+                              placeholder="#hashtag1 #hashtag2 #hashtag3"></textarea>
+                </div>
+
+                <!-- Status-Anzeige -->
+                <div id="social-status" class="alert d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="post-social-btn" onclick="postToSocial()">
+                    <i class="fas fa-paper-plane me-1"></i> Posten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.platform-check {
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.platform-check:hover {
+    background-color: #f8f9fa;
+}
+.platform-check .form-check-input:checked + .form-check-label {
+    font-weight: bold;
+}
+.platform-check .fab {
+    font-size: 1.2rem;
+    margin-right: 5px;
+}
+</style>
+
 <script>
+let currentVideoId = null;
+const csrfToken = '{{ csrf_token }}';
+
 function copyLink(link) {
     navigator.clipboard.writeText(link).then(function() {
-        alert('Link in Zwischenablage kopiert!');
+        showToast('Link in Zwischenablage kopiert!', 'success');
     }, function(err) {
-        alert('Link konnte nicht kopiert werden');
+        showToast('Link konnte nicht kopiert werden', 'error');
     });
+}
+
+function showToast(message, type = 'info') {
+    const alertClass = type === 'success' ? 'alert-success' :
+                       type === 'error' ? 'alert-danger' : 'alert-info';
+
+    const toast = document.createElement('div');
+    toast.className = `alert ${alertClass} position-fixed top-0 end-0 m-3`;
+    toast.style.zIndex = '9999';
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function openSocialModal(videoId, title, description) {
+    currentVideoId = videoId;
+    document.getElementById('social-video-id').value = videoId;
+    document.getElementById('social-title').value = title || '';
+    document.getElementById('social-description').value = description || '';
+    document.getElementById('social-hashtags').value = '';
+    document.getElementById('ai-input-text').value = '';
+    document.getElementById('social-status').classList.add('d-none');
+
+    // Zeichenzähler aktualisieren
+    updateCharCount('social-title', 'title-count', 60);
+    updateCharCount('social-description', 'description-count', 300);
+
+    // Checkboxen zurücksetzen
+    document.querySelectorAll('.platform-check input').forEach(cb => cb.checked = false);
+    document.getElementById('schedule-now').checked = true;
+    document.getElementById('schedule-datetime-wrapper').style.display = 'none';
+
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('socialModal'));
+    modal.show();
+}
+
+// Zeitplanung Toggle
+document.querySelectorAll('input[name="schedule-type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const wrapper = document.getElementById('schedule-datetime-wrapper');
+        wrapper.style.display = this.value === 'later' ? 'block' : 'none';
+    });
+});
+
+// Zeichenzähler
+function updateCharCount(inputId, countId, maxLength) {
+    const input = document.getElementById(inputId);
+    const count = document.getElementById(countId);
+    count.textContent = input.value.length;
+
+    if (input.value.length > maxLength * 0.9) {
+        count.classList.add('text-warning');
+    } else {
+        count.classList.remove('text-warning');
+    }
+}
+
+document.getElementById('social-title').addEventListener('input', function() {
+    updateCharCount('social-title', 'title-count', 60);
+});
+
+document.getElementById('social-description').addEventListener('input', function() {
+    updateCharCount('social-description', 'description-count', 300);
+});
+
+// KI-Textgenerierung
+async function generateAIText() {
+    const btn = document.getElementById('generate-ai-btn');
+    const inputText = document.getElementById('ai-input-text').value;
+    const statusDiv = document.getElementById('social-status');
+
+    // Ausgewählte Plattformen sammeln
+    const platforms = [];
+    document.querySelectorAll('.platform-check input:checked').forEach(cb => {
+        platforms.push(cb.value);
+    });
+
+    // Button deaktivieren und Spinner zeigen
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Generiere...';
+
+    try {
+        const response = await fetch(`/videos/api/social/generate/${currentVideoId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                input_text: inputText,
+                platforms: platforms
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('social-title').value = data.title || '';
+            document.getElementById('social-description').value = data.description || '';
+            document.getElementById('social-hashtags').value = data.hashtags || '';
+
+            updateCharCount('social-title', 'title-count', 60);
+            updateCharCount('social-description', 'description-count', 300);
+
+            statusDiv.className = 'alert alert-success';
+            statusDiv.textContent = 'Texte erfolgreich generiert!';
+            statusDiv.classList.remove('d-none');
+        } else {
+            statusDiv.className = 'alert alert-danger';
+            statusDiv.textContent = data.error || 'Fehler bei der Generierung';
+            statusDiv.classList.remove('d-none');
+        }
+    } catch (error) {
+        statusDiv.className = 'alert alert-danger';
+        statusDiv.textContent = 'Netzwerkfehler: ' + error.message;
+        statusDiv.classList.remove('d-none');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic"></i> Generieren';
+    }
+}
+
+// Social Media Posten
+async function postToSocial() {
+    const btn = document.getElementById('post-social-btn');
+    const statusDiv = document.getElementById('social-status');
+
+    // Ausgewählte Plattformen sammeln
+    const platforms = [];
+    document.querySelectorAll('.platform-check input:checked').forEach(cb => {
+        platforms.push(cb.value);
+    });
+
+    if (platforms.length === 0) {
+        statusDiv.className = 'alert alert-warning';
+        statusDiv.textContent = 'Bitte mindestens eine Plattform auswählen.';
+        statusDiv.classList.remove('d-none');
+        return;
+    }
+
+    // Zeitplanung ermitteln
+    let scheduledDate = '';
+    if (document.getElementById('schedule-later').checked) {
+        const date = document.getElementById('schedule-date').value;
+        const time = document.getElementById('schedule-time').value;
+        if (date && time) {
+            scheduledDate = new Date(`${date}T${time}`).toISOString();
+        }
+    }
+
+    // Button deaktivieren und Spinner zeigen
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Posten...';
+
+    try {
+        const response = await fetch(`/videos/api/social/post/${currentVideoId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                platforms: platforms,
+                scheduled_date: scheduledDate,
+                title: document.getElementById('social-title').value,
+                description: document.getElementById('social-description').value,
+                hashtags: document.getElementById('social-hashtags').value
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            statusDiv.className = 'alert alert-success';
+            statusDiv.textContent = data.message;
+            statusDiv.classList.remove('d-none');
+
+            showToast(data.message, 'success');
+
+            // Nach 2 Sekunden Modal schließen und Seite neu laden
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('socialModal')).hide();
+                location.reload();
+            }, 2000);
+        } else {
+            statusDiv.className = 'alert alert-danger';
+            statusDiv.textContent = data.error || 'Fehler beim Posten';
+            statusDiv.classList.remove('d-none');
+        }
+    } catch (error) {
+        statusDiv.className = 'alert alert-danger';
+        statusDiv.textContent = 'Netzwerkfehler: ' + error.message;
+        statusDiv.classList.remove('d-none');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Posten';
+    }
 }
 </script>
 {% endblock %}

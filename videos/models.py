@@ -240,7 +240,16 @@ class Video(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    # Social Media Posting
+    social_platforms_posted = models.TextField(blank=True, help_text="Komma-getrennte Liste der Plattformen")
+    social_posted_at = models.DateTimeField(null=True, blank=True)
+    social_scheduled_at = models.DateTimeField(null=True, blank=True)
+    social_post_title = models.CharField(max_length=255, blank=True)
+    social_post_description = models.TextField(blank=True)
+    social_post_hashtags = models.TextField(blank=True)
+    social_post_error = models.TextField(blank=True)
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'Video'
