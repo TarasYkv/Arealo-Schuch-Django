@@ -13,22 +13,40 @@
         <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Video-Einstellungen</h5>
     </div>
     <div class="card-body">
-        <div class="row align-items-end">
-            <div class="col-md-4">
-                <label class="form-label">Video-Länge</label>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label"><i class="bi bi-film me-1"></i>Skript-Art</label>
+                <select class="form-control" id="scriptType">
+                    <option value="summary" selected>Zusammenfassung des Blogbeitrags</option>
+                    <option value="fun_facts">Witzige Fakten zum Thema</option>
+                    <option value="interesting_facts">Interessante Fakten zum Thema</option>
+                    <option value="how_to">How-To Anleitung / Tutorial</option>
+                    <option value="tips">Tipps & Tricks kompakt</option>
+                    <option value="pros_cons">Vor- und Nachteile</option>
+                    <option value="faq">Häufige Fragen beantwortet</option>
+                    <option value="storytelling">Storytelling / Geschichte</option>
+                    <option value="hook">Social Media Hook (Aufmerksamkeit)</option>
+                    <option value="product_highlight">Produkt-Highlight</option>
+                </select>
+                <small class="text-muted" id="scriptTypeDescription">
+                    Fasst die wichtigsten Punkte des Blogbeitrags zusammen.
+                </small>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label"><i class="bi bi-clock me-1"></i>Video-Länge</label>
                 <select class="form-control" id="videoDuration">
                     <option value="0.25">15 Sekunden (~30 Wörter)</option>
                     <option value="0.5">30 Sekunden (~65 Wörter)</option>
-                    <option value="1">1 Minute (~130 Wörter)</option>
+                    <option value="1" selected>1 Minute (~130 Wörter)</option>
                     <option value="2">2 Minuten (~260 Wörter)</option>
                     <option value="3">3 Minuten (~390 Wörter)</option>
-                    <option value="5" selected>5 Minuten (~650 Wörter)</option>
+                    <option value="5">5 Minuten (~650 Wörter)</option>
                     <option value="7">7 Minuten (~910 Wörter)</option>
                     <option value="10">10 Minuten (~1300 Wörter)</option>
                 </select>
             </div>
-            <div class="col-md-4">
-                <button type="button" class="btn btn-primary" onclick="generateVideoScript()">
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="button" class="btn btn-primary w-100" onclick="generateVideoScript()">
                     <i class="bi bi-magic"></i> Skript generieren
                 </button>
             </div>
@@ -81,13 +99,36 @@
 
 {% block wizard_js %}
 <script>
+    // Skript-Art Beschreibungen
+    const scriptTypeDescriptions = {
+        'summary': 'Fasst die wichtigsten Punkte des Blogbeitrags zusammen.',
+        'fun_facts': 'Unterhaltsame, überraschende Fakten die zum Schmunzeln anregen.',
+        'interesting_facts': 'Faszinierende Fakten und Wissenswertes zum Thema.',
+        'how_to': 'Schritt-für-Schritt Anleitung zum Nachmachen.',
+        'tips': 'Die besten Tipps & Tricks kompakt zusammengefasst.',
+        'pros_cons': 'Übersichtliche Gegenüberstellung von Vor- und Nachteilen.',
+        'faq': 'Beantwortet die häufigsten Fragen zum Thema.',
+        'storytelling': 'Erzählt eine packende Geschichte rund ums Thema.',
+        'hook': 'Kurzer, aufmerksamkeitsstarker Hook für Social Media.',
+        'product_highlight': 'Stellt Produkte/Dienstleistungen in den Fokus.'
+    };
+
+    // Beschreibung aktualisieren bei Auswahl
+    document.getElementById('scriptType').addEventListener('change', function() {
+        const desc = scriptTypeDescriptions[this.value] || '';
+        document.getElementById('scriptTypeDescription').textContent = desc;
+    });
+
     async function generateVideoScript() {
         const duration = document.getElementById('videoDuration').value;
-        showLoading(`Generiere ${duration}-Minuten Video-Skript...`);
+        const scriptType = document.getElementById('scriptType').value;
+        const scriptTypeName = document.getElementById('scriptType').selectedOptions[0].text;
+        showLoading(`Generiere "${scriptTypeName}" Skript...`);
 
         try {
             const result = await apiCall('{% url "blogprep:api_generate_video_script" project_id=project.id %}', {
-                duration: duration
+                duration: duration,
+                script_type: scriptType
             });
 
             if (result.success && result.script) {

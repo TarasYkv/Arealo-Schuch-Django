@@ -972,6 +972,7 @@ def api_generate_video_script(request, project_id):
     settings = get_user_settings(request.user)
 
     duration = float(request.POST.get('duration', 5))  # Float für Sekunden (0.25 = 15s)
+    script_type = request.POST.get('script_type', 'summary')
 
     video_service = VideoService(request.user, settings)
 
@@ -982,7 +983,8 @@ def api_generate_video_script(request, project_id):
         duration,
         full_content,
         project.main_keyword,
-        settings.company_name
+        settings.company_name,
+        script_type=script_type
     )
 
     if result['success']:

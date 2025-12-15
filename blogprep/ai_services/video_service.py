@@ -166,12 +166,105 @@ class VideoService:
                     pass
         return None
 
+    # Skript-Art Prompts
+    SCRIPT_TYPE_PROMPTS = {
+        'summary': {
+            'name': 'Zusammenfassung',
+            'instructions': """Fasse die wichtigsten Punkte des Blogbeitrags zusammen.
+- Beginne mit einem starken Einstieg der das Thema vorstellt
+- Nenne die 3-5 wichtigsten Erkenntnisse
+- Schließe mit einem klaren Fazit ab"""
+        },
+        'fun_facts': {
+            'name': 'Witzige Fakten',
+            'instructions': """Erstelle ein unterhaltsames Skript mit witzigen, überraschenden Fakten zum Thema.
+- Beginne mit "Wusstest du, dass..."
+- Verwende humorvolle Überleitungen
+- Überrasche mit unerwarteten Zusammenhängen
+- Halte den Ton locker und unterhaltsam
+- Füge 1-2 lustige Vergleiche ein"""
+        },
+        'interesting_facts': {
+            'name': 'Interessante Fakten',
+            'instructions': """Präsentiere faszinierende, wissenswerte Fakten zum Thema.
+- Starte mit dem interessantesten Fakt als Hook
+- Erkläre Hintergründe und Zusammenhänge
+- Verwende konkrete Zahlen und Beispiele
+- Verknüpfe Fakten miteinander
+- Schließe mit einem "Wow-Moment" ab"""
+        },
+        'how_to': {
+            'name': 'How-To Anleitung',
+            'instructions': """Erstelle eine klare Schritt-für-Schritt Anleitung.
+- Beginne mit dem Ziel: "In diesem Video zeige ich dir, wie..."
+- Nummeriere die Schritte klar durch
+- Erkläre jeden Schritt verständlich
+- Gib praktische Tipps bei jedem Schritt
+- Fasse am Ende zusammen"""
+        },
+        'tips': {
+            'name': 'Tipps & Tricks',
+            'instructions': """Präsentiere die besten Tipps und Tricks kompakt.
+- Starte mit "Hier sind meine Top-Tipps für..."
+- Nummeriere jeden Tipp
+- Halte jeden Tipp kurz und prägnant
+- Erkläre warum jeder Tipp funktioniert
+- Füge einen Bonus-Tipp am Ende hinzu"""
+        },
+        'pros_cons': {
+            'name': 'Vor- und Nachteile',
+            'instructions': """Stelle Vor- und Nachteile übersichtlich gegenüber.
+- Beginne mit einer neutralen Einführung
+- Liste zuerst die Vorteile auf
+- Dann die Nachteile ehrlich benennen
+- Gib eine ausgewogene Empfehlung
+- Schließe mit "Für wen ist das geeignet?" ab"""
+        },
+        'faq': {
+            'name': 'FAQ',
+            'instructions': """Beantworte die häufigsten Fragen zum Thema.
+- Beginne mit "Die häufigsten Fragen zu..."
+- Stelle jede Frage klar
+- Beantworte kurz und verständlich
+- Verwende Beispiele zur Verdeutlichung
+- Schließe mit der wichtigsten Frage ab"""
+        },
+        'storytelling': {
+            'name': 'Storytelling',
+            'instructions': """Erzähle eine packende Geschichte rund ums Thema.
+- Beginne mit einem persönlichen Erlebnis oder einer Situation
+- Baue Spannung auf
+- Verwebe Informationen in die Geschichte
+- Schaffe eine emotionale Verbindung
+- Schließe mit einer Lektion oder Erkenntnis ab"""
+        },
+        'hook': {
+            'name': 'Social Media Hook',
+            'instructions': """Erstelle einen aufmerksamkeitsstarken Hook für Social Media.
+- Beginne mit einer provokanten Aussage oder Frage
+- Erzeuge sofort Neugier ("Das hat mich schockiert...")
+- Halte das Tempo hoch
+- Verwende kurze, knackige Sätze
+- Ende mit einem Call-to-Action"""
+        },
+        'product_highlight': {
+            'name': 'Produkt-Highlight',
+            'instructions': """Stelle Produkte oder Dienstleistungen in den Fokus.
+- Beginne mit dem Problem das gelöst wird
+- Präsentiere die Lösung/das Produkt
+- Nenne konkrete Vorteile und Features
+- Füge Social Proof ein (wenn verfügbar)
+- Schließe mit einem Angebot oder Call-to-Action ab"""
+        }
+    }
+
     def generate_video_script(
         self,
         duration_minutes: int,
         blog_content: str,
         keyword: str,
-        company_name: str = ''
+        company_name: str = '',
+        script_type: str = 'summary'
     ) -> Dict:
         """
         Generiert ein Video-Skript basierend auf dem Blog-Content.
@@ -181,18 +274,27 @@ class VideoService:
             blog_content: Der vollständige Blog-Content
             keyword: Das Hauptkeyword
             company_name: Name des Unternehmens (für Personalisierung)
+            script_type: Art des Skripts (summary, fun_facts, etc.)
 
         Returns:
             Dict mit success, script (nur gesprochener Text)
         """
         target_words = duration_minutes * self.WORDS_PER_MINUTE
 
+        # Hole Skript-Art spezifische Anweisungen
+        script_config = self.SCRIPT_TYPE_PROMPTS.get(script_type, self.SCRIPT_TYPE_PROMPTS['summary'])
+        script_name = script_config['name']
+        script_instructions = script_config['instructions']
+
         system_prompt = f"""Du bist ein erfahrener Video-Skript-Autor.
 Du schreibst NUR den gesprochenen Text für Videos - keine Regieanweisungen, keine Rollenbezeichnungen, keine Szenenanweisungen.
 Der Text soll natürlich klingen, als würde jemand frei sprechen.
-{"Du sprichst im Namen von " + company_name + "." if company_name else ""}"""
+{"Du sprichst im Namen von " + company_name + "." if company_name else ""}
 
-        user_prompt = f"""Erstelle ein Video-Skript zum Thema "{keyword}" basierend auf diesem Blog-Content:
+SKRIPT-ART: {script_name}
+{script_instructions}"""
+
+        user_prompt = f"""Erstelle ein "{script_name}" Video-Skript zum Thema "{keyword}" basierend auf diesem Blog-Content:
 
 {blog_content[:4000]}
 
@@ -203,8 +305,6 @@ ANFORDERUNGEN:
 - KEINE Rollenbezeichnungen
 - Natürlicher, fließender Sprachstil
 - Persönliche Ansprache ("du" oder "Sie" passend zum Blog)
-- Klare Struktur mit Einleitung, Hauptteil, Schluss
-- Wichtige Punkte betonen durch Wiederholung
 
 Das Skript beginnt DIREKT mit dem gesprochenen Text.
 Schreibe {target_words} Wörter."""
