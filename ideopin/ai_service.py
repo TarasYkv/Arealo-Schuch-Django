@@ -112,27 +112,57 @@ Antworte NUR mit der Beschreibung, ohne Erklärungen."""
             }
 
         try:
-            prompt = f"""Du bist ein Experte für Pinterest Marketing. Erstelle einen kurzen, catchy Text für ein Pinterest Pin-Bild.
+            # Zufälligen Stil wählen für mehr Variation
+            import random
+            styles = [
+                "eine provokante Frage, die zum Nachdenken anregt",
+                "einen überraschenden Fakt oder eine Zahl",
+                "einen direkten Aufruf zum Handeln (Call-to-Action)",
+                "ein Versprechen oder Benefit",
+                "eine Neugier weckende Aussage mit '...' am Ende",
+                "einen Vergleich oder Kontrast",
+                "eine 'Wusstest du...?' oder 'So geht...' Formulierung",
+                "einen emotionalen Trigger (Freude, Überraschung, Neugier)",
+                "eine '5 Gründe warum...' oder 'Der #1 Tipp für...' Struktur",
+                "einen humorvollen oder witzigen Ansatz"
+            ]
+            chosen_style = random.choice(styles)
+
+            prompt = f"""Du bist ein kreativer Pinterest Marketing Experte. Erstelle einen EINZIGARTIGEN, kurzen Text für ein Pinterest Pin-Bild.
 
 Keywords: {keywords}
 
-Anforderungen:
-- Maximal 6-8 Wörter
-- Aufmerksamkeitsstark und klickfördernd
-- Gut lesbar als Overlay auf einem Bild
-- Nutze Action-Wörter oder Fragen
-- Keine Hashtags, nur der reine Text
+📌 STIL FÜR DIESEN TEXT: {chosen_style}
+
+⚠️ WICHTIGE REGELN:
+- Maximal 5-8 Wörter (kurz und knackig!)
+- VERMEIDE abgedroschene Wörter wie: "perfekt", "ideal", "beste", "ultimativ", "einfach", "schnell", "genial"
+- VERMEIDE generische Phrasen wie: "So gelingt es", "Das musst du wissen", "Der perfekte..."
+- Sei KREATIV und ÜBERRASCHEND
+- Wecke NEUGIER - der Leser soll mehr erfahren wollen
+- Gut lesbar als großer Text auf einem Bild
+- Keine Hashtags, keine Emojis, nur der reine Text
+
+💡 BEISPIELE für verschiedene Stile (zur Inspiration, nicht kopieren!):
+- "Dein Garten hasst diesen Trick"
+- "Warum macht das niemand?"
+- "3x schneller als gedacht"
+- "Das ändert alles."
+- "Vergiss was du weißt über..."
+- "Keiner hat's dir gesagt, aber..."
+- "Der Fehler, den 90% machen"
+- "Stopp! Nicht wegklicken..."
 
 Antworte NUR mit dem Text, ohne Anführungszeichen oder Erklärungen."""
 
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "Du bist ein Pinterest Marketing Experte."},
+                    {"role": "system", "content": "Du bist ein kreativer Copywriter für virale Pinterest Pins. Du schreibst kurze, neugierig machende Texte die zum Klicken animieren."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=50,
-                temperature=0.8
+                temperature=1.0  # Höhere Temperatur für mehr Kreativität
             )
 
             text = response.choices[0].message.content.strip()
