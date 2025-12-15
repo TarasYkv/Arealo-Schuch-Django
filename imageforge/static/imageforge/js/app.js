@@ -423,6 +423,7 @@ function initMockupWizard() {
         generateMockupBtn.addEventListener('click', async function() {
             const textContent = document.getElementById('mockup-text-content')?.value?.trim();
             const productFile = mockupProductInput?.files?.[0];
+            const styleRefFile = styleRefInput?.files?.[0];
 
             if (!textContent) {
                 alert('Bitte gib einen Text ein.');
@@ -430,6 +431,10 @@ function initMockupWizard() {
             }
             if (!productFile) {
                 alert('Bitte lade ein Produktbild hoch.');
+                return;
+            }
+            if (!styleRefFile) {
+                alert('Bitte lade ein Stil-Referenzbild hoch.');
                 return;
             }
 
@@ -441,18 +446,8 @@ function initMockupWizard() {
             try {
                 const formData = new FormData();
                 formData.append('text_content', textContent);
-                formData.append('text_application_type', document.querySelector('input[name="text_application_type"]:checked')?.value || 'druck');
-                formData.append('text_position', document.getElementById('mockup-text-position')?.value || 'center');
-                formData.append('font_style', document.getElementById('mockup-font-style')?.value || 'modern');
-                formData.append('text_color_hint', document.getElementById('mockup-text-color')?.value || '');
-                formData.append('text_size_hint', document.getElementById('mockup-text-size')?.value || 'medium');
                 formData.append('product_image', productFile);
-
-                // Style reference image (optional)
-                const styleRefFile = styleRefInput?.files?.[0];
-                if (styleRefFile) {
-                    formData.append('style_reference_image', styleRefFile);
-                }
+                formData.append('style_reference_image', styleRefFile);
 
                 // CSRF Token
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;

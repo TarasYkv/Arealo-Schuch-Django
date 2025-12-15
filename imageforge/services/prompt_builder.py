@@ -377,26 +377,15 @@ class PromptBuilder:
     def build_mockup_text_prompt(
         self,
         text_content: str,
-        text_application: str,
-        text_position: str = 'center',
-        font_style: str = 'modern',
-        text_color: str = '',
-        text_size: str = 'medium',
-        product_description: str = '',
-        has_style_reference: bool = False
+        product_description: str = ''
     ) -> str:
         """
         Baut Prompt für Step 1: Text auf Produkt (Mockup-Erstellung).
+        Vereinfacht - Stil wird vollständig aus dem Referenzbild extrahiert.
 
         Args:
             text_content: Der Text der auf das Produkt soll
-            text_application: Art der Beschriftung (gravur, druck, praegung, relief)
-            text_position: Position des Textes
-            font_style: Schriftstil-Hinweis
-            text_color: Farbhinweis (z.B. gold, silber)
-            text_size: Textgröße
             product_description: Optionale Produktbeschreibung
-            has_style_reference: Ob ein Stil-Referenzbild vorhanden ist
 
         Returns:
             Vollständiger Prompt für Mockup-Generierung
@@ -413,41 +402,25 @@ class PromptBuilder:
 
         # Produktreferenz
         parts.append(
-            "Use the provided product image as the base. "
-            "Keep the product shape, material, color, and appearance exactly as shown in the reference image. "
+            "Use the first image as the product base. "
+            "Keep the product shape, material, color, and appearance exactly as shown. "
             "Only add the text - do not modify the product itself."
+        )
+
+        # Stil-Referenzbild - KRITISCH
+        parts.append(
+            "IMPORTANT: The second image shows EXACTLY how the text should look. "
+            "Copy the text style from this reference image precisely: "
+            "- Match the lettering technique (engraving, printing, embossing, relief, etc.) "
+            "- Match the font style, size, and weight "
+            "- Match the color and texture of the text "
+            "- Match the depth, shadows, and 3D effect if any "
+            "Apply the text to the product using the EXACT same visual style as the reference."
         )
 
         # Produktbeschreibung falls vorhanden
         if product_description:
             parts.append(f"Product details: {product_description.strip()}")
-
-        # Text-Anwendungsart (Gravur, Druck, Prägung, Relief)
-        if text_application in TEXT_APPLICATION_PROMPTS:
-            parts.append(f"Text application style: {TEXT_APPLICATION_PROMPTS[text_application]}")
-
-        # Stil-Referenzbild
-        if has_style_reference:
-            parts.append(
-                "IMPORTANT: Apply the text in the same visual style as shown in the style reference image. "
-                "Match the texture, depth, color, and visual appearance of the lettering from the reference."
-            )
-
-        # Position
-        if text_position in TEXT_POSITION_PROMPTS:
-            parts.append(TEXT_POSITION_PROMPTS[text_position])
-
-        # Schriftstil
-        if font_style in FONT_STYLE_PROMPTS:
-            parts.append(f"Font style: {FONT_STYLE_PROMPTS[font_style]}")
-
-        # Farbe
-        if text_color:
-            parts.append(f"Text color: {text_color}")
-
-        # Größe
-        if text_size in TEXT_SIZE_PROMPTS:
-            parts.append(TEXT_SIZE_PROMPTS[text_size])
 
         # Qualitätsanweisungen
         parts.append(

@@ -426,13 +426,8 @@ def generate_mockup(request):
     start_time = time.time()
 
     try:
-        # Daten extrahieren
+        # Daten extrahieren (vereinfacht - Stil wird aus Referenzbild extrahiert)
         text_content = request.POST.get('text_content', '').strip()
-        text_application = request.POST.get('text_application_type', 'druck')
-        text_position = request.POST.get('text_position', 'center')
-        font_style = request.POST.get('font_style', 'modern')
-        text_color = request.POST.get('text_color_hint', '')
-        text_size = request.POST.get('text_size_hint', 'medium')
         product_description = request.POST.get('product_description', '')
         mockup_name = request.POST.get('mockup_name', '')
 
@@ -443,6 +438,8 @@ def generate_mockup(request):
             return JsonResponse({'error': 'Text ist erforderlich'}, status=400)
         if not product_image:
             return JsonResponse({'error': 'Produktbild ist erforderlich'}, status=400)
+        if not style_reference_image:
+            return JsonResponse({'error': 'Stil-Referenzbild ist erforderlich'}, status=400)
 
         # Nano Banana Pro für Text-Rendering erzwingen
         ai_model = 'gemini-3-pro-image-preview'
@@ -457,25 +454,17 @@ def generate_mockup(request):
         generator = GeminiGenerator(api_key)
         prompt_builder = PromptBuilder()
 
-        # Prompt bauen
+        # Prompt bauen (vereinfacht - Stil aus Referenzbild)
         prompt = prompt_builder.build_mockup_text_prompt(
             text_content=text_content,
-            text_application=text_application,
-            text_position=text_position,
-            font_style=font_style,
-            text_color=text_color,
-            text_size=text_size,
-            product_description=product_description,
-            has_style_reference=bool(style_reference_image)
+            product_description=product_description
         )
 
-        # Referenzbilder sammeln
-        reference_images = [product_image]
-        if style_reference_image:
-            reference_images.append(style_reference_image)
+        # Referenzbilder: Produktbild + Stil-Referenzbild
+        reference_images = [product_image, style_reference_image]
 
         # Generieren
-        logger.info(f"Generating mockup: text='{text_content}', type={text_application}, model={ai_model}")
+        logger.info(f"Generating mockup: text='{text_content}', model={ai_model}")
         result = generator.generate(
             prompt=prompt,
             reference_images=reference_images,
@@ -484,23 +473,17 @@ def generate_mockup(request):
 
         generation_time = time.time() - start_time
 
-        # Mockup speichern
+        # Mockup speichern (vereinfacht - Stil aus Referenzbild)
         mockup = ProductMockup(
             user=request.user,
             name=mockup_name or f"Mockup: {text_content[:30]}",
             text_content=text_content,
-            text_application_type=text_application,
-            text_position=text_position,
-            font_style=font_style,
-            text_color_hint=text_color,
-            text_size_hint=text_size,
             ai_model=ai_model,
             generation_prompt=prompt,
             generation_time=generation_time
         )
         mockup.product_image = product_image
-        if style_reference_image:
-            mockup.style_reference_image = style_reference_image
+        mockup.style_reference_image = style_reference_image
 
         if result.get('success'):
             image_data = base64.b64decode(result['image_data'])
