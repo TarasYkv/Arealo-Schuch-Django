@@ -90,6 +90,12 @@ function initModeSelector() {
         standardFormSections.forEach(section => {
             section.style.display = (mode === 'mockup_text') ? 'none' : '';
         });
+
+        // Explizit den "Bild generieren" Button verstecken bei mockup_text
+        const standardGenBtn = document.getElementById('standard-generate-btn-wrapper');
+        if (standardGenBtn) {
+            standardGenBtn.style.display = (mode === 'mockup_text') ? 'none' : '';
+        }
     }
 
     // Click-Handler für Mode-Buttons
