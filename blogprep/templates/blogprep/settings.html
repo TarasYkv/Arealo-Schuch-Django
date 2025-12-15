@@ -81,11 +81,28 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label" for="product_links">Produktlinks <span class="text-muted">(ein Link pro Zeile)</span></label>
+                            <label class="form-label" for="product_links">
+                                Produktlinks <span class="text-muted">(Format: Produktname | URL - ein Eintrag pro Zeile)</span>
+                            </label>
                             <textarea class="form-control" id="product_links" name="product_links"
-                                      rows="4" placeholder="https://mein-shop.de/produkt-1&#10;https://mein-shop.de/produkt-2">{{ product_links_text }}</textarea>
-                            <small class="text-muted">Diese URLs werden automatisch analysiert, um Produktinformationen zu extrahieren.</small>
+                                      rows="6" placeholder="Holz-Schneidebrett Premium | https://mein-shop.de/schneidebrett-premium&#10;Messerset Classic | https://mein-shop.de/messerset-classic&#10;Pflegeset Holz | https://mein-shop.de/pflegeset">{{ product_links_text }}</textarea>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                Diese Produkte werden automatisch im generierten Blog-Content verlinkt.
+                                <br>Format: <code>Produktname | URL</code> (ohne Pipe = nur URL, Name wird aus URL extrahiert)
+                            </small>
                         </div>
+
+                        {% if settings.scraped_product_data %}
+                        <div class="alert alert-info">
+                            <strong><i class="bi bi-check-circle me-1"></i>{{ settings.scraped_product_data|length }} Produkte erkannt:</strong>
+                            <ul class="mb-0 mt-2">
+                                {% for product in settings.scraped_product_data %}
+                                <li><a href="{{ product.url }}" target="_blank">{{ product.name }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 

@@ -24,8 +24,37 @@ from django.db.models import Q
 from .models import BlogPrepSettings, BlogPrepProject, BlogPrepGenerationLog
 from .ai_services import ContentService, ImageService, VideoService
 from shopify_manager.models import ShopifyStore, ShopifyBlog
+from urllib.parse import urlparse, unquote
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def extract_product_name_from_url(url):
+    """
+    Extrahiert einen lesbaren Produktnamen aus einer URL.
+    z.B. https://shop.de/produkt-premium-holz-schneidebrett -> Produkt Premium Holz Schneidebrett
+    """
+    try:
+        parsed = urlparse(url)
+        # Nimm den letzten Teil des Pfads
+        path = parsed.path.rstrip('/')
+        if path:
+            slug = path.split('/')[-1]
+            # Entferne Dateiendungen
+            slug = re.sub(r'\.(html?|php|aspx?)$', '', slug, flags=re.IGNORECASE)
+            # URL-Dekodierung
+            slug = unquote(slug)
+            # Ersetze Bindestriche und Unterstriche durch Leerzeichen
+            name = re.sub(r'[-_]+', ' ', slug)
+            # Entferne Zahlen am Ende (oft IDs)
+            name = re.sub(r'\s+\d+$', '', name)
+            # Kapitalisiere Wörter
+            name = name.title()
+            return name if name else url
+        return url
+    except Exception:
+        return url
 
 
 # ============================================================================
@@ -44,7 +73,8 @@ def get_company_info(settings):
         'name': settings.company_name,
         'description': settings.company_description,
         'expertise': settings.company_expertise,
-        'products': settings.product_info
+        'products': settings.product_info,
+        'product_links': settings.scraped_product_data or []
     }
 
 
@@ -123,12 +153,35 @@ def settings_view(request):
         # Produkte
         settings.product_info = request.POST.get('product_info', '')
 
-        # Produktlinks als Liste
+        # Produktlinks als Liste mit Namen parsen
         product_links_text = request.POST.get('product_links', '')
-        settings.product_links = [
-            url.strip() for url in product_links_text.split('\n')
-            if url.strip() and url.strip().startswith('http')
-        ]
+        product_links = []
+        scraped_products = []
+
+        for line in product_links_text.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Format: "Produktname | URL" oder nur "URL"
+            if '|' in line:
+                parts = line.split('|', 1)
+                name = parts[0].strip()
+                url = parts[1].strip()
+            else:
+                url = line
+                # Extrahiere Namen aus URL
+                name = extract_product_name_from_url(url)
+
+            if url.startswith('http'):
+                product_links.append(url)
+                scraped_products.append({
+                    'name': name,
+                    'url': url
+                })
+
+        settings.product_links = product_links
+        settings.scraped_product_data = scraped_products
 
         # KI-Einstellungen
         settings.ai_provider = request.POST.get('ai_provider', 'openai')
@@ -170,7 +223,9 @@ def settings_view(request):
         'model_descriptions': model_descriptions,
         'image_model_choices': image_model_choices,
         'image_model_descriptions': image_model_descriptions,
-        'product_links_text': '\n'.join(settings.product_links) if settings.product_links else ''
+        'product_links_text': '\n'.join(
+            f"{p['name']} | {p['url']}" for p in settings.scraped_product_data
+        ) if settings.scraped_product_data else '\n'.join(settings.product_links) if settings.product_links else ''
     }
     return render(request, 'blogprep/settings.html', context)
 
@@ -1143,6 +1198,143 @@ def api_get_blogs_for_store(request, store_id):
     ).values('id', 'title', 'shopify_id')
 
     return JsonResponse({'blogs': list(blogs)})
+
+
+@login_required
+def api_get_server_images(request, project_id):
+    """API: Gibt verfügbare Server-Bilder aus imageforge zurück"""
+    from imageforge.models import ImageGeneration, ProductMockup
+
+    # Parameter für Filterung
+    image_type = request.GET.get('type', 'all')  # 'all', 'generated', 'mockup'
+    limit = int(request.GET.get('limit', 50))
+
+    images = []
+
+    # ImageGeneration Bilder
+    if image_type in ['all', 'generated']:
+        generations = ImageGeneration.objects.filter(
+            user=request.user,
+            generated_image__isnull=False
+        ).exclude(
+            generated_image=''
+        ).order_by('-created_at')[:limit]
+
+        for gen in generations:
+            if gen.generated_image:
+                images.append({
+                    'id': f'gen_{gen.id}',
+                    'type': 'generated',
+                    'url': gen.generated_image.url,
+                    'mode': gen.mode_display,
+                    'prompt': gen.background_prompt[:100] if gen.background_prompt else '',
+                    'created_at': gen.created_at.strftime('%d.%m.%Y %H:%M'),
+                    'is_favorite': gen.is_favorite
+                })
+
+    # ProductMockup Bilder
+    if image_type in ['all', 'mockup']:
+        mockups = ProductMockup.objects.filter(
+            user=request.user,
+            mockup_image__isnull=False
+        ).exclude(
+            mockup_image=''
+        ).order_by('-updated_at')[:limit]
+
+        for mockup in mockups:
+            if mockup.mockup_image:
+                images.append({
+                    'id': f'mockup_{mockup.id}',
+                    'type': 'mockup',
+                    'url': mockup.mockup_image.url,
+                    'name': mockup.name or f'Mockup: {mockup.text_content[:30]}',
+                    'text': mockup.text_content,
+                    'created_at': mockup.updated_at.strftime('%d.%m.%Y %H:%M'),
+                    'is_favorite': mockup.is_favorite
+                })
+
+    # Sortiere nach Erstellungsdatum (neueste zuerst), Favoriten bevorzugen
+    images.sort(key=lambda x: (not x.get('is_favorite', False), x.get('created_at', '')), reverse=True)
+
+    return JsonResponse({
+        'success': True,
+        'images': images[:limit],
+        'total': len(images)
+    })
+
+
+@login_required
+@require_POST
+def api_use_server_image(request, project_id):
+    """API: Verwendet ein Server-Bild als Abschnittsbild"""
+    from imageforge.models import ImageGeneration, ProductMockup
+    import base64
+    import uuid
+
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    image_id = request.POST.get('image_id', '')
+    section_name = request.POST.get('section_name', 'section')
+
+    if not image_id:
+        return JsonResponse({'success': False, 'error': 'Keine Bild-ID angegeben'})
+
+    try:
+        # Bestimme Bildtyp und ID
+        if image_id.startswith('gen_'):
+            gen_id = int(image_id.replace('gen_', ''))
+            gen = ImageGeneration.objects.get(id=gen_id, user=request.user)
+            image_field = gen.generated_image
+            prompt = gen.background_prompt or ''
+        elif image_id.startswith('mockup_'):
+            mockup_id = int(image_id.replace('mockup_', ''))
+            mockup = ProductMockup.objects.get(id=mockup_id, user=request.user)
+            image_field = mockup.mockup_image
+            prompt = mockup.text_content or ''
+        else:
+            return JsonResponse({'success': False, 'error': 'Ungültiger Bildtyp'})
+
+        if not image_field:
+            return JsonResponse({'success': False, 'error': 'Bild nicht gefunden'})
+
+        # Lese Bild und konvertiere zu Base64
+        with image_field.open('rb') as img_file:
+            image_data = base64.b64encode(img_file.read()).decode('utf-8')
+
+        # Generiere eindeutige ID
+        unique_id = str(uuid.uuid4())[:8]
+
+        # Füge zu section_images hinzu
+        section_images = project.section_images or []
+        section_images.append({
+            'section': section_name,
+            'image_data': image_data,
+            'image_url': image_field.url,
+            'prompt': prompt,
+            'source': 'server'
+        })
+        project.section_images = section_images
+        project.save()
+
+        log_generation(
+            project, 'image_section', 'server', 'imageforge',
+            f'Server image used: {image_id}',
+            'Section image from server',
+            duration=0
+        )
+
+        return JsonResponse({
+            'success': True,
+            'image_data': image_data,
+            'image_url': image_field.url,
+            'section': section_name
+        })
+
+    except (ImageGeneration.DoesNotExist, ProductMockup.DoesNotExist):
+        return JsonResponse({'success': False, 'error': 'Bild nicht gefunden'})
+    except Exception as e:
+        logger.error(f"Error using server image: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 # ============================================================================

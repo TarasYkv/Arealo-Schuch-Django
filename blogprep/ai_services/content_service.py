@@ -314,16 +314,14 @@ SEKUNDÄRE KEYWORDS:
 
 2. STRUKTUR:
    - 5-7 H2-Überschriften (mehr Detail = besser)
-   - Gesamtlänge: ca. 2800-3200 Wörter
-   - Lesedauer: 10-12 Minuten
-   - Jeder Abschnitt mit 4-6 konkreten Key Points
+   - Gesamtlänge: ca. 1600-1800 Wörter (Einleitung ~400, Hauptteil ~600, Tipps ~600)
+   - Lesedauer: 6-8 Minuten
+   - Jeder Abschnitt mit 3-5 konkreten Key Points
 
 3. ABSCHNITTE:
-   - Einleitung: Persönlicher Einstieg, Problem aufgreifen, Mehrwert versprechen
-   - Hauptteil 1: Grundlagen/Definition (was Anfänger wissen müssen)
-   - Hauptteil 2: Konkrete Informationen/Vergleiche/Empfehlungen
-   - Hauptteil 3: Praktische Tipps & Anleitungen
-   - Do's und Don'ts: Basierend auf den Pain Points
+   - Einleitung (~400 Wörter): Persönlicher Einstieg, Problem aufgreifen, Mehrwert versprechen
+   - Hauptteil (~600 Wörter): Grundlagen, Empfehlungen, Vergleiche
+   - Tipps & Do's/Don'ts (~600 Wörter): Praktische Anleitungen, häufige Fehler
    - Fazit: Zusammenfassung + Call-to-Action
 
 4. SEO-OPTIMIERUNG:
@@ -337,12 +335,12 @@ Erstelle als JSON:
         {{
             "h2": "Konkrete, aussagekräftige Überschrift",
             "section": "intro|main|tips",
-            "word_target": 500,
-            "key_points": ["Detaillierter Punkt 1", "Detaillierter Punkt 2", "Detaillierter Punkt 3", "Detaillierter Punkt 4"],
+            "word_target": 400,
+            "key_points": ["Detaillierter Punkt 1", "Detaillierter Punkt 2", "Detaillierter Punkt 3"],
             "research_reference": "Welche Recherche-Erkenntnisse hier einfließen"
         }}
     ],
-    "total_word_target": 3000,
+    "total_word_target": 1600,
     "unique_angle": "Was macht diesen Artikel besser als die Konkurrenz?"
 }}
 
@@ -396,8 +394,17 @@ Antworte NUR mit dem JSON-Objekt."""
             'neutral': 'Schreibe neutral ohne direkte Anrede. Verwende passive Formulierungen.'
         }
 
+        # Produktlinks formatieren für Prompts
+        product_links = company_info.get('product_links', [])
+        product_links_text = ""
+        if product_links:
+            product_links_text = "\n\nPRODUKTVERLINKUNGEN (füge diese natürlich im Text ein wo passend):\n"
+            for p in product_links:
+                product_links_text += f'- <a href="{p.get("url", "")}">{p.get("name", "")}</a>\n'
+            product_links_text += "\nWICHTIG: Verlinke mindestens 1-2 Produkte natürlich im Text, wenn sie thematisch passen!"
+
         section_prompts = {
-            'intro': f"""Schreibe die EINLEITUNG (ca. 800 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
+            'intro': f"""Schreibe die EINLEITUNG (ca. 400 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
 
 ÜBERSCHRIFT: {outline_section.get('h2', '')}
 WICHTIGE PUNKTE: {', '.join(outline_section.get('key_points', []))}
@@ -408,16 +415,17 @@ ANFORDERUNGEN:
 - Nenne Kriterien für gute Entscheidungen
 - Verwende Aufzählungen und fette wichtige Begriffe
 - Baue das Keyword natürlich ein (2-3 mal)
+- WICHTIG: Halte dich an max. 400 Wörter!
 
 UNTERNEHMEN: {company_info.get('name', '')}
-EXPERTISE: {company_info.get('expertise', '')}
+EXPERTISE: {company_info.get('expertise', '')}{product_links_text}
 
 {style_instructions.get(writing_style, style_instructions['du'])}
 
-Formatiere als HTML mit <p>, <ul>, <li>, <strong> Tags.
+Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <a> Tags.
 Beginne DIREKT mit dem Content, keine Überschrift.""",
 
-            'main': f"""Schreibe den HAUPTTEIL (ca. 800 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
+            'main': f"""Schreibe den HAUPTTEIL (ca. 600 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
 
 ÜBERSCHRIFT: {outline_section.get('h2', '')}
 WICHTIGE PUNKTE: {', '.join(outline_section.get('key_points', []))}
@@ -428,16 +436,17 @@ ANFORDERUNGEN:
 - Füge eine Vergleichstabelle ein (HTML <table>)
 - Verweise subtil auf Produkte/Dienstleistungen des Unternehmens
 - Begründe Empfehlungen mit Fakten oder Erfahrung
+- WICHTIG: Halte dich an max. 600 Wörter!
 
 UNTERNEHMEN: {company_info.get('name', '')}
-PRODUKTE: {company_info.get('products', '')}
+PRODUKTE: {company_info.get('products', '')}{product_links_text}
 
 {style_instructions.get(writing_style, style_instructions['du'])}
 
-Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <table>, <h3> Tags.
+Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <table>, <h3>, <a> Tags.
 Beginne DIREKT mit dem Content, keine H2-Überschrift (die kommt separat).""",
 
-            'tips': f"""Schreibe den TIPPS-BEREICH (ca. 800 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
+            'tips': f"""Schreibe den TIPPS-BEREICH (ca. 600 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
 
 ÜBERSCHRIFT: {outline_section.get('h2', '')}
 WICHTIGE PUNKTE: {', '.join(outline_section.get('key_points', []))}
@@ -448,10 +457,12 @@ ANFORDERUNGEN:
 - Gib wertvolle, praktische Tipps
 - Nutze Tabellen für Übersichtlichkeit
 - Teile persönliche Erfahrungen
+- WICHTIG: Halte dich an max. 600 Wörter!
+{product_links_text}
 
 {style_instructions.get(writing_style, style_instructions['du'])}
 
-Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <table>, <h3> Tags.
+Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <table>, <h3>, <a> Tags.
 Beginne DIREKT mit dem Content, keine H2-Überschrift."""
         }
 

@@ -80,9 +80,14 @@
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-images me-2"></i>Abschnittsbilder <span class="badge bg-secondary">Optional</span></h5>
-        <button type="button" class="btn btn-outline-primary btn-sm" onclick="suggestSectionImages()" id="suggestBtn">
-            <i class="bi bi-lightbulb"></i> Vorschläge generieren
-        </button>
+        <div class="btn-group">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openServerImagesModal()" id="serverImagesBtn">
+                <i class="bi bi-cloud-download"></i> Vom Server laden
+            </button>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="suggestSectionImages()" id="suggestBtn">
+                <i class="bi bi-lightbulb"></i> Vorschläge generieren
+            </button>
+        </div>
     </div>
     <div class="card-body">
         <!-- Vorschläge -->
@@ -159,6 +164,61 @@
         </button>
     </div>
 </form>
+
+<!-- Server-Bilder Modal -->
+<div class="modal fade" id="serverImagesModal" tabindex="-1" aria-labelledby="serverImagesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="serverImagesModalLabel">
+                    <i class="bi bi-cloud-download me-2"></i>Bilder vom Server (ImageForge)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filter -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Bildtyp</label>
+                        <select class="form-select" id="serverImageType" onchange="loadServerImages()">
+                            <option value="all">Alle Bilder</option>
+                            <option value="generated">Generierte Bilder</option>
+                            <option value="mockup">Produkt-Mockups</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Für Abschnitt</label>
+                        <select class="form-select" id="serverImageSection">
+                            <option value="intro">Einleitung</option>
+                            <option value="main">Hauptteil</option>
+                            <option value="tips">Tipps</option>
+                            <option value="custom">Benutzerdefiniert</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-primary w-100" onclick="loadServerImages()">
+                            <i class="bi bi-arrow-clockwise"></i> Aktualisieren
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bilder Grid -->
+                <div id="serverImagesGrid" class="row">
+                    <div class="col-12 text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Lädt...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Lade Bilder vom Server...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="me-auto text-muted" id="serverImagesCount">0 Bilder gefunden</span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block wizard_js %}
@@ -376,6 +436,139 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    }
+
+    // ========================================
+    // Server-Bilder Funktionen
+    // ========================================
+
+    let serverImagesModal = null;
+
+    function openServerImagesModal() {
+        if (!serverImagesModal) {
+            serverImagesModal = new bootstrap.Modal(document.getElementById('serverImagesModal'));
+        }
+        serverImagesModal.show();
+        loadServerImages();
+    }
+
+    async function loadServerImages() {
+        const grid = document.getElementById('serverImagesGrid');
+        const imageType = document.getElementById('serverImageType').value;
+
+        grid.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <p class="mt-2 text-muted">Lade Bilder vom Server...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`{% url "blogprep:api_get_server_images" project_id=project.id %}?type=${imageType}&limit=50`);
+            const result = await response.json();
+
+            if (result.success && result.images.length > 0) {
+                let html = '';
+                result.images.forEach(img => {
+                    const typeLabel = img.type === 'mockup' ? 'Mockup' : img.mode || 'Generiert';
+                    const description = img.name || img.prompt || '';
+                    const favoriteIcon = img.is_favorite ? '<i class="bi bi-star-fill text-warning"></i>' : '';
+
+                    html += `
+                    <div class="col-md-3 mb-3">
+                        <div class="card h-100 server-image-card" style="cursor: pointer;"
+                             onclick="selectServerImage('${img.id}', '${img.url}')">
+                            <img src="${img.url}" class="card-img-top" alt="${typeLabel}"
+                                 style="height: 150px; object-fit: cover;">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge ${img.type === 'mockup' ? 'bg-info' : 'bg-primary'}">${typeLabel}</span>
+                                    ${favoriteIcon}
+                                </div>
+                                <p class="card-text small text-muted mb-0" style="font-size: 0.75rem;">
+                                    ${description.substring(0, 50)}${description.length > 50 ? '...' : ''}
+                                </p>
+                                <small class="text-muted">${img.created_at}</small>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                });
+                grid.innerHTML = html;
+                document.getElementById('serverImagesCount').textContent = `${result.images.length} Bilder gefunden`;
+            } else {
+                grid.innerHTML = `
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-images" style="font-size: 3rem; color: #d1d5db;"></i>
+                        <p class="mt-3 text-muted">Keine Bilder gefunden</p>
+                        <p class="text-muted small">Erstelle zuerst Bilder in ImageForge.</p>
+                    </div>
+                `;
+                document.getElementById('serverImagesCount').textContent = '0 Bilder gefunden';
+            }
+        } catch (error) {
+            grid.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
+                    <p class="mt-3 text-danger">Fehler beim Laden der Bilder</p>
+                    <p class="text-muted small">${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    async function selectServerImage(imageId, imageUrl) {
+        const section = document.getElementById('serverImageSection').value;
+
+        if (!confirm(`Möchtest du dieses Bild für den Abschnitt "${section}" verwenden?`)) {
+            return;
+        }
+
+        showLoading('Füge Bild hinzu...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_use_server_image" project_id=project.id %}', {
+                image_id: imageId,
+                section_name: section
+            });
+
+            if (result.success) {
+                // Remove placeholder if exists
+                document.getElementById('noImagesPlaceholder')?.remove();
+
+                // Add to grid
+                const grid = document.getElementById('sectionImagesGrid');
+                const div = document.createElement('div');
+                div.className = 'col-md-4 mb-3';
+                const filename = `{{ project.main_keyword|slugify }}-${section}.png`;
+
+                div.innerHTML = `
+                    <div class="card h-100">
+                        <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${section}">
+                        <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                            <span class="badge bg-primary">${section}</span>
+                            <span class="badge bg-secondary">Server</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="downloadImage('data:image/png;base64,${result.image_data}', '${filename}')">
+                                <i class="bi bi-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(div);
+
+                // Close modal
+                serverImagesModal.hide();
+            } else {
+                alert(result.error || 'Fehler beim Hinzufügen des Bildes');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+        }
     }
 </script>
 {% endblock %}

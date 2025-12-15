@@ -249,15 +249,15 @@ class BlogPrepProject(models.Model):
     )
     content_intro = models.TextField(
         blank=True,
-        verbose_name='Einleitung (~800 Wörter)'
+        verbose_name='Einleitung (~400 Wörter)'
     )
     content_main = models.TextField(
         blank=True,
-        verbose_name='Hauptteil (~800 Wörter)'
+        verbose_name='Hauptteil (~600 Wörter)'
     )
     content_tips = models.TextField(
         blank=True,
-        verbose_name='Tipps & Do\'s/Don\'ts (~800 Wörter)'
+        verbose_name='Tipps & Do\'s/Don\'ts (~600 Wörter)'
     )
     faqs = models.JSONField(
         default=list,
