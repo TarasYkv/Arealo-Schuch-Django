@@ -42,6 +42,7 @@ urlpatterns = [
     path('api/suggest-section-images/<uuid:project_id>/', views.api_suggest_section_images, name='api_suggest_section_images'),
     path('api/server-images/<uuid:project_id>/', views.api_get_server_images, name='api_get_server_images'),
     path('api/use-server-image/<uuid:project_id>/', views.api_use_server_image, name='api_use_server_image'),
+    path('api/delete-section-image/<uuid:project_id>/', views.api_delete_section_image, name='api_delete_section_image'),
 
     # Wizard Step 5: Diagramm
     path('wizard/step5/<uuid:project_id>/', views.wizard_step5, name='wizard_step5'),

@@ -127,15 +127,25 @@
         {% if project.section_images %}
         <div class="row mt-2" id="sectionImagesGrid">
             {% for img in project.section_images %}
-            <div class="col-md-4 mb-3">
+            <div class="col-md-4 mb-3" data-image-index="{{ forloop.counter0 }}">
                 <div class="card h-100">
                     <img src="data:image/png;base64,{{ img.image_data }}" class="card-img-top" alt="{{ img.section }}">
-                    <div class="card-body p-2 d-flex justify-content-between align-items-center">
-                        <span class="badge bg-primary">{{ img.section }}</span>
-                        <button type="button" class="btn btn-outline-secondary btn-sm"
-                                onclick="downloadImage('data:image/png;base64,{{ img.image_data }}', '{{ project.main_keyword|slugify }}-{{ img.section }}.png')">
-                            <i class="bi bi-download"></i>
-                        </button>
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-primary">{{ img.section }}</span>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary"
+                                        onclick="downloadImage('data:image/png;base64,{{ img.image_data }}', '{{ project.main_keyword|slugify }}-{{ img.section }}.png')"
+                                        title="Herunterladen">
+                                    <i class="bi bi-download"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger"
+                                        onclick="deleteSectionImage({{ forloop.counter0 }}, this)"
+                                        title="Löschen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -326,18 +336,30 @@
 
                 // Add to grid
                 const grid = document.getElementById('sectionImagesGrid');
+                const newIndex = grid.querySelectorAll('[data-image-index]').length;
                 const div = document.createElement('div');
                 div.className = 'col-md-4 mb-3';
+                div.setAttribute('data-image-index', newIndex);
                 const filename = `{{ project.main_keyword|slugify }}-${section}.png`;
                 div.innerHTML = `
                     <div class="card h-100">
                         <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${section}">
-                        <div class="card-body p-2 d-flex justify-content-between align-items-center">
-                            <span class="badge bg-primary">${section}</span>
-                            <button type="button" class="btn btn-outline-secondary btn-sm"
-                                    onclick="downloadImage('data:image/png;base64,${result.image_data}', '${filename}')">
-                                <i class="bi bi-download"></i>
-                            </button>
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-primary">${section}</span>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            onclick="downloadImage('data:image/png;base64,${result.image_data}', '${filename}')"
+                                            title="Herunterladen">
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger"
+                                            onclick="deleteSectionImage(${newIndex}, this)"
+                                            title="Löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -540,20 +562,32 @@
 
                 // Add to grid
                 const grid = document.getElementById('sectionImagesGrid');
+                const newIndex = grid.querySelectorAll('[data-image-index]').length;
                 const div = document.createElement('div');
                 div.className = 'col-md-4 mb-3';
+                div.setAttribute('data-image-index', newIndex);
                 const filename = `{{ project.main_keyword|slugify }}-${section}.png`;
 
                 div.innerHTML = `
                     <div class="card h-100">
                         <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${section}">
-                        <div class="card-body p-2 d-flex justify-content-between align-items-center">
-                            <span class="badge bg-primary">${section}</span>
-                            <span class="badge bg-secondary">Server</span>
-                            <button type="button" class="btn btn-outline-secondary btn-sm"
-                                    onclick="downloadImage('data:image/png;base64,${result.image_data}', '${filename}')">
-                                <i class="bi bi-download"></i>
-                            </button>
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-primary">${section}</span>
+                                <span class="badge bg-secondary">Server</span>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-secondary"
+                                            onclick="downloadImage('data:image/png;base64,${result.image_data}', '${filename}')"
+                                            title="Herunterladen">
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger"
+                                            onclick="deleteSectionImage(${newIndex}, this)"
+                                            title="Löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -568,6 +602,55 @@
             alert('Fehler: ' + error.message);
         } finally {
             hideLoading();
+        }
+    }
+
+    // ========================================
+    // Lösch-Funktion für Abschnittsbilder
+    // ========================================
+
+    async function deleteSectionImage(imageIndex, buttonElement) {
+        if (!confirm('Möchtest du dieses Bild wirklich löschen?')) {
+            return;
+        }
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_delete_section_image" project_id=project.id %}', {
+                image_index: imageIndex
+            });
+
+            if (result.success) {
+                // Entferne das Bild-Element aus dem DOM
+                const imageCard = buttonElement.closest('[data-image-index]');
+                if (imageCard) {
+                    imageCard.remove();
+                }
+
+                // Zeige Placeholder wenn keine Bilder mehr vorhanden
+                const grid = document.getElementById('sectionImagesGrid');
+                const remainingImages = grid.querySelectorAll('[data-image-index]');
+                if (remainingImages.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-12 text-center py-4 text-muted" id="noImagesPlaceholder">
+                            <i class="bi bi-images" style="font-size: 2rem;"></i>
+                            <p class="mt-2">Noch keine Abschnittsbilder generiert</p>
+                        </div>
+                    `;
+                } else {
+                    // Aktualisiere die Indizes der verbleibenden Bilder
+                    remainingImages.forEach((img, idx) => {
+                        img.setAttribute('data-image-index', idx);
+                        const deleteBtn = img.querySelector('.btn-outline-danger');
+                        if (deleteBtn) {
+                            deleteBtn.setAttribute('onclick', `deleteSectionImage(${idx}, this)`);
+                        }
+                    });
+                }
+            } else {
+                alert(result.error || 'Fehler beim Löschen des Bildes');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
         }
     }
 </script>

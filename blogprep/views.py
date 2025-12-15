@@ -1337,6 +1337,41 @@ def api_use_server_image(request, project_id):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
+@login_required
+@require_POST
+def api_delete_section_image(request, project_id):
+    """API: Löscht ein Abschnittsbild"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    image_index = request.POST.get('image_index')
+
+    if image_index is None:
+        return JsonResponse({'success': False, 'error': 'Kein Bild-Index angegeben'})
+
+    try:
+        index = int(image_index)
+        section_images = project.section_images or []
+
+        if 0 <= index < len(section_images):
+            removed = section_images.pop(index)
+            project.section_images = section_images
+            project.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Bild "{removed.get("section", "")}" wurde entfernt',
+                'remaining_count': len(section_images)
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Ungültiger Bild-Index'})
+
+    except (ValueError, TypeError) as e:
+        return JsonResponse({'success': False, 'error': f'Ungültiger Index: {e}'})
+    except Exception as e:
+        logger.error(f"Error deleting section image: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
 # ============================================================================
 # Ergebnis-Ansicht
 # ============================================================================
