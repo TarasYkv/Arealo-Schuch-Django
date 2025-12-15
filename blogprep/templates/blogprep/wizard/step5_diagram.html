@@ -137,13 +137,22 @@
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-image me-2"></i>Diagramm-Bild</h5>
-        <button type="button" class="btn btn-primary btn-sm" onclick="generateDiagramImage()" id="diagramImageBtn">
-            <i class="bi bi-magic"></i> Bild generieren
-        </button>
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary btn-sm" onclick="generateDiagramImage()" id="diagramImageBtn">
+                <i class="bi bi-magic"></i> Bild generieren
+            </button>
+            {% if project.diagram_image %}
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteDiagramImage()" id="deleteDiagramBtn">
+                <i class="bi bi-trash"></i> Löschen
+            </button>
+            {% endif %}
+        </div>
     </div>
     <div class="card-body text-center">
         {% if project.diagram_image %}
-        <img src="{{ project.diagram_image.url }}" alt="Diagramm" class="img-fluid rounded" style="max-height: 400px;" id="diagramImageExisting">
+        <div id="diagramImageContainer">
+            <img src="{{ project.diagram_image.url }}" alt="Diagramm" class="img-fluid rounded" style="max-height: 400px;" id="diagramImageExisting">
+        </div>
         {% else %}
         <div id="diagramImagePlaceholder" class="p-5 bg-light rounded">
             <i class="bi bi-bar-chart" style="font-size: 4rem; color: #d1d5db;"></i>
@@ -397,6 +406,53 @@
         } finally {
             hideLoading();
             btn.disabled = false;
+        }
+    }
+
+    async function deleteDiagramImage() {
+        if (!confirm('Möchtest du das Diagramm-Bild wirklich löschen?')) {
+            return;
+        }
+
+        const btn = document.getElementById('deleteDiagramBtn');
+        if (btn) btn.disabled = true;
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_delete_diagram_image" project_id=project.id %}', {});
+
+            if (result.success) {
+                // Entferne das Bild und zeige Placeholder
+                const container = document.getElementById('diagramImageContainer');
+                const existingImg = document.getElementById('diagramImageExisting');
+                const preview = document.getElementById('diagramImagePreview');
+
+                if (container) container.remove();
+                if (existingImg) existingImg.remove();
+                if (preview) preview.style.display = 'none';
+
+                // Zeige Placeholder
+                const cardBody = document.querySelector('.card-body.text-center');
+                if (cardBody && !document.getElementById('diagramImagePlaceholder')) {
+                    const placeholder = document.createElement('div');
+                    placeholder.id = 'diagramImagePlaceholder';
+                    placeholder.className = 'p-5 bg-light rounded';
+                    placeholder.innerHTML = `
+                        <i class="bi bi-bar-chart" style="font-size: 4rem; color: #d1d5db;"></i>
+                        <p class="text-muted mt-3">Noch kein Diagramm-Bild generiert</p>
+                    `;
+                    cardBody.insertBefore(placeholder, cardBody.firstChild);
+                }
+
+                // Entferne Lösch-Button
+                if (btn) btn.remove();
+
+            } else {
+                alert(result.error || 'Fehler beim Löschen');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 </script>

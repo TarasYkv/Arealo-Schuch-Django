@@ -48,6 +48,7 @@ urlpatterns = [
     path('wizard/step5/<uuid:project_id>/', views.wizard_step5, name='wizard_step5'),
     path('api/diagram-analyze/<uuid:project_id>/', views.api_analyze_for_diagram, name='api_analyze_diagram'),
     path('api/diagram-image/<uuid:project_id>/', views.api_generate_diagram_image, name='api_generate_diagram_image'),
+    path('api/diagram-delete/<uuid:project_id>/', views.api_delete_diagram_image, name='api_delete_diagram_image'),
 
     # Wizard Step 6: Video-Skript
     path('wizard/step6/<uuid:project_id>/', views.wizard_step6, name='wizard_step6'),

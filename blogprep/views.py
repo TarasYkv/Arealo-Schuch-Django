@@ -904,6 +904,34 @@ def api_generate_diagram_image(request, project_id):
     return JsonResponse(result)
 
 
+@login_required
+@require_POST
+def api_delete_diagram_image(request, project_id):
+    """API: Löscht das Diagramm-Bild"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    try:
+        if project.diagram_image:
+            # Lösche die Datei
+            project.diagram_image.delete(save=False)
+            project.diagram_image = None
+            project.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Diagramm-Bild wurde gelöscht'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Diagramm-Bild vorhanden'
+            })
+
+    except Exception as e:
+        logger.error(f"Error deleting diagram image: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
 # ============================================================================
 # Wizard Step 6: Video-Skript (Optional)
 # ============================================================================
