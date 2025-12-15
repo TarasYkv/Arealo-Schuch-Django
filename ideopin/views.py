@@ -6,6 +6,7 @@ from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib import messages
 from django.utils import timezone
+from django.core.paginator import Paginator
 from PIL import Image
 
 from .models import PinProject, PinSettings
@@ -1401,6 +1402,11 @@ def project_list(request):
     else:  # 'all'
         projects = all_projects.order_by('pinterest_posted', '-updated_at')
 
+    # Pagination: 20 Pins pro Seite
+    paginator = Paginator(projects, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     # Pinterest-Verbindungsstatus prüfen
     pinterest_connected = False
     try:
@@ -1411,7 +1417,8 @@ def project_list(request):
         pass
 
     context = {
-        'projects': projects,
+        'projects': page_obj,  # page_obj statt projects für Template-Kompatibilität
+        'page_obj': page_obj,
         'pinterest_connected': pinterest_connected,
         'total_count': total_count,
         'posted_count': posted_count,
