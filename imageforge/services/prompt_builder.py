@@ -392,42 +392,41 @@ class PromptBuilder:
         """
         parts = []
 
-        # Hauptanweisung - KRITISCH für Text-Rendering
+        # STIL-REFERENZ ZUERST - Höchste Priorität
         parts.append(
-            "Create a product mockup with custom text/lettering applied to the product. "
-            "IMPORTANT: The text must be clearly readable, correctly spelled, and perfectly legible. "
-            f"The EXACT text to render is: \"{text_content}\". "
-            "Do NOT change, abbreviate, modify, or misspell this text under any circumstances."
+            "CRITICAL INSTRUCTION - STYLE REFERENCE: "
+            "The SECOND image is your STYLE GUIDE. Study it carefully! "
+            "You MUST replicate the EXACT visual appearance of the text/lettering shown in this reference: "
+            "- If it shows golden/metallic text → make the text golden/metallic "
+            "- If it shows engraved text → make it look engraved with depth "
+            "- If it shows embossed/raised text → make it 3D and raised "
+            "- If it shows a specific color → use that EXACT color "
+            "- Copy the texture, shine, shadows, and material look PRECISELY. "
+            "DO NOT default to plain black printed text. The reference image defines the style!"
+        )
+
+        # Text-Inhalt
+        parts.append(
+            f"The text to write is: \"{text_content}\". "
+            "Spell it EXACTLY as shown, no changes."
         )
 
         # Produktreferenz
         parts.append(
-            "Use the first image as the product base. "
-            "Keep the product shape, material, color, and appearance exactly as shown. "
-            "Only add the text - do not modify the product itself."
-        )
-
-        # Stil-Referenzbild - KRITISCH
-        parts.append(
-            "IMPORTANT: The second image shows EXACTLY how the text should look. "
-            "Copy the text style from this reference image precisely: "
-            "- Match the lettering technique (engraving, printing, embossing, relief, etc.) "
-            "- Match the font style, size, and weight "
-            "- Match the color and texture of the text "
-            "- Match the depth, shadows, and 3D effect if any "
-            "Apply the text to the product using the EXACT same visual style as the reference."
+            "The FIRST image shows the product. "
+            "Place the styled text onto this product naturally. "
+            "Keep the product unchanged - only add the text in the style from the reference."
         )
 
         # Produktbeschreibung falls vorhanden
         if product_description:
-            parts.append(f"Product details: {product_description.strip()}")
+            parts.append(f"Product context: {product_description.strip()}")
 
         # Qualitätsanweisungen
         parts.append(
-            "Professional product photography quality. "
-            "The text should look naturally applied to the product surface with realistic shadows and lighting. "
-            "The text MUST be 100% legible and sharp. "
-            "Maintain the same camera angle and lighting as the original product image."
+            "High quality product mockup. "
+            "The text must look like it belongs on the product - realistic integration with proper lighting and shadows. "
+            "Text must be legible and sharp."
         )
 
         prompt = " ".join(parts)
