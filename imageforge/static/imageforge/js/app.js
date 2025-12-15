@@ -458,17 +458,40 @@ function initMockupWizard() {
         if (previewImg) previewImg.src = imageUrl;
     }
 
+    // Show/Hide Mockup Creation Form
+    const showCreateMockupBtn = document.getElementById('show-create-mockup-btn');
+    const hideCreateMockupBtn = document.getElementById('hide-create-mockup-btn');
+    const step1Card = document.getElementById('mockup-step1-card');
+
+    if (showCreateMockupBtn && step1Card) {
+        showCreateMockupBtn.addEventListener('click', function() {
+            step1Card.classList.remove('d-none');
+            // Dropdown zurücksetzen
+            if (savedMockupSelect) savedMockupSelect.value = '';
+            // Step 2 deaktivieren
+            deactivateStep2();
+        });
+    }
+
+    if (hideCreateMockupBtn && step1Card) {
+        hideCreateMockupBtn.addEventListener('click', function() {
+            step1Card.classList.add('d-none');
+        });
+    }
+
     // Saved Mockup Dropdown
     if (savedMockupSelect) {
         savedMockupSelect.addEventListener('change', function() {
             const mockupId = this.value;
             if (mockupId) {
-                // Use saved mockup - skip to step 2
+                // Use saved mockup - activate step 2
                 const selectedOption = this.options[this.selectedIndex];
                 const imageUrl = selectedOption.dataset.image;
+                // Mockup Creation Form verstecken
+                if (step1Card) step1Card.classList.add('d-none');
                 activateStep2(mockupId, imageUrl);
             } else {
-                // Create new mockup - reset to step 1
+                // Nichts ausgewählt - step 2 deaktivieren
                 deactivateStep2();
             }
         });
@@ -520,6 +543,8 @@ function initMockupWizard() {
                 const data = await response.json();
 
                 if (data.success) {
+                    // Mockup Creation Form verstecken
+                    if (step1Card) step1Card.classList.add('d-none');
                     // Show mockup preview and activate step 2
                     activateStep2(data.mockup_id, data.mockup_image_url);
                     alert(`Mockup erfolgreich erstellt! (${data.generation_time}s)`);
