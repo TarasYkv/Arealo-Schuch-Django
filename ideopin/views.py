@@ -1864,18 +1864,21 @@ def api_upload_post(request, project_id):
             # Instagram
             if 'instagram' in other_platforms:
                 form_data.append(('instagram_caption', content_instagram))
-                # Plattform-spezifische Optionen
-                if platform_options.get('media_type'):
-                    form_data.append(('media_type', platform_options['media_type']))
-                if platform_options.get('share_to_feed') is not None:
+                # Plattform-spezifische Optionen - media_type nur bei Stories senden
+                media_type = platform_options.get('media_type', '')
+                if media_type == 'STORIES':
+                    form_data.append(('media_type', 'STORIES'))
+                # share_to_feed nur relevant bei Stories
+                if media_type == 'STORIES' and platform_options.get('share_to_feed') is not None:
                     form_data.append(('share_to_feed', 'true' if platform_options['share_to_feed'] else 'false'))
 
             # Facebook
             if 'facebook' in other_platforms:
                 form_data.append(('facebook_title', content_facebook))
-                # Plattform-spezifische Optionen
-                if platform_options.get('facebook_media_type'):
-                    form_data.append(('facebook_media_type', platform_options['facebook_media_type']))
+                # Plattform-spezifische Optionen - media_type nur bei Stories senden
+                fb_media_type = platform_options.get('facebook_media_type', '')
+                if fb_media_type == 'STORIES':
+                    form_data.append(('facebook_media_type', 'STORIES'))
 
             # X (Twitter)
             if 'x' in other_platforms:
