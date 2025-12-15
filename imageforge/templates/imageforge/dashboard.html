@@ -184,18 +184,23 @@
                                     <!-- Produktbild Upload -->
                                     <div class="mb-3">
                                         <label class="form-label fw-bold">Produktbild *</label>
-                                        <div class="upload-zone" id="mockup-product-upload-zone">
-                                            <input type="file" name="mockup_product_image" id="mockup-product-image" accept="image/*" class="d-none">
-                                            <div class="upload-placeholder">
-                                                <i class="fas fa-cloud-upload-alt"></i>
-                                                <p>Produktbild hierher ziehen oder klicken</p>
+                                        <div class="d-flex gap-2 align-items-start">
+                                            <div class="upload-zone flex-grow-1" id="mockup-product-upload-zone">
+                                                <input type="file" name="mockup_product_image" id="mockup-product-image" accept="image/*" class="d-none">
+                                                <div class="upload-placeholder">
+                                                    <i class="fas fa-cloud-upload-alt"></i>
+                                                    <p>Produktbild hierher ziehen oder klicken</p>
+                                                </div>
+                                                <div class="upload-preview d-none">
+                                                    <img src="" alt="Vorschau">
+                                                    <button type="button" class="btn btn-sm btn-danger remove-image">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="upload-preview d-none">
-                                                <img src="" alt="Vorschau">
-                                                <button type="button" class="btn btn-sm btn-danger remove-image">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#productHistoryModal" title="Aus Verlauf wählen">
+                                                <i class="fas fa-history"></i>
+                                            </button>
                                         </div>
                                     </div>
 
@@ -210,18 +215,23 @@
                                     <!-- Stil-Referenzbild (Pflicht) -->
                                     <div class="mb-3">
                                         <label class="form-label fw-bold">Stil-Referenzbild *</label>
-                                        <div class="upload-zone upload-zone-small" id="mockup-style-ref-zone">
-                                            <input type="file" name="style_reference_image" id="style-reference-image" accept="image/*" class="d-none" required>
-                                            <div class="upload-placeholder">
-                                                <i class="fas fa-palette"></i>
-                                                <p class="mb-0">Beispielbild hochladen</p>
+                                        <div class="d-flex gap-2 align-items-start">
+                                            <div class="upload-zone upload-zone-small flex-grow-1" id="mockup-style-ref-zone">
+                                                <input type="file" name="style_reference_image" id="style-reference-image" accept="image/*" class="d-none" required>
+                                                <div class="upload-placeholder">
+                                                    <i class="fas fa-palette"></i>
+                                                    <p class="mb-0">Beispielbild hochladen</p>
+                                                </div>
+                                                <div class="upload-preview d-none">
+                                                    <img src="" alt="Stil-Referenz">
+                                                    <button type="button" class="btn btn-sm btn-danger remove-image">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="upload-preview d-none">
-                                                <img src="" alt="Stil-Referenz">
-                                                <button type="button" class="btn btn-sm btn-danger remove-image">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#styleRefHistoryModal" title="Aus Verlauf wählen">
+                                                <i class="fas fa-history"></i>
+                                            </button>
                                         </div>
                                         <div class="form-text">Lade ein Bild hoch das zeigt wie die Beschriftung aussehen soll (Gravur, Druck, Prägung, etc.)</div>
                                     </div>
@@ -447,6 +457,66 @@
                 <a href="#" id="view-detail-btn" class="btn btn-primary">
                     <i class="fas fa-eye me-2"></i>Details
                 </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Produktbild History Modal -->
+<div class="modal fade" id="productHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i>Produktbild-Verlauf</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if product_images_history %}
+                <div class="row g-3">
+                    {% for img in product_images_history %}
+                    <div class="col-4 col-md-3">
+                        <div class="history-image-item" data-image-url="{{ img.url }}" data-target="product">
+                            <img src="{{ img.url }}" alt="Produktbild" class="img-fluid rounded">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>Noch keine Produktbilder im Verlauf</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stil-Referenzbild History Modal -->
+<div class="modal fade" id="styleRefHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i>Stil-Referenzbild-Verlauf</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if style_ref_images_history %}
+                <div class="row g-3">
+                    {% for img in style_ref_images_history %}
+                    <div class="col-4 col-md-3">
+                        <div class="history-image-item" data-image-url="{{ img.url }}" data-target="style-ref">
+                            <img src="{{ img.url }}" alt="Stil-Referenz" class="img-fluid rounded">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>Noch keine Stil-Referenzbilder im Verlauf</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

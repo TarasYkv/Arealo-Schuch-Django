@@ -408,6 +408,56 @@ function initMockupWizard() {
         initUploadZone(styleRefZone, styleRefInput);
     }
 
+    // History Image Selection
+    document.querySelectorAll('.history-image-item').forEach(item => {
+        item.addEventListener('click', async function() {
+            const imageUrl = this.dataset.imageUrl;
+            const target = this.dataset.target;
+
+            // Bild von URL laden und in File Input setzen
+            try {
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const filename = imageUrl.split('/').pop();
+                const file = new File([blob], filename, { type: blob.type });
+
+                // DataTransfer für File Input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+
+                if (target === 'product' && mockupProductInput) {
+                    mockupProductInput.files = dataTransfer.files;
+                    // Preview anzeigen
+                    showUploadPreview(mockupProductZone, imageUrl);
+                } else if (target === 'style-ref' && styleRefInput) {
+                    styleRefInput.files = dataTransfer.files;
+                    // Preview anzeigen
+                    showUploadPreview(styleRefZone, imageUrl);
+                }
+
+                // Modal schließen
+                const modal = bootstrap.Modal.getInstance(this.closest('.modal'));
+                if (modal) modal.hide();
+
+            } catch (error) {
+                console.error('Fehler beim Laden des Bildes:', error);
+                alert('Bild konnte nicht geladen werden');
+            }
+        });
+    });
+
+    // Helper: Preview in Upload Zone anzeigen
+    function showUploadPreview(zone, imageUrl) {
+        if (!zone) return;
+        const placeholder = zone.querySelector('.upload-placeholder');
+        const preview = zone.querySelector('.upload-preview');
+        const previewImg = preview?.querySelector('img');
+
+        if (placeholder) placeholder.classList.add('d-none');
+        if (preview) preview.classList.remove('d-none');
+        if (previewImg) previewImg.src = imageUrl;
+    }
+
     // Saved Mockup Dropdown
     if (savedMockupSelect) {
         savedMockupSelect.addEventListener('change', function() {

@@ -25,6 +25,26 @@ def dashboard(request):
     recent_generations = ImageGeneration.objects.filter(user=request.user)[:6]
     mockups = ProductMockup.objects.filter(user=request.user, mockup_image__isnull=False)[:10]
 
+    # Bild-Verlauf für Mockup-Wizard (unique Bilder aus bisherigen Mockups)
+    product_images_history = ProductMockup.objects.filter(
+        user=request.user,
+        product_image__isnull=False
+    ).exclude(product_image='').values_list('product_image', flat=True).distinct()[:20]
+
+    style_ref_images_history = ProductMockup.objects.filter(
+        user=request.user,
+        style_reference_image__isnull=False
+    ).exclude(style_reference_image='').values_list('style_reference_image', flat=True).distinct()[:20]
+
+    # URLs für Template erstellen
+    from django.conf import settings
+    product_images_history = [
+        {'url': settings.MEDIA_URL + img} for img in product_images_history if img
+    ]
+    style_ref_images_history = [
+        {'url': settings.MEDIA_URL + img} for img in style_ref_images_history if img
+    ]
+
     # API-Key Verfuegbarkeit pruefen
     has_google_key = bool(getattr(request.user, 'gemini_api_key', None))
     has_openai_key = bool(getattr(request.user, 'openai_api_key', None))
@@ -35,6 +55,8 @@ def dashboard(request):
         'presets': presets,
         'recent_generations': recent_generations,
         'mockups': mockups,
+        'product_images_history': product_images_history,
+        'style_ref_images_history': style_ref_images_history,
         'has_google_key': has_google_key,
         'has_openai_key': has_openai_key,
         'has_any_key': has_any_key,
