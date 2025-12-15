@@ -55,6 +55,38 @@ COLOR_MOOD_PROMPTS = {
     'vibrant': 'vibrant saturated colors, bold and eye-catching',
 }
 
+# =============================================================================
+# MOCKUP-TEXT PROMPTS - Beschriftungsarten
+# =============================================================================
+
+TEXT_APPLICATION_PROMPTS = {
+    'gravur': 'engraved text, deeply carved into the surface with realistic depth and shadow, permanent etching effect, the text appears to be physically cut into the material',
+    'druck': 'printed text, clean crisp typography, flat ink application like professional screen printing or digital printing, sharp edges',
+    'praegung': 'embossed text, raised letters with tactile 3D effect, the text appears to be pressed and raised from the surface, subtle shadows around the edges',
+    'relief': 'relief lettering, sculpted dimensional text standing out from the surface, carved letters with depth and artistic detail',
+}
+
+TEXT_POSITION_PROMPTS = {
+    'center': 'text centered prominently on the product',
+    'top': 'text positioned at the top area of the product',
+    'bottom': 'text positioned at the bottom area of the product',
+    'custom': 'text placed naturally on the most suitable area of the product surface',
+}
+
+FONT_STYLE_PROMPTS = {
+    'modern': 'modern sans-serif font, clean contemporary typography',
+    'classic': 'classic serif font, traditional elegant typography',
+    'script': 'cursive script font, handwritten flowing calligraphy style',
+    'bold': 'bold heavy font, strong impactful letters',
+    'minimal': 'minimalist thin font, subtle refined typography',
+}
+
+TEXT_SIZE_PROMPTS = {
+    'small': 'small subtle text size',
+    'medium': 'medium balanced text size',
+    'large': 'large prominent text size',
+}
+
 
 class PromptBuilder:
     """
@@ -65,6 +97,7 @@ class PromptBuilder:
     - product: Produkt auf KI-Hintergrund platzieren
     - character: Charakter in neuer Szene
     - character_product: Charakter mit Produkt in Szene
+    - mockup_text: Produkt-Mockup mit Text-Beschriftung (2-stufig)
     """
 
     def build_prompt(
@@ -336,3 +369,154 @@ class PromptBuilder:
             '3:4': 'Portrait format (3:4 aspect ratio), vertical composition.',
         }
         return format_map.get(aspect_ratio, 'Square format (1:1 aspect ratio).')
+
+    # =========================================================================
+    # MOCKUP-TEXT METHODEN (2-stufiger Workflow)
+    # =========================================================================
+
+    def build_mockup_text_prompt(
+        self,
+        text_content: str,
+        text_application: str,
+        text_position: str = 'center',
+        font_style: str = 'modern',
+        text_color: str = '',
+        text_size: str = 'medium',
+        product_description: str = '',
+        has_style_reference: bool = False
+    ) -> str:
+        """
+        Baut Prompt für Step 1: Text auf Produkt (Mockup-Erstellung).
+
+        Args:
+            text_content: Der Text der auf das Produkt soll
+            text_application: Art der Beschriftung (gravur, druck, praegung, relief)
+            text_position: Position des Textes
+            font_style: Schriftstil-Hinweis
+            text_color: Farbhinweis (z.B. gold, silber)
+            text_size: Textgröße
+            product_description: Optionale Produktbeschreibung
+            has_style_reference: Ob ein Stil-Referenzbild vorhanden ist
+
+        Returns:
+            Vollständiger Prompt für Mockup-Generierung
+        """
+        parts = []
+
+        # Hauptanweisung - KRITISCH für Text-Rendering
+        parts.append(
+            "Create a product mockup with custom text/lettering applied to the product. "
+            "IMPORTANT: The text must be clearly readable, correctly spelled, and perfectly legible. "
+            f"The EXACT text to render is: \"{text_content}\". "
+            "Do NOT change, abbreviate, modify, or misspell this text under any circumstances."
+        )
+
+        # Produktreferenz
+        parts.append(
+            "Use the provided product image as the base. "
+            "Keep the product shape, material, color, and appearance exactly as shown in the reference image. "
+            "Only add the text - do not modify the product itself."
+        )
+
+        # Produktbeschreibung falls vorhanden
+        if product_description:
+            parts.append(f"Product details: {product_description.strip()}")
+
+        # Text-Anwendungsart (Gravur, Druck, Prägung, Relief)
+        if text_application in TEXT_APPLICATION_PROMPTS:
+            parts.append(f"Text application style: {TEXT_APPLICATION_PROMPTS[text_application]}")
+
+        # Stil-Referenzbild
+        if has_style_reference:
+            parts.append(
+                "IMPORTANT: Apply the text in the same visual style as shown in the style reference image. "
+                "Match the texture, depth, color, and visual appearance of the lettering from the reference."
+            )
+
+        # Position
+        if text_position in TEXT_POSITION_PROMPTS:
+            parts.append(TEXT_POSITION_PROMPTS[text_position])
+
+        # Schriftstil
+        if font_style in FONT_STYLE_PROMPTS:
+            parts.append(f"Font style: {FONT_STYLE_PROMPTS[font_style]}")
+
+        # Farbe
+        if text_color:
+            parts.append(f"Text color: {text_color}")
+
+        # Größe
+        if text_size in TEXT_SIZE_PROMPTS:
+            parts.append(TEXT_SIZE_PROMPTS[text_size])
+
+        # Qualitätsanweisungen
+        parts.append(
+            "Professional product photography quality. "
+            "The text should look naturally applied to the product surface with realistic shadows and lighting. "
+            "The text MUST be 100% legible and sharp. "
+            "Maintain the same camera angle and lighting as the original product image."
+        )
+
+        prompt = " ".join(parts)
+        logger.info(f"Built mockup-text prompt: {prompt[:200]}...")
+        return prompt
+
+    def build_mockup_scene_prompt(
+        self,
+        scene_description: str,
+        lighting: str = 'natural',
+        perspective: str = 'frontal',
+        style: str = 'lifestyle',
+        shadow: str = 'soft',
+        color_mood: str = 'neutral',
+        aspect_ratio: str = '1:1'
+    ) -> str:
+        """
+        Baut Prompt für Step 2: Mockup in Szene platzieren.
+
+        Args:
+            scene_description: Beschreibung der Szene/Hintergrund
+            lighting: Lichtstil
+            perspective: Perspektive
+            style: Stil-Preset
+            shadow: Schatten-Typ
+            color_mood: Farbstimmung
+            aspect_ratio: Bildformat
+
+        Returns:
+            Vollständiger Prompt für Szenen-Generierung
+        """
+        parts = []
+
+        # Hauptanweisung - Mockup erhalten
+        parts.append(
+            "Place the product mockup from the reference image into a new scene. "
+            "CRITICAL: Keep the product and ALL text/lettering EXACTLY as shown in the reference - "
+            "do not modify, blur, remove, or change any text on the product. "
+            "The text must remain 100% legible and unchanged in the final image."
+        )
+
+        # Szenen-Beschreibung
+        if scene_description:
+            parts.append(f"Scene setting: {scene_description.strip()}")
+
+        # Stil-Einstellungen
+        style_settings = self._get_style_settings(lighting, perspective, style, shadow, color_mood)
+        if style_settings:
+            parts.append(style_settings)
+
+        # Bildformat
+        format_instruction = self._get_format_instruction(aspect_ratio)
+        parts.append(format_instruction)
+
+        # Qualitätsanweisungen
+        parts.append(
+            "Professional product photography quality, high resolution. "
+            "The product with its text should be the clear focal point of the image. "
+            "Natural integration into the scene with appropriate reflections, shadows, and lighting. "
+            "The text on the product must remain sharp and readable."
+        )
+
+        prompt = " ".join(parts)
+        logger.info(f"Built mockup-scene prompt: {prompt[:200]}...")
+        return prompt

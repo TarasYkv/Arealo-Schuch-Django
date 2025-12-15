@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initMultiUpload();
     initGenerateForm();
     initModelHints();
+    initMockupWizard();
 });
 
 /**
@@ -50,6 +51,8 @@ function initModeSelector() {
     const modeInput = document.getElementById('generation-mode');
     const productSection = document.querySelector('.product-upload-section');
     const characterSection = document.querySelector('.character-section');
+    const mockupWizardSection = document.querySelector('.mockup-wizard-section');
+    const standardFormSections = document.querySelectorAll('.standard-form-section');
 
     if (!modeOptions.length) return;
 
@@ -73,6 +76,16 @@ function initModeSelector() {
                 characterSection.style.display =
                     (mode === 'character' || mode === 'character_product') ? 'block' : 'none';
             }
+
+            // Mockup-Text Modus: Wizard anzeigen, Standard-Formular verstecken
+            if (mockupWizardSection) {
+                mockupWizardSection.style.display = (mode === 'mockup_text') ? 'block' : 'none';
+            }
+
+            // Standard-Formular-Elemente bei mockup_text verstecken
+            standardFormSections.forEach(section => {
+                section.style.display = (mode === 'mockup_text') ? 'none' : '';
+            });
         });
     });
 }
@@ -335,6 +348,348 @@ function resetUploads() {
     // Hide conditional sections
     const productSection = document.querySelector('.product-upload-section');
     const characterSection = document.querySelector('.character-section');
+    const mockupWizardSection = document.querySelector('.mockup-wizard-section');
     if (productSection) productSection.style.display = 'none';
     if (characterSection) characterSection.style.display = 'none';
+    if (mockupWizardSection) mockupWizardSection.style.display = 'none';
+
+    // Show standard form sections
+    const standardFormSections = document.querySelectorAll('.standard-form-section');
+    standardFormSections.forEach(section => section.style.display = '');
+}
+
+/**
+ * Mockup Wizard - 2-Step Workflow für Produkt-Mockups mit Text
+ */
+function initMockupWizard() {
+    const mockupProductZone = document.getElementById('mockup-product-upload-zone');
+    const mockupProductInput = document.getElementById('mockup-product-image');
+    const styleRefZone = document.getElementById('mockup-style-ref-zone');
+    const styleRefInput = document.getElementById('style-reference-image');
+    const generateMockupBtn = document.getElementById('generate-mockup-btn');
+    const savedMockupSelect = document.getElementById('saved-mockup-select');
+    const step2Card = document.getElementById('mockup-step2-card');
+    const previewCard = document.getElementById('mockup-preview-card');
+    const previewImage = document.getElementById('mockup-preview-image');
+    const currentMockupIdInput = document.getElementById('current-mockup-id');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const resultModal = document.getElementById('result-modal');
+
+    // Initialize mockup product upload zone
+    if (mockupProductZone && mockupProductInput) {
+        initUploadZone(mockupProductZone, mockupProductInput);
+    }
+
+    // Initialize style reference upload zone
+    if (styleRefZone && styleRefInput) {
+        initUploadZone(styleRefZone, styleRefInput);
+    }
+
+    // Saved Mockup Dropdown
+    if (savedMockupSelect) {
+        savedMockupSelect.addEventListener('change', function() {
+            const mockupId = this.value;
+            if (mockupId) {
+                // Use saved mockup - skip to step 2
+                const selectedOption = this.options[this.selectedIndex];
+                const imageUrl = selectedOption.dataset.image;
+                activateStep2(mockupId, imageUrl);
+            } else {
+                // Create new mockup - reset to step 1
+                deactivateStep2();
+            }
+        });
+    }
+
+    // Generate Mockup Button (Step 1)
+    if (generateMockupBtn) {
+        generateMockupBtn.addEventListener('click', async function() {
+            const textContent = document.getElementById('mockup-text-content')?.value?.trim();
+            const productFile = mockupProductInput?.files?.[0];
+
+            if (!textContent) {
+                alert('Bitte gib einen Text ein.');
+                return;
+            }
+            if (!productFile) {
+                alert('Bitte lade ein Produktbild hoch.');
+                return;
+            }
+
+            // Show loading
+            if (loadingOverlay) loadingOverlay.classList.remove('d-none');
+            generateMockupBtn.disabled = true;
+            generateMockupBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mockup wird generiert...';
+
+            try {
+                const formData = new FormData();
+                formData.append('text_content', textContent);
+                formData.append('text_application_type', document.querySelector('input[name="text_application_type"]:checked')?.value || 'druck');
+                formData.append('text_position', document.getElementById('mockup-text-position')?.value || 'center');
+                formData.append('font_style', document.getElementById('mockup-font-style')?.value || 'modern');
+                formData.append('text_color_hint', document.getElementById('mockup-text-color')?.value || '');
+                formData.append('text_size_hint', document.getElementById('mockup-text-size')?.value || 'medium');
+                formData.append('product_image', productFile);
+
+                // Style reference image (optional)
+                const styleRefFile = styleRefInput?.files?.[0];
+                if (styleRefFile) {
+                    formData.append('style_reference_image', styleRefFile);
+                }
+
+                // CSRF Token
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+                const response = await fetch('/imageforge/generate/mockup/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show mockup preview and activate step 2
+                    activateStep2(data.mockup_id, data.mockup_image_url);
+                    alert(`Mockup erfolgreich erstellt! (${data.generation_time}s)`);
+                } else {
+                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Netzwerkfehler. Bitte erneut versuchen.');
+            } finally {
+                if (loadingOverlay) loadingOverlay.classList.add('d-none');
+                generateMockupBtn.disabled = false;
+                generateMockupBtn.innerHTML = '<i class="fas fa-magic me-2"></i>Mockup generieren';
+            }
+        });
+    }
+
+    // Helper: Activate Step 2
+    function activateStep2(mockupId, imageUrl) {
+        if (currentMockupIdInput) currentMockupIdInput.value = mockupId;
+        if (previewImage) previewImage.src = imageUrl;
+        if (previewCard) previewCard.classList.remove('d-none');
+        if (step2Card) {
+            step2Card.style.opacity = '1';
+            step2Card.style.pointerEvents = 'auto';
+            step2Card.querySelector('.card-header').classList.remove('bg-secondary');
+            step2Card.querySelector('.card-header').classList.add('bg-primary');
+
+            // Replace hint with scene form
+            const step2Body = step2Card.querySelector('.card-body');
+            step2Body.innerHTML = `
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Szenen-/Hintergrund-Beschreibung *</label>
+                    <textarea id="mockup-scene-prompt" class="form-control" rows="3"
+                              placeholder="z.B. Eleganter Holztisch mit warmem Licht, Kaffeebohnen im Hintergrund"></textarea>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Format</label>
+                        <select id="mockup-aspect-ratio" class="form-select form-select-sm">
+                            <option value="1:1" selected>Square (1:1)</option>
+                            <option value="4:3">Standard (4:3)</option>
+                            <option value="16:9">Widescreen (16:9)</option>
+                            <option value="9:16">Portrait (9:16)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Lichtstil</label>
+                        <select id="mockup-lighting" class="form-select form-select-sm">
+                            <option value="natural" selected>Natürlich</option>
+                            <option value="studio">Studio</option>
+                            <option value="dramatic">Dramatisch</option>
+                            <option value="golden_hour">Golden Hour</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Stil</label>
+                        <select id="mockup-style" class="form-select form-select-sm">
+                            <option value="lifestyle" selected>Lifestyle</option>
+                            <option value="ecommerce">E-Commerce</option>
+                            <option value="minimal">Minimalistisch</option>
+                            <option value="luxury">Luxus</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-success w-100" id="generate-scene-btn">
+                    <i class="fas fa-image me-2"></i>In Szene generieren
+                </button>
+            `;
+
+            // Add event listener for scene generation
+            const generateSceneBtn = document.getElementById('generate-scene-btn');
+            if (generateSceneBtn) {
+                generateSceneBtn.addEventListener('click', generateMockupScene);
+            }
+        }
+    }
+
+    // Helper: Deactivate Step 2
+    function deactivateStep2() {
+        if (currentMockupIdInput) currentMockupIdInput.value = '';
+        if (previewCard) previewCard.classList.add('d-none');
+        if (step2Card) {
+            step2Card.style.opacity = '0.5';
+            step2Card.style.pointerEvents = 'none';
+            step2Card.querySelector('.card-header').classList.add('bg-secondary');
+            step2Card.querySelector('.card-header').classList.remove('bg-primary');
+            step2Card.querySelector('.card-body').innerHTML = `
+                <div class="alert alert-info mb-3" id="step2-hint">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Erst Mockup erstellen (Step 1) oder gespeichertes Mockup wählen.
+                </div>
+            `;
+        }
+    }
+
+    // Generate Mockup Scene (Step 2)
+    async function generateMockupScene() {
+        const mockupId = currentMockupIdInput?.value;
+        const scenePrompt = document.getElementById('mockup-scene-prompt')?.value?.trim();
+
+        if (!mockupId) {
+            alert('Kein Mockup ausgewählt.');
+            return;
+        }
+        if (!scenePrompt) {
+            alert('Bitte gib eine Szenen-Beschreibung ein.');
+            return;
+        }
+
+        const generateSceneBtn = document.getElementById('generate-scene-btn');
+        if (loadingOverlay) loadingOverlay.classList.remove('d-none');
+        if (generateSceneBtn) {
+            generateSceneBtn.disabled = true;
+            generateSceneBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Szene wird generiert...';
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('mockup_id', mockupId);
+            formData.append('background_prompt', scenePrompt);
+            formData.append('aspect_ratio', document.getElementById('mockup-aspect-ratio')?.value || '1:1');
+            formData.append('lighting_style', document.getElementById('mockup-lighting')?.value || 'natural');
+            formData.append('style_preset', document.getElementById('mockup-style')?.value || 'lifestyle');
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+            const response = await fetch('/imageforge/generate/mockup-scene/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Show result in modal
+                if (resultModal) {
+                    const resultImage = document.getElementById('result-image');
+                    const resultInfo = document.getElementById('result-info');
+                    const downloadBtn = document.getElementById('download-btn');
+                    const viewDetailBtn = document.getElementById('view-detail-btn');
+
+                    if (resultImage) resultImage.src = data.image_url;
+                    if (resultInfo) resultInfo.textContent = `Generiert in ${data.generation_time}s`;
+                    if (downloadBtn) downloadBtn.href = data.image_url;
+                    if (viewDetailBtn) viewDetailBtn.href = `/imageforge/generation/${data.generation_id}/`;
+
+                    const modal = new bootstrap.Modal(resultModal);
+                    modal.show();
+                }
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Netzwerkfehler. Bitte erneut versuchen.');
+        } finally {
+            if (loadingOverlay) loadingOverlay.classList.add('d-none');
+            if (generateSceneBtn) {
+                generateSceneBtn.disabled = false;
+                generateSceneBtn.innerHTML = '<i class="fas fa-image me-2"></i>In Szene generieren';
+            }
+        }
+    }
+}
+
+/**
+ * Generic Upload Zone Initializer
+ */
+function initUploadZone(zone, input) {
+    // Click to upload
+    zone.addEventListener('click', (e) => {
+        if (!e.target.closest('.remove-image')) {
+            input.click();
+        }
+    });
+
+    // Drag and drop
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+
+    zone.addEventListener('dragleave', () => {
+        zone.classList.remove('dragover');
+    });
+
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            handleUploadPreview(zone, input.files[0]);
+        }
+    });
+
+    // File input change
+    input.addEventListener('change', () => {
+        if (input.files.length) {
+            handleUploadPreview(zone, input.files[0]);
+        }
+    });
+
+    // Remove image
+    const removeBtn = zone.querySelector('.remove-image');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            input.value = '';
+            const placeholder = zone.querySelector('.upload-placeholder');
+            const preview = zone.querySelector('.upload-preview');
+            if (placeholder) placeholder.classList.remove('d-none');
+            if (preview) preview.classList.add('d-none');
+        });
+    }
+}
+
+function handleUploadPreview(zone, file) {
+    const placeholder = zone.querySelector('.upload-placeholder');
+    const preview = zone.querySelector('.upload-preview');
+    const previewImg = preview?.querySelector('img');
+
+    if (!file.type.startsWith('image/')) {
+        alert('Bitte nur Bilddateien hochladen');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        if (previewImg) previewImg.src = e.target.result;
+        if (placeholder) placeholder.classList.add('d-none');
+        if (preview) preview.classList.remove('d-none');
+    };
+    reader.readAsDataURL(file);
 }

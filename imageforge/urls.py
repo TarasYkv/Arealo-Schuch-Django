@@ -27,4 +27,13 @@ urlpatterns = [
     path('presets/', views.preset_list, name='preset_list'),
     path('presets/save/', views.save_preset, name='save_preset'),
     path('presets/<int:preset_id>/delete/', views.delete_preset, name='delete_preset'),
+
+    # Mockup-Text Feature
+    path('mockups/', views.mockup_list, name='mockup_list'),
+    path('mockups/<int:mockup_id>/', views.mockup_detail, name='mockup_detail'),
+    path('mockups/<int:mockup_id>/delete/', views.mockup_delete, name='mockup_delete'),
+    path('mockups/<int:mockup_id>/json/', views.mockup_json, name='mockup_json'),
+    path('mockups/<int:mockup_id>/favorite/', views.toggle_mockup_favorite, name='toggle_mockup_favorite'),
+    path('generate/mockup/', views.generate_mockup, name='generate_mockup'),
+    path('generate/mockup-scene/', views.generate_mockup_scene, name='generate_mockup_scene'),
 ]

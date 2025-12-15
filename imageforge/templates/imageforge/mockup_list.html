@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mockups - ImageForge{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'imageforge/css/style.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'imageforge:dashboard' %}" class="text-decoration-none text-muted">
+                        <i class="fas fa-arrow-left me-2"></i>Zurück
+                    </a>
+                    <h1 class="h3 mt-2 mb-0">
+                        <i class="fas fa-layer-group me-2"></i>Produkt-Mockups
+                    </h1>
+                    <p class="text-muted mb-0">Mockups mit Text-Beschriftung</p>
+                </div>
+                <a href="{% url 'imageforge:dashboard' %}?mode=mockup_text" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Neues Mockup
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mockups Grid -->
+    {% if mockups %}
+    <div class="row">
+        {% for mockup in mockups %}
+        <div class="col-md-6 col-lg-4 col-xl-3 mb-4">
+            <div class="card h-100 generation-card">
+                <a href="{% url 'imageforge:mockup_detail' mockup.id %}" class="text-decoration-none">
+                    {% if mockup.mockup_image %}
+                    <img src="{{ mockup.mockup_image.url }}" class="card-img-top" alt="{{ mockup.name }}">
+                    {% elif mockup.product_image %}
+                    <img src="{{ mockup.product_image.url }}" class="card-img-top" alt="{{ mockup.name }}">
+                    {% else %}
+                    <div class="card-img-top no-image-placeholder">
+                        <i class="fas fa-cube"></i>
+                        <span>Kein Bild</span>
+                    </div>
+                    {% endif %}
+                </a>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-title mb-1">{{ mockup.name }}</h6>
+                            <span class="badge bg-info mb-2">{{ mockup.get_text_application_type_display }}</span>
+                            <p class="card-text small text-muted mb-0">
+                                "{{ mockup.text_content|truncatechars:30 }}"
+                            </p>
+                        </div>
+                        {% if mockup.is_favorite %}
+                        <i class="fas fa-star text-warning"></i>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ mockup.created_at|date:"d.m.Y H:i" }}</small>
+                        <div>
+                            <form action="{% url 'imageforge:toggle_mockup_favorite' mockup.id %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-link p-0 me-2">
+                                    {% if mockup.is_favorite %}
+                                    <i class="fas fa-star text-warning"></i>
+                                    {% else %}
+                                    <i class="far fa-star text-muted"></i>
+                                    {% endif %}
+                                </button>
+                            </form>
+                            <form action="{% url 'imageforge:mockup_delete' mockup.id %}" method="post" class="d-inline"
+                                  onsubmit="return confirm('Mockup wirklich löschen?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-link text-danger p-0">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-layer-group fa-4x text-muted mb-3"></i>
+                <h4>Noch keine Mockups</h4>
+                <p class="text-muted">Erstelle dein erstes Produkt-Mockup mit Text-Beschriftung</p>
+                <a href="{% url 'imageforge:dashboard' %}?mode=mockup_text" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Mockup erstellen
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Character, CharacterImage, ImageGeneration, StylePreset
+from .models import Character, CharacterImage, ImageGeneration, StylePreset, ProductMockup
 
 
 class CharacterImageInline(admin.TabularInline):
@@ -60,3 +60,34 @@ class StylePresetAdmin(admin.ModelAdmin):
     list_filter = ['is_default', 'created_at']
     search_fields = ['name', 'user__username']
     readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(ProductMockup)
+class ProductMockupAdmin(admin.ModelAdmin):
+    list_display = ['name', 'user', 'text_content', 'text_application_type', 'has_mockup_image', 'is_favorite', 'created_at']
+    list_filter = ['text_application_type', 'ai_model', 'is_favorite', 'created_at']
+    search_fields = ['name', 'text_content', 'user__username']
+    readonly_fields = ['created_at', 'generation_time', 'generation_prompt']
+    list_select_related = ['user']
+
+    fieldsets = [
+        ('Allgemein', {
+            'fields': ['user', 'name', 'text_content']
+        }),
+        ('Text-Einstellungen', {
+            'fields': ['text_application_type', 'text_position', 'font_style', 'text_size', 'text_color_hint']
+        }),
+        ('Bilder', {
+            'fields': ['product_image', 'style_reference_image', 'mockup_image']
+        }),
+        ('Meta', {
+            'fields': ['ai_model', 'is_favorite', 'created_at', 'generation_time', 'generation_prompt'],
+            'classes': ['collapse']
+        }),
+    ]
+
+    def has_mockup_image(self, obj):
+        if obj.mockup_image:
+            return format_html('<span style="color: green;">&#10004;</span>')
+        return format_html('<span style="color: red;">&#10008;</span>')
+    has_mockup_image.short_description = 'Mockup'

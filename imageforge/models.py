@@ -11,6 +11,36 @@ GENERATION_MODES = [
     ('product', 'Produkt auf Hintergrund'),
     ('character', 'Charakter in Szene'),
     ('character_product', 'Charakter + Produkt'),
+    ('mockup_text', 'Produkt-Mockup mit Text'),
+]
+
+# Mockup-Text Feature - Beschriftungsarten
+TEXT_APPLICATION_TYPES = [
+    ('gravur', 'Gravur (Eingraviert)'),
+    ('druck', 'Druck'),
+    ('praegung', 'Prägung'),
+    ('relief', 'Relief'),
+]
+
+TEXT_POSITIONS = [
+    ('center', 'Mitte'),
+    ('top', 'Oben'),
+    ('bottom', 'Unten'),
+    ('custom', 'Automatisch'),
+]
+
+FONT_STYLES = [
+    ('modern', 'Modern'),
+    ('classic', 'Klassisch'),
+    ('script', 'Schreibschrift'),
+    ('bold', 'Fett'),
+    ('minimal', 'Minimalistisch'),
+]
+
+TEXT_SIZES = [
+    ('small', 'Klein'),
+    ('medium', 'Mittel'),
+    ('large', 'Groß'),
 ]
 
 ASPECT_RATIOS = [
@@ -186,6 +216,16 @@ class ImageGeneration(models.Model):
         verbose_name='Charakter'
     )
 
+    # Optional: Mockup (für Modus 'mockup_text')
+    mockup = models.ForeignKey(
+        'ProductMockup',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='scene_generations',
+        verbose_name='Produkt-Mockup'
+    )
+
     # Hintergrund-/Szenen-Beschreibung
     background_prompt = models.TextField(
         verbose_name='Szenen-Beschreibung',
@@ -297,6 +337,131 @@ class ImageGeneration(models.Model):
     def mode_display(self):
         """Gibt den deutschen Namen des Modus zurück"""
         return dict(GENERATION_MODES).get(self.generation_mode, self.generation_mode)
+
+
+class ProductMockup(models.Model):
+    """
+    Gespeichertes Produkt-Mockup mit Text-Beschriftung.
+    Kann für mehrere Szenen-Generierungen wiederverwendet werden.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='imageforge_mockups'
+    )
+
+    # Name für einfache Identifikation
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Mockup-Name'
+    )
+
+    # Original-Produktbild
+    product_image = models.ImageField(
+        upload_to='imageforge/mockups/products/%Y/%m/',
+        verbose_name='Original-Produktbild'
+    )
+
+    # Stil-Referenzbild (optional) - zeigt der KI wie die Beschriftung aussehen soll
+    style_reference_image = models.ImageField(
+        upload_to='imageforge/mockups/style_refs/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name='Stil-Referenzbild',
+        help_text='Beispielbild das zeigt wie die Beschriftung aussehen soll'
+    )
+
+    # Text-Einstellungen
+    text_content = models.CharField(
+        max_length=200,
+        verbose_name='Text/Beschriftung'
+    )
+    text_application_type = models.CharField(
+        max_length=20,
+        choices=TEXT_APPLICATION_TYPES,
+        default='druck',
+        verbose_name='Beschriftungsart'
+    )
+    text_position = models.CharField(
+        max_length=20,
+        choices=TEXT_POSITIONS,
+        default='center',
+        verbose_name='Text-Position'
+    )
+    font_style = models.CharField(
+        max_length=20,
+        choices=FONT_STYLES,
+        default='modern',
+        verbose_name='Schriftstil'
+    )
+
+    # Optionale Zusatzinfos für bessere Prompts
+    text_color_hint = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Farbhinweis',
+        help_text='z.B. gold, silber, schwarz, weiß'
+    )
+    text_size_hint = models.CharField(
+        max_length=20,
+        choices=TEXT_SIZES,
+        default='medium',
+        verbose_name='Textgröße'
+    )
+
+    # Generiertes Mockup-Bild
+    mockup_image = models.ImageField(
+        upload_to='imageforge/mockups/generated/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name='Generiertes Mockup'
+    )
+
+    # KI-Modell das verwendet wurde
+    ai_model = models.CharField(
+        max_length=50,
+        default='gemini-3-pro-image-preview',
+        verbose_name='KI-Modell'
+    )
+
+    # Generierter Prompt (für Debugging/Reproduzierbarkeit)
+    generation_prompt = models.TextField(
+        blank=True,
+        verbose_name='Generierungs-Prompt'
+    )
+
+    # Meta
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_favorite = models.BooleanField(default=False)
+    generation_time = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name='Generierungszeit (Sekunden)'
+    )
+    error_message = models.TextField(
+        blank=True,
+        verbose_name='Fehlermeldung'
+    )
+
+    class Meta:
+        verbose_name = 'Produkt-Mockup'
+        verbose_name_plural = 'Produkt-Mockups'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.name or f"Mockup: {self.text_content[:30]}..."
+
+    @property
+    def is_successful(self):
+        """Prüft ob die Generierung erfolgreich war"""
+        return bool(self.mockup_image) and not self.error_message
+
+    @property
+    def application_type_display(self):
+        """Gibt den deutschen Namen der Beschriftungsart zurück"""
+        return dict(TEXT_APPLICATION_TYPES).get(self.text_application_type, self.text_application_type)
 
 
 class StylePreset(models.Model):
