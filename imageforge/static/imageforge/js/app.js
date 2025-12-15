@@ -56,38 +56,55 @@ function initModeSelector() {
 
     if (!modeOptions.length) return;
 
+    // Funktion zum Aktivieren eines Modus
+    function activateMode(mode) {
+        // Update active state auf dem Button
+        modeOptions.forEach(o => {
+            if (o.dataset.mode === mode) {
+                o.classList.add('active');
+            } else {
+                o.classList.remove('active');
+            }
+        });
+
+        // Update hidden input
+        if (modeInput) modeInput.value = mode;
+
+        // Show/hide sections based on mode
+        if (productSection) {
+            productSection.style.display =
+                (mode === 'product' || mode === 'character_product') ? 'block' : 'none';
+        }
+
+        if (characterSection) {
+            characterSection.style.display =
+                (mode === 'character' || mode === 'character_product') ? 'block' : 'none';
+        }
+
+        // Mockup-Text Modus: Wizard anzeigen, Standard-Formular verstecken
+        if (mockupWizardSection) {
+            mockupWizardSection.style.display = (mode === 'mockup_text') ? 'block' : 'none';
+        }
+
+        // Standard-Formular-Elemente bei mockup_text verstecken
+        standardFormSections.forEach(section => {
+            section.style.display = (mode === 'mockup_text') ? 'none' : '';
+        });
+    }
+
+    // Click-Handler für Mode-Buttons
     modeOptions.forEach(option => {
         option.addEventListener('click', function() {
-            // Update active state
-            modeOptions.forEach(o => o.classList.remove('active'));
-            this.classList.add('active');
-
-            // Update hidden input
-            const mode = this.dataset.mode;
-            if (modeInput) modeInput.value = mode;
-
-            // Show/hide sections based on mode
-            if (productSection) {
-                productSection.style.display =
-                    (mode === 'product' || mode === 'character_product') ? 'block' : 'none';
-            }
-
-            if (characterSection) {
-                characterSection.style.display =
-                    (mode === 'character' || mode === 'character_product') ? 'block' : 'none';
-            }
-
-            // Mockup-Text Modus: Wizard anzeigen, Standard-Formular verstecken
-            if (mockupWizardSection) {
-                mockupWizardSection.style.display = (mode === 'mockup_text') ? 'block' : 'none';
-            }
-
-            // Standard-Formular-Elemente bei mockup_text verstecken
-            standardFormSections.forEach(section => {
-                section.style.display = (mode === 'mockup_text') ? 'none' : '';
-            });
+            activateMode(this.dataset.mode);
         });
     });
+
+    // URL-Parameter prüfen und Modus beim Laden aktivieren
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlMode = urlParams.get('mode');
+    if (urlMode) {
+        activateMode(urlMode);
+    }
 }
 
 /**
