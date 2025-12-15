@@ -246,15 +246,17 @@ def save_audio_recording(request):
         }, status=500)
 
 
+@login_required
 @csrf_exempt
 @require_http_methods(["POST"])
 def save_video_recording(request):
     """
-    Save video recording to server
+    Save video recording to server and create Video object in database
     """
     try:
         data = json.loads(request.body)
         video_data = data.get('video_data')
+        title = data.get('title', 'StreamRec Aufnahme')
         filename = data.get('filename', 'recording.webm')
 
         if not video_data:
@@ -273,6 +275,10 @@ def save_video_recording(request):
         # Check storage quota BEFORE saving
         from streamrec.storage_helpers import check_storage_quota, track_recording_upload
         from core.storage_service import StorageQuotaExceeded
+        from videos.models import Video
+        from django.core.files.base import ContentFile
+        import uuid
+        from django.utils import timezone
 
         has_space, available, error_msg = check_storage_quota(request.user, file_size)
         if not has_space:
@@ -282,34 +288,42 @@ def save_video_recording(request):
                 'quota_exceeded': True
             }, status=413)  # 413 Payload Too Large
 
-        # Create media directory if it doesn't exist
-        media_dir = os.path.join(settings.MEDIA_ROOT, 'video_recordings')
-        os.makedirs(media_dir, exist_ok=True)
+        # Generate unique filename
+        ext = filename.split('.')[-1] if '.' in filename else 'webm'
+        unique_filename = f"{uuid.uuid4()}.{ext}"
 
-        # Save the file
-        file_path = os.path.join(media_dir, f"{request.user.id}_{filename}")
-        with open(file_path, 'wb') as f:
-            f.write(video_bytes)
+        # Create Video object with the recording
+        video = Video(
+            user=request.user,
+            title=title or f"StreamRec Aufnahme {timezone.now().strftime('%d.%m.%Y %H:%M')}",
+            description=f"Aufgenommen mit StreamRec am {timezone.now().strftime('%d.%m.%Y um %H:%M Uhr')}",
+            file_size=file_size,
+        )
+
+        # Save the video file through Django's file handling
+        video.video_file.save(unique_filename, ContentFile(video_bytes), save=True)
 
         # Track storage usage
         try:
             track_recording_upload(request.user, file_size, filename, recording_type='video')
         except StorageQuotaExceeded as e:
             # Sollte nicht passieren da wir vorher geprüft haben, aber zur Sicherheit
-            os.remove(file_path)  # Datei wieder löschen
+            video.delete()  # Video wieder löschen
             return JsonResponse({
                 'success': False,
                 'error': str(e),
                 'quota_exceeded': True
             }, status=413)
 
-        logger.info(f"Video recording saved: {file_path} ({file_size} bytes)")
+        logger.info(f"Video recording saved: {video.video_file.path} ({file_size} bytes) - Video ID: {video.id}")
 
         return JsonResponse({
             'success': True,
             'message': 'Video-Aufnahme erfolgreich gespeichert',
             'filename': filename,
-            'file_size': file_size
+            'file_size': file_size,
+            'video_id': video.id,
+            'video_url': video.get_absolute_url()
         })
 
     except Exception as e:
