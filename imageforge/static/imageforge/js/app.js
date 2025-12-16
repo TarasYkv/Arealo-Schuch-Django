@@ -579,8 +579,13 @@ function initMockupWizard() {
             step2Body.innerHTML = `
                 <div class="mb-3">
                     <label class="form-label fw-bold">Szenen-/Hintergrund-Beschreibung *</label>
-                    <textarea id="mockup-scene-prompt" class="form-control" rows="3"
-                              placeholder="z.B. Eleganter Holztisch mit warmem Licht, Kaffeebohnen im Hintergrund"></textarea>
+                    <div class="d-flex gap-2">
+                        <textarea id="mockup-scene-prompt" class="form-control" rows="3"
+                                  placeholder="z.B. Eleganter Holztisch mit warmem Licht, Kaffeebohnen im Hintergrund"></textarea>
+                        <button type="button" class="btn btn-outline-info" id="bg-history-btn" data-bs-toggle="modal" data-bs-target="#backgroundHistoryModal" title="Aus Verlauf wählen">
+                            <i class="fas fa-history"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="row mb-3">
                     <div class="col-md-4">
@@ -785,4 +790,172 @@ function handleUploadPreview(zone, file) {
         if (preview) preview.classList.remove('d-none');
     };
     reader.readAsDataURL(file);
+}
+
+// =============================================================================
+// KI-SPRÜCHE GENERATOR
+// =============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const generateFunnySayingsBtn = document.getElementById('generate-funny-sayings-btn');
+    const funnySayingsKeyword = document.getElementById('funny-sayings-keyword');
+    const funnySayingsLoading = document.getElementById('funny-sayings-loading');
+    const funnySayingsResults = document.getElementById('funny-sayings-results');
+    const funnySayingsList = document.getElementById('funny-sayings-list');
+    const mockupTextContent = document.getElementById('mockup-text-content');
+
+    if (generateFunnySayingsBtn) {
+        generateFunnySayingsBtn.addEventListener('click', async function() {
+            const keyword = funnySayingsKeyword?.value?.trim();
+            if (!keyword) {
+                alert('Bitte gib ein Keyword/Thema ein.');
+                return;
+            }
+
+            // Show loading
+            if (funnySayingsLoading) funnySayingsLoading.classList.remove('d-none');
+            if (funnySayingsResults) funnySayingsResults.classList.add('d-none');
+            generateFunnySayingsBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('keyword', keyword);
+
+                const response = await fetch('/imageforge/api/generate-funny-sayings/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.sayings) {
+                    // Show results
+                    if (funnySayingsList) {
+                        funnySayingsList.innerHTML = data.sayings.map((saying, index) => `
+                            <button type="button" class="list-group-item list-group-item-action funny-saying-item" data-saying="${escapeHtml(saying)}">
+                                <span class="badge bg-warning text-dark me-2">${index + 1}</span>
+                                ${escapeHtml(saying)}
+                            </button>
+                        `).join('');
+
+                        // Add click handlers
+                        funnySayingsList.querySelectorAll('.funny-saying-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                const saying = this.getAttribute('data-saying');
+                                if (mockupTextContent) {
+                                    mockupTextContent.value = saying;
+                                }
+                                // Close modal
+                                const modal = bootstrap.Modal.getInstance(document.getElementById('funnySayingsModal'));
+                                if (modal) modal.hide();
+                            });
+                        });
+                    }
+                    if (funnySayingsResults) funnySayingsResults.classList.remove('d-none');
+                } else {
+                    alert(data.error || 'Fehler beim Generieren der Sprüche');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Fehler: ' + error.message);
+            } finally {
+                if (funnySayingsLoading) funnySayingsLoading.classList.add('d-none');
+                generateFunnySayingsBtn.disabled = false;
+            }
+        });
+    }
+
+    // Enter-Taste im Keyword-Feld
+    if (funnySayingsKeyword) {
+        funnySayingsKeyword.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                generateFunnySayingsBtn?.click();
+            }
+        });
+    }
+});
+
+// =============================================================================
+// HINTERGRUND-BESCHREIBUNG VERLAUF
+// =============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const backgroundHistoryModal = document.getElementById('backgroundHistoryModal');
+    const backgroundHistoryLoading = document.getElementById('background-history-loading');
+    const backgroundHistoryResults = document.getElementById('background-history-results');
+    const backgroundHistoryEmpty = document.getElementById('background-history-empty');
+    const backgroundHistoryList = document.getElementById('background-history-list');
+
+    if (backgroundHistoryModal) {
+        backgroundHistoryModal.addEventListener('show.bs.modal', async function() {
+            // Show loading
+            if (backgroundHistoryLoading) backgroundHistoryLoading.classList.remove('d-none');
+            if (backgroundHistoryResults) backgroundHistoryResults.classList.add('d-none');
+            if (backgroundHistoryEmpty) backgroundHistoryEmpty.classList.add('d-none');
+
+            try {
+                const response = await fetch('/imageforge/api/background-history/', {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken()
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.prompts && data.prompts.length > 0) {
+                    // Show results
+                    if (backgroundHistoryList) {
+                        backgroundHistoryList.innerHTML = data.prompts.map(prompt => `
+                            <button type="button" class="list-group-item list-group-item-action bg-history-item" data-prompt="${escapeHtml(prompt)}">
+                                <i class="fas fa-image text-info me-2"></i>
+                                ${escapeHtml(prompt)}
+                            </button>
+                        `).join('');
+
+                        // Add click handlers
+                        backgroundHistoryList.querySelectorAll('.bg-history-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                const prompt = this.getAttribute('data-prompt');
+                                const scenePrompt = document.getElementById('mockup-scene-prompt');
+                                if (scenePrompt) {
+                                    scenePrompt.value = prompt;
+                                }
+                                // Close modal
+                                const modal = bootstrap.Modal.getInstance(backgroundHistoryModal);
+                                if (modal) modal.hide();
+                            });
+                        });
+                    }
+                    if (backgroundHistoryResults) backgroundHistoryResults.classList.remove('d-none');
+                } else {
+                    // No history
+                    if (backgroundHistoryEmpty) backgroundHistoryEmpty.classList.remove('d-none');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                if (backgroundHistoryEmpty) backgroundHistoryEmpty.classList.remove('d-none');
+            } finally {
+                if (backgroundHistoryLoading) backgroundHistoryLoading.classList.add('d-none');
+            }
+        });
+    }
+});
+
+// Helper: HTML escapen
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Helper: CSRF Token
+function getCsrfToken() {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue || '';
 }

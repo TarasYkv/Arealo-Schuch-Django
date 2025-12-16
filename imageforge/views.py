@@ -667,3 +667,98 @@ def toggle_mockup_favorite(request, mockup_id):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'is_favorite': mockup.is_favorite})
     return redirect('imageforge:mockup_detail', mockup_id=mockup_id)
+
+
+# =============================================================================
+# API: Verlauf & KI-Helfer
+# =============================================================================
+
+@login_required
+def api_background_prompt_history(request):
+    """API: Gibt unique Hintergrund-Beschreibungen aus vergangenen Mockup-Generierungen zurück"""
+    # Hole alle unique background_prompts aus mockup_text Generierungen
+    prompts = ImageGeneration.objects.filter(
+        user=request.user,
+        mode='mockup_text',
+        background_prompt__isnull=False
+    ).exclude(
+        background_prompt=''
+    ).values_list('background_prompt', flat=True).distinct()[:30]
+
+    # Dedupliziere und formatiere
+    unique_prompts = list(dict.fromkeys(prompts))  # Reihenfolge beibehalten, Duplikate entfernen
+
+    return JsonResponse({
+        'success': True,
+        'prompts': unique_prompts
+    })
+
+
+@login_required
+def api_generate_funny_sayings(request):
+    """API: Generiert 10 humorvolle Sprüche basierend auf einem Keyword"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+    keyword = request.POST.get('keyword', '').strip()
+    if not keyword:
+        return JsonResponse({'error': 'Bitte ein Keyword eingeben'}, status=400)
+
+    # KI-Provider wählen (bevorzugt Gemini, dann OpenAI)
+    has_gemini = bool(getattr(request.user, 'gemini_api_key', None))
+    has_openai = bool(getattr(request.user, 'openai_api_key', None))
+
+    if not has_gemini and not has_openai:
+        return JsonResponse({'error': 'Kein API-Key konfiguriert'}, status=400)
+
+    prompt = f"""Generiere genau 10 kurze, humorvolle und witzige Sprüche zum Thema "{keyword}".
+
+Die Sprüche sollen:
+- Kurz und prägnant sein (max. 5-8 Wörter)
+- Witzig/humorvoll sein
+- Gut als Text auf einem Produkt-Mockup aussehen
+- Auf Deutsch sein
+- Keine Anführungszeichen enthalten
+
+Antworte NUR mit einer nummerierten Liste (1. bis 10.), ohne zusätzlichen Text."""
+
+    try:
+        if has_gemini:
+            import google.generativeai as genai
+            genai.configure(api_key=request.user.gemini_api_key)
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            response = model.generate_content(prompt)
+            result_text = response.text
+        else:
+            from openai import OpenAI
+            client = OpenAI(api_key=request.user.openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500
+            )
+            result_text = response.choices[0].message.content
+
+        # Parse die Sprüche aus der Antwort
+        import re
+        lines = result_text.strip().split('\n')
+        sayings = []
+        for line in lines:
+            # Entferne Nummerierung und bereinige
+            cleaned = re.sub(r'^\d+[\.\)]\s*', '', line.strip())
+            cleaned = cleaned.strip('"\'')
+            if cleaned and len(cleaned) > 2:
+                sayings.append(cleaned)
+
+        # Maximal 10 Sprüche
+        sayings = sayings[:10]
+
+        return JsonResponse({
+            'success': True,
+            'sayings': sayings,
+            'keyword': keyword
+        })
+
+    except Exception as e:
+        logger.exception(f"Error generating funny sayings: {e}")
+        return JsonResponse({'error': str(e)}, status=500)

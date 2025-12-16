@@ -36,4 +36,8 @@ urlpatterns = [
     path('mockups/<int:mockup_id>/favorite/', views.toggle_mockup_favorite, name='toggle_mockup_favorite'),
     path('generate/mockup/', views.generate_mockup, name='generate_mockup'),
     path('generate/mockup-scene/', views.generate_mockup_scene, name='generate_mockup_scene'),
+
+    # Mockup-Helfer APIs
+    path('api/background-history/', views.api_background_prompt_history, name='api_background_history'),
+    path('api/generate-funny-sayings/', views.api_generate_funny_sayings, name='api_generate_funny_sayings'),
 ]
