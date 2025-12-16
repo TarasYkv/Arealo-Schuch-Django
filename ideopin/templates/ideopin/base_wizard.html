@@ -65,6 +65,26 @@
         color: #166534;
         font-weight: 500;
     }
+    /* Klickbare Schritte */
+    .wizard-step a {
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        transition: transform 0.2s ease;
+    }
+    .wizard-step.clickable a:hover {
+        transform: scale(1.1);
+    }
+    .wizard-step.clickable a:hover .step-number {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .wizard-step.clickable:hover .step-label {
+        text-decoration: underline;
+    }
+    .wizard-step.completed.clickable a:hover .step-number {
+        background: #bbf7d0;
+    }
     .pin-preview {
         background: #f8f9fa;
         border-radius: 12px;
@@ -112,34 +132,81 @@
     <!-- Progress Bar -->
     <div class="wizard-progress">
         <div class="wizard-steps">
-            <div class="wizard-step {% if step >= 1 %}{% if step > 1 %}completed{% else %}active{% endif %}{% endif %}">
-                <span class="step-number">1</span>
-                <span class="step-label">Keywords</span>
+            <!-- Schritt 1: Keywords -->
+            <div class="wizard-step {% if step > 1 %}completed clickable{% elif step == 1 %}active{% endif %}">
+                {% if step > 1 and project %}
+                <a href="{% url 'ideopin:wizard_step1_edit' project_id=project.id %}" title="Keywords bearbeiten">
+                {% else %}
+                <span>
+                {% endif %}
+                    <span class="step-number">{% if step > 1 %}<i class="bi bi-check"></i>{% else %}1{% endif %}</span>
+                    <span class="step-label">Keywords</span>
+                {% if step > 1 and project %}</a>{% else %}</span>{% endif %}
             </div>
-            <div class="wizard-step {% if step >= 2 %}{% if step > 2 %}completed{% else %}active{% endif %}{% endif %}">
-                <span class="step-number">2</span>
-                <span class="step-label">Text</span>
+
+            <!-- Schritt 2: Text -->
+            <div class="wizard-step {% if step > 2 %}completed clickable{% elif step == 2 %}active clickable{% endif %}">
+                {% if step >= 2 and project %}
+                <a href="{% url 'ideopin:wizard_step2' project_id=project.id %}" title="Text bearbeiten">
+                {% else %}
+                <span>
+                {% endif %}
+                    <span class="step-number">{% if step > 2 %}<i class="bi bi-check"></i>{% else %}2{% endif %}</span>
+                    <span class="step-label">Text</span>
+                {% if step >= 2 and project %}</a>{% else %}</span>{% endif %}
             </div>
-            <div class="wizard-step {% if step >= 3 %}{% if step > 3 %}completed{% else %}active{% endif %}{% endif %}">
-                <span class="step-number">3</span>
-                <span class="step-label">Bild</span>
+
+            <!-- Schritt 3: Bild -->
+            <div class="wizard-step {% if step > 3 %}completed clickable{% elif step == 3 %}active clickable{% endif %}">
+                {% if step >= 3 and project %}
+                <a href="{% url 'ideopin:wizard_step3' project_id=project.id %}" title="Bild bearbeiten">
+                {% else %}
+                <span>
+                {% endif %}
+                    <span class="step-number">{% if step > 3 %}<i class="bi bi-check"></i>{% else %}3{% endif %}</span>
+                    <span class="step-label">Bild</span>
+                {% if step >= 3 and project %}</a>{% else %}</span>{% endif %}
             </div>
-            <div class="wizard-step {% if step >= 4 %}{% if step > 4 %}completed{% else %}active{% endif %}{% endif %}">
-                <span class="step-number">4</span>
-                <span class="step-label">Link</span>
+
+            <!-- Schritt 4: Link -->
+            <div class="wizard-step {% if step > 4 %}completed clickable{% elif step == 4 %}active clickable{% endif %}">
+                {% if step >= 4 and project %}
+                <a href="{% url 'ideopin:wizard_step4' project_id=project.id %}" title="Link bearbeiten">
+                {% else %}
+                <span>
+                {% endif %}
+                    <span class="step-number">{% if step > 4 %}<i class="bi bi-check"></i>{% else %}4{% endif %}</span>
+                    <span class="step-label">Link</span>
+                {% if step >= 4 and project %}</a>{% else %}</span>{% endif %}
             </div>
-            <div class="wizard-step {% if step >= 5 %}{% if step > 5 %}completed{% else %}active{% endif %}{% endif %}">
-                <span class="step-number">5</span>
-                <span class="step-label">SEO</span>
+
+            <!-- Schritt 5: SEO -->
+            <div class="wizard-step {% if step > 5 %}completed clickable{% elif step == 5 %}active clickable{% endif %}">
+                {% if step >= 5 and project %}
+                <a href="{% url 'ideopin:wizard_step5' project_id=project.id %}" title="SEO bearbeiten">
+                {% else %}
+                <span>
+                {% endif %}
+                    <span class="step-number">{% if step > 5 %}<i class="bi bi-check"></i>{% else %}5{% endif %}</span>
+                    <span class="step-label">SEO</span>
+                {% if step >= 5 and project %}</a>{% else %}</span>{% endif %}
             </div>
-            <div class="wizard-step {% if step >= 6 %}active{% endif %}">
-                <span class="step-number">6</span>
-                <span class="step-label">Fertig</span>
+
+            <!-- Schritt 6: Fertig -->
+            <div class="wizard-step {% if step >= 6 %}active clickable{% endif %}">
+                {% if step >= 6 and project %}
+                <a href="{% url 'ideopin:wizard_result' project_id=project.id %}" title="Ergebnis anzeigen">
+                {% else %}
+                <span>
+                {% endif %}
+                    <span class="step-number">{% if step > 6 %}<i class="bi bi-check"></i>{% else %}6{% endif %}</span>
+                    <span class="step-label">Fertig</span>
+                {% if step >= 6 and project %}</a>{% else %}</span>{% endif %}
             </div>
         </div>
         <div class="progress">
             <div class="progress-bar" role="progressbar"
-                 style="width: {{ step|default:1 }}{% widthratio step total_steps 100 %}%"></div>
+                 style="width: {% widthratio step 6 100 %}%"></div>
         </div>
     </div>
 
