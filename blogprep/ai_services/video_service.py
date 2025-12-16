@@ -166,7 +166,7 @@ class VideoService:
                     pass
         return None
 
-    # Skript-Art Prompts
+    # Blog-basierte Skript-Art Prompts
     SCRIPT_TYPE_PROMPTS = {
         'summary': {
             'name': 'Zusammenfassung',
@@ -258,6 +258,127 @@ class VideoService:
         }
     }
 
+    # Keyword-basierte Skript-Art Prompts (ohne Blog-Content, mit "du"-Form)
+    KEYWORD_SCRIPT_PROMPTS = {
+        'kw_fun_facts': {
+            'name': 'Witzige Fakten',
+            'instructions': """Erstelle witzige, überraschende Fakten zum Thema.
+- Beginne mit "Wusstest du, dass..."
+- Verwende humorvolle, unterhaltsame Fakten
+- Überrasche mit unerwarteten Zusammenhängen
+- Halte den Ton locker und lustig
+- Die Fakten sollen zum Schmunzeln bringen
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_interesting_facts': {
+            'name': 'Interessante Fakten',
+            'instructions': """Präsentiere faszinierende, wissenswerte Fakten zum Thema.
+- Starte mit dem interessantesten Fakt als Hook
+- Verwende konkrete Zahlen und Beispiele
+- Verknüpfe Fakten miteinander
+- Schließe mit einem "Wow-Moment" ab
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_sayings': {
+            'name': 'Unterhaltsame Sprüche',
+            'instructions': """Erstelle witzige, unterhaltsame Sprüche zum Thema.
+- Schreibe lockere, lustige Sprüche
+- Verwende Wortspiele wenn möglich
+- Halte die Sprüche kurz und prägnant
+- Die Sprüche sollen zum Teilen animieren
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_story': {
+            'name': 'Spannende Geschichte',
+            'instructions': """Erzähle eine spannende, fesselnde Geschichte zum Thema.
+- Beginne mit einem packenden Einstieg
+- Baue Spannung auf
+- Schaffe eine emotionale Verbindung
+- Die Geschichte soll unterhalten und fesseln
+- Schließe mit einem überraschenden oder berührenden Ende
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_true_false': {
+            'name': 'Wahr oder Falsch',
+            'instructions': """Erstelle eine "Wahr oder Falsch" Geschichte.
+- Erzähle eine unglaubliche aber wahre Geschichte ODER eine erfundene Geschichte
+- Baue die Geschichte spannend auf
+- Halte den Zuschauer in Spannung
+- Am Ende auflösen ob es wahr oder falsch ist
+- Erkläre kurz warum
+- Sprich den Zuschauer direkt mit "du" an (z.B. "Glaubst du, das stimmt?")"""
+        },
+        'kw_tongue_twister': {
+            'name': 'Zungenbrecher',
+            'instructions': """Erstelle einen lustigen Zungenbrecher zum Thema.
+- Der Zungenbrecher muss zum Thema passen
+- Er soll schwer auszusprechen sein
+- Verwende Alliterationen und ähnliche Laute
+- Mache ihn lustig und unterhaltsam
+- Fordere den Zuschauer auf, es nachzusprechen
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_poem': {
+            'name': 'Gedicht',
+            'instructions': """Schreibe ein kreatives Gedicht zum Thema.
+- Das Gedicht soll sich reimen
+- Halte einen gleichmäßigen Rhythmus
+- Das Gedicht soll unterhalten oder berühren
+- Verwende bildhafte Sprache
+- Passe den Ton an das Thema an (witzig, nachdenklich, etc.)
+- Sprich den Zuschauer direkt mit "du" an wenn passend"""
+        },
+        'kw_qa': {
+            'name': 'Frage + Antwort',
+            'instructions': """Stelle eine spannende Frage und beantworte sie überraschend.
+- Beginne mit einer fesselnden Frage
+- Baue Spannung auf ("Hast du dich das auch schon gefragt?")
+- Gib eine überraschende oder interessante Antwort
+- Erkläre den Hintergrund kurz
+- Schließe mit einer Erkenntnis ab
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_riddle': {
+            'name': 'Rätsel',
+            'instructions': """Erstelle ein Rätsel zum Thema.
+- Formuliere ein kniffliges Rätsel
+- Gib dem Zuschauer Zeit zum Nachdenken (z.B. "Denk mal kurz nach...")
+- Die Lösung soll überraschend aber logisch sein
+- Löse das Rätsel am Ende auf
+- Erkläre kurz warum die Lösung stimmt
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_expectation_reality': {
+            'name': 'Erwartung vs. Realität',
+            'instructions': """Zeige den lustigen Unterschied zwischen Erwartung und Realität.
+- Beschreibe zuerst die typische Erwartung
+- Dann die (oft lustige) Realität
+- Verwende Kontraste für Humor
+- Das Format: "Erwartung: ... Realität: ..."
+- Halte es relatable und witzig
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_weird_laws': {
+            'name': 'Kuriose Gesetze',
+            'instructions': """Präsentiere kuriose, echte Gesetze zum Thema.
+- Nenne echte, verrückte Gesetze die mit dem Thema zu tun haben
+- Erkläre wo diese Gesetze gelten
+- Kommentiere humorvoll wie absurd sie sind
+- Die Gesetze müssen ECHT sein (recherchiere!)
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_nonsense': {
+            'name': 'Dinge ohne Sinn',
+            'instructions': """Zeige Dinge zum Thema, die einfach keinen Sinn ergeben.
+- Liste absurde, unsinnige Dinge auf
+- Kommentiere humorvoll warum sie keinen Sinn machen
+- Verwende Ironie und Humor
+- Halte den Ton locker und unterhaltsam
+- Rege zum Nachdenken und Lachen an
+- Sprich den Zuschauer direkt mit "du" an"""
+        }
+    }
+
     def generate_video_script(
         self,
         duration_minutes: int,
@@ -310,6 +431,78 @@ Das Skript beginnt DIREKT mit dem gesprochenen Text.
 Schreibe {target_words} Wörter."""
 
         result = self._call_llm(system_prompt, user_prompt, max_tokens=4000, temperature=0.8)
+
+        if result['success']:
+            # Bereinige eventuell verbliebene Anweisungen
+            script = result['content']
+            script = re.sub(r'\[.*?\]', '', script)  # Entferne [Anweisungen]
+            script = re.sub(r'\(.*?\)', '', script)  # Entferne (Anweisungen)
+            script = re.sub(r'^[A-Z]+:', '', script, flags=re.MULTILINE)  # Entferne ROLLE:
+            script = re.sub(r'\n{3,}', '\n\n', script)  # Mehrfache Zeilenumbrüche reduzieren
+            script = script.strip()
+
+            word_count = len(script.split())
+            estimated_duration = round(word_count / self.WORDS_PER_MINUTE, 1)
+
+            return {
+                'success': True,
+                'script': script,
+                'word_count': word_count,
+                'estimated_duration_minutes': estimated_duration,
+                'tokens_input': result.get('tokens_input', 0),
+                'tokens_output': result.get('tokens_output', 0),
+                'duration': result.get('duration', 0)
+            }
+
+        return result
+
+    def generate_keyword_script(
+        self,
+        duration_minutes: float,
+        keyword: str,
+        script_type: str = 'kw_fun_facts'
+    ) -> Dict:
+        """
+        Generiert ein kreatives Video-Skript NUR basierend auf einem Keyword (ohne Blog-Content).
+
+        Args:
+            duration_minutes: Gewünschte Video-Länge in Minuten
+            keyword: Das Thema/Keyword
+            script_type: Art des Skripts (kw_fun_facts, kw_story, etc.)
+
+        Returns:
+            Dict mit success, script (nur gesprochener Text)
+        """
+        target_words = int(duration_minutes * self.WORDS_PER_MINUTE)
+
+        # Hole Skript-Art spezifische Anweisungen
+        script_config = self.KEYWORD_SCRIPT_PROMPTS.get(script_type, self.KEYWORD_SCRIPT_PROMPTS['kw_fun_facts'])
+        script_name = script_config['name']
+        script_instructions = script_config['instructions']
+
+        system_prompt = f"""Du bist ein kreativer Video-Skript-Autor für Social Media.
+Du schreibst NUR den gesprochenen Text für Videos - keine Regieanweisungen, keine Rollenbezeichnungen, keine Szenenanweisungen.
+Der Text soll natürlich klingen, als würde jemand frei und locker sprechen.
+WICHTIG: Sprich den Zuschauer IMMER mit "du" an (informell).
+
+SKRIPT-ART: {script_name}
+{script_instructions}"""
+
+        user_prompt = f"""Erstelle ein "{script_name}" Video-Skript zum Thema: "{keyword}"
+
+ANFORDERUNGEN:
+- Dauer: ca. {duration_minutes} Minuten ({target_words} Wörter)
+- NUR gesprochener Text
+- KEINE Regieanweisungen wie "[Sprecher]", "(Pause)", "[Schnitt]", etc.
+- KEINE Rollenbezeichnungen
+- Natürlicher, lockerer Sprachstil
+- IMMER "du"-Form verwenden
+- Unterhaltsam und fesselnd
+
+Das Skript beginnt DIREKT mit dem gesprochenen Text.
+Schreibe ca. {target_words} Wörter."""
+
+        result = self._call_llm(system_prompt, user_prompt, max_tokens=2000, temperature=0.9)
 
         if result['success']:
             # Bereinige eventuell verbliebene Anweisungen

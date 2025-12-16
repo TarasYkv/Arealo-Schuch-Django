@@ -967,25 +967,37 @@ def wizard_step6(request, project_id):
 @login_required
 @require_POST
 def api_generate_video_script(request, project_id):
-    """API: Generiert Video-Skript"""
+    """API: Generiert Video-Skript (blog-basiert oder keyword-basiert)"""
     project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
     settings = get_user_settings(request.user)
 
     duration = float(request.POST.get('duration', 5))  # Float für Sekunden (0.25 = 15s)
     script_type = request.POST.get('script_type', 'summary')
+    keyword_only = request.POST.get('keyword_only', 'false').lower() == 'true'
+    custom_keyword = request.POST.get('keyword', '').strip()
 
     video_service = VideoService(request.user, settings)
 
-    # Kombiniere Content
-    full_content = f"{project.content_intro}\n{project.content_main}\n{project.content_tips}"
-
-    result = video_service.generate_video_script(
-        duration,
-        full_content,
-        project.main_keyword,
-        settings.company_name,
-        script_type=script_type
-    )
+    if keyword_only:
+        # Keyword-basiertes Skript (ohne Blog-Content)
+        keyword = custom_keyword or project.main_keyword
+        result = video_service.generate_keyword_script(
+            duration,
+            keyword,
+            script_type=script_type
+        )
+        log_prefix = f'Keyword script ({script_type})'
+    else:
+        # Blog-basiertes Skript
+        full_content = f"{project.content_intro}\n{project.content_main}\n{project.content_tips}"
+        result = video_service.generate_video_script(
+            duration,
+            full_content,
+            project.main_keyword,
+            settings.company_name,
+            script_type=script_type
+        )
+        log_prefix = f'Video script ({script_type})'
 
     if result['success']:
         project.video_script = result['script']
@@ -994,7 +1006,7 @@ def api_generate_video_script(request, project_id):
 
         log_generation(
             project, 'video_script', settings.ai_provider, settings.ai_model,
-            f'Video script ({duration} min) for: {project.main_keyword}',
+            f'{log_prefix} ({duration} min) for: {custom_keyword or project.main_keyword}',
             result['script'][:2000],
             duration=result.get('duration', 0),
             tokens_in=result.get('tokens_input', 0),

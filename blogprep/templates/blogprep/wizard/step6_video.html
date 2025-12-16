@@ -3,52 +3,130 @@
 {% block wizard_content %}
 <h2><i class="bi bi-film me-2"></i>Schritt 6: Video-Skript <span class="badge bg-secondary">Optional</span></h2>
 
-<div class="alert alert-info mb-4">
-    Generiere ein gesprochenes Video-Skript basierend auf deinem Blog-Content.
-    Das Skript enthält nur den gesprochenen Text - keine Regieanweisungen.
-</div>
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mb-4" id="scriptTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="blog-tab" data-bs-toggle="tab" data-bs-target="#blog-content" type="button" role="tab">
+            <i class="bi bi-file-text me-1"></i>Blog-basiert
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="keyword-tab" data-bs-toggle="tab" data-bs-target="#keyword-content" type="button" role="tab">
+            <i class="bi bi-key me-1"></i>Keyword-basiert
+        </button>
+    </li>
+</ul>
 
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Video-Einstellungen</h5>
+<div class="tab-content" id="scriptTabsContent">
+    <!-- Tab 1: Blog-basierte Skripte -->
+    <div class="tab-pane fade show active" id="blog-content" role="tabpanel">
+        <div class="alert alert-info mb-4">
+            <i class="bi bi-info-circle me-2"></i>Generiere ein Video-Skript basierend auf deinem Blog-Content.
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Blog-Skript Einstellungen</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="bi bi-film me-1"></i>Skript-Art</label>
+                        <select class="form-control" id="scriptType">
+                            <option value="summary" selected>Zusammenfassung des Blogbeitrags</option>
+                            <option value="fun_facts">Witzige Fakten zum Thema</option>
+                            <option value="interesting_facts">Interessante Fakten zum Thema</option>
+                            <option value="how_to">How-To Anleitung / Tutorial</option>
+                            <option value="tips">Tipps & Tricks kompakt</option>
+                            <option value="pros_cons">Vor- und Nachteile</option>
+                            <option value="faq">Häufige Fragen beantwortet</option>
+                            <option value="storytelling">Storytelling / Geschichte</option>
+                            <option value="hook">Social Media Hook (Aufmerksamkeit)</option>
+                            <option value="product_highlight">Produkt-Highlight</option>
+                        </select>
+                        <small class="text-muted" id="scriptTypeDescription">
+                            Fasst die wichtigsten Punkte des Blogbeitrags zusammen.
+                        </small>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="bi bi-clock me-1"></i>Video-Länge</label>
+                        <select class="form-control" id="videoDuration">
+                            <option value="0.25">15 Sekunden (~30 Wörter)</option>
+                            <option value="0.5">30 Sekunden (~65 Wörter)</option>
+                            <option value="1" selected>1 Minute (~130 Wörter)</option>
+                            <option value="2">2 Minuten (~260 Wörter)</option>
+                            <option value="3">3 Minuten (~390 Wörter)</option>
+                            <option value="5">5 Minuten (~650 Wörter)</option>
+                            <option value="7">7 Minuten (~910 Wörter)</option>
+                            <option value="10">10 Minuten (~1300 Wörter)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary w-100" onclick="generateVideoScript()">
+                            <i class="bi bi-magic"></i> Skript generieren
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label class="form-label"><i class="bi bi-film me-1"></i>Skript-Art</label>
-                <select class="form-control" id="scriptType">
-                    <option value="summary" selected>Zusammenfassung des Blogbeitrags</option>
-                    <option value="fun_facts">Witzige Fakten zum Thema</option>
-                    <option value="interesting_facts">Interessante Fakten zum Thema</option>
-                    <option value="how_to">How-To Anleitung / Tutorial</option>
-                    <option value="tips">Tipps & Tricks kompakt</option>
-                    <option value="pros_cons">Vor- und Nachteile</option>
-                    <option value="faq">Häufige Fragen beantwortet</option>
-                    <option value="storytelling">Storytelling / Geschichte</option>
-                    <option value="hook">Social Media Hook (Aufmerksamkeit)</option>
-                    <option value="product_highlight">Produkt-Highlight</option>
-                </select>
-                <small class="text-muted" id="scriptTypeDescription">
-                    Fasst die wichtigsten Punkte des Blogbeitrags zusammen.
-                </small>
+
+    <!-- Tab 2: Keyword-basierte Skripte -->
+    <div class="tab-pane fade" id="keyword-content" role="tabpanel">
+        <div class="alert alert-warning mb-4">
+            <i class="bi bi-lightbulb me-2"></i>Generiere kreative Skripte NUR basierend auf einem Keyword - ohne Blog-Inhalt.
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-key me-2"></i>Keyword-Skript Einstellungen</h5>
             </div>
-            <div class="col-md-3">
-                <label class="form-label"><i class="bi bi-clock me-1"></i>Video-Länge</label>
-                <select class="form-control" id="videoDuration">
-                    <option value="0.25">15 Sekunden (~30 Wörter)</option>
-                    <option value="0.5">30 Sekunden (~65 Wörter)</option>
-                    <option value="1" selected>1 Minute (~130 Wörter)</option>
-                    <option value="2">2 Minuten (~260 Wörter)</option>
-                    <option value="3">3 Minuten (~390 Wörter)</option>
-                    <option value="5">5 Minuten (~650 Wörter)</option>
-                    <option value="7">7 Minuten (~910 Wörter)</option>
-                    <option value="10">10 Minuten (~1300 Wörter)</option>
-                </select>
-            </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <button type="button" class="btn btn-primary w-100" onclick="generateVideoScript()">
-                    <i class="bi bi-magic"></i> Skript generieren
-                </button>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="bi bi-search me-1"></i>Keyword / Thema</label>
+                        <input type="text" class="form-control" id="keywordInput"
+                               placeholder="z.B. Immobilien, Kochen, Sport..."
+                               value="{{ project.keyword }}">
+                        <small class="text-muted">Das Thema für dein kreatives Skript</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="bi bi-stars me-1"></i>Kreative Skript-Art</label>
+                        <select class="form-control" id="keywordScriptType">
+                            <option value="kw_fun_facts" selected>Witzige Fakten</option>
+                            <option value="kw_interesting_facts">Interessante Fakten</option>
+                            <option value="kw_sayings">Unterhaltsame Sprüche</option>
+                            <option value="kw_story">Eine spannende Geschichte</option>
+                            <option value="kw_true_false">Wahr oder Falsch Geschichte</option>
+                            <option value="kw_tongue_twister">Ein Zungenbrecher</option>
+                            <option value="kw_poem">Ein Gedicht</option>
+                            <option value="kw_qa">Spannende Frage + Antwort</option>
+                            <option value="kw_riddle">Ein Rätsel</option>
+                            <option value="kw_expectation_reality">Erwartung vs. Realität</option>
+                            <option value="kw_weird_laws">Kuriose Gesetze</option>
+                            <option value="kw_nonsense">Dinge, die keinen Sinn machen</option>
+                        </select>
+                        <small class="text-muted" id="keywordScriptTypeDescription">
+                            Witzige, überraschende Fakten zum Thema.
+                        </small>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="bi bi-clock me-1"></i>Video-Länge</label>
+                        <select class="form-control" id="keywordDuration">
+                            <option value="0.25">15 Sekunden (~30 Wörter)</option>
+                            <option value="0.5" selected>30 Sekunden (~65 Wörter)</option>
+                            <option value="1">1 Minute (~130 Wörter)</option>
+                            <option value="2">2 Minuten (~260 Wörter)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-9 d-flex align-items-end">
+                        <button type="button" class="btn btn-warning w-100" onclick="generateKeywordScript()">
+                            <i class="bi bi-magic"></i> Kreatives Skript generieren
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -99,7 +177,7 @@
 
 {% block wizard_js %}
 <script>
-    // Skript-Art Beschreibungen
+    // Blog-basierte Skript-Art Beschreibungen
     const scriptTypeDescriptions = {
         'summary': 'Fasst die wichtigsten Punkte des Blogbeitrags zusammen.',
         'fun_facts': 'Unterhaltsame, überraschende Fakten die zum Schmunzeln anregen.',
@@ -113,12 +191,35 @@
         'product_highlight': 'Stellt Produkte/Dienstleistungen in den Fokus.'
     };
 
-    // Beschreibung aktualisieren bei Auswahl
+    // Keyword-basierte Skript-Art Beschreibungen
+    const keywordScriptTypeDescriptions = {
+        'kw_fun_facts': 'Witzige, überraschende Fakten zum Thema.',
+        'kw_interesting_facts': 'Faszinierende Fakten und Wissenswertes.',
+        'kw_sayings': 'Unterhaltsame, witzige Sprüche zum Thema.',
+        'kw_story': 'Eine spannende, fesselnde Geschichte.',
+        'kw_true_false': 'Rate-Spiel: Ist diese Geschichte wahr oder erfunden?',
+        'kw_tongue_twister': 'Ein lustiger Zungenbrecher zum Thema.',
+        'kw_poem': 'Ein kreatives Gedicht zum Thema.',
+        'kw_qa': 'Eine spannende Frage mit überraschender Antwort.',
+        'kw_riddle': 'Ein kniffliges Rätsel zum Mitraten.',
+        'kw_expectation_reality': 'Der lustige Unterschied zwischen Erwartung und Realität.',
+        'kw_weird_laws': 'Kuriose, echte Gesetze zum Thema.',
+        'kw_nonsense': 'Absurde Dinge, die einfach keinen Sinn ergeben.'
+    };
+
+    // Beschreibung aktualisieren bei Auswahl (Blog-basiert)
     document.getElementById('scriptType').addEventListener('change', function() {
         const desc = scriptTypeDescriptions[this.value] || '';
         document.getElementById('scriptTypeDescription').textContent = desc;
     });
 
+    // Beschreibung aktualisieren bei Auswahl (Keyword-basiert)
+    document.getElementById('keywordScriptType').addEventListener('change', function() {
+        const desc = keywordScriptTypeDescriptions[this.value] || '';
+        document.getElementById('keywordScriptTypeDescription').textContent = desc;
+    });
+
+    // Blog-basiertes Skript generieren
     async function generateVideoScript() {
         const duration = document.getElementById('videoDuration').value;
         const scriptType = document.getElementById('scriptType').value;
@@ -129,6 +230,41 @@
             const result = await apiCall('{% url "blogprep:api_generate_video_script" project_id=project.id %}', {
                 duration: duration,
                 script_type: scriptType
+            });
+
+            if (result.success && result.script) {
+                document.getElementById('videoScript').value = result.script;
+                document.getElementById('scriptStats').textContent =
+                    `${result.word_count} Wörter | ~${result.estimated_duration_minutes} Min`;
+            } else {
+                alert(result.error || 'Fehler beim Generieren des Skripts');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Keyword-basiertes Skript generieren
+    async function generateKeywordScript() {
+        const keyword = document.getElementById('keywordInput').value.trim();
+        if (!keyword) {
+            alert('Bitte gib ein Keyword/Thema ein.');
+            return;
+        }
+
+        const duration = document.getElementById('keywordDuration').value;
+        const scriptType = document.getElementById('keywordScriptType').value;
+        const scriptTypeName = document.getElementById('keywordScriptType').selectedOptions[0].text;
+        showLoading(`Generiere "${scriptTypeName}" für "${keyword}"...`);
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_generate_video_script" project_id=project.id %}', {
+                duration: duration,
+                script_type: scriptType,
+                keyword_only: true,
+                keyword: keyword
             });
 
             if (result.success && result.script) {
