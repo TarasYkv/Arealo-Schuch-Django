@@ -51,6 +51,28 @@
         min-width: 100px;
     }
 
+    /* Klickbare Schritte */
+    .wizard-step a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-decoration: none;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .wizard-step.clickable a:hover {
+        transform: scale(1.1);
+    }
+
+    .wizard-step.clickable a:hover .step-number {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .wizard-step:not(.clickable) {
+        cursor: default;
+    }
+
     .step-number {
         width: 40px;
         height: 40px;
@@ -76,6 +98,10 @@
         color: white;
     }
 
+    .wizard-step.completed.clickable a:hover .step-number {
+        background: #059669;
+    }
+
     .step-label {
         font-size: 0.75rem;
         color: #64748b;
@@ -90,6 +116,10 @@
 
     .wizard-step.completed .step-label {
         color: #10b981;
+    }
+
+    .wizard-step.clickable:hover .step-label {
+        text-decoration: underline;
     }
 
     .step-connector {
@@ -404,21 +434,117 @@
 
     <!-- Progress Steps -->
     <div class="wizard-progress">
-        {% for step_num, step_name in steps %}
-        <div class="wizard-step {% if step_num < step %}completed{% elif step_num == step %}active{% endif %}">
-            <div class="step-number">
-                {% if step_num < step %}
-                <i class="bi bi-check"></i>
-                {% else %}
-                {{ step_num }}
-                {% endif %}
-            </div>
-            <span class="step-label">{{ step_name }}</span>
+        <!-- Schritt 1: Keywords -->
+        <div class="wizard-step {% if step > 1 %}completed clickable{% elif step == 1 %}active{% endif %}">
+            {% if step > 1 and project %}
+            <a href="{% url 'blogprep:wizard_step1_edit' project_id=project.id %}" title="Zurück zu Keywords">
+            {% elif step == 1 %}
+            <a href="#" onclick="return false;">
+            {% else %}
+            <span>
+            {% endif %}
+                <div class="step-number">
+                    {% if step > 1 %}<i class="bi bi-check"></i>{% else %}1{% endif %}
+                </div>
+                <span class="step-label">Keywords</span>
+            {% if step >= 1 and project %}</a>{% elif step == 1 %}</a>{% else %}</span>{% endif %}
         </div>
-        {% if not forloop.last %}
-        <div class="step-connector {% if step_num < step %}completed{% endif %}"></div>
-        {% endif %}
-        {% endfor %}
+
+        <div class="step-connector {% if step > 1 %}completed{% endif %}"></div>
+
+        <!-- Schritt 2: Recherche -->
+        <div class="wizard-step {% if step > 2 %}completed clickable{% elif step == 2 %}active clickable{% endif %}">
+            {% if step >= 2 and project %}
+            <a href="{% url 'blogprep:wizard_step2' project_id=project.id %}" title="Recherche & Gliederung">
+            {% else %}
+            <span>
+            {% endif %}
+                <div class="step-number">
+                    {% if step > 2 %}<i class="bi bi-check"></i>{% else %}2{% endif %}
+                </div>
+                <span class="step-label">Recherche</span>
+            {% if step >= 2 and project %}</a>{% else %}</span>{% endif %}
+        </div>
+
+        <div class="step-connector {% if step > 2 %}completed{% endif %}"></div>
+
+        <!-- Schritt 3: Content -->
+        <div class="wizard-step {% if step > 3 %}completed clickable{% elif step == 3 %}active clickable{% endif %}">
+            {% if step >= 3 and project %}
+            <a href="{% url 'blogprep:wizard_step3' project_id=project.id %}" title="Content generieren">
+            {% else %}
+            <span>
+            {% endif %}
+                <div class="step-number">
+                    {% if step > 3 %}<i class="bi bi-check"></i>{% else %}3{% endif %}
+                </div>
+                <span class="step-label">Content</span>
+            {% if step >= 3 and project %}</a>{% else %}</span>{% endif %}
+        </div>
+
+        <div class="step-connector {% if step > 3 %}completed{% endif %}"></div>
+
+        <!-- Schritt 4: Bilder -->
+        <div class="wizard-step {% if step > 4 %}completed clickable{% elif step == 4 %}active clickable{% endif %}">
+            {% if step >= 4 and project %}
+            <a href="{% url 'blogprep:wizard_step4' project_id=project.id %}" title="Bilder erstellen">
+            {% else %}
+            <span>
+            {% endif %}
+                <div class="step-number">
+                    {% if step > 4 %}<i class="bi bi-check"></i>{% else %}4{% endif %}
+                </div>
+                <span class="step-label">Bilder</span>
+            {% if step >= 4 and project %}</a>{% else %}</span>{% endif %}
+        </div>
+
+        <div class="step-connector {% if step > 4 %}completed{% endif %}"></div>
+
+        <!-- Schritt 5: Diagramm -->
+        <div class="wizard-step {% if step > 5 %}completed clickable{% elif step == 5 %}active clickable{% endif %}">
+            {% if step >= 5 and project %}
+            <a href="{% url 'blogprep:wizard_step5' project_id=project.id %}" title="Diagramm erstellen">
+            {% else %}
+            <span>
+            {% endif %}
+                <div class="step-number">
+                    {% if step > 5 %}<i class="bi bi-check"></i>{% else %}5{% endif %}
+                </div>
+                <span class="step-label">Diagramm</span>
+            {% if step >= 5 and project %}</a>{% else %}</span>{% endif %}
+        </div>
+
+        <div class="step-connector {% if step > 5 %}completed{% endif %}"></div>
+
+        <!-- Schritt 6: Video -->
+        <div class="wizard-step {% if step > 6 %}completed clickable{% elif step == 6 %}active clickable{% endif %}">
+            {% if step >= 6 and project %}
+            <a href="{% url 'blogprep:wizard_step6' project_id=project.id %}" title="Video-Skript">
+            {% else %}
+            <span>
+            {% endif %}
+                <div class="step-number">
+                    {% if step > 6 %}<i class="bi bi-check"></i>{% else %}6{% endif %}
+                </div>
+                <span class="step-label">Video</span>
+            {% if step >= 6 and project %}</a>{% else %}</span>{% endif %}
+        </div>
+
+        <div class="step-connector {% if step > 6 %}completed{% endif %}"></div>
+
+        <!-- Schritt 7: Export -->
+        <div class="wizard-step {% if step > 7 %}completed clickable{% elif step == 7 %}active clickable{% endif %}">
+            {% if step >= 7 and project %}
+            <a href="{% url 'blogprep:wizard_step7' project_id=project.id %}" title="Export">
+            {% else %}
+            <span>
+            {% endif %}
+                <div class="step-number">
+                    {% if step > 7 %}<i class="bi bi-check"></i>{% else %}7{% endif %}
+                </div>
+                <span class="step-label">Export</span>
+            {% if step >= 7 and project %}</a>{% else %}</span>{% endif %}
+        </div>
     </div>
 
     <!-- Progress Bar -->
