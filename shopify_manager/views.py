@@ -4491,24 +4491,42 @@ def backup_create(request, store_id):
         backup_type = request.POST.get('backup_type', 'products')
         include_images = request.POST.get('include_images') == 'on'
 
-        # Backup-Objekt erstellen - nur der ausgewählte Typ wird aktiviert
-        backup = ShopifyBackup.objects.create(
-            user=request.user,
-            store=store,
-            name=request.POST.get('name', f'Backup {timezone.now().strftime("%Y-%m-%d %H:%M")}'),
-            include_products=(backup_type == 'products'),
-            include_product_images=(backup_type == 'products' and include_images),
-            include_blogs=(backup_type == 'blogs'),
-            include_blog_images=(backup_type == 'blogs' and include_images),
-            include_collections=(backup_type == 'collections'),
-            include_pages=(backup_type == 'pages'),
-            include_menus=(backup_type == 'menus'),
-            include_redirects=(backup_type == 'redirects'),
-            include_metafields=False,  # Nicht mehr als separater Typ
-            include_discounts=(backup_type == 'discounts'),
-            include_orders=False,  # Nicht mehr als separater Typ
-            include_customers=(backup_type == 'customers'),
-        )
+        try:
+            # DB-Verbindung sicherstellen (PythonAnywhere Timeout-Fix)
+            from django.db import connection
+            connection.ensure_connection()
+        except Exception:
+            from django.db import connection
+            connection.close()
+
+        try:
+            # Backup-Objekt erstellen - nur der ausgewählte Typ wird aktiviert
+            backup = ShopifyBackup.objects.create(
+                user=request.user,
+                store=store,
+                name=request.POST.get('name', f'Backup {timezone.now().strftime("%Y-%m-%d %H:%M")}'),
+                include_products=(backup_type == 'products'),
+                include_product_images=(backup_type == 'products' and include_images),
+                include_blogs=(backup_type == 'blogs'),
+                include_blog_images=(backup_type == 'blogs' and include_images),
+                include_collections=(backup_type == 'collections'),
+                include_pages=(backup_type == 'pages'),
+                include_menus=(backup_type == 'menus'),
+                include_redirects=(backup_type == 'redirects'),
+                include_metafields=False,  # Nicht mehr als separater Typ
+                include_discounts=(backup_type == 'discounts'),
+                include_orders=False,  # Nicht mehr als separater Typ
+                include_customers=(backup_type == 'customers'),
+            )
+        except Exception as e:
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Datenbankfehler: {str(e)}'
+                })
+            else:
+                messages.error(request, f'Backup konnte nicht erstellt werden: {str(e)}')
+                return redirect('shopify_manager:backup_list', store_id=store.id)
 
         if is_ajax:
             # Bei AJAX: Nur Backup-ID zurückgeben, Start über separaten Endpunkt
