@@ -10,6 +10,7 @@ Stellt Daten aus Backups wieder her:
 import requests
 import json
 import time
+import base64
 from typing import Dict, List, Optional, Tuple
 from django.utils import timezone
 
@@ -148,6 +149,15 @@ class ShopifyRestoreService:
             f'{backup_item.get_item_type_display()} kann nicht wiederhergestellt werden'
         )
 
+    def _get_image_attachment(self, backup_item: BackupItem) -> Optional[str]:
+        """Konvertiert gespeicherte Bilddaten zu base64 für Shopify API"""
+        if backup_item.image_data:
+            try:
+                return base64.b64encode(backup_item.image_data).decode('utf-8')
+            except:
+                pass
+        return None
+
     def _check_exists_by_handle(self, endpoint: str, handle: str) -> Optional[int]:
         """Prüft ob ein Element mit diesem Handle existiert"""
         try:
@@ -169,7 +179,7 @@ class ShopifyRestoreService:
         return None
 
     def _restore_product(self, backup_item: BackupItem) -> RestoreLog:
-        """Stellt ein Produkt wieder her"""
+        """Stellt ein Produkt wieder her (mit lokal gespeicherten Bildern)"""
         data = backup_item.raw_data
 
         # Prüfen ob Produkt existiert (via Handle)
@@ -204,31 +214,84 @@ class ShopifyRestoreService:
                     'weight_unit': variant.get('weight_unit'),
                 })
 
-        # Bilder hinzufügen (nur URLs)
+        # Bilder hinzufügen - bevorzuge lokale Daten aus product_image Items
+        images_added = 0
         if data.get('images'):
             product_data['product']['images'] = []
+
+            # Hole alle lokal gespeicherten Produktbilder für dieses Produkt
+            product_images = self.backup.items.filter(
+                item_type='product_image',
+                parent_id=backup_item.shopify_id
+            )
+            local_images = {img.shopify_id: img for img in product_images if img.image_data}
+
             for img in data['images']:
-                product_data['product']['images'].append({
-                    'src': img.get('src'),
-                    'alt': img.get('alt', '')
-                })
+                img_id = img.get('id')
+                img_data = {}
+
+                # Prüfe ob wir lokale Bilddaten haben
+                if img_id and img_id in local_images:
+                    local_img = local_images[img_id]
+                    try:
+                        attachment = base64.b64encode(local_img.image_data).decode('utf-8')
+                        img_data['attachment'] = attachment
+                        img_data['alt'] = img.get('alt', '')
+                        images_added += 1
+                    except:
+                        # Fallback auf URL
+                        img_data['src'] = img.get('src')
+                        img_data['alt'] = img.get('alt', '')
+                else:
+                    # Fallback auf externe URL
+                    img_data['src'] = img.get('src')
+                    img_data['alt'] = img.get('alt', '')
+
+                product_data['product']['images'].append(img_data)
 
         try:
             response = self._make_request(
                 'POST',
                 f"{self.base_url}/products.json",
                 json=product_data,
-                timeout=60
+                timeout=120  # Längerer Timeout für große Bilder
             )
 
             if response.status_code == 201:
                 new_product = response.json().get('product', {})
+                msg = 'Produkt erfolgreich wiederhergestellt'
+                if images_added > 0:
+                    msg += f' ({images_added} lokale Bilder)'
                 return self._create_log(
                     backup_item,
                     'success',
-                    'Produkt erfolgreich wiederhergestellt',
+                    msg,
                     new_product.get('id')
                 )
+            elif response.status_code == 422 and 'image' in response.text.lower():
+                # Bild-Fehler - Retry ohne Bilder
+                if 'images' in product_data['product']:
+                    del product_data['product']['images']
+                response = self._make_request(
+                    'POST',
+                    f"{self.base_url}/products.json",
+                    json=product_data,
+                    timeout=60
+                )
+                if response.status_code == 201:
+                    new_product = response.json().get('product', {})
+                    return self._create_log(
+                        backup_item,
+                        'success',
+                        'Produkt wiederhergestellt (ohne Bilder)',
+                        new_product.get('id')
+                    )
+                else:
+                    return self._create_log(
+                        backup_item,
+                        'failed',
+                        f'API-Fehler: {response.status_code} - {response.text[:500]}'
+                    )
             else:
                 return self._create_log(
                     backup_item,
@@ -281,7 +344,7 @@ class ShopifyRestoreService:
             return self._create_log(backup_item, 'failed', f'Fehler: {str(e)}')
 
     def _restore_blog_post(self, backup_item: BackupItem) -> RestoreLog:
-        """Stellt einen Blog-Post wieder her"""
+        """Stellt einen Blog-Post wieder her (mit lokal gespeicherten Bildern)"""
         data = backup_item.raw_data
         blog_id = backup_item.parent_id
 
@@ -312,12 +375,23 @@ class ShopifyRestoreService:
             }
         }
 
-        # Bild hinzufügen
-        if data.get('image') and data['image'].get('src'):
+        # Bild hinzufügen - bevorzuge lokale Daten, fallback auf URL
+        has_image = False
+        image_attachment = self._get_image_attachment(backup_item)
+        if image_attachment:
+            # Lokales Bild als base64
+            article_data['article']['image'] = {
+                'attachment': image_attachment,
+                'alt': data.get('image', {}).get('alt', '')
+            }
+            has_image = True
+        elif data.get('image') and data['image'].get('src'):
+            # Fallback auf externe URL
             article_data['article']['image'] = {
                 'src': data['image']['src'],
                 'alt': data['image'].get('alt', '')
             }
+            has_image = True
 
         try:
             response = self._make_request(
@@ -329,12 +403,38 @@ class ShopifyRestoreService:
 
             if response.status_code == 201:
                 new_article = response.json().get('article', {})
+                msg = 'Blog-Post erfolgreich wiederhergestellt'
+                if image_attachment:
+                    msg += ' (mit lokalem Bild)'
                 return self._create_log(
                     backup_item,
                     'success',
-                    'Blog-Post erfolgreich wiederhergestellt',
+                    msg,
                     new_article.get('id')
                 )
+            elif response.status_code == 422 and has_image and 'image' in response.text.lower():
+                # Bild-Fehler - Retry ohne Bild
+                del article_data['article']['image']
+                response = self._make_request(
+                    'POST',
+                    f"{self.base_url}/blogs/{blog_id}/articles.json",
+                    json=article_data,
+                    timeout=30
+                )
+                if response.status_code == 201:
+                    new_article = response.json().get('article', {})
+                    return self._create_log(
+                        backup_item,
+                        'success',
+                        'Blog-Post wiederhergestellt (ohne Bild)',
+                        new_article.get('id')
+                    )
+                else:
+                    return self._create_log(
+                        backup_item,
+                        'failed',
+                        f'API-Fehler: {response.status_code} - {response.text[:500]}'
+                    )
             else:
                 return self._create_log(
                     backup_item,
@@ -345,7 +445,7 @@ class ShopifyRestoreService:
             return self._create_log(backup_item, 'failed', f'Fehler: {str(e)}')
 
     def _restore_collection(self, backup_item: BackupItem) -> RestoreLog:
-        """Stellt eine Collection wieder her"""
+        """Stellt eine Collection wieder her (mit lokal gespeicherten Bildern)"""
         data = backup_item.raw_data
         collection_type = data.get('collection_type', 'custom')
 
@@ -374,13 +474,23 @@ class ShopifyRestoreService:
             }
         }
 
-        # Bild hinzufügen
-        has_image = data.get('image') and data['image'].get('src')
-        if has_image:
+        # Bild hinzufügen - bevorzuge lokale Daten, fallback auf URL
+        has_image = False
+        image_attachment = self._get_image_attachment(backup_item)
+        if image_attachment:
+            # Lokales Bild als base64
+            collection_data[key]['image'] = {
+                'attachment': image_attachment,
+                'alt': data.get('image', {}).get('alt', '')
+            }
+            has_image = True
+        elif data.get('image') and data['image'].get('src'):
+            # Fallback auf externe URL
             collection_data[key]['image'] = {
                 'src': data['image']['src'],
                 'alt': data['image'].get('alt', '')
             }
+            has_image = True
 
         # Smart Collection Rules
         if collection_type == 'smart' and data.get('rules'):
@@ -397,10 +507,13 @@ class ShopifyRestoreService:
 
             if response.status_code == 201:
                 new_collection = response.json().get(key, {})
+                msg = 'Collection erfolgreich wiederhergestellt'
+                if image_attachment:
+                    msg += ' (mit lokalem Bild)'
                 return self._create_log(
                     backup_item,
                     'success',
-                    'Collection erfolgreich wiederhergestellt',
+                    msg,
                     new_collection.get('id')
                 )
             elif response.status_code == 422 and has_image and 'image' in response.text.lower():
@@ -417,7 +530,7 @@ class ShopifyRestoreService:
                     return self._create_log(
                         backup_item,
                         'success',
-                        'Collection wiederhergestellt (ohne Bild - Original nicht mehr verfügbar)',
+                        'Collection wiederhergestellt (ohne Bild)',
                         new_collection.get('id')
                     )
                 else:

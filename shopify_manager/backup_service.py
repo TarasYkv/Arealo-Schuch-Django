@@ -253,7 +253,7 @@ class ShopifyBackupService:
             return False, f"Backup fehlgeschlagen: {str(e)}"
 
     def _backup_products(self):
-        """Sichert alle Produkte"""
+        """Sichert alle Produkte (inkl. Bilder)"""
         self._update_progress('products', 'Produkte werden abgerufen...')
         products = self._fetch_all_paginated('products.json', 'products')
         total = len(products)
@@ -262,27 +262,33 @@ class ShopifyBackupService:
 
         for product in products:
             count += 1
-            self._update_progress('products', f'Produkt {count} von {total}: {product.get("title", "")[:40]}...')
+            self._update_progress('products', f'Produkt {count}/{total}: {product.get("title", "")[:40]}...')
 
-            # Produkt sichern
+            # Erstes Bild als Hauptbild für das Produkt
             image_url = ''
+            main_image_data = None
             if product.get('images'):
                 image_url = product['images'][0].get('src', '')
+                if image_url:
+                    main_image_data = self._download_image(image_url)
 
+            # Produkt sichern (mit Hauptbild)
             self._save_backup_item(
                 item_type='product',
                 shopify_id=product['id'],
                 title=product.get('title', 'Unbekannt'),
                 raw_data=product,
-                image_url=image_url
+                image_url=image_url,
+                image_data=main_image_data
             )
 
-            # Optional: Produktbilder herunterladen
-            if self.backup.include_product_images and product.get('images'):
+            # Alle Produktbilder sichern (inkl. Download)
+            if product.get('images'):
                 for img in product['images']:
                     img_url = img.get('src', '')
                     if img_url:
-                        image_data = self._download_image(img_url) if self.backup.include_product_images else None
+                        self._update_progress('products', f'Bild für {product.get("title", "")[:30]}...')
+                        image_data = self._download_image(img_url)
                         self._save_backup_item(
                             item_type='product_image',
                             shopify_id=img['id'],
@@ -292,18 +298,20 @@ class ShopifyBackupService:
                             parent_id=product['id'],
                             image_data=image_data
                         )
-                        images_count += 1
+                        if image_data:
+                            images_count += 1
 
         self.backup.products_count = count
         self.backup.images_count += images_count
         self.backup.save()
 
     def _backup_blogs(self):
-        """Sichert Blogs und Blog-Posts"""
+        """Sichert Blogs und Blog-Posts (inkl. Bilder)"""
         self._update_progress('blogs', 'Blogs werden abgerufen...')
         blogs = self._fetch_all_paginated('blogs.json', 'blogs')
         blogs_count = 0
         posts_count = 0
+        images_count = 0
 
         for blog in blogs:
             blogs_count += 1
@@ -328,70 +336,92 @@ class ShopifyBackupService:
                 self._update_progress('blogs', f'Beitrag {idx}/{len(articles)}: {article.get("title", "")[:35]}...')
                 image_url = article.get('image', {}).get('src', '') if article.get('image') else ''
 
+                # Bild automatisch herunterladen wenn vorhanden
+                image_data = None
+                if image_url:
+                    image_data = self._download_image(image_url)
+                    if image_data:
+                        images_count += 1
+
                 self._save_backup_item(
                     item_type='blog_post',
                     shopify_id=article['id'],
                     title=article.get('title', 'Unbekannt'),
                     raw_data=article,
                     image_url=image_url,
-                    parent_id=blog['id']
+                    parent_id=blog['id'],
+                    image_data=image_data
                 )
                 posts_count += 1
 
-                # Optional: Blog-Bilder herunterladen
-                if self.backup.include_blog_images and image_url:
-                    image_data = self._download_image(image_url)
-                    if image_data:
-                        self._save_backup_item(
-                            item_type='blog_image',
-                            shopify_id=article['id'],
-                            title=f"Bild für {article.get('title', '')}",
-                            raw_data={'image_url': image_url},
-                            image_url=image_url,
-                            parent_id=article['id'],
-                            image_data=image_data
-                        )
-                        self.backup.images_count += 1
-
         self.backup.blogs_count = blogs_count
         self.backup.posts_count = posts_count
+        self.backup.images_count += images_count
         self.backup.save()
 
     def _backup_collections(self):
-        """Sichert Custom und Smart Collections"""
+        """Sichert Custom und Smart Collections (inkl. Bilder)"""
         count = 0
+        images_count = 0
 
         # Custom Collections
+        self._update_progress('collections', 'Custom Collections werden abgerufen...')
         custom_collections = self._fetch_all_paginated('custom_collections.json', 'custom_collections')
-        for collection in custom_collections:
+        total_custom = len(custom_collections)
+
+        for idx, collection in enumerate(custom_collections, 1):
             collection['collection_type'] = 'custom'
             image_url = collection.get('image', {}).get('src', '') if collection.get('image') else ''
+
+            self._update_progress('collections', f'Custom Collection {idx}/{total_custom}: {collection.get("title", "")[:35]}...')
+
+            # Bild automatisch herunterladen wenn vorhanden
+            image_data = None
+            if image_url:
+                image_data = self._download_image(image_url)
+                if image_data:
+                    images_count += 1
 
             self._save_backup_item(
                 item_type='collection',
                 shopify_id=collection['id'],
                 title=collection.get('title', 'Unbekannt'),
                 raw_data=collection,
-                image_url=image_url
+                image_url=image_url,
+                image_data=image_data
             )
             count += 1
 
         # Smart Collections
+        self._update_progress('collections', 'Smart Collections werden abgerufen...')
         smart_collections = self._fetch_all_paginated('smart_collections.json', 'smart_collections')
-        for collection in smart_collections:
+        total_smart = len(smart_collections)
+
+        for idx, collection in enumerate(smart_collections, 1):
             collection['collection_type'] = 'smart'
             image_url = collection.get('image', {}).get('src', '') if collection.get('image') else ''
+
+            self._update_progress('collections', f'Smart Collection {idx}/{total_smart}: {collection.get("title", "")[:35]}...')
+
+            # Bild automatisch herunterladen wenn vorhanden
+            image_data = None
+            if image_url:
+                image_data = self._download_image(image_url)
+                if image_data:
+                    images_count += 1
 
             self._save_backup_item(
                 item_type='collection',
                 shopify_id=collection['id'],
                 title=collection.get('title', 'Unbekannt'),
                 raw_data=collection,
-                image_url=image_url
+                image_url=image_url,
+                image_data=image_data
             )
             count += 1
 
         self.backup.collections_count = count
+        self.backup.images_count += images_count
         self.backup.save()
 
     def _backup_pages(self):
