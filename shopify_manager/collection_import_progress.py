@@ -17,6 +17,7 @@ class CollectionImportWithProgress:
 
     def _update_progress(self, current, total, message, success_count=0, failed_count=0):
         """Aktualisiert den Import-Fortschritt"""
+        import time as time_module
         from .views import import_progress
         if self.import_id in import_progress:
             import_progress[self.import_id].update({
@@ -24,7 +25,8 @@ class CollectionImportWithProgress:
                 'total': total,
                 'message': message,
                 'success_count': success_count,
-                'failed_count': failed_count
+                'failed_count': failed_count,
+                'last_update': time_module.time()
             })
 
     def import_collections_with_progress(self, import_mode: str = 'new_only', overwrite_existing: bool = False) -> ShopifySyncLog:

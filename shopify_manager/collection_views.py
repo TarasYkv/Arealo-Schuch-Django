@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 import json
+import time as time_module
 
 from .models import ShopifyStore, ShopifyCollection, CollectionSEOOptimization
 from .ai_seo_service import generate_seo_with_ai
@@ -297,7 +298,8 @@ def collection_import_view(request):
         'message': 'Initialisiere Kategorie-Import...',
         'success_count': 0,
         'failed_count': 0,
-        'import_mode': import_mode
+        'import_mode': import_mode,
+        'last_update': time_module.time()
     }
     
     def import_collections_async():
@@ -375,15 +377,22 @@ def collection_import_view(request):
 def collection_import_progress_view(request, import_id):
     """Gibt den aktuellen Kategorie-Import-Fortschritt zurück"""
     from .views import import_progress
-    
+
     if import_id not in import_progress:
         return JsonResponse({
             'success': False,
             'error': 'Import-ID nicht gefunden'
         })
-    
+
     progress = import_progress[import_id]
-    
+
+    # Timeout-Erkennung: Wenn der Status 'running' ist aber seit 2 Minuten kein Update kam
+    if progress['status'] == 'running':
+        last_update = progress.get('last_update', 0)
+        if last_update and (time_module.time() - last_update) > 120:  # 2 Minuten Timeout
+            progress['status'] = 'stalled'
+            progress['message'] = f'Import scheint abgebrochen zu sein (kein Update seit 2 Minuten). Bisher: {progress.get("success_count", 0)} Kategorien importiert.'
+
     return JsonResponse({
         'success': True,
         'progress': progress
