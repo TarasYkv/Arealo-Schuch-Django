@@ -457,65 +457,41 @@ function loadBlogsForStore() {
     });
 }
 
-function executeBlogPostImport() {
-    const form = document.getElementById('blogPostImportForm');
-    const formData = new FormData(form);
-    const progressDiv = document.getElementById('blogPostImportProgress');
-    const progressBar = document.getElementById('blogPostImportProgressBar');
-    const progressMessage = document.getElementById('blogPostImportProgressMessage');
-    const progressStats = document.getElementById('blogPostImportProgressStats');
-    const successCount = document.getElementById('blogPostImportSuccessCount');
-    const failedCount = document.getElementById('blogPostImportFailedCount');
-    const submitBtn = document.querySelector('#blogPostImportModal .btn-success');
-    
-    const storeId = formData.get('store_id');
-    const blogId = formData.get('blog_id');
-    
-    if (!storeId || !blogId) {
-        alert('Bitte wählen Sie Store und Blog aus.');
+// Blog-Post Import mit Auto-Resume
+let blogPostImportInterval = null;
+let blogPostImportResumeCount = 0;
+let blogPostImportTotalSuccess = 0;
+let blogPostImportTotalFailed = 0;
+let blogPostImportCurrentStoreId = null;
+let blogPostImportCurrentBlogId = null;
+const MAX_BLOG_RESUME_ATTEMPTS = 20;
+
+function autoResumeBlogPostImport() {
+    if (!blogPostImportCurrentStoreId) {
+        console.error('No store ID for auto-resume');
         return;
     }
-    
-    // Reset progress
-    progressBar.style.width = '0%';
-    progressBar.textContent = '0%';
-    progressBar.setAttribute('aria-valuenow', 0);
-    progressBar.classList.remove('bg-success', 'bg-danger');
-    progressBar.classList.add('bg-primary');
-    progressStats.style.display = 'none';
-    successCount.textContent = '0';
-    failedCount.textContent = '0';
-    
-    // Show progress
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
-    progressDiv.classList.remove('d-none');
-    
-    if (blogId === 'all') {
-        progressMessage.textContent = 'Importiere alle Blog-Posts...';
-    } else {
-        progressMessage.textContent = 'Importiere Blog-Posts...';
-    }
-    
-    // Show indeterminate progress
-    progressBar.style.width = '100%';
-    progressBar.textContent = 'Läuft...';
+
+    blogPostImportResumeCount++;
+    console.log(`Auto-Resume Blog-Post-Import (Versuch ${blogPostImportResumeCount}/${MAX_BLOG_RESUME_ATTEMPTS})`);
+
+    const progressMessage = document.getElementById('blogPostImportProgressMessage');
+    const progressBar = document.getElementById('blogPostImportProgressBar');
+
+    progressMessage.innerHTML = `<span class="text-warning"><i class="fas fa-sync fa-spin"></i> Import wird fortgesetzt (Versuch ${blogPostImportResumeCount})...</span>`;
     progressBar.classList.add('progress-bar-animated');
-    
-    const startTime = Date.now();
-    
+    progressBar.classList.remove('bg-danger', 'bg-success');
+    progressBar.classList.add('bg-primary');
+
     let url, body;
-    
-    if (blogId === 'all') {
-        // Alle Blog-Posts für alle Blogs des Stores importieren
+    if (blogPostImportCurrentBlogId === 'all') {
         url = '/shopify/api/import-all-blog-posts/';
-        body = `store_id=${storeId}&csrfmiddlewaretoken=${getCookie('csrftoken')}`;
+        body = `store_id=${blogPostImportCurrentStoreId}&import_mode=new_only`;
     } else {
-        // Blog-Posts für einen spezifischen Blog importieren
         url = '/shopify/api/import-blog-posts/';
-        body = `blog_id=${blogId}&csrfmiddlewaretoken=${getCookie('csrftoken')}`;
+        body = `blog_id=${blogPostImportCurrentBlogId}&store_id=${blogPostImportCurrentStoreId}&import_mode=new_only`;
     }
-    
+
     fetch(url, {
         method: 'POST',
         headers: {
@@ -526,34 +502,224 @@ function executeBlogPostImport() {
     })
     .then(response => response.json())
     .then(data => {
-        const duration = Math.round((Date.now() - startTime) / 1000);
-        
-        // Update progress to 100%
-        progressBar.style.width = '100%';
-        progressBar.textContent = '100%';
-        progressBar.setAttribute('aria-valuenow', 100);
-        progressBar.classList.remove('progress-bar-animated');
-        
-        if (data.success) {
-            progressBar.classList.remove('bg-primary');
-            progressBar.classList.add('bg-success');
-            progressMessage.innerHTML = `<span class="text-success">Import erfolgreich in ${duration}s!</span>`;
-            
-            // Show statistics
-            const imported = data.imported || 0;
-            const failed = data.failed || 0;
-            successCount.textContent = imported;
-            failedCount.textContent = failed;
-            progressStats.style.display = 'block';
-            
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
+        if (data.success && data.import_id) {
+            startBlogPostProgressPolling(data.import_id);
         } else {
-            progressBar.classList.remove('bg-primary');
+            // Import abgeschlossen oder Fehler
+            const progressDiv = document.getElementById('blogPostImportProgress');
+            const submitBtn = document.querySelector('#blogPostImportModal .btn-success');
+            const successCount = document.getElementById('blogPostImportSuccessCount');
+
+            progressBar.classList.remove('progress-bar-animated', 'bg-primary');
+            progressBar.classList.add('bg-success');
+            progressBar.style.width = '100%';
+            progressMessage.innerHTML = `<span class="text-success">Import abgeschlossen! Gesamt: ${blogPostImportTotalSuccess} importiert</span>`;
+            successCount.textContent = blogPostImportTotalSuccess;
+
+            setTimeout(() => {
+                if (blogPostImportTotalSuccess > 0) {
+                    location.reload();
+                } else {
+                    progressDiv.classList.add('d-none');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                }
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        console.error('Auto-resume error:', error);
+        if (blogPostImportResumeCount < MAX_BLOG_RESUME_ATTEMPTS) {
+            setTimeout(autoResumeBlogPostImport, 3000);
+        }
+    });
+}
+
+function startBlogPostProgressPolling(importId) {
+    const progressBar = document.getElementById('blogPostImportProgressBar');
+    const progressMessage = document.getElementById('blogPostImportProgressMessage');
+    const progressStats = document.getElementById('blogPostImportProgressStats');
+    const successCount = document.getElementById('blogPostImportSuccessCount');
+    const failedCount = document.getElementById('blogPostImportFailedCount');
+    const submitBtn = document.querySelector('#blogPostImportModal .btn-success');
+    const progressDiv = document.getElementById('blogPostImportProgress');
+
+    blogPostImportInterval = setInterval(() => {
+        fetch(`/shopify/api/import-blog-posts-progress/${importId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.progress) {
+                    const progress = data.progress;
+
+                    // Update Progress Bar
+                    if (progress.total > 0) {
+                        const percentage = Math.round((progress.current / progress.total) * 100);
+                        progressBar.style.width = percentage + '%';
+                        progressBar.textContent = percentage + '%';
+                        progressBar.setAttribute('aria-valuenow', percentage);
+                    }
+
+                    // Update Message
+                    let messageText = progress.message || 'Import läuft...';
+                    if (blogPostImportResumeCount > 0) {
+                        messageText = `[Fortsetzung ${blogPostImportResumeCount}] ${messageText}`;
+                    }
+                    progressMessage.innerHTML = messageText;
+
+                    // Update Stats - kumulative Werte
+                    const currentSuccess = (progress.success_count || 0) + blogPostImportTotalSuccess;
+                    const currentFailed = (progress.failed_count || 0) + blogPostImportTotalFailed;
+                    successCount.textContent = currentSuccess;
+                    failedCount.textContent = currentFailed;
+                    progressStats.style.display = 'block';
+
+                    // STALLED STATUS - Auto-Resume!
+                    if (progress.status === 'stalled') {
+                        clearInterval(blogPostImportInterval);
+                        blogPostImportTotalSuccess += (progress.success_count || 0);
+                        blogPostImportTotalFailed += (progress.failed_count || 0);
+
+                        if (blogPostImportResumeCount < MAX_BLOG_RESUME_ATTEMPTS) {
+                            progressMessage.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Import unterbrochen. Starte automatisch neu... (${blogPostImportTotalSuccess} bisher importiert)</span>`;
+                            setTimeout(autoResumeBlogPostImport, 2000);
+                        } else {
+                            progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+                            progressBar.classList.add('bg-warning');
+                            progressMessage.innerHTML = `<span class="text-warning">Import nach ${MAX_BLOG_RESUME_ATTEMPTS} Versuchen gestoppt. ${blogPostImportTotalSuccess} Posts importiert.</span>`;
+                            setTimeout(() => location.reload(), 3000);
+                        }
+                        return;
+                    }
+
+                    // Completed or Error
+                    if (progress.status === 'completed' || progress.status === 'error') {
+                        clearInterval(blogPostImportInterval);
+                        progressBar.classList.remove('progress-bar-animated');
+
+                        const finalSuccess = (progress.imported || progress.success_count || 0) + blogPostImportTotalSuccess;
+                        const finalFailed = (progress.failed || progress.failed_count || 0) + blogPostImportTotalFailed;
+
+                        if (progress.status === 'completed' && progress.success) {
+                            progressBar.classList.remove('bg-primary');
+                            progressBar.classList.add('bg-success');
+                            progressBar.style.width = '100%';
+
+                            let successMsg = progress.message;
+                            if (blogPostImportResumeCount > 0) {
+                                successMsg = `Import abgeschlossen! Gesamt: ${finalSuccess} Posts importiert (${blogPostImportResumeCount + 1} Durchläufe)`;
+                            }
+                            progressMessage.innerHTML = `<span class="text-success">${successMsg}</span>`;
+                            successCount.textContent = finalSuccess;
+                            failedCount.textContent = finalFailed;
+
+                            setTimeout(() => {
+                                if (finalSuccess > 0) {
+                                    location.reload();
+                                } else {
+                                    progressDiv.classList.add('d-none');
+                                    submitBtn.disabled = false;
+                                    submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                                }
+                            }, 2000);
+                        } else {
+                            progressBar.classList.remove('bg-primary');
+                            progressBar.classList.add('bg-danger');
+                            progressMessage.innerHTML = `<span class="text-danger">${progress.error || progress.message}</span>`;
+
+                            setTimeout(() => {
+                                progressDiv.classList.add('d-none');
+                                submitBtn.disabled = false;
+                                submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                            }, 3000);
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Progress polling error:', error);
+            });
+    }, 1000);
+}
+
+function executeBlogPostImport() {
+    const form = document.getElementById('blogPostImportForm');
+    const formData = new FormData(form);
+    const progressDiv = document.getElementById('blogPostImportProgress');
+    const progressBar = document.getElementById('blogPostImportProgressBar');
+    const progressMessage = document.getElementById('blogPostImportProgressMessage');
+    const progressStats = document.getElementById('blogPostImportProgressStats');
+    const successCount = document.getElementById('blogPostImportSuccessCount');
+    const failedCount = document.getElementById('blogPostImportFailedCount');
+    const submitBtn = document.querySelector('#blogPostImportModal .btn-success');
+
+    const storeId = formData.get('store_id');
+    const blogId = formData.get('blog_id');
+
+    if (!storeId || !blogId) {
+        alert('Bitte wählen Sie Store und Blog aus.');
+        return;
+    }
+
+    // Reset Auto-Resume Zähler
+    blogPostImportResumeCount = 0;
+    blogPostImportTotalSuccess = 0;
+    blogPostImportTotalFailed = 0;
+    blogPostImportCurrentStoreId = storeId;
+    blogPostImportCurrentBlogId = blogId;
+
+    // Reset progress
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    progressBar.setAttribute('aria-valuenow', 0);
+    progressBar.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+    progressBar.classList.add('bg-primary');
+    progressStats.style.display = 'none';
+    successCount.textContent = '0';
+    failedCount.textContent = '0';
+
+    // Show progress
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
+    progressDiv.classList.remove('d-none');
+
+    if (blogId === 'all') {
+        progressMessage.textContent = 'Importiere alle Blog-Posts...';
+    } else {
+        progressMessage.textContent = 'Importiere Blog-Posts...';
+    }
+
+    progressBar.style.width = '100%';
+    progressBar.textContent = 'Läuft...';
+    progressBar.classList.add('progress-bar-animated');
+
+    let url, body;
+    if (blogId === 'all') {
+        url = '/shopify/api/import-all-blog-posts/';
+        body = `store_id=${storeId}`;
+    } else {
+        url = '/shopify/api/import-blog-posts/';
+        body = `blog_id=${blogId}&store_id=${storeId}`;
+    }
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.import_id) {
+            // Start progress polling
+            startBlogPostProgressPolling(data.import_id);
+        } else {
+            // Fehler beim Starten
+            progressBar.classList.remove('bg-primary', 'progress-bar-animated');
             progressBar.classList.add('bg-danger');
-            progressMessage.innerHTML = `<span class="text-danger">Import fehlgeschlagen nach ${duration}s: ${data.error}</span>`;
-            
+            progressMessage.innerHTML = `<span class="text-danger">Fehler: ${data.error || 'Unbekannter Fehler'}</span>`;
+
             setTimeout(() => {
                 progressDiv.classList.add('d-none');
                 submitBtn.disabled = false;
@@ -562,15 +728,11 @@ function executeBlogPostImport() {
         }
     })
     .catch(error => {
-        const duration = Math.round((Date.now() - startTime) / 1000);
         console.error('Error:', error);
-        
-        progressBar.style.width = '100%';
         progressBar.classList.remove('bg-primary', 'progress-bar-animated');
         progressBar.classList.add('bg-danger');
-        progressBar.textContent = 'Fehler';
-        progressMessage.innerHTML = `<span class="text-danger">Fehler beim Import nach ${duration}s: ${error.message || 'Unbekannter Fehler'}</span>`;
-        
+        progressMessage.innerHTML = `<span class="text-danger">Netzwerkfehler: ${error.message}</span>`;
+
         setTimeout(() => {
             progressDiv.classList.add('d-none');
             submitBtn.disabled = false;
@@ -578,8 +740,6 @@ function executeBlogPostImport() {
         }, 3000);
     });
 }
-
-// Blog-Post Import wurde entfernt - nur Blog-Import ist erlaubt
 
 function getCookie(name) {
     let cookieValue = null;

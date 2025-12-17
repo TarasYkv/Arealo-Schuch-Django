@@ -3259,49 +3259,112 @@ def get_blogs_for_store_view(request, store_id):
 @login_required
 @require_http_methods(["POST"])
 def import_all_blog_posts_view(request):
-    """Importiert alle Blog-Posts für alle Blogs eines Stores"""
+    """Importiert alle Blog-Posts für alle Blogs eines Stores (mit Background-Thread)"""
     store_id = request.POST.get('store_id')
-    
+    import_mode = request.POST.get('import_mode', 'new_only')
+
     if not store_id:
         return JsonResponse({
             'success': False,
             'error': 'Store-ID fehlt'
         })
-    
+
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
-    
-    try:
-        # Hole alle Blogs für diesen Store
-        blogs = ShopifyBlog.objects.filter(store=store)
-        
-        if not blogs.exists():
-            return JsonResponse({
-                'success': False,
-                'error': 'Keine Blogs gefunden. Bitte importieren Sie zuerst Blogs für diesen Store.'
-            })
-        
-        blog_sync = ShopifyBlogSync(store)
-        total_imported = 0
-        total_failed = 0
-        
-        # Importiere Posts für jeden Blog
-        for blog in blogs:
-            log = blog_sync.import_blog_posts(blog)
-            total_imported += log.products_success
-            total_failed += log.products_failed
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'{total_imported} Blog-Posts aus {blogs.count()} Blogs importiert',
-            'imported': total_imported,
-            'failed': total_failed,
-            'blogs_processed': blogs.count()
-        })
-        
-    except Exception as e:
+
+    # Prüfe ob Blogs existieren
+    blogs = ShopifyBlog.objects.filter(store=store)
+    if not blogs.exists():
         return JsonResponse({
             'success': False,
-            'error': f'Fehler beim Import aller Blog-Posts: {str(e)}'
+            'error': 'Keine Blogs gefunden. Bitte importieren Sie zuerst Blogs für diesen Store.'
+        })
+
+    # Erstelle eine eindeutige Import-ID
+    import_id = str(uuid.uuid4())
+
+    # Initialisiere Progress-Tracking
+    import time as time_module
+    import_progress[import_id] = {
+        'status': 'running',
+        'current': 0,
+        'total': 0,
+        'message': 'Import aller Blog-Posts wird gestartet...',
+        'success': True,
+        'error': None,
+        'success_count': 0,
+        'failed_count': 0,
+        'last_update': time_module.time()
+    }
+
+    # Starte Import in separatem Thread
+    import_thread = threading.Thread(
+        target=_run_all_blogs_import,
+        args=(store, import_mode, import_id),
+        daemon=True
+    )
+    import_thread.start()
+
+    return JsonResponse({
+        'success': True,
+        'import_id': import_id,
+        'message': 'Import gestartet'
+    })
+
+
+def _run_all_blogs_import(store, import_mode, import_id):
+    """Führt den Import aller Blog-Posts in einem separaten Thread aus"""
+    import time as time_module
+    try:
+        blogs = ShopifyBlog.objects.filter(store=store)
+        total_blogs = blogs.count()
+        total_imported = 0
+        total_failed = 0
+
+        for idx, blog in enumerate(blogs):
+            # Update Progress
+            import_progress[import_id].update({
+                'message': f'Importiere Blog {idx + 1}/{total_blogs}: {blog.title}...',
+                'current': idx,
+                'total': total_blogs,
+                'success_count': total_imported,
+                'failed_count': total_failed,
+                'last_update': time_module.time()
+            })
+
+            # Importiere Posts für diesen Blog
+            blog_sync = ShopifyBlogSyncWithProgress(store, import_id)
+            log = blog_sync.import_blog_posts(blog, import_mode=import_mode)
+            total_imported += log.products_success
+            total_failed += log.products_failed
+
+        # Final status
+        message = f'{total_imported} Blog-Posts aus {total_blogs} Blogs importiert'
+        if total_failed > 0:
+            message += f', {total_failed} fehlgeschlagen'
+
+        import_progress[import_id].update({
+            'status': 'completed',
+            'success': True,
+            'message': message,
+            'imported': total_imported,
+            'failed': total_failed,
+            'success_count': total_imported,
+            'failed_count': total_failed,
+            'blogs_processed': total_blogs,
+            'last_update': time_module.time()
+        })
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Exception in all blogs import: {error_details}")
+
+        import_progress[import_id].update({
+            'status': 'error',
+            'success': False,
+            'error': str(e),
+            'message': f'Import fehlgeschlagen: {str(e)}',
+            'last_update': time_module.time()
         })
 
 

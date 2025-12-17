@@ -828,12 +828,20 @@
         const progressStats = document.getElementById('collectionProgressStats');
         const successCount = document.getElementById('collectionSuccessCount');
         const failedCount = document.getElementById('collectionFailedCount');
-        
+
+        // Reset Auto-Resume Zähler für neuen Import
+        collectionImportResumeCount = 0;
+        collectionImportTotalSuccess = 0;
+        collectionImportTotalFailed = 0;
+        collectionImportCurrentStoreId = formData.get('store_id');
+
         // UI für Import vorbereiten
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starte Import...';
         progressDiv.classList.remove('d-none');
         progressStats.classList.add('d-none');
+        progressBar.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+        progressBar.classList.add('bg-primary');
         
         // Import starten
         fetch('{% url "shopify_manager:collection_import" %}', {
@@ -876,8 +884,78 @@
         });
     };
     
+    // Auto-Resume Variablen für Collection-Import
     let collectionImportInterval = null;
-    
+    let collectionImportResumeCount = 0;
+    let collectionImportTotalSuccess = 0;
+    let collectionImportTotalFailed = 0;
+    let collectionImportCurrentStoreId = null;
+    const MAX_COLLECTION_RESUME_ATTEMPTS = 20;
+
+    window.autoResumeCollectionImport = function() {
+        if (!collectionImportCurrentStoreId) {
+            console.error('No store ID for auto-resume');
+            return;
+        }
+
+        collectionImportResumeCount++;
+        console.log(`Auto-Resume Collection-Import (Versuch ${collectionImportResumeCount}/${MAX_COLLECTION_RESUME_ATTEMPTS})`);
+
+        const progressMessage = document.getElementById('collectionProgressMessage');
+        const progressBar = document.getElementById('collectionProgressBar');
+
+        progressMessage.innerHTML = `<span class="text-warning"><i class="fas fa-sync fa-spin"></i> Import wird fortgesetzt (Versuch ${collectionImportResumeCount})...</span>`;
+        progressBar.classList.add('progress-bar-animated');
+        progressBar.classList.remove('bg-danger', 'bg-success');
+        progressBar.classList.add('bg-primary');
+
+        const formData = new FormData();
+        formData.append('store_id', collectionImportCurrentStoreId);
+        formData.append('import_mode', 'new_only');
+
+        fetch('{% url "shopify_manager:collection_import" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.import_id) {
+                monitorCollectionImportProgress(data.import_id);
+            } else {
+                // Import abgeschlossen oder Fehler
+                const progressDiv = document.getElementById('collectionImportProgress');
+                const submitBtn = document.getElementById('collectionImportSubmit');
+                const successCount = document.getElementById('collectionSuccessCount');
+
+                progressBar.classList.remove('progress-bar-animated', 'bg-primary');
+                progressBar.classList.add('bg-success');
+                progressBar.style.width = '100%';
+                progressMessage.innerHTML = `<span class="text-success">Import abgeschlossen! Gesamt: ${collectionImportTotalSuccess} importiert</span>`;
+                successCount.textContent = collectionImportTotalSuccess;
+
+                setTimeout(() => {
+                    if (collectionImportTotalSuccess > 0) {
+                        location.reload();
+                    } else {
+                        progressDiv.classList.add('d-none');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                    }
+                }, 2000);
+            }
+        })
+        .catch(error => {
+            console.error('Auto-resume error:', error);
+            if (collectionImportResumeCount < MAX_COLLECTION_RESUME_ATTEMPTS) {
+                setTimeout(autoResumeCollectionImport, 3000);
+            }
+        });
+    };
+
     window.monitorCollectionImportProgress = function(importId) {
         const progressBar = document.getElementById('collectionProgressBar');
         const progressText = document.getElementById('collectionProgressText');
@@ -887,12 +965,12 @@
         const failedCount = document.getElementById('collectionFailedCount');
         const submitBtn = document.getElementById('collectionImportSubmit');
         const progressDiv = document.getElementById('collectionImportProgress');
-        
+
         // Clear any existing interval
         if (collectionImportInterval) {
             clearInterval(collectionImportInterval);
         }
-        
+
         // Polling für Progress Updates
         collectionImportInterval = setInterval(() => {
             fetch('{% url "shopify_manager:collection_import_progress" "dummy" %}'.replace('dummy', importId))
@@ -900,7 +978,7 @@
                 .then(data => {
                     if (data.success) {
                         const progress = data.progress;
-                        
+
                         // Progress Bar aktualisieren
                         let percentage = 0;
                         if (progress.total > 0) {
@@ -909,36 +987,64 @@
                         progressBar.style.width = percentage + '%';
                         progressBar.setAttribute('aria-valuenow', percentage);
                         progressText.textContent = progress.current + ' / ' + progress.total;
-                        progressMessage.innerHTML = progress.message || 'Import läuft...';
-                        
-                        // Update Stats wenn verfügbar
-                        if (progress.success_count !== undefined || progress.failed_count !== undefined) {
-                            successCount.textContent = progress.success_count || 0;
-                            failedCount.textContent = progress.failed_count || 0;
-                            progressStats.classList.remove('d-none');
+
+                        // Update Message
+                        let messageText = progress.message || 'Import läuft...';
+                        if (collectionImportResumeCount > 0) {
+                            messageText = `[Fortsetzung ${collectionImportResumeCount}] ${messageText}`;
                         }
-                        
+                        progressMessage.innerHTML = messageText;
+
+                        // Update Stats - kumulative Werte
+                        const currentSuccess = (progress.success_count || 0) + collectionImportTotalSuccess;
+                        const currentFailed = (progress.failed_count || 0) + collectionImportTotalFailed;
+                        successCount.textContent = currentSuccess;
+                        failedCount.textContent = currentFailed;
+                        progressStats.classList.remove('d-none');
+
+                        // STALLED STATUS - Auto-Resume!
+                        if (progress.status === 'stalled') {
+                            clearInterval(collectionImportInterval);
+                            collectionImportTotalSuccess += (progress.success_count || 0);
+                            collectionImportTotalFailed += (progress.failed_count || 0);
+
+                            if (collectionImportResumeCount < MAX_COLLECTION_RESUME_ATTEMPTS) {
+                                progressMessage.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Import unterbrochen. Starte automatisch neu... (${collectionImportTotalSuccess} bisher importiert)</span>`;
+                                setTimeout(autoResumeCollectionImport, 2000);
+                            } else {
+                                progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+                                progressBar.classList.add('bg-warning');
+                                progressMessage.innerHTML = `<span class="text-warning">Import nach ${MAX_COLLECTION_RESUME_ATTEMPTS} Versuchen gestoppt. ${collectionImportTotalSuccess} Kategorien importiert.</span>`;
+                                setTimeout(() => location.reload(), 3000);
+                            }
+                            return;
+                        }
+
                         // Prüfe ob Import abgeschlossen
                         if (progress.status === 'completed' || progress.status === 'error') {
                             clearInterval(collectionImportInterval);
                             progressBar.classList.remove('progress-bar-animated');
-                            
+
+                            // Finale Werte
+                            const finalSuccess = (progress.collections_imported || progress.success_count || 0) + collectionImportTotalSuccess;
+                            const finalFailed = (progress.collections_failed || progress.failed_count || 0) + collectionImportTotalFailed;
+
                             if (progress.status === 'completed' && progress.success) {
                                 // Erfolgreicher Import
                                 progressBar.classList.remove('bg-primary');
                                 progressBar.classList.add('bg-success');
-                                progressMessage.innerHTML = '<span class="text-success">' + progress.message + '</span>';
-                                
-                                // Finale Statistiken anzeigen
-                                if (progress.collections_imported !== undefined || progress.collections_failed !== undefined) {
-                                    successCount.textContent = progress.collections_imported || 0;
-                                    failedCount.textContent = progress.collections_failed || 0;
-                                    progressStats.classList.remove('d-none');
+
+                                let successMsg = progress.message;
+                                if (collectionImportResumeCount > 0) {
+                                    successMsg = `Import abgeschlossen! Gesamt: ${finalSuccess} Kategorien importiert (${collectionImportResumeCount + 1} Durchläufe)`;
                                 }
-                                
+                                progressMessage.innerHTML = '<span class="text-success">' + successMsg + '</span>';
+                                successCount.textContent = finalSuccess;
+                                failedCount.textContent = finalFailed;
+
                                 // Seite neu laden wenn Kategorien importiert wurden
                                 setTimeout(() => {
-                                    if ((progress.collections_imported || 0) > 0) {
+                                    if (finalSuccess > 0) {
                                         location.reload();
                                     } else {
                                         progressDiv.classList.add('d-none');
@@ -951,7 +1057,7 @@
                                 progressBar.classList.remove('bg-primary');
                                 progressBar.classList.add('bg-danger');
                                 progressMessage.innerHTML = '<span class="text-danger">' + (progress.error || progress.message) + '</span>';
-                                
+
                                 setTimeout(() => {
                                     progressDiv.classList.add('d-none');
                                     submitBtn.disabled = false;
@@ -963,17 +1069,6 @@
                 })
                 .catch(error => {
                     console.error('Progress polling error:', error);
-                    clearInterval(collectionImportInterval);
-                    
-                    progressBar.classList.remove('bg-primary', 'progress-bar-animated');
-                    progressBar.classList.add('bg-danger');
-                    progressMessage.innerHTML = '<span class="text-danger">Fehler beim Abrufen des Fortschritts</span>';
-                    
-                    setTimeout(() => {
-                        progressDiv.classList.add('d-none');
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
-                    }, 3000);
                 });
         }, 1000);
     };

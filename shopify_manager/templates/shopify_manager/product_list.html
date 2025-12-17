@@ -661,7 +661,13 @@ document.addEventListener('DOMContentLoaded', function() {
 // Import Form Handler
 document.getElementById('importForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    
+
+    // Reset Auto-Resume Zähler für neuen Import
+    productImportResumeCount = 0;
+    productImportTotalSuccess = 0;
+    productImportTotalFailed = 0;
+    productImportCurrentStoreId = null;
+
     const formData = new FormData(this);
     const importMode = formData.get('import_mode');
     const submitBtn = this.querySelector('button[type="submit"]');
@@ -671,7 +677,7 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
     const progressStats = document.getElementById('importProgressStats');
     const successCount = document.getElementById('importSuccessCount');
     const failedCount = document.getElementById('importFailedCount');
-    
+
     // Reset progress
     progressBar.style.width = '0%';
     progressBar.textContent = '0%';
@@ -751,6 +757,75 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
 });
 
 let productImportInterval = null;
+let productImportResumeCount = 0;
+let productImportTotalSuccess = 0;
+let productImportTotalFailed = 0;
+let productImportCurrentStoreId = null;
+const MAX_PRODUCT_RESUME_ATTEMPTS = 20;  // Max 20 auto-resumes
+
+function autoResumeProductImport() {
+    if (!productImportCurrentStoreId) {
+        console.error('No store ID for auto-resume');
+        return;
+    }
+
+    productImportResumeCount++;
+    console.log(`Auto-Resume Produkt-Import (Versuch ${productImportResumeCount}/${MAX_PRODUCT_RESUME_ATTEMPTS})`);
+
+    const progressMessage = document.getElementById('importProgressMessage');
+    const progressBar = document.getElementById('importProgressBar');
+
+    progressMessage.innerHTML = `<span class="text-warning"><i class="fas fa-sync fa-spin"></i> Import wird fortgesetzt (Versuch ${productImportResumeCount})...</span>`;
+    progressBar.classList.add('progress-bar-animated');
+    progressBar.classList.remove('bg-danger', 'bg-success');
+    progressBar.classList.add('bg-primary');
+
+    // Neuen Import starten mit new_only Modus (importiert nur fehlende)
+    const formData = new FormData();
+    formData.append('store_id', productImportCurrentStoreId);
+    formData.append('import_mode', 'new_only');
+
+    fetch('/shopify/api/import/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.import_id) {
+            startProductProgressPolling(data.import_id);
+        } else {
+            // Keine neuen Produkte mehr oder Fehler
+            const progressDiv = document.getElementById('importProgress');
+            const submitBtn = document.querySelector('#importForm button[type="submit"]');
+
+            progressBar.classList.remove('progress-bar-animated', 'bg-primary');
+            progressBar.classList.add('bg-success');
+            progressBar.style.width = '100%';
+            progressMessage.innerHTML = `<span class="text-success">Import abgeschlossen! Gesamt: ${productImportTotalSuccess} importiert</span>`;
+
+            setTimeout(() => {
+                if (productImportTotalSuccess > 0) {
+                    location.reload();
+                } else {
+                    progressDiv.classList.add('d-none');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Importieren';
+                }
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        console.error('Auto-resume error:', error);
+        // Bei Netzwerkfehler nochmal versuchen nach kurzer Pause
+        if (productImportResumeCount < MAX_PRODUCT_RESUME_ATTEMPTS) {
+            setTimeout(autoResumeProductImport, 3000);
+        }
+    });
+}
 
 function startProductProgressPolling(importId) {
     const progressBar = document.getElementById('importProgressBar');
@@ -760,7 +835,13 @@ function startProductProgressPolling(importId) {
     const failedCount = document.getElementById('importFailedCount');
     const submitBtn = document.querySelector('#importForm button[type="submit"]');
     const progressDiv = document.getElementById('importProgress');
-    
+
+    // Store ID für Auto-Resume speichern
+    const storeSelect = document.getElementById('storeSelect');
+    if (storeSelect) {
+        productImportCurrentStoreId = storeSelect.value;
+    }
+
     // Polling alle 1000ms
     productImportInterval = setInterval(() => {
         fetch(`/shopify/api/import-products-progress/${importId}/`)
@@ -768,7 +849,7 @@ function startProductProgressPolling(importId) {
             .then(data => {
                 if (data.success && data.progress) {
                     const progress = data.progress;
-                    
+
                     // Update Progress Bar
                     if (progress.total > 0) {
                         const percentage = Math.round((progress.current / progress.total) * 100);
@@ -784,38 +865,71 @@ function startProductProgressPolling(importId) {
                         progressBar.classList.add('progress-bar-striped');
                         progressBar.classList.add('progress-bar-animated');
                     }
-                    
-                    // Update Message
-                    progressMessage.innerHTML = progress.message || 'Import läuft...';
-                    
-                    // Update Stats wenn verfügbar
+
+                    // Update Message (mit Resume-Info wenn relevant)
+                    let messageText = progress.message || 'Import läuft...';
+                    if (productImportResumeCount > 0) {
+                        messageText = `[Fortsetzung ${productImportResumeCount}] ${messageText}`;
+                    }
+                    progressMessage.innerHTML = messageText;
+
+                    // Update Stats - zeige kumulative Werte
+                    const currentSuccess = (progress.success_count || 0) + productImportTotalSuccess;
+                    const currentFailed = (progress.failed_count || 0) + productImportTotalFailed;
                     if (progress.success_count !== undefined || progress.failed_count !== undefined) {
-                        successCount.textContent = progress.success_count || 0;
-                        failedCount.textContent = progress.failed_count || 0;
+                        successCount.textContent = currentSuccess;
+                        failedCount.textContent = currentFailed;
                         progressStats.style.display = 'block';
                     }
-                    
+
+                    // STALLED STATUS - Auto-Resume!
+                    if (progress.status === 'stalled') {
+                        clearInterval(productImportInterval);
+
+                        // Speichere bisherigen Fortschritt
+                        productImportTotalSuccess += (progress.success_count || 0);
+                        productImportTotalFailed += (progress.failed_count || 0);
+
+                        if (productImportResumeCount < MAX_PRODUCT_RESUME_ATTEMPTS) {
+                            progressMessage.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Import unterbrochen. Starte automatisch neu in 2 Sekunden... (${productImportTotalSuccess} bisher importiert)</span>`;
+                            setTimeout(autoResumeProductImport, 2000);
+                        } else {
+                            progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+                            progressBar.classList.add('bg-warning');
+                            progressMessage.innerHTML = `<span class="text-warning">Import nach ${MAX_PRODUCT_RESUME_ATTEMPTS} Versuchen gestoppt. ${productImportTotalSuccess} Produkte importiert. Bitte später erneut versuchen.</span>`;
+                            setTimeout(() => location.reload(), 3000);
+                        }
+                        return;
+                    }
+
                     // Prüfe ob Import abgeschlossen
                     if (progress.status === 'completed' || progress.status === 'error') {
                         clearInterval(productImportInterval);
                         progressBar.classList.remove('progress-bar-animated');
-                        
+
+                        // Addiere finale Werte zu Gesamtsumme
+                        const finalSuccess = (progress.products_imported || progress.success_count || 0) + productImportTotalSuccess;
+                        const finalFailed = (progress.products_failed || progress.failed_count || 0) + productImportTotalFailed;
+
                         if (progress.status === 'completed' && progress.success) {
                             // Erfolgreicher Import
                             progressBar.classList.remove('bg-primary');
                             progressBar.classList.add('bg-success');
-                            progressMessage.innerHTML = `<span class="text-success">${progress.message}</span>`;
-                            
-                            // Finale Statistiken anzeigen
-                            if (progress.products_imported !== undefined || progress.products_failed !== undefined) {
-                                successCount.textContent = progress.products_imported || 0;
-                                failedCount.textContent = progress.products_failed || 0;
-                                progressStats.style.display = 'block';
+
+                            let successMsg = progress.message;
+                            if (productImportResumeCount > 0) {
+                                successMsg = `Import abgeschlossen! Gesamt: ${finalSuccess} Produkte importiert (${productImportResumeCount + 1} Durchläufe)`;
                             }
-                            
+                            progressMessage.innerHTML = `<span class="text-success">${successMsg}</span>`;
+
+                            // Finale Statistiken anzeigen
+                            successCount.textContent = finalSuccess;
+                            failedCount.textContent = finalFailed;
+                            progressStats.style.display = 'block';
+
                             // Seite neu laden wenn Produkte importiert wurden
                             setTimeout(() => {
-                                if ((progress.products_imported || 0) > 0) {
+                                if (finalSuccess > 0) {
                                     location.reload();
                                 } else {
                                     progressDiv.classList.add('d-none');
@@ -829,7 +943,7 @@ function startProductProgressPolling(importId) {
                             progressBar.classList.remove('bg-primary');
                             progressBar.classList.add('bg-danger');
                             progressMessage.innerHTML = `<span class="text-danger">${progress.error || progress.message}</span>`;
-                            
+
                             setTimeout(() => {
                                 progressDiv.classList.add('d-none');
                                 submitBtn.disabled = false;
