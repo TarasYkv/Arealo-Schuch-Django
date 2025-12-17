@@ -4469,15 +4469,13 @@ def backup_list(request, store_id):
 
 @login_required
 def backup_create(request, store_id):
-    """Neues Backup erstellen"""
-    import threading
-
+    """Neues Backup erstellen - nur Backup-Objekt anlegen"""
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
 
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-        # Backup-Objekt erstellen
+        # Backup-Objekt erstellen (schnell, kein API-Call)
         backup = ShopifyBackup.objects.create(
             user=request.user,
             store=store,
@@ -4497,37 +4495,46 @@ def backup_create(request, store_id):
         )
 
         if is_ajax:
-            # Bei AJAX: Backup im Hintergrund starten und sofort antworten
-            def run_backup(store_obj, backup_obj):
-                from django.db import connection
-                connection.close()  # Neue DB-Verbindung im Thread
-                service = ShopifyBackupService(store_obj, backup_obj)
-                service.create_backup()
-
-            thread = threading.Thread(target=run_backup, args=(store, backup))
-            thread.daemon = True
-            thread.start()
-
+            # Bei AJAX: Nur Backup-ID zurückgeben, Start über separaten Endpunkt
             return JsonResponse({
                 'success': True,
                 'backup_id': backup.id,
+                'start_url': f'/shopify/api/store/{store.id}/backups/{backup.id}/start/',
                 'status_url': f'/shopify/api/store/{store.id}/backups/{backup.id}/status/',
                 'detail_url': f'/shopify/store/{store.id}/backups/{backup.id}/',
             })
         else:
-            # Bei normalem Request: Backup synchron ausführen
-            service = ShopifyBackupService(store, backup)
-            success, message = service.create_backup()
-
-            if success:
-                messages.success(request, f'Backup erfolgreich erstellt: {backup.total_items_count} Elemente gesichert')
-            else:
-                messages.error(request, f'Backup fehlgeschlagen: {message}')
-
+            # Bei normalem Request: Zur Detail-Seite weiterleiten (Backup startet dort)
             return redirect('shopify_manager:backup_detail', store_id=store.id, backup_id=backup.id)
 
     return render(request, 'shopify_manager/backup/backup_create.html', {
         'store': store,
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def api_backup_start(request, store_id, backup_id):
+    """API: Backup-Prozess starten (läuft synchron, aber mit Fortschritts-Updates)"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    # Prüfen ob Backup bereits läuft oder abgeschlossen
+    if backup.status in ['running', 'completed']:
+        return JsonResponse({
+            'success': False,
+            'error': f'Backup ist bereits {backup.get_status_display()}'
+        })
+
+    # Backup synchron ausführen (Frontend pollt Status)
+    service = ShopifyBackupService(store, backup)
+    success, message = service.create_backup()
+
+    return JsonResponse({
+        'success': success,
+        'message': message,
+        'status': backup.status,
+        'total_items': backup.total_items_count,
     })
 
 

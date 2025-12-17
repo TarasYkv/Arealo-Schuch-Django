@@ -364,7 +364,7 @@ document.getElementById('backupForm').addEventListener('submit', function(e) {
     var modal = new bootstrap.Modal(document.getElementById('progressModal'));
     modal.show();
 
-    // Formular per AJAX absenden
+    // Formular per AJAX absenden (erstellt nur Backup-Objekt)
     var formData = new FormData(this);
 
     fetch(this.action || window.location.href, {
@@ -381,8 +381,18 @@ document.getElementById('backupForm').addEventListener('submit', function(e) {
             statusUrl = data.status_url;
             detailUrl = data.detail_url;
 
-            // Polling starten
-            pollInterval = setInterval(pollStatus, 1000);
+            // Backup-Prozess im Hintergrund starten (fire-and-forget)
+            // Dieser Request läuft lange, aber wir warten nicht auf die Antwort
+            fetch(data.start_url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).catch(err => console.log('Backup start request sent'));
+
+            // Sofort Polling starten (unabhängig vom start-Request)
+            pollInterval = setInterval(pollStatus, 1500);
         } else {
             showError(data.error || 'Backup konnte nicht gestartet werden');
         }

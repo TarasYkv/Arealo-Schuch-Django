@@ -143,5 +143,6 @@ urlpatterns = [
     path('store/<int:store_id>/backups/<int:backup_id>/delete/', views.backup_delete, name='backup_delete'),
     path('store/<int:store_id>/backups/<int:backup_id>/restore/', views.restore_start, name='restore_start'),
     path('store/<int:store_id>/backups/<int:backup_id>/restore/<int:item_id>/', views.restore_item, name='restore_item'),
+    path('api/store/<int:store_id>/backups/<int:backup_id>/start/', views.api_backup_start, name='api_backup_start'),
     path('api/store/<int:store_id>/backups/<int:backup_id>/status/', views.api_backup_status, name='api_backup_status'),
 ]
