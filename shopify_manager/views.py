@@ -4663,6 +4663,63 @@ def backup_detail(request, store_id, backup_id):
 
 
 @login_required
+def backup_compare(request, store_id, backup_id):
+    """Backup mit aktuellem Shopify-Stand vergleichen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    if backup.status != 'completed':
+        messages.error(request, 'Nur abgeschlossene Backups können verglichen werden.')
+        return redirect('shopify_manager:backup_detail', store_id=store_id, backup_id=backup_id)
+
+    from .compare_service import ShopifyCompareService
+
+    # Kategorie-Filter aus GET-Parameter
+    category = request.GET.get('category', 'all')
+
+    try:
+        service = ShopifyCompareService(store, backup)
+
+        if category == 'all':
+            results = service.compare_all()
+        else:
+            results = {category: service.compare_category(category)}
+
+        summary = service.get_summary(results)
+
+        # Gesamtstatistik
+        total_deleted = sum(s.get('deleted', 0) for s in summary.values())
+        total_new = sum(s.get('new', 0) for s in summary.values())
+        total_changed = sum(s.get('changed', 0) for s in summary.values())
+
+    except Exception as e:
+        messages.error(request, f'Fehler beim Vergleich: {str(e)}')
+        return redirect('shopify_manager:backup_detail', store_id=store_id, backup_id=backup_id)
+
+    # Kategorie-Labels
+    category_labels = {
+        'products': 'Produkte',
+        'blogs': 'Blogs',
+        'blog_posts': 'Blog-Beiträge',
+        'collections': 'Collections',
+        'pages': 'Seiten',
+        'redirects': 'Weiterleitungen',
+    }
+
+    return render(request, 'shopify_manager/backup/backup_compare.html', {
+        'store': store,
+        'backup': backup,
+        'results': results,
+        'summary': summary,
+        'category': category,
+        'category_labels': category_labels,
+        'total_deleted': total_deleted,
+        'total_new': total_new,
+        'total_changed': total_changed,
+    })
+
+
+@login_required
 def backup_download(request, store_id, backup_id):
     """Backup als ZIP herunterladen"""
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)

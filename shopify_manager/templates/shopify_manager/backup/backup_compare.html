@@ -1,0 +1,180 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Backup Vergleich - {{ backup.name }}{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-arrow-left-right"></i> Backup-Vergleich</h2>
+        <p class="text-muted mb-0">{{ backup.name }} vs. aktuelle Shopify-Daten</p>
+    </div>
+    <div>
+        <a href="{% url 'shopify_manager:backup_detail' store_id=store.id backup_id=backup.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück zum Backup
+        </a>
+    </div>
+</div>
+
+<!-- Zusammenfassung -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-danger">
+            <div class="card-body text-center">
+                <h1 class="display-4 text-danger">{{ total_deleted }}</h1>
+                <p class="mb-0"><i class="bi bi-trash"></i> Gelöscht</p>
+                <small class="text-muted">Im Backup, aber nicht mehr auf Shopify</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <h1 class="display-4 text-success">{{ total_new }}</h1>
+                <p class="mb-0"><i class="bi bi-plus-circle"></i> Neu</p>
+                <small class="text-muted">Auf Shopify, aber nicht im Backup</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <h1 class="display-4 text-warning">{{ total_changed }}</h1>
+                <p class="mb-0"><i class="bi bi-pencil"></i> Geändert</p>
+                <small class="text-muted">Unterschiede zwischen Backup und Shopify</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="d-flex gap-2 align-items-center">
+            <label class="me-2"><strong>Filter:</strong></label>
+            <select name="category" class="form-select" style="width: auto;" onchange="this.form.submit()">
+                <option value="all" {% if category == 'all' %}selected{% endif %}>Alle Kategorien</option>
+                <option value="products" {% if category == 'products' %}selected{% endif %}>Produkte</option>
+                <option value="blogs" {% if category == 'blogs' %}selected{% endif %}>Blogs</option>
+                <option value="blog_posts" {% if category == 'blog_posts' %}selected{% endif %}>Blog-Beiträge</option>
+                <option value="collections" {% if category == 'collections' %}selected{% endif %}>Collections</option>
+                <option value="pages" {% if category == 'pages' %}selected{% endif %}>Seiten</option>
+                <option value="redirects" {% if category == 'redirects' %}selected{% endif %}>Weiterleitungen</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+{% if total_deleted == 0 and total_new == 0 and total_changed == 0 %}
+<div class="alert alert-success">
+    <i class="bi bi-check-circle"></i> <strong>Alles aktuell!</strong> Keine Unterschiede zwischen Backup und Shopify gefunden.
+</div>
+{% endif %}
+
+<!-- Ergebnisse nach Kategorie -->
+{% for cat_key, items in results.items %}
+{% if items %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-folder"></i>
+            {% if cat_key == 'products' %}Produkte
+            {% elif cat_key == 'blogs' %}Blogs
+            {% elif cat_key == 'blog_posts' %}Blog-Beiträge
+            {% elif cat_key == 'collections' %}Collections
+            {% elif cat_key == 'pages' %}Seiten
+            {% elif cat_key == 'redirects' %}Weiterleitungen
+            {% else %}{{ cat_key|title }}
+            {% endif %}
+            <span class="badge bg-secondary ms-2">{{ items|length }} Unterschiede</span>
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">Status</th>
+                        <th>Element</th>
+                        <th>Shopify-ID</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="text-center">
+                            {% if item.status == 'deleted' %}
+                            <span class="badge bg-danger" title="Im Backup vorhanden, auf Shopify gelöscht">
+                                <i class="bi bi-trash"></i>
+                            </span>
+                            {% elif item.status == 'new' %}
+                            <span class="badge bg-success" title="Neu auf Shopify, nicht im Backup">
+                                <i class="bi bi-plus"></i>
+                            </span>
+                            {% elif item.status == 'changed' %}
+                            <span class="badge bg-warning text-dark" title="Geändert seit Backup">
+                                <i class="bi bi-pencil"></i>
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ item.title|truncatechars:60 }}</strong>
+                        </td>
+                        <td>
+                            <code class="small">{{ item.shopify_id }}</code>
+                        </td>
+                        <td>
+                            {% if item.changes %}
+                            <ul class="mb-0 ps-3 small text-muted">
+                                {% for change in item.changes %}
+                                <li>{{ change }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% elif item.status == 'deleted' %}
+                            <span class="text-danger small">
+                                <i class="bi bi-exclamation-triangle"></i> Auf Shopify gelöscht - kann aus Backup wiederhergestellt werden
+                            </span>
+                            {% elif item.status == 'new' %}
+                            <span class="text-success small">
+                                <i class="bi bi-info-circle"></i> Nach diesem Backup erstellt - im nächsten Backup enthalten
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Legende -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Legende</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <span class="badge bg-danger me-2"><i class="bi bi-trash"></i></span>
+                <strong>Gelöscht</strong>
+                <p class="text-muted small mb-0">Das Element existiert im Backup, wurde aber auf Shopify gelöscht. Sie können es wiederherstellen.</p>
+            </div>
+            <div class="col-md-4">
+                <span class="badge bg-success me-2"><i class="bi bi-plus"></i></span>
+                <strong>Neu</strong>
+                <p class="text-muted small mb-0">Das Element wurde nach dem Backup auf Shopify erstellt. Erstellen Sie ein neues Backup, um es zu sichern.</p>
+            </div>
+            <div class="col-md-4">
+                <span class="badge bg-warning text-dark me-2"><i class="bi bi-pencil"></i></span>
+                <strong>Geändert</strong>
+                <p class="text-muted small mb-0">Das Element wurde nach dem Backup geändert. Das Backup enthält die alte Version.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
