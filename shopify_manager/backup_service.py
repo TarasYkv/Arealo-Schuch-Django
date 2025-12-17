@@ -17,6 +17,7 @@ import requests
 import json
 import time
 import io
+import re
 import zipfile
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
@@ -24,6 +25,28 @@ from django.utils import timezone
 from django.db import transaction
 
 from .models import ShopifyStore, ShopifyBackup, BackupItem
+
+
+def sanitize_title(title: str) -> str:
+    """Entfernt Emojis und andere problematische Unicode-Zeichen aus dem Titel"""
+    if not title:
+        return ""
+    # Entferne alle Zeichen außerhalb des BMP (Basic Multilingual Plane)
+    # Das sind die 4-Byte UTF-8 Zeichen wie Emojis
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "\U00002702-\U000027B0"  # dingbats
+        "\U000024C2-\U0001F251"
+        "\U0001f926-\U0001f937"
+        "\U00010000-\U0010ffff"
+        "]+",
+        flags=re.UNICODE
+    )
+    return emoji_pattern.sub('', title).strip()
 
 
 class ShopifyBackupService:
@@ -113,11 +136,13 @@ class ShopifyBackupService:
                           raw_data: dict, image_url: str = '', parent_id: int = None,
                           image_data: bytes = None):
         """Speichert ein Backup-Element in der Datenbank"""
+        # Titel sanitizen (Emojis entfernen für MySQL-Kompatibilität)
+        clean_title = sanitize_title(title) if title else ''
         item = BackupItem.objects.create(
             backup=self.backup,
             item_type=item_type,
             shopify_id=shopify_id,
-            title=title,
+            title=clean_title,
             raw_data=raw_data,
             image_url=image_url,
             parent_id=parent_id,
