@@ -4531,18 +4531,29 @@ def backup_create(request, store_id):
 @login_required
 @require_http_methods(['POST'])
 def api_backup_start(request, store_id, backup_id):
-    """API: Backup-Prozess starten (im Hintergrund-Thread)"""
+    """API: Backup-Prozess starten oder fortsetzen (im Hintergrund-Thread)"""
     import threading
 
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
 
     # Prüfen ob Backup bereits läuft oder abgeschlossen
-    if backup.status in ['running', 'completed']:
+    if backup.status == 'completed':
         return JsonResponse({
             'success': False,
-            'error': f'Backup ist bereits {backup.get_status_display()}'
+            'error': 'Backup ist bereits abgeschlossen'
         })
+
+    # Bei "running" Status prüfen ob es wirklich noch läuft (Timeout-Check)
+    if backup.status == 'running':
+        # Wenn länger als 5 Minuten keine Änderung, kann fortgesetzt werden
+        from django.utils import timezone
+        from datetime import timedelta
+        if backup.updated_at and (timezone.now() - backup.updated_at) < timedelta(minutes=2):
+            return JsonResponse({
+                'success': False,
+                'error': 'Backup läuft noch. Bitte warten.'
+            })
 
     # Status sofort auf 'running' setzen
     backup.status = 'running'

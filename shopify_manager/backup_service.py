@@ -132,10 +132,18 @@ class ShopifyBackupService:
 
         return all_items
 
+    def _item_exists(self, item_type: str, shopify_id: int) -> bool:
+        """Prüft ob ein Item bereits im Backup existiert (für Resume-Funktion)"""
+        return self.backup.items.filter(item_type=item_type, shopify_id=shopify_id).exists()
+
     def _save_backup_item(self, item_type: str, shopify_id: int, title: str,
                           raw_data: dict, image_url: str = '', parent_id: int = None,
                           image_data: bytes = None):
-        """Speichert ein Backup-Element in der Datenbank"""
+        """Speichert ein Backup-Element in der Datenbank (überspringt wenn bereits vorhanden)"""
+        # Prüfen ob Item bereits existiert (Resume-Fall)
+        if self._item_exists(item_type, shopify_id):
+            return None
+
         # Titel sanitizen (Emojis entfernen für MySQL-Kompatibilität)
         clean_title = sanitize_title(title) if title else ''
         item = BackupItem.objects.create(

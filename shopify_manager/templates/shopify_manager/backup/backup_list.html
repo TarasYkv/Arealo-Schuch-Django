@@ -71,6 +71,13 @@
                                    class="btn btn-outline-warning" title="Wiederherstellen">
                                     <i class="bi bi-arrow-counterclockwise"></i>
                                 </a>
+                                {% elif backup.status == 'failed' or backup.status == 'running' %}
+                                <button type="button" class="btn btn-outline-info resume-btn"
+                                        data-backup-id="{{ backup.id }}"
+                                        data-store-id="{{ store.id }}"
+                                        title="Fortsetzen">
+                                    <i class="bi bi-play-fill"></i>
+                                </button>
                                 {% endif %}
                                 <a href="{% url 'shopify_manager:backup_delete' store_id=store.id backup_id=backup.id %}"
                                    class="btn btn-outline-danger" title="Löschen">
@@ -97,4 +104,49 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Resume Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.resume-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var backupId = this.dataset.backupId;
+            var storeId = this.dataset.storeId;
+            var button = this;
+
+            if (!confirm('Backup fortsetzen? Bereits gesicherte Elemente werden übersprungen.')) {
+                return;
+            }
+
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            fetch('/shopify/api/store/' + storeId + '/backups/' + backupId + '/start/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                                   document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Zur Detail-Seite weiterleiten
+                    window.location.href = '/shopify/store/' + storeId + '/backups/' + backupId + '/';
+                } else {
+                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-play-fill"></i>';
+                }
+            })
+            .catch(error => {
+                alert('Verbindungsfehler: ' + error.message);
+                button.disabled = false;
+                button.innerHTML = '<i class="bi bi-play-fill"></i>';
+            });
+        });
+    });
+});
+</script>
 {% endblock %}
