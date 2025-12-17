@@ -4527,7 +4527,9 @@ def backup_create(request, store_id):
 @login_required
 @require_http_methods(['POST'])
 def api_backup_start(request, store_id, backup_id):
-    """API: Backup-Prozess starten (läuft synchron, aber mit Fortschritts-Updates)"""
+    """API: Backup-Prozess starten (im Hintergrund-Thread)"""
+    import threading
+
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
 
@@ -4538,15 +4540,46 @@ def api_backup_start(request, store_id, backup_id):
             'error': f'Backup ist bereits {backup.get_status_display()}'
         })
 
-    # Backup synchron ausführen (Frontend pollt Status)
-    service = ShopifyBackupService(store, backup)
-    success, message = service.create_backup()
+    # Status sofort auf 'running' setzen
+    backup.status = 'running'
+    backup.current_step = 'init'
+    backup.progress_message = 'Backup wird gestartet...'
+    backup.save()
 
+    def run_backup():
+        """Führt das Backup im Hintergrund aus"""
+        try:
+            # Neue DB-Verbindung für den Thread
+            from django.db import connection
+            connection.close()
+
+            # Objekte neu laden
+            store_obj = ShopifyStore.objects.get(id=store_id)
+            backup_obj = ShopifyBackup.objects.get(id=backup_id)
+
+            service = ShopifyBackupService(store_obj, backup_obj)
+            service.create_backup()
+        except Exception as e:
+            # Fehler im Backup loggen
+            try:
+                backup_obj = ShopifyBackup.objects.get(id=backup_id)
+                backup_obj.status = 'failed'
+                backup_obj.error_message = str(e)
+                backup_obj.current_step = 'error'
+                backup_obj.progress_message = f'Fehler: {str(e)[:200]}'
+                backup_obj.save()
+            except:
+                pass
+
+    # Backup in separatem Thread starten
+    thread = threading.Thread(target=run_backup, daemon=True)
+    thread.start()
+
+    # Sofort zurückkehren
     return JsonResponse({
-        'success': success,
-        'message': message,
-        'status': backup.status,
-        'total_items': backup.total_items_count,
+        'success': True,
+        'message': 'Backup wurde gestartet',
+        'status': 'running',
     })
 
 
