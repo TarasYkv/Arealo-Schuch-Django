@@ -281,33 +281,50 @@ function getCookie(name) {
     return cookieValue;
 }
 
+function safeSetText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
 function updateStats(data) {
-    document.getElementById('statProducts').textContent = data.products_count || 0;
-    document.getElementById('statBlogs').textContent = data.blogs_count || 0;
-    document.getElementById('statPosts').textContent = data.posts_count || 0;
-    document.getElementById('statCollections').textContent = data.collections_count || 0;
-    document.getElementById('statPages').textContent = data.pages_count || 0;
-    document.getElementById('statMenus').textContent = data.menus_count || 0;
-    document.getElementById('statRedirects').textContent = data.redirects_count || 0;
-    document.getElementById('statTotal').textContent = data.total_items || 0;
+    safeSetText('statProducts', data.products_count || 0);
+    safeSetText('statBlogs', data.blogs_count || 0);
+    safeSetText('statPosts', data.posts_count || 0);
+    safeSetText('statCollections', data.collections_count || 0);
+    safeSetText('statPages', data.pages_count || 0);
+    safeSetText('statMenus', data.menus_count || 0);
+    safeSetText('statRedirects', data.redirects_count || 0);
+    safeSetText('statTotal', data.total_items || 0);
 }
 
 function pollStatus() {
     if (!statusUrl) return;
+
+    // Prüfen ob Modal noch existiert
+    var modal = document.getElementById('progressModal');
+    if (!modal) {
+        clearInterval(pollInterval);
+        return;
+    }
 
     fetch(statusUrl, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Server error: ' + response.status);
+        }
+        return response.json();
+    })
     .then(data => {
         // Statistiken aktualisieren
         updateStats(data);
 
         // Fortschritts-Nachricht aktualisieren
         if (data.progress_message) {
-            document.getElementById('progressMessage').textContent = data.progress_message;
+            safeSetText('progressMessage', data.progress_message);
         }
 
         // Status prüfen
@@ -321,36 +338,62 @@ function pollStatus() {
     })
     .catch(error => {
         console.error('Polling error:', error);
+        // Bei Netzwerkfehler nicht abbrechen, weiter versuchen
     });
 }
 
+function safeAddClass(id, className) {
+    var el = document.getElementById(id);
+    if (el) el.classList.add(className);
+}
+
+function safeRemoveClass(id, className) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove(className);
+}
+
+function safeSetAttr(id, attr, value) {
+    var el = document.getElementById(id);
+    if (el) el[attr] = value;
+}
+
 function showSuccess() {
-    document.getElementById('progressSpinner').classList.add('d-none');
-    document.getElementById('progressSuccess').classList.remove('d-none');
-    document.getElementById('progressMessage').textContent = 'Backup erfolgreich abgeschlossen!';
-    document.getElementById('progressIcon').className = 'bi bi-check-circle me-2 text-success';
-    document.getElementById('progressFooter').classList.remove('d-none');
-    document.getElementById('viewBackupBtn').href = detailUrl;
-    document.querySelector('.modal-title').innerHTML = '<i class="bi bi-check-circle me-2"></i> Backup abgeschlossen';
-    document.querySelector('.modal-header').classList.remove('bg-primary');
-    document.querySelector('.modal-header').classList.add('bg-success');
+    safeAddClass('progressSpinner', 'd-none');
+    safeRemoveClass('progressSuccess', 'd-none');
+    safeSetText('progressMessage', 'Backup erfolgreich abgeschlossen!');
+    safeSetAttr('progressIcon', 'className', 'bi bi-check-circle me-2 text-success');
+    safeRemoveClass('progressFooter', 'd-none');
+    safeSetAttr('viewBackupBtn', 'href', detailUrl);
+
+    var title = document.querySelector('.modal-title');
+    var header = document.querySelector('.modal-header');
+    if (title) title.innerHTML = '<i class="bi bi-check-circle me-2"></i> Backup abgeschlossen';
+    if (header) {
+        header.classList.remove('bg-primary');
+        header.classList.add('bg-success');
+    }
 }
 
 function showError(message) {
-    document.getElementById('progressSpinner').classList.add('d-none');
-    document.getElementById('progressError').classList.remove('d-none');
-    document.getElementById('progressMessage').textContent = 'Backup fehlgeschlagen';
-    document.getElementById('progressIcon').className = 'bi bi-x-circle me-2 text-danger';
-    document.getElementById('errorAlert').classList.remove('d-none');
-    document.getElementById('errorMessage').textContent = message;
-    document.querySelector('.modal-title').innerHTML = '<i class="bi bi-x-circle me-2"></i> Backup fehlgeschlagen';
-    document.querySelector('.modal-header').classList.remove('bg-primary');
-    document.querySelector('.modal-header').classList.add('bg-danger');
+    safeAddClass('progressSpinner', 'd-none');
+    safeRemoveClass('progressError', 'd-none');
+    safeSetText('progressMessage', 'Backup fehlgeschlagen');
+    safeSetAttr('progressIcon', 'className', 'bi bi-x-circle me-2 text-danger');
+    safeRemoveClass('errorAlert', 'd-none');
+    safeSetText('errorMessage', message);
+
+    var title = document.querySelector('.modal-title');
+    var header = document.querySelector('.modal-header');
+    if (title) title.innerHTML = '<i class="bi bi-x-circle me-2"></i> Backup fehlgeschlagen';
+    if (header) {
+        header.classList.remove('bg-primary');
+        header.classList.add('bg-danger');
+    }
 
     // Schließen-Button anzeigen
-    document.getElementById('progressFooter').classList.remove('d-none');
-    document.getElementById('viewBackupBtn').textContent = 'Schließen';
-    document.getElementById('viewBackupBtn').href = '{% url "shopify_manager:backup_list" store_id=store.id %}';
+    safeRemoveClass('progressFooter', 'd-none');
+    safeSetText('viewBackupBtn', 'Schließen');
+    safeSetAttr('viewBackupBtn', 'href', '{% url "shopify_manager:backup_list" store_id=store.id %}');
 }
 
 document.getElementById('backupForm').addEventListener('submit', function(e) {
