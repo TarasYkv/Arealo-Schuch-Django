@@ -375,7 +375,8 @@ class ShopifyRestoreService:
         }
 
         # Bild hinzufügen
-        if data.get('image') and data['image'].get('src'):
+        has_image = data.get('image') and data['image'].get('src')
+        if has_image:
             collection_data[key]['image'] = {
                 'src': data['image']['src'],
                 'alt': data['image'].get('alt', '')
@@ -402,6 +403,29 @@ class ShopifyRestoreService:
                     'Collection erfolgreich wiederhergestellt',
                     new_collection.get('id')
                 )
+            elif response.status_code == 422 and has_image and 'image' in response.text.lower():
+                # Bild-Fehler - Retry ohne Bild
+                del collection_data[key]['image']
+                response = self._make_request(
+                    'POST',
+                    f"{self.base_url}/{endpoint}",
+                    json=collection_data,
+                    timeout=30
+                )
+                if response.status_code == 201:
+                    new_collection = response.json().get(key, {})
+                    return self._create_log(
+                        backup_item,
+                        'success',
+                        'Collection wiederhergestellt (ohne Bild - Original nicht mehr verfügbar)',
+                        new_collection.get('id')
+                    )
+                else:
+                    return self._create_log(
+                        backup_item,
+                        'failed',
+                        f'API-Fehler: {response.status_code} - {response.text[:500]}'
+                    )
             else:
                 return self._create_log(
                     backup_item,
