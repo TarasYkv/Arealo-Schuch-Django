@@ -1751,6 +1751,10 @@ class ShopifyBackup(models.Model):
     images_count = models.IntegerField(default=0)
     total_size_bytes = models.BigIntegerField(default=0)
 
+    # Fortschritts-Tracking
+    current_step = models.CharField(max_length=50, blank=True, help_text="Aktueller Backup-Schritt")
+    progress_message = models.CharField(max_length=255, blank=True, help_text="Aktuelle Fortschrittsnachricht")
+
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)

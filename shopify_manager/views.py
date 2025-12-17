@@ -4470,9 +4470,13 @@ def backup_list(request, store_id):
 @login_required
 def backup_create(request, store_id):
     """Neues Backup erstellen"""
+    import threading
+
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
 
     if request.method == 'POST':
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
         # Backup-Objekt erstellen
         backup = ShopifyBackup.objects.create(
             user=request.user,
@@ -4492,16 +4496,35 @@ def backup_create(request, store_id):
             include_customers=request.POST.get('include_customers') == 'on',
         )
 
-        # Backup Service starten
-        service = ShopifyBackupService(store, backup)
-        success, message = service.create_backup()
+        if is_ajax:
+            # Bei AJAX: Backup im Hintergrund starten und sofort antworten
+            def run_backup(store_obj, backup_obj):
+                from django.db import connection
+                connection.close()  # Neue DB-Verbindung im Thread
+                service = ShopifyBackupService(store_obj, backup_obj)
+                service.create_backup()
 
-        if success:
-            messages.success(request, f'Backup erfolgreich erstellt: {backup.total_items_count} Elemente gesichert')
+            thread = threading.Thread(target=run_backup, args=(store, backup))
+            thread.daemon = True
+            thread.start()
+
+            return JsonResponse({
+                'success': True,
+                'backup_id': backup.id,
+                'status_url': f'/shopify/api/store/{store.id}/backups/{backup.id}/status/',
+                'detail_url': f'/shopify/store/{store.id}/backups/{backup.id}/',
+            })
         else:
-            messages.error(request, f'Backup fehlgeschlagen: {message}')
+            # Bei normalem Request: Backup synchron ausführen
+            service = ShopifyBackupService(store, backup)
+            success, message = service.create_backup()
 
-        return redirect('shopify_manager:backup_detail', store_id=store.id, backup_id=backup.id)
+            if success:
+                messages.success(request, f'Backup erfolgreich erstellt: {backup.total_items_count} Elemente gesichert')
+            else:
+                messages.error(request, f'Backup fehlgeschlagen: {message}')
+
+            return redirect('shopify_manager:backup_detail', store_id=store.id, backup_id=backup.id)
 
     return render(request, 'shopify_manager/backup/backup_create.html', {
         'store': store,
@@ -4668,11 +4691,17 @@ def api_backup_status(request, store_id, backup_id):
 
     return JsonResponse({
         'status': backup.status,
+        'current_step': backup.current_step,
+        'progress_message': backup.progress_message,
         'products_count': backup.products_count,
         'blogs_count': backup.blogs_count,
         'posts_count': backup.posts_count,
         'collections_count': backup.collections_count,
         'pages_count': backup.pages_count,
+        'menus_count': backup.menus_count,
+        'redirects_count': backup.redirects_count,
+        'orders_count': backup.orders_count,
+        'customers_count': backup.customers_count,
         'total_items': backup.total_items_count,
         'size': backup.get_size_display(),
         'error_message': backup.error_message if backup.status == 'failed' else None,

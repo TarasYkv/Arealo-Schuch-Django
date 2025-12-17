@@ -162,56 +162,75 @@ class ShopifyBackupService:
             pass
         return None
 
+    def _update_progress(self, step: str, message: str):
+        """Aktualisiert den Fortschritt in der Datenbank"""
+        self.backup.current_step = step
+        self.backup.progress_message = message
+        self.backup.save(update_fields=['current_step', 'progress_message'])
+
     def create_backup(self) -> Tuple[bool, str]:
         """Hauptmethode - erstellt komplettes Backup"""
         try:
             self.backup.status = 'running'
-            self.backup.save()
+            self._update_progress('init', 'Backup wird gestartet...')
 
             # Produkte
             if self.backup.include_products:
+                self._update_progress('products', 'Produkte werden gesichert...')
                 self._backup_products()
 
             # Blogs & Posts
             if self.backup.include_blogs:
+                self._update_progress('blogs', 'Blogs werden gesichert...')
                 self._backup_blogs()
 
             # Collections
             if self.backup.include_collections:
+                self._update_progress('collections', 'Collections werden gesichert...')
                 self._backup_collections()
 
             # Pages
             if self.backup.include_pages:
+                self._update_progress('pages', 'Seiten werden gesichert...')
                 self._backup_pages()
 
             # Menus
             if self.backup.include_menus:
+                self._update_progress('menus', 'Menüs werden gesichert...')
                 self._backup_menus()
 
             # Redirects
             if self.backup.include_redirects:
+                self._update_progress('redirects', 'Weiterleitungen werden gesichert...')
                 self._backup_redirects()
 
             # Metafields
             if self.backup.include_metafields:
+                self._update_progress('metafields', 'Metafields werden gesichert...')
                 self._backup_metafields()
 
             # Discounts
             if self.backup.include_discounts:
+                self._update_progress('discounts', 'Rabattcodes werden gesichert...')
                 self._backup_discounts()
 
             # Orders
             if self.backup.include_orders:
+                self._update_progress('orders', 'Bestellungen werden gesichert...')
                 self._backup_orders()
 
             # Customers
             if self.backup.include_customers:
+                self._update_progress('customers', 'Kundendaten werden gesichert...')
                 self._backup_customers()
 
             # Backup abschließen
+            self._update_progress('finalizing', 'Backup wird abgeschlossen...')
             self.backup.status = 'completed'
             self.backup.completed_at = timezone.now()
             self.backup.total_size_bytes = self.total_size
+            self.backup.current_step = ''
+            self.backup.progress_message = ''
             self.backup.save()
 
             return True, "Backup erfolgreich erstellt"
@@ -219,16 +238,23 @@ class ShopifyBackupService:
         except Exception as e:
             self.backup.status = 'failed'
             self.backup.error_message = str(e)
+            self.backup.current_step = 'error'
+            self.backup.progress_message = f'Fehler: {str(e)[:200]}'
             self.backup.save()
             return False, f"Backup fehlgeschlagen: {str(e)}"
 
     def _backup_products(self):
         """Sichert alle Produkte"""
+        self._update_progress('products', 'Produkte werden abgerufen...')
         products = self._fetch_all_paginated('products.json', 'products')
+        total = len(products)
         count = 0
         images_count = 0
 
         for product in products:
+            count += 1
+            self._update_progress('products', f'Produkt {count} von {total}: {product.get("title", "")[:40]}...')
+
             # Produkt sichern
             image_url = ''
             if product.get('images'):
@@ -241,7 +267,6 @@ class ShopifyBackupService:
                 raw_data=product,
                 image_url=image_url
             )
-            count += 1
 
             # Optional: Produktbilder herunterladen
             if self.backup.include_product_images and product.get('images'):
@@ -266,11 +291,15 @@ class ShopifyBackupService:
 
     def _backup_blogs(self):
         """Sichert Blogs und Blog-Posts"""
+        self._update_progress('blogs', 'Blogs werden abgerufen...')
         blogs = self._fetch_all_paginated('blogs.json', 'blogs')
         blogs_count = 0
         posts_count = 0
 
         for blog in blogs:
+            blogs_count += 1
+            self._update_progress('blogs', f'Blog: {blog.get("title", "")[:40]}...')
+
             # Blog sichern
             self._save_backup_item(
                 item_type='blog',
@@ -278,15 +307,16 @@ class ShopifyBackupService:
                 title=blog.get('title', 'Unbekannt'),
                 raw_data=blog
             )
-            blogs_count += 1
 
             # Blog-Posts für diesen Blog holen
+            self._update_progress('blogs', f'Lade Beiträge von "{blog.get("title", "")[:30]}"...')
             articles = self._fetch_all_paginated(
                 f'blogs/{blog["id"]}/articles.json',
                 'articles'
             )
 
-            for article in articles:
+            for idx, article in enumerate(articles, 1):
+                self._update_progress('blogs', f'Beitrag {idx}/{len(articles)}: {article.get("title", "")[:35]}...')
                 image_url = article.get('image', {}).get('src', '') if article.get('image') else ''
 
                 self._save_backup_item(

@@ -173,11 +173,224 @@
     </div>
 </form>
 
+<!-- Progress Modal -->
+<div class="modal fade" id="progressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-cloud-upload me-2"></i>
+                    Backup wird erstellt...
+                </h5>
+            </div>
+            <div class="modal-body">
+                <!-- Aktueller Schritt -->
+                <div class="text-center mb-4">
+                    <div class="spinner-border text-primary mb-3" role="status" id="progressSpinner">
+                        <span class="visually-hidden">Läuft...</span>
+                    </div>
+                    <div id="progressSuccess" class="d-none">
+                        <i class="bi bi-check-circle text-success display-4"></i>
+                    </div>
+                    <div id="progressError" class="d-none">
+                        <i class="bi bi-x-circle text-danger display-4"></i>
+                    </div>
+                </div>
+
+                <!-- Fortschritts-Nachricht -->
+                <div class="alert alert-light border mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-arrow-right-circle me-2 text-primary" id="progressIcon"></i>
+                        <span id="progressMessage">Initialisiere Backup...</span>
+                    </div>
+                </div>
+
+                <!-- Statistiken -->
+                <div class="card bg-light">
+                    <div class="card-body py-2">
+                        <h6 class="card-title mb-2"><i class="bi bi-bar-chart"></i> Gesicherte Elemente</h6>
+                        <div class="row text-center small">
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statProducts">0</div>
+                                <div class="text-muted">Produkte</div>
+                            </div>
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statBlogs">0</div>
+                                <div class="text-muted">Blogs</div>
+                            </div>
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statPosts">0</div>
+                                <div class="text-muted">Beiträge</div>
+                            </div>
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statCollections">0</div>
+                                <div class="text-muted">Collections</div>
+                            </div>
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statPages">0</div>
+                                <div class="text-muted">Seiten</div>
+                            </div>
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statMenus">0</div>
+                                <div class="text-muted">Menüs</div>
+                            </div>
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statRedirects">0</div>
+                                <div class="text-muted">Redirects</div>
+                            </div>
+                            <div class="col-4 col-md-3 mb-2">
+                                <div class="fw-bold" id="statTotal">0</div>
+                                <div class="text-muted">Gesamt</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fehler-Anzeige -->
+                <div class="alert alert-danger mt-3 d-none" id="errorAlert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span id="errorMessage"></span>
+                </div>
+            </div>
+            <div class="modal-footer d-none" id="progressFooter">
+                <a href="#" class="btn btn-success" id="viewBackupBtn">
+                    <i class="bi bi-eye"></i> Backup ansehen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-document.getElementById('backupForm').addEventListener('submit', function() {
+let statusUrl = null;
+let detailUrl = null;
+let pollInterval = null;
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function updateStats(data) {
+    document.getElementById('statProducts').textContent = data.products_count || 0;
+    document.getElementById('statBlogs').textContent = data.blogs_count || 0;
+    document.getElementById('statPosts').textContent = data.posts_count || 0;
+    document.getElementById('statCollections').textContent = data.collections_count || 0;
+    document.getElementById('statPages').textContent = data.pages_count || 0;
+    document.getElementById('statMenus').textContent = data.menus_count || 0;
+    document.getElementById('statRedirects').textContent = data.redirects_count || 0;
+    document.getElementById('statTotal').textContent = data.total_items || 0;
+}
+
+function pollStatus() {
+    if (!statusUrl) return;
+
+    fetch(statusUrl, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Statistiken aktualisieren
+        updateStats(data);
+
+        // Fortschritts-Nachricht aktualisieren
+        if (data.progress_message) {
+            document.getElementById('progressMessage').textContent = data.progress_message;
+        }
+
+        // Status prüfen
+        if (data.status === 'completed') {
+            clearInterval(pollInterval);
+            showSuccess();
+        } else if (data.status === 'failed') {
+            clearInterval(pollInterval);
+            showError(data.error_message || 'Unbekannter Fehler');
+        }
+    })
+    .catch(error => {
+        console.error('Polling error:', error);
+    });
+}
+
+function showSuccess() {
+    document.getElementById('progressSpinner').classList.add('d-none');
+    document.getElementById('progressSuccess').classList.remove('d-none');
+    document.getElementById('progressMessage').textContent = 'Backup erfolgreich abgeschlossen!';
+    document.getElementById('progressIcon').className = 'bi bi-check-circle me-2 text-success';
+    document.getElementById('progressFooter').classList.remove('d-none');
+    document.getElementById('viewBackupBtn').href = detailUrl;
+    document.querySelector('.modal-title').innerHTML = '<i class="bi bi-check-circle me-2"></i> Backup abgeschlossen';
+    document.querySelector('.modal-header').classList.remove('bg-primary');
+    document.querySelector('.modal-header').classList.add('bg-success');
+}
+
+function showError(message) {
+    document.getElementById('progressSpinner').classList.add('d-none');
+    document.getElementById('progressError').classList.remove('d-none');
+    document.getElementById('progressMessage').textContent = 'Backup fehlgeschlagen';
+    document.getElementById('progressIcon').className = 'bi bi-x-circle me-2 text-danger';
+    document.getElementById('errorAlert').classList.remove('d-none');
+    document.getElementById('errorMessage').textContent = message;
+    document.querySelector('.modal-title').innerHTML = '<i class="bi bi-x-circle me-2"></i> Backup fehlgeschlagen';
+    document.querySelector('.modal-header').classList.remove('bg-primary');
+    document.querySelector('.modal-header').classList.add('bg-danger');
+
+    // Schließen-Button anzeigen
+    document.getElementById('progressFooter').classList.remove('d-none');
+    document.getElementById('viewBackupBtn').textContent = 'Schließen';
+    document.getElementById('viewBackupBtn').href = '{% url "shopify_manager:backup_list" store_id=store.id %}';
+}
+
+document.getElementById('backupForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
     var btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Backup wird erstellt...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Wird gestartet...';
+
+    // Modal öffnen
+    var modal = new bootstrap.Modal(document.getElementById('progressModal'));
+    modal.show();
+
+    // Formular per AJAX absenden
+    var formData = new FormData(this);
+
+    fetch(this.action || window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusUrl = data.status_url;
+            detailUrl = data.detail_url;
+
+            // Polling starten
+            pollInterval = setInterval(pollStatus, 1000);
+        } else {
+            showError(data.error || 'Backup konnte nicht gestartet werden');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Verbindungsfehler: ' + error.message);
+    });
 });
 </script>
 {% endblock %}
