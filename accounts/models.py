@@ -203,29 +203,44 @@ class AppPermission(models.Model):
         ('imageforge', 'ImageForge - KI Bildgenerierung'),
         ('questionfinder', 'QuestionFinder'),
 
+        # SEO Tools
+        ('seo_dashboard', 'SEO Dashboard'),
+        ('loomline', 'LoomLine - SEO Task Timeline'),
+
         # Schuch Tools
         ('schuch', 'Schuch'),
         ('schuch_dashboard', 'Schuch Dashboard'),
         ('wirtschaftlichkeitsrechner', 'Wirtschaftlichkeitsrechner'),
         ('beleuchtungsrechner', 'Beleuchtungsrechner'),
-        ('din_13201', 'DIN 13201-1 Straßenklassifizierung'),
+        ('din_13201', 'DIN 13201-1 Klassifizierung'),
         ('sportplatz_konfigurator', 'Sportplatz-Konfigurator'),
         ('pdf_suche', 'PDF-Suche'),
         ('ki_zusammenfassung', 'KI-Zusammenfassung'),
-        
+
         # Shopify Unterkategorien
         ('shopify_produkte', 'Shopify - Produkte'),
+        ('shopify_kategorien', 'Shopify - Kategorien'),
         ('shopify_blogs', 'Shopify - Blogs'),
+        ('shopify_stores', 'Shopify - Stores'),
+        ('shopify_backups', 'Shopify - Backups'),
         ('shopify_seo_dashboard', 'Shopify - SEO Dashboard'),
         ('shopify_verkaufszahlen', 'Shopify - Verkaufszahlen'),
         ('shopify_seo_optimierung', 'Shopify - SEO-Optimierung'),
         ('shopify_alt_text', 'Shopify - Alt-Text Manager'),
-        
+        ('blogprep', 'BlogPrep - Blog-Vorbereitung'),
+        ('shopify_uploads', 'Shopify - Fotogravur Uploads'),
+
         # Organisation Unterkategorien
         ('organisation_notizen', 'Organisation - Notizen'),
         ('organisation_termine', 'Organisation - Termine'),
         ('organisation_ideenboards', 'Organisation - Ideenboards'),
         ('organisation_terminanfragen', 'Organisation - Ausstehende Terminanfragen'),
+
+        # Admin/Superuser Tools
+        ('stats', 'Statistiken Dashboard'),
+        ('superconfig', 'SuperConfig - Systemkonfiguration'),
+        ('visual_editor', 'Visual Editor'),
+        ('loomads', 'LoomAds - Werbung'),
     ]
     
     # Zugriffsebenen
