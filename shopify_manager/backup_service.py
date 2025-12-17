@@ -165,7 +165,8 @@ class ShopifyBackupService:
     def _update_progress(self, step: str, message: str):
         """Aktualisiert den Fortschritt in der Datenbank"""
         self.backup.current_step = step
-        self.backup.progress_message = message
+        # Emojis aus der Nachricht entfernen (MySQL-Kompatibilität)
+        self.backup.progress_message = sanitize_title(message) if message else ''
         self.backup.save(update_fields=['current_step', 'progress_message'])
 
     def create_backup(self) -> Tuple[bool, str]:
