@@ -1934,10 +1934,10 @@ def import_blog_posts_progress_view(request, import_id):
 
     progress = import_progress[import_id]
 
-    # Timeout-Erkennung: Wenn Status "running" aber kein Update seit 2 Minuten
+    # Timeout-Erkennung: Wenn Status "running" aber kein Update seit 10 Sekunden
     if progress['status'] == 'running':
         last_update = progress.get('last_update', 0)
-        if last_update and (time_module.time() - last_update) > 120:  # 2 Minuten
+        if last_update and (time_module.time() - last_update) > 10:  # 10 Sekunden
             progress['status'] = 'stalled'
             progress['message'] = f'Import scheint abgebrochen (bei {progress.get("current", 0)} Elementen). Bitte starten Sie einen neuen Import.'
 
@@ -1960,10 +1960,10 @@ def import_products_progress_view(request, import_id):
 
     progress = import_progress[import_id]
 
-    # Timeout-Erkennung: Wenn Status "running" aber kein Update seit 2 Minuten
+    # Timeout-Erkennung: Wenn Status "running" aber kein Update seit 10 Sekunden
     if progress['status'] == 'running':
         last_update = progress.get('last_update', 0)
-        if last_update and (time_module.time() - last_update) > 120:  # 2 Minuten
+        if last_update and (time_module.time() - last_update) > 10:  # 10 Sekunden
             # Import ist wahrscheinlich abgestürzt
             progress['status'] = 'stalled'
             progress['message'] = f'Import scheint abgebrochen (bei {progress.get("current", 0)} Elementen). Bitte starten Sie einen neuen Import mit "Nur neue".'

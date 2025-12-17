@@ -386,12 +386,12 @@ def collection_import_progress_view(request, import_id):
 
     progress = import_progress[import_id]
 
-    # Timeout-Erkennung: Wenn der Status 'running' ist aber seit 2 Minuten kein Update kam
+    # Timeout-Erkennung: Wenn der Status 'running' ist aber seit 10 Sekunden kein Update kam
     if progress['status'] == 'running':
         last_update = progress.get('last_update', 0)
-        if last_update and (time_module.time() - last_update) > 120:  # 2 Minuten Timeout
+        if last_update and (time_module.time() - last_update) > 10:  # 10 Sekunden Timeout
             progress['status'] = 'stalled'
-            progress['message'] = f'Import scheint abgebrochen zu sein (kein Update seit 2 Minuten). Bisher: {progress.get("success_count", 0)} Kategorien importiert.'
+            progress['message'] = f'Import scheint abgebrochen zu sein (kein Update seit 10 Sekunden). Bisher: {progress.get("success_count", 0)} Kategorien importiert.'
 
     return JsonResponse({
         'success': True,
