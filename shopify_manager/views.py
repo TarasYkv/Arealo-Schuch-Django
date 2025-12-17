@@ -394,13 +394,16 @@ def import_products_view(request):
     import_id = str(uuid.uuid4())
     
     # Initialisiere Progress-Tracking
+    import time as time_module
     import_progress[import_id] = {
         'status': 'running',
         'current': 0,
         'total': 0,
         'message': 'Initialisiere Produkt-Import...',
         'success_count': 0,
-        'failed_count': 0
+        'failed_count': 0,
+        'last_update': time_module.time(),
+        'store_id': store.id
     }
     
     try:
@@ -1848,8 +1851,9 @@ def import_blog_posts_view(request):
     
     # Erstelle eine eindeutige Import-ID
     import_id = str(uuid.uuid4())
-    
+
     # Initialisiere Progress-Tracking
+    import time as time_module
     import_progress[import_id] = {
         'status': 'running',
         'current': 0,
@@ -1857,7 +1861,8 @@ def import_blog_posts_view(request):
         'message': 'Import wird gestartet...',
         'success': True,
         'error': None,
-        'log': None
+        'log': None,
+        'last_update': time_module.time()
     }
     
     # Starte Import in separatem Thread
@@ -1919,19 +1924,23 @@ def _run_blog_import(blog, import_mode, import_id):
 @login_required
 def import_blog_posts_progress_view(request, import_id):
     """Gibt den aktuellen Import-Fortschritt zurück"""
+    import time as time_module
+
     if import_id not in import_progress:
         return JsonResponse({
             'success': False,
             'error': 'Import-ID nicht gefunden'
         })
-    
+
     progress = import_progress[import_id]
-    
-    # Cleanup abgeschlossene Imports nach einer Weile
-    if progress['status'] in ['completed', 'error']:
-        # Optionales Cleanup nach 5 Minuten
-        pass
-    
+
+    # Timeout-Erkennung: Wenn Status "running" aber kein Update seit 2 Minuten
+    if progress['status'] == 'running':
+        last_update = progress.get('last_update', 0)
+        if last_update and (time_module.time() - last_update) > 120:  # 2 Minuten
+            progress['status'] = 'stalled'
+            progress['message'] = f'Import scheint abgebrochen (bei {progress.get("current", 0)} Elementen). Bitte starten Sie einen neuen Import.'
+
     return JsonResponse({
         'success': True,
         'progress': progress
@@ -1941,19 +1950,24 @@ def import_blog_posts_progress_view(request, import_id):
 @login_required
 def import_products_progress_view(request, import_id):
     """Gibt den aktuellen Produkt-Import-Fortschritt zurück"""
+    import time as time_module
+
     if import_id not in import_progress:
         return JsonResponse({
             'success': False,
             'error': 'Import-ID nicht gefunden'
         })
-    
+
     progress = import_progress[import_id]
-    
-    # Cleanup abgeschlossene Imports nach einer Weile
-    if progress['status'] in ['completed', 'error']:
-        # Optionales Cleanup nach 5 Minuten
-        pass
-    
+
+    # Timeout-Erkennung: Wenn Status "running" aber kein Update seit 2 Minuten
+    if progress['status'] == 'running':
+        last_update = progress.get('last_update', 0)
+        if last_update and (time_module.time() - last_update) > 120:  # 2 Minuten
+            # Import ist wahrscheinlich abgestürzt
+            progress['status'] = 'stalled'
+            progress['message'] = f'Import scheint abgebrochen (bei {progress.get("current", 0)} Elementen). Bitte starten Sie einen neuen Import mit "Nur neue".'
+
     return JsonResponse({
         'success': True,
         'progress': progress
@@ -1967,11 +1981,13 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
     
     def _update_progress(self, current, total, message):
         """Aktualisiert den Import-Fortschritt"""
+        import time as time_module
         if self.import_id in import_progress:
             import_progress[self.import_id].update({
                 'current': current,
                 'total': total,
-                'message': message
+                'message': message,
+                'last_update': time_module.time()
             })
     
     def _fetch_all_blog_posts(self, blog_id: str, max_posts: int = None, start_from_id: str = None, load_older: bool = False):
@@ -2454,13 +2470,15 @@ class ShopifyProductSyncWithProgress(ShopifyProductSync):
     
     def _update_progress(self, current, total, message, success_count=0, failed_count=0):
         """Aktualisiert den Import-Fortschritt"""
+        import time as time_module
         if self.import_id in import_progress:
             import_progress[self.import_id].update({
                 'current': current,
                 'total': total,
                 'message': message,
                 'success_count': success_count,
-                'failed_count': failed_count
+                'failed_count': failed_count,
+                'last_update': time_module.time()
             })
     
     def _fetch_products_with_progress(self, limit: int = 250) -> Tuple[bool, List[Dict], str]:
