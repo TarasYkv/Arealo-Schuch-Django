@@ -134,4 +134,14 @@ urlpatterns = [
     # Google Ads Integration
     path('google-ads/config/', sales_views.google_ads_config_view, name='google_ads_config'),
     path('google-ads/<int:store_id>/sync/', sales_views.google_ads_sync_view, name='google_ads_sync'),
+
+    # Backup & Restore
+    path('store/<int:store_id>/backups/', views.backup_list, name='backup_list'),
+    path('store/<int:store_id>/backups/create/', views.backup_create, name='backup_create'),
+    path('store/<int:store_id>/backups/<int:backup_id>/', views.backup_detail, name='backup_detail'),
+    path('store/<int:store_id>/backups/<int:backup_id>/download/', views.backup_download, name='backup_download'),
+    path('store/<int:store_id>/backups/<int:backup_id>/delete/', views.backup_delete, name='backup_delete'),
+    path('store/<int:store_id>/backups/<int:backup_id>/restore/', views.restore_start, name='restore_start'),
+    path('store/<int:store_id>/backups/<int:backup_id>/restore/<int:item_id>/', views.restore_item, name='restore_item'),
+    path('api/store/<int:store_id>/backups/<int:backup_id>/status/', views.api_backup_status, name='api_backup_status'),
 ]

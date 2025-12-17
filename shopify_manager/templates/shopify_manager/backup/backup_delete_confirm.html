@@ -1,0 +1,79 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Backup loeschen - {{ backup.name }}{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-trash text-danger"></i> Backup loeschen</h2>
+        <p class="text-muted mb-0">{{ store.name }}</p>
+    </div>
+    <a href="{% url 'shopify_manager:backup_list' store_id=store.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Zurueck
+    </a>
+</div>
+
+<div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Achtung: Unwiderrufliche Aktion</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <i class="bi bi-info-circle"></i> Sie sind dabei, das folgende Backup unwiderruflich zu loeschen:
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Name:</th>
+                        <td>{{ backup.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Erstellt:</th>
+                        <td>{{ backup.created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status:</th>
+                        <td>{{ backup.get_status_display }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Elemente:</th>
+                        <td>{{ backup.total_items_count }}</td>
+                    </tr>
+                    <tr>
+                        <th>Groesse:</th>
+                        <td>{{ backup.get_size_display }}</td>
+                    </tr>
+                    <tr>
+                        <th>Bilder:</th>
+                        <td>{{ backup.images_count }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="alert alert-danger">
+            <strong><i class="bi bi-exclamation-octagon"></i> Diese Aktion kann nicht rueckgaengig gemacht werden!</strong>
+            <p class="mb-0 mt-2">Alle gespeicherten Backup-Daten werden permanent geloescht.</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash"></i> Ja, Backup loeschen
+                </button>
+                <a href="{% url 'shopify_manager:backup_list' store_id=store.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x"></i> Abbrechen
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

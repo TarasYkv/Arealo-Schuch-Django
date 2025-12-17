@@ -1,0 +1,183 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Neues Backup - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-cloud-plus"></i> Neues Backup erstellen</h2>
+        <p class="text-muted mb-0">{{ store.name }}</p>
+    </div>
+    <a href="{% url 'shopify_manager:backup_list' store_id=store.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Zurueck
+    </a>
+</div>
+
+<form method="post" id="backupForm">
+    {% csrf_token %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Backup-Optionen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Backup-Name</label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               placeholder="z.B. Vollbackup Dezember 2025" required>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h6 class="mb-3">Haupt-Daten</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_products" name="include_products" checked>
+                                <label class="form-check-label" for="include_products">
+                                    <i class="bi bi-box text-primary"></i> Produkte
+                                </label>
+                            </div>
+                            <div class="form-check mb-2 ms-4">
+                                <input class="form-check-input" type="checkbox" id="include_product_images" name="include_product_images">
+                                <label class="form-check-label text-muted" for="include_product_images">
+                                    Produktbilder herunterladen
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_blogs" name="include_blogs" checked>
+                                <label class="form-check-label" for="include_blogs">
+                                    <i class="bi bi-journal-text text-info"></i> Blogs & Posts
+                                </label>
+                            </div>
+                            <div class="form-check mb-2 ms-4">
+                                <input class="form-check-input" type="checkbox" id="include_blog_images" name="include_blog_images">
+                                <label class="form-check-label text-muted" for="include_blog_images">
+                                    Blog-Bilder herunterladen
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_collections" name="include_collections" checked>
+                                <label class="form-check-label" for="include_collections">
+                                    <i class="bi bi-grid-3x3-gap text-success"></i> Collections
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_pages" name="include_pages" checked>
+                                <label class="form-check-label" for="include_pages">
+                                    <i class="bi bi-file-earmark-text text-secondary"></i> Seiten
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h6 class="mb-3">Navigation & SEO</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_menus" name="include_menus" checked>
+                                <label class="form-check-label" for="include_menus">
+                                    <i class="bi bi-list text-warning"></i> Menues
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_redirects" name="include_redirects" checked>
+                                <label class="form-check-label" for="include_redirects">
+                                    <i class="bi bi-arrow-right-circle text-danger"></i> Weiterleitungen
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h6 class="mb-3">Erweiterte Daten (optional)</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_metafields" name="include_metafields">
+                                <label class="form-check-label" for="include_metafields">
+                                    <i class="bi bi-code-square"></i> Metafields
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_discounts" name="include_discounts">
+                                <label class="form-check-label" for="include_discounts">
+                                    <i class="bi bi-tag"></i> Rabattcodes
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_orders" name="include_orders">
+                                <label class="form-check-label" for="include_orders">
+                                    <i class="bi bi-bag"></i> Bestellungen
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="include_customers" name="include_customers">
+                                <label class="form-check-label" for="include_customers">
+                                    <i class="bi bi-people"></i> Kundendaten
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Hinweise</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-lightbulb"></i>
+                        <strong>Bilder-Download:</strong> Das Herunterladen von Bildern erhoet die Backup-Groesse erheblich und dauert laenger.
+                    </div>
+
+                    <div class="alert alert-warning mb-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Datenschutz:</strong> Bestellungen und Kundendaten enthalten personenbezogene Informationen.
+                    </div>
+
+                    <div class="alert alert-secondary mb-0">
+                        <i class="bi bi-clock"></i>
+                        <strong>Dauer:</strong> Je nach Datenmenge kann das Backup einige Minuten dauern.
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary w-100" id="submitBtn">
+                        <i class="bi bi-cloud-upload"></i> Backup starten
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+document.getElementById('backupForm').addEventListener('submit', function() {
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Backup wird erstellt...';
+});
+</script>
+{% endblock %}

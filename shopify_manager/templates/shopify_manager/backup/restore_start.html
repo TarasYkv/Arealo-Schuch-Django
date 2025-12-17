@@ -1,0 +1,234 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Wiederherstellen - {{ backup.name }}{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-arrow-counterclockwise"></i> Backup wiederherstellen</h2>
+        <p class="text-muted mb-0">{{ store.name }} - {{ backup.name }}</p>
+    </div>
+    <a href="{% url 'shopify_manager:backup_detail' store_id=store.id backup_id=backup.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Zurueck zum Backup
+    </a>
+</div>
+
+<form method="post" id="restoreForm">
+    {% csrf_token %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Wiederherstellungs-Optionen</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Modus-Auswahl -->
+                    <h6 class="mb-3">Wiederherstellungs-Modus</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mode" id="mode_missing" value="only_missing" checked>
+                                <label class="form-check-label" for="mode_missing">
+                                    <strong>Nur fehlende Elemente</strong>
+                                    <br><small class="text-muted">Stellt nur Elemente wieder her, die im Shop nicht mehr existieren</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mode" id="mode_overwrite" value="overwrite">
+                                <label class="form-check-label" for="mode_overwrite">
+                                    <strong>Ueberschreiben</strong>
+                                    <br><small class="text-muted">Ueberschreibt vorhandene Elemente mit Backup-Daten</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Kategorien-Auswahl -->
+                    <h6 class="mb-3">Zu wiederherstellende Kategorien</h6>
+                    <div class="row">
+                        {% if backup.products_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="product" id="restore_products" checked>
+                                <label class="form-check-label" for="restore_products">
+                                    <i class="bi bi-box text-primary"></i> Produkte
+                                    <span class="badge bg-secondary">{{ backup.products_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.blogs_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="blog" id="restore_blogs" checked>
+                                <label class="form-check-label" for="restore_blogs">
+                                    <i class="bi bi-journal text-info"></i> Blogs
+                                    <span class="badge bg-secondary">{{ backup.blogs_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.posts_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="blog_post" id="restore_posts" checked>
+                                <label class="form-check-label" for="restore_posts">
+                                    <i class="bi bi-file-earmark-text text-info"></i> Blog-Beitraege
+                                    <span class="badge bg-secondary">{{ backup.posts_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.collections_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="collection" id="restore_collections" checked>
+                                <label class="form-check-label" for="restore_collections">
+                                    <i class="bi bi-grid-3x3-gap text-success"></i> Collections
+                                    <span class="badge bg-secondary">{{ backup.collections_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.pages_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="page" id="restore_pages" checked>
+                                <label class="form-check-label" for="restore_pages">
+                                    <i class="bi bi-file-earmark text-secondary"></i> Seiten
+                                    <span class="badge bg-secondary">{{ backup.pages_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.menus_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="menu" id="restore_menus" checked>
+                                <label class="form-check-label" for="restore_menus">
+                                    <i class="bi bi-list text-warning"></i> Menues
+                                    <span class="badge bg-secondary">{{ backup.menus_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.redirects_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="redirect" id="restore_redirects" checked>
+                                <label class="form-check-label" for="restore_redirects">
+                                    <i class="bi bi-arrow-right-circle text-danger"></i> Weiterleitungen
+                                    <span class="badge bg-secondary">{{ backup.redirects_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.metafields_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="metafield" id="restore_metafields">
+                                <label class="form-check-label" for="restore_metafields">
+                                    <i class="bi bi-code-square"></i> Metafields
+                                    <span class="badge bg-secondary">{{ backup.metafields_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.discounts_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="discount" id="restore_discounts">
+                                <label class="form-check-label" for="restore_discounts">
+                                    <i class="bi bi-tag"></i> Rabattcodes
+                                    <span class="badge bg-secondary">{{ backup.discounts_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if backup.customers_count > 0 %}
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="item_types" value="customer" id="restore_customers">
+                                <label class="form-check-label" for="restore_customers">
+                                    <i class="bi bi-people"></i> Kunden
+                                    <span class="badge bg-secondary">{{ backup.customers_count }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if backup.orders_count > 0 %}
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Bestellungen ({{ backup.orders_count }}):</strong> Bestellungen koennen aus technischen Gruenden nicht wiederhergestellt werden. Sie dienen nur als Archiv.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Backup-Info</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Name:</th>
+                            <td>{{ backup.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Erstellt:</th>
+                            <td>{{ backup.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Gesamt:</th>
+                            <td>{{ backup.total_items_count }} Elemente</td>
+                        </tr>
+                    </table>
+
+                    <div class="alert alert-warning mb-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Achtung:</strong> Die Wiederherstellung kann vorhandene Daten ueberschreiben!
+                    </div>
+
+                    <div class="alert alert-secondary mb-0">
+                        <i class="bi bi-clock"></i>
+                        <strong>Dauer:</strong> Die Wiederherstellung kann je nach Datenmenge einige Minuten dauern.
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-warning w-100" id="submitBtn">
+                        <i class="bi bi-arrow-counterclockwise"></i> Wiederherstellung starten
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+document.getElementById('restoreForm').addEventListener('submit', function() {
+    var btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Wiederherstellung laeuft...';
+});
+</script>
+{% endblock %}

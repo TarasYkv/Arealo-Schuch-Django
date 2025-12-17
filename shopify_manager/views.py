@@ -4444,3 +4444,236 @@ def apply_seo_view(request):
             'success': False,
             'error': f'Fehler beim Anwenden der Änderungen: {str(e)}'
         })
+
+# ============================================
+# BACKUP & RESTORE VIEWS
+# ============================================
+
+from .models import ShopifyBackup, BackupItem, RestoreLog
+from .backup_service import ShopifyBackupService
+from .restore_service import ShopifyRestoreService
+from django.http import HttpResponse
+
+
+@login_required
+def backup_list(request, store_id):
+    """Übersicht aller Backups für einen Store"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backups = store.backups.all().order_by('-created_at')
+
+    return render(request, 'shopify_manager/backup/backup_list.html', {
+        'store': store,
+        'backups': backups,
+    })
+
+
+@login_required
+def backup_create(request, store_id):
+    """Neues Backup erstellen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+
+    if request.method == 'POST':
+        # Backup-Objekt erstellen
+        backup = ShopifyBackup.objects.create(
+            user=request.user,
+            store=store,
+            name=request.POST.get('name', f'Backup {timezone.now().strftime("%Y-%m-%d %H:%M")}'),
+            include_products=request.POST.get('include_products') == 'on',
+            include_product_images=request.POST.get('include_product_images') == 'on',
+            include_blogs=request.POST.get('include_blogs') == 'on',
+            include_blog_images=request.POST.get('include_blog_images') == 'on',
+            include_collections=request.POST.get('include_collections') == 'on',
+            include_pages=request.POST.get('include_pages') == 'on',
+            include_menus=request.POST.get('include_menus') == 'on',
+            include_redirects=request.POST.get('include_redirects') == 'on',
+            include_metafields=request.POST.get('include_metafields') == 'on',
+            include_discounts=request.POST.get('include_discounts') == 'on',
+            include_orders=request.POST.get('include_orders') == 'on',
+            include_customers=request.POST.get('include_customers') == 'on',
+        )
+
+        # Backup Service starten
+        service = ShopifyBackupService(store, backup)
+        success, message = service.create_backup()
+
+        if success:
+            messages.success(request, f'Backup erfolgreich erstellt: {backup.total_items_count} Elemente gesichert')
+        else:
+            messages.error(request, f'Backup fehlgeschlagen: {message}')
+
+        return redirect('shopify_manager:backup_detail', store_id=store.id, backup_id=backup.id)
+
+    return render(request, 'shopify_manager/backup/backup_create.html', {
+        'store': store,
+    })
+
+
+@login_required
+def backup_detail(request, store_id, backup_id):
+    """Backup-Details anzeigen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    # Items nach Typ gruppieren
+    item_types = [
+        ('product', 'Produkte'),
+        ('blog', 'Blogs'),
+        ('blog_post', 'Blog-Beiträge'),
+        ('collection', 'Collections'),
+        ('page', 'Seiten'),
+        ('menu', 'Menüs'),
+        ('redirect', 'Weiterleitungen'),
+        ('metafield', 'Metafields'),
+        ('discount', 'Rabattcodes'),
+        ('order', 'Bestellungen'),
+        ('customer', 'Kunden'),
+    ]
+
+    items_by_type = {}
+    for item_type, label in item_types:
+        items = backup.items.filter(item_type=item_type)
+        if items.exists():
+            items_by_type[item_type] = {
+                'label': label,
+                'items': items,
+                'count': items.count()
+            }
+
+    # Aktiver Tab
+    active_tab = request.GET.get('tab', 'product')
+
+    # Restore-Logs
+    restore_logs = backup.restore_logs.all().order_by('-restored_at')[:50]
+
+    return render(request, 'shopify_manager/backup/backup_detail.html', {
+        'store': store,
+        'backup': backup,
+        'items_by_type': items_by_type,
+        'active_tab': active_tab,
+        'restore_logs': restore_logs,
+    })
+
+
+@login_required
+def backup_download(request, store_id, backup_id):
+    """Backup als ZIP herunterladen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    if backup.status != 'completed':
+        messages.error(request, 'Backup ist noch nicht abgeschlossen')
+        return redirect('shopify_manager:backup_detail', store_id=store.id, backup_id=backup.id)
+
+    # ZIP generieren
+    service = ShopifyBackupService(store, backup)
+    zip_buffer = service.generate_download_zip()
+
+    # Response erstellen
+    response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+    filename = f'{backup.name.replace(" ", "_")}_{backup.created_at.strftime("%Y%m%d")}.zip'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    return response
+
+
+@login_required
+def backup_delete(request, store_id, backup_id):
+    """Backup löschen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    if request.method == 'POST':
+        backup_name = backup.name
+        backup.delete()
+        messages.success(request, f'Backup "{backup_name}" wurde gelöscht')
+        return redirect('shopify_manager:backup_list', store_id=store.id)
+
+    return render(request, 'shopify_manager/backup/backup_delete_confirm.html', {
+        'store': store,
+        'backup': backup,
+    })
+
+
+@login_required
+def restore_start(request, store_id, backup_id):
+    """Wiederherstellung starten"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    if request.method == 'POST':
+        mode = request.POST.get('mode', 'only_missing')
+        item_types = request.POST.getlist('item_types')
+
+        service = ShopifyRestoreService(store, backup, mode)
+
+        if 'all' in item_types or not item_types:
+            # Alles wiederherstellen
+            results = service.restore_all()
+        else:
+            # Nur ausgewählte Kategorien
+            results = {}
+            for item_type in item_types:
+                results[item_type] = service.restore_category(item_type)
+
+        # Statistik erstellen
+        success_count = sum(1 for logs in results.values() for log in logs if log.status == 'success')
+        exists_count = sum(1 for logs in results.values() for log in logs if log.status == 'exists')
+        failed_count = sum(1 for logs in results.values() for log in logs if log.status == 'failed')
+
+        messages.success(
+            request,
+            f'Wiederherstellung abgeschlossen: {success_count} erfolgreich, '
+            f'{exists_count} bereits vorhanden, {failed_count} fehlgeschlagen'
+        )
+
+        return redirect('shopify_manager:backup_detail', store_id=store.id, backup_id=backup.id)
+
+    return render(request, 'shopify_manager/backup/restore_start.html', {
+        'store': store,
+        'backup': backup,
+    })
+
+
+@login_required
+def restore_item(request, store_id, backup_id, item_id):
+    """Einzelnes Element wiederherstellen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+    item = get_object_or_404(BackupItem, id=item_id, backup=backup)
+
+    if request.method == 'POST':
+        mode = request.POST.get('mode', 'only_missing')
+
+        service = ShopifyRestoreService(store, backup, mode)
+        log = service.restore_item(item)
+
+        if log.status == 'success':
+            messages.success(request, f'{item.title} erfolgreich wiederhergestellt')
+        elif log.status == 'exists':
+            messages.info(request, f'{item.title} existiert bereits')
+        else:
+            messages.error(request, f'Wiederherstellung fehlgeschlagen: {log.message}')
+
+        return redirect('shopify_manager:backup_detail', store_id=store.id, backup_id=backup.id)
+
+    return JsonResponse({'error': 'POST required'}, status=405)
+
+
+@login_required
+@require_http_methods(['GET'])
+def api_backup_status(request, store_id, backup_id):
+    """API: Backup-Status abfragen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    return JsonResponse({
+        'status': backup.status,
+        'products_count': backup.products_count,
+        'blogs_count': backup.blogs_count,
+        'posts_count': backup.posts_count,
+        'collections_count': backup.collections_count,
+        'pages_count': backup.pages_count,
+        'total_items': backup.total_items_count,
+        'size': backup.get_size_display(),
+        'error_message': backup.error_message if backup.status == 'failed' else None,
+    })

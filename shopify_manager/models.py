@@ -1702,3 +1702,157 @@ class ShopifyProductCollection(models.Model):
     
     def __str__(self):
         return f"{self.product.title} in {self.collection.title}"
+
+
+# ============================================
+# BACKUP & RESTORE MODELS
+# ============================================
+
+class ShopifyBackup(models.Model):
+    """Hauptmodel für Backup-Sessions"""
+    BACKUP_STATUS = [
+        ('pending', 'Ausstehend'),
+        ('running', 'Läuft'),
+        ('completed', 'Abgeschlossen'),
+        ('failed', 'Fehlgeschlagen'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shopify_backups')
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='backups')
+    name = models.CharField(max_length=255, help_text="Name des Backups z.B. 'Vollbackup 2025-01-15'")
+    status = models.CharField(max_length=20, choices=BACKUP_STATUS, default='pending')
+
+    # Backup-Optionen
+    include_products = models.BooleanField(default=True, help_text="Produkte sichern")
+    include_product_images = models.BooleanField(default=False, help_text="Produktbilder herunterladen")
+    include_blogs = models.BooleanField(default=True, help_text="Blogs und Posts sichern")
+    include_blog_images = models.BooleanField(default=False, help_text="Blog-Bilder herunterladen")
+    include_collections = models.BooleanField(default=True, help_text="Collections sichern")
+    include_orders = models.BooleanField(default=False, help_text="Bestellungen sichern")
+    include_customers = models.BooleanField(default=False, help_text="Kundendaten sichern")
+    include_pages = models.BooleanField(default=True, help_text="Statische Seiten sichern")
+    include_menus = models.BooleanField(default=True, help_text="Navigationsmenüs sichern")
+    include_redirects = models.BooleanField(default=True, help_text="URL-Weiterleitungen sichern")
+    include_metafields = models.BooleanField(default=False, help_text="Metafields sichern")
+    include_discounts = models.BooleanField(default=False, help_text="Rabattcodes sichern")
+
+    # Statistiken
+    products_count = models.IntegerField(default=0)
+    blogs_count = models.IntegerField(default=0)
+    posts_count = models.IntegerField(default=0)
+    collections_count = models.IntegerField(default=0)
+    orders_count = models.IntegerField(default=0)
+    customers_count = models.IntegerField(default=0)
+    pages_count = models.IntegerField(default=0)
+    menus_count = models.IntegerField(default=0)
+    redirects_count = models.IntegerField(default=0)
+    metafields_count = models.IntegerField(default=0)
+    discounts_count = models.IntegerField(default=0)
+    images_count = models.IntegerField(default=0)
+    total_size_bytes = models.BigIntegerField(default=0)
+
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Shopify Backup"
+        verbose_name_plural = "Shopify Backups"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} - {self.store.name} ({self.get_status_display()})"
+
+    @property
+    def total_items_count(self):
+        """Gesamtzahl aller gesicherten Elemente"""
+        return (
+            self.products_count + self.blogs_count + self.posts_count +
+            self.collections_count + self.orders_count + self.customers_count +
+            self.pages_count + self.menus_count + self.redirects_count +
+            self.metafields_count + self.discounts_count
+        )
+
+    def get_size_display(self):
+        """Formatierte Größenanzeige"""
+        if self.total_size_bytes < 1024:
+            return f"{self.total_size_bytes} B"
+        elif self.total_size_bytes < 1024 * 1024:
+            return f"{self.total_size_bytes / 1024:.1f} KB"
+        elif self.total_size_bytes < 1024 * 1024 * 1024:
+            return f"{self.total_size_bytes / (1024 * 1024):.1f} MB"
+        else:
+            return f"{self.total_size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+class BackupItem(models.Model):
+    """Einzelne Elemente eines Backups"""
+    ITEM_TYPES = [
+        ('product', 'Produkt'),
+        ('product_image', 'Produktbild'),
+        ('blog', 'Blog'),
+        ('blog_post', 'Blog-Beitrag'),
+        ('blog_image', 'Blog-Bild'),
+        ('collection', 'Collection'),
+        ('order', 'Bestellung'),
+        ('customer', 'Kunde'),
+        ('page', 'Seite'),
+        ('menu', 'Menü'),
+        ('redirect', 'Weiterleitung'),
+        ('metafield', 'Metafield'),
+        ('discount', 'Rabattcode'),
+    ]
+
+    backup = models.ForeignKey(ShopifyBackup, on_delete=models.CASCADE, related_name='items')
+    item_type = models.CharField(max_length=20, choices=ITEM_TYPES)
+    shopify_id = models.BigIntegerField(help_text="Shopify ID des Elements")
+    title = models.CharField(max_length=500, help_text="Titel/Name für Anzeige")
+    raw_data = models.JSONField(help_text="Komplette API-Antwort als JSON")
+    image_data = models.BinaryField(null=True, blank=True, help_text="Optional: Bild als Blob")
+    image_url = models.URLField(max_length=2048, blank=True, help_text="Original Bild-URL")
+    parent_id = models.BigIntegerField(null=True, blank=True, help_text="Parent ID z.B. Blog-ID für Posts")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Backup-Element"
+        verbose_name_plural = "Backup-Elemente"
+        ordering = ['item_type', 'title']
+        indexes = [
+            models.Index(fields=['backup', 'item_type']),
+            models.Index(fields=['shopify_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.get_item_type_display()}: {self.title}"
+
+    def get_data_size(self):
+        """Größe der gespeicherten Daten in Bytes"""
+        size = len(json.dumps(self.raw_data).encode('utf-8'))
+        if self.image_data:
+            size += len(self.image_data)
+        return size
+
+
+class RestoreLog(models.Model):
+    """Log für Wiederherstellungen"""
+    RESTORE_STATUS = [
+        ('success', 'Erfolgreich'),
+        ('skipped', 'Übersprungen'),
+        ('failed', 'Fehlgeschlagen'),
+        ('exists', 'Existiert bereits'),
+    ]
+
+    backup = models.ForeignKey(ShopifyBackup, on_delete=models.CASCADE, related_name='restore_logs')
+    backup_item = models.ForeignKey(BackupItem, on_delete=models.CASCADE, related_name='restore_logs')
+    status = models.CharField(max_length=20, choices=RESTORE_STATUS)
+    new_shopify_id = models.BigIntegerField(null=True, blank=True, help_text="Neue Shopify ID nach Wiederherstellung")
+    message = models.TextField(blank=True, help_text="Status-Nachricht oder Fehlerbeschreibung")
+    restored_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Wiederherstellungs-Log"
+        verbose_name_plural = "Wiederherstellungs-Logs"
+        ordering = ['-restored_at']
+
+    def __str__(self):
+        return f"{self.backup_item} - {self.get_status_display()}"

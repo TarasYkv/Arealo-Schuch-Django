@@ -1,0 +1,231 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Backup: {{ backup.name }}{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-cloud-download"></i> {{ backup.name }}</h2>
+        <p class="text-muted mb-0">{{ store.name }} - {{ backup.created_at|date:"d.m.Y H:i" }}</p>
+    </div>
+    <div>
+        {% if backup.status == 'completed' %}
+        <a href="{% url 'shopify_manager:backup_download' store_id=store.id backup_id=backup.id %}" class="btn btn-success">
+            <i class="bi bi-download"></i> Download ZIP
+        </a>
+        <a href="{% url 'shopify_manager:restore_start' store_id=store.id backup_id=backup.id %}" class="btn btn-warning">
+            <i class="bi bi-arrow-counterclockwise"></i> Wiederherstellen
+        </a>
+        {% endif %}
+        <a href="{% url 'shopify_manager:backup_list' store_id=store.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurueck
+        </a>
+    </div>
+</div>
+
+<!-- Status-Karten -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ backup.total_items_count }}</h3>
+                <small class="text-muted">Elemente gesamt</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ backup.get_size_display }}</h3>
+                <small class="text-muted">Groesse</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                {% if backup.status == 'completed' %}
+                    <h3 class="mb-0 text-success"><i class="bi bi-check-circle"></i></h3>
+                {% elif backup.status == 'running' %}
+                    <h3 class="mb-0 text-warning"><i class="bi bi-hourglass-split"></i></h3>
+                {% elif backup.status == 'failed' %}
+                    <h3 class="mb-0 text-danger"><i class="bi bi-x-circle"></i></h3>
+                {% else %}
+                    <h3 class="mb-0 text-secondary"><i class="bi bi-clock"></i></h3>
+                {% endif %}
+                <small class="text-muted">{{ backup.get_status_display }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0">{{ backup.images_count }}</h3>
+                <small class="text-muted">Bilder</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if backup.error_message %}
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle"></i> <strong>Fehler:</strong> {{ backup.error_message }}
+</div>
+{% endif %}
+
+<!-- Tabs fuer verschiedene Datentypen -->
+<div class="card">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs">
+            {% for item_type, data in items_by_type.items %}
+            <li class="nav-item">
+                <a class="nav-link {% if item_type == active_tab or forloop.first and not active_tab in items_by_type %}active{% endif %}"
+                   href="?tab={{ item_type }}">
+                    {{ data.label }} <span class="badge bg-secondary">{{ data.count }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="card-body">
+        {% for item_type, data in items_by_type.items %}
+        <div class="tab-content {% if item_type == active_tab or forloop.first and not active_tab in items_by_type %}{% else %}d-none{% endif %}" id="tab-{{ item_type }}">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>{{ data.label }} ({{ data.count }})</h5>
+                {% if backup.status == 'completed' %}
+                <form method="post" action="{% url 'shopify_manager:restore_start' store_id=store.id backup_id=backup.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="mode" value="only_missing">
+                    <input type="hidden" name="item_types" value="{{ item_type }}">
+                    <button type="submit" class="btn btn-sm btn-outline-warning">
+                        <i class="bi bi-arrow-counterclockwise"></i> Alle {{ data.label }} wiederherstellen
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Shopify ID</th>
+                            <th>Erstellt</th>
+                            {% if backup.status == 'completed' %}
+                            <th style="width: 150px;">Aktion</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in data.items %}
+                        <tr>
+                            <td>
+                                {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.title }}" style="width: 30px; height: 30px; object-fit: cover;" class="me-2 rounded">
+                                {% endif %}
+                                {{ item.title|truncatechars:50 }}
+                            </td>
+                            <td><code>{{ item.shopify_id }}</code></td>
+                            <td>{{ item.created_at|date:"d.m.Y H:i" }}</td>
+                            {% if backup.status == 'completed' %}
+                            <td>
+                                <form method="post" action="{% url 'shopify_manager:restore_item' store_id=store.id backup_id=backup.id item_id=item.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="mode" value="only_missing">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Wiederherstellen">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not items_by_type %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox display-1"></i>
+            <p class="mt-3">Keine Elemente in diesem Backup</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Restore-Log -->
+{% if restore_logs %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Wiederherstellungs-Log</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Element</th>
+                        <th>Status</th>
+                        <th>Nachricht</th>
+                        <th>Zeitpunkt</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in restore_logs %}
+                    <tr>
+                        <td>{{ log.backup_item.title|truncatechars:40 }}</td>
+                        <td>
+                            {% if log.status == 'success' %}
+                                <span class="badge bg-success">Erfolgreich</span>
+                            {% elif log.status == 'exists' %}
+                                <span class="badge bg-info">Vorhanden</span>
+                            {% elif log.status == 'skipped' %}
+                                <span class="badge bg-secondary">Uebersprungen</span>
+                            {% else %}
+                                <span class="badge bg-danger">Fehlgeschlagen</span>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ log.message|truncatechars:50 }}</small></td>
+                        <td>{{ log.restored_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Tab-Switching
+document.querySelectorAll('.nav-tabs .nav-link').forEach(function(tab) {
+    tab.addEventListener('click', function(e) {
+        // URL wird bereits durch href gesetzt
+    });
+});
+
+// Initial Tab basierend auf URL anzeigen
+document.addEventListener('DOMContentLoaded', function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var activeTab = urlParams.get('tab');
+
+    if (activeTab) {
+        document.querySelectorAll('.tab-content').forEach(function(content) {
+            content.classList.add('d-none');
+        });
+        document.querySelectorAll('.nav-tabs .nav-link').forEach(function(link) {
+            link.classList.remove('active');
+        });
+
+        var tabContent = document.getElementById('tab-' + activeTab);
+        var tabLink = document.querySelector('.nav-tabs a[href="?tab=' + activeTab + '"]');
+
+        if (tabContent) tabContent.classList.remove('d-none');
+        if (tabLink) tabLink.classList.add('active');
+    }
+});
+</script>
+{% endblock %}
