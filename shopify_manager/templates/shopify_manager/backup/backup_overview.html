@@ -1,0 +1,120 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Backups - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-cloud-download"></i> Backup-Übersicht</h2>
+        <p class="text-muted mb-0">Alle Backups deiner Shopify Stores</p>
+    </div>
+</div>
+
+<!-- Stores mit Backup-Optionen -->
+<div class="row mb-4">
+    {% for store in stores %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-shop"></i> {{ store.name }}
+                </h5>
+                <p class="text-muted small mb-3">{{ store.shop_domain }}</p>
+
+                {% with store.backups.count as backup_count %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-info">{{ backup_count }} Backup{{ backup_count|pluralize:"s" }}</span>
+                    {% if store.backups.first %}
+                    <small class="text-muted">
+                        Letztes: {{ store.backups.first.created_at|date:"d.m.Y" }}
+                    </small>
+                    {% endif %}
+                </div>
+                {% endwith %}
+
+                <div class="d-flex gap-2">
+                    <a href="{% url 'shopify_manager:backup_list' store_id=store.id %}" class="btn btn-outline-primary btn-sm flex-grow-1">
+                        <i class="bi bi-list"></i> Alle Backups
+                    </a>
+                    <a href="{% url 'shopify_manager:backup_create' store_id=store.id %}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-lg"></i> Neu
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Noch keine Stores konfiguriert.
+            <a href="{% url 'shopify_manager:store_add' %}">Store hinzufügen</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Letzte Backups -->
+{% if recent_backups %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Letzte Backups</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Store</th>
+                        <th>Status</th>
+                        <th>Elemente</th>
+                        <th>Erstellt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for backup in recent_backups %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'shopify_manager:backup_detail' store_id=backup.store.id backup_id=backup.id %}">
+                                <strong>{{ backup.name }}</strong>
+                            </a>
+                        </td>
+                        <td><small class="text-muted">{{ backup.store.name }}</small></td>
+                        <td>
+                            {% if backup.status == 'completed' %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i></span>
+                            {% elif backup.status == 'running' %}
+                                <span class="badge bg-warning"><i class="bi bi-hourglass-split"></i></span>
+                            {% elif backup.status == 'failed' %}
+                                <span class="badge bg-danger"><i class="bi bi-x-circle"></i></span>
+                            {% else %}
+                                <span class="badge bg-secondary"><i class="bi bi-clock"></i></span>
+                            {% endif %}
+                        </td>
+                        <td>{{ backup.total_items_count }}</td>
+                        <td>{{ backup.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'shopify_manager:backup_detail' store_id=backup.store.id backup_id=backup.id %}"
+                                   class="btn btn-outline-primary" title="Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if backup.status == 'completed' %}
+                                <a href="{% url 'shopify_manager:backup_download' store_id=backup.store.id backup_id=backup.id %}"
+                                   class="btn btn-outline-success" title="Download">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

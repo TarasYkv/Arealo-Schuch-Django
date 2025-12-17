@@ -136,6 +136,7 @@ urlpatterns = [
     path('google-ads/<int:store_id>/sync/', sales_views.google_ads_sync_view, name='google_ads_sync'),
 
     # Backup & Restore
+    path('backups/', views.backup_overview, name='backup_overview'),
     path('store/<int:store_id>/backups/', views.backup_list, name='backup_list'),
     path('store/<int:store_id>/backups/create/', views.backup_create, name='backup_create'),
     path('store/<int:store_id>/backups/<int:backup_id>/', views.backup_detail, name='backup_detail'),

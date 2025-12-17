@@ -4456,6 +4456,18 @@ from django.http import HttpResponse
 
 
 @login_required
+def backup_overview(request):
+    """Übersicht aller Backups über alle Stores"""
+    stores = ShopifyStore.objects.filter(user=request.user)
+    all_backups = ShopifyBackup.objects.filter(store__user=request.user).order_by('-created_at')[:20]
+
+    return render(request, 'shopify_manager/backup/backup_overview.html', {
+        'stores': stores,
+        'recent_backups': all_backups,
+    })
+
+
+@login_required
 def backup_list(request, store_id):
     """Übersicht aller Backups für einen Store"""
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
