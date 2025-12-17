@@ -4487,23 +4487,27 @@ def backup_create(request, store_id):
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-        # Backup-Objekt erstellen (schnell, kein API-Call)
+        # Backup-Typ aus Radio-Button
+        backup_type = request.POST.get('backup_type', 'products')
+        include_images = request.POST.get('include_images') == 'on'
+
+        # Backup-Objekt erstellen - nur der ausgewählte Typ wird aktiviert
         backup = ShopifyBackup.objects.create(
             user=request.user,
             store=store,
             name=request.POST.get('name', f'Backup {timezone.now().strftime("%Y-%m-%d %H:%M")}'),
-            include_products=request.POST.get('include_products') == 'on',
-            include_product_images=request.POST.get('include_product_images') == 'on',
-            include_blogs=request.POST.get('include_blogs') == 'on',
-            include_blog_images=request.POST.get('include_blog_images') == 'on',
-            include_collections=request.POST.get('include_collections') == 'on',
-            include_pages=request.POST.get('include_pages') == 'on',
-            include_menus=request.POST.get('include_menus') == 'on',
-            include_redirects=request.POST.get('include_redirects') == 'on',
-            include_metafields=request.POST.get('include_metafields') == 'on',
-            include_discounts=request.POST.get('include_discounts') == 'on',
-            include_orders=request.POST.get('include_orders') == 'on',
-            include_customers=request.POST.get('include_customers') == 'on',
+            include_products=(backup_type == 'products'),
+            include_product_images=(backup_type == 'products' and include_images),
+            include_blogs=(backup_type == 'blogs'),
+            include_blog_images=(backup_type == 'blogs' and include_images),
+            include_collections=(backup_type == 'collections'),
+            include_pages=(backup_type == 'pages'),
+            include_menus=(backup_type == 'menus'),
+            include_redirects=(backup_type == 'redirects'),
+            include_metafields=False,  # Nicht mehr als separater Typ
+            include_discounts=(backup_type == 'discounts'),
+            include_orders=False,  # Nicht mehr als separater Typ
+            include_customers=(backup_type == 'customers'),
         )
 
         if is_ajax:
