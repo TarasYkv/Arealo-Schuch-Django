@@ -167,8 +167,10 @@ class ShopifyBackupService:
         )
         # Größe tracken
         self.total_size += item.get_data_size()
-        # Session-Zähler erhöhen
-        self.items_saved_this_session += 1
+        # Session-Zähler nur für Hauptelemente erhöhen (nicht für Bilder)
+        # Bilder gehören zu ihren Eltern und zählen nicht als separate Elemente
+        if item_type not in ('product_image', 'blog_image'):
+            self.items_saved_this_session += 1
         return item
 
     def _download_image(self, url: str) -> Optional[bytes]:
