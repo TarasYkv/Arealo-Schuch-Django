@@ -4932,3 +4932,107 @@ def api_backup_status(request, store_id, backup_id):
         'size': backup.get_size_display(),
         'error_message': backup.error_message if backup.status == 'failed' else None,
     })
+
+
+@login_required
+@require_http_methods(['GET'])
+def api_backup_item_detail(request, store_id, backup_id, item_id):
+    """API: Backup-Item Details abrufen"""
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+    item = get_object_or_404(BackupItem, id=item_id, backup=backup)
+
+    # Basis-Daten
+    data = {
+        'id': item.id,
+        'title': item.title,
+        'item_type': item.item_type,
+        'item_type_display': item.get_item_type_display(),
+        'shopify_id': item.shopify_id,
+        'created_at': item.created_at.strftime('%d.%m.%Y %H:%M'),
+        'image_url': item.image_url,
+        'has_image_data': bool(item.image_data),
+    }
+
+    # Raw-Daten (ohne Bilder-Binärdaten)
+    if item.raw_data:
+        raw = item.raw_data.copy() if isinstance(item.raw_data, dict) else {}
+
+        # Formatierte Felder für bessere Anzeige
+        if item.item_type == 'product':
+            data['details'] = {
+                'Titel': raw.get('title', ''),
+                'Handle': raw.get('handle', ''),
+                'Vendor': raw.get('vendor', ''),
+                'Produkttyp': raw.get('product_type', ''),
+                'Status': raw.get('status', ''),
+                'Tags': raw.get('tags', ''),
+                'Beschreibung': raw.get('body_html', '')[:500] + '...' if len(raw.get('body_html', '')) > 500 else raw.get('body_html', ''),
+                'Varianten': len(raw.get('variants', [])),
+                'Bilder': len(raw.get('images', [])),
+            }
+        elif item.item_type == 'blog_post':
+            data['details'] = {
+                'Titel': raw.get('title', ''),
+                'Handle': raw.get('handle', ''),
+                'Autor': raw.get('author', ''),
+                'Tags': raw.get('tags', ''),
+                'Veröffentlicht': 'Ja' if raw.get('published') else 'Nein',
+                'Zusammenfassung': raw.get('summary_html', '')[:300] if raw.get('summary_html') else '',
+                'Inhalt': raw.get('body_html', '')[:500] + '...' if len(raw.get('body_html', '')) > 500 else raw.get('body_html', ''),
+            }
+        elif item.item_type == 'blog':
+            data['details'] = {
+                'Titel': raw.get('title', ''),
+                'Handle': raw.get('handle', ''),
+            }
+        elif item.item_type == 'collection':
+            data['details'] = {
+                'Titel': raw.get('title', ''),
+                'Handle': raw.get('handle', ''),
+                'Typ': raw.get('collection_type', 'custom'),
+                'Veröffentlicht': 'Ja' if raw.get('published') else 'Nein',
+                'Beschreibung': raw.get('body_html', '')[:500] if raw.get('body_html') else '',
+            }
+        elif item.item_type == 'page':
+            data['details'] = {
+                'Titel': raw.get('title', ''),
+                'Handle': raw.get('handle', ''),
+                'Veröffentlicht': 'Ja' if raw.get('published') else 'Nein',
+                'Inhalt': raw.get('body_html', '')[:500] + '...' if len(raw.get('body_html', '')) > 500 else raw.get('body_html', ''),
+            }
+        elif item.item_type == 'redirect':
+            data['details'] = {
+                'Von': raw.get('path', ''),
+                'Nach': raw.get('target', ''),
+            }
+        elif item.item_type == 'menu':
+            data['details'] = {
+                'Titel': raw.get('title', ''),
+                'Handle': raw.get('handle', ''),
+                'Einträge': len(raw.get('items', [])),
+            }
+        elif item.item_type == 'order':
+            data['details'] = {
+                'Bestellnummer': raw.get('order_number', raw.get('name', '')),
+                'Status': raw.get('financial_status', ''),
+                'Fulfillment': raw.get('fulfillment_status', 'unfulfilled'),
+                'Summe': raw.get('total_price', ''),
+                'Währung': raw.get('currency', 'EUR'),
+                'Kunde': raw.get('customer', {}).get('email', '') if raw.get('customer') else '',
+            }
+        elif item.item_type == 'customer':
+            data['details'] = {
+                'E-Mail': raw.get('email', ''),
+                'Name': f"{raw.get('first_name', '')} {raw.get('last_name', '')}".strip(),
+                'Bestellungen': raw.get('orders_count', 0),
+                'Ausgegeben': raw.get('total_spent', ''),
+            }
+        else:
+            data['details'] = raw
+
+        # Voller HTML-Inhalt separat (für Produkte und Blog-Posts)
+        if item.item_type in ('product', 'blog_post', 'page', 'collection'):
+            data['full_html'] = raw.get('body_html', '')
+
+    return JsonResponse(data)

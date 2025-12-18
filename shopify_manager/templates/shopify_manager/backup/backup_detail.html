@@ -199,9 +199,7 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
                             <th>Titel</th>
                             <th>Shopify ID</th>
                             <th>Erstellt</th>
-                            {% if backup.status == 'completed' %}
                             <th style="width: 150px;">Aktion</th>
-                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -211,12 +209,24 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
                                 {% if item.image_url %}
                                 <img src="{{ item.image_url }}" alt="{{ item.title }}" style="width: 30px; height: 30px; object-fit: cover;" class="me-2 rounded">
                                 {% endif %}
-                                {{ item.title|truncatechars:50 }}
+                                <a href="#" class="text-decoration-none item-detail-link"
+                                   data-item-id="{{ item.id }}"
+                                   data-store-id="{{ store.id }}"
+                                   data-backup-id="{{ backup.id }}">
+                                    {{ item.title|truncatechars:50 }}
+                                </a>
                             </td>
                             <td><code>{{ item.shopify_id }}</code></td>
                             <td>{{ item.created_at|date:"d.m.Y H:i" }}</td>
-                            {% if backup.status == 'completed' %}
                             <td>
+                                <button type="button" class="btn btn-sm btn-outline-secondary item-detail-btn me-1"
+                                        data-item-id="{{ item.id }}"
+                                        data-store-id="{{ store.id }}"
+                                        data-backup-id="{{ backup.id }}"
+                                        title="Details anzeigen">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                {% if backup.status == 'completed' %}
                                 <form method="post" action="{% url 'shopify_manager:restore_item' store_id=store.id backup_id=backup.id item_id=item.id %}" class="d-inline restore-form">
                                     {% csrf_token %}
                                     <input type="hidden" name="mode" value="only_missing">
@@ -224,8 +234,8 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 </form>
+                                {% endif %}
                             </td>
-                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -299,6 +309,70 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
     </div>
 </div>
 
+<!-- Item Detail Modal -->
+<div class="modal fade" id="itemDetailModal" tabindex="-1" aria-labelledby="itemDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="itemDetailModalLabel">
+                    <span id="modalItemType" class="badge bg-secondary me-2"></span>
+                    <span id="modalItemTitle"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Lade Details...</p>
+                </div>
+                <div id="modalContent" class="d-none">
+                    <!-- Bild -->
+                    <div id="modalImageContainer" class="text-center mb-4 d-none">
+                        <img id="modalImage" src="" alt="" class="img-fluid rounded" style="max-height: 200px;">
+                    </div>
+
+                    <!-- Meta-Infos -->
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted">Shopify ID</small>
+                            <div><code id="modalShopifyId"></code></div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Gesichert am</small>
+                            <div id="modalCreatedAt"></div>
+                        </div>
+                    </div>
+
+                    <!-- Details Tabelle -->
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="modalDetailsTable">
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <!-- HTML-Inhalt (für Produkte, Blog-Posts, etc.) -->
+                    <div id="modalHtmlContainer" class="d-none mt-3">
+                        <h6>Inhalt</h6>
+                        <div id="modalHtmlContent" class="border rounded p-3 bg-light" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                {% if backup.status == 'completed' %}
+                <form method="post" id="modalRestoreForm" class="d-inline restore-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="mode" value="only_missing">
+                    <button type="submit" class="btn btn-primary restore-btn" data-title="">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Wiederherstellen
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Tab-Switching
 document.querySelectorAll('.nav-tabs .nav-link').forEach(function(tab) {
@@ -326,6 +400,106 @@ document.addEventListener('DOMContentLoaded', function() {
             // Button deaktivieren
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        });
+    });
+
+    // Item Detail Modal Handler
+    var itemDetailModal = new bootstrap.Modal(document.getElementById('itemDetailModal'));
+    var currentItemId = null;
+
+    function showItemDetails(storeId, backupId, itemId) {
+        currentItemId = itemId;
+
+        // Modal öffnen und Loading anzeigen
+        document.getElementById('modalLoading').classList.remove('d-none');
+        document.getElementById('modalContent').classList.add('d-none');
+        itemDetailModal.show();
+
+        // Daten laden
+        fetch('/shopify/api/store/' + storeId + '/backups/' + backupId + '/items/' + itemId + '/')
+        .then(response => response.json())
+        .then(data => {
+            // Header
+            document.getElementById('modalItemType').textContent = data.item_type_display;
+            document.getElementById('modalItemTitle').textContent = data.title;
+
+            // Meta-Infos
+            document.getElementById('modalShopifyId').textContent = data.shopify_id;
+            document.getElementById('modalCreatedAt').textContent = data.created_at;
+
+            // Bild
+            var imageContainer = document.getElementById('modalImageContainer');
+            if (data.image_url) {
+                document.getElementById('modalImage').src = data.image_url;
+                document.getElementById('modalImage').alt = data.title;
+                imageContainer.classList.remove('d-none');
+            } else {
+                imageContainer.classList.add('d-none');
+            }
+
+            // Details Tabelle
+            var tbody = document.querySelector('#modalDetailsTable tbody');
+            tbody.innerHTML = '';
+            if (data.details) {
+                for (var key in data.details) {
+                    var value = data.details[key];
+                    if (value !== null && value !== undefined && value !== '') {
+                        var tr = document.createElement('tr');
+                        var tdKey = document.createElement('td');
+                        tdKey.className = 'fw-bold';
+                        tdKey.style.width = '150px';
+                        tdKey.textContent = key;
+                        var tdValue = document.createElement('td');
+                        // HTML-Inhalt in Details anzeigen
+                        if (key === 'Beschreibung' || key === 'Inhalt' || key === 'Zusammenfassung') {
+                            tdValue.innerHTML = value;
+                        } else {
+                            tdValue.textContent = value;
+                        }
+                        tr.appendChild(tdKey);
+                        tr.appendChild(tdValue);
+                        tbody.appendChild(tr);
+                    }
+                }
+            }
+
+            // HTML-Inhalt
+            var htmlContainer = document.getElementById('modalHtmlContainer');
+            if (data.full_html && data.full_html.length > 500) {
+                document.getElementById('modalHtmlContent').innerHTML = data.full_html;
+                htmlContainer.classList.remove('d-none');
+            } else {
+                htmlContainer.classList.add('d-none');
+            }
+
+            // Restore-Button im Modal aktualisieren
+            var modalRestoreForm = document.getElementById('modalRestoreForm');
+            if (modalRestoreForm) {
+                modalRestoreForm.action = '/shopify/store/' + storeId + '/backups/' + backupId + '/restore/' + itemId + '/';
+                var restoreBtn = modalRestoreForm.querySelector('.restore-btn');
+                if (restoreBtn) {
+                    restoreBtn.dataset.title = data.title.substring(0, 30);
+                }
+            }
+
+            // Loading ausblenden, Content anzeigen
+            document.getElementById('modalLoading').classList.add('d-none');
+            document.getElementById('modalContent').classList.remove('d-none');
+        })
+        .catch(function(err) {
+            console.error('Error loading item details:', err);
+            document.getElementById('modalLoading').innerHTML = '<div class="text-danger"><i class="bi bi-exclamation-triangle"></i> Fehler beim Laden</div>';
+        });
+    }
+
+    // Event-Handler für Detail-Buttons und Links
+    document.querySelectorAll('.item-detail-btn, .item-detail-link').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            e.preventDefault();
+            var storeId = this.dataset.storeId;
+            var backupId = this.dataset.backupId;
+            var itemId = this.dataset.itemId;
+            showItemDetails(storeId, backupId, itemId);
         });
     });
 
