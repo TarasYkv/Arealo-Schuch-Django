@@ -74,10 +74,12 @@
                                     <i class="bi bi-arrow-counterclockwise"></i>
                                 </a>
                                 {% elif backup.status == 'paused' %}
-                                <a href="{% url 'shopify_manager:backup_detail' store_id=store.id backup_id=backup.id %}"
-                                   class="btn btn-outline-primary" title="Weiter laden">
+                                <button type="button" class="btn btn-outline-primary continue-btn"
+                                        data-backup-id="{{ backup.id }}"
+                                        data-store-id="{{ store.id }}"
+                                        title="Weiter laden">
                                     <i class="bi bi-play-fill"></i>
-                                </a>
+                                </button>
                                 {% endif %}
                                 <a href="{% url 'shopify_manager:backup_delete' store_id=store.id backup_id=backup.id %}"
                                    class="btn btn-outline-danger" title="Löschen">
@@ -108,20 +110,17 @@
 <!-- Resume Script & Live-Polling -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Resume Button Handler
-    document.querySelectorAll('.resume-btn').forEach(function(btn) {
+    // Weiter laden Button Handler (für pausierte Backups)
+    document.querySelectorAll('.continue-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var backupId = this.dataset.backupId;
             var storeId = this.dataset.storeId;
             var button = this;
 
-            if (!confirm('Backup fortsetzen? Bereits gesicherte Elemente werden übersprungen.')) {
-                return;
-            }
-
             button.disabled = true;
             button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
+            // Backup direkt starten
             fetch('/shopify/api/store/' + storeId + '/backups/' + backupId + '/start/', {
                 method: 'POST',
                 headers: {
@@ -132,19 +131,12 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    // Zur Detail-Seite weiterleiten
-                    window.location.href = '/shopify/store/' + storeId + '/backups/' + backupId + '/';
-                } else {
-                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
-                    button.disabled = false;
-                    button.innerHTML = '<i class="bi bi-play-fill"></i>';
-                }
+                // Zur Detail-Seite weiterleiten (unabhängig vom Ergebnis)
+                window.location.href = '/shopify/store/' + storeId + '/backups/' + backupId + '/';
             })
             .catch(error => {
-                alert('Verbindungsfehler: ' + error.message);
-                button.disabled = false;
-                button.innerHTML = '<i class="bi bi-play-fill"></i>';
+                // Trotzdem zur Detail-Seite weiterleiten
+                window.location.href = '/shopify/store/' + storeId + '/backups/' + backupId + '/';
             });
         });
     });
