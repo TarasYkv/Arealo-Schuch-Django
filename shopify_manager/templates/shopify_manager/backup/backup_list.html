@@ -105,9 +105,10 @@
 </div>
 {% endif %}
 
-<!-- Resume Script -->
+<!-- Resume Script & Live-Polling -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Resume Button Handler
     document.querySelectorAll('.resume-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var backupId = this.dataset.backupId;
@@ -147,6 +148,73 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+
+    // Live-Polling für laufende Backups
+    var runningBackups = [];
+    {% for backup in backups %}
+    {% if backup.status == 'running' %}
+    runningBackups.push({
+        id: {{ backup.id }},
+        storeId: {{ store.id }}
+    });
+    {% endif %}
+    {% endfor %}
+
+    if (runningBackups.length > 0) {
+        function pollBackupStatus() {
+            runningBackups.forEach(function(backup) {
+                fetch('/shopify/api/store/' + backup.storeId + '/backups/' + backup.id + '/status/')
+                .then(response => response.json())
+                .then(data => {
+                    // Finde die Zeile für dieses Backup
+                    var row = document.querySelector('tr[data-backup-id="' + backup.id + '"]');
+                    if (!row) {
+                        // Fallback: Finde Zeile anhand des Links
+                        var link = document.querySelector('a[href*="/backups/' + backup.id + '/"]');
+                        if (link) row = link.closest('tr');
+                    }
+
+                    if (row) {
+                        // Status aktualisieren
+                        var statusCell = row.querySelector('td:nth-child(2)');
+                        if (statusCell) {
+                            if (data.status === 'completed') {
+                                statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Abgeschlossen</span>';
+                                // Seite neu laden wenn fertig
+                                setTimeout(function() { location.reload(); }, 1000);
+                            } else if (data.status === 'failed') {
+                                statusCell.innerHTML = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Fehlgeschlagen</span>';
+                                setTimeout(function() { location.reload(); }, 1000);
+                            } else {
+                                // Zeige Fortschritt
+                                var message = data.progress_message || 'Läuft...';
+                                statusCell.innerHTML = '<span class="badge bg-warning"><i class="bi bi-hourglass-split"></i> ' + message.substring(0, 30) + '</span>';
+                            }
+                        }
+
+                        // Elemente-Zähler aktualisieren
+                        var elementsCell = row.querySelector('td:nth-child(3)');
+                        if (elementsCell) {
+                            elementsCell.textContent = data.total_items || 0;
+                        }
+
+                        // Größe aktualisieren
+                        var sizeCell = row.querySelector('td:nth-child(4)');
+                        if (sizeCell) {
+                            sizeCell.textContent = data.size || '0 B';
+                        }
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Polling error:', err);
+                });
+            });
+        }
+
+        // Sofort starten und dann alle 2 Sekunden
+        pollBackupStatus();
+        setInterval(pollBackupStatus, 2000);
+    }
 });
 </script>
 {% endblock %}
