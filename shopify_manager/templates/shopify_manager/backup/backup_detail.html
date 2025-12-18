@@ -11,7 +11,7 @@
     </div>
     <div>
         {% if backup.status == 'completed' %}
-        <a href="{% url 'shopify_manager:backup_compare' store_id=store.id backup_id=backup.id %}" class="btn btn-info">
+        <a href="{% url 'shopify_manager:backup_compare' store_id=store.id backup_id=backup.id %}" class="btn btn-info" id="compareBtn">
             <i class="bi bi-arrow-left-right"></i> Vergleichen
         </a>
         <a href="{% url 'shopify_manager:backup_download' store_id=store.id backup_id=backup.id %}" class="btn btn-success">
@@ -296,14 +296,14 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
 </div>
 {% endif %}
 
-<!-- Restore Loading Overlay -->
-<div id="restoreOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+<!-- Loading Overlay (für Restore, Vergleichen, etc.) -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
     <div class="d-flex justify-content-center align-items-center h-100">
         <div class="card shadow-lg" style="min-width: 300px;">
             <div class="card-body text-center p-4">
                 <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
-                <h5 id="restoreTitle">Wiederherstellen...</h5>
-                <p class="text-muted mb-0" id="restoreMessage">Bilder werden an Shopify gesendet. Dies kann einige Minuten dauern...</p>
+                <h5 id="loadingTitle">Laden...</h5>
+                <p class="text-muted mb-0" id="loadingMessage">Bitte warten...</p>
             </div>
         </div>
     </div>
@@ -386,6 +386,21 @@ document.addEventListener('DOMContentLoaded', function() {
     var urlParams = new URLSearchParams(window.location.search);
     var activeTab = urlParams.get('tab');
 
+    // Helper: Loading Overlay anzeigen
+    function showLoading(title, message) {
+        document.getElementById('loadingTitle').textContent = title;
+        document.getElementById('loadingMessage').textContent = message;
+        document.getElementById('loadingOverlay').classList.remove('d-none');
+    }
+
+    // Vergleichen-Button Handler
+    var compareBtn = document.getElementById('compareBtn');
+    if (compareBtn) {
+        compareBtn.addEventListener('click', function(e) {
+            showLoading('Vergleiche mit Shopify...', 'Aktuelle Daten werden von Shopify geladen. Dies kann einen Moment dauern...');
+        });
+    }
+
     // Restore Button Handler - Zeigt Lade-Overlay
     document.querySelectorAll('.restore-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
@@ -393,9 +408,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var title = btn.dataset.title || 'Element';
 
             // Overlay anzeigen
-            var overlay = document.getElementById('restoreOverlay');
-            document.getElementById('restoreTitle').textContent = 'Wiederherstellen: ' + title;
-            overlay.classList.remove('d-none');
+            showLoading('Wiederherstellen: ' + title, 'Bilder werden an Shopify gesendet. Dies kann einige Minuten dauern...');
 
             // Button deaktivieren
             btn.disabled = true;
