@@ -62,7 +62,8 @@ class ShopifyBackupService:
         }
         self.last_request_time = 0
         self.min_request_interval = 0.5  # 2 Requests pro Sekunde
-        self.total_size = 0
+        # Bei Resume: Vorhandene Größe aus DB laden
+        self.total_size = backup.total_size_bytes or 0
 
     def _rate_limit(self):
         """Wartet die minimale Zeit zwischen API-Requests ab"""

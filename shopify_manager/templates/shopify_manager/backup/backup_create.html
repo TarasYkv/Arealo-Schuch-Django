@@ -324,14 +324,23 @@ function updateStats(data) {
 function autoResumeBackup() {
     if (!startUrl || resumeCount >= MAX_RESUME_ATTEMPTS) {
         if (resumeCount >= MAX_RESUME_ATTEMPTS) {
-            showError('Maximale Anzahl an Auto-Resumes erreicht. Bitte versuchen Sie es später erneut.');
+            // Kein Fehler - einfach Seite neu laden um fortzufahren
+            safeSetText('progressMessage', 'Sitzungslimit erreicht - Seite wird neu geladen...');
+            setTimeout(function() {
+                // Zur Detail-Seite weiterleiten
+                if (detailUrl) {
+                    window.location.href = detailUrl;
+                } else {
+                    window.location.reload();
+                }
+            }, 2000);
         }
         return;
     }
 
     resumeCount++;
     console.log('Auto-Resume Backup #' + resumeCount);
-    safeSetText('progressMessage', 'Auto-Resume #' + resumeCount + ' - Backup wird fortgesetzt...');
+    safeSetText('progressMessage', 'Verbindung wiederhergestellt - Backup läuft weiter... (Durchgang ' + resumeCount + ')');
 
     // Backup-Prozess neu starten (fire-and-forget)
     fetch(startUrl, {

@@ -4830,6 +4830,9 @@ def backup_delete(request, store_id, backup_id):
 
     if request.method == 'POST':
         backup_name = backup.name
+        # Erst alle verknüpften Items löschen (wegen MySQL FK-Constraint)
+        backup.items.all().delete()
+        backup.restore_logs.all().delete()
         backup.delete()
         messages.success(request, f'Backup "{backup_name}" wurde gelöscht')
         return redirect('shopify_manager:backup_list', store_id=store.id)

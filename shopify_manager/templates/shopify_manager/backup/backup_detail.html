@@ -275,11 +275,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function autoResumeBackup() {
         if (resumeCount >= MAX_RESUME_ATTEMPTS) {
-            var progressAlert = document.getElementById('progressAlert');
-            if (progressAlert) {
-                progressAlert.className = 'alert alert-danger';
-                progressAlert.innerHTML = '<i class="bi bi-x-circle"></i> <strong>Maximale Auto-Resumes erreicht.</strong> Bitte versuchen Sie es später erneut.';
+            // Kein Fehler - einfach Seite neu laden um fortzufahren
+            var progressMessage = document.getElementById('progressMessage');
+            if (progressMessage) {
+                progressMessage.textContent = 'Sitzungslimit erreicht - Seite wird neu geladen...';
             }
+            setTimeout(function() {
+                window.location.reload();
+            }, 2000);
             return;
         }
 
@@ -287,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Auto-Resume Backup #' + resumeCount);
         var progressMessage = document.getElementById('progressMessage');
         if (progressMessage) {
-            progressMessage.textContent = 'Auto-Resume #' + resumeCount + ' - Backup wird fortgesetzt...';
+            progressMessage.textContent = 'Verbindung wiederhergestellt - Backup läuft weiter... (Durchgang ' + resumeCount + ')';
         }
 
         // Backup fortsetzen
