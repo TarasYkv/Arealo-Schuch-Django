@@ -47,6 +47,8 @@
                                 <span class="badge bg-success"><i class="bi bi-check-circle"></i> Abgeschlossen</span>
                             {% elif backup.status == 'running' %}
                                 <span class="badge bg-warning"><i class="bi bi-hourglass-split"></i> Läuft</span>
+                            {% elif backup.status == 'paused' %}
+                                <span class="badge bg-info"><i class="bi bi-pause-circle"></i> Pausiert</span>
                             {% elif backup.status == 'failed' %}
                                 <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Fehlgeschlagen</span>
                             {% else %}
@@ -71,13 +73,11 @@
                                    class="btn btn-outline-warning" title="Wiederherstellen">
                                     <i class="bi bi-arrow-counterclockwise"></i>
                                 </a>
-                                {% elif backup.status == 'failed' or backup.status == 'running' %}
-                                <button type="button" class="btn btn-outline-info resume-btn"
-                                        data-backup-id="{{ backup.id }}"
-                                        data-store-id="{{ store.id }}"
-                                        title="Fortsetzen">
+                                {% elif backup.status == 'paused' %}
+                                <a href="{% url 'shopify_manager:backup_detail' store_id=store.id backup_id=backup.id %}"
+                                   class="btn btn-outline-primary" title="Weiter laden">
                                     <i class="bi bi-play-fill"></i>
-                                </button>
+                                </a>
                                 {% endif %}
                                 <a href="{% url 'shopify_manager:backup_delete' store_id=store.id backup_id=backup.id %}"
                                    class="btn btn-outline-danger" title="Löschen">
@@ -181,6 +181,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (data.status === 'completed') {
                                 statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Abgeschlossen</span>';
                                 // Seite neu laden wenn fertig
+                                setTimeout(function() { location.reload(); }, 1000);
+                            } else if (data.status === 'paused') {
+                                statusCell.innerHTML = '<span class="badge bg-info"><i class="bi bi-pause-circle"></i> Pausiert</span>';
+                                // Seite neu laden um Weiter-laden Button zu zeigen
                                 setTimeout(function() { location.reload(); }, 1000);
                             } else if (data.status === 'failed') {
                                 statusCell.innerHTML = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Fehlgeschlagen</span>';

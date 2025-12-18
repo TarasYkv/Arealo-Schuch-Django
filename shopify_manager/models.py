@@ -1713,6 +1713,7 @@ class ShopifyBackup(models.Model):
     BACKUP_STATUS = [
         ('pending', 'Ausstehend'),
         ('running', 'Läuft'),
+        ('paused', 'Pausiert'),
         ('completed', 'Abgeschlossen'),
         ('failed', 'Fehlgeschlagen'),
     ]

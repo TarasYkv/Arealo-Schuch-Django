@@ -287,8 +287,6 @@ let statusUrl = null;
 let detailUrl = null;
 let startUrl = null;
 let pollInterval = null;
-let resumeCount = 0;
-const MAX_RESUME_ATTEMPTS = 50;  // Bis zu 50 Auto-Resumes
 
 function getCookie(name) {
     let cookieValue = null;
@@ -321,37 +319,6 @@ function updateStats(data) {
     safeSetText('statTotal', data.total_items || 0);
 }
 
-function autoResumeBackup() {
-    if (!startUrl || resumeCount >= MAX_RESUME_ATTEMPTS) {
-        if (resumeCount >= MAX_RESUME_ATTEMPTS) {
-            // Kein Fehler - einfach Seite neu laden um fortzufahren
-            safeSetText('progressMessage', 'Sitzungslimit erreicht - Seite wird neu geladen...');
-            setTimeout(function() {
-                // Zur Detail-Seite weiterleiten
-                if (detailUrl) {
-                    window.location.href = detailUrl;
-                } else {
-                    window.location.reload();
-                }
-            }, 2000);
-        }
-        return;
-    }
-
-    resumeCount++;
-    console.log('Auto-Resume Backup #' + resumeCount);
-    safeSetText('progressMessage', 'Verbindung wiederhergestellt - Backup läuft weiter... (Durchgang ' + resumeCount + ')');
-
-    // Backup-Prozess neu starten (fire-and-forget)
-    fetch(startUrl, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    }).catch(err => console.log('Resume request sent'));
-}
-
 function pollStatus() {
     if (!statusUrl) return;
 
@@ -378,7 +345,7 @@ function pollStatus() {
         updateStats(data);
 
         // Fortschritts-Nachricht aktualisieren
-        if (data.progress_message && data.status !== 'stalled') {
+        if (data.progress_message) {
             safeSetText('progressMessage', data.progress_message);
         }
 
@@ -386,13 +353,13 @@ function pollStatus() {
         if (data.status === 'completed') {
             clearInterval(pollInterval);
             showSuccess();
+        } else if (data.status === 'paused') {
+            // Bei Pause zur Detail-Seite weiterleiten
+            clearInterval(pollInterval);
+            showPaused();
         } else if (data.status === 'failed') {
             clearInterval(pollInterval);
             showError(data.error_message || 'Unbekannter Fehler');
-        } else if (data.status === 'stalled') {
-            // Auto-Resume!
-            console.log('Stalled detected, auto-resuming...');
-            autoResumeBackup();
         }
     })
     .catch(error => {
@@ -430,6 +397,23 @@ function showSuccess() {
     if (header) {
         header.classList.remove('bg-primary');
         header.classList.add('bg-success');
+    }
+}
+
+function showPaused() {
+    safeAddClass('progressSpinner', 'd-none');
+    safeSetText('progressMessage', '100 Elemente wurden gesichert. Klicken Sie auf "Weiter laden" um fortzufahren.');
+    safeSetAttr('progressIcon', 'className', 'bi bi-pause-circle me-2 text-info');
+    safeRemoveClass('progressFooter', 'd-none');
+    safeSetAttr('viewBackupBtn', 'href', detailUrl);
+    safeSetText('viewBackupBtn', 'Weiter laden');
+
+    var title = document.querySelector('.modal-title');
+    var header = document.querySelector('.modal-header');
+    if (title) title.innerHTML = '<i class="bi bi-pause-circle me-2"></i> Backup pausiert';
+    if (header) {
+        header.classList.remove('bg-primary');
+        header.classList.add('bg-info');
     }
 }
 

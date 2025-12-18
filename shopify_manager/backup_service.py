@@ -64,6 +64,10 @@ class ShopifyBackupService:
         self.min_request_interval = 0.5  # 2 Requests pro Sekunde
         # Bei Resume: Vorhandene Größe aus DB laden
         self.total_size = backup.total_size_bytes or 0
+        # Limit pro Durchlauf (100 Elemente, dann Pause)
+        self.ITEMS_PER_SESSION = 100
+        self.items_saved_this_session = 0
+        self.session_limit_reached = False
 
     def _rate_limit(self):
         """Wartet die minimale Zeit zwischen API-Requests ab"""
@@ -137,6 +141,10 @@ class ShopifyBackupService:
         """Prüft ob ein Item bereits im Backup existiert (für Resume-Funktion)"""
         return self.backup.items.filter(item_type=item_type, shopify_id=shopify_id).exists()
 
+    def _check_session_limit(self) -> bool:
+        """Prüft ob das Session-Limit erreicht wurde"""
+        return self.items_saved_this_session >= self.ITEMS_PER_SESSION
+
     def _save_backup_item(self, item_type: str, shopify_id: int, title: str,
                           raw_data: dict, image_url: str = '', parent_id: int = None,
                           image_data: bytes = None):
@@ -159,6 +167,8 @@ class ShopifyBackupService:
         )
         # Größe tracken
         self.total_size += item.get_data_size()
+        # Session-Zähler erhöhen
+        self.items_saved_this_session += 1
         return item
 
     def _download_image(self, url: str) -> Optional[bytes]:
@@ -191,63 +201,92 @@ class ShopifyBackupService:
         else:
             self.backup.save(update_fields=['current_step', 'progress_message'])
 
+    def _pause_backup(self, message: str) -> Tuple[bool, str]:
+        """Pausiert das Backup nach Erreichen des Session-Limits"""
+        self.backup.status = 'paused'
+        self.backup.total_size_bytes = self.total_size
+        saved_total = self.backup.items.count()
+        self.backup.progress_message = f'{saved_total} Elemente gesichert. Klicken Sie "Weiter laden" für mehr.'
+        self.backup.save()
+        return True, f"Backup pausiert: {self.items_saved_this_session} Elemente in diesem Durchlauf gesichert. {message}"
+
     def create_backup(self) -> Tuple[bool, str]:
-        """Hauptmethode - erstellt komplettes Backup"""
+        """Hauptmethode - erstellt komplettes Backup (max. 100 Elemente pro Durchlauf)"""
         try:
             self.backup.status = 'running'
             self._update_progress('init', 'Backup wird gestartet...')
 
             # Produkte
-            if self.backup.include_products:
+            if self.backup.include_products and not self._check_session_limit():
                 self._update_progress('products', 'Produkte werden gesichert...')
                 self._backup_products()
+                if self._check_session_limit():
+                    return self._pause_backup('Produkte werden beim nächsten Durchlauf fortgesetzt.')
 
             # Blogs & Posts
-            if self.backup.include_blogs:
+            if self.backup.include_blogs and not self._check_session_limit():
                 self._update_progress('blogs', 'Blogs werden gesichert...')
                 self._backup_blogs()
+                if self._check_session_limit():
+                    return self._pause_backup('Blogs werden beim nächsten Durchlauf fortgesetzt.')
 
             # Collections
-            if self.backup.include_collections:
+            if self.backup.include_collections and not self._check_session_limit():
                 self._update_progress('collections', 'Collections werden gesichert...')
                 self._backup_collections()
+                if self._check_session_limit():
+                    return self._pause_backup('Collections werden beim nächsten Durchlauf fortgesetzt.')
 
             # Pages
-            if self.backup.include_pages:
+            if self.backup.include_pages and not self._check_session_limit():
                 self._update_progress('pages', 'Seiten werden gesichert...')
                 self._backup_pages()
+                if self._check_session_limit():
+                    return self._pause_backup('Seiten werden beim nächsten Durchlauf fortgesetzt.')
 
             # Menus
-            if self.backup.include_menus:
+            if self.backup.include_menus and not self._check_session_limit():
                 self._update_progress('menus', 'Menüs werden gesichert...')
                 self._backup_menus()
+                if self._check_session_limit():
+                    return self._pause_backup('Menüs werden beim nächsten Durchlauf fortgesetzt.')
 
             # Redirects
-            if self.backup.include_redirects:
+            if self.backup.include_redirects and not self._check_session_limit():
                 self._update_progress('redirects', 'Weiterleitungen werden gesichert...')
                 self._backup_redirects()
+                if self._check_session_limit():
+                    return self._pause_backup('Weiterleitungen werden beim nächsten Durchlauf fortgesetzt.')
 
             # Metafields
-            if self.backup.include_metafields:
+            if self.backup.include_metafields and not self._check_session_limit():
                 self._update_progress('metafields', 'Metafields werden gesichert...')
                 self._backup_metafields()
+                if self._check_session_limit():
+                    return self._pause_backup('Metafields werden beim nächsten Durchlauf fortgesetzt.')
 
             # Discounts
-            if self.backup.include_discounts:
+            if self.backup.include_discounts and not self._check_session_limit():
                 self._update_progress('discounts', 'Rabattcodes werden gesichert...')
                 self._backup_discounts()
+                if self._check_session_limit():
+                    return self._pause_backup('Rabattcodes werden beim nächsten Durchlauf fortgesetzt.')
 
             # Orders
-            if self.backup.include_orders:
+            if self.backup.include_orders and not self._check_session_limit():
                 self._update_progress('orders', 'Bestellungen werden gesichert...')
                 self._backup_orders()
+                if self._check_session_limit():
+                    return self._pause_backup('Bestellungen werden beim nächsten Durchlauf fortgesetzt.')
 
             # Customers
-            if self.backup.include_customers:
+            if self.backup.include_customers and not self._check_session_limit():
                 self._update_progress('customers', 'Kundendaten werden gesichert...')
                 self._backup_customers()
+                if self._check_session_limit():
+                    return self._pause_backup('Kundendaten werden beim nächsten Durchlauf fortgesetzt.')
 
-            # Backup abschließen
+            # Backup abschließen - nur wenn alle Kategorien fertig
             self._update_progress('finalizing', 'Backup wird abgeschlossen...')
             self.backup.status = 'completed'
             self.backup.completed_at = timezone.now()
@@ -277,6 +316,10 @@ class ShopifyBackupService:
         skipped = 0
 
         for idx, product in enumerate(products):
+            # Session-Limit prüfen
+            if self._check_session_limit():
+                break
+
             # Prüfen ob bereits gespeichert (Resume-Fall)
             if self._item_exists('product', product['id']):
                 skipped += 1
@@ -322,6 +365,9 @@ class ShopifyBackupService:
             # Alle Produktbilder sichern (inkl. Download)
             if product.get('images'):
                 for img in product['images']:
+                    # Session-Limit auch für Bilder prüfen
+                    if self._check_session_limit():
+                        break
                     img_url = img.get('src', '')
                     if img_url:
                         # Prüfen ob Bild bereits existiert
@@ -355,6 +401,10 @@ class ShopifyBackupService:
         saved_posts = self.backup.items.filter(item_type='blog_post').count()
 
         for blog_idx, blog in enumerate(blogs):
+            # Session-Limit prüfen
+            if self._check_session_limit():
+                break
+
             # Prüfen ob Blog bereits gespeichert
             if not self._item_exists('blog', blog['id']):
                 saved_blogs += 1
@@ -381,6 +431,10 @@ class ShopifyBackupService:
             total_articles = len(articles)
 
             for idx, article in enumerate(articles):
+                # Session-Limit prüfen
+                if self._check_session_limit():
+                    break
+
                 # Prüfen ob Post bereits gespeichert (Resume-Fall)
                 if self._item_exists('blog_post', article['id']):
                     continue
@@ -431,6 +485,10 @@ class ShopifyBackupService:
         total_custom = len(custom_collections)
 
         for idx, collection in enumerate(custom_collections):
+            # Session-Limit prüfen
+            if self._check_session_limit():
+                break
+
             # Prüfen ob bereits gespeichert (Resume-Fall)
             if self._item_exists('collection', collection['id']):
                 continue
@@ -463,43 +521,48 @@ class ShopifyBackupService:
                 image_data=image_data
             )
 
-        # Smart Collections
-        self._update_progress('collections', 'Smart Collections werden abgerufen...', save_counts=True)
-        smart_collections = self._fetch_all_paginated('smart_collections.json', 'smart_collections')
-        total_smart = len(smart_collections)
+        # Smart Collections (nur wenn Limit noch nicht erreicht)
+        if not self._check_session_limit():
+            self._update_progress('collections', 'Smart Collections werden abgerufen...', save_counts=True)
+            smart_collections = self._fetch_all_paginated('smart_collections.json', 'smart_collections')
+            total_smart = len(smart_collections)
 
-        for idx, collection in enumerate(smart_collections):
-            # Prüfen ob bereits gespeichert (Resume-Fall)
-            if self._item_exists('collection', collection['id']):
-                continue
+            for idx, collection in enumerate(smart_collections):
+                # Session-Limit prüfen
+                if self._check_session_limit():
+                    break
 
-            collection['collection_type'] = 'smart'
-            image_url = collection.get('image', {}).get('src', '') if collection.get('image') else ''
+                # Prüfen ob bereits gespeichert (Resume-Fall)
+                if self._item_exists('collection', collection['id']):
+                    continue
 
-            saved_count += 1
-            self.backup.collections_count = saved_count
-            save_now = (saved_count % 5 == 0) or (idx == total_smart - 1)
-            self._update_progress(
-                'collections',
-                f'Smart Collection {saved_count}: {collection.get("title", "")[:35]}...',
-                save_counts=save_now
-            )
+                collection['collection_type'] = 'smart'
+                image_url = collection.get('image', {}).get('src', '') if collection.get('image') else ''
 
-            # Bild automatisch herunterladen wenn vorhanden
-            image_data = None
-            if image_url:
-                image_data = self._download_image(image_url)
-                if image_data:
-                    self.backup.images_count += 1
+                saved_count += 1
+                self.backup.collections_count = saved_count
+                save_now = (saved_count % 5 == 0) or (idx == total_smart - 1)
+                self._update_progress(
+                    'collections',
+                    f'Smart Collection {saved_count}: {collection.get("title", "")[:35]}...',
+                    save_counts=save_now
+                )
 
-            self._save_backup_item(
-                item_type='collection',
-                shopify_id=collection['id'],
-                title=collection.get('title', 'Unbekannt'),
-                raw_data=collection,
-                image_url=image_url,
-                image_data=image_data
-            )
+                # Bild automatisch herunterladen wenn vorhanden
+                image_data = None
+                if image_url:
+                    image_data = self._download_image(image_url)
+                    if image_data:
+                        self.backup.images_count += 1
+
+                self._save_backup_item(
+                    item_type='collection',
+                    shopify_id=collection['id'],
+                    title=collection.get('title', 'Unbekannt'),
+                    raw_data=collection,
+                    image_url=image_url,
+                    image_data=image_data
+                )
 
         # Final save
         self.backup.collections_count = saved_count
@@ -515,6 +578,10 @@ class ShopifyBackupService:
         saved_count = self.backup.items.filter(item_type='page').count()
 
         for idx, page in enumerate(pages):
+            # Session-Limit prüfen
+            if self._check_session_limit():
+                break
+
             # Prüfen ob bereits gespeichert (Resume-Fall)
             if self._item_exists('page', page['id']):
                 continue
@@ -557,14 +624,26 @@ class ShopifyBackupService:
                 menus = response.json().get('menus', [])
                 total = len(menus)
 
+                # Zähle bereits gespeicherte (für Resume)
+                saved_count = self.backup.items.filter(item_type='menu').count()
+
                 for idx, menu in enumerate(menus):
-                    self.backup.menus_count = idx + 1
+                    # Session-Limit prüfen
+                    if self._check_session_limit():
+                        break
+
+                    # Prüfen ob bereits gespeichert (Resume-Fall)
+                    if self._item_exists('menu', menu['id']):
+                        continue
+
+                    saved_count += 1
+                    self.backup.menus_count = saved_count
 
                     # Alle 5 Menüs oder beim letzten: Live-Update speichern
-                    save_now = (idx % 5 == 0) or (idx == total - 1)
+                    save_now = (saved_count % 5 == 0) or (idx == total - 1)
                     self._update_progress(
                         'menus',
-                        f'Menü {idx + 1}/{total}: {menu.get("title", "")[:40]}...',
+                        f'Menü {saved_count}/{total}: {menu.get("title", "")[:40]}...',
                         save_counts=save_now
                     )
 
@@ -576,7 +655,8 @@ class ShopifyBackupService:
                     )
 
                 # Final save
-                self._update_progress('menus', f'{total} Menüs gesichert', save_counts=True)
+                self.backup.menus_count = saved_count
+                self._update_progress('menus', f'{saved_count} Menüs gesichert', save_counts=True)
         except:
             # Menüs sind optional, Fehler ignorieren
             pass
@@ -587,14 +667,26 @@ class ShopifyBackupService:
         redirects = self._fetch_all_paginated('redirects.json', 'redirects')
         total = len(redirects)
 
+        # Zähle bereits gespeicherte (für Resume)
+        saved_count = self.backup.items.filter(item_type='redirect').count()
+
         for idx, redirect in enumerate(redirects):
-            self.backup.redirects_count = idx + 1
+            # Session-Limit prüfen
+            if self._check_session_limit():
+                break
+
+            # Prüfen ob bereits gespeichert (Resume-Fall)
+            if self._item_exists('redirect', redirect['id']):
+                continue
+
+            saved_count += 1
+            self.backup.redirects_count = saved_count
 
             # Alle 5 Redirects oder beim letzten: Live-Update speichern
-            save_now = (idx % 5 == 0) or (idx == total - 1)
+            save_now = (saved_count % 5 == 0) or (idx == total - 1)
             self._update_progress(
                 'redirects',
-                f'Weiterleitung {idx + 1}/{total}: {redirect.get("path", "")[:30]}...',
+                f'Weiterleitung {saved_count}/{total}: {redirect.get("path", "")[:30]}...',
                 save_counts=save_now
             )
 
@@ -606,7 +698,8 @@ class ShopifyBackupService:
             )
 
         # Final save
-        self._update_progress('redirects', f'{total} Weiterleitungen gesichert', save_counts=True)
+        self.backup.redirects_count = saved_count
+        self._update_progress('redirects', f'{saved_count} Weiterleitungen gesichert', save_counts=True)
 
     def _backup_metafields(self):
         """Sichert Shop-Metafields"""
@@ -623,14 +716,26 @@ class ShopifyBackupService:
                 metafields = response.json().get('metafields', [])
                 total = len(metafields)
 
+                # Zähle bereits gespeicherte (für Resume)
+                saved_count = self.backup.items.filter(item_type='metafield').count()
+
                 for idx, mf in enumerate(metafields):
-                    self.backup.metafields_count = idx + 1
+                    # Session-Limit prüfen
+                    if self._check_session_limit():
+                        break
+
+                    # Prüfen ob bereits gespeichert (Resume-Fall)
+                    if self._item_exists('metafield', mf['id']):
+                        continue
+
+                    saved_count += 1
+                    self.backup.metafields_count = saved_count
 
                     # Alle 5 Metafields oder beim letzten: Live-Update speichern
-                    save_now = (idx % 5 == 0) or (idx == total - 1)
+                    save_now = (saved_count % 5 == 0) or (idx == total - 1)
                     self._update_progress(
                         'metafields',
-                        f'Metafield {idx + 1}/{total}: {mf.get("namespace", "")}.{mf.get("key", "")[:20]}...',
+                        f'Metafield {saved_count}/{total}: {mf.get("namespace", "")}.{mf.get("key", "")[:20]}...',
                         save_counts=save_now
                     )
 
@@ -642,7 +747,8 @@ class ShopifyBackupService:
                     )
 
                 # Final save
-                self._update_progress('metafields', f'{total} Metafields gesichert', save_counts=True)
+                self.backup.metafields_count = saved_count
+                self._update_progress('metafields', f'{saved_count} Metafields gesichert', save_counts=True)
         except:
             pass
 
@@ -654,7 +760,14 @@ class ShopifyBackupService:
             price_rules = self._fetch_all_paginated('price_rules.json', 'price_rules')
             total_rules = len(price_rules)
 
+            # Zähle bereits gespeicherte (für Resume)
+            saved_count = self.backup.items.filter(item_type='discount').count()
+
             for rule_idx, rule in enumerate(price_rules):
+                # Session-Limit prüfen
+                if self._check_session_limit():
+                    break
+
                 self._update_progress(
                     'discounts',
                     f'Price Rule {rule_idx + 1}/{total_rules}: {rule.get("title", "")[:30]}...',
@@ -669,13 +782,22 @@ class ShopifyBackupService:
                 total_codes = len(discount_codes)
 
                 for idx, code in enumerate(discount_codes):
-                    self.backup.discounts_count += 1
+                    # Session-Limit prüfen
+                    if self._check_session_limit():
+                        break
+
+                    # Prüfen ob bereits gespeichert (Resume-Fall)
+                    if self._item_exists('discount', code['id']):
+                        continue
+
+                    saved_count += 1
+                    self.backup.discounts_count = saved_count
 
                     # Alle 5 Codes oder beim letzten: Live-Update speichern
-                    save_now = (idx % 5 == 0) or (idx == total_codes - 1)
+                    save_now = (saved_count % 5 == 0) or (idx == total_codes - 1)
                     self._update_progress(
                         'discounts',
-                        f'Rabattcode {idx + 1}/{total_codes}: {code.get("code", "")[:20]}...',
+                        f'Rabattcode {saved_count}: {code.get("code", "")[:20]}...',
                         save_counts=save_now
                     )
 
@@ -689,7 +811,8 @@ class ShopifyBackupService:
                     )
 
             # Final save
-            self._update_progress('discounts', f'{self.backup.discounts_count} Rabattcodes gesichert', save_counts=True)
+            self.backup.discounts_count = saved_count
+            self._update_progress('discounts', f'{saved_count} Rabattcodes gesichert', save_counts=True)
         except:
             pass
 
@@ -699,14 +822,26 @@ class ShopifyBackupService:
         orders = self._fetch_all_paginated('orders.json', 'orders', {'status': 'any'})
         total = len(orders)
 
+        # Zähle bereits gespeicherte (für Resume)
+        saved_count = self.backup.items.filter(item_type='order').count()
+
         for idx, order in enumerate(orders):
-            self.backup.orders_count = idx + 1
+            # Session-Limit prüfen
+            if self._check_session_limit():
+                break
+
+            # Prüfen ob bereits gespeichert (Resume-Fall)
+            if self._item_exists('order', order['id']):
+                continue
+
+            saved_count += 1
+            self.backup.orders_count = saved_count
 
             # Alle 5 Bestellungen oder beim letzten: Live-Update speichern
-            save_now = (idx % 5 == 0) or (idx == total - 1)
+            save_now = (saved_count % 5 == 0) or (idx == total - 1)
             self._update_progress(
                 'orders',
-                f'Bestellung {idx + 1}/{total}: #{order.get("order_number", order["id"])}...',
+                f'Bestellung {saved_count}/{total}: #{order.get("order_number", order["id"])}...',
                 save_counts=save_now
             )
 
@@ -718,7 +853,8 @@ class ShopifyBackupService:
             )
 
         # Final save
-        self._update_progress('orders', f'{total} Bestellungen gesichert', save_counts=True)
+        self.backup.orders_count = saved_count
+        self._update_progress('orders', f'{saved_count} Bestellungen gesichert', save_counts=True)
 
     def _backup_customers(self):
         """Sichert Kundendaten"""
@@ -726,18 +862,30 @@ class ShopifyBackupService:
         customers = self._fetch_all_paginated('customers.json', 'customers')
         total = len(customers)
 
+        # Zähle bereits gespeicherte (für Resume)
+        saved_count = self.backup.items.filter(item_type='customer').count()
+
         for idx, customer in enumerate(customers):
-            self.backup.customers_count = idx + 1
+            # Session-Limit prüfen
+            if self._check_session_limit():
+                break
+
+            # Prüfen ob bereits gespeichert (Resume-Fall)
+            if self._item_exists('customer', customer['id']):
+                continue
+
+            saved_count += 1
+            self.backup.customers_count = saved_count
 
             name = f"{customer.get('first_name', '')} {customer.get('last_name', '')}".strip()
             if not name:
                 name = customer.get('email', 'Unbekannt')
 
             # Alle 5 Kunden oder beim letzten: Live-Update speichern
-            save_now = (idx % 5 == 0) or (idx == total - 1)
+            save_now = (saved_count % 5 == 0) or (idx == total - 1)
             self._update_progress(
                 'customers',
-                f'Kunde {idx + 1}/{total}: {name[:30]}...',
+                f'Kunde {saved_count}/{total}: {name[:30]}...',
                 save_counts=save_now
             )
 
@@ -749,7 +897,8 @@ class ShopifyBackupService:
             )
 
         # Final save
-        self._update_progress('customers', f'{total} Kundendaten gesichert', save_counts=True)
+        self.backup.customers_count = saved_count
+        self._update_progress('customers', f'{saved_count} Kundendaten gesichert', save_counts=True)
 
     def generate_download_zip(self) -> io.BytesIO:
         """Generiert eine ZIP-Datei mit allen Backup-Daten"""

@@ -4915,17 +4915,8 @@ def api_backup_status(request, store_id, backup_id):
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
 
-    status = backup.status
-
-    # Stalled-Detection: Wenn Status "running" aber kein Update seit 10 Sekunden
-    if status == 'running' and backup.updated_at:
-        from django.utils import timezone
-        seconds_since_update = (timezone.now() - backup.updated_at).total_seconds()
-        if seconds_since_update > 10:
-            status = 'stalled'
-
     return JsonResponse({
-        'status': status,
+        'status': backup.status,
         'current_step': backup.current_step,
         'progress_message': backup.progress_message,
         'products_count': backup.products_count,

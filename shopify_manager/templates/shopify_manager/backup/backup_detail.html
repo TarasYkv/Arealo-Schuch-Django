@@ -52,6 +52,8 @@
                     <h3 class="mb-0 text-success"><i class="bi bi-check-circle"></i></h3>
                 {% elif backup.status == 'running' %}
                     <h3 class="mb-0 text-warning"><i class="bi bi-hourglass-split"></i></h3>
+                {% elif backup.status == 'paused' %}
+                    <h3 class="mb-0 text-info"><i class="bi bi-pause-circle"></i></h3>
                 {% elif backup.status == 'failed' %}
                     <h3 class="mb-0 text-danger"><i class="bi bi-x-circle"></i></h3>
                 {% else %}
@@ -99,6 +101,60 @@
         </div>
     </div>
 </div>
+{% endif %}
+
+{% if backup.status == 'paused' %}
+<!-- Pausiert - Weiter laden Button -->
+<div class="alert alert-info" id="pausedAlert">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-pause-circle"></i>
+            <strong>Backup pausiert</strong>
+            <div class="small mt-1">{{ backup.progress_message|default:"100 Elemente wurden in diesem Durchlauf gesichert." }}</div>
+        </div>
+        <form method="post" action="{% url 'shopify_manager:api_backup_start' store_id=store.id backup_id=backup.id %}" id="continueForm">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary" id="continueBtn">
+                <i class="bi bi-play-fill"></i> Weiter laden
+            </button>
+        </form>
+    </div>
+    <div class="mt-3">
+        <div class="row small">
+            <div class="col-4"><strong>Produkte:</strong> {{ backup.products_count }}</div>
+            <div class="col-4"><strong>Blogs:</strong> {{ backup.blogs_count }}</div>
+            <div class="col-4"><strong>Posts:</strong> {{ backup.posts_count }}</div>
+        </div>
+        <div class="row small mt-1">
+            <div class="col-4"><strong>Collections:</strong> {{ backup.collections_count }}</div>
+            <div class="col-4"><strong>Seiten:</strong> {{ backup.pages_count }}</div>
+            <div class="col-4"><strong>Menüs:</strong> {{ backup.menus_count }}</div>
+        </div>
+    </div>
+</div>
+<script>
+document.getElementById('continueForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('continueBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Lädt...';
+
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    }).then(function() {
+        // Nach kurzer Verzögerung Seite neu laden
+        setTimeout(function() {
+            window.location.reload();
+        }, 1000);
+    }).catch(function() {
+        window.location.reload();
+    });
+});
+</script>
 {% endif %}
 
 {% if backup.error_message %}
@@ -265,43 +321,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var backupId = {{ backup.id }};
     var storeId = {{ store.id }};
     var pollingInterval = null;
-    var resumeCount = 0;
-    var MAX_RESUME_ATTEMPTS = 50;
-
-    function getCsrfToken() {
-        return document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
-               document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
-    }
-
-    function autoResumeBackup() {
-        if (resumeCount >= MAX_RESUME_ATTEMPTS) {
-            // Kein Fehler - einfach Seite neu laden um fortzufahren
-            var progressMessage = document.getElementById('progressMessage');
-            if (progressMessage) {
-                progressMessage.textContent = 'Sitzungslimit erreicht - Seite wird neu geladen...';
-            }
-            setTimeout(function() {
-                window.location.reload();
-            }, 2000);
-            return;
-        }
-
-        resumeCount++;
-        console.log('Auto-Resume Backup #' + resumeCount);
-        var progressMessage = document.getElementById('progressMessage');
-        if (progressMessage) {
-            progressMessage.textContent = 'Verbindung wiederhergestellt - Backup läuft weiter... (Durchgang ' + resumeCount + ')';
-        }
-
-        // Backup fortsetzen
-        fetch('/shopify/api/store/' + storeId + '/backups/' + backupId + '/start/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCsrfToken(),
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        }).catch(err => console.log('Resume request sent'));
-    }
 
     function pollBackupProgress() {
         fetch('/shopify/api/store/' + storeId + '/backups/' + backupId + '/status/')
@@ -313,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Detail-Zähler aktualisieren
             var progressMessage = document.getElementById('progressMessage');
-            if (progressMessage && data.status !== 'stalled') {
+            if (progressMessage) {
                 progressMessage.textContent = data.progress_message || 'Läuft...';
             }
 
@@ -335,10 +354,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (el) el.textContent = counters[id] || 0;
             }
 
-            // Status prüfen
-            if (data.status === 'completed') {
+            // Status prüfen - bei Änderung Seite neu laden
+            if (data.status === 'completed' || data.status === 'paused') {
                 clearInterval(pollingInterval);
-                // Seite neu laden um fertige Ansicht zu zeigen
                 location.reload();
             } else if (data.status === 'failed') {
                 clearInterval(pollingInterval);
@@ -347,12 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     progressAlert.className = 'alert alert-danger';
                     progressAlert.innerHTML = '<i class="bi bi-x-circle"></i> <strong>Backup fehlgeschlagen:</strong> ' + (data.error_message || 'Unbekannter Fehler');
                 }
-                // Nach 2 Sekunden neu laden
                 setTimeout(function() { location.reload(); }, 2000);
-            } else if (data.status === 'stalled') {
-                // Auto-Resume!
-                console.log('Stalled detected, auto-resuming...');
-                autoResumeBackup();
             }
         })
         .catch(function(err) {
