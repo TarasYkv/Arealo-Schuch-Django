@@ -217,10 +217,10 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
                             <td>{{ item.created_at|date:"d.m.Y H:i" }}</td>
                             {% if backup.status == 'completed' %}
                             <td>
-                                <form method="post" action="{% url 'shopify_manager:restore_item' store_id=store.id backup_id=backup.id item_id=item.id %}" class="d-inline">
+                                <form method="post" action="{% url 'shopify_manager:restore_item' store_id=store.id backup_id=backup.id item_id=item.id %}" class="d-inline restore-form">
                                     {% csrf_token %}
                                     <input type="hidden" name="mode" value="only_missing">
-                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Wiederherstellen">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary restore-btn" title="Wiederherstellen" data-title="{{ item.title|truncatechars:30 }}">
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 </form>
@@ -286,6 +286,19 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
 </div>
 {% endif %}
 
+<!-- Restore Loading Overlay -->
+<div id="restoreOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-none" style="background: rgba(0,0,0,0.5); z-index: 9999;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="card shadow-lg" style="min-width: 300px;">
+            <div class="card-body text-center p-4">
+                <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+                <h5 id="restoreTitle">Wiederherstellen...</h5>
+                <p class="text-muted mb-0" id="restoreMessage">Bilder werden an Shopify gesendet. Dies kann einige Minuten dauern...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Tab-Switching
 document.querySelectorAll('.nav-tabs .nav-link').forEach(function(tab) {
@@ -298,6 +311,23 @@ document.querySelectorAll('.nav-tabs .nav-link').forEach(function(tab) {
 document.addEventListener('DOMContentLoaded', function() {
     var urlParams = new URLSearchParams(window.location.search);
     var activeTab = urlParams.get('tab');
+
+    // Restore Button Handler - Zeigt Lade-Overlay
+    document.querySelectorAll('.restore-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            var btn = this.querySelector('.restore-btn');
+            var title = btn.dataset.title || 'Element';
+
+            // Overlay anzeigen
+            var overlay = document.getElementById('restoreOverlay');
+            document.getElementById('restoreTitle').textContent = 'Wiederherstellen: ' + title;
+            overlay.classList.remove('d-none');
+
+            // Button deaktivieren
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        });
+    });
 
     if (activeTab) {
         document.querySelectorAll('.tab-content').forEach(function(content) {
