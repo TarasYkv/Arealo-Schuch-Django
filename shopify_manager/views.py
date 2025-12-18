@@ -4645,10 +4645,10 @@ def api_backup_start(request, store_id, backup_id):
 
     # Bei "running" Status prüfen ob es wirklich noch läuft (Timeout-Check)
     if backup.status == 'running':
-        # Wenn länger als 5 Minuten keine Änderung, kann fortgesetzt werden
+        # Wenn weniger als 15 Sekunden seit letzter Änderung, läuft es noch
         from django.utils import timezone
         from datetime import timedelta
-        if backup.updated_at and (timezone.now() - backup.updated_at) < timedelta(minutes=2):
+        if backup.updated_at and (timezone.now() - backup.updated_at) < timedelta(seconds=15):
             return JsonResponse({
                 'success': False,
                 'error': 'Backup läuft noch. Bitte warten.'

@@ -271,15 +271,32 @@ class ShopifyBackupService:
         products = self._fetch_all_paginated('products.json', 'products')
         total = len(products)
 
-        for idx, product in enumerate(products):
-            # Zähler aktualisieren
-            self.backup.products_count = idx + 1
+        # Zähle bereits gespeicherte Produkte (für Resume)
+        saved_count = self.backup.items.filter(item_type='product').count()
+        skipped = 0
 
-            # Alle 5 Produkte oder beim letzten: Live-Update speichern
-            save_now = (idx % 5 == 0) or (idx == total - 1)
+        for idx, product in enumerate(products):
+            # Prüfen ob bereits gespeichert (Resume-Fall)
+            if self._item_exists('product', product['id']):
+                skipped += 1
+                # Fortschritt anzeigen aber nicht speichern
+                if idx % 20 == 0:
+                    self._update_progress(
+                        'products',
+                        f'Überspringe {skipped} bereits gesicherte Produkte...',
+                        save_counts=False
+                    )
+                continue
+
+            # Neues Produkt - Zähler erhöhen
+            saved_count += 1
+            self.backup.products_count = saved_count
+
+            # Alle 5 neue Produkte oder beim letzten: Live-Update speichern
+            save_now = (saved_count % 5 == 0) or (idx == total - 1)
             self._update_progress(
                 'products',
-                f'Produkt {idx + 1}/{total}: {product.get("title", "")[:40]}...',
+                f'Produkt {saved_count}/{total}: {product.get("title", "")[:40]}...',
                 save_counts=save_now
             )
 
@@ -306,6 +323,9 @@ class ShopifyBackupService:
                 for img in product['images']:
                     img_url = img.get('src', '')
                     if img_url:
+                        # Prüfen ob Bild bereits existiert
+                        if self._item_exists('product_image', img['id']):
+                            continue
                         image_data = self._download_image(img_url)
                         self._save_backup_item(
                             item_type='product_image',
@@ -319,8 +339,9 @@ class ShopifyBackupService:
                         if image_data:
                             self.backup.images_count += 1
 
-        # Final save
-        self._update_progress('products', f'{total} Produkte gesichert', save_counts=True)
+        # Final save mit korrektem Zähler
+        self.backup.products_count = saved_count
+        self._update_progress('products', f'{saved_count} Produkte gesichert', save_counts=True)
 
     def _backup_blogs(self):
         """Sichert Blogs und Blog-Posts (inkl. Bilder)"""
@@ -328,20 +349,26 @@ class ShopifyBackupService:
         blogs = self._fetch_all_paginated('blogs.json', 'blogs')
         total_blogs = len(blogs)
 
+        # Zähle bereits gespeicherte (für Resume)
+        saved_blogs = self.backup.items.filter(item_type='blog').count()
+        saved_posts = self.backup.items.filter(item_type='blog_post').count()
+
         for blog_idx, blog in enumerate(blogs):
-            self.backup.blogs_count = blog_idx + 1
+            # Prüfen ob Blog bereits gespeichert
+            if not self._item_exists('blog', blog['id']):
+                saved_blogs += 1
+                self._save_backup_item(
+                    item_type='blog',
+                    shopify_id=blog['id'],
+                    title=blog.get('title', 'Unbekannt'),
+                    raw_data=blog
+                )
+
+            self.backup.blogs_count = saved_blogs
             self._update_progress(
                 'blogs',
-                f'Blog {blog_idx + 1}/{total_blogs}: {blog.get("title", "")[:40]}...',
+                f'Blog {saved_blogs}/{total_blogs}: {blog.get("title", "")[:40]}...',
                 save_counts=True
-            )
-
-            # Blog sichern
-            self._save_backup_item(
-                item_type='blog',
-                shopify_id=blog['id'],
-                title=blog.get('title', 'Unbekannt'),
-                raw_data=blog
             )
 
             # Blog-Posts für diesen Blog holen
@@ -353,13 +380,18 @@ class ShopifyBackupService:
             total_articles = len(articles)
 
             for idx, article in enumerate(articles):
-                self.backup.posts_count += 1
+                # Prüfen ob Post bereits gespeichert (Resume-Fall)
+                if self._item_exists('blog_post', article['id']):
+                    continue
+
+                saved_posts += 1
+                self.backup.posts_count = saved_posts
 
                 # Alle 5 Posts oder beim letzten: Live-Update speichern
-                save_now = (idx % 5 == 0) or (idx == total_articles - 1)
+                save_now = (saved_posts % 5 == 0) or (idx == total_articles - 1)
                 self._update_progress(
                     'blogs',
-                    f'Beitrag {idx + 1}/{total_articles}: {article.get("title", "")[:35]}...',
+                    f'Beitrag {saved_posts}: {article.get("title", "")[:35]}...',
                     save_counts=save_now
                 )
 
@@ -383,24 +415,34 @@ class ShopifyBackupService:
                 )
 
         # Final save
-        self._update_progress('blogs', f'{self.backup.blogs_count} Blogs, {self.backup.posts_count} Beiträge gesichert', save_counts=True)
+        self.backup.blogs_count = saved_blogs
+        self.backup.posts_count = saved_posts
+        self._update_progress('blogs', f'{saved_blogs} Blogs, {saved_posts} Beiträge gesichert', save_counts=True)
 
     def _backup_collections(self):
         """Sichert Custom und Smart Collections (inkl. Bilder)"""
+        # Zähle bereits gespeicherte (für Resume)
+        saved_count = self.backup.items.filter(item_type='collection').count()
+
         # Custom Collections
         self._update_progress('collections', 'Custom Collections werden abgerufen...')
         custom_collections = self._fetch_all_paginated('custom_collections.json', 'custom_collections')
         total_custom = len(custom_collections)
 
         for idx, collection in enumerate(custom_collections):
+            # Prüfen ob bereits gespeichert (Resume-Fall)
+            if self._item_exists('collection', collection['id']):
+                continue
+
             collection['collection_type'] = 'custom'
             image_url = collection.get('image', {}).get('src', '') if collection.get('image') else ''
 
-            self.backup.collections_count += 1
-            save_now = (idx % 5 == 0) or (idx == total_custom - 1)
+            saved_count += 1
+            self.backup.collections_count = saved_count
+            save_now = (saved_count % 5 == 0) or (idx == total_custom - 1)
             self._update_progress(
                 'collections',
-                f'Custom Collection {idx + 1}/{total_custom}: {collection.get("title", "")[:35]}...',
+                f'Custom Collection {saved_count}: {collection.get("title", "")[:35]}...',
                 save_counts=save_now
             )
 
@@ -426,14 +468,19 @@ class ShopifyBackupService:
         total_smart = len(smart_collections)
 
         for idx, collection in enumerate(smart_collections):
+            # Prüfen ob bereits gespeichert (Resume-Fall)
+            if self._item_exists('collection', collection['id']):
+                continue
+
             collection['collection_type'] = 'smart'
             image_url = collection.get('image', {}).get('src', '') if collection.get('image') else ''
 
-            self.backup.collections_count += 1
-            save_now = (idx % 5 == 0) or (idx == total_smart - 1)
+            saved_count += 1
+            self.backup.collections_count = saved_count
+            save_now = (saved_count % 5 == 0) or (idx == total_smart - 1)
             self._update_progress(
                 'collections',
-                f'Smart Collection {idx + 1}/{total_smart}: {collection.get("title", "")[:35]}...',
+                f'Smart Collection {saved_count}: {collection.get("title", "")[:35]}...',
                 save_counts=save_now
             )
 
@@ -454,7 +501,8 @@ class ShopifyBackupService:
             )
 
         # Final save
-        self._update_progress('collections', f'{self.backup.collections_count} Collections gesichert', save_counts=True)
+        self.backup.collections_count = saved_count
+        self._update_progress('collections', f'{saved_count} Collections gesichert', save_counts=True)
 
     def _backup_pages(self):
         """Sichert statische Seiten"""
@@ -462,14 +510,22 @@ class ShopifyBackupService:
         pages = self._fetch_all_paginated('pages.json', 'pages')
         total = len(pages)
 
+        # Zähle bereits gespeicherte (für Resume)
+        saved_count = self.backup.items.filter(item_type='page').count()
+
         for idx, page in enumerate(pages):
-            self.backup.pages_count = idx + 1
+            # Prüfen ob bereits gespeichert (Resume-Fall)
+            if self._item_exists('page', page['id']):
+                continue
+
+            saved_count += 1
+            self.backup.pages_count = saved_count
 
             # Alle 5 Seiten oder beim letzten: Live-Update speichern
-            save_now = (idx % 5 == 0) or (idx == total - 1)
+            save_now = (saved_count % 5 == 0) or (idx == total - 1)
             self._update_progress(
                 'pages',
-                f'Seite {idx + 1}/{total}: {page.get("title", "")[:40]}...',
+                f'Seite {saved_count}/{total}: {page.get("title", "")[:40]}...',
                 save_counts=save_now
             )
 
@@ -481,7 +537,8 @@ class ShopifyBackupService:
             )
 
         # Final save
-        self._update_progress('pages', f'{total} Seiten gesichert', save_counts=True)
+        self.backup.pages_count = saved_count
+        self._update_progress('pages', f'{saved_count} Seiten gesichert', save_counts=True)
 
     def _backup_menus(self):
         """Sichert Navigationsmenüs"""
