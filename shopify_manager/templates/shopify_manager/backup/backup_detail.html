@@ -265,6 +265,40 @@ document.addEventListener('DOMContentLoaded', function() {
     var backupId = {{ backup.id }};
     var storeId = {{ store.id }};
     var pollingInterval = null;
+    var resumeCount = 0;
+    var MAX_RESUME_ATTEMPTS = 50;
+
+    function getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+               document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    }
+
+    function autoResumeBackup() {
+        if (resumeCount >= MAX_RESUME_ATTEMPTS) {
+            var progressAlert = document.getElementById('progressAlert');
+            if (progressAlert) {
+                progressAlert.className = 'alert alert-danger';
+                progressAlert.innerHTML = '<i class="bi bi-x-circle"></i> <strong>Maximale Auto-Resumes erreicht.</strong> Bitte versuchen Sie es später erneut.';
+            }
+            return;
+        }
+
+        resumeCount++;
+        console.log('Auto-Resume Backup #' + resumeCount);
+        var progressMessage = document.getElementById('progressMessage');
+        if (progressMessage) {
+            progressMessage.textContent = 'Auto-Resume #' + resumeCount + ' - Backup wird fortgesetzt...';
+        }
+
+        // Backup fortsetzen
+        fetch('/shopify/api/store/' + storeId + '/backups/' + backupId + '/start/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).catch(err => console.log('Resume request sent'));
+    }
 
     function pollBackupProgress() {
         fetch('/shopify/api/store/' + storeId + '/backups/' + backupId + '/status/')
@@ -276,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Detail-Zähler aktualisieren
             var progressMessage = document.getElementById('progressMessage');
-            if (progressMessage) {
+            if (progressMessage && data.status !== 'stalled') {
                 progressMessage.textContent = data.progress_message || 'Läuft...';
             }
 
@@ -312,6 +346,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 // Nach 2 Sekunden neu laden
                 setTimeout(function() { location.reload(); }, 2000);
+            } else if (data.status === 'stalled') {
+                // Auto-Resume!
+                console.log('Stalled detected, auto-resuming...');
+                autoResumeBackup();
             }
         })
         .catch(function(err) {

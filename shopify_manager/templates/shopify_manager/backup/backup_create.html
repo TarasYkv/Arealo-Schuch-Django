@@ -285,7 +285,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 let statusUrl = null;
 let detailUrl = null;
+let startUrl = null;
 let pollInterval = null;
+let resumeCount = 0;
+const MAX_RESUME_ATTEMPTS = 50;  // Bis zu 50 Auto-Resumes
 
 function getCookie(name) {
     let cookieValue = null;
@@ -318,6 +321,28 @@ function updateStats(data) {
     safeSetText('statTotal', data.total_items || 0);
 }
 
+function autoResumeBackup() {
+    if (!startUrl || resumeCount >= MAX_RESUME_ATTEMPTS) {
+        if (resumeCount >= MAX_RESUME_ATTEMPTS) {
+            showError('Maximale Anzahl an Auto-Resumes erreicht. Bitte versuchen Sie es später erneut.');
+        }
+        return;
+    }
+
+    resumeCount++;
+    console.log('Auto-Resume Backup #' + resumeCount);
+    safeSetText('progressMessage', 'Auto-Resume #' + resumeCount + ' - Backup wird fortgesetzt...');
+
+    // Backup-Prozess neu starten (fire-and-forget)
+    fetch(startUrl, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    }).catch(err => console.log('Resume request sent'));
+}
+
 function pollStatus() {
     if (!statusUrl) return;
 
@@ -344,7 +369,7 @@ function pollStatus() {
         updateStats(data);
 
         // Fortschritts-Nachricht aktualisieren
-        if (data.progress_message) {
+        if (data.progress_message && data.status !== 'stalled') {
             safeSetText('progressMessage', data.progress_message);
         }
 
@@ -355,6 +380,10 @@ function pollStatus() {
         } else if (data.status === 'failed') {
             clearInterval(pollInterval);
             showError(data.error_message || 'Unbekannter Fehler');
+        } else if (data.status === 'stalled') {
+            // Auto-Resume!
+            console.log('Stalled detected, auto-resuming...');
+            autoResumeBackup();
         }
     })
     .catch(error => {
@@ -444,6 +473,7 @@ document.getElementById('backupForm').addEventListener('submit', function(e) {
         if (data.success) {
             statusUrl = data.status_url;
             detailUrl = data.detail_url;
+            startUrl = data.start_url;  // Für Auto-Resume speichern
 
             // Backup-Prozess im Hintergrund starten (fire-and-forget)
             // Dieser Request läuft lange, aber wir warten nicht auf die Antwort
