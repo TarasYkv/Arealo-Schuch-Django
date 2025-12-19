@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}VSkript - Videoskripte | WorkLoom{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="bi bi-camera-video me-2"></i>VSkript
+                    </h1>
+                    <p class="text-muted mb-0">KI-gestützte Videoskript-Erstellung</p>
+                </div>
+                <div>
+                    <a href="{% url 'vskript:create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> Neues Skript
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Skripte</h6>
+                            <h2 class="card-title mb-0">{{ total_projects }}</h2>
+                        </div>
+                        <i class="bi bi-file-earmark-text" style="font-size: 2rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Generierte Worte</h6>
+                            <h2 class="card-title mb-0">{{ total_words|default:0 }}</h2>
+                        </div>
+                        <i class="bi bi-alphabet" style="font-size: 2rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Geschätzte Minuten</h6>
+                            <h2 class="card-title mb-0">{{ total_words|divisibleby:130|default:0 }}</h2>
+                        </div>
+                        <i class="bi bi-clock" style="font-size: 2rem; opacity: 0.5;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects Grid -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Meine Skripte</h5>
+        </div>
+        <div class="card-body">
+            {% if page_obj %}
+            <div class="row">
+                {% for project in page_obj %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">{{ project.keyword|truncatechars:30 }}</h5>
+                                <span class="badge bg-{{ project.platform }}">
+                                    {% if project.platform == 'youtube' %}YouTube
+                                    {% elif project.platform == 'tiktok' %}TikTok
+                                    {% elif project.platform == 'instagram' %}Instagram
+                                    {% elif project.platform == 'linkedin' %}LinkedIn
+                                    {% else %}{{ project.get_platform_display }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <p class="card-text text-muted small mb-2">
+                                <i class="bi bi-tag me-1"></i>{{ project.get_script_type_display }}
+                                <span class="mx-1">|</span>
+                                <i class="bi bi-chat-quote me-1"></i>{{ project.get_tone_display }}
+                            </p>
+                            {% if project.script %}
+                            <p class="card-text small">{{ project.script|truncatechars:100 }}</p>
+                            <div class="d-flex gap-2 text-muted small mb-3">
+                                <span><i class="bi bi-alphabet me-1"></i>{{ project.word_count }} Worte</span>
+                                <span><i class="bi bi-clock me-1"></i>{{ project.estimated_duration }} Min</span>
+                            </div>
+                            {% else %}
+                            <p class="card-text text-muted fst-italic small">Noch kein Skript generiert</p>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent border-top-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">{{ project.created_at|date:"d.m.Y" }}</small>
+                                <div>
+                                    <a href="{% url 'vskript:detail' project_id=project.id %}"
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> Ansehen
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <nav class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-camera-video" style="font-size: 4rem; color: #d1d5db;"></i>
+                <h5 class="mt-3">Noch keine Skripte</h5>
+                <p class="text-muted">Erstelle dein erstes KI-generiertes Videoskript!</p>
+                <a href="{% url 'vskript:create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg"></i> Neues Skript
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.badge.bg-youtube { background-color: #FF0000 !important; }
+.badge.bg-tiktok { background-color: #000000 !important; }
+.badge.bg-instagram { background: linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D) !important; }
+.badge.bg-linkedin { background-color: #0077B5 !important; }
+.badge.bg-facebook { background-color: #1877F2 !important; }
+</style>
+{% endblock %}

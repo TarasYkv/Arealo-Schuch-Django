@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ project.keyword }} | VSkript{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'vskript:dashboard' %}">VSkript</a></li>
+                    <li class="breadcrumb-item active">{{ project.keyword|truncatechars:30 }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h2 mb-0">
+                    <i class="bi bi-camera-video me-2"></i>{{ project.keyword }}
+                </h1>
+                <div>
+                    <form method="post" action="{% url 'vskript:delete' project_id=project.id %}"
+                          style="display: inline;"
+                          onsubmit="return confirm('Skript wirklich löschen?')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i> Löschen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Skript-Bereich -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-text me-1"></i>Videoskript
+                    </h5>
+                    <div>
+                        {% if project.script %}
+                        <span class="badge bg-success me-2">
+                            <i class="bi bi-alphabet me-1"></i>{{ project.word_count }} Worte
+                        </span>
+                        <span class="badge bg-info">
+                            <i class="bi bi-clock me-1"></i>{{ project.estimated_duration }} Min
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if not project.script %}
+                    <!-- Skript noch nicht generiert -->
+                    <div class="text-center py-5" id="generateSection">
+                        <i class="bi bi-magic" style="font-size: 3rem; color: #6c757d;"></i>
+                        <h5 class="mt-3">Skript generieren</h5>
+                        <p class="text-muted">Klicke auf den Button um dein Skript zu erstellen.</p>
+                        <button type="button" class="btn btn-primary btn-lg" id="generateBtn" onclick="generateScript()">
+                            <i class="bi bi-stars me-1"></i>Skript generieren
+                        </button>
+                    </div>
+                    {% endif %}
+
+                    <!-- Loading -->
+                    <div class="text-center py-5 d-none" id="loadingSection">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Lädt...</span>
+                        </div>
+                        <h5 class="mt-3">Skript wird generiert...</h5>
+                        <p class="text-muted">Das kann einige Sekunden dauern.</p>
+                    </div>
+
+                    <!-- Skript Anzeige -->
+                    <div id="scriptSection" {% if not project.script %}class="d-none"{% endif %}>
+                        <form method="post" id="saveForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="save_script">
+
+                            <textarea class="form-control" id="scriptText" name="script"
+                                      rows="15" style="font-size: 1.1rem; line-height: 1.8;">{{ project.script }}</textarea>
+
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <div>
+                                    <span class="text-muted" id="wordCountDisplay">
+                                        {{ project.word_count }} Worte | {{ project.estimated_duration }} Min
+                                    </span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="copyScript()">
+                                        <i class="bi bi-clipboard me-1"></i>Kopieren
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="regenerateScript()">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Neu generieren
+                                    </button>
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-check-lg me-1"></i>Speichern
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Einstellungen Sidebar -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-gear me-1"></i>Einstellungen</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="settingsForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_settings">
+
+                        <div class="mb-3">
+                            <label for="keyword" class="form-label small fw-bold">Keyword</label>
+                            <input type="text" class="form-control form-control-sm"
+                                   id="keyword" name="keyword" value="{{ project.keyword }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label small fw-bold">Beschreibung</label>
+                            <textarea class="form-control form-control-sm" id="description"
+                                      name="description" rows="2">{{ project.description }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="script_type" class="form-label small fw-bold">Skript-Art</label>
+                            <select class="form-select form-select-sm" id="script_type" name="script_type">
+                                {% for value, label in script_types %}
+                                <option value="{{ value }}" {% if project.script_type == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="tone" class="form-label small fw-bold">Ton</label>
+                            <select class="form-select form-select-sm" id="tone" name="tone">
+                                {% for value, label in tones %}
+                                <option value="{{ value }}" {% if project.tone == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="target_audience" class="form-label small fw-bold">Zielgruppe</label>
+                            <select class="form-select form-select-sm" id="target_audience" name="target_audience">
+                                {% for value, label in target_audiences %}
+                                <option value="{{ value }}" {% if project.target_audience == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="platform" class="form-label small fw-bold">Plattform</label>
+                            <select class="form-select form-select-sm" id="platform" name="platform">
+                                {% for value, label in platforms %}
+                                <option value="{{ value }}" {% if project.platform == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="duration" class="form-label small fw-bold">Video-Länge</label>
+                            <select class="form-select form-select-sm" id="duration" name="duration">
+                                {% for value, label in durations %}
+                                <option value="{{ value }}" {% if project.duration == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="ai_model" class="form-label small fw-bold">KI-Modell</label>
+                            <select class="form-select form-select-sm" id="ai_model" name="ai_model">
+                                {% for value, label in ai_models %}
+                                <option value="{{ value }}" {% if project.ai_model == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="bi bi-save me-1"></i>Einstellungen speichern
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="card bg-light">
+                <div class="card-body small">
+                    <p class="mb-1"><strong>Erstellt:</strong> {{ project.created_at|date:"d.m.Y H:i" }}</p>
+                    <p class="mb-0"><strong>Aktualisiert:</strong> {{ project.updated_at|date:"d.m.Y H:i" }}</p>
+                </div>
+            </div>
+
+            {% if generation_logs %}
+            <!-- Generation History -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-clock-history me-1"></i>Generierungs-Historie</h6>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush small">
+                        {% for log in generation_logs %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>{{ log.created_at|date:"d.m. H:i" }}</span>
+                            <span class="text-muted">{{ log.model|truncatechars:15 }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+const projectId = '{{ project.id }}';
+const csrfToken = '{{ csrf_token }}';
+
+function generateScript() {
+    const generateSection = document.getElementById('generateSection');
+    const loadingSection = document.getElementById('loadingSection');
+    const scriptSection = document.getElementById('scriptSection');
+
+    if (generateSection) generateSection.classList.add('d-none');
+    loadingSection.classList.remove('d-none');
+
+    fetch('{% url "vskript:api_generate" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            keyword: '{{ project.keyword|escapejs }}',
+            description: '{{ project.description|escapejs }}',
+            script_type: '{{ project.script_type }}',
+            tone: '{{ project.tone }}',
+            target_audience: '{{ project.target_audience }}',
+            platform: '{{ project.platform }}',
+            duration: {{ project.duration }},
+            ai_model: '{{ project.ai_model }}',
+            project_id: projectId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingSection.classList.add('d-none');
+
+        if (data.success) {
+            document.getElementById('scriptText').value = data.script;
+            document.getElementById('wordCountDisplay').textContent =
+                data.word_count + ' Worte | ' + data.estimated_duration + ' Min';
+            scriptSection.classList.remove('d-none');
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            if (generateSection) generateSection.classList.remove('d-none');
+        }
+    })
+    .catch(error => {
+        loadingSection.classList.add('d-none');
+        alert('Fehler: ' + error.message);
+        if (generateSection) generateSection.classList.remove('d-none');
+    });
+}
+
+function regenerateScript() {
+    if (!confirm('Skript neu generieren? Das aktuelle Skript wird überschrieben.')) {
+        return;
+    }
+
+    const loadingSection = document.getElementById('loadingSection');
+    const scriptSection = document.getElementById('scriptSection');
+
+    scriptSection.classList.add('d-none');
+    loadingSection.classList.remove('d-none');
+
+    fetch('{% url "vskript:api_regenerate" project_id=project.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingSection.classList.add('d-none');
+
+        if (data.success) {
+            document.getElementById('scriptText').value = data.script;
+            document.getElementById('wordCountDisplay').textContent =
+                data.word_count + ' Worte | ' + data.estimated_duration + ' Min';
+            scriptSection.classList.remove('d-none');
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            scriptSection.classList.remove('d-none');
+        }
+    })
+    .catch(error => {
+        loadingSection.classList.add('d-none');
+        alert('Fehler: ' + error.message);
+        scriptSection.classList.remove('d-none');
+    });
+}
+
+function copyScript() {
+    const scriptText = document.getElementById('scriptText');
+    scriptText.select();
+    document.execCommand('copy');
+
+    // Feedback
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check me-1"></i>Kopiert!';
+    btn.classList.remove('btn-outline-secondary');
+    btn.classList.add('btn-success');
+
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+
+// Update word count on edit
+document.getElementById('scriptText')?.addEventListener('input', function() {
+    const words = this.value.trim().split(/\s+/).filter(w => w).length;
+    const minutes = (words / 130).toFixed(1);
+    document.getElementById('wordCountDisplay').textContent = words + ' Worte | ' + minutes + ' Min';
+});
+</script>
+{% endblock %}

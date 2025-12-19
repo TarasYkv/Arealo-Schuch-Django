@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Neues Skript erstellen | VSkript{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'vskript:dashboard' %}">VSkript</a></li>
+                    <li class="breadcrumb-item active">Neues Skript</li>
+                </ol>
+            </nav>
+            <h1 class="h2">
+                <i class="bi bi-plus-circle me-2"></i>Neues Videoskript erstellen
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Skript-Einstellungen</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="createForm">
+                        {% csrf_token %}
+
+                        <!-- Keyword -->
+                        <div class="mb-4">
+                            <label for="keyword" class="form-label fw-bold">
+                                <i class="bi bi-key me-1"></i>Keyword / Thema *
+                            </label>
+                            <input type="text" class="form-control form-control-lg"
+                                   id="keyword" name="keyword" required
+                                   placeholder="z.B. Produktivitätstipps, Kaffee, Fitness...">
+                            <div class="form-text">Zu welchem Thema soll das Skript erstellt werden?</div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-4">
+                            <label for="description" class="form-label fw-bold">
+                                <i class="bi bi-text-paragraph me-1"></i>Beschreibung (optional)
+                            </label>
+                            <textarea class="form-control" id="description" name="description"
+                                      rows="3" placeholder="Zusätzliche Details oder spezifische Anforderungen..."></textarea>
+                            <div class="form-text">Weitere Informationen helfen bei der Skript-Erstellung.</div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="row">
+                            <!-- Script Type -->
+                            <div class="col-md-6 mb-4">
+                                <label for="script_type" class="form-label fw-bold">
+                                    <i class="bi bi-list-task me-1"></i>Skript-Art
+                                </label>
+                                <select class="form-select" id="script_type" name="script_type">
+                                    {% for value, label in script_types %}
+                                    <option value="{{ value }}" {% if value == 'interesting_facts' %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Tone -->
+                            <div class="col-md-6 mb-4">
+                                <label for="tone" class="form-label fw-bold">
+                                    <i class="bi bi-chat-quote me-1"></i>Ton
+                                </label>
+                                <select class="form-select" id="tone" name="tone">
+                                    {% for value, label in tones %}
+                                    <option value="{{ value }}" {% if value == 'casual' %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Target Audience -->
+                            <div class="col-md-6 mb-4">
+                                <label for="target_audience" class="form-label fw-bold">
+                                    <i class="bi bi-people me-1"></i>Zielgruppe
+                                </label>
+                                <select class="form-select" id="target_audience" name="target_audience">
+                                    {% for value, label in target_audiences %}
+                                    <option value="{{ value }}" {% if value == 'general' %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Platform -->
+                            <div class="col-md-6 mb-4">
+                                <label for="platform" class="form-label fw-bold">
+                                    <i class="bi bi-phone me-1"></i>Plattform
+                                </label>
+                                <select class="form-select" id="platform" name="platform">
+                                    {% for value, label in platforms %}
+                                    <option value="{{ value }}" {% if value == 'youtube' %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Duration -->
+                            <div class="col-md-6 mb-4">
+                                <label for="duration" class="form-label fw-bold">
+                                    <i class="bi bi-clock me-1"></i>Video-Länge
+                                </label>
+                                <select class="form-select" id="duration" name="duration">
+                                    {% for value, label in durations %}
+                                    <option value="{{ value }}" {% if value == 1.0 %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- AI Model -->
+                            <div class="col-md-6 mb-4">
+                                <label for="ai_model" class="form-label fw-bold">
+                                    <i class="bi bi-robot me-1"></i>KI-Modell
+                                </label>
+                                <select class="form-select" id="ai_model" name="ai_model">
+                                    {% for value, label in ai_models %}
+                                    <option value="{{ value }}" {% if value == 'gpt-4o' %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'vskript:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-arrow-right me-1"></i>Projekt erstellen & Skript generieren
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar mit Tipps -->
+        <div class="col-lg-4">
+            <div class="card bg-light">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-lightbulb me-1"></i>Tipps</h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">Keyword wählen</h6>
+                    <p class="small text-muted">Wähle ein klares, spezifisches Thema. Je präziser, desto besser das Skript.</p>
+
+                    <h6 class="fw-bold mt-3">Skript-Art</h6>
+                    <p class="small text-muted">Jede Skript-Art erzeugt einen anderen Stil. Experimentiere mit verschiedenen Arten!</p>
+
+                    <h6 class="fw-bold mt-3">Plattform beachten</h6>
+                    <p class="small text-muted">TikTok-Skripte sind kürzer und schneller, YouTube-Skripte ausführlicher.</p>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-1"></i>Skript-Arten</h6>
+                </div>
+                <div class="card-body small" style="max-height: 300px; overflow-y: auto;">
+                    <dl class="mb-0">
+                        {% for value, label in script_types %}
+                        <dt>{{ label }}</dt>
+                        <dd class="text-muted mb-2">
+                            {% if value == 'fun_facts' %}Witzige, überraschende Fakten
+                            {% elif value == 'interesting_facts' %}Faszinierende, wissenswerte Fakten
+                            {% elif value == 'how_to' %}Klare Schritt-für-Schritt Anleitung
+                            {% elif value == 'tips' %}Kompakte Tipps & Tricks
+                            {% elif value == 'story' %}Fesselnde Geschichte zum Thema
+                            {% elif value == 'true_false' %}Spannendes Wahr/Falsch Spiel
+                            {% elif value == 'qa' %}Frage mit überraschender Antwort
+                            {% elif value == 'riddle' %}Kniffliges Rätsel
+                            {% elif value == 'expectation_reality' %}Lustiger Erwartung vs. Realität Vergleich
+                            {% elif value == 'myth_busting' %}Populäre Mythen aufdecken
+                            {% elif value == 'comparison' %}Vergleich zweier Alternativen
+                            {% elif value == 'top_list' %}Ranking Top 5/10
+                            {% elif value == 'behind_scenes' %}Exklusive Einblicke
+                            {% elif value == 'challenge' %}Unterhaltsames Challenge-Format
+                            {% elif value == 'controversial' %}Provokante, unerwartete Meinung
+                            {% endif %}
+                        </dd>
+                        {% endfor %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

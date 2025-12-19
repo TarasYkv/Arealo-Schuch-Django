@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     'questionfinder',
     'imageforge',
     'blogprep',
+    'vskript',
 ]
 
 
