@@ -96,6 +96,24 @@ function initModeSelector() {
         if (standardGenBtn) {
             standardGenBtn.style.display = (mode === 'mockup_text') ? 'none' : '';
         }
+
+        // Required-Attribute für Mockup-spezifische Felder nur bei mockup_text setzen
+        const mockupTextContent = document.getElementById('mockup-text-content');
+        const styleReferenceImage = document.getElementById('style-reference-image');
+        if (mockupTextContent) {
+            if (mode === 'mockup_text') {
+                mockupTextContent.setAttribute('required', '');
+            } else {
+                mockupTextContent.removeAttribute('required');
+            }
+        }
+        if (styleReferenceImage) {
+            if (mode === 'mockup_text') {
+                styleReferenceImage.setAttribute('required', '');
+            } else {
+                styleReferenceImage.removeAttribute('required');
+            }
+        }
     }
 
     // Click-Handler für Mode-Buttons
