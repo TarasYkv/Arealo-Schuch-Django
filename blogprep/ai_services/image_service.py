@@ -32,6 +32,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Import der gemeinsamen Fehlerbehandlung
+from .content_service import _get_user_friendly_error
+
 
 class ImageService:
     """Service für KI-gestützte Bildgenerierung"""
@@ -528,9 +531,10 @@ LAYOUT:
 
         except Exception as e:
             logger.error(f"Image generation error ({self.provider}): {e}")
+            user_friendly_error = _get_user_friendly_error(e, self.provider)
             return {
                 'success': False,
-                'error': str(e),
+                'error': user_friendly_error,
                 'prompt': prompt
             }
 
@@ -738,9 +742,10 @@ Create the image now."""
             response = requests.post(url, json=payload, headers=headers, timeout=180)
         except Exception as e:
             logger.error(f"Request failed: {e}")
+            user_friendly_error = _get_user_friendly_error(e, 'gemini')
             return {
                 'success': False,
-                'error': f"Request failed: {str(e)}",
+                'error': user_friendly_error,
                 'model_used': self.model
             }
 

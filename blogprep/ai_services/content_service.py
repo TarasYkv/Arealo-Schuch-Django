@@ -40,6 +40,67 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _get_user_friendly_error(error: Exception, provider: str) -> str:
+    """
+    Wandelt API-Fehler in benutzerfreundliche deutsche Fehlermeldungen um.
+    """
+    error_str = str(error).lower()
+
+    # OpenAI spezifische Fehler
+    if 'insufficient_quota' in error_str or 'exceeded your current quota' in error_str:
+        return (
+            f"⚠️ OpenAI API-Guthaben erschöpft!\n\n"
+            f"Mögliche Ursachen:\n"
+            f"• Kein Guthaben auf dem OpenAI-Konto\n"
+            f"• Keine Zahlungsmethode hinterlegt\n"
+            f"• Projekt-Budget-Limit erreicht\n"
+            f"• Trial-Credits aufgebraucht\n\n"
+            f"Lösung:\n"
+            f"1. Öffne https://platform.openai.com/account/billing/overview\n"
+            f"2. Prüfe ob Guthaben vorhanden ist oder füge Zahlungsmethode hinzu\n"
+            f"3. Prüfe Projekt-Limits unter Settings → Limits\n\n"
+            f"Alternativ: Wechsle zu Gemini oder Anthropic in den Einstellungen."
+        )
+
+    if 'rate_limit' in error_str or 'rate limit' in error_str:
+        return (
+            f"⏳ Rate-Limit erreicht ({provider})\n\n"
+            f"Du hast zu viele Anfragen in kurzer Zeit gesendet.\n"
+            f"Warte 1-2 Minuten und versuche es erneut."
+        )
+
+    if 'invalid_api_key' in error_str or 'invalid api key' in error_str or 'incorrect api key' in error_str:
+        return (
+            f"🔑 Ungültiger API-Key ({provider})\n\n"
+            f"Der gespeicherte API-Key ist ungültig oder wurde widerrufen.\n"
+            f"Bitte aktualisiere deinen API-Key in den Profil-Einstellungen."
+        )
+
+    if 'authentication' in error_str or 'unauthorized' in error_str:
+        return (
+            f"🔐 Authentifizierungsfehler ({provider})\n\n"
+            f"Der API-Key konnte nicht authentifiziert werden.\n"
+            f"Prüfe deinen API-Key in den Profil-Einstellungen."
+        )
+
+    if 'connection' in error_str or 'timeout' in error_str or 'network' in error_str:
+        return (
+            f"🌐 Verbindungsfehler ({provider})\n\n"
+            f"Konnte keine Verbindung zum API-Server herstellen.\n"
+            f"Bitte versuche es in einigen Sekunden erneut."
+        )
+
+    if 'model_not_found' in error_str or 'model not found' in error_str:
+        return (
+            f"🤖 Modell nicht verfügbar ({provider})\n\n"
+            f"Das gewählte KI-Modell ist nicht verfügbar.\n"
+            f"Wähle ein anderes Modell in den Einstellungen."
+        )
+
+    # Generischer Fehler
+    return f"❌ API-Fehler ({provider}): {str(error)}"
+
+
 class ContentService:
     """Service für KI-gestützte Content-Generierung"""
 
@@ -147,9 +208,10 @@ class ContentService:
 
         except Exception as e:
             logger.error(f"LLM call error ({self.provider}): {e}")
+            user_friendly_error = _get_user_friendly_error(e, self.provider)
             return {
                 'success': False,
-                'error': str(e)
+                'error': user_friendly_error
             }
 
     def _parse_json_response(self, content: str) -> Optional[Dict]:

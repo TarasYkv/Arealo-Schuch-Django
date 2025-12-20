@@ -36,6 +36,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Import der gemeinsamen Fehlerbehandlung
+from .content_service import _get_user_friendly_error
+
 
 class VideoService:
     """Service für Video-Skript und Diagramm-Generierung"""
@@ -142,9 +145,10 @@ class VideoService:
 
         except Exception as e:
             logger.error(f"LLM call error ({self.provider}): {e}")
+            user_friendly_error = _get_user_friendly_error(e, self.provider)
             return {
                 'success': False,
-                'error': str(e)
+                'error': user_friendly_error
             }
 
     def _parse_json_response(self, content: str) -> Optional[Dict]:
