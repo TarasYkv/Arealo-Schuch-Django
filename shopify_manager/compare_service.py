@@ -26,6 +26,7 @@ class CompareResult:
     changes: List[str] = None  # Liste der Änderungen
     backup_data: Dict = None
     current_data: Dict = None
+    backup_item_id: int = None  # ID des BackupItem für Aktionen
 
     def __post_init__(self):
         if self.changes is None:
@@ -146,7 +147,8 @@ class ShopifyCompareService:
                     shopify_id=shopify_id,
                     title=backup_item.title,
                     status='deleted',
-                    backup_data=backup_item.raw_data
+                    backup_data=backup_item.raw_data,
+                    backup_item_id=backup_item.id
                 ))
             else:
                 # Vergleichen
@@ -162,7 +164,8 @@ class ShopifyCompareService:
                         status='changed',
                         changes=changes,
                         backup_data=backup_data,
-                        current_data=current
+                        current_data=current,
+                        backup_item_id=backup_item.id
                     ))
 
         # Neue Produkte finden
@@ -231,7 +234,8 @@ class ShopifyCompareService:
                     shopify_id=shopify_id,
                     title=backup_item.title,
                     status='deleted',
-                    backup_data=backup_item.raw_data
+                    backup_data=backup_item.raw_data,
+                    backup_item_id=backup_item.id
                 ))
             else:
                 current = current_by_id[shopify_id]
@@ -249,7 +253,8 @@ class ShopifyCompareService:
                         status='changed',
                         changes=changes,
                         backup_data=backup_data,
-                        current_data=current
+                        current_data=current,
+                        backup_item_id=backup_item.id
                     ))
 
         for shopify_id, current in current_by_id.items():
@@ -291,7 +296,8 @@ class ShopifyCompareService:
                     shopify_id=shopify_id,
                     title=backup_item.title,
                     status='deleted',
-                    backup_data=backup_item.raw_data
+                    backup_data=backup_item.raw_data,
+                    backup_item_id=backup_item.id
                 ))
             else:
                 current = current_posts[shopify_id]
@@ -315,7 +321,8 @@ class ShopifyCompareService:
                         status='changed',
                         changes=changes,
                         backup_data=backup_data,
-                        current_data=current
+                        current_data=current,
+                        backup_item_id=backup_item.id
                     ))
 
         for shopify_id, current in current_posts.items():
@@ -358,7 +365,8 @@ class ShopifyCompareService:
                     shopify_id=shopify_id,
                     title=backup_item.title,
                     status='deleted',
-                    backup_data=backup_item.raw_data
+                    backup_data=backup_item.raw_data,
+                    backup_item_id=backup_item.id
                 ))
             else:
                 current = current_collections[shopify_id]
@@ -385,7 +393,8 @@ class ShopifyCompareService:
                         status='changed',
                         changes=changes,
                         backup_data=backup_data,
-                        current_data=current
+                        current_data=current,
+                        backup_item_id=backup_item.id
                     ))
 
         for shopify_id, current in current_collections.items():
@@ -419,7 +428,8 @@ class ShopifyCompareService:
                     shopify_id=shopify_id,
                     title=backup_item.title,
                     status='deleted',
-                    backup_data=backup_item.raw_data
+                    backup_data=backup_item.raw_data,
+                    backup_item_id=backup_item.id
                 ))
             else:
                 current = current_by_id[shopify_id]
@@ -440,7 +450,8 @@ class ShopifyCompareService:
                         status='changed',
                         changes=changes,
                         backup_data=backup_data,
-                        current_data=current
+                        current_data=current,
+                        backup_item_id=backup_item.id
                     ))
 
         for shopify_id, current in current_by_id.items():
@@ -474,7 +485,8 @@ class ShopifyCompareService:
                     shopify_id=shopify_id,
                     title=backup_item.title,
                     status='deleted',
-                    backup_data=backup_item.raw_data
+                    backup_data=backup_item.raw_data,
+                    backup_item_id=backup_item.id
                 ))
             else:
                 current = current_by_id[shopify_id]
@@ -495,7 +507,8 @@ class ShopifyCompareService:
                         status='changed',
                         changes=changes,
                         backup_data=backup_data,
-                        current_data=current
+                        current_data=current,
+                        backup_item_id=backup_item.id
                     ))
 
         for shopify_id, current in current_by_id.items():

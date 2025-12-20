@@ -98,6 +98,7 @@
                         <th>Element</th>
                         <th>Shopify-ID</th>
                         <th>Details</th>
+                        <th style="width: 180px;">Aktionen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -141,6 +142,41 @@
                             </span>
                             {% endif %}
                         </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                {% if item.status == 'changed' and item.backup_item_id %}
+                                <!-- Shopify → Backup: Aktuelle Version von Shopify holen -->
+                                <form method="post" action="{% url 'shopify_manager:sync_item_from_shopify' store_id=store.id backup_id=backup.id item_id=item.backup_item_id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-info" title="Shopify → Backup: Aktuelle Version von Shopify ins Backup übernehmen">
+                                        <i class="bi bi-cloud-download"></i> <small>Shopify→Backup</small>
+                                    </button>
+                                </form>
+                                <!-- Backup → Shopify: Backup-Version wiederherstellen -->
+                                <form method="post" action="{% url 'shopify_manager:restore_item' store_id=store.id backup_id=backup.id item_id=item.backup_item_id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="mode" value="overwrite">
+                                    <button type="submit" class="btn btn-outline-warning" title="Backup → Shopify: Backup-Version auf Shopify wiederherstellen">
+                                        <i class="bi bi-cloud-upload"></i> <small>Backup→Shopify</small>
+                                    </button>
+                                </form>
+                                {% elif item.status == 'deleted' and item.backup_item_id %}
+                                <!-- Gelöscht: Nur Wiederherstellen möglich -->
+                                <form method="post" action="{% url 'shopify_manager:restore_item' store_id=store.id backup_id=backup.id item_id=item.backup_item_id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="mode" value="only_missing">
+                                    <button type="submit" class="btn btn-outline-warning" title="Aus Backup wiederherstellen">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Wiederherstellen
+                                    </button>
+                                </form>
+                                {% elif item.status == 'new' %}
+                                <!-- Neu: Hinweis dass neues Backup nötig -->
+                                <span class="text-muted small" title="Erstellen Sie ein neues Backup um dieses Element zu sichern">
+                                    <i class="bi bi-info-circle"></i> Neues Backup
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -154,10 +190,10 @@
 <!-- Legende -->
 <div class="card mt-4">
     <div class="card-header">
-        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Legende</h6>
+        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Legende & Aktionen</h6>
     </div>
     <div class="card-body">
-        <div class="row">
+        <div class="row mb-4">
             <div class="col-md-4">
                 <span class="badge bg-danger me-2"><i class="bi bi-trash"></i></span>
                 <strong>Gelöscht</strong>
@@ -172,6 +208,24 @@
                 <span class="badge bg-warning text-dark me-2"><i class="bi bi-pencil"></i></span>
                 <strong>Geändert</strong>
                 <p class="text-muted small mb-0">Das Element wurde nach dem Backup geändert. Das Backup enthält die alte Version.</p>
+            </div>
+        </div>
+        <hr>
+        <h6 class="mb-3">Aktions-Buttons</h6>
+        <div class="row">
+            <div class="col-md-6">
+                <button class="btn btn-sm btn-outline-info me-2" disabled>
+                    <i class="bi bi-cloud-download"></i> Shopify→Backup
+                </button>
+                <strong>Shopify → Backup</strong>
+                <p class="text-muted small mb-0">Übernimmt die aktuelle Version von Shopify in das Backup. Nützlich wenn die Shopify-Version aktueller ist.</p>
+            </div>
+            <div class="col-md-6">
+                <button class="btn btn-sm btn-outline-warning me-2" disabled>
+                    <i class="bi bi-cloud-upload"></i> Backup→Shopify
+                </button>
+                <strong>Backup → Shopify</strong>
+                <p class="text-muted small mb-0">Stellt die Backup-Version auf Shopify wieder her. Nützlich um ungewollte Änderungen rückgängig zu machen.</p>
             </div>
         </div>
     </div>

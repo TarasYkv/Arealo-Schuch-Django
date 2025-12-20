@@ -4950,6 +4950,136 @@ def restore_item(request, store_id, backup_id, item_id):
 
 
 @login_required
+@require_http_methods(['POST'])
+def sync_item_from_shopify(request, store_id, backup_id, item_id):
+    """Einzelnes Element vom aktuellen Shopify-Stand aktualisieren (Shopify → Backup)"""
+    import requests
+    import re
+
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+    item = get_object_or_404(BackupItem, id=item_id, backup=backup)
+
+    base_url = store.get_api_url()
+    headers = {
+        'X-Shopify-Access-Token': store.access_token,
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        # Je nach Typ den richtigen Endpunkt aufrufen
+        if item.item_type == 'product':
+            url = f"{base_url}/products/{item.shopify_id}.json"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json().get('product', {})
+                item.title = data.get('title', item.title)
+                item.raw_data = data
+                if data.get('image'):
+                    item.image_url = data['image'].get('src', '')
+                item.save()
+                messages.success(request, f'"{item.title}" wurde von Shopify aktualisiert')
+            elif response.status_code == 404:
+                messages.warning(request, f'"{item.title}" existiert nicht mehr auf Shopify')
+            else:
+                messages.error(request, f'Fehler beim Abrufen: {response.status_code}')
+
+        elif item.item_type == 'blog_post':
+            # Blog-Post benötigt die Blog-ID
+            blog_id = item.parent_id
+            if blog_id:
+                url = f"{base_url}/blogs/{blog_id}/articles/{item.shopify_id}.json"
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json().get('article', {})
+                    item.title = data.get('title', item.title)
+                    item.raw_data = data
+                    if data.get('image'):
+                        item.image_url = data['image'].get('src', '')
+                    item.save()
+                    messages.success(request, f'"{item.title}" wurde von Shopify aktualisiert')
+                elif response.status_code == 404:
+                    messages.warning(request, f'"{item.title}" existiert nicht mehr auf Shopify')
+                else:
+                    messages.error(request, f'Fehler beim Abrufen: {response.status_code}')
+            else:
+                messages.error(request, 'Blog-ID nicht gefunden')
+
+        elif item.item_type == 'blog':
+            url = f"{base_url}/blogs/{item.shopify_id}.json"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json().get('blog', {})
+                item.title = data.get('title', item.title)
+                item.raw_data = data
+                item.save()
+                messages.success(request, f'"{item.title}" wurde von Shopify aktualisiert')
+            elif response.status_code == 404:
+                messages.warning(request, f'"{item.title}" existiert nicht mehr auf Shopify')
+            else:
+                messages.error(request, f'Fehler beim Abrufen: {response.status_code}')
+
+        elif item.item_type == 'collection':
+            # Erst Smart Collection versuchen, dann Custom Collection
+            url = f"{base_url}/smart_collections/{item.shopify_id}.json"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 404:
+                url = f"{base_url}/custom_collections/{item.shopify_id}.json"
+                response = requests.get(url, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+                collection_data = data.get('smart_collection') or data.get('custom_collection', {})
+                item.title = collection_data.get('title', item.title)
+                item.raw_data = collection_data
+                if collection_data.get('image'):
+                    item.image_url = collection_data['image'].get('src', '')
+                item.save()
+                messages.success(request, f'"{item.title}" wurde von Shopify aktualisiert')
+            elif response.status_code == 404:
+                messages.warning(request, f'"{item.title}" existiert nicht mehr auf Shopify')
+            else:
+                messages.error(request, f'Fehler beim Abrufen: {response.status_code}')
+
+        elif item.item_type == 'page':
+            url = f"{base_url}/pages/{item.shopify_id}.json"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json().get('page', {})
+                item.title = data.get('title', item.title)
+                item.raw_data = data
+                item.save()
+                messages.success(request, f'"{item.title}" wurde von Shopify aktualisiert')
+            elif response.status_code == 404:
+                messages.warning(request, f'"{item.title}" existiert nicht mehr auf Shopify')
+            else:
+                messages.error(request, f'Fehler beim Abrufen: {response.status_code}')
+
+        elif item.item_type == 'redirect':
+            url = f"{base_url}/redirects/{item.shopify_id}.json"
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json().get('redirect', {})
+                item.title = f"{data.get('path', '')} → {data.get('target', '')}"
+                item.raw_data = data
+                item.save()
+                messages.success(request, f'Weiterleitung wurde von Shopify aktualisiert')
+            elif response.status_code == 404:
+                messages.warning(request, f'Weiterleitung existiert nicht mehr auf Shopify')
+            else:
+                messages.error(request, f'Fehler beim Abrufen: {response.status_code}')
+
+        else:
+            messages.warning(request, f'Typ "{item.item_type}" wird noch nicht unterstützt')
+
+    except Exception as e:
+        messages.error(request, f'Fehler: {str(e)}')
+
+    # Redirect zurück zur Compare-Seite
+    return redirect('shopify_manager:backup_compare', store_id=store.id, backup_id=backup.id)
+
+
+@login_required
 @require_http_methods(['GET'])
 def api_backup_status(request, store_id, backup_id):
     """API: Backup-Status abfragen"""
