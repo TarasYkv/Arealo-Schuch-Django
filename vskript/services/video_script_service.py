@@ -411,12 +411,16 @@ class VSkriptService:
 
         try:
             if self.provider == 'openai' and self.openai_client:
-                # O-Modelle (o1, o3, o4) sind Reasoning-Modelle mit speziellen Parametern
+                # O-Modelle (o1, o3, o4) und Thinking-Varianten sind Reasoning-Modelle
                 is_reasoning_model = (
                     self.model.startswith('o1') or
                     self.model.startswith('o3') or
-                    self.model.startswith('o4')
+                    self.model.startswith('o4') or
+                    'thinking' in self.model.lower()
                 )
+
+                # GPT-5 Serie verwendet max_completion_tokens
+                is_gpt5_model = self.model.startswith('gpt-5')
 
                 if is_reasoning_model:
                     # Reasoning-Modelle: max_completion_tokens, keine temperature, kein system prompt
@@ -428,8 +432,19 @@ class VSkriptService:
                         ],
                         max_completion_tokens=max_tokens
                     )
+                elif is_gpt5_model:
+                    # GPT-5 Serie: max_completion_tokens mit temperature und system prompt
+                    response = self.openai_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        max_completion_tokens=max_tokens,
+                        temperature=temperature
+                    )
                 else:
-                    # Standard-Modelle (GPT-4o, GPT-4.1, etc.)
+                    # Legacy-Modelle (GPT-4o, GPT-4.1, etc.): max_tokens
                     response = self.openai_client.chat.completions.create(
                         model=self.model,
                         messages=[

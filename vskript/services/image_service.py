@@ -21,10 +21,12 @@ except ImportError:
     OPENAI_AVAILABLE = False
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types as genai_types
     GENAI_AVAILABLE = True
 except ImportError:
     genai = None
+    genai_types = None
     GENAI_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -64,7 +66,7 @@ class VSkriptImageService:
     def _init_clients(self):
         """Initialisiert die API-Clients"""
         self.openai_client = None
-        self.gemini_configured = False
+        self.gemini_client = None
 
         # OpenAI Client
         if OPENAI_AVAILABLE:
@@ -72,12 +74,11 @@ class VSkriptImageService:
             if api_key:
                 self.openai_client = OpenAI(api_key=api_key)
 
-        # Gemini Client
+        # Gemini Client (google-genai SDK)
         if GENAI_AVAILABLE:
             api_key = getattr(self.user, 'gemini_api_key', None)
             if api_key:
-                genai.configure(api_key=api_key)
-                self.gemini_configured = True
+                self.gemini_client = genai.Client(api_key=api_key)
 
     def _enhance_prompt(self, base_prompt: str, style: str, context: str = '') -> str:
         """Erweitert den Prompt mit Stil-Anweisungen"""
@@ -137,35 +138,39 @@ class VSkriptImageService:
     def _generate_with_gemini(
         self,
         prompt: str,
-        aspect_ratio: str = '1:1'
+        aspect_ratio: str = '1:1',
+        fast: bool = False
     ) -> Dict:
-        """Generiert ein Bild mit Google Gemini Imagen"""
-        if not self.gemini_configured:
+        """Generiert ein Bild mit Google Gemini Imagen 3"""
+        if not self.gemini_client:
             return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
 
         try:
             start_time = time.time()
 
-            # Gemini Imagen 3 verwenden
-            imagen = genai.ImageGenerationModel("imagen-3.0-generate-002")
+            # Imagen 3 oder Imagen 3 Fast
+            model_id = 'imagen-3.0-fast-generate-001' if fast else 'imagen-3.0-generate-002'
 
-            result = imagen.generate_images(
+            # Gemini Imagen 3 mit google-genai SDK
+            response = self.gemini_client.models.generate_images(
+                model=model_id,
                 prompt=prompt,
-                number_of_images=1,
-                aspect_ratio=aspect_ratio,
-                safety_filter_level="block_only_high",
-                person_generation="allow_adult"
+                config=genai_types.GenerateImagesConfig(
+                    number_of_images=1,
+                    aspect_ratio=aspect_ratio,
+                    person_generation='allow_adult',
+                )
             )
 
-            if result.images:
+            if response.generated_images:
                 # Bild-Daten extrahieren
-                image_data = result.images[0]._pil_image
+                image_data = response.generated_images[0].image._pil_image
                 duration = time.time() - start_time
 
                 return {
                     'success': True,
                     'image_data': image_data,
-                    'model': 'imagen-3.0',
+                    'model': 'imagen-3.0-fast' if fast else 'imagen-3.0',
                     'duration': duration
                 }
             else:
@@ -215,11 +220,12 @@ class VSkriptImageService:
                 model=model,
                 size=format
             )
-        elif model == 'gemini':
+        elif model in ['gemini', 'gemini-fast']:
             aspect_ratio = self._size_to_aspect_ratio(format)
             result = self._generate_with_gemini(
                 prompt=enhanced_prompt,
-                aspect_ratio=aspect_ratio
+                aspect_ratio=aspect_ratio,
+                fast=(model == 'gemini-fast')
             )
         else:
             return {'success': False, 'error': f'Unbekanntes Modell: {model}'}

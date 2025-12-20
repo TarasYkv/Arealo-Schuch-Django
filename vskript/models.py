@@ -65,17 +65,20 @@ DURATION_CHOICES = [
 ]
 
 AI_MODEL_CHOICES = [
-    # GPT-4o Serie (Stabil & Bewährt)
-    ('gpt-4o', 'GPT-4o (Empfohlen)'),
-    ('gpt-4o-mini', 'GPT-4o Mini (Schnell)'),
-    # GPT-4.1 Serie (April 2025)
-    ('gpt-4.1', 'GPT-4.1'),
-    ('gpt-4.1-mini', 'GPT-4.1 Mini'),
-    ('gpt-4.1-nano', 'GPT-4.1 Nano'),
-    # O-Serie Reasoning (April 2025)
+    # GPT-5.2 Serie (Dezember 2025 - Aktuellste)
+    ('gpt-5.2', 'GPT-5.2 (Empfohlen)'),
+    ('gpt-5.2-instant', 'GPT-5.2 Instant (Schnell)'),
+    ('gpt-5.2-thinking', 'GPT-5.2 Thinking (Tiefgründig)'),
+    ('gpt-5.2-pro', 'GPT-5.2 Pro (Premium)'),
+    # GPT-5 Serie (August 2025)
+    ('gpt-5', 'GPT-5'),
+    # O-Serie Reasoning (2025)
     ('o3', 'O3 (Reasoning)'),
     ('o3-pro', 'O3 Pro (Max Reasoning)'),
     ('o4-mini', 'O4 Mini (Schnelles Reasoning)'),
+    # Legacy (Stabil)
+    ('gpt-4o', 'GPT-4o (Legacy)'),
+    ('gpt-4o-mini', 'GPT-4o Mini (Legacy)'),
 ]
 
 # === IMAGE GENERATION CHOICES ===
@@ -109,7 +112,8 @@ IMAGE_STYLE_CHOICES = [
 IMAGE_MODEL_CHOICES = [
     ('dall-e-3', 'DALL-E 3 (OpenAI)'),
     ('dall-e-2', 'DALL-E 2 (OpenAI)'),
-    ('gemini', 'Imagen 3 (Google Gemini)'),
+    ('gemini', 'Imagen 3 (Google)'),
+    ('gemini-fast', 'Imagen 3 Fast (Google - Schneller)'),
 ]
 
 IMAGE_FORMAT_CHOICES = [
@@ -162,7 +166,7 @@ class VSkriptProject(models.Model):
     ai_model = models.CharField(
         max_length=50,
         choices=AI_MODEL_CHOICES,
-        default='gpt-4o',
+        default='gpt-5.2',
         verbose_name='KI-Modell'
     )
 
