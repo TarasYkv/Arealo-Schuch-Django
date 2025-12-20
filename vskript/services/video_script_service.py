@@ -411,15 +411,30 @@ class VSkriptService:
 
         try:
             if self.provider == 'openai' and self.openai_client:
-                response = self.openai_client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    max_tokens=max_tokens,
-                    temperature=temperature
-                )
+                # O-Modelle (o1, o4, etc.) verwenden andere Parameter
+                is_reasoning_model = self.model.startswith('o1') or self.model.startswith('o4')
+
+                if is_reasoning_model:
+                    # Reasoning-Modelle: max_completion_tokens, keine temperature, kein system prompt
+                    combined_prompt = f"{system_prompt}\n\n{user_prompt}"
+                    response = self.openai_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "user", "content": combined_prompt}
+                        ],
+                        max_completion_tokens=max_tokens
+                    )
+                else:
+                    # Standard-Modelle (GPT-4, etc.)
+                    response = self.openai_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        max_tokens=max_tokens,
+                        temperature=temperature
+                    )
                 content = response.choices[0].message.content.strip()
                 tokens_in = response.usage.prompt_tokens if response.usage else 0
                 tokens_out = response.usage.completion_tokens if response.usage else 0
