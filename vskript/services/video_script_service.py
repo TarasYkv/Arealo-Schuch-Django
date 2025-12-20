@@ -411,7 +411,14 @@ class VSkriptService:
 
         try:
             if self.provider == 'openai' and self.openai_client:
-                # O-Modelle (o1, o3, o4, etc.) verwenden andere Parameter
+                # Neuere Modelle (GPT-5, O-Serie) verwenden max_completion_tokens
+                uses_completion_tokens = (
+                    self.model.startswith('gpt-5') or
+                    self.model.startswith('o1') or
+                    self.model.startswith('o3') or
+                    self.model.startswith('o4')
+                )
+                # Nur O-Modelle sind echte Reasoning-Modelle (keine temperature, kein system prompt)
                 is_reasoning_model = (
                     self.model.startswith('o1') or
                     self.model.startswith('o3') or
@@ -419,7 +426,7 @@ class VSkriptService:
                 )
 
                 if is_reasoning_model:
-                    # Reasoning-Modelle: max_completion_tokens, keine temperature, kein system prompt
+                    # Reasoning-Modelle (O-Serie): max_completion_tokens, keine temperature, kein system prompt
                     combined_prompt = f"{system_prompt}\n\n{user_prompt}"
                     response = self.openai_client.chat.completions.create(
                         model=self.model,
@@ -428,8 +435,19 @@ class VSkriptService:
                         ],
                         max_completion_tokens=max_tokens
                     )
+                elif uses_completion_tokens:
+                    # GPT-5 Modelle: max_completion_tokens, aber mit temperature und system prompt
+                    response = self.openai_client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        max_completion_tokens=max_tokens,
+                        temperature=temperature
+                    )
                 else:
-                    # Standard-Modelle (GPT-4, etc.)
+                    # Legacy-Modelle (GPT-4, GPT-4.1, etc.)
                     response = self.openai_client.chat.completions.create(
                         model=self.model,
                         messages=[
