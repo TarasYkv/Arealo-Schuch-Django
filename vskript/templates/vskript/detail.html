@@ -44,8 +44,11 @@
                         <span class="badge bg-success me-2">
                             <i class="bi bi-alphabet me-1"></i>{{ project.word_count }} Worte
                         </span>
-                        <span class="badge bg-info">
+                        <span class="badge bg-info me-2">
                             <i class="bi bi-clock me-1"></i>{{ project.estimated_duration }} Min
+                        </span>
+                        <span class="badge bg-secondary">
+                            <i class="bi bi-robot me-1"></i>{{ project.get_ai_model_display }}
                         </span>
                         {% endif %}
                     </div>
@@ -84,7 +87,7 @@
                             <div class="d-flex justify-content-between align-items-center mt-3">
                                 <div>
                                     <span class="text-muted" id="wordCountDisplay">
-                                        {{ project.word_count }} Worte | {{ project.estimated_duration }} Min
+                                        {{ project.word_count }} Worte | {{ project.estimated_duration }} Min | <i class="bi bi-robot"></i> {{ project.get_ai_model_display }}
                                     </span>
                                 </div>
                                 <div class="d-flex gap-2">
@@ -234,6 +237,7 @@
 <script>
 const projectId = '{{ project.id }}';
 const csrfToken = '{{ csrf_token }}';
+let currentModelLabel = '{{ project.get_ai_model_display }}';
 
 function generateScript() {
     const generateSection = document.getElementById('generateSection');
@@ -267,9 +271,12 @@ function generateScript() {
 
         if (data.success) {
             document.getElementById('scriptText').value = data.script;
-            document.getElementById('wordCountDisplay').textContent =
-                data.word_count + ' Worte | ' + data.estimated_duration + ' Min';
+            currentModelLabel = data.ai_model_label;
+            document.getElementById('wordCountDisplay').innerHTML =
+                data.word_count + ' Worte | ' + data.estimated_duration + ' Min | <i class="bi bi-robot"></i> ' + data.ai_model_label;
             scriptSection.classList.remove('d-none');
+            // Seite neu laden um Header-Badges zu aktualisieren
+            setTimeout(() => location.reload(), 500);
         } else {
             alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
             if (generateSection) generateSection.classList.remove('d-none');
@@ -305,9 +312,12 @@ function regenerateScript() {
 
         if (data.success) {
             document.getElementById('scriptText').value = data.script;
-            document.getElementById('wordCountDisplay').textContent =
-                data.word_count + ' Worte | ' + data.estimated_duration + ' Min';
+            currentModelLabel = data.ai_model_label;
+            document.getElementById('wordCountDisplay').innerHTML =
+                data.word_count + ' Worte | ' + data.estimated_duration + ' Min | <i class="bi bi-robot"></i> ' + data.ai_model_label;
             scriptSection.classList.remove('d-none');
+            // Seite neu laden um Header-Badges zu aktualisieren
+            setTimeout(() => location.reload(), 500);
         } else {
             alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
             scriptSection.classList.remove('d-none');
@@ -343,7 +353,7 @@ function copyScript() {
 document.getElementById('scriptText')?.addEventListener('input', function() {
     const words = this.value.trim().split(/\s+/).filter(w => w).length;
     const minutes = (words / 130).toFixed(1);
-    document.getElementById('wordCountDisplay').textContent = words + ' Worte | ' + minutes + ' Min';
+    document.getElementById('wordCountDisplay').innerHTML = words + ' Worte | ' + minutes + ' Min | <i class="bi bi-robot"></i> ' + currentModelLabel;
 });
 </script>
 {% endblock %}

@@ -220,11 +220,16 @@ def api_generate(request):
                 except VSkriptProject.DoesNotExist:
                     pass
 
+            # Model-Label für Anzeige ermitteln
+            model_label = dict(AI_MODEL_CHOICES).get(ai_model, ai_model)
+
             return JsonResponse({
                 'success': True,
                 'script': result['script'],
                 'word_count': result['word_count'],
-                'estimated_duration': result['estimated_duration_minutes']
+                'estimated_duration': result['estimated_duration_minutes'],
+                'ai_model': ai_model,
+                'ai_model_label': model_label
             })
         else:
             return JsonResponse({
@@ -285,11 +290,16 @@ def api_regenerate(request, project_id):
             duration=result.get('duration', 0)
         )
 
+        # Model-Label für Anzeige ermitteln
+        model_label = dict(AI_MODEL_CHOICES).get(project.ai_model, project.ai_model)
+
         return JsonResponse({
             'success': True,
             'script': result['script'],
             'word_count': result['word_count'],
-            'estimated_duration': result['estimated_duration_minutes']
+            'estimated_duration': result['estimated_duration_minutes'],
+            'ai_model': project.ai_model,
+            'ai_model_label': model_label
         })
     else:
         return JsonResponse({
