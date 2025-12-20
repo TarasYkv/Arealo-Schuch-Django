@@ -377,10 +377,10 @@ class VSkriptService:
         # Provider und Modell aus Settings oder Defaults
         if settings:
             self.provider = getattr(settings, 'ai_provider', 'openai')
-            self.model = getattr(settings, 'ai_model', 'gpt-4o')
+            self.model = getattr(settings, 'ai_model', 'gpt-5')
         else:
             self.provider = 'openai'
-            self.model = 'gpt-4o'
+            self.model = 'gpt-5'
 
         # Clients initialisieren
         self._init_clients()
@@ -411,8 +411,12 @@ class VSkriptService:
 
         try:
             if self.provider == 'openai' and self.openai_client:
-                # O-Modelle (o1, o4, etc.) verwenden andere Parameter
-                is_reasoning_model = self.model.startswith('o1') or self.model.startswith('o4')
+                # O-Modelle (o1, o3, o4, etc.) verwenden andere Parameter
+                is_reasoning_model = (
+                    self.model.startswith('o1') or
+                    self.model.startswith('o3') or
+                    self.model.startswith('o4')
+                )
 
                 if is_reasoning_model:
                     # Reasoning-Modelle: max_completion_tokens, keine temperature, kein system prompt

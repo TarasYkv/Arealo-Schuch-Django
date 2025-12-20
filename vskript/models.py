@@ -65,11 +65,21 @@ DURATION_CHOICES = [
 ]
 
 AI_MODEL_CHOICES = [
-    ('gpt-4o', 'GPT-4o (Standard)'),
-    ('gpt-4o-mini', 'GPT-4o Mini (Schneller)'),
-    ('gpt-4.1', 'GPT-4.1 (Neueste)'),
-    ('gpt-4-turbo', 'GPT-4 Turbo'),
-    ('o4-mini', 'O4 Mini (Reasoning)'),
+    # GPT-5 Serie (Neueste - August/Dezember 2025)
+    ('gpt-5', 'GPT-5 (Flagship)'),
+    ('gpt-5-mini', 'GPT-5 Mini (Schnell)'),
+    ('gpt-5-nano', 'GPT-5 Nano (Ultraschnell)'),
+    # O-Serie Reasoning (April 2025)
+    ('o3', 'O3 (Bestes Reasoning)'),
+    ('o3-pro', 'O3 Pro (Max Reasoning)'),
+    ('o4-mini', 'O4 Mini (Schnelles Reasoning)'),
+    # GPT-4.1 Serie (April 2025)
+    ('gpt-4.1', 'GPT-4.1'),
+    ('gpt-4.1-mini', 'GPT-4.1 Mini'),
+    ('gpt-4.1-nano', 'GPT-4.1 Nano'),
+    # GPT-4o Serie (Legacy)
+    ('gpt-4o', 'GPT-4o (Klassiker)'),
+    ('gpt-4o-mini', 'GPT-4o Mini'),
 ]
 
 
@@ -115,7 +125,7 @@ class VSkriptProject(models.Model):
     ai_model = models.CharField(
         max_length=50,
         choices=AI_MODEL_CHOICES,
-        default='gpt-4o',
+        default='gpt-5',
         verbose_name='KI-Modell'
     )
 
