@@ -361,9 +361,13 @@ def api_generate_images(request, project_id):
         # Alte Bilder löschen
         project.images.all().delete()
 
-        # Neue Bild-Objekte erstellen
-        created_images = []
+        # Bilder erstellen und generieren
+        completed = 0
+        failed = 0
+        errors = []
+
         for prompt_data in prompts:
+            # Bild-Objekt erstellen
             image = VSkriptImage.objects.create(
                 project=project,
                 position_seconds=prompt_data['position_seconds'],
@@ -372,21 +376,51 @@ def api_generate_images(request, project_id):
                 model_used=project.image_model,
                 style_used=project.image_style,
                 format_used=project.image_format,
-                status='pending'
+                status='generating'
             )
-            created_images.append({
-                'id': str(image.id),
-                'order': image.order,
-                'position_seconds': image.position_seconds,
-                'prompt': image.prompt,
-                'status': image.status
-            })
+
+            # Bild generieren
+            try:
+                result = service.generate_image(
+                    prompt=image.prompt,
+                    style=image.style_used,
+                    model=image.model_used,
+                    format=image.format_used,
+                    context=project.keyword
+                )
+
+                if result['success']:
+                    # Bild speichern
+                    image.prompt_enhanced = result.get('enhanced_prompt', '')
+                    service.save_image_to_model(
+                        image,
+                        image_url=result.get('image_url'),
+                        image_data=result.get('image_data')
+                    )
+                    image.status = 'completed'
+                    image.save()
+                    completed += 1
+                else:
+                    image.status = 'failed'
+                    image.error_message = result.get('error', 'Unbekannter Fehler')
+                    image.save()
+                    failed += 1
+                    errors.append(f"Bild {image.order + 1}: {result.get('error')}")
+
+            except Exception as e:
+                image.status = 'failed'
+                image.error_message = str(e)
+                image.save()
+                failed += 1
+                errors.append(f"Bild {image.order + 1}: {str(e)}")
 
         return JsonResponse({
             'success': True,
-            'images': created_images,
-            'total': len(created_images),
-            'message': f'{len(created_images)} Bild-Prompts erstellt. Generierung starten.'
+            'total': len(prompts),
+            'completed': completed,
+            'failed': failed,
+            'errors': errors if errors else None,
+            'message': f'{completed} von {len(prompts)} Bildern erfolgreich generiert'
         })
 
     except Exception as e:
