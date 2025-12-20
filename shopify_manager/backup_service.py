@@ -300,12 +300,41 @@ class ShopifyBackupService:
             return True, "Backup erfolgreich erstellt"
 
         except Exception as e:
-            self.backup.status = 'failed'
-            self.backup.error_message = str(e)
-            self.backup.current_step = 'error'
-            self.backup.progress_message = f'Fehler: {str(e)[:200]}'
-            self.backup.save()
-            return False, f"Backup fehlgeschlagen: {str(e)}"
+            error_str = str(e).lower()
+            # Bei DB-Verbindungsfehlern: Pausieren statt Fehlschlagen (wiederholbar)
+            is_recoverable = any(err in error_str for err in [
+                'lost connection', 'mysql', 'connection', 'timeout',
+                'operational', 'database', 'server has gone away'
+            ])
+
+            if is_recoverable:
+                # Versuche den Status auf paused zu setzen
+                try:
+                    self.backup.status = 'paused'
+                    self.backup.progress_message = f'Automatisch pausiert: Verbindungsfehler. Klicken Sie auf Weiter laden.'
+                    self.backup.save()
+                    return False, f"Backup pausiert wegen Verbindungsfehler: {str(e)[:100]}"
+                except:
+                    # Wenn auch das fehlschlägt, direkt in DB schreiben
+                    from django.db import connection
+                    try:
+                        connection.close()
+                        connection.ensure_connection()
+                        ShopifyBackup.objects.filter(id=self.backup.id).update(
+                            status='paused',
+                            progress_message='Automatisch pausiert: Verbindungsfehler. Klicken Sie auf Weiter laden.'
+                        )
+                    except:
+                        pass
+                    return False, f"Backup pausiert wegen Verbindungsfehler"
+            else:
+                # Echter Fehler
+                self.backup.status = 'failed'
+                self.backup.error_message = str(e)
+                self.backup.current_step = 'error'
+                self.backup.progress_message = f'Fehler: {str(e)[:200]}'
+                self.backup.save()
+                return False, f"Backup fehlgeschlagen: {str(e)}"
 
     def _backup_products(self):
         """Sichert alle Produkte (inkl. Bilder)"""

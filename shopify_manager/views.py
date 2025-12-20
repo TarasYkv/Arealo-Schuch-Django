@@ -4701,9 +4701,19 @@ def api_backup_start(request, store_id, backup_id):
 def backup_detail(request, store_id, backup_id):
     """Backup-Details anzeigen mit Pagination und Suche"""
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from django.utils import timezone
+    from datetime import timedelta
 
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    # Stale-Backup-Erkennung: Automatisch pausieren wenn hängen geblieben
+    if backup.status == 'running':
+        stale_threshold = timezone.now() - timedelta(minutes=3)
+        if backup.updated_at < stale_threshold:
+            backup.status = 'paused'
+            backup.progress_message = 'Automatisch pausiert: Keine Aktivität. Klicken Sie auf Weiter laden.'
+            backup.save(update_fields=['status', 'progress_message', 'updated_at'])
 
     # Items nach Typ gruppieren (nur Counts, nicht alle Items laden)
     item_types = [
@@ -5082,9 +5092,21 @@ def sync_item_from_shopify(request, store_id, backup_id, item_id):
 @login_required
 @require_http_methods(['GET'])
 def api_backup_status(request, store_id, backup_id):
-    """API: Backup-Status abfragen"""
+    """API: Backup-Status abfragen (mit automatischer Stale-Erkennung)"""
+    from django.utils import timezone
+    from datetime import timedelta
+
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
+
+    # Stale-Backup-Erkennung: Wenn "running" aber seit 3 Minuten kein Update
+    if backup.status == 'running':
+        stale_threshold = timezone.now() - timedelta(minutes=3)
+        if backup.updated_at < stale_threshold:
+            # Automatisch pausieren - Backup ist hängen geblieben
+            backup.status = 'paused'
+            backup.progress_message = 'Automatisch pausiert: Keine Aktivität. Klicken Sie auf Weiter laden.'
+            backup.save(update_fields=['status', 'progress_message', 'updated_at'])
 
     return JsonResponse({
         'status': backup.status,
