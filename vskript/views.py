@@ -5,24 +5,31 @@ Dashboard, Create, Detail und API-Endpunkte für Videoskript-Generierung.
 """
 
 import json
+import zipfile
+from io import BytesIO
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
 
 from .models import (
     VSkriptProject,
     VSkriptGenerationLog,
+    VSkriptImage,
     SCRIPT_TYPE_CHOICES,
     TONE_CHOICES,
     TARGET_AUDIENCE_CHOICES,
     PLATFORM_CHOICES,
     DURATION_CHOICES,
-    AI_MODEL_CHOICES
+    AI_MODEL_CHOICES,
+    IMAGE_INTERVAL_CHOICES,
+    IMAGE_STYLE_CHOICES,
+    IMAGE_MODEL_CHOICES,
+    IMAGE_FORMAT_CHOICES,
 )
-from .services import VSkriptService
+from .services import VSkriptService, VSkriptImageService
 
 
 @login_required
@@ -124,20 +131,37 @@ def project_detail(request, project_id):
             project.save()
             messages.success(request, 'Einstellungen aktualisiert!')
 
+        elif action == 'update_image_settings':
+            # Bild-Einstellungen aktualisieren
+            project.image_interval = int(request.POST.get('image_interval', project.image_interval))
+            project.image_style = request.POST.get('image_style', project.image_style)
+            project.image_model = request.POST.get('image_model', project.image_model)
+            project.image_format = request.POST.get('image_format', project.image_format)
+            project.save()
+            messages.success(request, 'Bild-Einstellungen aktualisiert!')
+
         return redirect('vskript:detail', project_id=project.id)
 
     # Generation Logs laden
     generation_logs = project.generation_logs.all()[:5]
 
+    # Bilder laden
+    images = project.images.all().order_by('order')
+
     context = {
         'project': project,
         'generation_logs': generation_logs,
+        'images': images,
         'script_types': SCRIPT_TYPE_CHOICES,
         'tones': TONE_CHOICES,
         'target_audiences': TARGET_AUDIENCE_CHOICES,
         'platforms': PLATFORM_CHOICES,
         'durations': DURATION_CHOICES,
         'ai_models': AI_MODEL_CHOICES,
+        'image_intervals': IMAGE_INTERVAL_CHOICES,
+        'image_styles': IMAGE_STYLE_CHOICES,
+        'image_models': IMAGE_MODEL_CHOICES,
+        'image_formats': IMAGE_FORMAT_CHOICES,
     }
 
     return render(request, 'vskript/detail.html', context)
@@ -306,3 +330,203 @@ def api_regenerate(request, project_id):
             'success': False,
             'error': result.get('error', 'Unbekannter Fehler')
         }, status=500)
+
+
+# === IMAGE API ENDPOINTS ===
+
+@login_required
+@require_POST
+def api_generate_images(request, project_id):
+    """API: Alle Bilder für ein Projekt generieren"""
+    project = get_object_or_404(VSkriptProject, id=project_id, user=request.user)
+
+    if not project.script:
+        return JsonResponse({
+            'success': False,
+            'error': 'Bitte zuerst ein Skript generieren'
+        }, status=400)
+
+    try:
+        # Image Service initialisieren
+        service = VSkriptImageService(request.user)
+
+        # Prompts aus Skript generieren
+        prompts = service.generate_prompts_from_script(
+            script=project.script,
+            interval_seconds=project.image_interval,
+            duration_minutes=project.estimated_duration,
+            keyword=project.keyword
+        )
+
+        # Alte Bilder löschen
+        project.images.all().delete()
+
+        # Neue Bild-Objekte erstellen
+        created_images = []
+        for prompt_data in prompts:
+            image = VSkriptImage.objects.create(
+                project=project,
+                position_seconds=prompt_data['position_seconds'],
+                order=prompt_data['order'],
+                prompt=prompt_data['prompt'],
+                model_used=project.image_model,
+                style_used=project.image_style,
+                format_used=project.image_format,
+                status='pending'
+            )
+            created_images.append({
+                'id': str(image.id),
+                'order': image.order,
+                'position_seconds': image.position_seconds,
+                'prompt': image.prompt,
+                'status': image.status
+            })
+
+        return JsonResponse({
+            'success': True,
+            'images': created_images,
+            'total': len(created_images),
+            'message': f'{len(created_images)} Bild-Prompts erstellt. Generierung starten.'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_generate_single_image(request, image_id):
+    """API: Einzelnes Bild generieren"""
+    image = get_object_or_404(VSkriptImage, id=image_id, project__user=request.user)
+
+    try:
+        # Status aktualisieren
+        image.status = 'generating'
+        image.save()
+
+        # Image Service initialisieren
+        service = VSkriptImageService(request.user)
+
+        # Bild generieren
+        result = service.generate_image(
+            prompt=image.prompt,
+            style=image.style_used,
+            model=image.model_used,
+            format=image.format_used,
+            context=image.project.keyword
+        )
+
+        if result['success']:
+            image.prompt_enhanced = result.get('enhanced_prompt', '')
+            image.status = 'completed'
+            image.error_message = ''
+
+            # Bild speichern
+            if 'image_url' in result:
+                service.save_image_to_model(image, image_url=result['image_url'])
+            elif 'image_data' in result:
+                service.save_image_to_model(image, image_data=result['image_data'])
+
+            return JsonResponse({
+                'success': True,
+                'image_id': str(image.id),
+                'image_url': image.image_file.url if image.image_file else image.image_url,
+                'status': 'completed'
+            })
+        else:
+            image.status = 'failed'
+            image.error_message = result.get('error', 'Unbekannter Fehler')
+            image.save()
+
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Unbekannter Fehler')
+            }, status=500)
+
+    except Exception as e:
+        image.status = 'failed'
+        image.error_message = str(e)
+        image.save()
+
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
+def api_regenerate_image(request, image_id):
+    """API: Einzelnes Bild neu generieren"""
+    image = get_object_or_404(VSkriptImage, id=image_id, project__user=request.user)
+
+    # Prompt aus Request übernehmen falls vorhanden
+    try:
+        data = json.loads(request.body) if request.content_type == 'application/json' else {}
+        new_prompt = data.get('prompt', '').strip()
+        if new_prompt:
+            image.prompt = new_prompt
+            image.save()
+    except:
+        pass
+
+    # Bild neu generieren (verwendet api_generate_single_image Logik)
+    return api_generate_single_image(request, image_id)
+
+
+@login_required
+def api_download_image(request, image_id):
+    """API: Einzelnes Bild herunterladen"""
+    image = get_object_or_404(VSkriptImage, id=image_id, project__user=request.user)
+
+    if not image.image_file:
+        return JsonResponse({'error': 'Bild nicht gefunden'}, status=404)
+
+    response = HttpResponse(image.image_file.read(), content_type='image/png')
+    response['Content-Disposition'] = f'attachment; filename="vskript_bild_{image.order + 1}.png"'
+    return response
+
+
+@login_required
+def api_download_all_images(request, project_id):
+    """API: Alle Bilder als ZIP herunterladen"""
+    project = get_object_or_404(VSkriptProject, id=project_id, user=request.user)
+    images = project.images.filter(status='completed').order_by('order')
+
+    if not images.exists():
+        return JsonResponse({'error': 'Keine fertigen Bilder vorhanden'}, status=404)
+
+    # ZIP erstellen
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for image in images:
+            if image.image_file:
+                filename = f"bild_{image.order + 1:02d}_{image.position_seconds:.1f}s.png"
+                zip_file.writestr(filename, image.image_file.read())
+
+    buffer.seek(0)
+
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="vskript_{project.keyword[:20]}_bilder.zip"'
+    return response
+
+
+@login_required
+@require_POST
+def api_delete_image(request, image_id):
+    """API: Einzelnes Bild löschen"""
+    image = get_object_or_404(VSkriptImage, id=image_id, project__user=request.user)
+    image.delete()
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def api_delete_all_images(request, project_id):
+    """API: Alle Bilder eines Projekts löschen"""
+    project = get_object_or_404(VSkriptProject, id=project_id, user=request.user)
+    project.images.all().delete()
+    return JsonResponse({'success': True})

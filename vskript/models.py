@@ -78,6 +78,47 @@ AI_MODEL_CHOICES = [
     ('o4-mini', 'O4 Mini (Schnelles Reasoning)'),
 ]
 
+# === IMAGE GENERATION CHOICES ===
+
+IMAGE_INTERVAL_CHOICES = [
+    (1, 'Alle 1 Sekunde'),
+    (2, 'Alle 2 Sekunden'),
+    (3, 'Alle 3 Sekunden'),
+    (4, 'Alle 4 Sekunden'),
+    (5, 'Alle 5 Sekunden'),
+    (6, 'Alle 6 Sekunden'),
+    (7, 'Alle 7 Sekunden'),
+    (8, 'Alle 8 Sekunden'),
+]
+
+IMAGE_STYLE_CHOICES = [
+    ('realistic', 'Realistisch'),
+    ('cinematic', 'Cinematic / Filmisch'),
+    ('anime', 'Anime / Manga'),
+    ('cartoon', 'Cartoon / Comic'),
+    ('3d_render', '3D Render'),
+    ('watercolor', 'Aquarell'),
+    ('oil_painting', 'Ölgemälde'),
+    ('sketch', 'Skizze / Zeichnung'),
+    ('minimalist', 'Minimalistisch'),
+    ('vintage', 'Vintage / Retro'),
+    ('cyberpunk', 'Cyberpunk'),
+    ('fantasy', 'Fantasy'),
+]
+
+IMAGE_MODEL_CHOICES = [
+    ('dall-e-3', 'DALL-E 3 (OpenAI)'),
+    ('dall-e-2', 'DALL-E 2 (OpenAI)'),
+    ('gemini', 'Imagen 3 (Google Gemini)'),
+]
+
+IMAGE_FORMAT_CHOICES = [
+    ('1024x1024', '1024x1024 (Quadrat)'),
+    ('1792x1024', '1792x1024 (Landscape)'),
+    ('1024x1792', '1024x1792 (Portrait)'),
+    ('512x512', '512x512 (Klein)'),
+]
+
 
 class VSkriptProject(models.Model):
     """Videoskript-Projekt"""
@@ -123,6 +164,31 @@ class VSkriptProject(models.Model):
         choices=AI_MODEL_CHOICES,
         default='gpt-4o',
         verbose_name='KI-Modell'
+    )
+
+    # Bild-Einstellungen
+    image_interval = models.IntegerField(
+        choices=IMAGE_INTERVAL_CHOICES,
+        default=3,
+        verbose_name='Bild-Intervall (Sekunden)'
+    )
+    image_style = models.CharField(
+        max_length=50,
+        choices=IMAGE_STYLE_CHOICES,
+        default='cinematic',
+        verbose_name='Bild-Stil'
+    )
+    image_model = models.CharField(
+        max_length=50,
+        choices=IMAGE_MODEL_CHOICES,
+        default='dall-e-3',
+        verbose_name='Bild-KI-Modell'
+    )
+    image_format = models.CharField(
+        max_length=20,
+        choices=IMAGE_FORMAT_CHOICES,
+        default='1024x1024',
+        verbose_name='Bild-Format'
     )
 
     # Generiertes Skript
@@ -184,3 +250,62 @@ class VSkriptGenerationLog(models.Model):
 
     def __str__(self):
         return f"Log für {self.project.title} ({self.created_at})"
+
+
+class VSkriptImage(models.Model):
+    """Generierte Bilder für ein Videoskript"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(
+        VSkriptProject,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
+
+    # Position im Video
+    position_seconds = models.FloatField(verbose_name='Position (Sekunden)')
+    order = models.IntegerField(default=0, verbose_name='Reihenfolge')
+
+    # Prompt und Generierung
+    prompt = models.TextField(verbose_name='Bild-Prompt')
+    prompt_enhanced = models.TextField(blank=True, verbose_name='Erweiterter Prompt')
+
+    # Generiertes Bild
+    image_url = models.URLField(max_length=500, blank=True, verbose_name='Bild-URL')
+    image_file = models.ImageField(
+        upload_to='vskript/images/%Y/%m/',
+        blank=True,
+        null=True,
+        verbose_name='Bild-Datei'
+    )
+
+    # Generierungs-Details
+    model_used = models.CharField(max_length=50, verbose_name='Verwendetes Modell')
+    style_used = models.CharField(max_length=50, verbose_name='Verwendeter Stil')
+    format_used = models.CharField(max_length=20, verbose_name='Verwendetes Format')
+
+    # Status
+    STATUS_CHOICES = [
+        ('pending', 'Ausstehend'),
+        ('generating', 'Wird generiert'),
+        ('completed', 'Fertig'),
+        ('failed', 'Fehlgeschlagen'),
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name='Status'
+    )
+    error_message = models.TextField(blank=True, verbose_name='Fehlermeldung')
+
+    # Meta
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'VSkript Bild'
+        verbose_name_plural = 'VSkript Bilder'
+        ordering = ['project', 'order']
+
+    def __str__(self):
+        return f"Bild {self.order + 1} für {self.project.keyword} ({self.position_seconds}s)"

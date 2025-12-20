@@ -106,6 +106,125 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Bilder-Bereich -->
+            {% if project.script %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-images me-1"></i>Bilder zum Skript
+                    </h5>
+                    <div>
+                        <span class="badge bg-info me-2" id="imageCountBadge">
+                            <i class="bi bi-image me-1"></i>{{ images.count }} Bilder
+                        </span>
+                        <span class="badge bg-secondary">
+                            <i class="bi bi-robot me-1"></i>{{ project.get_image_model_display }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Keine Bilder vorhanden -->
+                    <div id="noImagesSection" {% if images %}class="d-none"{% endif %}>
+                        <div class="text-center py-4">
+                            <i class="bi bi-images" style="font-size: 3rem; color: #6c757d;"></i>
+                            <h5 class="mt-3">Bilder generieren</h5>
+                            <p class="text-muted">Erstelle Bilder basierend auf deinem Skript.</p>
+                            <button type="button" class="btn btn-primary" onclick="generateAllImages()">
+                                <i class="bi bi-stars me-1"></i>Bilder generieren
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Loading -->
+                    <div class="text-center py-4 d-none" id="imageLoadingSection">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Lädt...</span>
+                        </div>
+                        <h5 class="mt-3">Bilder werden erstellt...</h5>
+                        <p class="text-muted" id="imageLoadingText">Prompts werden generiert...</p>
+                        <div class="progress mt-3" style="height: 20px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 id="imageProgressBar" role="progressbar" style="width: 0%">0%</div>
+                        </div>
+                    </div>
+
+                    <!-- Bilder Grid -->
+                    <div id="imagesGrid" {% if not images %}class="d-none"{% endif %}>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateAllImages()">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Alle neu generieren
+                                </button>
+                                <a href="{% url 'vskript:api_download_all_images' project_id=project.id %}"
+                                   class="btn btn-outline-success btn-sm" id="downloadAllBtn">
+                                    <i class="bi bi-download me-1"></i>Alle herunterladen (ZIP)
+                                </a>
+                            </div>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteAllImages()">
+                                <i class="bi bi-trash me-1"></i>Alle löschen
+                            </button>
+                        </div>
+
+                        <div class="row g-3" id="imagesList">
+                            {% for image in images %}
+                            <div class="col-md-4 col-lg-3" id="image-card-{{ image.id }}">
+                                <div class="card h-100">
+                                    <div class="position-relative">
+                                        {% if image.image_file %}
+                                        <img src="{{ image.image_file.url }}" class="card-img-top"
+                                             alt="Bild {{ image.order|add:1 }}" style="height: 150px; object-fit: cover;">
+                                        {% elif image.status == 'generating' %}
+                                        <div class="d-flex align-items-center justify-content-center bg-light"
+                                             style="height: 150px;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Generiert...</span>
+                                            </div>
+                                        </div>
+                                        {% elif image.status == 'failed' %}
+                                        <div class="d-flex align-items-center justify-content-center bg-danger bg-opacity-10"
+                                             style="height: 150px;">
+                                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2rem;"></i>
+                                        </div>
+                                        {% else %}
+                                        <div class="d-flex align-items-center justify-content-center bg-light"
+                                             style="height: 150px;">
+                                            <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                                        </div>
+                                        {% endif %}
+                                        <span class="position-absolute top-0 start-0 badge bg-dark m-1">
+                                            {{ image.position_seconds|floatformat:0 }}s
+                                        </span>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <p class="card-text small text-muted mb-2" style="height: 40px; overflow: hidden;">
+                                            {{ image.prompt|truncatechars:60 }}
+                                        </p>
+                                        <div class="btn-group btn-group-sm w-100">
+                                            <button type="button" class="btn btn-outline-primary"
+                                                    onclick="regenerateImage('{{ image.id }}')" title="Neu generieren">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
+                                            {% if image.image_file %}
+                                            <a href="{% url 'vskript:api_download_image' image_id=image.id %}"
+                                               class="btn btn-outline-success" title="Herunterladen">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-outline-danger"
+                                                    onclick="deleteImage('{{ image.id }}')" title="Löschen">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Einstellungen Sidebar -->
@@ -203,6 +322,69 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Bild-Einstellungen -->
+            {% if project.script %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-image me-1"></i>Bild-Einstellungen</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="imageSettingsForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_image_settings">
+
+                        <div class="mb-3">
+                            <label for="image_interval" class="form-label small fw-bold">Bild-Intervall</label>
+                            <select class="form-select form-select-sm" id="image_interval" name="image_interval">
+                                {% for value, label in image_intervals %}
+                                <option value="{{ value }}" {% if project.image_interval == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="image_style" class="form-label small fw-bold">Bild-Stil</label>
+                            <select class="form-select form-select-sm" id="image_style" name="image_style">
+                                {% for value, label in image_styles %}
+                                <option value="{{ value }}" {% if project.image_style == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="image_model" class="form-label small fw-bold">Bild-KI-Modell</label>
+                            <select class="form-select form-select-sm" id="image_model" name="image_model">
+                                {% for value, label in image_models %}
+                                <option value="{{ value }}" {% if project.image_model == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="image_format" class="form-label small fw-bold">Bild-Format</label>
+                            <select class="form-select form-select-sm" id="image_format" name="image_format">
+                                {% for value, label in image_formats %}
+                                <option value="{{ value }}" {% if project.image_format == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="bi bi-save me-1"></i>Bild-Einstellungen speichern
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Info Card -->
             <div class="card bg-light">
@@ -355,5 +537,164 @@ document.getElementById('scriptText')?.addEventListener('input', function() {
     const minutes = (words / 130).toFixed(1);
     document.getElementById('wordCountDisplay').innerHTML = words + ' Worte | ' + minutes + ' Min | <i class="bi bi-robot"></i> ' + currentModelLabel;
 });
+
+// ============================================
+// Bild-Generierung Funktionen
+// ============================================
+
+function generateAllImages() {
+    const noImagesSection = document.getElementById('noImagesSection');
+    const imageLoadingSection = document.getElementById('imageLoadingSection');
+    const imagesGrid = document.getElementById('imagesGrid');
+    const imagesList = document.getElementById('imagesList');
+    const progressBar = document.getElementById('imageProgressBar');
+    const loadingText = document.getElementById('imageLoadingText');
+
+    // UI vorbereiten
+    if (noImagesSection) noImagesSection.classList.add('d-none');
+    if (imagesGrid) imagesGrid.classList.add('d-none');
+    imageLoadingSection.classList.remove('d-none');
+    loadingText.textContent = 'Bilder werden generiert...';
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+
+    fetch('{% url "vskript:api_generate_images" project_id=project.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fortschritt anzeigen
+            progressBar.style.width = '100%';
+            progressBar.textContent = '100%';
+            loadingText.textContent = `${data.completed} von ${data.total} Bildern erstellt`;
+
+            // Seite neu laden um Bilder anzuzeigen
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            imageLoadingSection.classList.add('d-none');
+            if (noImagesSection) noImagesSection.classList.remove('d-none');
+        }
+    })
+    .catch(error => {
+        alert('Fehler: ' + error.message);
+        imageLoadingSection.classList.add('d-none');
+        if (noImagesSection) noImagesSection.classList.remove('d-none');
+    });
+}
+
+function regenerateImage(imageId) {
+    if (!confirm('Bild neu generieren?')) return;
+
+    const card = document.getElementById('image-card-' + imageId);
+    if (!card) return;
+
+    // Loading-Status anzeigen
+    const imgContainer = card.querySelector('.position-relative');
+    const originalContent = imgContainer.innerHTML;
+    imgContainer.innerHTML = `
+        <div class="d-flex align-items-center justify-content-center bg-light" style="height: 150px;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Generiert...</span>
+            </div>
+        </div>
+        <span class="position-absolute top-0 start-0 badge bg-warning m-1">
+            <i class="bi bi-hourglass-split"></i>
+        </span>
+    `;
+
+    fetch(`/vskript/api/images/regenerate/${imageId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Seite neu laden um neues Bild anzuzeigen
+            location.reload();
+        } else {
+            alert('Fehler: ' + (data.error || 'Bild konnte nicht generiert werden'));
+            imgContainer.innerHTML = originalContent;
+        }
+    })
+    .catch(error => {
+        alert('Fehler: ' + error.message);
+        imgContainer.innerHTML = originalContent;
+    });
+}
+
+function deleteImage(imageId) {
+    if (!confirm('Bild wirklich löschen?')) return;
+
+    fetch(`/vskript/api/images/delete/${imageId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Bild-Karte entfernen
+            const card = document.getElementById('image-card-' + imageId);
+            if (card) {
+                card.remove();
+            }
+            // Badge aktualisieren
+            const badge = document.getElementById('imageCountBadge');
+            if (badge) {
+                const remaining = document.querySelectorAll('[id^="image-card-"]').length;
+                badge.innerHTML = `<i class="bi bi-image me-1"></i>${remaining} Bilder`;
+
+                // Falls keine Bilder mehr, zeige "Keine Bilder"-Section
+                if (remaining === 0) {
+                    document.getElementById('imagesGrid').classList.add('d-none');
+                    document.getElementById('noImagesSection').classList.remove('d-none');
+                }
+            }
+        } else {
+            alert('Fehler: ' + (data.error || 'Bild konnte nicht gelöscht werden'));
+        }
+    })
+    .catch(error => {
+        alert('Fehler: ' + error.message);
+    });
+}
+
+function deleteAllImages() {
+    if (!confirm('Alle Bilder wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
+
+    fetch('{% url "vskript:api_delete_all_images" project_id=project.id %}', {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Alle Bild-Karten entfernen
+            document.getElementById('imagesList').innerHTML = '';
+            document.getElementById('imagesGrid').classList.add('d-none');
+            document.getElementById('noImagesSection').classList.remove('d-none');
+            // Badge aktualisieren
+            const badge = document.getElementById('imageCountBadge');
+            if (badge) {
+                badge.innerHTML = '<i class="bi bi-image me-1"></i>0 Bilder';
+            }
+        } else {
+            alert('Fehler: ' + (data.error || 'Bilder konnten nicht gelöscht werden'));
+        }
+    })
+    .catch(error => {
+        alert('Fehler: ' + error.message);
+    });
+}
 </script>
 {% endblock %}
