@@ -436,15 +436,14 @@ class VSkriptService:
                         max_completion_tokens=max_tokens
                     )
                 elif uses_completion_tokens:
-                    # GPT-5 Modelle: max_completion_tokens, aber mit temperature und system prompt
+                    # GPT-5 Modelle: max_completion_tokens, mit system prompt, keine custom temperature
                     response = self.openai_client.chat.completions.create(
                         model=self.model,
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
-                        max_completion_tokens=max_tokens,
-                        temperature=temperature
+                        max_completion_tokens=max_tokens
                     )
                 else:
                     # Legacy-Modelle (GPT-4, GPT-4.1, etc.)
