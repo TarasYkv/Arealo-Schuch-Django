@@ -4699,11 +4699,13 @@ def api_backup_start(request, store_id, backup_id):
 
 @login_required
 def backup_detail(request, store_id, backup_id):
-    """Backup-Details anzeigen"""
+    """Backup-Details anzeigen mit Pagination und Suche"""
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     backup = get_object_or_404(ShopifyBackup, id=backup_id, store=store)
 
-    # Items nach Typ gruppieren
+    # Items nach Typ gruppieren (nur Counts, nicht alle Items laden)
     item_types = [
         ('product', 'Produkte'),
         ('blog', 'Blogs'),
@@ -4718,18 +4720,52 @@ def backup_detail(request, store_id, backup_id):
         ('customer', 'Kunden'),
     ]
 
+    # Nur Counts ermitteln (schnell)
     items_by_type = {}
+    first_type_with_items = None
     for item_type, label in item_types:
-        items = backup.items.filter(item_type=item_type)
-        if items.exists():
+        count = backup.items.filter(item_type=item_type).count()
+        if count > 0:
             items_by_type[item_type] = {
                 'label': label,
-                'items': items,
-                'count': items.count()
+                'count': count
             }
+            if first_type_with_items is None:
+                first_type_with_items = item_type
 
-    # Aktiver Tab
-    active_tab = request.GET.get('tab', 'product')
+    # Aktiver Tab (Default: erster Typ mit Items)
+    active_tab = request.GET.get('tab')
+    if active_tab not in items_by_type:
+        active_tab = first_type_with_items or 'product'
+
+    # Suchbegriff
+    search_query = request.GET.get('q', '').strip()
+
+    # Seite
+    page = request.GET.get('page', 1)
+
+    # Items für aktiven Tab mit Pagination und Suche
+    active_items = None
+    paginator = None
+    if active_tab and active_tab in items_by_type:
+        items_qs = backup.items.filter(item_type=active_tab).order_by('title')
+
+        # Suche anwenden
+        if search_query:
+            items_qs = items_qs.filter(title__icontains=search_query)
+
+        # Pagination: 20 pro Seite
+        paginator = Paginator(items_qs, 20)
+        try:
+            active_items = paginator.page(page)
+        except PageNotAnInteger:
+            active_items = paginator.page(1)
+        except EmptyPage:
+            active_items = paginator.page(paginator.num_pages)
+
+    # Aktiver Tab Label und Count
+    active_tab_label = items_by_type.get(active_tab, {}).get('label', '')
+    active_tab_count = items_by_type.get(active_tab, {}).get('count', 0)
 
     # Restore-Logs
     restore_logs = backup.restore_logs.all().order_by('-restored_at')[:50]
@@ -4739,6 +4775,11 @@ def backup_detail(request, store_id, backup_id):
         'backup': backup,
         'items_by_type': items_by_type,
         'active_tab': active_tab,
+        'active_tab_label': active_tab_label,
+        'active_tab_count': active_tab_count,
+        'active_items': active_items,
+        'search_query': search_query,
+        'paginator': paginator,
         'restore_logs': restore_logs,
     })
 
