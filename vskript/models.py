@@ -110,17 +110,23 @@ IMAGE_STYLE_CHOICES = [
 ]
 
 IMAGE_MODEL_CHOICES = [
-    ('dall-e-3', 'DALL-E 3 (OpenAI)'),
-    ('dall-e-2', 'DALL-E 2 (OpenAI)'),
-    ('gemini', 'Imagen 3 (Google)'),
-    ('gemini-fast', 'Imagen 3 Fast (Google - Schneller)'),
+    # OpenAI GPT Image (Dezember 2025)
+    ('gpt-image-1.5', 'GPT Image 1.5 (OpenAI - Empfohlen)'),
+    ('gpt-image-1', 'GPT Image 1 (OpenAI)'),
+    ('gpt-image-1-mini', 'GPT Image 1 Mini (OpenAI - Günstig)'),
+    # Google Imagen 4 (2025)
+    ('imagen-4-ultra', 'Imagen 4 Ultra (Google - Beste Qualität)'),
+    ('imagen-4', 'Imagen 4 (Google)'),
+    ('imagen-4-fast', 'Imagen 4 Fast (Google - Schnell)'),
+    # Legacy (bis Mai 2026)
+    ('dall-e-3', 'DALL-E 3 (Legacy)'),
 ]
 
 IMAGE_FORMAT_CHOICES = [
     ('1024x1024', '1024x1024 (Quadrat)'),
-    ('1792x1024', '1792x1024 (Landscape)'),
-    ('1024x1792', '1024x1792 (Portrait)'),
-    ('512x512', '512x512 (Klein)'),
+    ('1536x1024', '1536x1024 (Landscape)'),
+    ('1024x1536', '1024x1536 (Portrait)'),
+    ('auto', 'Auto (KI wählt)'),
 ]
 
 
@@ -185,7 +191,7 @@ class VSkriptProject(models.Model):
     image_model = models.CharField(
         max_length=50,
         choices=IMAGE_MODEL_CHOICES,
-        default='dall-e-3',
+        default='gpt-image-1.5',
         verbose_name='Bild-KI-Modell'
     )
     image_format = models.CharField(

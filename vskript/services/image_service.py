@@ -92,33 +92,56 @@ class VSkriptImageService:
 
         return enhanced
 
-    def _generate_with_dalle(
+    def _generate_with_openai(
         self,
         prompt: str,
-        model: str = 'dall-e-3',
-        size: str = '1024x1024',
-        quality: str = 'standard'
+        model: str = 'gpt-image-1.5',
+        size: str = '1024x1024'
     ) -> Dict:
-        """Generiert ein Bild mit DALL-E"""
+        """Generiert ein Bild mit OpenAI GPT Image oder DALL-E"""
         if not self.openai_client:
             return {'success': False, 'error': 'OpenAI API-Key nicht konfiguriert'}
 
         try:
             start_time = time.time()
 
-            # DALL-E 2 unterstützt nur bestimmte Größen
-            if model == 'dall-e-2':
-                if size not in ['256x256', '512x512', '1024x1024']:
-                    size = '1024x1024'
-                quality = 'standard'  # DALL-E 2 hat keine quality Option
+            # GPT Image Modelle unterstützen andere Größen
+            is_gpt_image = model.startswith('gpt-image')
 
-            response = self.openai_client.images.generate(
-                model=model,
-                prompt=prompt,
-                size=size,
-                quality=quality if model == 'dall-e-3' else None,
-                n=1
-            )
+            if is_gpt_image:
+                # GPT Image: 1024x1024, 1536x1024, 1024x1536, auto
+                valid_sizes = ['1024x1024', '1536x1024', '1024x1536', 'auto']
+                if size not in valid_sizes:
+                    size = '1024x1024'
+
+                response = self.openai_client.images.generate(
+                    model=model,
+                    prompt=prompt,
+                    size=size,
+                    n=1
+                )
+            elif model == 'dall-e-3':
+                # DALL-E 3: 1024x1024, 1792x1024, 1024x1792
+                valid_sizes = ['1024x1024', '1792x1024', '1024x1792']
+                if size not in valid_sizes:
+                    size = '1024x1024'
+
+                response = self.openai_client.images.generate(
+                    model=model,
+                    prompt=prompt,
+                    size=size,
+                    quality='standard',
+                    n=1
+                )
+            else:
+                # DALL-E 2 (Legacy)
+                size = '1024x1024'
+                response = self.openai_client.images.generate(
+                    model='dall-e-2',
+                    prompt=prompt,
+                    size=size,
+                    n=1
+                )
 
             image_url = response.data[0].url
             duration = time.time() - start_time
@@ -132,26 +155,35 @@ class VSkriptImageService:
             }
 
         except Exception as e:
-            logger.error(f"DALL-E error: {e}")
+            logger.error(f"OpenAI Image error: {e}")
             return {'success': False, 'error': str(e)}
 
     def _generate_with_gemini(
         self,
         prompt: str,
-        aspect_ratio: str = '1:1',
-        fast: bool = False
+        model: str = 'imagen-4',
+        aspect_ratio: str = '1:1'
     ) -> Dict:
-        """Generiert ein Bild mit Google Gemini Imagen 3"""
+        """Generiert ein Bild mit Google Imagen 4"""
         if not self.gemini_client:
             return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
 
         try:
             start_time = time.time()
 
-            # Imagen 3 oder Imagen 3 Fast
-            model_id = 'imagen-3.0-fast-generate-001' if fast else 'imagen-3.0-generate-002'
+            # Imagen 4 Modelle (2025)
+            model_mapping = {
+                'imagen-4-ultra': 'imagen-4.0-ultra-generate-001',
+                'imagen-4': 'imagen-4.0-generate-001',
+                'imagen-4-fast': 'imagen-4.0-fast-generate-001',
+                # Legacy Imagen 3
+                'gemini': 'imagen-3.0-generate-002',
+                'gemini-fast': 'imagen-3.0-fast-generate-001',
+            }
 
-            # Gemini Imagen 3 mit google-genai SDK
+            model_id = model_mapping.get(model, 'imagen-4.0-generate-001')
+
+            # Gemini Imagen mit google-genai SDK
             response = self.gemini_client.models.generate_images(
                 model=model_id,
                 prompt=prompt,
@@ -170,7 +202,7 @@ class VSkriptImageService:
                 return {
                     'success': True,
                     'image_data': image_data,
-                    'model': 'imagen-3.0-fast' if fast else 'imagen-3.0',
+                    'model': model_id,
                     'duration': duration
                 }
             else:
@@ -184,9 +216,11 @@ class VSkriptImageService:
         """Konvertiert Größe zu Aspect Ratio für Gemini"""
         mapping = {
             '1024x1024': '1:1',
+            '1536x1024': '3:2',
+            '1024x1536': '2:3',
             '1792x1024': '16:9',
             '1024x1792': '9:16',
-            '512x512': '1:1',
+            'auto': '1:1',
         }
         return mapping.get(size, '1:1')
 
@@ -194,7 +228,7 @@ class VSkriptImageService:
         self,
         prompt: str,
         style: str = 'cinematic',
-        model: str = 'dall-e-3',
+        model: str = 'gpt-image-1.5',
         format: str = '1024x1024',
         context: str = ''
     ) -> Dict:
@@ -204,7 +238,7 @@ class VSkriptImageService:
         Args:
             prompt: Basis-Prompt für das Bild
             style: Bildstil
-            model: KI-Modell (dall-e-3, dall-e-2, gemini)
+            model: KI-Modell (gpt-image-*, dall-e-*, imagen-*)
             format: Bildformat/Größe
             context: Zusätzlicher Kontext (z.B. Skript-Thema)
 
@@ -214,18 +248,23 @@ class VSkriptImageService:
         # Prompt erweitern
         enhanced_prompt = self._enhance_prompt(prompt, style, context)
 
-        if model in ['dall-e-3', 'dall-e-2']:
-            result = self._generate_with_dalle(
+        # OpenAI Modelle (GPT Image und DALL-E)
+        openai_models = ['gpt-image-1.5', 'gpt-image-1', 'gpt-image-1-mini', 'dall-e-3', 'dall-e-2']
+        # Google Imagen Modelle
+        gemini_models = ['imagen-4-ultra', 'imagen-4', 'imagen-4-fast', 'gemini', 'gemini-fast']
+
+        if model in openai_models:
+            result = self._generate_with_openai(
                 prompt=enhanced_prompt,
                 model=model,
                 size=format
             )
-        elif model in ['gemini', 'gemini-fast']:
+        elif model in gemini_models:
             aspect_ratio = self._size_to_aspect_ratio(format)
             result = self._generate_with_gemini(
                 prompt=enhanced_prompt,
-                aspect_ratio=aspect_ratio,
-                fast=(model == 'gemini-fast')
+                model=model,
+                aspect_ratio=aspect_ratio
             )
         else:
             return {'success': False, 'error': f'Unbekanntes Modell: {model}'}
