@@ -69,7 +69,7 @@ def project_create(request):
         target_audience = request.POST.get('target_audience', 'general')
         platform = request.POST.get('platform', 'youtube')
         duration = float(request.POST.get('duration', 1.0))
-        ai_model = request.POST.get('ai_model', 'gpt-5')
+        ai_model = request.POST.get('ai_model', 'gpt-4o')
 
         if not keyword:
             messages.error(request, 'Bitte gib ein Keyword/Thema ein.')
@@ -167,7 +167,7 @@ def api_generate(request):
         target_audience = data.get('target_audience', 'general')
         platform = data.get('platform', 'youtube')
         duration = float(data.get('duration', 1.0))
-        ai_model = data.get('ai_model', 'gpt-5')
+        ai_model = data.get('ai_model', 'gpt-4o')
         project_id = data.get('project_id')
 
         if not keyword:

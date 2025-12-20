@@ -377,10 +377,10 @@ class VSkriptService:
         # Provider und Modell aus Settings oder Defaults
         if settings:
             self.provider = getattr(settings, 'ai_provider', 'openai')
-            self.model = getattr(settings, 'ai_model', 'gpt-5')
+            self.model = getattr(settings, 'ai_model', 'gpt-4o')
         else:
             self.provider = 'openai'
-            self.model = 'gpt-5'
+            self.model = 'gpt-4o'
 
         # Clients initialisieren
         self._init_clients()
@@ -411,14 +411,7 @@ class VSkriptService:
 
         try:
             if self.provider == 'openai' and self.openai_client:
-                # Neuere Modelle (GPT-5, O-Serie) verwenden max_completion_tokens
-                uses_completion_tokens = (
-                    self.model.startswith('gpt-5') or
-                    self.model.startswith('o1') or
-                    self.model.startswith('o3') or
-                    self.model.startswith('o4')
-                )
-                # Nur O-Modelle sind echte Reasoning-Modelle (keine temperature, kein system prompt)
+                # O-Modelle (o1, o3, o4) sind Reasoning-Modelle mit speziellen Parametern
                 is_reasoning_model = (
                     self.model.startswith('o1') or
                     self.model.startswith('o3') or
@@ -426,7 +419,7 @@ class VSkriptService:
                 )
 
                 if is_reasoning_model:
-                    # Reasoning-Modelle (O-Serie): max_completion_tokens, keine temperature, kein system prompt
+                    # Reasoning-Modelle: max_completion_tokens, keine temperature, kein system prompt
                     combined_prompt = f"{system_prompt}\n\n{user_prompt}"
                     response = self.openai_client.chat.completions.create(
                         model=self.model,
@@ -435,18 +428,8 @@ class VSkriptService:
                         ],
                         max_completion_tokens=max_tokens
                     )
-                elif uses_completion_tokens:
-                    # GPT-5 Modelle: max_completion_tokens, mit system prompt, keine custom temperature
-                    response = self.openai_client.chat.completions.create(
-                        model=self.model,
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        max_completion_tokens=max_tokens
-                    )
                 else:
-                    # Legacy-Modelle (GPT-4, GPT-4.1, etc.)
+                    # Standard-Modelle (GPT-4o, GPT-4.1, etc.)
                     response = self.openai_client.chat.completions.create(
                         model=self.model,
                         messages=[
