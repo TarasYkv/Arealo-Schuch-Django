@@ -4753,10 +4753,10 @@ class StreamRecorderOptimized {
             const audioConstraints = this.getAudioConstraints();
             
             // Build video constraints with selected camera
-            // WICHTIG: min frameRate für flüssige Aufnahme
+            // WICHTIG: Full HD für beste Qualität + min frameRate für flüssige Aufnahme
             const videoConstraints = {
-                width: { ideal: 1280, min: 640 },
-                height: { ideal: 720, min: 480 },
+                width: { ideal: 1920, min: 1280 },
+                height: { ideal: 1080, min: 720 },
                 frameRate: { min: 24, ideal: this.targetFPS, max: 60 }
             };
             
@@ -6413,21 +6413,22 @@ class StreamRecorderOptimized {
         let optimizedBitrate = Math.floor(baseBitrate * multiStreamFactor);
         
         // Quality-basierte Anpassungen mit Multi-Stream Berücksichtigung
+        // ERHÖHTE BITRATES für bessere Full HD Qualität
         switch (quality) {
             case 'ultra':
-                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 2000000 : 3500000);
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 5000000 : 8000000);
                 break;
             case 'high':
-                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 1500000 : 2500000);
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 3500000 : 6000000);
                 break;
             case 'medium':
-                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 1000000 : 1800000);
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 2500000 : 4000000);
                 break;
             case 'low':
-                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 600000 : 1000000);
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 1500000 : 2500000);
                 break;
             case 'potato':
-                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 300000 : 500000);
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 800000 : 1200000);
                 break;
         }
         
