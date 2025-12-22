@@ -201,6 +201,7 @@ class AppPermission(models.Model):
         ('keyengine', 'KeyEngine'),
         ('ideopin', 'IdeoPin - Pinterest Generator'),
         ('imageforge', 'ImageForge - KI Bildgenerierung'),
+        ('vskript', 'VSkript - Video-Skript Generator'),
         ('questionfinder', 'QuestionFinder'),
 
         # SEO Tools
