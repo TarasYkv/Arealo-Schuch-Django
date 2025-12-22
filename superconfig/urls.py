@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/storage/statistics/', views.storage_statistics_api, name='storage_statistics_api'),
     path('api/storage/top-users/', views.top_storage_users_api, name='top_storage_users_api'),
     path('api/storage/by-app/', views.storage_by_app_api, name='storage_by_app_api'),
+    path('api/storage/user/<int:user_id>/', views.user_storage_detail_api, name='user_storage_detail_api'),
     path('api/storage/logs/', views.recent_storage_logs_api, name='recent_storage_logs_api'),
     path('api/subscription/plans-overview/', views.subscription_plans_overview_api, name='subscription_plans_overview_api'),
 

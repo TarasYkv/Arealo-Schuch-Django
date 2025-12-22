@@ -1887,27 +1887,30 @@ def storage_statistics_api(request):
 @login_required
 @user_passes_test(is_superuser)
 def top_storage_users_api(request):
-    """Get top storage users"""
+    """Get top storage users - zeigt tatsächlich genutzten Speicher"""
     try:
-        from payments.models import Subscription, SubscriptionPlan
-        from django.db.models import Sum, Q
+        from videos.models import UserStorage
 
-        # Get active subscriptions with storage, grouped by user
-        top_users = Subscription.objects.filter(
-            Q(status='active') | Q(status='trialing'),
-            plan__storage_mb__isnull=False
-        ).select_related('customer__user', 'plan').order_by('-plan__storage_mb')[:10]
+        # Hole alle User mit Speichernutzung, sortiert nach genutztem Speicher
+        user_storages = UserStorage.objects.select_related('user').order_by('-used_storage')[:15]
 
         users_data = []
-        for subscription in top_users:
-            storage_mb = subscription.plan.storage_mb or 0
+        for storage in user_storages:
+            used_mb = storage.used_storage / (1024 * 1024)
+            max_mb = storage.max_storage / (1024 * 1024)
+            percentage = (storage.used_storage / storage.max_storage * 100) if storage.max_storage > 0 else 0
+
             users_data.append({
-                'username': subscription.customer.user.username,
-                'email': subscription.customer.user.email,
-                'storage_mb': storage_mb,
-                'storage_gb': round(storage_mb / 1024, 2),
-                'plan_name': subscription.plan.name,
-                'status': subscription.get_status_display()
+                'user_id': storage.user.id,
+                'username': storage.user.username,
+                'email': storage.user.email,
+                'used_mb': round(used_mb, 2),
+                'used_gb': round(used_mb / 1024, 2),
+                'max_mb': round(max_mb, 2),
+                'max_gb': round(max_mb / 1024, 2),
+                'percentage': round(percentage, 1),
+                'plan_name': storage.get_tier_name() if hasattr(storage, 'get_tier_name') else 'Standard',
+                'is_premium': storage.is_premium,
             })
 
         return JsonResponse({
@@ -1919,6 +1922,93 @@ def top_storage_users_api(request):
         return JsonResponse({
             'success': False,
             'message': f'Fehler beim Laden der Top-Speicher-Nutzer: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def user_storage_detail_api(request, user_id):
+    """Get storage details per app for a specific user"""
+    try:
+        from django.contrib.auth import get_user_model
+        from core.models import StorageLog
+        from videos.models import UserStorage
+        from django.db.models import Sum
+
+        User = get_user_model()
+        user = User.objects.get(id=user_id)
+
+        # App-Namen für Anzeige
+        app_display_names = {
+            'videos': 'Videos',
+            'fileshare': 'FileShare',
+            'organization': 'Organisation',
+            'chat': 'Chat',
+            'streamrec': 'StreamRec',
+            'shopify': 'Shopify Manager',
+            'image_editor': 'Bild Editor',
+            'other': 'Andere',
+        }
+
+        # Speicherverbrauch pro App aus StorageLog
+        storage_by_app = StorageLog.objects.filter(user=user).values('app_name').annotate(
+            total_bytes=Sum('size_bytes')
+        ).order_by('-total_bytes')
+
+        apps_data = []
+        total_from_logs = 0
+        for item in storage_by_app:
+            app_key = item['app_name']
+            total_bytes = item['total_bytes'] or 0
+            if total_bytes > 0:
+                total_from_logs += total_bytes
+                apps_data.append({
+                    'app': app_display_names.get(app_key, app_key.capitalize()),
+                    'app_key': app_key,
+                    'size_bytes': total_bytes,
+                    'size_mb': round(total_bytes / (1024 * 1024), 2),
+                    'size_gb': round(total_bytes / (1024 * 1024 * 1024), 3),
+                })
+
+        # User Storage Info
+        try:
+            user_storage = UserStorage.objects.get(user=user)
+            used_bytes = user_storage.used_storage
+            max_bytes = user_storage.max_storage
+            percentage = (used_bytes / max_bytes * 100) if max_bytes > 0 else 0
+        except UserStorage.DoesNotExist:
+            used_bytes = 0
+            max_bytes = 100 * 1024 * 1024  # 100MB default
+            percentage = 0
+
+        return JsonResponse({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+            },
+            'storage': {
+                'used_bytes': used_bytes,
+                'used_mb': round(used_bytes / (1024 * 1024), 2),
+                'used_gb': round(used_bytes / (1024 * 1024 * 1024), 3),
+                'max_bytes': max_bytes,
+                'max_mb': round(max_bytes / (1024 * 1024), 2),
+                'max_gb': round(max_bytes / (1024 * 1024 * 1024), 2),
+                'percentage': round(percentage, 1),
+            },
+            'apps': apps_data,
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Benutzer nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler: {str(e)}'
         })
 
 

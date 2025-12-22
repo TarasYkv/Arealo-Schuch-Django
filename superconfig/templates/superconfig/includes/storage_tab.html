@@ -261,6 +261,31 @@
     </div>
 </div>
 
+<!-- User Storage Detail Modal -->
+<div class="modal fade" id="userStorageModal" tabindex="-1" aria-labelledby="userStorageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="userStorageModalLabel">
+                    <i class="fas fa-user me-2"></i>
+                    Speichernutzung: <span id="modalUsername">-</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="userStorageModalBody">
+                <div class="d-flex justify-content-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Lädt...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Storage Tab Scripts (will be loaded when tab is activated)
 document.getElementById('storage-main-tab')?.addEventListener('shown.bs.tab', function () {
@@ -301,24 +326,27 @@ function loadTopStorageUsers() {
             if (data.success && data.users.length > 0) {
                 let html = '<div class="list-group">';
                 data.users.forEach(user => {
+                    const percentColor = user.percentage >= 90 ? 'danger' : user.percentage >= 70 ? 'warning' : 'success';
                     html += `
-                        <div class="list-group-item">
+                        <a href="javascript:void(0)" class="list-group-item list-group-item-action" onclick="showUserStorageDetail(${user.user_id}, '${user.username}')">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <strong>${user.username}</strong>
+                                    <i class="fas fa-search text-muted ms-2" style="font-size: 0.8rem;"></i>
                                     <br>
                                     <small class="text-muted">${user.email}</small>
                                 </div>
                                 <div class="text-end">
-                                    <span class="badge bg-danger">${user.storage_gb} GB</span>
+                                    <span class="badge bg-${percentColor}">${user.used_mb} MB / ${user.max_mb} MB</span>
                                     <br>
-                                    <small class="text-muted">${user.plan_name}</small>
+                                    <small class="text-muted">${user.percentage}% belegt</small>
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     `;
                 });
                 html += '</div>';
+                html += '<small class="text-muted d-block mt-2"><i class="fas fa-info-circle me-1"></i>Klicken Sie auf einen Nutzer für Details</small>';
                 document.getElementById('topStorageUsers').innerHTML = html;
             } else {
                 document.getElementById('topStorageUsers').innerHTML = `
@@ -335,6 +363,100 @@ function loadTopStorageUsers() {
                 <div class="alert alert-danger mb-0">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Fehler beim Laden der Daten
+                </div>
+            `;
+        });
+}
+
+function showUserStorageDetail(userId, username) {
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('userStorageModal'));
+    document.getElementById('modalUsername').textContent = username;
+    document.getElementById('userStorageModalBody').innerHTML = `
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Lädt...</span>
+            </div>
+        </div>
+    `;
+    modal.show();
+
+    // Daten laden
+    fetch(`/superconfig/api/storage/user/${userId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let html = '';
+
+                // Speicher-Übersicht
+                const percentColor = data.storage.percentage >= 90 ? 'danger' : data.storage.percentage >= 70 ? 'warning' : 'success';
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6 class="card-title"><i class="fas fa-hdd me-2"></i>Speicher-Übersicht</h6>
+                            <div class="progress mb-2" style="height: 25px;">
+                                <div class="progress-bar bg-${percentColor}" role="progressbar"
+                                     style="width: ${data.storage.percentage}%;"
+                                     aria-valuenow="${data.storage.percentage}" aria-valuemin="0" aria-valuemax="100">
+                                    ${data.storage.percentage}%
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span><strong>Belegt:</strong> ${data.storage.used_mb} MB</span>
+                                <span><strong>Verfügbar:</strong> ${data.storage.max_mb} MB</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Speicher pro App
+                html += `
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-th-large me-2"></i>Speicherverbrauch pro App</h6>
+                        </div>
+                        <div class="card-body">
+                `;
+
+                if (data.apps && data.apps.length > 0) {
+                    html += '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';
+                    html += '<thead><tr><th>App</th><th class="text-end">Größe</th></tr></thead><tbody>';
+                    data.apps.forEach(app => {
+                        html += `
+                            <tr>
+                                <td><i class="fas fa-folder me-2 text-primary"></i>${app.app}</td>
+                                <td class="text-end"><span class="badge bg-secondary">${app.size_mb} MB</span></td>
+                            </tr>
+                        `;
+                    });
+                    html += '</tbody></table></div>';
+                } else {
+                    html += `
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Keine App-spezifischen Speicherdaten vorhanden
+                        </div>
+                    `;
+                }
+
+                html += '</div></div>';
+
+                document.getElementById('userStorageModalBody').innerHTML = html;
+            } else {
+                document.getElementById('userStorageModalBody').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${data.message || 'Fehler beim Laden der Daten'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading user storage detail:', error);
+            document.getElementById('userStorageModalBody').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Fehler beim Laden der Benutzerdaten
                 </div>
             `;
         });
