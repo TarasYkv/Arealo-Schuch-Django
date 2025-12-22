@@ -2526,6 +2526,209 @@ def profile_view(request):
 
 
 @login_required
+def storage_overview_view(request):
+    """
+    Zentraler Speicher-Überblick mit allen Dateien aus allen Apps
+    """
+    from core.storage_service import StorageService
+    from videos.models import Video
+    from django.conf import settings
+    import os
+
+    user = request.user
+
+    # Zentrale Storage-Statistiken holen
+    storage_stats = StorageService.get_usage_stats(user)
+
+    # Alle Dateien sammeln
+    all_files = []
+
+    # 1. Videos
+    try:
+        videos = Video.objects.filter(user=user, status='active').order_by('-created_at')
+        for video in videos:
+            if video.video_file:
+                try:
+                    file_size = video.video_file.size if hasattr(video.video_file, 'size') else video.file_size
+                    all_files.append({
+                        'app': 'videos',
+                        'app_name': 'Videos',
+                        'app_icon': 'fas fa-video',
+                        'name': video.title,
+                        'filename': os.path.basename(video.video_file.name) if video.video_file else '',
+                        'size_bytes': file_size,
+                        'size_mb': file_size / (1024 * 1024),
+                        'created_at': video.created_at,
+                        'type': 'Video',
+                        'url': video.get_absolute_url(),
+                        'id': video.id,
+                    })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 2. FileShare
+    try:
+        from fileshare.models import TransferFile
+        fileshare_files = TransferFile.objects.filter(
+            transfer__sender=user,
+            file__isnull=False
+        ).select_related('transfer').order_by('-transfer__created_at')
+
+        for fs_file in fileshare_files:
+            if fs_file.file:
+                try:
+                    file_size = fs_file.file.size if hasattr(fs_file.file, 'size') else 0
+                    all_files.append({
+                        'app': 'fileshare',
+                        'app_name': 'FileShare',
+                        'app_icon': 'fas fa-file-upload',
+                        'name': fs_file.original_filename or os.path.basename(fs_file.file.name),
+                        'filename': os.path.basename(fs_file.file.name),
+                        'size_bytes': file_size,
+                        'size_mb': file_size / (1024 * 1024),
+                        'created_at': fs_file.transfer.created_at,
+                        'type': 'Datei-Transfer',
+                        'url': None,
+                        'id': fs_file.id,
+                    })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 3. Organization (Notes with images)
+    try:
+        from organization.models import Note, BoardElement
+        notes = Note.objects.filter(author=user, image__isnull=False).order_by('-created_at')
+
+        for note in notes:
+            if note.image:
+                try:
+                    file_size = note.image.size if hasattr(note.image, 'size') else 0
+                    all_files.append({
+                        'app': 'organization',
+                        'app_name': 'Organisation',
+                        'app_icon': 'fas fa-sticky-note',
+                        'name': note.title[:50] if note.title else 'Notiz-Bild',
+                        'filename': os.path.basename(note.image.name),
+                        'size_bytes': file_size,
+                        'size_mb': file_size / (1024 * 1024),
+                        'created_at': note.created_at,
+                        'type': 'Notiz-Bild',
+                        'url': None,
+                        'id': note.id,
+                    })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 4. Chat Attachments
+    try:
+        from chat.models import ChatMessageAttachment
+        attachments = ChatMessageAttachment.objects.filter(
+            message__sender=user,
+            file__isnull=False
+        ).select_related('message').order_by('-message__created_at')
+
+        for attachment in attachments:
+            if attachment.file:
+                try:
+                    file_size = attachment.file.size if hasattr(attachment.file, 'size') else 0
+                    all_files.append({
+                        'app': 'chat',
+                        'app_name': 'Chat',
+                        'app_icon': 'fas fa-comments',
+                        'name': attachment.original_filename or os.path.basename(attachment.file.name),
+                        'filename': os.path.basename(attachment.file.name),
+                        'size_bytes': file_size,
+                        'size_mb': file_size / (1024 * 1024),
+                        'created_at': attachment.message.created_at,
+                        'type': 'Chat-Anhang',
+                        'url': None,
+                        'id': attachment.id,
+                    })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 5. StreamRec Recordings
+    try:
+        user_prefix = f"{user.id}_"
+        recording_dirs = [
+            ('audio_recordings', 'Audio-Aufnahme', 'fas fa-microphone'),
+            ('video_recordings', 'Video-Aufnahme', 'fas fa-record-vinyl'),
+        ]
+
+        for dir_name, file_type, icon in recording_dirs:
+            media_dir = os.path.join(settings.MEDIA_ROOT, dir_name)
+            if os.path.exists(media_dir):
+                for filename in os.listdir(media_dir):
+                    if filename.startswith(user_prefix):
+                        filepath = os.path.join(media_dir, filename)
+                        if os.path.isfile(filepath):
+                            file_size = os.path.getsize(filepath)
+                            file_mtime = os.path.getmtime(filepath)
+                            from datetime import datetime
+                            created = datetime.fromtimestamp(file_mtime)
+
+                            all_files.append({
+                                'app': 'streamrec',
+                                'app_name': 'StreamRec',
+                                'app_icon': icon,
+                                'name': filename.replace(user_prefix, ''),
+                                'filename': filename,
+                                'size_bytes': file_size,
+                                'size_mb': file_size / (1024 * 1024),
+                                'created_at': created,
+                                'type': file_type,
+                                'url': None,
+                                'id': None,
+                            })
+    except Exception:
+        pass
+
+    # Sortiere nach Größe (größte zuerst)
+    all_files.sort(key=lambda x: x['size_bytes'], reverse=True)
+
+    # Per-App Statistiken berechnen
+    app_stats = {}
+    for file in all_files:
+        app = file['app']
+        if app not in app_stats:
+            app_stats[app] = {
+                'name': file['app_name'],
+                'icon': file['app_icon'],
+                'file_count': 0,
+                'total_bytes': 0,
+                'total_mb': 0,
+            }
+        app_stats[app]['file_count'] += 1
+        app_stats[app]['total_bytes'] += file['size_bytes']
+        app_stats[app]['total_mb'] = app_stats[app]['total_bytes'] / (1024 * 1024)
+
+    # Sortiere Apps nach Speicherverbrauch
+    app_stats_list = sorted(app_stats.values(), key=lambda x: x['total_bytes'], reverse=True)
+
+    # Storage quota info
+    video_storage, _ = VideoUserStorage.objects.get_or_create(user=user)
+
+    context = {
+        'storage_stats': storage_stats,
+        'all_files': all_files,
+        'app_stats': app_stats_list,
+        'total_files': len(all_files),
+        'video_storage': video_storage,
+        'usage_percentage': storage_stats['percentage'],
+    }
+
+    return render(request, 'accounts/storage_overview.html', context)
+
+
+@login_required
 # Old content_editor function removed - now using visual_editor for /content-editor/ URL
 
 

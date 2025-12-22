@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">
+                    <i class="fas fa-hdd text-primary"></i> Speicher-Verwaltung
+                </h1>
+                <div class="btn-group">
+                    <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-user"></i> Profil
+                    </a>
+                    <a href="{% url 'accounts:manage_subscription' 'video' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-up"></i> Speicher erweitern
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gesamtspeicher-Anzeige -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> Gesamtspeicher
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>
+                                    <strong>{{ storage_stats.used_mb|floatformat:2 }} MB</strong> von
+                                    <strong>{{ storage_stats.max_mb|floatformat:0 }} MB</strong> belegt
+                                </span>
+                                <span class="{% if usage_percentage > 90 %}text-danger{% elif usage_percentage > 75 %}text-warning{% else %}text-success{% endif %}">
+                                    <strong>{{ usage_percentage }}%</strong>
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar {% if usage_percentage > 90 %}bg-danger{% elif usage_percentage > 75 %}bg-warning{% else %}bg-success{% endif %}"
+                                     role="progressbar"
+                                     style="width: {{ usage_percentage }}%"
+                                     aria-valuenow="{{ usage_percentage }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    {{ usage_percentage }}%
+                                </div>
+                            </div>
+                            <div class="mt-2 text-muted">
+                                <small>
+                                    <i class="fas fa-info-circle"></i>
+                                    {% widthratio storage_stats.max_mb 1 1 as max_rounded %}
+                                    {% widthratio storage_stats.used_mb 1 1 as used_rounded %}
+                                    Verfügbar: <strong>{% widthratio storage_stats.available_bytes 1048576 1 %} MB</strong> frei
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="display-4 {% if usage_percentage > 90 %}text-danger{% elif usage_percentage > 75 %}text-warning{% else %}text-success{% endif %}">
+                                {{ usage_percentage }}%
+                            </div>
+                            <small class="text-muted">Speicherauslastung</small>
+                            <div class="mt-2">
+                                <span class="badge bg-{% if video_storage.is_premium %}warning{% else %}secondary{% endif %}">
+                                    {{ video_storage.get_tier_name }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App-basierte Statistiken -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cubes"></i> Speicherverbrauch pro App
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if app_stats %}
+                        <div class="row">
+                            {% for app in app_stats %}
+                            <div class="col-md-4 col-sm-6 mb-3">
+                                <div class="card h-100 border-left-primary">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-3">
+                                                <i class="{{ app.icon }} fa-2x text-primary"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-0">{{ app.name }}</h6>
+                                                <div class="text-muted small">
+                                                    {{ app.file_count }} Datei{% if app.file_count != 1 %}en{% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <strong class="{% if app.total_mb > 100 %}text-warning{% else %}text-success{% endif %}">
+    {{ app.total_mb|floatformat:2 }} MB
+                                                </strong>
+                                            </div>
+                                        </div>
+                                        {% if storage_stats.max_mb > 0 %}
+                                        <div class="progress mt-2" style="height: 5px;">
+                                            {% widthratio app.total_mb storage_stats.max_mb 100 as app_percent %}
+                                            <div class="progress-bar bg-primary" style="width: {{ app_percent }}%"></div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-folder-open fa-3x mb-3"></i>
+                            <p>Noch keine Dateien gespeichert</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datei-Liste -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Alle Dateien ({{ total_files }})
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active" data-sort="size" onclick="sortFiles('size')">
+                            <i class="fas fa-sort-amount-down"></i> Größe
+                        </button>
+                        <button class="btn btn-outline-secondary" data-sort="date" onclick="sortFiles('date')">
+                            <i class="fas fa-calendar"></i> Datum
+                        </button>
+                        <button class="btn btn-outline-secondary" data-sort="app" onclick="sortFiles('app')">
+                            <i class="fas fa-cubes"></i> App
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if all_files %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="files-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;"></th>
+                                    <th>Name</th>
+                                    <th>App</th>
+                                    <th>Typ</th>
+                                    <th class="text-end">Größe</th>
+                                    <th>Erstellt</th>
+                                    <th style="width: 100px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in all_files %}
+                                <tr data-size="{{ file.size_bytes }}" data-date="{{ file.created_at|date:'Y-m-d H:i' }}" data-app="{{ file.app }}">
+                                    <td class="text-center">
+                                        <i class="{{ file.app_icon }} text-muted"></i>
+                                    </td>
+                                    <td>
+                                        <strong>{{ file.name|truncatechars:40 }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ file.filename|truncatechars:50 }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ file.app_name }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ file.type }}</small>
+                                    </td>
+                                    <td class="text-end">
+                                        {% if file.size_mb >= 1 %}
+                                            <strong class="text-warning">{{ file.size_mb|floatformat:2 }} MB</strong>
+                                        {% else %}
+                                            {% widthratio file.size_bytes 1024 1 %} KB
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ file.created_at|date:"d.m.Y" }}</small>
+                                        <br>
+                                        <small class="text-muted">{{ file.created_at|time:"H:i" }}</small>
+                                    </td>
+                                    <td class="text-end">
+                                        {% if file.url %}
+                                        <a href="{{ file.url }}" class="btn btn-sm btn-outline-primary" title="Öffnen">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-4x mb-3"></i>
+                        <h5>Keine Dateien vorhanden</h5>
+                        <p>Sie haben noch keine Dateien hochgeladen.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Speicher-Tipps -->
+    {% if usage_percentage > 75 %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-{% if usage_percentage > 90 %}danger{% else %}warning{% endif %}">
+                <h5>
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {% if usage_percentage > 90 %}
+                        Speicher fast voll!
+                    {% else %}
+                        Speicher wird knapp
+                    {% endif %}
+                </h5>
+                <p class="mb-2">
+                    {% if usage_percentage > 90 %}
+                        Ihr Speicher ist zu {{ usage_percentage }}% belegt. Bitte löschen Sie nicht benötigte Dateien oder erweitern Sie Ihren Speicherplan.
+                    {% else %}
+                        Ihr Speicher ist zu {{ usage_percentage }}% belegt. Erwägen Sie, nicht benötigte Dateien zu löschen.
+                    {% endif %}
+                </p>
+                <a href="{% url 'accounts:manage_subscription' 'video' %}" class="btn btn-{% if usage_percentage > 90 %}danger{% else %}warning{% endif %}">
+                    <i class="fas fa-arrow-up"></i> Speicher erweitern
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function sortFiles(sortBy) {
+    const table = document.getElementById('files-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Update button states
+    document.querySelectorAll('[data-sort]').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-sort="${sortBy}"]`).classList.add('active');
+
+    rows.sort((a, b) => {
+        if (sortBy === 'size') {
+            return parseInt(b.dataset.size) - parseInt(a.dataset.size);
+        } else if (sortBy === 'date') {
+            return new Date(b.dataset.date) - new Date(a.dataset.date);
+        } else if (sortBy === 'app') {
+            return a.dataset.app.localeCompare(b.dataset.app);
+        }
+        return 0;
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+}
+</script>
+
+{% endblock %}

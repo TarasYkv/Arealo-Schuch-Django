@@ -73,6 +73,7 @@ urlpatterns = [
     
     # Profil-Management
     path('profil/', views.profile_view, name='profile'),
+    path('speicher/', views.storage_overview_view, name='storage_overview'),
     # path('passwort-aendern/', views.change_password_view, name='change_password'),
     
     # Content Editor (now using Visual Editor)
