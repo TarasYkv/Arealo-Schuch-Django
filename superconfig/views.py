@@ -2181,17 +2181,35 @@ def storage_by_app_api(request):
         except Exception as e:
             pass
 
+        # Alle Apps die Speicher nutzen können (auch wenn 0)
+        all_apps = {
+            'Videos': {'table': 'Video-Dateien', 'size_mb': 0, 'size_gb': 0},
+            'FileShare': {'table': 'Transfer-Dateien', 'size_mb': 0, 'size_gb': 0},
+            'Organisation': {'table': 'Notizen & Board-Bilder', 'size_mb': 0, 'size_gb': 0},
+            'Chat': {'table': 'Anhänge', 'size_mb': 0, 'size_gb': 0},
+            'StreamRec': {'table': 'Audio/Video-Aufnahmen', 'size_mb': 0, 'size_gb': 0},
+            'IdeoPin': {'table': 'Generierte Bilder', 'size_mb': 0, 'size_gb': 0},
+            'ImageForge': {'table': 'KI-generierte Bilder', 'size_mb': 0, 'size_gb': 0},
+            'Shopify Manager': {'table': 'Produkt-Bilder', 'size_mb': 0, 'size_gb': 0},
+            'Schulungen': {'table': 'Kurs-Materialien', 'size_mb': 0, 'size_gb': 0},
+            'Bild Editor': {'table': 'Bearbeitete Bilder', 'size_mb': 0, 'size_gb': 0},
+        }
+
+        # Aktualisiere mit gefundenen Daten
+        for item in storage_data:
+            app_name = item['app']
+            if app_name in all_apps:
+                all_apps[app_name]['size_mb'] = item['size_mb']
+                all_apps[app_name]['size_gb'] = item['size_gb']
+
+        # Konvertiere zurück zu Liste
+        storage_data = [
+            {'app': app, 'table': data['table'], 'size_mb': data['size_mb'], 'size_gb': data['size_gb']}
+            for app, data in all_apps.items()
+        ]
+
         # Sortiere nach Größe (größte zuerst)
         storage_data.sort(key=lambda x: x['size_mb'], reverse=True)
-
-        # Falls keine Daten gefunden, zeige Hinweis
-        if not storage_data:
-            storage_data.append({
-                'app': 'Keine Daten',
-                'table': 'Keine Dateien gefunden',
-                'size_mb': 0,
-                'size_gb': 0
-            })
 
         return JsonResponse({
             'success': True,
