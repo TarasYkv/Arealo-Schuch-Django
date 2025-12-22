@@ -2,6 +2,7 @@
 {% load static %}
 {% load loomads_tags %}
 {% load editable_content %}
+{% load public_apps %}
 
 {% block title %}{{ app.name }} - Workloom{% endblock %}
 
@@ -537,10 +538,14 @@
                 <div class="col-lg-4 col-md-6">
                     <div class="app-feature-card">
                         <div class="app-feature-icon icon-{{ app.color }}">
-                            <i class="bi bi-check-lg"></i>
+                            {% cycle '<i class="bi bi-check-circle"></i>' '<i class="bi bi-star"></i>' '<i class="bi bi-lightning"></i>' '<i class="bi bi-gear"></i>' '<i class="bi bi-shield-check"></i>' '<i class="bi bi-graph-up"></i>' '<i class="bi bi-clock"></i>' '<i class="bi bi-heart"></i>' as feature_icons %}
                         </div>
-                        <h3 class="app-feature-title">{{ feature|truncatewords:5 }}</h3>
-                        <p class="app-feature-text">{{ feature }}</p>
+                        <h3 class="app-feature-title">{{ feature|split_feature_title }}</h3>
+                        {% with feature|split_feature_desc as desc %}
+                            {% if desc %}
+                                <p class="app-feature-text">{{ desc }}</p>
+                            {% endif %}
+                        {% endwith %}
                     </div>
                 </div>
                 {% endfor %}
@@ -551,15 +556,15 @@
     <!-- Benefits Section -->
     <section class="app-benefits-section">
         <div class="container">
-            <h2 class="app-section-title">Deine Vorteile</h2>
-            <p class="app-section-subtitle">Profitiere von innovativen Lösungen</p>
-            
+            <h2 class="app-section-title">Was {{ app.name }} dir bringt</h2>
+            <p class="app-section-subtitle">Diese Vorteile warten auf dich</p>
+
             <div class="row">
                 {% for benefit_name, benefit_desc in app.benefits.items %}
                 <div class="col-lg-6">
                     <div class="app-benefit-card benefit-{{ app.color }}">
                         <h3 class="app-benefit-title">
-                            <i class="bi bi-check-circle-fill app-benefit-icon text-{{ app.color }}"></i>
+                            {% cycle '<i class="bi bi-rocket-takeoff app-benefit-icon text-primary"></i>' '<i class="bi bi-lightning-charge app-benefit-icon text-warning"></i>' '<i class="bi bi-bullseye app-benefit-icon text-success"></i>' '<i class="bi bi-trophy app-benefit-icon text-danger"></i>' as benefit_icons %}
                             {{ benefit_name }}
                         </h3>
                         <p class="app-benefit-text">{{ benefit_desc }}</p>
@@ -570,126 +575,50 @@
         </div>
     </section>
 
-    <!-- Stats Section -->
-    <section class="app-stats-section stats-{{ app.color }}">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-3 col-6">
-                    <div class="app-stat-item">
-                        <div class="app-stat-number">100%</div>
-                        <div class="app-stat-label">DSGVO-konform</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6">
-                    <div class="app-stat-item">
-                        <div class="app-stat-number">99.9%</div>
-                        <div class="app-stat-label">Verfügbarkeit</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6">
-                    <div class="app-stat-item">
-                        <div class="app-stat-number">24/7</div>
-                        <div class="app-stat-label">Support</div>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6">
-                    <div class="app-stat-item">
-                        <div class="app-stat-number">∞</div>
-                        <div class="app-stat-label">Updates</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Why Choose Us Section -->
+    <!-- How It Works Section -->
     <section class="py-5 bg-light">
         <div class="container">
-            <h2 class="app-section-title">Warum Workloom?</h2>
-            <p class="app-section-subtitle">Deine Vorteile auf einen Blick</p>
-            
-            <div class="row g-4">
+            <h2 class="app-section-title">So funktioniert {{ app.name }}</h2>
+            <p class="app-section-subtitle">In 3 einfachen Schritten loslegen</p>
+
+            <div class="row g-4 justify-content-center">
                 <div class="col-lg-4">
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body p-4 text-center">
                             <div class="mb-3">
-                                <i class="bi bi-currency-euro text-success" style="font-size: 3rem;"></i>
+                                <span class="badge bg-{{ app.color }} rounded-circle p-3" style="font-size: 1.5rem;">1</span>
                             </div>
-                            <h5 class="card-title">Beta-Phase kostenlos</h5>
+                            <h5 class="card-title">Kostenlos registrieren</h5>
                             <p class="card-text">
-                                Nutze alle Funktionen während der Beta-Phase kostenlos. Teste ohne Risiko und Verpflichtungen.
+                                Erstelle in wenigen Sekunden dein kostenloses Konto. Keine Kreditkarte nötig.
                             </p>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="col-lg-4">
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body p-4 text-center">
                             <div class="mb-3">
-                                <i class="bi bi-shield-check text-primary" style="font-size: 3rem;"></i>
+                                <span class="badge bg-{{ app.color }} rounded-circle p-3" style="font-size: 1.5rem;">2</span>
                             </div>
-                            <h5 class="card-title">100% DSGVO-konform</h5>
+                            <h5 class="card-title">App einrichten</h5>
                             <p class="card-text">
-                                Deine Daten sind sicher bei uns. Deutsche Server, höchste Sicherheitsstandards und volle Transparenz.
+                                Passe {{ app.name }} an deine Bedürfnisse an. Intuitive Oberfläche, keine Schulung nötig.
                             </p>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="col-lg-4">
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body p-4 text-center">
                             <div class="mb-3">
-                                <i class="bi bi-rocket-takeoff text-danger" style="font-size: 3rem;"></i>
+                                <span class="badge bg-{{ app.color }} rounded-circle p-3" style="font-size: 1.5rem;">3</span>
                             </div>
-                            <h5 class="card-title">Sofort startklar</h5>
+                            <h5 class="card-title">Produktiv arbeiten</h5>
                             <p class="card-text">
-                                Keine komplizierte Einrichtung. In wenigen Minuten einsatzbereit und produktiv arbeiten.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row g-4 mt-2">
-                <div class="col-lg-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body p-4 text-center">
-                            <div class="mb-3">
-                                <i class="bi bi-headset text-info" style="font-size: 3rem;"></i>
-                            </div>
-                            <h5 class="card-title">Deutscher Support</h5>
-                            <p class="card-text">
-                                Persönlicher Support in deiner Sprache. Wir sind für dich da, wenn du uns brauchst.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-lg-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body p-4 text-center">
-                            <div class="mb-3">
-                                <i class="bi bi-graph-up text-warning" style="font-size: 3rem;"></i>
-                            </div>
-                            <h5 class="card-title">Ständige Weiterentwicklung</h5>
-                            <p class="card-text">
-                                Regelmäßige Updates mit neuen Features. Deine Software wird immer besser, ohne Zusatzkosten.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-lg-4">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body p-4 text-center">
-                            <div class="mb-3">
-                                <i class="bi bi-briefcase text-secondary" style="font-size: 3rem;"></i>
-                            </div>
-                            <h5 class="card-title">Perfekt für KMUs</h5>
-                            <p class="card-text">
-                                Speziell entwickelt für Selbständige und kleine bis mittlere Unternehmen. Skaliert mit deinem Erfolg.
+                                Nutze alle Features und spare Zeit. Updates kommen automatisch und kostenlos.
                             </p>
                         </div>
                     </div>
@@ -697,82 +626,17 @@
             </div>
         </div>
     </section>
-
-    <!-- Pricing Section -->
-    <section class="py-5">
-        <div class="container">
-            <h2 class="app-section-title">Kostenlos starten</h2>
-            <p class="app-section-subtitle">Keine versteckten Kosten, keine Überraschungen</p>
-            
-            <div class="row justify-content-center">
-                <div class="col-lg-5">
-                    <div class="card border-0 shadow-lg overflow-hidden">
-                        <div class="card-header bg-{{ app.color }} text-white text-center py-4">
-                            <h3 class="card-title mb-3 text-white">Basis Version</h3>
-                            <div class="display-4 fw-bold text-white">0€</div>
-                            <p class="text-white-50 mb-0">Beta-Phase kostenlos</p>
-                        </div>
-                        <div class="card-body p-4">
-                            <ul class="list-unstyled">
-                                <li class="mb-3 d-flex align-items-center">
-                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
-                                    Alle Grundfunktionen inklusive
-                                </li>
-                                <li class="mb-3 d-flex align-items-center">
-                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
-                                    Kostenlos während Beta-Phase
-                                </li>
-                                <li class="mb-3 d-flex align-items-center">
-                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
-                                    Deutscher E-Mail Support
-                                </li>
-                                <li class="mb-3 d-flex align-items-center">
-                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
-                                    Regelmäßige Updates
-                                </li>
-                                <li class="mb-3 d-flex align-items-center">
-                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
-                                    DSGVO-konforme Datenhaltung
-                                </li>
-                                <li class="mb-3 d-flex align-items-center">
-                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
-                                    Keine Kreditkarte erforderlich
-                                </li>
-                            </ul>
-                            <div class="text-center">
-                                {% if is_public %}
-                                <a href="{% url 'accounts:signup' %}" class="btn btn-{{ app.color }} btn-lg rounded-pill px-5">
-                                    Jetzt kostenlos starten
-                                </a>
-                                {% else %}
-                                <a href="/{{ app_name }}/" class="btn btn-{{ app.color }} btn-lg rounded-pill px-5">
-                                    <i class="bi bi-play-circle me-2"></i>App jetzt nutzen
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    {% show_ad_zone 'public_app_sidebar' css_class='my-5 text-center' %}
 
     <!-- CTA Section -->
     <section class="app-cta-section">
         <div class="container">
-            <h2 class="app-cta-title">Bereit durchzustarten?</h2>
-            <p class="app-cta-subtitle">Starte jetzt kostenlos und unverbindlich</p>
+            <h2 class="app-cta-title">{{ app.name }} jetzt ausprobieren</h2>
+            <p class="app-cta-subtitle">Kostenlos in der Beta-Phase - keine Kreditkarte nötig</p>
             <div class="mb-4">
                 {% if is_public %}
                 <a href="{% url 'accounts:signup' %}" class="app-hero-btn app-hero-btn-primary me-3">
                     <i class="bi bi-rocket-takeoff me-2"></i>
-                    Kostenlos registrieren
-                </a>
-                <a href="{% url 'payments:subscription_plans' %}" class="app-hero-btn app-hero-btn-primary">
-                    <i class="bi bi-credit-card me-2"></i>
-                    Preise ansehen
+                    Kostenlos starten
                 </a>
                 {% else %}
                 <a href="/{{ app_name }}/" class="app-hero-btn app-hero-btn-primary me-3">
@@ -780,22 +644,11 @@
                     App öffnen
                 </a>
                 <a href="{% url 'startseite' %}" class="app-hero-btn app-hero-btn-secondary">
-                    <i class="bi bi-house me-2"></i>
-                    Zur Startseite
+                    <i class="bi bi-grid me-2"></i>
+                    Alle Apps
                 </a>
                 {% endif %}
             </div>
-            <p class="opacity-90">
-                <i class="bi bi-shield-check me-1"></i>
-                Keine Kreditkarte erforderlich • Beta-Phase kostenlos • Kein Abo • Keine Verpflichtungen
-            </p>
-            <p class="opacity-80 mt-3">
-                <small>
-                    <i class="bi bi-check-circle me-1"></i>Perfekt für Selbständige und KMUs
-                    <i class="bi bi-check-circle ms-3 me-1"></i>Made in Germany
-                    <i class="bi bi-check-circle ms-3 me-1"></i>Deutscher Support
-                </small>
-            </p>
         </div>
     </section>
 

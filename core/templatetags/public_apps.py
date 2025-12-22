@@ -12,3 +12,25 @@ def get_public_apps():
 def get_item(dictionary, key):
     """Hilfsfunktion um auf Dictionary-Elemente in Templates zuzugreifen"""
     return dictionary.get(key)
+
+
+@register.filter
+def split_feature_title(feature):
+    """Gibt den Titel eines Features zurück (vor dem ' - ')"""
+    if ' - ' in feature:
+        return feature.split(' - ', 1)[0]
+    return feature
+
+
+@register.filter
+def split_feature_desc(feature):
+    """Gibt die Beschreibung eines Features zurück (nach dem ' - ')"""
+    if ' - ' in feature:
+        return feature.split(' - ', 1)[1]
+    return ''  # Leerer String wenn kein " - " vorhanden
+
+
+@register.filter
+def has_feature_desc(feature):
+    """Prüft ob ein Feature eine Beschreibung hat (enthält ' - ')"""
+    return ' - ' in feature
