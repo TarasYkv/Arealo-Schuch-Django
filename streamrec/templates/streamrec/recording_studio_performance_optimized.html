@@ -414,7 +414,7 @@
                                 <div class="stat-label">Max. Dauer</div>
                             </div>
                             <div class="col-4">
-                                <div class="stat-value" id="currentFormatDisplay">16:9</div>
+                                <div class="stat-value" id="currentFormatDisplay">9:16</div>
                                 <div class="stat-label">Format</div>
                             </div>
                             <div class="col-4">
@@ -873,8 +873,8 @@
                          style="height: 600px; border-radius: 0.5rem; overflow: hidden;">
                         
                         <canvas id="compositionCanvas"
-                                width="1280"
-                                height="720"
+                                width="720"
+                                height="1280"
                                 class="border border-secondary"
                                 style="max-width: 100%; max-height: 100%; object-fit: contain;">
                         </canvas>
@@ -973,8 +973,8 @@
                                 <i class="fas fa-expand-alt me-1"></i>Seitenverhältnis:
                             </label>
                             <select class="form-select" id="aspectRatioSetting">
-                                <option value="9:16">9:16 (Vertikal - Social Media)</option>
-                                <option value="16:9" selected>16:9 (Horizontal - Standard)</option>
+                                <option value="9:16" selected>9:16 (Vertikal - Social Media)</option>
+                                <option value="16:9">16:9 (Horizontal - Standard)</option>
                                 <option value="4:3">4:3 (Klassisch - TV Format)</option>
                                 <option value="1:1">1:1 (Quadratisch - Instagram)</option>
                                 <option value="21:9">21:9 (Ultrawide - Kino)</option>
@@ -993,7 +993,7 @@
                                     </div>
                                 </div>
                                 <div class="text-center">
-                                    <small class="text-muted" id="previewDimensions">640 × 360px (16:9)</small>
+                                    <small class="text-muted" id="previewDimensions">360 × 640px (9:16)</small>
                                 </div>
                             </div>
                         </div>
@@ -1174,8 +1174,8 @@ class StreamRecorderOptimized {
         this.isDragging = false;
         this.isResizing = false;
         this.draggedStream = null;
-        this.aspectRatio = '16:9'; // Current aspect ratio (default changed)
-        this.aspectRatioDimensions = { width: 640, height: 360 }; // Canvas dimensions (default changed)
+        this.aspectRatio = '9:16'; // Current aspect ratio - 9:16 für Social Media
+        this.aspectRatioDimensions = { width: 360, height: 640 }; // Canvas dimensions für 9:16
         this.resizeStream = null;
         this.dragOffset = { x: 0, y: 0 };
         this.resizeHandle = null;
@@ -3044,8 +3044,10 @@ class StreamRecorderOptimized {
                 }
             });
             
+            // WICHTIG: modelSelection 0 = fast (für flüssige Performance)
+            // modelSelection 1 = accurate (langsamer, bessere Qualität)
             this.selfieSegmentation.setOptions({
-                modelSelection: 1, // 0 = fast, 1 = accurate
+                modelSelection: 0, // 0 = fast für flüssige Aufnahme
                 selfieMode: true
             });
             
@@ -3117,24 +3119,38 @@ class StreamRecorderOptimized {
             document.body.appendChild(processingVideo);
         }
         
-        const processFrame = async () => {
+        // Frame-Throttling: Verarbeite nur alle ~66ms (ca. 15 FPS) für flüssige Performance
+        // MediaPipe kann nicht mit 60 FPS mithalten
+        const targetSegmentationFPS = 15;
+        const minFrameInterval = 1000 / targetSegmentationFPS;
+        let lastProcessTime = 0;
+
+        const processFrame = async (timestamp) => {
             if (!this.backgroundEffects.enabled || !this.streams.has('camera') || !this.segmentationReady) {
                 return;
             }
-            
+
+            // Frame-Throttling: Überspringe Frames wenn zu schnell
+            const elapsed = timestamp - lastProcessTime;
+            if (elapsed < minFrameInterval) {
+                requestAnimationFrame(processFrame);
+                return;
+            }
+            lastProcessTime = timestamp;
+
             try {
                 // Send frame to MediaPipe
                 if (processingVideo.readyState >= 2) {
                     await this.selfieSegmentation.send({ image: processingVideo });
                 }
-                
+
                 // Calculate FPS
                 const now = performance.now();
                 const delta = now - this.lastSegmentationTime;
                 if (delta > 0) {
                     this.segmentationFPS = Math.round(1000 / delta);
                     this.lastSegmentationTime = now;
-                    
+
                     // Update FPS display
                     const fpsEl = document.getElementById('segmentationFPS');
                     if (fpsEl) {
@@ -3147,7 +3163,7 @@ class StreamRecorderOptimized {
                         greenScreenFpsEl.textContent = `(${this.segmentationFPS} FPS)`;
                     }
                 }
-                
+
                 // Continue processing
                 requestAnimationFrame(processFrame);
                 
