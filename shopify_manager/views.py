@@ -1675,7 +1675,7 @@ class ShopifyBlogDetailView(LoginRequiredMixin, DetailView):
         
         context['filter_form'] = filter_form
         
-        paginator = Paginator(posts_list, 100)  # Zeige 100 Posts pro Seite für bessere Übersicht
+        paginator = Paginator(posts_list, 50)  # 50 Posts pro Seite
         page = self.request.GET.get('page')
         context['posts'] = paginator.get_page(page)
         
