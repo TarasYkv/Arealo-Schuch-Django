@@ -458,6 +458,33 @@
             }
         }
 
+        /* Mobile Navigation Overflow Fix */
+        @media (max-width: 991px) {
+            .navbar-collapse {
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            .navbar-nav {
+                flex-wrap: wrap !important;
+                max-width: 100%;
+                overflow: hidden;
+            }
+
+            .navbar-nav .nav-item,
+            .navbar-nav .dropdown {
+                max-width: 100%;
+                flex-shrink: 1;
+            }
+
+            .navbar-nav .nav-link {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+        }
+
         /* Dropdown Positioning Fixes */
         .navbar-nav .dropdown {
             position: relative !important;
@@ -2059,18 +2086,9 @@
                                 </a></li>
                             </ul>
                         {% else %}
-                            <!-- Direct App Links for Non-Authenticated Users (Dynamically loaded from enabled apps) -->
-                            {% load public_apps %}
-                            {% get_public_apps as public_apps %}
-                            {% for app_key, app_info in public_apps.items %}
-                            <a class="nav-link" href="{% url 'public_app_info' app_key %}" title="{{ app_info.name }}">
-                                <i class="{{ app_info.icon }} d-sm-none"></i> <span class="mobile-nav-text">{{ app_info.name|truncatewords:2 }}</span>
-                            </a>
-                            {% endfor %}
-                            
                             <!-- User Menu for Non-Authenticated Users -->
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-person"></i> Benutzer
+                                <i class="bi bi-person"></i> <span class="d-none d-md-inline">Anmelden</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                 <li><a class="dropdown-item" href="{% url 'accounts:login' %}">
