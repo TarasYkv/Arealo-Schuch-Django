@@ -17,6 +17,277 @@ from .stripe_service import StripeService
 logger = logging.getLogger(__name__)
 
 
+def calculate_total_storage_for_user(user):
+    """
+    Berechnet den tatsächlichen Speicherverbrauch aus ALLEN Apps.
+    Gibt ein Dict mit used_bytes, max_bytes, used_mb, max_mb, percentage zurück.
+    """
+    from core.storage_service import StorageService
+    from videos.models import UserStorage as VideoUserStorage
+
+    total_used_bytes = 0
+
+    # 1. Videos
+    try:
+        from videos.models import Video
+        videos = Video.objects.filter(user=user, video_file__isnull=False)
+        for video in videos:
+            if video.video_file:
+                try:
+                    total_used_bytes += video.video_file.size if hasattr(video.video_file, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 2. Fileshare
+    try:
+        from fileshare.models import TransferFile
+        files = TransferFile.objects.filter(transfer__sender=user, file__isnull=False)
+        for f in files:
+            if f.file:
+                try:
+                    total_used_bytes += f.file.size if hasattr(f.file, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 3. Streamrec
+    try:
+        user_prefix = f"{user.id}_"
+        for dir_name in ['audio_recordings', 'video_recordings']:
+            media_dir = os.path.join(settings.MEDIA_ROOT, dir_name)
+            if os.path.exists(media_dir):
+                for filename in os.listdir(media_dir):
+                    if filename.startswith(user_prefix):
+                        filepath = os.path.join(media_dir, filename)
+                        if os.path.isfile(filepath):
+                            total_used_bytes += os.path.getsize(filepath)
+    except:
+        pass
+
+    # 4. Chat Attachments
+    try:
+        from chat.models import ChatMessageAttachment
+        attachments = ChatMessageAttachment.objects.filter(message__sender=user, file__isnull=False)
+        for att in attachments:
+            if att.file:
+                try:
+                    total_used_bytes += att.file.size if hasattr(att.file, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 5. Organization (Notes & Board)
+    try:
+        from organization.models import Note, BoardElement
+        notes = Note.objects.filter(author=user, image__isnull=False)
+        for note in notes:
+            if note.image:
+                try:
+                    total_used_bytes += note.image.size if hasattr(note.image, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 6. Image Editor
+    try:
+        from image_editor.models import ImageProject, AIGenerationHistory
+        projects = ImageProject.objects.filter(user=user)
+        for project in projects:
+            for field in ['original_image', 'processed_image']:
+                img = getattr(project, field, None)
+                if img:
+                    try:
+                        total_used_bytes += img.size if hasattr(img, 'size') else 0
+                    except:
+                        pass
+        histories = AIGenerationHistory.objects.filter(project__user=user, output_image__isnull=False)
+        for history in histories:
+            if history.output_image:
+                try:
+                    total_used_bytes += history.output_image.size if hasattr(history.output_image, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 7. PDF Sucher
+    try:
+        from pdf_sucher.models import SearchSession
+        sessions = SearchSession.objects.filter(user=user, pdf_file__isnull=False)
+        for session in sessions:
+            if session.pdf_file:
+                try:
+                    total_used_bytes += session.pdf_file.size if hasattr(session.pdf_file, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 8. Bug Report
+    try:
+        from bug_report.models import BugReportScreenshot
+        screenshots = BugReportScreenshot.objects.filter(bug_report__sender=user, screenshot__isnull=False)
+        for ss in screenshots:
+            if ss.screenshot:
+                try:
+                    total_used_bytes += ss.screenshot.size if hasattr(ss.screenshot, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 9. ImageForge
+    try:
+        from imageforge.models import ImageGeneration, CharacterImage, ProductMockup
+        for model, field in [(ImageGeneration, 'result_image'), (CharacterImage, 'image'), (ProductMockup, 'result_image')]:
+            items = model.objects.filter(user=user)
+            for item in items:
+                img = getattr(item, field, None)
+                if img:
+                    try:
+                        total_used_bytes += img.size if hasattr(img, 'size') else 0
+                    except:
+                        pass
+    except:
+        pass
+
+    # 10. Ideopin
+    try:
+        from ideopin.models import PinDesign
+        designs = PinDesign.objects.filter(user=user)
+        for design in designs:
+            for field in ['background_image', 'foreground_image', 'final_design']:
+                img = getattr(design, field, None)
+                if img:
+                    try:
+                        total_used_bytes += img.size if hasattr(img, 'size') else 0
+                    except:
+                        pass
+    except:
+        pass
+
+    # 11. BlogPrep
+    try:
+        from blogprep.models import BlogPrepProject
+        projects = BlogPrepProject.objects.filter(user=user)
+        for project in projects:
+            for field in ['title_image', 'diagram_image']:
+                img = getattr(project, field, None)
+                if img:
+                    try:
+                        total_used_bytes += img.size if hasattr(img, 'size') else 0
+                    except:
+                        pass
+    except:
+        pass
+
+    # 12. VSkript
+    try:
+        from vskript.models import VSkriptImage
+        images = VSkriptImage.objects.filter(project__user=user, image_file__isnull=False)
+        for img in images:
+            if img.image_file:
+                try:
+                    total_used_bytes += img.image_file.size if hasattr(img.image_file, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 13. LoomConnect
+    try:
+        from loomconnect.models import ConnectProfile, ConnectPost, ConnectStory
+        profiles = ConnectProfile.objects.filter(user=user, avatar__isnull=False)
+        for profile in profiles:
+            if profile.avatar:
+                try:
+                    total_used_bytes += profile.avatar.size if hasattr(profile.avatar, 'size') else 0
+                except:
+                    pass
+        posts = ConnectPost.objects.filter(author__user=user, image__isnull=False)
+        for post in posts:
+            if post.image:
+                try:
+                    total_used_bytes += post.image.size if hasattr(post.image, 'size') else 0
+                except:
+                    pass
+        stories = ConnectStory.objects.filter(profile__user=user, image__isnull=False)
+        for story in stories:
+            if story.image:
+                try:
+                    total_used_bytes += story.image.size if hasattr(story.image, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 14. MakeAds
+    try:
+        from makeads.models import ReferenceImage, Creative
+        refs = ReferenceImage.objects.filter(campaign__user=user, image__isnull=False)
+        for ref in refs:
+            if ref.image:
+                try:
+                    total_used_bytes += ref.image.size if hasattr(ref.image, 'size') else 0
+                except:
+                    pass
+        creatives = Creative.objects.filter(campaign__user=user, image_file__isnull=False)
+        for creative in creatives:
+            if creative.image_file:
+                try:
+                    total_used_bytes += creative.image_file.size if hasattr(creative.image_file, 'size') else 0
+                except:
+                    pass
+    except:
+        pass
+
+    # 15. Shopify Uploads
+    try:
+        from shopify_uploads.models import FotogravurImage
+        images = FotogravurImage.objects.filter(uploaded_by=user)
+        for img in images:
+            for field in ['image', 'original_image']:
+                f = getattr(img, field, None)
+                if f:
+                    try:
+                        total_used_bytes += f.size if hasattr(f, 'size') else 0
+                    except:
+                        pass
+    except:
+        pass
+
+    # 16. Shopify Backups
+    try:
+        from shopify_manager.models import ShopifyBackup
+        backups = ShopifyBackup.objects.filter(user=user, status='completed')
+        for backup in backups:
+            if backup.total_size_bytes > 0:
+                total_used_bytes += backup.total_size_bytes
+    except:
+        pass
+
+    # Max storage from UserStorage
+    video_storage, _ = VideoUserStorage.objects.get_or_create(user=user)
+    max_bytes = video_storage.max_storage
+
+    used_mb = total_used_bytes / (1024 * 1024)
+    max_mb = max_bytes / (1024 * 1024)
+    percentage = round((total_used_bytes / max_bytes * 100), 2) if max_bytes > 0 else 0
+
+    return {
+        'used_bytes': total_used_bytes,
+        'max_bytes': max_bytes,
+        'used_mb': used_mb,
+        'max_mb': max_mb,
+        'percentage': percentage,
+    }
+
+
 @login_required
 def subscription_plans(request):
     """Display available subscription plans"""
@@ -55,9 +326,8 @@ def subscription_plans(request):
         elif sub.plan.plan_type == 'storage':
             storage_subscription = sub
 
-    # Speicherverbrauch neu berechnen und statistiken holen
-    StorageService.recalculate_storage(request.user)
-    storage_stats = StorageService.get_usage_stats(request.user)
+    # Tatsächlichen Speicherverbrauch aus ALLEN Apps berechnen
+    storage_stats = calculate_total_storage_for_user(request.user)
 
     context = {
         'workloom_plans': workloom_plans,
@@ -66,11 +336,10 @@ def subscription_plans(request):
         'storage_subscription': storage_subscription,
         'all_user_subscriptions': all_user_subscriptions,
         'user_invoices': user_invoices,
-        # Storage stats
+        # Storage stats (aus allen Apps berechnet)
         'used_storage_mb': storage_stats['used_mb'],
         'max_storage_mb': storage_stats['max_mb'],
         'usage_percentage': storage_stats['percentage'],
-        'storage_by_app': storage_stats['by_app'],
     }
     return render(request, 'payments/subscription_plans.html', context)
 
