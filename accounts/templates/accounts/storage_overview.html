@@ -91,7 +91,11 @@
                         <div class="row">
                             {% for app in app_stats %}
                             <div class="col-md-4 col-sm-6 mb-3">
-                                <div class="card h-100 border-left-primary">
+                                <div class="card h-100 border-left-primary app-filter-card"
+                                     data-app-filter="{{ app.name }}"
+                                     style="cursor: pointer; transition: all 0.2s ease;"
+                                     onclick="filterByApp('{{ app.name }}')"
+                                     title="Klicken um nur {{ app.name }} Dateien anzuzeigen">
                                     <div class="card-body">
                                         <div class="d-flex align-items-center">
                                             <div class="me-3">
@@ -135,20 +139,25 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-list"></i> Alle Dateien ({{ total_files }})
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0" id="files-header">
+                        <i class="fas fa-list"></i> <span id="files-title">Alle Dateien</span> (<span id="files-count">{{ total_files }}</span>)
                     </h5>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary active" data-sort="size" onclick="sortFiles('size')">
-                            <i class="fas fa-sort-amount-down"></i> Größe
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-outline-danger btn-sm d-none" id="clear-filter-btn" onclick="clearFilter()">
+                            <i class="fas fa-times"></i> Filter zurücksetzen
                         </button>
-                        <button class="btn btn-outline-secondary" data-sort="date" onclick="sortFiles('date')">
-                            <i class="fas fa-calendar"></i> Datum
-                        </button>
-                        <button class="btn btn-outline-secondary" data-sort="app" onclick="sortFiles('app')">
-                            <i class="fas fa-cubes"></i> App
-                        </button>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary active" data-sort="size" onclick="sortFiles('size')">
+                                <i class="fas fa-sort-amount-down"></i> Größe
+                            </button>
+                            <button class="btn btn-outline-secondary" data-sort="date" onclick="sortFiles('date')">
+                                <i class="fas fa-calendar"></i> Datum
+                            </button>
+                            <button class="btn btn-outline-secondary" data-sort="app" onclick="sortFiles('app')">
+                                <i class="fas fa-cubes"></i> App
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -248,9 +257,25 @@
     {% endif %}
 </div>
 
+<style>
+.app-filter-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.app-filter-card.active {
+    border: 2px solid #0d6efd !important;
+    background-color: #f0f7ff;
+}
+</style>
+
 <script>
+let currentFilter = null;
+const totalFiles = {{ total_files }};
+
 function sortFiles(sortBy) {
     const table = document.getElementById('files-table');
+    if (!table) return;
+
     const tbody = table.querySelector('tbody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
 
@@ -260,7 +285,10 @@ function sortFiles(sortBy) {
     });
     document.querySelector(`[data-sort="${sortBy}"]`).classList.add('active');
 
-    rows.sort((a, b) => {
+    // Only sort visible rows
+    const visibleRows = rows.filter(row => row.style.display !== 'none');
+
+    visibleRows.sort((a, b) => {
         if (sortBy === 'size') {
             return parseInt(b.dataset.size) - parseInt(a.dataset.size);
         } else if (sortBy === 'date') {
@@ -271,7 +299,92 @@ function sortFiles(sortBy) {
         return 0;
     });
 
-    rows.forEach(row => tbody.appendChild(row));
+    visibleRows.forEach(row => tbody.appendChild(row));
+}
+
+function filterByApp(appName) {
+    const table = document.getElementById('files-table');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Wenn gleiche App geklickt wird, Filter zurücksetzen
+    if (currentFilter === appName) {
+        clearFilter();
+        return;
+    }
+
+    currentFilter = appName;
+    let visibleCount = 0;
+
+    // Zeilen filtern basierend auf app_name Badge
+    rows.forEach(row => {
+        const appBadge = row.querySelector('.badge');
+        const rowAppName = appBadge ? appBadge.textContent.trim() : '';
+
+        if (rowAppName === appName) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // UI aktualisieren
+    updateFilterUI(appName, visibleCount);
+
+    // Zur Dateiliste scrollen
+    document.getElementById('files-header').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearFilter() {
+    const table = document.getElementById('files-table');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    currentFilter = null;
+
+    // Alle Zeilen anzeigen
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+
+    // UI zurücksetzen
+    updateFilterUI(null, totalFiles);
+}
+
+function updateFilterUI(appName, count) {
+    const titleSpan = document.getElementById('files-title');
+    const countSpan = document.getElementById('files-count');
+    const clearBtn = document.getElementById('clear-filter-btn');
+    const appCards = document.querySelectorAll('.app-filter-card');
+
+    if (appName) {
+        titleSpan.textContent = appName + ' Dateien';
+        countSpan.textContent = count;
+        clearBtn.classList.remove('d-none');
+
+        // Aktive Karte hervorheben
+        appCards.forEach(card => {
+            if (card.dataset.appFilter === appName) {
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+    } else {
+        titleSpan.textContent = 'Alle Dateien';
+        countSpan.textContent = totalFiles;
+        clearBtn.classList.add('d-none');
+
+        // Alle Karten deaktivieren
+        appCards.forEach(card => {
+            card.classList.remove('active');
+        });
+    }
 }
 </script>
 
