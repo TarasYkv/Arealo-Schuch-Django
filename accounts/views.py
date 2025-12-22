@@ -229,7 +229,7 @@ def dashboard(request):
             'icon': 'bi-graph-up',
             'url': 'loomline:dashboard',
             'color': 'bg-info',
-            'category': 'tools'
+            'category': 'seo'
         },
         'streamrec': {
             'name': 'StreamRec Studio',
@@ -277,6 +277,118 @@ def dashboard(request):
             'icon': 'bi-key',
             'url': 'keyengine:dashboard',
             'color': 'bg-success',
+            'category': 'seo'
+        },
+        'questionfinder': {
+            'name': 'QuestionFinder',
+            'description': 'Finde häufig gestellte Fragen zu deinen Keywords für besseren Content.',
+            'icon': 'bi-question-circle',
+            'url': 'questionfinder:dashboard',
+            'color': 'bg-info',
+            'category': 'seo'
+        },
+        'blogprep': {
+            'name': 'BlogPrep',
+            'description': 'KI-gestützte Blog-Artikel Erstellung mit SEO-Optimierung.',
+            'icon': 'bi-file-earmark-text',
+            'url': 'blogprep:project_list',
+            'color': 'bg-primary',
+            'category': 'content'
+        },
+        'imageforge': {
+            'name': 'ImageForge',
+            'description': 'KI-Bildgenerierung für Marketing, Social Media und mehr.',
+            'icon': 'bi-brush',
+            'url': 'imageforge:dashboard',
+            'color': 'bg-purple',
+            'category': 'content'
+        },
+        'vskript': {
+            'name': 'VSkript',
+            'description': 'Video-Skript Generator für professionelle Video-Inhalte.',
+            'icon': 'bi-camera-video',
+            'url': 'vskript:dashboard',
+            'color': 'bg-danger',
+            'category': 'content'
+        },
+        'makeads': {
+            'name': 'MakeAds',
+            'description': 'Erstelle professionelle Werbe-Designs und Banner.',
+            'icon': 'bi-megaphone',
+            'url': 'makeads:dashboard',
+            'color': 'bg-warning',
+            'category': 'content'
+        },
+        'somi_plan': {
+            'name': 'SoMi Plan',
+            'description': 'Social Media Planer für strukturierte Content-Strategie.',
+            'icon': 'bi-calendar-check',
+            'url': 'somi_plan:dashboard',
+            'color': 'bg-info',
+            'category': 'content'
+        },
+        'ideopin': {
+            'name': 'IdeoPin',
+            'description': 'Generiere kreative Post-Ideen für Social Media.',
+            'icon': 'bi-lightbulb',
+            'url': 'ideopin:wizard_step1',
+            'color': 'bg-warning',
+            'category': 'content'
+        },
+        'todos': {
+            'name': 'Todos',
+            'description': 'Aufgabenverwaltung mit Kanban-Board und Deadline-Tracking.',
+            'icon': 'bi-check2-square',
+            'url': 'todos:home',
+            'color': 'bg-success',
+            'category': 'management'
+        },
+        'mail_app': {
+            'name': 'Mail Center',
+            'description': 'E-Mail Verwaltung und Vorlagen für professionelle Kommunikation.',
+            'icon': 'bi-envelope',
+            'url': 'mail_app:dashboard',
+            'color': 'bg-primary',
+            'category': 'communication'
+        },
+        'stats': {
+            'name': 'Statistiken',
+            'description': 'Nutzungsstatistiken und Analytics für deine Apps.',
+            'icon': 'bi-bar-chart',
+            'url': 'stats:dashboard',
+            'color': 'bg-info',
+            'category': 'management'
+        },
+        'loomads': {
+            'name': 'LoomAds',
+            'description': 'Werbeanzeigen-Verwaltung für die Plattform.',
+            'icon': 'bi-badge-ad',
+            'url': 'loomads:dashboard',
+            'color': 'bg-warning',
+            'category': 'management'
+        },
+        'shopify_uploads': {
+            'name': 'Shopify Uploads',
+            'description': 'Bildverwaltung und Upload für Shopify-Produkte.',
+            'icon': 'bi-cloud-upload',
+            'url': 'shopify_uploads:image_list',
+            'color': 'bg-success',
+            'category': 'ecommerce'
+        },
+        'beleuchtungsrechner': {
+            'name': 'Beleuchtungsrechner',
+            'description': 'Berechne die optimale Beleuchtung für deine Projekte.',
+            'icon': 'bi-lightbulb-fill',
+            'url': 'beleuchtungsrechner',
+            'color': 'bg-warning',
+            'category': 'tools'
+        },
+        'lighting_classification': {
+            'name': 'Straßenklassifikation',
+            'description': 'Klassifizierung von Straßenbeleuchtung nach Normen.',
+            'icon': 'bi-signpost-split',
+            'url': 'lighting_classification:select_road_type',
+            'color': 'bg-secondary',
             'category': 'tools'
         }
     }
