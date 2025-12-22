@@ -484,16 +484,18 @@
                 max-width: 100%;
             }
 
-            /* Dropdowns im Mobile-Menü fließend anzeigen */
+            /* Dropdowns im Mobile-Menü - Akkordeon-Stil (schiebt Inhalt nach unten) */
             .navbar-nav .dropdown-menu {
                 position: static !important;
                 float: none !important;
                 width: 100% !important;
-                margin-top: 0 !important;
-                background-color: rgba(0, 0, 0, 0.05) !important;
+                margin: 0 !important;
+                padding: 0.25rem 0 0.5rem 1rem !important;
+                background-color: transparent !important;
                 border: none !important;
                 box-shadow: none !important;
-                padding-left: 1rem !important;
+                border-left: 3px solid #0d6efd !important;
+                margin-left: 0.5rem !important;
             }
 
             .navbar-nav .dropdown-menu.show {
@@ -501,44 +503,58 @@
             }
 
             .navbar-nav .dropdown-item {
-                padding: 0.5rem 1rem !important;
+                padding: 0.5rem 0.75rem !important;
                 white-space: normal !important;
+                border-radius: 6px !important;
+                margin: 2px 0 !important;
+                background-color: transparent !important;
             }
 
-            /* User Dropdown auch auf Mobile korrekt */
+            .navbar-nav .dropdown-item:hover,
+            .navbar-nav .dropdown-item:focus {
+                background-color: rgba(13, 110, 253, 0.1) !important;
+            }
+
+            /* User Dropdown auf Mobile */
             .navbar-nav .nav-item.dropdown.ms-2 {
                 width: 100%;
+                margin-top: 0.75rem;
+                padding-top: 0.75rem;
+                border-top: 1px solid rgba(0, 0, 0, 0.1);
             }
 
             .navbar-nav .nav-item.dropdown.ms-2 .dropdown-menu {
-                position: static !important;
-                width: 100% !important;
+                border-left-color: #198754 !important;
             }
         }
 
-        /* Dropdown Positioning Fixes */
-        .navbar-nav .dropdown {
-            position: relative !important;
+        /* Desktop Dropdown Positioning (nur für große Bildschirme) */
+        @media (min-width: 992px) {
+            .navbar-nav .dropdown {
+                position: relative !important;
+            }
+
+            .navbar-nav .dropdown-menu {
+                position: absolute !important;
+                top: 100% !important;
+                left: 0 !important;
+                z-index: 9999 !important;
+                will-change: transform !important;
+                transform-origin: top center !important;
+            }
         }
 
-        .navbar-nav .dropdown-menu {
-            position: absolute !important;
-            top: 100% !important;
-            left: 0 !important;
-            z-index: 9999 !important;
-            will-change: transform !important;
-            transform-origin: top center !important;
+        /* Right-aligned dropdowns - nur auf Desktop */
+        @media (min-width: 992px) {
+            .dropdown-menu-end {
+                left: auto !important;
+                right: 0 !important;
+            }
         }
 
-        /* Right-aligned dropdowns (like user menu) */
-        .dropdown-menu-end {
-            left: auto !important;
-            right: 0 !important;
-        }
-
-        /* Ensure dropdowns appear above all content */
+        /* Dropdown Arrow Animation */
         .dropdown-toggle::after {
-            transition: var(--nav-transition);
+            transition: transform 0.2s ease;
         }
 
         .dropdown.show .dropdown-toggle::after {
