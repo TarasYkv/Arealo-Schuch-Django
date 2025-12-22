@@ -1089,6 +1089,9 @@
 <!-- MediaPipe Selfie Segmentation Library -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
 
+<!-- GPU-Beschleunigung: Camera Utils für optimierte Frame-Übergabe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
 <!-- No external conversion library needed - using browser-native MP4 recording -->
 
 <script>
@@ -1166,6 +1169,27 @@ class StreamRecorderOptimized {
         this.segmentationReady = false;
         this.segmentationFPS = 0;
         this.lastSegmentationTime = performance.now();
+
+        // 🚀 PERFORMANCE OPTIMIERUNGEN für Segmentation
+        this.segmentationOptimization = {
+            // Niedrigere Auflösung für Segmentation (WICHTIG für Performance!)
+            inputWidth: 256,   // Statt voller Auflösung
+            inputHeight: 144,  // 16:9 bei niedriger Auflösung
+            // Downscale Canvas für Segmentation
+            downscaleCanvas: null,
+            downscaleCtx: null,
+            // GPU-beschleunigter OffscreenCanvas (wenn verfügbar)
+            useOffscreenCanvas: typeof OffscreenCanvas !== 'undefined',
+            offscreenCanvas: null,
+            // MediaPipe Camera für optimierte Frame-Übergabe
+            mediaCamera: null,
+            // Frame-Skipping für bessere Performance
+            processEveryNthFrame: 2,  // Nur jeden 2. Frame verarbeiten
+            frameCounter: 0,
+            // Cached mask für Interpolation zwischen Frames
+            cachedMask: null,
+            lastMaskTime: 0
+        };
         this.recordingTimer = null;
         this.maxDuration = 180000; // 3 minutes
         this.nextScreenId = 1; // Screen counter for multiple screens
@@ -2328,7 +2352,109 @@ class StreamRecorderOptimized {
             console.error('❌ Failed to create segmentation canvas:', error);
         }
     }
-    
+
+    // 🚀 PERFORMANCE OPTIMIERUNG: Initialisiere Downscale-Canvas für schnellere Verarbeitung
+    initializeOptimizationCanvases() {
+        const opt = this.segmentationOptimization;
+
+        // Downscale Canvas für niedrigere Eingabe-Auflösung
+        if (!opt.downscaleCanvas) {
+            if (opt.useOffscreenCanvas) {
+                // GPU-beschleunigter OffscreenCanvas (wenn verfügbar)
+                try {
+                    opt.downscaleCanvas = new OffscreenCanvas(opt.inputWidth, opt.inputHeight);
+                    opt.downscaleCtx = opt.downscaleCanvas.getContext('2d', {
+                        alpha: false,
+                        desynchronized: true,  // Ermöglicht schnelleres Rendering
+                        willReadFrequently: false
+                    });
+                    console.log('🚀 OffscreenCanvas für GPU-Beschleunigung aktiviert');
+                } catch (e) {
+                    console.warn('⚠️ OffscreenCanvas nicht verfügbar, nutze normalen Canvas');
+                    opt.useOffscreenCanvas = false;
+                }
+            }
+
+            if (!opt.useOffscreenCanvas) {
+                // Fallback: Normaler Canvas
+                opt.downscaleCanvas = document.createElement('canvas');
+                opt.downscaleCanvas.width = opt.inputWidth;
+                opt.downscaleCanvas.height = opt.inputHeight;
+                opt.downscaleCtx = opt.downscaleCanvas.getContext('2d', {
+                    alpha: false,
+                    willReadFrequently: false
+                });
+            }
+
+            console.log(`📐 Downscale Canvas erstellt: ${opt.inputWidth}x${opt.inputHeight}`);
+        }
+    }
+
+    // 🚀 PERFORMANCE: Skaliere Video-Frame auf niedrige Auflösung für Segmentation
+    getOptimizedFrameForSegmentation(videoElement) {
+        const opt = this.segmentationOptimization;
+
+        if (!opt.downscaleCanvas || !opt.downscaleCtx) {
+            return videoElement; // Fallback: Original-Video
+        }
+
+        // Frame-Skipping: Nur jeden N-ten Frame verarbeiten
+        opt.frameCounter++;
+        if (opt.frameCounter % opt.processEveryNthFrame !== 0) {
+            // Gib cached Canvas zurück wenn vorhanden
+            if (opt.cachedMask) {
+                return null; // Signal: Nutze gecachte Maske
+            }
+            return videoElement;
+        }
+
+        // Zeichne Video auf niedrigauflösenden Canvas
+        opt.downscaleCtx.drawImage(
+            videoElement,
+            0, 0,
+            opt.inputWidth, opt.inputHeight
+        );
+
+        return opt.downscaleCanvas;
+    }
+
+    // 🚀 PERFORMANCE: Async Frame-Optimierung mit ImageBitmap (GPU-beschleunigt)
+    async getOptimizedFrameAsync(videoElement) {
+        const opt = this.segmentationOptimization;
+
+        // Frame-Skipping Check
+        opt.frameCounter++;
+        if (opt.frameCounter % opt.processEveryNthFrame !== 0) {
+            return null; // Überspringe diesen Frame
+        }
+
+        try {
+            // createImageBitmap ist GPU-beschleunigt und non-blocking
+            const bitmap = await createImageBitmap(
+                videoElement,
+                {
+                    resizeWidth: opt.inputWidth,
+                    resizeHeight: opt.inputHeight,
+                    resizeQuality: 'low' // 'low' für maximale Performance
+                }
+            );
+            return bitmap;
+        } catch (e) {
+            // Fallback auf synchrone Methode
+            return this.getOptimizedFrameForSegmentation(videoElement);
+        }
+    }
+
+    // 🚀 PERFORMANCE: Nutze requestIdleCallback für nicht-kritische Updates
+    scheduleIdleTask(callback, timeout = 50) {
+        if ('requestIdleCallback' in window) {
+            return requestIdleCallback(callback, { timeout });
+        } else {
+            // Fallback für Safari
+            return setTimeout(callback, 1);
+        }
+    }
+
     startFallbackDrawing() {
         // DEAKTIVIERT: Diese Funktion verursacht das weiße Canvas Problem
         console.log('⚠️ startFallbackDrawing wurde aufgerufen aber ist deaktiviert');
@@ -3037,18 +3163,27 @@ class StreamRecorderOptimized {
                 this.createSegmentationCanvas();
             }
             
-            // Initialize MediaPipe
+            // 🚀 PERFORMANCE: Erstelle Downscale-Canvas für niedrigere Auflösung
+            this.initializeOptimizationCanvases();
+
+            // Initialize MediaPipe mit GPU-optimierten Einstellungen
             this.selfieSegmentation = new window.SelfieSegmentation({
                 locateFile: (file) => {
                     return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
                 }
             });
-            
+
             // WICHTIG: modelSelection 0 = fast (für flüssige Performance)
             // modelSelection 1 = accurate (langsamer, bessere Qualität)
             this.selfieSegmentation.setOptions({
                 modelSelection: 0, // 0 = fast für flüssige Aufnahme
                 selfieMode: true
+            });
+
+            console.log('🚀 GPU-Optimierungen aktiviert:', {
+                useOffscreenCanvas: this.segmentationOptimization.useOffscreenCanvas,
+                inputResolution: `${this.segmentationOptimization.inputWidth}x${this.segmentationOptimization.inputHeight}`,
+                frameSkipping: `Jeden ${this.segmentationOptimization.processEveryNthFrame}. Frame`
             });
             
             this.selfieSegmentation.onResults((results) => {
@@ -3139,9 +3274,25 @@ class StreamRecorderOptimized {
             lastProcessTime = timestamp;
 
             try {
-                // Send frame to MediaPipe
+                // 🚀 PERFORMANCE: Nutze GPU-beschleunigte async ImageBitmap
                 if (processingVideo.readyState >= 2) {
-                    await this.selfieSegmentation.send({ image: processingVideo });
+                    // Versuche async GPU-Methode, Fallback auf sync
+                    let optimizedFrame;
+                    if (typeof createImageBitmap !== 'undefined') {
+                        optimizedFrame = await this.getOptimizedFrameAsync(processingVideo);
+                    } else {
+                        optimizedFrame = this.getOptimizedFrameForSegmentation(processingVideo);
+                    }
+
+                    // null = Frame wurde übersprungen, nutze gecachte Maske
+                    if (optimizedFrame !== null) {
+                        await this.selfieSegmentation.send({ image: optimizedFrame });
+
+                        // ImageBitmap muss geschlossen werden um Memory freizugeben
+                        if (optimizedFrame.close) {
+                            optimizedFrame.close();
+                        }
+                    }
                 }
 
                 // Calculate FPS
