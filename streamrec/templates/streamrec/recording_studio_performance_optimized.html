@@ -3279,48 +3279,21 @@ class StreamRecorderOptimized {
             lastProcessTime = timestamp;
 
             try {
-                // 🚀 PERFORMANCE: Nutze GPU-beschleunigte async ImageBitmap
+                // 🚀 KRITISCH: NICHT auf send() warten! Das blockiert den Thread!
+                // MediaPipe arbeitet asynchron, Results kommen über onResults Callback
                 if (processingVideo.readyState >= 2) {
-                    // Versuche async GPU-Methode, Fallback auf sync
-                    let optimizedFrame;
-                    if (typeof createImageBitmap !== 'undefined') {
-                        optimizedFrame = await this.getOptimizedFrameAsync(processingVideo);
-                    } else {
-                        optimizedFrame = this.getOptimizedFrameForSegmentation(processingVideo);
-                    }
+                    // Synchrone Methode für Frame-Vorbereitung (schneller als async)
+                    const optimizedFrame = this.getOptimizedFrameForSegmentation(processingVideo);
 
-                    // null = Frame wurde übersprungen, nutze gecachte Maske
+                    // null = Frame wurde übersprungen
                     if (optimizedFrame !== null) {
-                        await this.selfieSegmentation.send({ image: optimizedFrame });
-
-                        // ImageBitmap muss geschlossen werden um Memory freizugeben
-                        if (optimizedFrame.close) {
-                            optimizedFrame.close();
-                        }
+                        // 🚀 FIRE AND FORGET - NICHT awaiten!
+                        this.selfieSegmentation.send({ image: optimizedFrame })
+                            .catch(err => console.warn('MediaPipe send error:', err));
                     }
                 }
 
-                // Calculate FPS
-                const now = performance.now();
-                const delta = now - this.lastSegmentationTime;
-                if (delta > 0) {
-                    this.segmentationFPS = Math.round(1000 / delta);
-                    this.lastSegmentationTime = now;
-
-                    // Update FPS display
-                    const fpsEl = document.getElementById('segmentationFPS');
-                    if (fpsEl) {
-                        fpsEl.textContent = this.segmentationFPS;
-                    }
-
-                    // Update Green Screen FPS display
-                    const greenScreenFpsEl = document.getElementById('greenScreenFPS');
-                    if (greenScreenFpsEl) {
-                        greenScreenFpsEl.textContent = `(${this.segmentationFPS} FPS)`;
-                    }
-                }
-
-                // Continue processing
+                // Continue processing SOFORT - nicht auf MediaPipe warten!
                 requestAnimationFrame(processFrame);
                 
             } catch (error) {
@@ -3345,6 +3318,11 @@ class StreamRecorderOptimized {
             }
 
             processingStarted = true;
+
+            // 🚀 WICHTIG: Live-Render-Loop SOFORT starten (unabhängig von MediaPipe)
+            this.startLiveRenderLoop();
+
+            // MediaPipe Masken-Berechnung starten (läuft parallel)
             processFrame();
         };
 
@@ -3922,9 +3900,10 @@ class StreamRecorderOptimized {
             try {
                 // Create stream from canvas (throttle to avoid too frequent updates)
                 if (!this.backgroundEffects.processedStream || !this.backgroundEffects.streamReplaced) {
-                    // Create the processed stream
-                    this.backgroundEffects.processedStream = this.backgroundEffects.segmentationCanvas.captureStream(30);
-                    console.log('🎬 Created processed stream from canvas');
+                    // Create the processed stream - 60 FPS für flüssiges Video!
+                    this.backgroundEffects.processedStream = this.backgroundEffects.segmentationCanvas.captureStream(60);
+                    this.backgroundEffects.canvasStream = this.backgroundEffects.processedStream; // Für getVideoElementOptimized
+                    console.log('🎬 Created processed stream from canvas (60 FPS)');
 
                     // Replace the video element's stream ONCE when MediaPipe is working
                     if (!this.backgroundEffects.streamReplaced && this.backgroundEffects.mediapipeWorking) {
@@ -5421,15 +5400,38 @@ class StreamRecorderOptimized {
 
     // 🚀 OPTIMIZED: Video Element Pool Management
     getVideoElementOptimized(type, stream) {
-        // For camera with background effects, we still return the video element
-        // The background effects are drawn on a separate canvas that we'll composite
-        if (type === 'camera' && this.backgroundEffects.enabled && 
+        // 🚀 KRITISCH: Bei Kamera mit Hintergrund-Effekten das verarbeitete Video verwenden!
+        if (type === 'camera' && this.backgroundEffects.enabled &&
             this.backgroundEffects.mode !== 'none' && this.backgroundEffects.segmentationCanvas) {
-            
-            console.log('🎨 Camera with background effects - using composite rendering');
-            // We'll handle this specially in the draw methods
+
+            // Nutze das verarbeitete Video vom segmentationCanvas
+            const segVideo = document.getElementById('video-segmentation');
+            if (segVideo && segVideo.readyState >= 2) {
+                return segVideo;
+            }
+
+            // Fallback: Erstelle Video-Element vom segmentationCanvas Stream
+            if (this.backgroundEffects.canvasStream) {
+                let processedVideo = document.getElementById('video-processed-camera');
+                if (!processedVideo) {
+                    processedVideo = document.createElement('video');
+                    processedVideo.id = 'video-processed-camera';
+                    processedVideo.autoplay = true;
+                    processedVideo.muted = true;
+                    processedVideo.playsInline = true;
+                    processedVideo.style.display = 'none';
+                    document.body.appendChild(processedVideo);
+                }
+                if (processedVideo.srcObject !== this.backgroundEffects.canvasStream) {
+                    processedVideo.srcObject = this.backgroundEffects.canvasStream;
+                    processedVideo.play().catch(() => {});
+                }
+                if (processedVideo.readyState >= 2) {
+                    return processedVideo;
+                }
+            }
         }
-        
+
         // 1. Check pool first (Performance)
         if (this.videoElements.has(type)) {
             const video = this.videoElements.get(type);
