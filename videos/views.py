@@ -173,30 +173,38 @@ def video_embed(request, unique_id):
 
 
 def video_stream(request, unique_id):
-    """Stream video file"""
+    """Stream video file - supports external embedding (Shopify, etc.)"""
     video = get_object_or_404(Video, unique_id=unique_id)
-    
+
+    # Check if the video owner has sharing restrictions
+    try:
+        user_storage, created = UserStorage.objects.get_or_create(user=video.user)
+        if not user_storage.can_share():
+            return HttpResponse('Video nicht verfügbar', status=403)
+    except Exception:
+        pass  # If storage check fails, allow access
+
     # Use the uploaded video file directly
     video_file = video.video_file
     path = video_file.path
-    
+
     # Get file size and content type
     file_size = os.path.getsize(path)
     content_type, _ = mimetypes.guess_type(path)
     content_type = content_type or 'video/mp4'
-    
+
     # Handle range requests for video seeking
     range_header = request.META.get('HTTP_RANGE', '').strip()
     range_match = range_header.replace('bytes=', '').split('-') if range_header else None
-    
+
     if range_match:
         start = int(range_match[0]) if range_match[0] else 0
         end = int(range_match[1]) if range_match[1] else file_size - 1
-        
+
         # Open file and seek to start position
         file_handle = open(path, 'rb')
         file_handle.seek(start)
-        
+
         # Create response with partial content
         response = StreamingHttpResponse(
             FileWrapper(file_handle, 8192),
@@ -212,8 +220,18 @@ def video_stream(request, unique_id):
             content_type=content_type
         )
         response['Content-Length'] = str(file_size)
-    
+
     response['Accept-Ranges'] = 'bytes'
+
+    # CORS headers for external embedding (Shopify, etc.)
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS'
+    response['Access-Control-Allow-Headers'] = 'Range'
+    response['Access-Control-Expose-Headers'] = 'Content-Length, Content-Range, Accept-Ranges'
+
+    # Track video access
+    video.track_access()
+
     return response
 
 

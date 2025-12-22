@@ -21,26 +21,53 @@
                         <h5 class="card-title">Teilen-Links</h5>
                         
                         <div class="mb-3">
-                            <label class="form-label">Direkter Link</label>
+                            <label class="form-label">Video-Seite (mit Player)</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="directLink" 
+                                <input type="text" class="form-control" id="directLink"
                                        value="{{ request.scheme }}://{{ request.get_host }}{% url 'videos:view' video.unique_id %}" readonly>
-                                <button class="btn btn-outline-secondary" type="button" 
+                                <button class="btn btn-outline-secondary" type="button"
                                         onclick="copyToClipboard('directLink')">
                                     <i class="fas fa-copy"></i> Kopieren
                                 </button>
                             </div>
+                            <small class="text-muted">Link zur Seite mit eingebettetem Video-Player</small>
                         </div>
-                        
+
                         <div class="mb-3">
-                            <label class="form-label">Einbettungscode</label>
+                            <label class="form-label"><strong>Direkter Video-Link (für Shopify/externe Nutzung)</strong></label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="videoFileLink"
+                                       value="{{ request.scheme }}://{{ request.get_host }}{% url 'videos:stream' video.unique_id %}" readonly>
+                                <button class="btn btn-outline-primary" type="button"
+                                        onclick="copyToClipboard('videoFileLink')">
+                                    <i class="fas fa-copy"></i> Kopieren
+                                </button>
+                            </div>
+                            <small class="text-muted">Direkter Link zur Video-Datei - für Shopify-Blogs, externe Video-Player, etc.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">HTML5 Video-Code (für Shopify-Blogs)</label>
+                            <div class="input-group">
+                                <textarea class="form-control" id="shopifyCode" rows="3" readonly><video controls width="100%" style="max-width: 800px;"><source src="{{ request.scheme }}://{{ request.get_host }}{% url 'videos:stream' video.unique_id %}" type="video/mp4">Dein Browser unterstützt keine Videos.</video></textarea>
+                                <button class="btn btn-primary" type="button"
+                                        onclick="copyToClipboard('shopifyCode')">
+                                    <i class="fas fa-copy"></i> Kopieren
+                                </button>
+                            </div>
+                            <small class="text-success"><i class="fas fa-check-circle me-1"></i>Diesen Code in den HTML-Editor von Shopify einfügen</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Einbettungscode (iframe)</label>
                             <div class="input-group">
                                 <textarea class="form-control" id="embedCode" rows="3" readonly><iframe src="{{ request.scheme }}://{{ request.get_host }}{% url 'videos:embed' video.unique_id %}" width="640" height="360" frameborder="0" allowfullscreen></iframe></textarea>
-                                <button class="btn btn-outline-secondary" type="button" 
+                                <button class="btn btn-outline-secondary" type="button"
                                         onclick="copyToClipboard('embedCode')">
                                     <i class="fas fa-copy"></i> Kopieren
                                 </button>
                             </div>
+                            <small class="text-muted">Alternativer iframe-Code mit eingebettetem Player</small>
                         </div>
                     </div>
                 </div>
