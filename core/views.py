@@ -83,12 +83,18 @@ def datenschutz_view(request):
 
 
 def _get_available_apps():
-    """Gibt nur freigegebene Apps mit ihren Informationen zurück"""
+    """Gibt alle öffentlich sichtbaren Apps mit ihren Informationen zurück
+
+    Zeigt Apps mit access_level 'authenticated' oder 'anonymous' an.
+    Beide Benutzertypen sehen die gleichen Apps - nicht-angemeldete werden
+    auf Info-Seiten weitergeleitet, angemeldete auf die echten Tools.
+    """
     from accounts.models import AppPermission
-    
-    # Zuerst alle verfügbaren Apps aus der Datenbank laden
+    from django.db.models import Q
+
+    # Alle öffentlich sichtbaren Apps laden (authenticated ODER anonymous)
     available_permissions = AppPermission.objects.filter(
-        access_level='authenticated',  # Nur authenticated Apps
+        Q(access_level='authenticated') | Q(access_level='anonymous'),
         is_active=True,
         hide_in_frontend=False
     )

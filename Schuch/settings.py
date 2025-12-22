@@ -135,6 +135,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.media',
                 'core.context_processors.seo_defaults',  # SEO Context Processor
+                'core.context_processors.dynamic_menu',  # Dynamisches Menü
             ],
         },
     },
