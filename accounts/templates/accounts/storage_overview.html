@@ -77,6 +77,64 @@
         </div>
     </div>
 
+    <!-- Datenbank-Metadaten Info (informativ) -->
+    {% if db_stats and db_stats.total_bytes > 0 %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0" style="background: #f8f9fa;">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted">
+                                <i class="fas fa-database me-2"></i>
+                                Datenbank-Metadaten:
+                                <strong class="text-dark">
+                                    {% if db_stats.total_kb < 100 %}
+                                        {{ db_stats.total_kb|floatformat:1 }} KB
+                                    {% else %}
+                                        {{ db_stats.total_mb|floatformat:2 }} MB
+                                    {% endif %}
+                                </strong>
+                                <span class="badge bg-success ms-2">nicht auf Kontingent angerechnet</span>
+                            </span>
+                        </div>
+                        <button class="btn btn-link btn-sm text-muted p-0" type="button" data-bs-toggle="collapse" data-bs-target="#dbMetadataDetails">
+                            <i class="fas fa-chevron-down"></i> Details
+                        </button>
+                    </div>
+                    <div class="collapse mt-3" id="dbMetadataDetails">
+                        <div class="row">
+                            {% for cat_name, cat_data in db_stats.by_category.items %}
+                            <div class="col-lg-3 col-md-4 col-6 mb-2">
+                                <div class="card h-100 border-0 bg-white">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="{{ cat_data.icon }} text-primary me-2"></i>
+                                            <div>
+                                                <small class="d-block text-muted">{{ cat_name }}</small>
+                                                <strong>
+                                                    {% widthratio cat_data.bytes 1024 1 %} KB
+                                                </strong>
+                                                <small class="text-muted">({{ cat_data.count }} Einträge)</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="alert alert-info mt-3 mb-0 small">
+                            <i class="fas fa-info-circle"></i>
+                            Metadaten wie Shopify-Produktinfos, SEO-Texte, BlogPrep-Inhalte und Backup-Daten werden in der Datenbank gespeichert.
+                            Diese Daten werden <strong>nicht</strong> auf Ihr Speicherkontingent angerechnet - nur hochgeladene Dateien (Bilder, Videos, PDFs) zählen dazu.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- App-basierte Statistiken -->
     <div class="row mb-4">
         <div class="col-12">

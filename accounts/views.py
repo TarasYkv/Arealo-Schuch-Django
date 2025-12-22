@@ -3270,6 +3270,13 @@ def storage_overview_view(request):
     else:
         storage_stats['percentage'] = 0
 
+    # Datenbank-Metadaten Speicher berechnen (informativ)
+    try:
+        from payments.views import calculate_database_storage_for_user
+        db_stats = calculate_database_storage_for_user(user)
+    except Exception:
+        db_stats = None
+
     context = {
         'storage_stats': storage_stats,
         'all_files': all_files,
@@ -3277,6 +3284,7 @@ def storage_overview_view(request):
         'total_files': len(all_files),
         'video_storage': video_storage,
         'usage_percentage': storage_stats['percentage'],
+        'db_stats': db_stats,
     }
 
     return render(request, 'accounts/storage_overview.html', context)

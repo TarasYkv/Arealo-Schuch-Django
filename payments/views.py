@@ -288,6 +288,192 @@ def calculate_total_storage_for_user(user):
     }
 
 
+def calculate_database_storage_for_user(user):
+    """
+    Schätzt den Datenbank-Speicherverbrauch für einen User.
+    Berechnet die Größe von JSON-Feldern und Textfeldern.
+    Gibt ein Dict mit Gesamtgröße und Aufschlüsselung zurück.
+    """
+    import json
+
+    db_stats = {
+        'total_bytes': 0,
+        'by_category': {},
+    }
+
+    # 1. Shopify Products
+    try:
+        from shopify_manager.models import ShopifyProduct
+        products = ShopifyProduct.objects.filter(store__user=user)
+        product_bytes = 0
+        for p in products:
+            # raw_shopify_data ist das größte Feld
+            if p.raw_shopify_data:
+                product_bytes += len(json.dumps(p.raw_shopify_data).encode('utf-8'))
+            # Andere Textfelder
+            product_bytes += len((p.title or '').encode('utf-8'))
+            product_bytes += len((p.description or '').encode('utf-8'))
+            product_bytes += len((p.seo_title or '').encode('utf-8'))
+            product_bytes += len((p.seo_description or '').encode('utf-8'))
+        if product_bytes > 0:
+            db_stats['by_category']['Shopify Produkte'] = {
+                'bytes': product_bytes,
+                'count': products.count(),
+                'icon': 'fas fa-box'
+            }
+            db_stats['total_bytes'] += product_bytes
+    except:
+        pass
+
+    # 2. Shopify Blog Posts
+    try:
+        from shopify_manager.models import ShopifyBlogPost
+        posts = ShopifyBlogPost.objects.filter(blog__store__user=user)
+        post_bytes = 0
+        for p in posts:
+            if p.raw_shopify_data:
+                post_bytes += len(json.dumps(p.raw_shopify_data).encode('utf-8'))
+            post_bytes += len((p.title or '').encode('utf-8'))
+            post_bytes += len((p.content or '').encode('utf-8'))
+            post_bytes += len((p.seo_title or '').encode('utf-8'))
+            post_bytes += len((p.seo_description or '').encode('utf-8'))
+        if post_bytes > 0:
+            db_stats['by_category']['Shopify Blog-Beiträge'] = {
+                'bytes': post_bytes,
+                'count': posts.count(),
+                'icon': 'fas fa-blog'
+            }
+            db_stats['total_bytes'] += post_bytes
+    except:
+        pass
+
+    # 3. Shopify Collections
+    try:
+        from shopify_manager.models import ShopifyCollection
+        collections = ShopifyCollection.objects.filter(store__user=user)
+        coll_bytes = 0
+        for c in collections:
+            if c.raw_shopify_data:
+                coll_bytes += len(json.dumps(c.raw_shopify_data).encode('utf-8'))
+            coll_bytes += len((c.title or '').encode('utf-8'))
+            coll_bytes += len((c.description or '').encode('utf-8'))
+            coll_bytes += len((c.seo_title or '').encode('utf-8'))
+            coll_bytes += len((c.seo_description or '').encode('utf-8'))
+        if coll_bytes > 0:
+            db_stats['by_category']['Shopify Kategorien'] = {
+                'bytes': coll_bytes,
+                'count': collections.count(),
+                'icon': 'fas fa-folder'
+            }
+            db_stats['total_bytes'] += coll_bytes
+    except:
+        pass
+
+    # 4. SEO Optimizations
+    try:
+        from shopify_manager.models import ProductSEOOptimization, BlogPostSEOOptimization, CollectionSEOOptimization
+        seo_bytes = 0
+        seo_count = 0
+
+        for model in [ProductSEOOptimization, BlogPostSEOOptimization, CollectionSEOOptimization]:
+            try:
+                if model == ProductSEOOptimization:
+                    items = model.objects.filter(product__store__user=user)
+                elif model == BlogPostSEOOptimization:
+                    items = model.objects.filter(blog_post__blog__store__user=user)
+                else:
+                    items = model.objects.filter(collection__store__user=user)
+
+                for item in items:
+                    seo_bytes += len((getattr(item, 'optimized_title', '') or '').encode('utf-8'))
+                    seo_bytes += len((getattr(item, 'optimized_description', '') or '').encode('utf-8'))
+                    seo_bytes += len((getattr(item, 'optimized_meta_title', '') or '').encode('utf-8'))
+                    seo_bytes += len((getattr(item, 'optimized_meta_description', '') or '').encode('utf-8'))
+                    seo_count += 1
+            except:
+                pass
+
+        if seo_bytes > 0:
+            db_stats['by_category']['SEO Optimierungen'] = {
+                'bytes': seo_bytes,
+                'count': seo_count,
+                'icon': 'fas fa-search'
+            }
+            db_stats['total_bytes'] += seo_bytes
+    except:
+        pass
+
+    # 5. Backup Items (raw_data JSON)
+    try:
+        from shopify_manager.models import BackupItem
+        items = BackupItem.objects.filter(backup__user=user)
+        backup_bytes = 0
+        for item in items:
+            if item.raw_data:
+                backup_bytes += len(json.dumps(item.raw_data).encode('utf-8'))
+        if backup_bytes > 0:
+            db_stats['by_category']['Backup Metadaten'] = {
+                'bytes': backup_bytes,
+                'count': items.count(),
+                'icon': 'fas fa-database'
+            }
+            db_stats['total_bytes'] += backup_bytes
+    except:
+        pass
+
+    # 6. BlogPrep Projects
+    try:
+        from blogprep.models import BlogPrepProject
+        projects = BlogPrepProject.objects.filter(user=user)
+        bp_bytes = 0
+        for p in projects:
+            bp_bytes += len((p.keyword or '').encode('utf-8'))
+            bp_bytes += len((p.seo_title or '').encode('utf-8'))
+            bp_bytes += len((p.intro_text or '').encode('utf-8'))
+            bp_bytes += len((p.main_text or '').encode('utf-8'))
+            bp_bytes += len((p.tips_text or '').encode('utf-8'))
+            bp_bytes += len((p.custom_section or '').encode('utf-8'))
+            bp_bytes += len((p.faq_text or '').encode('utf-8'))
+            if p.section_images:
+                bp_bytes += len(json.dumps(p.section_images).encode('utf-8'))
+        if bp_bytes > 0:
+            db_stats['by_category']['BlogPrep Inhalte'] = {
+                'bytes': bp_bytes,
+                'count': projects.count(),
+                'icon': 'fas fa-pen-fancy'
+            }
+            db_stats['total_bytes'] += bp_bytes
+    except:
+        pass
+
+    # 7. VSkript Projects
+    try:
+        from vskript.models import VSkriptProject
+        projects = VSkriptProject.objects.filter(user=user)
+        vs_bytes = 0
+        for p in projects:
+            vs_bytes += len((p.title or '').encode('utf-8'))
+            vs_bytes += len((p.topic or '').encode('utf-8'))
+            vs_bytes += len((p.script_content or '').encode('utf-8'))
+            if p.scenes:
+                vs_bytes += len(json.dumps(p.scenes).encode('utf-8'))
+        if vs_bytes > 0:
+            db_stats['by_category']['VSkript Inhalte'] = {
+                'bytes': vs_bytes,
+                'count': projects.count(),
+                'icon': 'fas fa-film'
+            }
+            db_stats['total_bytes'] += vs_bytes
+    except:
+        pass
+
+    # Berechne MB und KB
+    db_stats['total_kb'] = db_stats['total_bytes'] / 1024
+    db_stats['total_mb'] = db_stats['total_bytes'] / (1024 * 1024)
+
+    return db_stats
+
+
 @login_required
 def subscription_plans(request):
     """Display available subscription plans"""
@@ -329,6 +515,9 @@ def subscription_plans(request):
     # Tatsächlichen Speicherverbrauch aus ALLEN Apps berechnen
     storage_stats = calculate_total_storage_for_user(request.user)
 
+    # Datenbank-Metadaten Speicher berechnen (informativ)
+    db_stats = calculate_database_storage_for_user(request.user)
+
     context = {
         'workloom_plans': workloom_plans,
         'storage_plans': storage_plans,
@@ -340,6 +529,8 @@ def subscription_plans(request):
         'used_storage_mb': storage_stats['used_mb'],
         'max_storage_mb': storage_stats['max_mb'],
         'usage_percentage': storage_stats['percentage'],
+        # Database stats (informativ, nicht Teil des Kontingents)
+        'db_stats': db_stats,
     }
     return render(request, 'payments/subscription_plans.html', context)
 
