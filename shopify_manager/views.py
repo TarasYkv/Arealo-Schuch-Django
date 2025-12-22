@@ -5301,3 +5301,4 @@ def api_backup_item_detail(request, store_id, backup_id, item_id):
         data['images_count'] = len(images)
 
     return JsonResponse(data)
+
