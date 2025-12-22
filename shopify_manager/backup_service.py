@@ -17,12 +17,14 @@ import requests
 import json
 import time
 import io
+import os
 import re
 import zipfile
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from django.utils import timezone
 from django.db import transaction
+from django.conf import settings
 
 from .models import ShopifyStore, ShopifyBackup, BackupItem
 
@@ -147,7 +149,7 @@ class ShopifyBackupService:
 
     def _save_backup_item(self, item_type: str, shopify_id: int, title: str,
                           raw_data: dict, image_url: str = '', parent_id: int = None,
-                          image_data: bytes = None):
+                          image_path: str = ''):
         """Speichert ein Backup-Element in der Datenbank (überspringt wenn bereits vorhanden)"""
         # Prüfen ob Item bereits existiert (Resume-Fall)
         if self._item_exists(item_type, shopify_id):
@@ -163,7 +165,7 @@ class ShopifyBackupService:
             raw_data=raw_data,
             image_url=image_url,
             parent_id=parent_id,
-            image_data=image_data
+            image_path=image_path
         )
         # Größe tracken
         self.total_size += item.get_data_size()
@@ -173,12 +175,37 @@ class ShopifyBackupService:
             self.items_saved_this_session += 1
         return item
 
-    def _download_image(self, url: str) -> Optional[bytes]:
-        """Lädt ein Bild herunter und gibt die Bytes zurück"""
+    def _get_backup_image_dir(self) -> str:
+        """Gibt das Verzeichnis für Backup-Bilder zurück und erstellt es bei Bedarf"""
+        backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups', str(self.backup.id), 'images')
+        os.makedirs(backup_dir, exist_ok=True)
+        return backup_dir
+
+    def _download_image(self, url: str, item_type: str, shopify_id: int) -> Optional[str]:
+        """Lädt ein Bild herunter, speichert es als Datei und gibt den relativen Pfad zurück"""
         try:
             response = requests.get(url, timeout=30)
             if response.status_code == 200:
-                return response.content
+                # Dateiname aus URL extrahieren oder generieren
+                url_filename = url.split('/')[-1].split('?')[0]
+                # Sicherer Dateiname: item_type_shopify_id_originalname
+                safe_filename = f"{item_type}_{shopify_id}_{url_filename}"
+                # Nur sichere Zeichen erlauben
+                safe_filename = re.sub(r'[^\w\-_\.]', '_', safe_filename)
+
+                # Relativer Pfad für DB
+                relative_path = os.path.join('backups', str(self.backup.id), 'images', safe_filename)
+                # Vollständiger Pfad zum Speichern
+                full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+
+                # Verzeichnis erstellen
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+                # Bild speichern
+                with open(full_path, 'wb') as f:
+                    f.write(response.content)
+
+                return relative_path
         except:
             pass
         return None
@@ -377,11 +404,11 @@ class ShopifyBackupService:
 
             # Erstes Bild als Hauptbild für das Produkt
             image_url = ''
-            main_image_data = None
+            main_image_path = ''
             if product.get('images'):
                 image_url = product['images'][0].get('src', '')
                 if image_url:
-                    main_image_data = self._download_image(image_url)
+                    main_image_path = self._download_image(image_url, 'product', product['id'])
 
             # Produkt sichern (mit Hauptbild)
             self._save_backup_item(
@@ -390,7 +417,7 @@ class ShopifyBackupService:
                 title=product.get('title', 'Unbekannt'),
                 raw_data=product,
                 image_url=image_url,
-                image_data=main_image_data
+                image_path=main_image_path or ''
             )
 
             # Alle Produktbilder sichern (inkl. Download)
@@ -404,7 +431,7 @@ class ShopifyBackupService:
                         # Prüfen ob Bild bereits existiert
                         if self._item_exists('product_image', img['id']):
                             continue
-                        image_data = self._download_image(img_url)
+                        image_path = self._download_image(img_url, 'product_image', img['id'])
                         self._save_backup_item(
                             item_type='product_image',
                             shopify_id=img['id'],
@@ -412,9 +439,9 @@ class ShopifyBackupService:
                             raw_data=img,
                             image_url=img_url,
                             parent_id=product['id'],
-                            image_data=image_data
+                            image_path=image_path or ''
                         )
-                        if image_data:
+                        if image_path:
                             self.backup.images_count += 1
 
         # Final save mit korrektem Zähler
@@ -484,10 +511,10 @@ class ShopifyBackupService:
                 image_url = article.get('image', {}).get('src', '') if article.get('image') else ''
 
                 # Bild automatisch herunterladen wenn vorhanden
-                image_data = None
+                image_path = ''
                 if image_url:
-                    image_data = self._download_image(image_url)
-                    if image_data:
+                    image_path = self._download_image(image_url, 'blog_post', article['id'])
+                    if image_path:
                         self.backup.images_count += 1
 
                 self._save_backup_item(
@@ -497,7 +524,7 @@ class ShopifyBackupService:
                     raw_data=article,
                     image_url=image_url,
                     parent_id=blog['id'],
-                    image_data=image_data
+                    image_path=image_path or ''
                 )
 
         # Final save
@@ -537,10 +564,10 @@ class ShopifyBackupService:
             )
 
             # Bild automatisch herunterladen wenn vorhanden
-            image_data = None
+            image_path = ''
             if image_url:
-                image_data = self._download_image(image_url)
-                if image_data:
+                image_path = self._download_image(image_url, 'collection', collection['id'])
+                if image_path:
                     self.backup.images_count += 1
 
             self._save_backup_item(
@@ -549,7 +576,7 @@ class ShopifyBackupService:
                 title=collection.get('title', 'Unbekannt'),
                 raw_data=collection,
                 image_url=image_url,
-                image_data=image_data
+                image_path=image_path or ''
             )
 
         # Smart Collections (nur wenn Limit noch nicht erreicht)
@@ -580,10 +607,10 @@ class ShopifyBackupService:
                 )
 
                 # Bild automatisch herunterladen wenn vorhanden
-                image_data = None
+                image_path = ''
                 if image_url:
-                    image_data = self._download_image(image_url)
-                    if image_data:
+                    image_path = self._download_image(image_url, 'collection', collection['id'])
+                    if image_path:
                         self.backup.images_count += 1
 
                 self._save_backup_item(
@@ -592,7 +619,7 @@ class ShopifyBackupService:
                     title=collection.get('title', 'Unbekannt'),
                     raw_data=collection,
                     image_url=image_url,
-                    image_data=image_data
+                    image_path=image_path or ''
                 )
 
         # Final save
@@ -980,16 +1007,20 @@ class ShopifyBackupService:
                     data = [item.raw_data for item in items]
                     zip_file.writestr(filename, json.dumps(data, indent=2, ensure_ascii=False))
 
-            # Bilder in separatem Ordner
+            # Bilder in separatem Ordner (aus Dateisystem lesen)
             image_types = ['product_image', 'blog_image']
             for img_type in image_types:
-                images = self.backup.items.filter(item_type=img_type, image_data__isnull=False)
+                images = self.backup.items.filter(item_type=img_type).exclude(image_path='')
                 for img in images:
-                    if img.image_data:
+                    if img.image_path:
                         folder = 'images/products' if img_type == 'product_image' else 'images/posts'
-                        # Dateinamen aus URL extrahieren
-                        filename = img.image_url.split('/')[-1].split('?')[0] if img.image_url else f'{img.shopify_id}.jpg'
-                        zip_file.writestr(f'{folder}/{filename}', img.image_data)
+                        # Dateinamen aus Pfad extrahieren
+                        filename = os.path.basename(img.image_path)
+                        # Bilddaten aus Datei lesen
+                        full_path = os.path.join(settings.MEDIA_ROOT, img.image_path)
+                        if os.path.exists(full_path):
+                            with open(full_path, 'rb') as f:
+                                zip_file.writestr(f'{folder}/{filename}', f.read())
 
         zip_buffer.seek(0)
         return zip_buffer

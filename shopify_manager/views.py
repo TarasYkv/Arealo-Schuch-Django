@@ -9,9 +9,12 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from django.conf import settings
 from typing import Dict, List, Tuple, Optional
 import requests
 import base64
+import os
+import shutil
 
 from .models import ShopifyStore, ShopifyProduct, ShopifySyncLog, ProductSEOOptimization, SEOAnalysisResult, ShopifyBlog, ShopifyBlogPost, BlogPostSEOOptimization, ShopifyCollection, CollectionSEOOptimization
 from .ai_seo_service import generate_seo_with_ai, BlogPostSEOService
@@ -4915,6 +4918,15 @@ def backup_delete(request, store_id, backup_id):
 
     if request.method == 'POST':
         backup_name = backup.name
+
+        # Backup-Bilder-Verzeichnis löschen
+        backup_images_dir = os.path.join(settings.MEDIA_ROOT, 'backups', str(backup.id))
+        if os.path.exists(backup_images_dir):
+            try:
+                shutil.rmtree(backup_images_dir)
+            except Exception as e:
+                pass  # Ignoriere Fehler beim Löschen
+
         # Erst alle verknüpften Items löschen (wegen MySQL FK-Constraint)
         backup.items.all().delete()
         backup.restore_logs.all().delete()
@@ -5178,7 +5190,7 @@ def api_backup_item_detail(request, store_id, backup_id, item_id):
         'shopify_id': item.shopify_id,
         'created_at': item.created_at.strftime('%d.%m.%Y %H:%M'),
         'image_url': item.image_url,
-        'has_image_data': bool(item.image_data),
+        'has_image': bool(item.image_path),
     }
 
     # Raw-Daten (ohne Bilder-Binärdaten)

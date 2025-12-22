@@ -151,9 +151,11 @@ class ShopifyRestoreService:
 
     def _get_image_attachment(self, backup_item: BackupItem) -> Optional[str]:
         """Konvertiert gespeicherte Bilddaten zu base64 für Shopify API"""
-        if backup_item.image_data:
+        if backup_item.image_path:
             try:
-                return base64.b64encode(backup_item.image_data).decode('utf-8')
+                image_data = backup_item.get_image_data()
+                if image_data:
+                    return base64.b64encode(image_data).decode('utf-8')
             except:
                 pass
         return None
@@ -224,7 +226,7 @@ class ShopifyRestoreService:
                 item_type='product_image',
                 parent_id=backup_item.shopify_id
             )
-            local_images = {img.shopify_id: img for img in product_images if img.image_data}
+            local_images = {img.shopify_id: img for img in product_images if img.image_path}
 
             for img in data['images']:
                 img_id = img.get('id')
@@ -234,10 +236,16 @@ class ShopifyRestoreService:
                 if img_id and img_id in local_images:
                     local_img = local_images[img_id]
                     try:
-                        attachment = base64.b64encode(local_img.image_data).decode('utf-8')
-                        img_data['attachment'] = attachment
-                        img_data['alt'] = img.get('alt', '')
-                        images_added += 1
+                        image_bytes = local_img.get_image_data()
+                        if image_bytes:
+                            attachment = base64.b64encode(image_bytes).decode('utf-8')
+                            img_data['attachment'] = attachment
+                            img_data['alt'] = img.get('alt', '')
+                            images_added += 1
+                        else:
+                            # Fallback auf URL
+                            img_data['src'] = img.get('src')
+                            img_data['alt'] = img.get('alt', '')
                     except:
                         # Fallback auf URL
                         img_data['src'] = img.get('src')

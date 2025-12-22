@@ -1814,7 +1814,7 @@ class BackupItem(models.Model):
     shopify_id = models.BigIntegerField(help_text="Shopify ID des Elements")
     title = models.CharField(max_length=500, help_text="Titel/Name für Anzeige")
     raw_data = models.JSONField(help_text="Komplette API-Antwort als JSON")
-    image_data = models.BinaryField(null=True, blank=True, help_text="Optional: Bild als Blob")
+    image_path = models.CharField(max_length=500, blank=True, help_text="Pfad zur Bilddatei relativ zu MEDIA_ROOT")
     image_url = models.URLField(max_length=2048, blank=True, help_text="Original Bild-URL")
     parent_id = models.BigIntegerField(null=True, blank=True, help_text="Parent ID z.B. Blog-ID für Posts")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1834,9 +1834,34 @@ class BackupItem(models.Model):
     def get_data_size(self):
         """Größe der gespeicherten Daten in Bytes"""
         size = len(json.dumps(self.raw_data).encode('utf-8'))
-        if self.image_data:
-            size += len(self.image_data)
+        if self.image_path:
+            # Bildgröße aus Datei lesen
+            try:
+                from django.conf import settings
+                import os
+                full_path = os.path.join(settings.MEDIA_ROOT, self.image_path)
+                if os.path.exists(full_path):
+                    size += os.path.getsize(full_path)
+            except:
+                pass
         return size
+
+    def get_image_full_path(self):
+        """Gibt den vollständigen Pfad zur Bilddatei zurück"""
+        if not self.image_path:
+            return None
+        from django.conf import settings
+        import os
+        return os.path.join(settings.MEDIA_ROOT, self.image_path)
+
+    def get_image_data(self):
+        """Liest die Bilddaten aus der Datei (für Kompatibilität)"""
+        import os
+        full_path = self.get_image_full_path()
+        if full_path and os.path.exists(full_path):
+            with open(full_path, 'rb') as f:
+                return f.read()
+        return None
 
 
 class RestoreLog(models.Model):
