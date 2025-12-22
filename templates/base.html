@@ -458,30 +458,61 @@
             }
         }
 
-        /* Mobile Navigation Overflow Fix */
+        /* Mobile Navigation - Dropdown Fix */
         @media (max-width: 991px) {
             .navbar-collapse {
                 max-width: 100%;
-                overflow-x: hidden;
+                overflow: visible !important;
             }
 
             .navbar-nav {
                 flex-wrap: wrap !important;
                 max-width: 100%;
-                overflow: hidden;
+                overflow: visible !important;
             }
 
             .navbar-nav .nav-item,
             .navbar-nav .dropdown {
                 max-width: 100%;
                 flex-shrink: 1;
+                position: relative;
             }
 
             .navbar-nav .nav-link {
                 white-space: nowrap;
-                overflow: hidden;
                 text-overflow: ellipsis;
                 max-width: 100%;
+            }
+
+            /* Dropdowns im Mobile-Menü fließend anzeigen */
+            .navbar-nav .dropdown-menu {
+                position: static !important;
+                float: none !important;
+                width: 100% !important;
+                margin-top: 0 !important;
+                background-color: rgba(0, 0, 0, 0.05) !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding-left: 1rem !important;
+            }
+
+            .navbar-nav .dropdown-menu.show {
+                display: block !important;
+            }
+
+            .navbar-nav .dropdown-item {
+                padding: 0.5rem 1rem !important;
+                white-space: normal !important;
+            }
+
+            /* User Dropdown auch auf Mobile korrekt */
+            .navbar-nav .nav-item.dropdown.ms-2 {
+                width: 100%;
+            }
+
+            .navbar-nav .nav-item.dropdown.ms-2 .dropdown-menu {
+                position: static !important;
+                width: 100% !important;
             }
         }
 
@@ -2124,9 +2155,9 @@
                     <!-- ================= END OF PUBLIC/AUTHENTICATED MENU ================= -->
 
                     <!-- User Menu Dropdown -->
-                    <div class="nav-item dropdown ms-2" style="position: relative; overflow: visible; isolation: isolate;">
+                    <div class="nav-item dropdown ms-2">
                         {% if user.is_authenticated %}
-                            <a class="nav-link dropdown-toggle position-relative" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="padding-right: 2rem; overflow: visible; pointer-events: auto;">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 {% if user.profile_picture %}
                                     <img src="{{ user.profile_picture.url }}" alt="Profilbild" class="rounded-circle me-1" style="width: 24px; height: 24px; object-fit: cover;">
                                 {% else %}
