@@ -417,9 +417,23 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
                     <p class="mt-2 text-muted">Lade Details...</p>
                 </div>
                 <div id="modalContent" class="d-none">
-                    <!-- Bild -->
+                    <!-- Bilder Carousel -->
                     <div id="modalImageContainer" class="text-center mb-4 d-none">
-                        <img id="modalImage" src="" alt="" class="img-fluid rounded" style="max-height: 200px;">
+                        <div id="modalImageCarousel" class="carousel slide" data-bs-touch="true">
+                            <div class="carousel-inner" id="modalCarouselInner">
+                                <!-- Bilder werden per JS eingefügt -->
+                            </div>
+                            <button class="carousel-control-prev d-none" id="modalCarouselPrev" type="button" data-bs-target="#modalImageCarousel" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
+                            </button>
+                            <button class="carousel-control-next d-none" id="modalCarouselNext" type="button" data-bs-target="#modalImageCarousel" data-bs-slide="next">
+                                <span class="carousel-control-next-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        <!-- Thumbnail-Leiste -->
+                        <div id="modalThumbnails" class="d-flex flex-wrap justify-content-center gap-2 mt-2 d-none"></div>
+                        <!-- Bild-Zähler -->
+                        <div id="modalImageCounter" class="text-muted small mt-2 d-none"></div>
                     </div>
 
                     <!-- Meta-Infos -->
@@ -531,12 +545,79 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('modalShopifyId').textContent = data.shopify_id;
             document.getElementById('modalCreatedAt').textContent = data.created_at;
 
-            // Bild
+            // Bilder Carousel
             var imageContainer = document.getElementById('modalImageContainer');
-            if (data.image_url) {
-                document.getElementById('modalImage').src = data.image_url;
-                document.getElementById('modalImage').alt = data.title;
+            var carouselInner = document.getElementById('modalCarouselInner');
+            var thumbnails = document.getElementById('modalThumbnails');
+            var imageCounter = document.getElementById('modalImageCounter');
+            var prevBtn = document.getElementById('modalCarouselPrev');
+            var nextBtn = document.getElementById('modalCarouselNext');
+
+            // Carousel leeren
+            carouselInner.innerHTML = '';
+            thumbnails.innerHTML = '';
+
+            if (data.images && data.images.length > 0) {
+                // Bilder ins Carousel einfügen
+                data.images.forEach(function(img, index) {
+                    var item = document.createElement('div');
+                    item.className = 'carousel-item' + (index === 0 ? ' active' : '');
+                    item.innerHTML = '<img src="' + img.url + '" class="d-block w-100" alt="' + (img.alt || '') + '" style="max-height: 300px; object-fit: contain; background: #f8f9fa;">';
+                    carouselInner.appendChild(item);
+
+                    // Thumbnail
+                    if (data.images.length > 1) {
+                        var thumb = document.createElement('img');
+                        thumb.src = img.url;
+                        thumb.className = 'img-thumbnail' + (index === 0 ? ' border-primary' : '');
+                        thumb.style.cssText = 'width: 50px; height: 50px; object-fit: cover; cursor: pointer; opacity: ' + (index === 0 ? '1' : '0.6');
+                        thumb.dataset.bsSlideTo = index;
+                        thumb.addEventListener('click', function() {
+                            var carousel = bootstrap.Carousel.getOrCreateInstance(document.getElementById('modalImageCarousel'));
+                            carousel.to(parseInt(this.dataset.bsSlideTo));
+                        });
+                        thumbnails.appendChild(thumb);
+                    }
+                });
+
                 imageContainer.classList.remove('d-none');
+
+                // Navigation nur bei mehreren Bildern
+                if (data.images.length > 1) {
+                    prevBtn.classList.remove('d-none');
+                    nextBtn.classList.remove('d-none');
+                    thumbnails.classList.remove('d-none');
+                    imageCounter.classList.remove('d-none');
+                    imageCounter.textContent = 'Bild 1 von ' + data.images.length;
+
+                    // Carousel Event für Counter und Thumbnails
+                    var carouselEl = document.getElementById('modalImageCarousel');
+                    carouselEl.addEventListener('slide.bs.carousel', function handler(e) {
+                        imageCounter.textContent = 'Bild ' + (e.to + 1) + ' von ' + data.images.length;
+                        thumbnails.querySelectorAll('img').forEach(function(t, i) {
+                            if (i === e.to) {
+                                t.classList.add('border-primary');
+                                t.style.opacity = '1';
+                            } else {
+                                t.classList.remove('border-primary');
+                                t.style.opacity = '0.6';
+                            }
+                        });
+                    });
+                } else {
+                    prevBtn.classList.add('d-none');
+                    nextBtn.classList.add('d-none');
+                    thumbnails.classList.add('d-none');
+                    imageCounter.classList.add('d-none');
+                }
+            } else if (data.image_url) {
+                // Fallback: Einzelnes Bild
+                carouselInner.innerHTML = '<div class="carousel-item active"><img src="' + data.image_url + '" class="d-block w-100" alt="' + data.title + '" style="max-height: 300px; object-fit: contain;"></div>';
+                imageContainer.classList.remove('d-none');
+                prevBtn.classList.add('d-none');
+                nextBtn.classList.add('d-none');
+                thumbnails.classList.add('d-none');
+                imageCounter.classList.add('d-none');
             } else {
                 imageContainer.classList.add('d-none');
             }

@@ -5274,4 +5274,30 @@ def api_backup_item_detail(request, store_id, backup_id, item_id):
         if item.item_type in ('product', 'blog_post', 'page', 'collection'):
             data['full_html'] = raw.get('body_html', '')
 
+    # Alle Bilder für Produkte laden (aus BackupItems mit parent_id)
+    if item.item_type == 'product':
+        product_images = backup.items.filter(
+            item_type='product_image',
+            parent_id=item.shopify_id
+        ).order_by('id')
+
+        images = []
+        # Hauptbild zuerst
+        if item.image_url:
+            images.append({
+                'url': item.image_url,
+                'alt': item.title,
+            })
+
+        # Weitere Bilder
+        for img in product_images:
+            if img.image_url and img.image_url != item.image_url:
+                images.append({
+                    'url': img.image_url,
+                    'alt': img.title,
+                })
+
+        data['images'] = images
+        data['images_count'] = len(images)
+
     return JsonResponse(data)
