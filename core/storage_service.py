@@ -343,3 +343,149 @@ class StorageService:
         except Exception as e:
             # Fehler bei Benachrichtigung sollen Upload nicht blockieren
             logger.error(f"Failed to send storage notification: {str(e)}")
+
+    @classmethod
+    def recalculate_storage(cls, user):
+        """
+        Berechnet den tatsächlichen Speicherverbrauch aus allen Apps neu
+        und aktualisiert UserStorage.
+
+        Returns:
+            dict mit Details zur Berechnung
+        """
+        import os
+        from django.core.files.storage import default_storage
+
+        storage = cls.get_or_create_user_storage(user)
+        old_used = storage.used_storage
+        total_bytes = 0
+        by_app = {}
+
+        # Videos
+        try:
+            from videos.models import Video
+            videos = Video.objects.filter(user=user, video_file__isnull=False)
+            video_total = 0
+            for video in videos:
+                if video.video_file and hasattr(video.video_file, 'size'):
+                    try:
+                        video_total += video.video_file.size
+                    except Exception:
+                        pass
+            by_app['videos'] = video_total
+            total_bytes += video_total
+        except Exception as e:
+            logger.error(f"Error calculating videos storage: {e}")
+
+        # Fileshare
+        try:
+            from fileshare.models import TransferFile
+            fileshare_files = TransferFile.objects.filter(
+                transfer__sender=user,
+                file__isnull=False
+            )
+            fileshare_total = 0
+            for fs_file in fileshare_files:
+                if fs_file.file and hasattr(fs_file.file, 'size'):
+                    try:
+                        fileshare_total += fs_file.file.size
+                    except Exception:
+                        pass
+            by_app['fileshare'] = fileshare_total
+            total_bytes += fileshare_total
+        except Exception as e:
+            logger.error(f"Error calculating fileshare storage: {e}")
+
+        # Organization - Notes with images
+        try:
+            from organization.models import Note, BoardElement
+            notes = Note.objects.filter(author=user, image__isnull=False)
+            org_total = 0
+            for note in notes:
+                if note.image and hasattr(note.image, 'size'):
+                    try:
+                        org_total += note.image.size
+                    except Exception:
+                        pass
+
+            # Board images
+            board_elements = BoardElement.objects.filter(
+                created_by=user,
+                element_type='image'
+            )
+            import re
+            for element in board_elements:
+                try:
+                    element_data = element.data if isinstance(element.data, dict) else {}
+                    image_url = element_data.get('url') or element_data.get('src')
+                    if not image_url:
+                        continue
+                    match = re.search(r'board_images/[^/\s]+', image_url)
+                    if match and default_storage.exists(match.group(0)):
+                        org_total += default_storage.size(match.group(0))
+                except Exception:
+                    pass
+
+            by_app['organization'] = org_total
+            total_bytes += org_total
+        except Exception as e:
+            logger.error(f"Error calculating organization storage: {e}")
+
+        # Chat attachments
+        try:
+            from chat.models import ChatMessageAttachment
+            attachments = ChatMessageAttachment.objects.filter(
+                message__sender=user,
+                file__isnull=False
+            )
+            chat_total = 0
+            for attachment in attachments:
+                if attachment.file and hasattr(attachment.file, 'size'):
+                    try:
+                        chat_total += attachment.file.size
+                    except Exception:
+                        pass
+            by_app['chat'] = chat_total
+            total_bytes += chat_total
+        except Exception as e:
+            logger.error(f"Error calculating chat storage: {e}")
+
+        # Streamrec
+        try:
+            from django.conf import settings
+            user_prefix = f"{user.id}_"
+            streamrec_total = 0
+            recording_types = ['audio_recordings', 'video_recordings']
+
+            for dir_name in recording_types:
+                media_dir = os.path.join(settings.MEDIA_ROOT, dir_name)
+                if os.path.exists(media_dir):
+                    for filename in os.listdir(media_dir):
+                        if filename.startswith(user_prefix):
+                            filepath = os.path.join(media_dir, filename)
+                            if os.path.isfile(filepath):
+                                streamrec_total += os.path.getsize(filepath)
+
+            by_app['streamrec'] = streamrec_total
+            total_bytes += streamrec_total
+        except Exception as e:
+            logger.error(f"Error calculating streamrec storage: {e}")
+
+        # UserStorage aktualisieren
+        storage.used_storage = total_bytes
+        storage.save(update_fields=['used_storage', 'updated_at'])
+
+        logger.info(
+            f"Recalculated storage for {user.username}: "
+            f"{old_used / (1024*1024):.2f}MB → {total_bytes / (1024*1024):.2f}MB"
+        )
+
+        return {
+            'old_bytes': old_used,
+            'new_bytes': total_bytes,
+            'old_mb': old_used / (1024 * 1024),
+            'new_mb': total_bytes / (1024 * 1024),
+            'difference_bytes': total_bytes - old_used,
+            'difference_mb': (total_bytes - old_used) / (1024 * 1024),
+            'by_app': by_app,
+        }

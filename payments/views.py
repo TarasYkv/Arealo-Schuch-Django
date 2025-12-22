@@ -55,7 +55,8 @@ def subscription_plans(request):
         elif sub.plan.plan_type == 'storage':
             storage_subscription = sub
 
-    # Get user storage statistics
+    # Speicherverbrauch neu berechnen und statistiken holen
+    StorageService.recalculate_storage(request.user)
     storage_stats = StorageService.get_usage_stats(request.user)
 
     context = {
