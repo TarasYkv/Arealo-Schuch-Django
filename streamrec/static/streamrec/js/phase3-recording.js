@@ -253,8 +253,9 @@ class RecordingEngine {
             // Setup event handlers
             this.setupMediaRecorderEvents();
 
-            // Start recording
-            this.mediaRecorder.start(1000); // Collect data every second
+            // Start recording - WICHTIG: Kürzeres Intervall für flüssigere Aufnahme
+            // 100ms statt 1000ms verhindert Ruckeln und Frame-Verlust
+            this.mediaRecorder.start(100); // Collect data every 100ms for smooth playback
             
             this.isRecording = true;
             this.isPaused = false;

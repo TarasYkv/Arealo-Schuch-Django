@@ -384,16 +384,22 @@ class StreamRecorder {
             const videoDeviceId = document.getElementById('cameraSelect').value;
             
             // Build constraints with selected devices
+            // WICHTIG: frameRate mit min/ideal/max für flüssige Aufnahme
             const constraints = {
-                video: { 
+                video: {
                     deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined,
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
-                    frameRate: { ideal: 30 }
+                    width: { ideal: 1920, min: 640 },
+                    height: { ideal: 1080, min: 480 },
+                    frameRate: { min: 24, ideal: 30, max: 60 }
                 },
                 audio: audioDeviceId ? {
-                    deviceId: { exact: audioDeviceId }
-                } : true
+                    deviceId: { exact: audioDeviceId },
+                    echoCancellation: true,
+                    noiseSuppression: true
+                } : {
+                    echoCancellation: true,
+                    noiseSuppression: true
+                }
             };
             
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -430,11 +436,12 @@ class StreamRecorder {
             this.updateStatus('screen', 'Bildschirm-Sharing wird gestartet...', 'info');
             
             // Get screen share stream (screen share doesn't support audio device selection directly)
+            // WICHTIG: frameRate mit min für flüssige Aufnahme
             const screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
-                    frameRate: { ideal: 30 },
+                    width: { ideal: 1920, min: 640 },
+                    height: { ideal: 1080, min: 480 },
+                    frameRate: { min: 24, ideal: 30, max: 60 },
                     cursor: 'always'
                 },
                 audio: false // We'll add audio separately

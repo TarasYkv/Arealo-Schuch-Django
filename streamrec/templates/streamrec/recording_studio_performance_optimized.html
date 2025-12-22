@@ -4586,10 +4586,11 @@ class StreamRecorderOptimized {
             const audioConstraints = this.getAudioConstraints();
             
             // Build video constraints with selected camera
+            // WICHTIG: min frameRate für flüssige Aufnahme
             const videoConstraints = {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-                frameRate: { ideal: this.targetFPS }
+                width: { ideal: 1280, min: 640 },
+                height: { ideal: 720, min: 480 },
+                frameRate: { min: 24, ideal: this.targetFPS, max: 60 }
             };
             
             // Add specific device if selected
@@ -4667,11 +4668,12 @@ class StreamRecorderOptimized {
             // Get audio processing settings from UI
             const audioConstraints = this.getAudioConstraints();
             
+            // WICHTIG: min frameRate für flüssige Aufnahme
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    frameRate: { ideal: this.targetFPS },
+                    width: { ideal: 1920, min: 1280 },
+                    height: { ideal: 1080, min: 720 },
+                    frameRate: { min: 24, ideal: this.targetFPS, max: 60 },
                     cursor: 'always'
                 },
                 audio: audioConstraints
