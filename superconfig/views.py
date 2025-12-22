@@ -2047,3 +2047,205 @@ def subscription_plans_overview_api(request):
             'success': False,
             'message': f'Fehler beim Laden der Subscription-Pläne: {str(e)}'
         })
+
+
+# Google OAuth / Social Login Views
+
+@login_required
+@user_passes_test(is_superuser)
+def google_oauth_status(request):
+    """Get current Google OAuth configuration status"""
+    try:
+        from allauth.socialaccount.models import SocialApp
+        from django.contrib.sites.models import Site
+
+        # Get current site
+        current_site = Site.objects.get_current()
+
+        # Check if Google OAuth is configured
+        google_app = None
+        try:
+            google_app = SocialApp.objects.get(provider='google')
+        except SocialApp.DoesNotExist:
+            pass
+
+        if google_app:
+            # Check if app is associated with current site
+            is_site_configured = google_app.sites.filter(id=current_site.id).exists()
+
+            return JsonResponse({
+                'success': True,
+                'configured': True,
+                'google_oauth': {
+                    'name': google_app.name,
+                    'client_id': google_app.client_id[:20] + '...' if len(google_app.client_id) > 20 else google_app.client_id,
+                    'client_id_full': google_app.client_id,
+                    'secret_configured': bool(google_app.secret),
+                    'secret_masked': '●●●●●●●●●●●●' if google_app.secret else 'Nicht gesetzt',
+                    'site_configured': is_site_configured,
+                    'current_site': current_site.domain,
+                    'callback_url': f'https://{current_site.domain}/accounts/google/login/callback/',
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'configured': False,
+                'google_oauth': None,
+                'current_site': current_site.domain,
+                'callback_url': f'https://{current_site.domain}/accounts/google/login/callback/',
+            })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden des Google OAuth Status: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def save_google_oauth(request):
+    """Save Google OAuth configuration"""
+    if request.method == 'POST':
+        try:
+            from allauth.socialaccount.models import SocialApp
+            from django.contrib.sites.models import Site
+
+            client_id = request.POST.get('client_id', '').strip()
+            client_secret = request.POST.get('client_secret', '').strip()
+
+            if not client_id:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Client ID ist erforderlich'
+                })
+
+            # Get current site
+            current_site = Site.objects.get_current()
+
+            # Get or create Google OAuth app
+            google_app, created = SocialApp.objects.get_or_create(
+                provider='google',
+                defaults={
+                    'name': 'Google',
+                    'client_id': client_id,
+                    'secret': client_secret,
+                }
+            )
+
+            if not created:
+                # Update existing app
+                google_app.client_id = client_id
+                if client_secret:  # Only update secret if provided
+                    google_app.secret = client_secret
+                google_app.save()
+
+            # Associate with current site
+            if not google_app.sites.filter(id=current_site.id).exists():
+                google_app.sites.add(current_site)
+
+            action = 'erstellt' if created else 'aktualisiert'
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Google OAuth Konfiguration erfolgreich {action}',
+                'created': created
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Fehler beim Speichern: {str(e)}'
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def delete_google_oauth(request):
+    """Delete Google OAuth configuration"""
+    if request.method == 'POST':
+        try:
+            from allauth.socialaccount.models import SocialApp
+
+            google_app = SocialApp.objects.filter(provider='google').first()
+
+            if google_app:
+                google_app.delete()
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Google OAuth Konfiguration erfolgreich gelöscht'
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Keine Google OAuth Konfiguration gefunden'
+                })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Fehler beim Löschen: {str(e)}'
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def test_google_oauth(request):
+    """Test Google OAuth configuration"""
+    try:
+        from allauth.socialaccount.models import SocialApp
+        from django.contrib.sites.models import Site
+        import requests
+
+        google_app = SocialApp.objects.filter(provider='google').first()
+
+        if not google_app:
+            return JsonResponse({
+                'success': False,
+                'message': 'Keine Google OAuth Konfiguration gefunden'
+            })
+
+        # Get current site
+        current_site = Site.objects.get_current()
+
+        # Check if associated with current site
+        if not google_app.sites.filter(id=current_site.id).exists():
+            return JsonResponse({
+                'success': False,
+                'message': f'Google OAuth ist nicht mit der aktuellen Site ({current_site.domain}) verknüpft'
+            })
+
+        # Try to get token info from Google (basic connectivity test)
+        # We can't fully test OAuth without user interaction, but we can check if
+        # the client_id format looks valid
+        client_id = google_app.client_id
+
+        if not client_id.endswith('.apps.googleusercontent.com'):
+            return JsonResponse({
+                'success': False,
+                'message': 'Client ID Format ist ungültig. Google Client IDs enden mit .apps.googleusercontent.com'
+            })
+
+        if not google_app.secret:
+            return JsonResponse({
+                'success': False,
+                'message': 'Client Secret ist nicht konfiguriert'
+            })
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Google OAuth Konfiguration sieht korrekt aus. Testen Sie den Login über die Anmeldeseite.',
+            'login_url': '/accounts/login/',
+            'callback_url': f'https://{current_site.domain}/accounts/google/login/callback/'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Testen: {str(e)}'
+        })

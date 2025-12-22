@@ -43,4 +43,10 @@ urlpatterns = [
     path('api/storage/by-app/', views.storage_by_app_api, name='storage_by_app_api'),
     path('api/storage/logs/', views.recent_storage_logs_api, name='recent_storage_logs_api'),
     path('api/subscription/plans-overview/', views.subscription_plans_overview_api, name='subscription_plans_overview_api'),
+
+    # Google OAuth URLs
+    path('api/google-oauth/status/', views.google_oauth_status, name='google_oauth_status'),
+    path('api/google-oauth/save/', views.save_google_oauth, name='save_google_oauth'),
+    path('api/google-oauth/delete/', views.delete_google_oauth, name='delete_google_oauth'),
+    path('api/google-oauth/test/', views.test_google_oauth, name='test_google_oauth'),
 ]
