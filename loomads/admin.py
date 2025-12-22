@@ -5,7 +5,7 @@ from django.utils.safestring import mark_safe
 from .models import (
     Campaign, AdZone, Advertisement, AdPlacement,
     AdImpression, AdClick, AdSchedule, AdTargeting,
-    AppCampaign, AppAdvertisement
+    AppCampaign, AppAdvertisement, SimpleAd
 )
 
 
@@ -226,13 +226,177 @@ class AdClickAdmin(admin.ModelAdmin):
     search_fields = ['ip_address', 'user__username', 'advertisement__name']
     readonly_fields = ['advertisement', 'zone', 'user', 'ip_address', 'user_agent', 'referrer_url', 'timestamp']
     date_hierarchy = 'timestamp'
-    
+
     def has_add_permission(self, request):
         return False
 
 
-# Import Auto-Campaign Admin Classes
+# =============================================================================
+# SIMPLE ADS - Vereinfachtes Admin-Interface
+# =============================================================================
+
+@admin.register(SimpleAd)
+class SimpleAdAdmin(admin.ModelAdmin):
+    """
+    Einfaches Admin-Interface für globale Anzeigen.
+    Alle Felder übersichtlich auf einer Seite.
+    """
+
+    list_display = [
+        'preview_thumbnail',
+        'title',
+        'status_badge',
+        'style_badge',
+        'stats_display',
+        'weight',
+        'created_at'
+    ]
+    list_filter = ['is_active', 'template_style', 'color_scheme']
+    search_fields = ['title', 'description']
+    readonly_fields = ['id', 'impressions', 'clicks', 'ctr_display', 'created_at', 'updated_at', 'preview_large']
+    list_editable = ['weight']
+    ordering = ['-created_at']
+
+    fieldsets = (
+        ('📝 Inhalt', {
+            'fields': ('title', 'description', 'image', 'button_text', 'target_url', 'open_in_new_tab'),
+            'description': 'Was soll in der Anzeige stehen?'
+        }),
+        ('🎨 Design', {
+            'fields': ('template_style', 'color_scheme', 'custom_color'),
+            'description': 'Wie soll die Anzeige aussehen?'
+        }),
+        ('⚙️ Einstellungen', {
+            'fields': ('is_active', 'weight'),
+            'description': 'Wann und wie oft soll die Anzeige erscheinen?'
+        }),
+        ('📊 Statistiken', {
+            'fields': ('impressions', 'clicks', 'ctr_display'),
+            'classes': ('collapse',),
+            'description': 'Performance der Anzeige'
+        }),
+        ('🔧 Erweitert', {
+            'fields': ('exclude_zones', 'id', 'created_at', 'updated_at'),
+            'classes': ('collapse',),
+            'description': 'Erweiterte Optionen'
+        }),
+        ('👁️ Vorschau', {
+            'fields': ('preview_large',),
+            'description': 'So sieht die Anzeige aus'
+        }),
+    )
+
+    def preview_thumbnail(self, obj):
+        """Kleines Vorschaubild in der Liste"""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 60px; max-height: 40px; '
+                'object-fit: cover; border-radius: 4px;" />',
+                obj.image.url
+            )
+        color = obj.get_primary_color()
+        return format_html(
+            '<div style="width: 60px; height: 40px; background: {}; '
+            'border-radius: 4px; display: flex; align-items: center; '
+            'justify-content: center; color: white; font-size: 10px;">Ad</div>',
+            color
+        )
+    preview_thumbnail.short_description = ''
+
+    def status_badge(self, obj):
+        """Status-Badge mit Farbe"""
+        if obj.is_active:
+            return format_html(
+                '<span style="background: #10b981; color: white; padding: 3px 8px; '
+                'border-radius: 12px; font-size: 11px;">✓ Aktiv</span>'
+            )
+        return format_html(
+            '<span style="background: #6b7280; color: white; padding: 3px 8px; '
+            'border-radius: 12px; font-size: 11px;">○ Inaktiv</span>'
+        )
+    status_badge.short_description = 'Status'
+
+    def style_badge(self, obj):
+        """Design-Stil Badge"""
+        color = obj.get_primary_color()
+        return format_html(
+            '<span style="background: {}; color: white; padding: 3px 8px; '
+            'border-radius: 12px; font-size: 11px;">{}</span>',
+            color, obj.get_template_style_display()
+        )
+    style_badge.short_description = 'Design'
+
+    def stats_display(self, obj):
+        """Impressions, Clicks und CTR in einer Spalte"""
+        ctr = obj.ctr
+        ctr_color = '#10b981' if ctr >= 2 else ('#f59e0b' if ctr >= 1 else '#6b7280')
+        return format_html(
+            '<span style="font-size: 12px;">'
+            '👁 {} &nbsp; 🖱 {} &nbsp; '
+            '<span style="color: {};">📈 {}%</span></span>',
+            obj.impressions, obj.clicks, ctr_color, ctr
+        )
+    stats_display.short_description = 'Performance'
+
+    def ctr_display(self, obj):
+        """CTR als lesbarer Wert"""
+        return f"{obj.ctr}%"
+    ctr_display.short_description = 'Click-Through-Rate'
+
+    def preview_large(self, obj):
+        """Große Vorschau der Anzeige"""
+        color = obj.get_primary_color()
+        style = obj.template_style
+
+        # Basis-Styles je nach Template
+        base_styles = {
+            'minimal': f'padding: 16px; border-left: 4px solid {color};',
+            'card': f'padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;',
+            'gradient': f'padding: 20px; border-radius: 12px; background: linear-gradient(135deg, {color}, {color}dd); color: white;',
+            'banner': f'padding: 16px 24px; border-radius: 8px; background: {color}15; border: 1px solid {color}40;',
+            'highlight': f'padding: 20px; border-radius: 12px; background: {color}10; border: 2px solid {color};',
+            'dark': 'padding: 20px; border-radius: 12px; background: #1f2937; color: white;',
+        }
+
+        container_style = base_styles.get(style, base_styles['card'])
+        text_color = 'white' if style in ['gradient', 'dark'] else '#1f2937'
+        desc_color = 'rgba(255,255,255,0.9)' if style in ['gradient', 'dark'] else '#6b7280'
+        btn_bg = 'white' if style in ['gradient', 'dark'] else color
+        btn_color = color if style in ['gradient', 'dark'] else 'white'
+
+        image_html = ''
+        if obj.image:
+            image_html = f'<img src="{obj.image.url}" style="max-width: 120px; max-height: 80px; object-fit: cover; border-radius: 8px; margin-right: 16px;" />'
+
+        return format_html(
+            '''
+            <div style="max-width: 500px; {}">
+                <div style="display: flex; align-items: center;">
+                    {}
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 8px 0; color: {}; font-size: 16px;">{}</h4>
+                        <p style="margin: 0 0 12px 0; color: {}; font-size: 14px;">{}</p>
+                        <span style="display: inline-block; background: {}; color: {}; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">{}</span>
+                    </div>
+                </div>
+            </div>
+            ''',
+            container_style,
+            image_html,
+            text_color, obj.title,
+            desc_color, obj.description or 'Keine Beschreibung',
+            btn_bg, btn_color, obj.button_text
+        )
+    preview_large.short_description = 'Vorschau'
+
+    class Media:
+        css = {
+            'all': ['admin/css/forms.css']
+        }
+
+
+# Import Auto-Campaign Admin Classes (legacy)
 from .admin_auto import *
 
-# Import App-Campaign Admin Classes
+# Import App-Campaign Admin Classes (legacy)
 from .admin_app import *

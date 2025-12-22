@@ -1460,3 +1460,188 @@ class AdWizardDraft(models.Model):
         count = expired.count()
         expired.delete()
         return count
+
+
+# =============================================================================
+# SIMPLE ADS - Vereinfachtes, globales Anzeigen-System
+# =============================================================================
+
+class SimpleAd(models.Model):
+    """
+    Einfache, globale Anzeige die sich automatisch an alle Zonen anpasst.
+    Keine Kampagnen, kein komplexes Targeting - nur eine Anzeige erstellen und fertig.
+    """
+
+    TEMPLATE_STYLES = [
+        ('minimal', 'Minimal - Nur Text'),
+        ('card', 'Card - Mit Rahmen und Schatten'),
+        ('gradient', 'Gradient - Farbverlauf-Hintergrund'),
+        ('banner', 'Banner - Breites Format'),
+        ('highlight', 'Highlight - Auffällig mit Akzentfarbe'),
+        ('dark', 'Dark - Dunkler Hintergrund'),
+    ]
+
+    COLOR_SCHEMES = [
+        ('blue', 'Blau'),
+        ('green', 'Grün'),
+        ('purple', 'Lila'),
+        ('orange', 'Orange'),
+        ('red', 'Rot'),
+        ('teal', 'Türkis'),
+        ('pink', 'Pink'),
+        ('gray', 'Grau'),
+        ('custom', 'Eigene Farbe'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Content
+    title = models.CharField(
+        max_length=100,
+        verbose_name='Titel',
+        help_text='Kurzer, aussagekräftiger Titel (max. 100 Zeichen)'
+    )
+    description = models.TextField(
+        max_length=300,
+        blank=True,
+        verbose_name='Beschreibung',
+        help_text='Optionale Beschreibung (max. 300 Zeichen)'
+    )
+    image = models.ImageField(
+        upload_to='loomads/simple/',
+        blank=True,
+        null=True,
+        verbose_name='Bild',
+        help_text='Optionales Bild (wird automatisch skaliert)'
+    )
+    button_text = models.CharField(
+        max_length=30,
+        default='Mehr erfahren',
+        verbose_name='Button-Text',
+        help_text='Text auf dem Aktions-Button (max. 30 Zeichen)'
+    )
+    target_url = models.URLField(
+        verbose_name='Ziel-URL',
+        help_text='Wohin soll die Anzeige verlinken?'
+    )
+    open_in_new_tab = models.BooleanField(
+        default=True,
+        verbose_name='In neuem Tab öffnen'
+    )
+
+    # Styling
+    template_style = models.CharField(
+        max_length=20,
+        choices=TEMPLATE_STYLES,
+        default='card',
+        verbose_name='Design-Vorlage',
+        help_text='Wähle einen Stil für die Anzeige'
+    )
+    color_scheme = models.CharField(
+        max_length=20,
+        choices=COLOR_SCHEMES,
+        default='blue',
+        verbose_name='Farbschema'
+    )
+    custom_color = models.CharField(
+        max_length=7,
+        blank=True,
+        verbose_name='Eigene Farbe',
+        help_text='Hex-Farbe z.B. #FF5733 (nur bei "Eigene Farbe")'
+    )
+
+    # Display Settings
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name='Aktiv',
+        help_text='Nur aktive Anzeigen werden angezeigt'
+    )
+    weight = models.IntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        verbose_name='Gewichtung',
+        help_text='1-10: Höhere Werte = häufigere Anzeige'
+    )
+
+    # Optional: Zone-Einschränkungen (leer = alle Zonen)
+    exclude_zones = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Ausgeschlossene Zonen',
+        help_text='Liste von Zone-Codes die ausgeschlossen werden sollen'
+    )
+
+    # Tracking
+    impressions = models.PositiveIntegerField(default=0, verbose_name='Impressionen')
+    clicks = models.PositiveIntegerField(default=0, verbose_name='Klicks')
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Erstellt am')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Aktualisiert am')
+
+    class Meta:
+        verbose_name = 'Einfache Anzeige'
+        verbose_name_plural = 'Einfache Anzeigen'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        status = "✓" if self.is_active else "✗"
+        return f"{status} {self.title}"
+
+    @property
+    def ctr(self):
+        """Click-Through-Rate berechnen"""
+        if self.impressions == 0:
+            return 0
+        return round((self.clicks / self.impressions) * 100, 2)
+
+    def get_primary_color(self):
+        """Gibt die Primärfarbe basierend auf dem Farbschema zurück"""
+        if self.color_scheme == 'custom' and self.custom_color:
+            return self.custom_color
+
+        color_map = {
+            'blue': '#3b82f6',
+            'green': '#10b981',
+            'purple': '#8b5cf6',
+            'orange': '#f97316',
+            'red': '#ef4444',
+            'teal': '#14b8a6',
+            'pink': '#ec4899',
+            'gray': '#6b7280',
+        }
+        return color_map.get(self.color_scheme, '#3b82f6')
+
+    def is_allowed_in_zone(self, zone_code):
+        """Prüft ob die Anzeige in einer Zone angezeigt werden darf"""
+        if not self.exclude_zones:
+            return True
+        return zone_code not in self.exclude_zones
+
+    def record_impression(self):
+        """Impression zählen"""
+        SimpleAd.objects.filter(pk=self.pk).update(impressions=models.F('impressions') + 1)
+
+    def record_click(self):
+        """Click zählen"""
+        SimpleAd.objects.filter(pk=self.pk).update(clicks=models.F('clicks') + 1)
+
+    @classmethod
+    def get_random_ad(cls, zone_code=None):
+        """
+        Holt eine zufällige aktive Anzeige (gewichtet).
+        Optional: Zone-Code für Ausschluss-Prüfung
+        """
+        import random
+
+        ads = list(cls.objects.filter(is_active=True))
+
+        if zone_code:
+            ads = [ad for ad in ads if ad.is_allowed_in_zone(zone_code)]
+
+        if not ads:
+            return None
+
+        # Gewichtete Auswahl
+        weights = [ad.weight for ad in ads]
+        return random.choices(ads, weights=weights, k=1)[0]

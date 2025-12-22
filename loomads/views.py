@@ -13,7 +13,7 @@ import random
 from .models import (
     Campaign, AdZone, Advertisement, AdPlacement,
     AdImpression, AdClick, AdSchedule, AdTargeting, ZoneIntegration, LoomAdsSettings,
-    AppCampaign, AppAdvertisement
+    AppCampaign, AppAdvertisement, SimpleAd
 )
 
 # Import frontend management views
@@ -1041,3 +1041,146 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+
+# =============================================================================
+# SIMPLE ADS API - Vereinfachte Anzeigen-API
+# =============================================================================
+
+def get_simple_ad(request, zone_code=None):
+    """
+    Holt eine zufällige SimpleAd für eine Zone.
+    Gibt HTML zurück, das direkt eingefügt werden kann.
+    """
+    ad = SimpleAd.get_random_ad(zone_code=zone_code)
+
+    if not ad:
+        return JsonResponse({
+            'success': False,
+            'html': None,
+            'fallback': True
+        })
+
+    # Impression zählen
+    ad.record_impression()
+
+    # HTML für die Anzeige generieren
+    html = render_simple_ad_html(ad)
+
+    return JsonResponse({
+        'success': True,
+        'html': html,
+        'ad_id': str(ad.id),
+        'target_url': ad.target_url,
+        'open_in_new_tab': ad.open_in_new_tab
+    })
+
+
+@require_POST
+def track_simple_ad_click(request, ad_id):
+    """Klick auf SimpleAd tracken"""
+    try:
+        ad = SimpleAd.objects.get(id=ad_id)
+        ad.record_click()
+        return JsonResponse({'status': 'success'})
+    except SimpleAd.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Ad not found'}, status=404)
+
+
+def render_simple_ad_html(ad):
+    """
+    Generiert responsives HTML für eine SimpleAd basierend auf dem gewählten Template-Stil.
+    """
+    color = ad.get_primary_color()
+    style = ad.template_style
+    target = '_blank' if ad.open_in_new_tab else '_self'
+
+    # Image HTML
+    image_html = ''
+    if ad.image:
+        image_html = f'''
+            <img src="{ad.image.url}" alt="{ad.title}"
+                 style="width: 100%; max-width: 120px; height: auto; max-height: 80px;
+                        object-fit: cover; border-radius: 8px; flex-shrink: 0;" />
+        '''
+
+    # Style-spezifische Eigenschaften
+    styles = {
+        'minimal': {
+            'container': f'padding: 16px; border-left: 4px solid {color}; background: #f9fafb;',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'card': {
+            'container': f'padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; background: white;',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'gradient': {
+            'container': f'padding: 20px; border-radius: 12px; background: linear-gradient(135deg, {color}, {color}cc);',
+            'text_color': 'white',
+            'desc_color': 'rgba(255,255,255,0.9)',
+            'btn_bg': 'white',
+            'btn_color': color
+        },
+        'banner': {
+            'container': f'padding: 16px 24px; border-radius: 8px; background: {color}12; border: 1px solid {color}30;',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'highlight': {
+            'container': f'padding: 20px; border-radius: 12px; background: {color}08; border: 2px solid {color};',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'dark': {
+            'container': 'padding: 20px; border-radius: 12px; background: #1f2937;',
+            'text_color': 'white',
+            'desc_color': 'rgba(255,255,255,0.8)',
+            'btn_bg': color,
+            'btn_color': 'white'
+        }
+    }
+
+    s = styles.get(style, styles['card'])
+
+    # Description HTML
+    desc_html = ''
+    if ad.description:
+        desc_html = f'''
+            <p style="margin: 0 0 12px 0; color: {s['desc_color']}; font-size: 14px; line-height: 1.5;">
+                {ad.description}
+            </p>
+        '''
+
+    html = f'''
+    <div class="simple-ad" data-ad-id="{ad.id}"
+         style="{s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <a href="{ad.target_url}" target="{target}" rel="noopener"
+           onclick="trackSimpleAdClick('{ad.id}')"
+           style="display: flex; align-items: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
+            {image_html}
+            <div style="flex: 1; min-width: 200px;">
+                <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
+                    {ad.title}
+                </h4>
+                {desc_html}
+                <span style="display: inline-block; background: {s['btn_bg']}; color: {s['btn_color']};
+                             padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;
+                             transition: opacity 0.2s;">
+                    {ad.button_text}
+                </span>
+            </div>
+        </a>
+    </div>
+    '''
+
+    return html

@@ -76,8 +76,13 @@ urlpatterns = [
     # AJAX Endpoints
     path('ajax/update-zone-status/', views_frontend.ajax_update_zone_status, name='ajax_update_zone_status'),
     
-    # API Endpoints
+    # API Endpoints (Legacy)
     path('api/zone/<str:zone_code>/ad/', views.get_ad_for_zone, name='get_ad_for_zone'),
     path('api/zone/<str:zone_code>/ads/<int:count>/', views.get_multiple_ads_for_zone, name='get_multiple_ads_for_zone'),
     path('api/track/click/<uuid:ad_id>/', views.track_click, name='track_click'),
+
+    # Simple Ads API (Neu - Vereinfacht)
+    path('api/simple-ad/', views.get_simple_ad, name='get_simple_ad'),
+    path('api/simple-ad/<str:zone_code>/', views.get_simple_ad, name='get_simple_ad_zone'),
+    path('api/simple-ad/track/<uuid:ad_id>/', views.track_simple_ad_click, name='track_simple_ad_click'),
 ]

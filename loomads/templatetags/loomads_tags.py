@@ -8,7 +8,7 @@ import random
 import json
 import uuid
 
-from ..models import AdZone, Advertisement, AdImpression, AdClick, AdTargeting, LoomAdsSettings
+from ..models import AdZone, Advertisement, AdImpression, AdClick, AdTargeting, LoomAdsSettings, SimpleAd
 
 register = template.Library()
 
@@ -85,8 +85,11 @@ def show_multi_ad_zone(context, zone_code, ad_count=3, css_class='', style='', f
 @register.inclusion_tag('loomads/tags/ad_zone.html', takes_context=True)
 def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
     """
-    Template Tag zum Anzeigen einer Werbezone
-    
+    Template Tag zum Anzeigen einer Werbezone.
+
+    VEREINFACHT: Prüft zuerst auf SimpleAds und zeigt diese direkt an.
+    Nur wenn keine SimpleAds vorhanden sind, wird das Legacy-System verwendet.
+
     Verwendung:
     {% load loomads_tags %}
     {% show_ad_zone 'header_main' css_class='my-ad-banner' %}
@@ -98,20 +101,42 @@ def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
             'error': 'Request context not available',
             'fallback': fallback
         }
-    
+
+    # === PRIORITÄT 1: SimpleAds (neu, vereinfacht) ===
+    # Prüfe zuerst, ob aktive SimpleAds vorhanden sind
+    simple_ad = SimpleAd.get_random_ad(zone_code=zone_code)
+    if simple_ad:
+        # Impression zählen
+        simple_ad.record_impression()
+        # HTML direkt rendern - kein AJAX nötig
+        simple_ad_html = _render_simple_ad(simple_ad, css_class)
+        return {
+            'zone_code': zone_code,
+            'simple_ad_html': simple_ad_html,
+            'css_class': css_class,
+        }
+
+    # === PRIORITÄT 2: Legacy AdZone System ===
     try:
         zone = AdZone.objects.get(code=zone_code, is_active=True)
     except AdZone.DoesNotExist:
+        # Keine Zone und keine SimpleAds → Fallback oder leer
+        if fallback:
+            return {
+                'zone_code': zone_code,
+                'error': 'Zone "{}" not found'.format(zone_code),
+                'fallback': fallback
+            }
         return {
             'zone_code': zone_code,
-            'error': 'Zone "{}" not found'.format(zone_code),
-            'fallback': fallback
+            'error': 'Zone "{}" not found and no SimpleAds available'.format(zone_code),
+            'fallback': ''
         }
-    
+
     # App-spezifische Zone-Kontrolle prüfen
     current_app = request.resolver_match.app_name if request.resolver_match else None
     settings = LoomAdsSettings.get_settings()
-    
+
     # Überprüfe ob Zone für diese App aktiviert ist
     zone_type = zone.zone_type
     if not settings.is_zone_enabled(zone_type, current_app):
@@ -120,7 +145,7 @@ def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
             'error': 'Zone "{}" disabled for app "{}"'.format(zone_type, current_app or 'default'),
             'fallback': fallback
         }
-    
+
     # App-Beschränkung prüfen
     if zone.app_restriction:
         if current_app != zone.app_restriction:
@@ -129,10 +154,10 @@ def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
                 'error': 'Zone restricted to app "{}"'.format(zone.app_restriction),
                 'fallback': fallback
             }
-    
+
     # Generiere eine eindeutige ID für diese Zone-Instanz
     random_id = str(uuid.uuid4())[:8]
-    
+
     context_data = {
         'zone': zone,
         'zone_code': zone_code,
@@ -146,7 +171,7 @@ def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
         'zone_type': zone.zone_type,
         'random_id': random_id,
     }
-    
+
     return context_data
 
 
@@ -619,3 +644,154 @@ def get_item(dictionary, key):
     if isinstance(dictionary, dict):
         return dictionary.get(key)
     return None
+
+
+# =============================================================================
+# SIMPLE ADS - Vereinfachte Ad-Tags
+# =============================================================================
+
+@register.simple_tag(takes_context=True)
+def show_simple_ad(context, zone_code='', css_class='', fallback=''):
+    """
+    Einfacher Tag für SimpleAds - zeigt eine zufällige aktive Anzeige an.
+
+    Verwendung:
+    {% load loomads_tags %}
+    {% show_simple_ad 'header' css_class='mb-4' %}
+
+    oder ohne Zone (zeigt irgendeine aktive Anzeige):
+    {% show_simple_ad %}
+    """
+    request = context.get('request')
+
+    # Hole eine zufällige aktive SimpleAd
+    ad = SimpleAd.get_random_ad(zone_code=zone_code if zone_code else None)
+
+    if not ad:
+        if fallback:
+            return mark_safe(f'<div class="simple-ad-fallback {css_class}">{fallback}</div>')
+        return ''
+
+    # Impression zählen
+    ad.record_impression()
+
+    # HTML generieren
+    html = _render_simple_ad(ad, css_class)
+
+    return mark_safe(html)
+
+
+def _render_simple_ad(ad, extra_css_class=''):
+    """
+    Generiert responsives HTML für eine SimpleAd.
+    Alle Styles sind inline für maximale Kompatibilität.
+    """
+    color = ad.get_primary_color()
+    style = ad.template_style
+    target = '_blank' if ad.open_in_new_tab else '_self'
+
+    # Image HTML
+    image_html = ''
+    if ad.image:
+        image_html = f'''
+            <img src="{ad.image.url}" alt="{ad.title}"
+                 style="width: 100%; max-width: 120px; height: auto; max-height: 80px;
+                        object-fit: cover; border-radius: 8px; flex-shrink: 0;" />
+        '''
+
+    # Style-spezifische CSS
+    styles = {
+        'minimal': {
+            'container': f'padding: 16px; border-left: 4px solid {color}; background: #f9fafb; border-radius: 0 8px 8px 0;',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'card': {
+            'container': f'padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; background: white;',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'gradient': {
+            'container': f'padding: 20px; border-radius: 12px; background: linear-gradient(135deg, {color}, {color}cc);',
+            'text_color': 'white',
+            'desc_color': 'rgba(255,255,255,0.9)',
+            'btn_bg': 'white',
+            'btn_color': color
+        },
+        'banner': {
+            'container': f'padding: 16px 24px; border-radius: 8px; background: {color}12; border: 1px solid {color}30;',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'highlight': {
+            'container': f'padding: 20px; border-radius: 12px; background: {color}08; border: 2px solid {color};',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'dark': {
+            'container': 'padding: 20px; border-radius: 12px; background: #1f2937;',
+            'text_color': 'white',
+            'desc_color': 'rgba(255,255,255,0.8)',
+            'btn_bg': color,
+            'btn_color': 'white'
+        }
+    }
+
+    s = styles.get(style, styles['card'])
+
+    # Description HTML
+    desc_html = ''
+    if ad.description:
+        desc_html = f'''
+            <p style="margin: 0 0 12px 0; color: {s['desc_color']}; font-size: 14px; line-height: 1.5;">
+                {ad.description}
+            </p>
+        '''
+
+    # Click-Tracking Script
+    track_script = f'''
+    <script>
+    (function() {{
+        var adLink = document.querySelector('[data-simple-ad-id="{ad.id}"]');
+        if (adLink && !adLink.dataset.tracked) {{
+            adLink.dataset.tracked = 'true';
+            adLink.addEventListener('click', function() {{
+                fetch('/loomads/api/simple-ad/track/{ad.id}/', {{
+                    method: 'POST',
+                    headers: {{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''}}
+                }}).catch(function() {{}});
+            }});
+        }}
+    }})();
+    </script>
+    '''
+
+    html = f'''
+    <div class="simple-ad-container {extra_css_class}" style="{s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
+           style="display: flex; align-items: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
+            {image_html}
+            <div style="flex: 1; min-width: 200px;">
+                <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
+                    {ad.title}
+                </h4>
+                {desc_html}
+                <span style="display: inline-block; background: {s['btn_bg']}; color: {s['btn_color']};
+                             padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                    {ad.button_text}
+                </span>
+            </div>
+        </a>
+    </div>
+    {track_script}
+    '''
+
+    return html
