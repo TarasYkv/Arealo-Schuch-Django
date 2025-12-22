@@ -3180,6 +3180,22 @@ def storage_overview_view(request):
     # Storage quota info
     video_storage, _ = VideoUserStorage.objects.get_or_create(user=user)
 
+    # Berechne tatsächlichen Gesamtspeicher aus allen gesammelten Dateien
+    total_used_bytes = sum(f['size_bytes'] for f in all_files)
+    total_used_mb = total_used_bytes / (1024 * 1024)
+
+    # Überschreibe storage_stats mit den tatsächlichen Werten aus allen Apps
+    storage_stats['used_bytes'] = total_used_bytes
+    storage_stats['used_mb'] = total_used_mb
+    storage_stats['used_gb'] = total_used_mb / 1024
+    storage_stats['available_bytes'] = max(0, storage_stats['max_bytes'] - total_used_bytes)
+
+    # Neuberechnung des Prozentsatzes
+    if storage_stats['max_bytes'] > 0:
+        storage_stats['percentage'] = round((total_used_bytes / storage_stats['max_bytes']) * 100, 2)
+    else:
+        storage_stats['percentage'] = 0
+
     context = {
         'storage_stats': storage_stats,
         'all_files': all_files,
