@@ -2691,6 +2691,447 @@ def storage_overview_view(request):
     except Exception:
         pass
 
+    # 6. Image Editor
+    try:
+        from image_editor.models import ImageProject, ProcessingStep, AIGeneratedImage
+
+        # Original & Processed Images
+        projects = ImageProject.objects.filter(user=user).order_by('-created_at')
+        for project in projects:
+            for field_name, field_type in [('original_image', 'Original'), ('processed_image', 'Bearbeitet')]:
+                img = getattr(project, field_name, None)
+                if img:
+                    try:
+                        file_size = img.size if hasattr(img, 'size') else 0
+                        if file_size > 0:
+                            all_files.append({
+                                'app': 'image_editor',
+                                'app_name': 'Bild Editor',
+                                'app_icon': 'fas fa-paint-brush',
+                                'name': f"{project.title or 'Projekt'} ({field_type})",
+                                'filename': os.path.basename(img.name),
+                                'size_bytes': file_size,
+                                'size_mb': file_size / (1024 * 1024),
+                                'created_at': project.created_at,
+                                'type': f'Bild ({field_type})',
+                                'url': None,
+                                'id': project.id,
+                            })
+                    except Exception:
+                        pass
+
+        # AI Generated Images
+        ai_images = AIGeneratedImage.objects.filter(user=user, generated_image__isnull=False).order_by('-created_at')
+        for ai_img in ai_images:
+            if ai_img.generated_image:
+                try:
+                    file_size = ai_img.generated_image.size if hasattr(ai_img.generated_image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'image_editor',
+                            'app_name': 'Bild Editor',
+                            'app_icon': 'fas fa-robot',
+                            'name': f"KI-Bild: {ai_img.prompt[:30]}..." if ai_img.prompt else 'KI-generiertes Bild',
+                            'filename': os.path.basename(ai_img.generated_image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': ai_img.created_at,
+                            'type': 'KI-Bild',
+                            'url': None,
+                            'id': ai_img.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 7. PDF Sucher
+    try:
+        from pdf_sucher.models import PDFDocument, PDFSummary
+
+        pdfs = PDFDocument.objects.filter(user=user, file__isnull=False).order_by('-uploaded_at')
+        for pdf in pdfs:
+            if pdf.file:
+                try:
+                    file_size = pdf.file.size if hasattr(pdf.file, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'pdf_sucher',
+                            'app_name': 'PDF-Suche',
+                            'app_icon': 'fas fa-file-pdf',
+                            'name': pdf.title or os.path.basename(pdf.file.name),
+                            'filename': os.path.basename(pdf.file.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': pdf.uploaded_at,
+                            'type': 'PDF-Dokument',
+                            'url': None,
+                            'id': pdf.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 8. Bug Report Attachments
+    try:
+        from bug_report.models import BugReportAttachment
+
+        attachments = BugReportAttachment.objects.filter(
+            bug_report__reported_by=user,
+            file__isnull=False
+        ).select_related('bug_report').order_by('-bug_report__created_at')
+
+        for att in attachments:
+            if att.file:
+                try:
+                    file_size = att.file.size if hasattr(att.file, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'bug_report',
+                            'app_name': 'Bug Report',
+                            'app_icon': 'fas fa-bug',
+                            'name': f"Bug #{att.bug_report.id} Anhang",
+                            'filename': os.path.basename(att.file.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': att.bug_report.created_at,
+                            'type': 'Bug-Anhang',
+                            'url': None,
+                            'id': att.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 9. ImageForge
+    try:
+        from imageforge.models import GeneratedImage, ProductShot, ProductMockup
+
+        # Generated Images
+        gen_images = GeneratedImage.objects.filter(user=user, image__isnull=False).order_by('-created_at')
+        for img in gen_images:
+            if img.image:
+                try:
+                    file_size = img.image.size if hasattr(img.image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'imageforge',
+                            'app_name': 'ImageForge',
+                            'app_icon': 'fas fa-magic',
+                            'name': f"ImageForge: {img.prompt[:30]}..." if hasattr(img, 'prompt') and img.prompt else 'Generiertes Bild',
+                            'filename': os.path.basename(img.image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': img.created_at,
+                            'type': 'ImageForge Bild',
+                            'url': None,
+                            'id': img.id,
+                        })
+                except Exception:
+                    pass
+
+        # Product Shots
+        product_shots = ProductShot.objects.filter(user=user).order_by('-created_at')
+        for shot in product_shots:
+            for field_name in ['product_image', 'generated_image']:
+                img = getattr(shot, field_name, None)
+                if img:
+                    try:
+                        file_size = img.size if hasattr(img, 'size') else 0
+                        if file_size > 0:
+                            all_files.append({
+                                'app': 'imageforge',
+                                'app_name': 'ImageForge',
+                                'app_icon': 'fas fa-camera',
+                                'name': f"Produktfoto: {shot.title or 'Unbenannt'}",
+                                'filename': os.path.basename(img.name),
+                                'size_bytes': file_size,
+                                'size_mb': file_size / (1024 * 1024),
+                                'created_at': shot.created_at,
+                                'type': 'Produktfoto',
+                                'url': None,
+                                'id': shot.id,
+                            })
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    # 10. Ideopin
+    try:
+        from ideopin.models import PinDesign
+
+        designs = PinDesign.objects.filter(user=user).order_by('-created_at')
+        for design in designs:
+            for field_name in ['product_image', 'generated_image', 'final_image']:
+                img = getattr(design, field_name, None)
+                if img:
+                    try:
+                        file_size = img.size if hasattr(img, 'size') else 0
+                        if file_size > 0:
+                            all_files.append({
+                                'app': 'ideopin',
+                                'app_name': 'Ideopin',
+                                'app_icon': 'fab fa-pinterest',
+                                'name': f"Pin: {design.title or 'Unbenannt'}",
+                                'filename': os.path.basename(img.name),
+                                'size_bytes': file_size,
+                                'size_mb': file_size / (1024 * 1024),
+                                'created_at': design.created_at,
+                                'type': 'Pin-Design',
+                                'url': None,
+                                'id': design.id,
+                            })
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    # 11. BlogPrep
+    try:
+        from blogprep.models import BlogPost, BlogDiagram
+
+        posts = BlogPost.objects.filter(user=user, title_image__isnull=False).order_by('-created_at')
+        for post in posts:
+            if post.title_image:
+                try:
+                    file_size = post.title_image.size if hasattr(post.title_image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'blogprep',
+                            'app_name': 'BlogPrep',
+                            'app_icon': 'fas fa-blog',
+                            'name': f"Blog: {post.title[:30]}..." if post.title else 'Blog-Titelbild',
+                            'filename': os.path.basename(post.title_image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': post.created_at,
+                            'type': 'Blog-Titelbild',
+                            'url': None,
+                            'id': post.id,
+                        })
+                except Exception:
+                    pass
+
+        diagrams = BlogDiagram.objects.filter(blog_post__user=user, diagram_image__isnull=False).select_related('blog_post')
+        for diagram in diagrams:
+            if diagram.diagram_image:
+                try:
+                    file_size = diagram.diagram_image.size if hasattr(diagram.diagram_image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'blogprep',
+                            'app_name': 'BlogPrep',
+                            'app_icon': 'fas fa-project-diagram',
+                            'name': f"Diagramm: {diagram.title or 'Unbenannt'}",
+                            'filename': os.path.basename(diagram.diagram_image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': diagram.created_at,
+                            'type': 'Blog-Diagramm',
+                            'url': None,
+                            'id': diagram.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 12. VSkript
+    try:
+        from vskript.models import GeneratedImage as VSkriptImage
+
+        images = VSkriptImage.objects.filter(video_script__user=user, image_file__isnull=False).select_related('video_script')
+        for img in images:
+            if img.image_file:
+                try:
+                    file_size = img.image_file.size if hasattr(img.image_file, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'vskript',
+                            'app_name': 'VSkript',
+                            'app_icon': 'fas fa-film',
+                            'name': f"VSkript Bild: {img.prompt[:30]}..." if img.prompt else 'Skript-Bild',
+                            'filename': os.path.basename(img.image_file.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': img.created_at,
+                            'type': 'Skript-Bild',
+                            'url': None,
+                            'id': img.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 13. LoomConnect
+    try:
+        from loomconnect.models import SocialProfile, Post, Story
+
+        # Profile Avatars
+        profiles = SocialProfile.objects.filter(user=user, avatar__isnull=False)
+        for profile in profiles:
+            if profile.avatar:
+                try:
+                    file_size = profile.avatar.size if hasattr(profile.avatar, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'loomconnect',
+                            'app_name': 'LoomConnect',
+                            'app_icon': 'fas fa-share-alt',
+                            'name': f"Profil: {profile.platform}",
+                            'filename': os.path.basename(profile.avatar.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': profile.created_at,
+                            'type': 'Profil-Avatar',
+                            'url': None,
+                            'id': profile.id,
+                        })
+                except Exception:
+                    pass
+
+        # Posts with images
+        posts = Post.objects.filter(user=user, image__isnull=False).order_by('-created_at')
+        for post in posts:
+            if post.image:
+                try:
+                    file_size = post.image.size if hasattr(post.image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'loomconnect',
+                            'app_name': 'LoomConnect',
+                            'app_icon': 'fas fa-image',
+                            'name': f"Post: {post.content[:30]}..." if post.content else 'Social Post',
+                            'filename': os.path.basename(post.image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': post.created_at,
+                            'type': 'Social Post',
+                            'url': None,
+                            'id': post.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 14. MakeAds
+    try:
+        from makeads.models import ReferenceImage, GeneratedAd
+
+        ref_images = ReferenceImage.objects.filter(user=user, image__isnull=False).order_by('-created_at')
+        for ref in ref_images:
+            if ref.image:
+                try:
+                    file_size = ref.image.size if hasattr(ref.image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'makeads',
+                            'app_name': 'MakeAds',
+                            'app_icon': 'fas fa-ad',
+                            'name': f"Referenz: {ref.name or 'Unbenannt'}",
+                            'filename': os.path.basename(ref.image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': ref.created_at,
+                            'type': 'Referenzbild',
+                            'url': None,
+                            'id': ref.id,
+                        })
+                except Exception:
+                    pass
+
+        ads = GeneratedAd.objects.filter(user=user, image_file__isnull=False).order_by('-created_at')
+        for ad in ads:
+            if ad.image_file:
+                try:
+                    file_size = ad.image_file.size if hasattr(ad.image_file, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'makeads',
+                            'app_name': 'MakeAds',
+                            'app_icon': 'fas fa-bullhorn',
+                            'name': f"Ad: {ad.title or 'Generierte Werbung'}",
+                            'filename': os.path.basename(ad.image_file.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': ad.created_at,
+                            'type': 'Generierte Werbung',
+                            'url': None,
+                            'id': ad.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 15. Naturmacher
+    try:
+        from naturmacher.models import Thema, TrainingSession
+
+        # Themen mit Bildern (nur wenn user zugeordnet)
+        sessions = TrainingSession.objects.filter(user=user).select_related('thema')
+        themen_ids = set(s.thema_id for s in sessions if s.thema_id)
+
+        from naturmacher.models import Thema
+        themen = Thema.objects.filter(id__in=themen_ids, bild__isnull=False)
+        for thema in themen:
+            if thema.bild:
+                try:
+                    file_size = thema.bild.size if hasattr(thema.bild, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'naturmacher',
+                            'app_name': 'Naturmacher',
+                            'app_icon': 'fas fa-graduation-cap',
+                            'name': f"Schulung: {thema.titel}",
+                            'filename': os.path.basename(thema.bild.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': thema.erstellt_am if hasattr(thema, 'erstellt_am') else timezone.now(),
+                            'type': 'Schulungs-Bild',
+                            'url': None,
+                            'id': thema.id,
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # 16. Shopify Uploads (Fotogravur)
+    try:
+        from shopify_uploads.models import FotogravurUpload
+
+        uploads = FotogravurUpload.objects.filter(user=user).order_by('-uploaded_at')
+        for upload in uploads:
+            for field_name in ['image', 'original_image']:
+                img = getattr(upload, field_name, None)
+                if img:
+                    try:
+                        file_size = img.size if hasattr(img, 'size') else 0
+                        if file_size > 0:
+                            all_files.append({
+                                'app': 'shopify_uploads',
+                                'app_name': 'Shopify Uploads',
+                                'app_icon': 'fab fa-shopify',
+                                'name': f"Fotogravur: {upload.customer_name or 'Upload'}",
+                                'filename': os.path.basename(img.name),
+                                'size_bytes': file_size,
+                                'size_mb': file_size / (1024 * 1024),
+                                'created_at': upload.uploaded_at,
+                                'type': 'Fotogravur',
+                                'url': None,
+                                'id': upload.id,
+                            })
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
     # Sortiere nach Größe (größte zuerst)
     all_files.sort(key=lambda x: x['size_bytes'], reverse=True)
 
