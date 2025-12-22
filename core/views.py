@@ -557,140 +557,515 @@ def _get_available_apps():
 
 
 def _get_all_apps():
-    """Gibt ALLE App-Informationen zurück (ohne Filterung)"""
-    # Alle App-Informationen (identisch mit all_apps in _get_available_apps)
+    """Gibt ALLE App-Informationen zurück (ohne Filterung) - mit vollständigen Beschreibungen"""
     return {
-        'todos': {
-            'name': 'ToDo Manager',
-            'icon': 'bi-list-check',
-            'color': 'primary',
-            'short_desc': 'Einfache und effektive Aufgabenverwaltung für Teams',
-        },
-        'organisation': {
-            'name': 'WorkSpace',
-            'icon': 'bi-building',
-            'color': 'success',
-            'short_desc': 'Organisiere Termine, Notizen und Ideen zentral',
-        },
-        'videos': {
-            'name': 'VideoFlow',
-            'icon': 'bi-play-circle',
-            'color': 'danger',
-            'short_desc': 'Einfaches Video-Hosting und -Management',
-        },
-        'streamrec': {
-            'name': 'StreamRec Studio',
-            'icon': 'bi-mic',
-            'color': 'info',
-            'short_desc': 'Bildschirm- und Audio-Aufnahme für Content Creation',
-        },
-        'shopify': {
-            'name': 'ShopifyFlow',
-            'icon': 'bi-shop',
-            'color': 'secondary',
-            'short_desc': 'Shopify-Shop Management und Optimierung',
-        },
-        'chat': {
-            'name': 'ChatFlow Enterprise',
-            'icon': 'bi-chat-dots',
-            'color': 'warning',
-            'short_desc': 'Next-Generation Business Communication Platform',
-        },
-        'bilder': {
-            'name': 'ImageFlow Pro',
-            'icon': 'bi-image',
-            'color': 'primary',
-            'short_desc': 'Professionelle Bildbearbeitung mit KI-Power',
-        },
-        'mail': {
-            'name': 'MailFlow Enterprise',
-            'icon': 'bi-envelope',
-            'color': 'info',
-            'short_desc': 'Intelligentes E-Mail-Management für Profis',
-        },
-        'schulungen': {
-            'name': 'LernHub Pro',
-            'icon': 'bi-graduation-cap',
-            'color': 'success',
-            'short_desc': 'Moderne Lern- und Schulungsplattform',
-        },
-        'somi_plan': {
-            'name': 'SoMi-Plan',
-            'icon': 'bi-calendar-check',
-            'color': 'warning',
-            'short_desc': 'Social Media Planung und Strategie',
-        },
-        'loomads': {
-            'name': 'AdFlow Pro',
-            'icon': 'bi-megaphone',
-            'color': 'danger',
-            'short_desc': 'Intelligente Werbeplattform der nächsten Generation',
-        },
-        'promptpro': {
-            'name': 'PromptPro',
-            'icon': 'bi-collection',
-            'color': 'info',
-            'short_desc': 'KI-Prompt-Bibliothek und Kategorisierung',
-        },
-        'myprompter': {
-            'name': 'MyPrompter',
-            'icon': 'bi-mic-fill',
-            'color': 'warning',
-            'short_desc': 'Professioneller Teleprompter mit intelligenter Spracherkennung',
-        },
-        'loomconnect': {
-            'name': 'LoomConnect',
-            'icon': 'bi-people',
-            'color': 'primary',
-            'short_desc': 'Professionelles Kontakt- und CRM-System',
-        },
+        # === SEO Apps ===
         'loomline': {
             'name': 'LoomLine',
             'icon': 'fas fa-list-alt',
             'color': 'primary',
-            'short_desc': 'SEO-fokussiertes Aufgaben- und Projektmanagement',
+            'short_desc': 'SEO Content-Planung - plane, tracke und optimiere deine SEO-Inhalte systematisch.',
+            'features': [
+                'Content-Kalender - Plane Blogartikel, Landingpages und Updates im Voraus',
+                'Keyword-Zuweisung - Ordne Ziel-Keywords zu jedem Content-Stück zu',
+                'Status-Tracking - Verfolge den Fortschritt von Idee bis Veröffentlichung',
+                'Priorisierung - Sortiere nach Wichtigkeit und SEO-Potenzial',
+                'Team-Übersicht - Sehe wer an welchem Content arbeitet',
+                'Deadline-Management - Verpasse keine Veröffentlichungstermine'
+            ],
+            'benefits': {
+                'Struktur': 'Nie wieder chaotische Content-Planung',
+                'Konsistenz': 'Regelmäßiger Content-Output für bessere Rankings',
+                'Überblick': 'Alle SEO-Aufgaben auf einen Blick',
+                'Effizienz': 'Schneller von der Idee zum fertigen Artikel'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
         'keyengine': {
             'name': 'KeyEngine',
             'icon': 'fas fa-key',
             'color': 'success',
-            'short_desc': 'Intelligente Keyword-Recherche und SEO-Analyse',
+            'short_desc': 'Keyword-Recherche leicht gemacht - finde die besten Keywords für deine Inhalte.',
+            'features': [
+                'Keyword-Suche - Finde relevante Keywords zu jedem Thema',
+                'Suchvolumen-Daten - Sehe wie oft Keywords gesucht werden',
+                'Keyword-Schwierigkeit - Erkenne wie schwer es ist zu ranken',
+                'Verwandte Keywords - Entdecke ähnliche Suchbegriffe',
+                'Keyword-Listen - Speichere und organisiere deine Recherchen',
+                'Export-Funktion - Exportiere Keywords für andere Tools'
+            ],
+            'benefits': {
+                'Bessere Rankings': 'Die richtigen Keywords für Top-Positionen',
+                'Zeit sparen': 'Schnelle Recherche statt stundenlanges Suchen',
+                'Datenbasiert': 'Entscheidungen auf echten Suchvolumen',
+                'Wettbewerbsvorteil': 'Finde Keywords die andere übersehen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'questionfinder': {
+            'name': 'QuestionFinder',
+            'icon': 'fas fa-question-circle',
+            'color': 'info',
+            'short_desc': 'Finde echte Fragen deiner Zielgruppe - perfekt für FAQ und Content-Ideen.',
+            'features': [
+                'Fragen-Suche - Finde Fragen die Menschen wirklich stellen',
+                'Quellen-Vielfalt - Fragen aus Google, Foren, Reddit und mehr',
+                'Themen-Clustering - Gruppiere ähnliche Fragen automatisch',
+                'FAQ-Generator - Erstelle FAQ-Sektionen aus gefundenen Fragen',
+                'Content-Ideen - Jede Frage ist eine potenzielle Content-Idee',
+                'Export - Speichere Fragen für die Content-Erstellung'
+            ],
+            'benefits': {
+                'Echte Bedürfnisse': 'Beantworte was Menschen wirklich wissen wollen',
+                'Featured Snippets': 'Frage-Antwort-Format für Position 0',
+                'Content-Inspiration': 'Nie wieder Ideenmangel',
+                'Zielgruppen-Verständnis': 'Verstehe was deine Nutzer bewegt'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+
+        # === Media Apps ===
+        'schulungen': {
+            'name': 'Schulungen',
+            'icon': 'bi-graduation-cap',
+            'color': 'success',
+            'short_desc': 'Erstelle KI-gestützte Schulungen - von der Idee zum fertigen Lernmaterial.',
+            'features': [
+                'KI-Schulungserstellung - Generiere komplette Schulungsinhalte aus Themen',
+                'Kapitel-Struktur - Automatische Gliederung in logische Abschnitte',
+                'Quiz-Generator - Erstelle Verständnisfragen zu jedem Kapitel',
+                'Multi-Format - Text, Präsentationen und Handouts',
+                'Anpassbare Tiefe - Von Grundlagen bis Expertenwissen',
+                'Export-Optionen - PDF, PowerPoint und mehr'
+            ],
+            'benefits': {
+                'Schnelle Erstellung': 'Schulungen in Minuten statt Tagen',
+                'Professionell': 'Didaktisch sinnvolle Struktur durch KI',
+                'Flexibel': 'Für jedes Thema und jede Zielgruppe',
+                'Kosteneffizient': 'Kein teurer Instructional Designer nötig'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'bilder': {
+            'name': 'Bilder',
+            'icon': 'bi-image',
+            'color': 'primary',
+            'short_desc': 'Deine Bildverwaltung - organisiere, bearbeite und optimiere alle Bilder zentral.',
+            'features': [
+                'Bildverwaltung - Alle Bilder übersichtlich organisiert',
+                'Ordner-Struktur - Kategorisiere nach Projekten oder Themen',
+                'Schnelle Vorschau - Bilder ohne Download ansehen',
+                'Basis-Bearbeitung - Zuschneiden, Drehen, Größe ändern',
+                'Metadaten - Titel, Beschreibung und Tags hinzufügen',
+                'Freigabe-Links - Bilder einfach teilen'
+            ],
+            'benefits': {
+                'Übersicht': 'Alle Bilder an einem Ort',
+                'Schneller Zugriff': 'Das richtige Bild sofort finden',
+                'Organisation': 'Schluss mit Datei-Chaos',
+                'Einfach teilen': 'Bilder mit einem Klick freigeben'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'videos': {
+            'name': 'Videos',
+            'icon': 'bi-play-circle',
+            'color': 'danger',
+            'short_desc': 'Video-Hosting für deine Inhalte - speichere, verwalte und teile Videos ohne Limits.',
+            'features': [
+                'Video-Upload - Lade Videos in allen gängigen Formaten hoch',
+                'Streaming-Player - Flüssige Wiedergabe ohne Buffering',
+                'Embed-Codes - Videos auf Websites und Blogs einbetten',
+                'Shopify-Integration - Videos in Shopify-Blogs einbinden (ideal bei begrenztem Shopify-Speicher)',
+                'Privatsphäre-Optionen - Öffentlich, nicht gelistet oder privat',
+                'Speicher-Übersicht - Behalte deinen Verbrauch im Blick'
+            ],
+            'benefits': {
+                'Unabhängig': 'Dein eigenes Video-Hosting ohne YouTube',
+                'Shopify-Vorteil': 'Umgehe Shopify-Speicherlimits für Videos',
+                'Professionell': 'Saubere Einbettung ohne fremde Werbung',
+                'Volle Kontrolle': 'Du bestimmst wer deine Videos sieht'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'streamrec': {
+            'name': 'StreamRec',
+            'icon': 'bi-mic',
+            'color': 'info',
+            'short_desc': 'Aufnahme-Studio im Browser - nimm Bildschirm, Webcam und Audio professionell auf.',
+            'features': [
+                'Bildschirmaufnahme - Nimm deinen gesamten Bildschirm oder einzelne Fenster auf',
+                'Multi-Screen-Recording - Mehrere Bildschirme oder Fenster gleichzeitig aufnehmen',
+                'Webcam-Overlay - Kamera-Bild über die Aufnahme legen',
+                'Hintergrund-Entfernung - Entferne Webcam-Hintergrund automatisch',
+                'Format-Anpassung - Erstelle 9:16 für TikTok, 1:1 für Instagram, 16:9 für YouTube',
+                'Audio-Aufnahme - Mikrofon und System-Audio getrennt aufnehmen',
+                'Direkt posten - Videos direkt auf YouTube, TikTok und anderen Plattformen veröffentlichen',
+                'Layout-Anordnung - Positioniere Bildschirme und Webcam frei im Video'
+            ],
+            'benefits': {
+                'Alles in einem': 'Aufnahme, Bearbeitung und Posting in einem Tool',
+                'Social Media Ready': 'Direkt im richtigen Format für jede Plattform',
+                'Professionell aussehen': 'Hintergrund-Entfernung wie im TV-Studio',
+                'Zeit sparen': 'Vom Aufnehmen direkt zum Veröffentlichen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'promptpro': {
+            'name': 'PromptPro',
+            'icon': 'bi-collection',
+            'color': 'info',
+            'short_desc': 'Deine Prompt-Bibliothek für KI-Tools - organisiere, optimiere und teile deine besten Prompts.',
+            'features': [
+                'Prompt-Bibliothek - Alle Prompts zentral organisiert und kategorisiert',
+                'Tags & Kategorien - Schnelles Finden durch intelligente Verschlagwortung',
+                'Favoriten & Bewertung - Markiere deine erfolgreichsten Prompts',
+                'Ein-Klick-Kopieren - Prompts sofort in die Zwischenablage kopieren',
+                'Variablen-System - Platzhalter für wiederverwendbare Prompt-Templates',
+                'Team-Sharing - Teile Prompts mit deinem Team'
+            ],
+            'benefits': {
+                'Effizienz steigern': 'Nie wieder Zeit mit Prompt-Suche verschwenden',
+                'Qualität sichern': 'Bewährte Prompts immer griffbereit',
+                'Wissen teilen': 'Best Practices im Team verbreiten',
+                'Konsistenz': 'Einheitliche Ergebnisse durch standardisierte Prompts'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'myprompter': {
+            'name': 'MyPrompter',
+            'icon': 'bi-mic-fill',
+            'color': 'warning',
+            'short_desc': 'Dein digitaler Teleprompter - lies Texte professionell ab während du Videos aufnimmst.',
+            'features': [
+                'Automatisches Scrollen - Text scrollt in einstellbarer Geschwindigkeit mit',
+                'Leseposition-Anzeige - Immer sichtbar wo du gerade im Text bist',
+                'Geschwindigkeits-Kontrolle - Scroll-Tempo an dein Sprechtempo anpassen',
+                'Schriftgröße anpassbar - Optimale Lesbarkeit auf jedem Bildschirm',
+                'Pause & Fortsetzen - Jederzeit anhalten und weitermachen',
+                'Vollbild-Modus - Maximale Konzentration ohne Ablenkung'
+            ],
+            'benefits': {
+                'Professionelle Videos': 'Fließend sprechen ohne Versprecher oder Stocken',
+                'Natürlicher Blickkontakt': 'Text nah an der Kamera für direkten Augenkontakt',
+                'Zeitersparnis': 'Weniger Takes durch perfektes Ablesen',
+                'Flexibel einsetzbar': 'Für YouTube, Präsentationen, Schulungen und mehr'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
         'fileshare': {
             'name': 'FileShare',
             'icon': 'fas fa-share-alt',
             'color': 'info',
-            'short_desc': 'Sichere Dateifreigabe und Cloud-Speicher',
+            'short_desc': 'Sichere Dateiübertragung - teile Dateien einfach und sicher mit Kunden und Partnern.',
+            'features': [
+                'Download-Links erstellen - Generiere sichere Links für jede Datei',
+                'Ablaufdatum setzen - Links automatisch nach bestimmter Zeit deaktivieren',
+                'Passwortschutz - Zusätzliche Sicherheit durch optionales Passwort',
+                'Download-Tracking - Sehe wer wann was heruntergeladen hat',
+                'Mehrere Dateien - Mehrere Dateien in einem Transfer bündeln',
+                'Speicher-Integration - Nutzt deinen WorkLoom-Speicherplatz'
+            ],
+            'benefits': {
+                'Sicherheit': 'Kontrollierter Zugriff statt offener Cloud-Links',
+                'Professionalität': 'Eigene Branding-Links statt WeTransfer & Co.',
+                'Nachverfolgbar': 'Immer wissen ob Dateien angekommen sind',
+                'DSGVO-konform': 'Daten auf deutschen/europäischen Servern'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
-        'makeads': {
-            'name': 'AdsMake',
-            'icon': 'bi-megaphone',
-            'color': 'warning',
-            'short_desc': 'KI-gestützte Werbetexte und Anzeigen erstellen',
-        },
-        'ideopin': {
-            'name': 'IdeoPin',
-            'icon': 'bi-pinterest',
-            'color': 'danger',
-            'short_desc': 'Pinterest-optimierte Pin-Generierung mit KI',
-        },
-        'imageforge': {
-            'name': 'ImageForge',
-            'icon': 'bi-image',
-            'color': 'primary',
-            'short_desc': 'KI-Bildgenerierung für professionelle Inhalte',
-        },
-        'vskript': {
-            'name': 'VSkript',
-            'icon': 'bi-camera-video',
-            'color': 'success',
-            'short_desc': 'KI-Video-Skript-Generator für Content Creator',
+
+        # === Shopify Apps ===
+        'shopify': {
+            'name': 'ShopifyFlow',
+            'icon': 'bi-shop',
+            'color': 'secondary',
+            'short_desc': 'Verwalte deinen Shopify-Store intelligent - KI-gestützte SEO-Optimierung und detaillierte Backups.',
+            'features': [
+                'KI-generierte Alt-Texte - Automatische, SEO-optimierte Bildbeschreibungen per Knopfdruck',
+                'KI-SEO-Texte - Meta-Titel und Meta-Beschreibungen von KI erstellen lassen',
+                'Kategorie-Optimierung - Meta-Texte und Bilder für Collections SEO-optimieren',
+                'Nur Meta-Felder - Produktinhalte bleiben unverändert, nur SEO-relevante Felder werden angepasst',
+                'Detaillierte Backups - Sichere Produkte, Blogs, Bilder und alle Metadaten',
+                'Flexible Wiederherstellung - Stelle einzelne Produkte, Blogs oder komplette Backups wieder her',
+                'Element-Übersicht - Durchsuche alle gesicherten Produkte, Blogs und Bilder im Detail',
+                'Backup-Verwaltung - Übersicht aller Backups mit Größe und Inhalt'
+            ],
+            'benefits': {
+                'Besseres Ranking': 'KI-optimierte Meta-Felder für mehr organischen Traffic',
+                'Sicher': 'Produkttexte und Preise bleiben unberührt, nur SEO-Daten ändern sich',
+                'Granulare Kontrolle': 'Nur das wiederherstellen was du brauchst',
+                'Zeitersparnis': 'KI schreibt Alt-Texte und Meta-Texte in Sekunden'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
         'blogprep': {
             'name': 'BlogPrep',
             'icon': 'bi-pencil-square',
             'color': 'info',
-            'short_desc': 'KI-Blog-Artikel-Generator für Shopify',
+            'short_desc': 'KI-gestützte Blog-Erstellung - erstelle SEO-optimierte Blogartikel und Video-Skripte.',
+            'features': [
+                'KI-Blogartikel - Komplette Artikel aus Keywords oder Themen generieren',
+                'Video-Skripte - Passende Skripte für Produkt- oder Erklärvideos erstellen',
+                'SEO-Optimierung - Artikel automatisch für Suchmaschinen optimiert',
+                'Keyword-Integration - Ziel-Keywords strategisch im Text platziert',
+                'Meta-Daten - Titel und Beschreibungen automatisch generiert',
+                'Shopify-Integration - Artikel direkt in deinen Shopify-Blog veröffentlichen',
+                'Entwürfe speichern - Artikel als Entwurf speichern und später bearbeiten'
+            ],
+            'benefits': {
+                'Content-Marketing leicht gemacht': 'Regelmäßige Blogartikel ohne Schreibblockade',
+                'Mehr Traffic': 'SEO-optimierte Artikel bringen organische Besucher',
+                'Zeit sparen': 'In Minuten statt Stunden zum fertigen Artikel',
+                'Video & Text': 'Kombiniere Blog mit passendem Video-Content'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+
+        # === Kreativ Apps ===
+        'makeads': {
+            'name': 'AdsMake',
+            'icon': 'bi-megaphone',
+            'color': 'warning',
+            'short_desc': 'KI-Werbetexter - erstelle überzeugende Werbetexte, Anzeigen und Marketing-Content.',
+            'features': [
+                'Anzeigentexte - Google Ads, Facebook Ads, Instagram Ads generieren',
+                'Headline-Generator - Aufmerksamkeitsstarke Überschriften erstellen',
+                'Produktbeschreibungen - Verkaufsstarke Texte für deine Produkte',
+                'Zielgruppen-Anpassung - Texte auf deine Zielgruppe zugeschnitten',
+                'Varianten erstellen - Mehrere Versionen zum A/B-Testen',
+                'Vorlagen - Bewährte Frameworks wie AIDA, PAS, BAB',
+                'Mehrsprachig - Werbetexte in verschiedenen Sprachen'
+            ],
+            'benefits': {
+                'Conversion steigern': 'Professionelle Werbetexte die verkaufen',
+                'Schnell testen': 'Viele Varianten für A/B-Tests generieren',
+                'Kosten sparen': 'Kein teurer Werbetexter nötig',
+                'Konsistenz': 'Einheitliche Markenstimme über alle Kanäle'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'somi_plan': {
+            'name': 'SoMi-Plan',
+            'icon': 'bi-calendar-check',
+            'color': 'warning',
+            'short_desc': 'Social Media Planer - plane, erstelle und organisiere deinen Content für alle Netzwerke.',
+            'features': [
+                'Content-Kalender - Übersichtliche Planung deiner Posts im Kalender',
+                'KI-Texterstellung - Passende Captions und Texte generieren lassen',
+                'Medien-Verwaltung - Bilder und Videos für Posts organisieren',
+                'Multi-Plattform - Plane für Instagram, Facebook, TikTok, LinkedIn & mehr',
+                'Hashtag-Vorschläge - Relevante Hashtags automatisch vorgeschlagen',
+                'Posting-Zeiten - Optimale Zeiten für maximale Reichweite',
+                'Content-Ideen - KI-generierte Vorschläge für neue Posts'
+            ],
+            'benefits': {
+                'Konsistenz': 'Regelmäßig posten durch vorausschauende Planung',
+                'Zeitersparnis': 'Content im Voraus erstellen und planen',
+                'Überblick': 'Alle Kanäle in einer Ansicht',
+                'Nie ideenlos': 'KI liefert immer neue Content-Ideen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'ideopin': {
+            'name': 'IdeoPin',
+            'icon': 'bi-pinterest',
+            'color': 'danger',
+            'short_desc': 'Pinterest Pin Creator - erstelle, plane und veröffentliche Pins mit KI-Unterstützung.',
+            'features': [
+                'Pin-Design - Erstelle visuell ansprechende Pins im Pinterest-Format',
+                'KI-Textgenerierung - Titel, Beschreibungen und Keywords von KI erstellen lassen',
+                'Vorausplanen - Pins für später planen und automatisch veröffentlichen',
+                'Bild-Optimierung - Bilder für Pinterest optimales Format anpassen',
+                'Direkt posten - Pins sofort oder geplant auf Pinterest veröffentlichen',
+                'Vorlagen - Bewährte Pin-Designs als Vorlage nutzen',
+                'Link-Integration - Ziel-URLs für Traffic zu deiner Website',
+                'Keyword-Optimierung - SEO-relevante Keywords für Pinterest-Suche'
+            ],
+            'benefits': {
+                'Mehr Traffic': 'Pinterest als Traffic-Quelle für deine Website nutzen',
+                'Zeitersparnis': 'KI schreibt Texte, du planst vor und bist fertig',
+                'SEO-Vorteil': 'Pinterest Pins ranken auch bei Google',
+                'Konsistenz': 'Regelmäßig Pins durch Vorausplanung'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'imageforge': {
+            'name': 'ImageForge',
+            'icon': 'bi-image',
+            'color': 'primary',
+            'short_desc': 'KI-Bildgenerator - erstelle professionelle Produktbilder, Mockups und Szenen.',
+            'features': [
+                'Nur Hintergrund - Generiere individuelle Hintergründe für deine Bilder',
+                'Produkt + Hintergrund - Platziere dein Produkt in KI-generierten Szenen',
+                'Charakter + Szene - Erstelle Personen in individuellen Umgebungen',
+                'Charakter + Produkt - Kombiniere Personen mit deinen Produkten',
+                'Mockup + Text - Erstelle Mockups mit integriertem Text und Branding',
+                'Verschiedene Formate - Quadratisch, Hochformat, Querformat wählen',
+                'Projekt-Verwaltung - Alle generierten Bilder organisiert speichern'
+            ],
+            'benefits': {
+                'Professionelle Produktfotos': 'Ohne teures Fotoshooting oder Studio',
+                'Flexibel': 'Der richtige Modus für jeden Anwendungsfall',
+                'Einzigartig': 'Keine Stockfotos, 100% individuelle Bilder',
+                'Schnell': 'Produktbilder in Sekunden statt Tagen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'vskript': {
+            'name': 'VSkript',
+            'icon': 'bi-camera-video',
+            'color': 'success',
+            'short_desc': 'Video-Skript-Generator - erstelle professionelle Skripte für YouTube, TikTok und mehr.',
+            'features': [
+                'KI-Skripterstellung - Komplette Video-Skripte aus Keywords generieren',
+                'Plattform-Optimierung - Angepasst für YouTube, TikTok, Instagram, LinkedIn, Facebook',
+                'Länge einstellbar - Von 15 Sekunden bis 10 Minuten',
+                'Verschiedene Skript-Arten - How-To, Top-Listen, Fakten, Storys, Vergleiche und mehr',
+                'Ton wählbar - Professionell, locker, humorvoll, inspirierend, provokant',
+                'Zielgruppen-Anpassung - Anfänger, Fortgeschrittene, Experten, Allgemein',
+                'Projekt-Verwaltung - Skripte speichern, bearbeiten und organisieren'
+            ],
+            'benefits': {
+                'Nie wieder Schreibblockade': 'KI liefert fertige Skripte zum Ablesen',
+                'Plattform-gerecht': 'Optimaler Stil für jede Social Media Plattform',
+                'Schnell produzieren': 'Vom Thema zum fertigen Skript in Minuten',
+                'Konsistent': 'Immer die richtige Ansprache für deine Zielgruppe'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+
+        # === Organisation Apps ===
+        'organisation': {
+            'name': 'WorkSpace',
+            'icon': 'bi-building',
+            'color': 'success',
+            'short_desc': 'Kollaborativer Arbeitsbereich - arbeite in Echtzeit mit deinem Team an Boards.',
+            'features': [
+                'Interaktive Boards - Visuelle Arbeitsflächen für Projekte und Brainstorming',
+                'Echtzeit-Zusammenarbeit - Mehrere Personen arbeiten gleichzeitig am selben Board',
+                'Live-Audio - Sprich mit allen Teilnehmern während der Board-Arbeit',
+                'Live-Notizbereich - Gemeinsamer Textbereich für schnelle Notizen in Echtzeit',
+                'Elemente platzieren - Bilder, Texte, Formen frei auf dem Board anordnen',
+                'Zeichnen & Skizzieren - Freihand zeichnen und Ideen visualisieren',
+                'Drag & Drop - Inhalte einfach per Drag & Drop positionieren',
+                'Projekt-Organisation - Boards in Projekten und Kategorien organisieren'
+            ],
+            'benefits': {
+                'Echte Zusammenarbeit': 'Wie im selben Raum, nur digital',
+                'Keine Extra-Tools': 'Audio, Board und Notizen in einem',
+                'Kreativ arbeiten': 'Ideen visuell entwickeln und teilen',
+                'Ortsunabhängig': 'Team-Arbeit von überall'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'todos': {
+            'name': 'ToDos',
+            'icon': 'bi-list-check',
+            'color': 'primary',
+            'short_desc': 'Aufgabenverwaltung - behalte den Überblick über alle deine Aufgaben und Projekte.',
+            'features': [
+                'Aufgaben erstellen - Schnell neue Aufgaben mit Titel und Beschreibung anlegen',
+                'Fälligkeitsdaten - Deadlines setzen und nie wieder Termine verpassen',
+                'Kategorien & Tags - Aufgaben thematisch organisieren',
+                'Prioritäten - Wichtige Aufgaben hervorheben',
+                'Abhaken - Erledigte Aufgaben als fertig markieren',
+                'Fortschritt - Übersicht wie viele Aufgaben erledigt sind',
+                'Erinnerungen - Benachrichtigungen vor Fälligkeitsdatum'
+            ],
+            'benefits': {
+                'Nichts vergessen': 'Alle Aufgaben an einem Ort',
+                'Produktiver': 'Klare Übersicht was zu tun ist',
+                'Stressfrei': 'Deadlines im Blick behalten',
+                'Erfolgserlebnis': 'Fortschritt sichtbar machen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'chat': {
+            'name': 'Chat',
+            'icon': 'bi-chat-dots',
+            'color': 'warning',
+            'short_desc': 'Team-Kommunikation - chatte mit Teammitgliedern und halte alle Unterhaltungen an einem Ort.',
+            'features': [
+                'Direktnachrichten - Private Chats mit einzelnen Teammitgliedern',
+                'Gruppenchats - Unterhaltungen mit mehreren Personen',
+                'Datei-Anhänge - Bilder, Dokumente und Dateien im Chat teilen',
+                'Benachrichtigungen - Nie eine wichtige Nachricht verpassen',
+                'Chat-Suche - Alte Nachrichten schnell wiederfinden',
+                'Nachrichtenverlauf - Komplette Chat-Historie gespeichert',
+                'Emojis & Reaktionen - Nachrichten mit Emojis reagieren'
+            ],
+            'benefits': {
+                'Schnelle Kommunikation': 'Kurze Wege statt langer E-Mails',
+                'Alles an einem Ort': 'Keine verstreuten WhatsApp-Gruppen',
+                'Dateien teilen': 'Dokumente direkt im Chat besprechen',
+                'Team verbinden': 'Einfache Kommunikation mit allen Kollegen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'mail': {
+            'name': 'Email',
+            'icon': 'bi-envelope',
+            'color': 'info',
+            'short_desc': 'E-Mail-Client - verwalte deine E-Mails direkt in WorkLoom ohne App-Wechsel.',
+            'features': [
+                'Posteingang - Alle E-Mails übersichtlich in einer Inbox',
+                'E-Mails schreiben - Neue Nachrichten direkt verfassen und senden',
+                'Anhänge - Dateien an E-Mails anhängen und empfangen',
+                'Ordner & Labels - E-Mails organisieren und kategorisieren',
+                'Suche - E-Mails nach Absender, Betreff oder Inhalt durchsuchen',
+                'Zoho Mail Integration - Verbinde dein bestehendes E-Mail-Konto',
+                'E-Mail-Vorlagen - Häufige Antworten als Vorlage speichern'
+            ],
+            'benefits': {
+                'Alles in einem': 'E-Mails und Arbeit in einer Oberfläche',
+                'Kein Kontextwechsel': 'Weniger App-Wechsel, mehr Fokus',
+                'Übersichtlich': 'Klare Struktur für deine Kommunikation',
+                'Verbunden': 'Bestehende E-Mail-Konten einfach integrieren'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'loomconnect': {
+            'name': 'LoomConnect',
+            'icon': 'bi-people',
+            'color': 'primary',
+            'short_desc': 'Business-Netzwerk - vernetze dich, teile Fähigkeiten und finde Experten für Zusammenarbeit.',
+            'features': [
+                'Profil erstellen - Präsentiere dich mit Bio, Standort, Website und Verfügbarkeitsstatus',
+                'Fähigkeiten anbieten - Liste deine Skills mit Erfahrungslevel (Anfänger bis Profi)',
+                'Experten finden - Suche nach Personen mit bestimmten Fähigkeiten',
+                'Feed & Posts - Teile Updates, Fragen, Erfolge oder Skill-Angebote',
+                'Connect-Anfragen - Vernetze dich für Skill-Tausch, Hilfe oder Zusammenarbeit',
+                'Stories - 24-Stunden-Stories für schnelle Updates',
+                'Kommentare & Likes - Interagiere mit Posts anderer Nutzer',
+                'Profil-Statistiken - Sehe wer dein Profil besucht hat'
+            ],
+            'benefits': {
+                'Richtige Kontakte': 'Finde genau die Experten die du brauchst',
+                'Skill-Tausch': 'Tausche Fähigkeiten statt Geld',
+                'Community': 'Werde Teil eines professionellen Netzwerks',
+                'Sichtbarkeit': 'Zeige deine Expertise und werde gefunden'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+
+        # === Legacy/Fallback entries ===
+        'loomads': {
+            'name': 'AdFlow Pro',
+            'icon': 'bi-megaphone',
+            'color': 'danger',
+            'short_desc': 'Intelligente Werbeplattform der nächsten Generation',
+            'features': [
+                'KI-optimierte Werbeschaltung',
+                'Multi-Platform Kampagnen',
+                'Real-time Analytics',
+                'Automatisches Targeting'
+            ],
+            'benefits': {
+                'ROI Maximum': 'Maximiere deinen Werbeerfolg',
+                'Volle Kontrolle': 'Behalte den Überblick'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
     }
 
