@@ -9,6 +9,14 @@
         <h2><i class="bi bi-cloud-download"></i> Backup-Übersicht</h2>
         <p class="text-muted mb-0">Alle Backups deiner Shopify Stores</p>
     </div>
+    <div class="text-end">
+        <div class="card bg-light border-0">
+            <div class="card-body py-2 px-3">
+                <small class="text-muted d-block">Gesamtspeicher</small>
+                <strong class="text-primary fs-5"><i class="bi bi-hdd"></i> {{ total_storage_display }}</strong>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Stores mit Backup-Optionen -->
@@ -23,7 +31,7 @@
                 <p class="text-muted small mb-3">{{ store.shop_domain }}</p>
 
                 {% with store.backups.count as backup_count %}
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="badge bg-info">{{ backup_count }} Backup{{ backup_count|pluralize:"s" }}</span>
                     {% if store.backups.first %}
                     <small class="text-muted">
@@ -32,6 +40,13 @@
                     {% endif %}
                 </div>
                 {% endwith %}
+                {% if store_storage %}
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-hdd text-secondary me-2"></i>
+                    <small class="text-muted">Speicher: </small>
+                    <strong class="ms-1">{{ store_storage|get_item:store.id|get_item:'display' }}</strong>
+                </div>
+                {% endif %}
 
                 <div class="d-flex gap-2">
                     <a href="{% url 'shopify_manager:backup_list' store_id=store.id %}" class="btn btn-outline-primary btn-sm flex-grow-1">

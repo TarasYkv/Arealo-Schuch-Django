@@ -4539,13 +4539,47 @@ from django.http import HttpResponse
 @login_required
 def backup_overview(request):
     """Übersicht aller Backups über alle Stores"""
+    from django.db.models import Sum
+
     stores = ShopifyStore.objects.filter(user=request.user)
     all_backups = ShopifyBackup.objects.filter(store__user=request.user).order_by('-created_at')[:20]
+
+    # Gesamtspeicherverbrauch aller Backups berechnen
+    total_storage_bytes = ShopifyBackup.objects.filter(
+        store__user=request.user
+    ).aggregate(total=Sum('total_size_bytes'))['total'] or 0
+
+    # Speicherverbrauch pro Store berechnen
+    store_storage = {}
+    for store in stores:
+        store_bytes = store.backups.aggregate(total=Sum('total_size_bytes'))['total'] or 0
+        store_storage[store.id] = {
+            'bytes': store_bytes,
+            'display': _format_bytes(store_bytes)
+        }
+
+    # Formatierte Gesamtgröße
+    total_storage_display = _format_bytes(total_storage_bytes)
 
     return render(request, 'shopify_manager/backup/backup_overview.html', {
         'stores': stores,
         'recent_backups': all_backups,
+        'total_storage_bytes': total_storage_bytes,
+        'total_storage_display': total_storage_display,
+        'store_storage': store_storage,
     })
+
+
+def _format_bytes(size_bytes):
+    """Formatiert Bytes in lesbares Format"""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 
 @login_required
