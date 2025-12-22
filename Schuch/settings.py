@@ -52,6 +52,11 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'django.contrib.sites',
     'django.contrib.sitemaps',  # SEO: Sitemap Framework
+    # django-allauth für Social Login
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     'channels',
     'rest_framework',
     'accounts',
@@ -105,6 +110,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',  # django-allauth
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.PublicAppRedirectMiddleware',  # Redirect unauthenticated users to app info pages
@@ -268,6 +274,44 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/accounts/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
+
+# django-allauth: Authentication Backends
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# django-allauth: Konfiguration
+ACCOUNT_LOGIN_ON_GET = True  # Direkter Redirect statt Login-Button
+ACCOUNT_LOGOUT_ON_GET = True  # Direkter Logout ohne Bestätigung
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email'  # Erlaube Login mit Username oder Email
+ACCOUNT_EMAIL_VERIFICATION = 'none'  # Keine Email-Verifikation (optional: 'mandatory')
+ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
+ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
+ACCOUNT_ADAPTER = 'accounts.allauth_adapter.CustomAccountAdapter'  # Custom Adapter
+SOCIALACCOUNT_ADAPTER = 'accounts.allauth_adapter.CustomSocialAccountAdapter'  # Custom Social Adapter
+
+# django-allauth: Socialaccount Konfiguration
+SOCIALACCOUNT_AUTO_SIGNUP = True  # Automatische Account-Erstellung bei Social Login
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_QUERY_EMAIL = True  # Google soll Email abfragen
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True  # Automatisches Verbinden wenn Email bereits existiert
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'OAUTH_PKCE_ENABLED': True,
+    }
+}
 
 FIELD_ENCRYPTION_KEY = 'JFkYsizDtDsUc1MTl5RogD_uPnyRB0wWFAZ5VtKRqow='
 

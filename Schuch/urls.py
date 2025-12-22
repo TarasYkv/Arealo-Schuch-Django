@@ -34,6 +34,7 @@ urlpatterns = [
 
     # Der Rest bleibt unverändert
     path('accounts/', include('accounts.urls')),
+    path('accounts/', include('allauth.urls')),  # django-allauth für Social Login
     path('rechner/', include('amortization_calculator.urls')),
     path('sportplatz/', include('sportplatzApp.urls')),
     path('pdf-tool/', include('pdf_sucher.urls')),
