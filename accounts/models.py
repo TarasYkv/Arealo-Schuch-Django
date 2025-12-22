@@ -277,20 +277,24 @@ class AppPermission(models.Model):
         """Prüft ob ein Benutzer Zugriff auf diese App hat"""
         if not self.is_active:
             return False
-        
-        # Superuser-Bypass: Superuser haben immer Zugriff (außer explizit deaktiviert)
+
+        # WICHTIG: "blocked" blockiert IMMER - auch für Superuser!
+        # Das ist beabsichtigt, damit Apps wirklich gesperrt werden können.
+        if self.access_level == 'blocked':
+            return False
+
+        # Superuser-Bypass: Superuser haben Zugriff auf alle NICHT-gesperrten Apps
         if user and user.is_authenticated and user.is_superuser and self.superuser_bypass:
             return True
-            
+
         # Frontend-Sichtbarkeit prüfen (nur für UI-Anzeige)
         if check_frontend_visibility and self.hide_in_frontend:
             # Auch für Superuser ausblenden wenn explizit gewünscht
             if not (user and user.is_superuser):
                 return False
-            
-        if self.access_level == 'blocked':
-            return False
-        elif self.access_level == 'anonymous':
+
+        # Access Level prüfen
+        if self.access_level == 'anonymous':
             return True
         elif self.access_level == 'authenticated':
             return user and user.is_authenticated
@@ -299,7 +303,7 @@ class AppPermission(models.Model):
         elif self.access_level == 'in_development':
             # Apps in Entwicklung sind nur für Superuser zugänglich
             return user and user.is_authenticated and user.is_superuser
-        
+
         return False
     
     @classmethod
