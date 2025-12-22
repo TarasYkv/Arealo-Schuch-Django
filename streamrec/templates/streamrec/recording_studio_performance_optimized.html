@@ -1184,7 +1184,7 @@ class StreamRecorderOptimized {
             // MediaPipe Camera für optimierte Frame-Übergabe
             mediaCamera: null,
             // Frame-Skipping: Maske seltener berechnen, aber Video immer live
-            processEveryNthFrame: 2,  // Maske nur jeden 2. Frame
+            processEveryNthFrame: 1,  // Jeden Frame verarbeiten
             frameCounter: 0,
             // 🚀 NEU: Gecachte Maske für kontinuierliches Live-Rendering
             cachedMaskCanvas: null,
@@ -1193,7 +1193,9 @@ class StreamRecorderOptimized {
             // 🚀 NEU: Live-Rendering Loop (Video immer aktuell!)
             liveRenderActive: false,
             liveRenderFrame: null,
-            useLiveVideo: true  // WICHTIG: Immer aktuelles Video nutzen, nicht MediaPipe-Bild
+            useLiveVideo: true,  // WICHTIG: Immer aktuelles Video nutzen, nicht MediaPipe-Bild
+            // 🚀 NEU: Busy-Flag um MediaPipe nicht zu überlasten
+            isProcessing: false
         };
         this.recordingTimer = null;
         this.maxDuration = 180000; // 3 minutes
@@ -3279,26 +3281,36 @@ class StreamRecorderOptimized {
             lastProcessTime = timestamp;
 
             try {
-                // 🚀 KRITISCH: NICHT auf send() warten! Das blockiert den Thread!
-                // MediaPipe arbeitet asynchron, Results kommen über onResults Callback
-                if (processingVideo.readyState >= 2) {
-                    // Synchrone Methode für Frame-Vorbereitung (schneller als async)
+                const opt = this.segmentationOptimization;
+
+                // 🚀 Nur senden wenn MediaPipe nicht busy ist
+                if (processingVideo.readyState >= 2 && !opt.isProcessing) {
                     const optimizedFrame = this.getOptimizedFrameForSegmentation(processingVideo);
 
-                    // null = Frame wurde übersprungen
                     if (optimizedFrame !== null) {
-                        // 🚀 FIRE AND FORGET - NICHT awaiten!
+                        // Markiere als "in Bearbeitung"
+                        opt.isProcessing = true;
+
+                        // Sende Frame - Results kommen über onSegmentationResults Callback
                         this.selfieSegmentation.send({ image: optimizedFrame })
-                            .catch(err => console.warn('MediaPipe send error:', err));
+                            .then(() => {
+                                // isProcessing wird in onSegmentationResults zurückgesetzt
+                            })
+                            .catch(err => {
+                                console.warn('MediaPipe send error:', err);
+                                opt.isProcessing = false; // Bei Fehler wieder freigeben
+                            });
                     }
                 }
 
-                // Continue processing SOFORT - nicht auf MediaPipe warten!
+                // Continue processing loop
                 requestAnimationFrame(processFrame);
-                
+
             } catch (error) {
                 console.error('❌ Error in background processing:', error);
                 this.updateSegmentationStatus('Fehler beim Verarbeiten');
+                // Trotzdem weitermachen
+                requestAnimationFrame(processFrame);
             }
         };
         
@@ -3408,6 +3420,9 @@ class StreamRecorderOptimized {
     }
     
     onSegmentationResults(results) {
+        // 🚀 WICHTIG: Busy-Flag zurücksetzen damit nächster Frame verarbeitet werden kann
+        this.segmentationOptimization.isProcessing = false;
+
         // 🚀 PERFORMANCE FIX: Nur Maske speichern, LIVE-Video für Rendering verwenden!
         // Das verhindert die 1-2 Sekunden Verzögerung
 
