@@ -3175,6 +3175,60 @@ def storage_overview_view(request):
     except Exception:
         pass
 
+    # 17. Shopify Backups
+    try:
+        from shopify_manager.models import ShopifyBackup, BackupItem
+
+        # Backups mit gespeicherter Größe
+        backups = ShopifyBackup.objects.filter(user=user, status='completed').select_related('store').order_by('-created_at')
+        for backup in backups:
+            if backup.total_size_bytes > 0:
+                all_files.append({
+                    'app': 'shopify_manager',
+                    'app_name': 'Shopify Backups',
+                    'app_icon': 'fas fa-database',
+                    'name': f"Backup: {backup.name} ({backup.store.name})",
+                    'filename': f"backup_{backup.id}",
+                    'size_bytes': backup.total_size_bytes,
+                    'size_mb': backup.total_size_bytes / (1024 * 1024),
+                    'created_at': backup.created_at,
+                    'type': 'Shopify Backup',
+                    'url': None,
+                    'id': backup.id,
+                })
+
+        # Backup-Bilder (separat zählen falls vorhanden)
+        backup_images = BackupItem.objects.filter(
+            backup__user=user,
+            image_path__isnull=False
+        ).exclude(image_path='').select_related('backup', 'backup__store')
+
+        for item in backup_images:
+            if item.image_path:
+                try:
+                    from django.conf import settings
+                    full_path = os.path.join(settings.MEDIA_ROOT, item.image_path)
+                    if os.path.exists(full_path):
+                        file_size = os.path.getsize(full_path)
+                        if file_size > 0:
+                            all_files.append({
+                                'app': 'shopify_manager',
+                                'app_name': 'Shopify Backups',
+                                'app_icon': 'fas fa-image',
+                                'name': f"Backup-Bild: {item.title[:30]}...",
+                                'filename': os.path.basename(item.image_path),
+                                'size_bytes': file_size,
+                                'size_mb': file_size / (1024 * 1024),
+                                'created_at': item.created_at,
+                                'type': f'Backup-{item.get_item_type_display()}',
+                                'url': None,
+                                'id': item.id,
+                            })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     # Sortiere nach Größe (größte zuerst)
     all_files.sort(key=lambda x: x['size_bytes'], reverse=True)
 
