@@ -1925,40 +1925,273 @@ def top_storage_users_api(request):
 @login_required
 @user_passes_test(is_superuser)
 def storage_by_app_api(request):
-    """Get storage distribution by app"""
+    """Get storage distribution by app - berechnet tatsächlichen Datei-Speicherverbrauch"""
     try:
-        from django.apps import apps
-        from django.db import connection
+        import os
+        from django.core.files.storage import default_storage
+        from django.db.models import Sum
 
-        # Get all models with FileField or ImageField
         storage_data = []
 
-        # Calculate storage per app by inspecting database tables
-        with connection.cursor() as cursor:
-            engine = get_database_engine()
+        # App-Namen für Anzeige
+        app_display_names = {
+            'videos': 'Videos',
+            'fileshare': 'FileShare',
+            'organization': 'Organisation',
+            'chat': 'Chat',
+            'streamrec': 'StreamRec',
+            'ideopin': 'IdeoPin',
+            'imageforge': 'ImageForge',
+            'shopify_manager': 'Shopify Manager',
+            'naturmacher': 'Schulungen',
+            'image_editor': 'Bild Editor',
+        }
 
-            if engine == 'mysql':
-                cursor.execute("""
-                    SELECT
-                        table_name,
-                        ROUND((data_length + index_length) / 1024 / 1024, 2) AS size_mb
-                    FROM information_schema.TABLES
-                    WHERE table_schema = %s
-                    AND table_name NOT LIKE 'auth_%%'
-                    AND table_name NOT LIKE 'django_%%'
-                    ORDER BY size_mb DESC
-                    LIMIT 10
-                """, [settings.DATABASES['default']['NAME']])
+        # 1. Videos
+        try:
+            from videos.models import Video
+            videos = Video.objects.filter(video_file__isnull=False)
+            video_total = 0
+            for video in videos:
+                if video.video_file:
+                    try:
+                        video_total += video.video_file.size
+                    except Exception:
+                        pass
+            if video_total > 0:
+                storage_data.append({
+                    'app': 'Videos',
+                    'table': 'Video-Dateien',
+                    'size_mb': round(video_total / (1024 * 1024), 2),
+                    'size_gb': round(video_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
 
-                for table_name, size_mb in cursor.fetchall():
-                    # Extract app name from table name
-                    app_name = table_name.split('_')[0] if '_' in table_name else table_name
-                    storage_data.append({
-                        'app': app_name.capitalize(),
-                        'table': table_name,
-                        'size_mb': float(size_mb) if size_mb else 0,
-                        'size_gb': round(float(size_mb) / 1024, 2) if size_mb else 0
-                    })
+        # 2. Fileshare
+        try:
+            from fileshare.models import TransferFile
+            fileshare_files = TransferFile.objects.filter(file__isnull=False)
+            fileshare_total = 0
+            for fs_file in fileshare_files:
+                if fs_file.file:
+                    try:
+                        fileshare_total += fs_file.file.size
+                    except Exception:
+                        pass
+            if fileshare_total > 0:
+                storage_data.append({
+                    'app': 'FileShare',
+                    'table': 'Transfer-Dateien',
+                    'size_mb': round(fileshare_total / (1024 * 1024), 2),
+                    'size_gb': round(fileshare_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 3. Organization (Notes & Board Images)
+        try:
+            from organization.models import Note, BoardElement
+            org_total = 0
+
+            # Notes with images
+            notes = Note.objects.filter(image__isnull=False)
+            for note in notes:
+                if note.image:
+                    try:
+                        org_total += note.image.size
+                    except Exception:
+                        pass
+
+            # Board images
+            board_elements = BoardElement.objects.filter(element_type='image')
+            import re
+            for element in board_elements:
+                try:
+                    element_data = element.data if isinstance(element.data, dict) else {}
+                    image_url = element_data.get('url') or element_data.get('src')
+                    if image_url:
+                        match = re.search(r'board_images/[^/\s]+', image_url)
+                        if match and default_storage.exists(match.group(0)):
+                            org_total += default_storage.size(match.group(0))
+                except Exception:
+                    pass
+
+            if org_total > 0:
+                storage_data.append({
+                    'app': 'Organisation',
+                    'table': 'Notizen & Board-Bilder',
+                    'size_mb': round(org_total / (1024 * 1024), 2),
+                    'size_gb': round(org_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 4. Chat Attachments
+        try:
+            from chat.models import ChatMessageAttachment
+            attachments = ChatMessageAttachment.objects.filter(file__isnull=False)
+            chat_total = 0
+            for attachment in attachments:
+                if attachment.file:
+                    try:
+                        chat_total += attachment.file.size
+                    except Exception:
+                        pass
+            if chat_total > 0:
+                storage_data.append({
+                    'app': 'Chat',
+                    'table': 'Anhänge',
+                    'size_mb': round(chat_total / (1024 * 1024), 2),
+                    'size_gb': round(chat_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 5. StreamRec (Audio/Video Recordings)
+        try:
+            streamrec_total = 0
+            recording_types = ['audio_recordings', 'video_recordings']
+
+            for dir_name in recording_types:
+                media_dir = os.path.join(settings.MEDIA_ROOT, dir_name)
+                if os.path.exists(media_dir):
+                    for filename in os.listdir(media_dir):
+                        filepath = os.path.join(media_dir, filename)
+                        if os.path.isfile(filepath):
+                            streamrec_total += os.path.getsize(filepath)
+
+            if streamrec_total > 0:
+                storage_data.append({
+                    'app': 'StreamRec',
+                    'table': 'Audio/Video-Aufnahmen',
+                    'size_mb': round(streamrec_total / (1024 * 1024), 2),
+                    'size_gb': round(streamrec_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 6. IdeoPin Generated Images
+        try:
+            from ideopin.models import PinterestPin
+            ideopin_total = 0
+            pins = PinterestPin.objects.filter(generated_image__isnull=False)
+            for pin in pins:
+                if pin.generated_image:
+                    try:
+                        ideopin_total += pin.generated_image.size
+                    except Exception:
+                        pass
+            if ideopin_total > 0:
+                storage_data.append({
+                    'app': 'IdeoPin',
+                    'table': 'Generierte Bilder',
+                    'size_mb': round(ideopin_total / (1024 * 1024), 2),
+                    'size_gb': round(ideopin_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 7. ImageForge Generated Images
+        try:
+            from imageforge.models import GeneratedImage
+            imageforge_total = 0
+            images = GeneratedImage.objects.filter(image__isnull=False)
+            for img in images:
+                if img.image:
+                    try:
+                        imageforge_total += img.image.size
+                    except Exception:
+                        pass
+            if imageforge_total > 0:
+                storage_data.append({
+                    'app': 'ImageForge',
+                    'table': 'KI-generierte Bilder',
+                    'size_mb': round(imageforge_total / (1024 * 1024), 2),
+                    'size_gb': round(imageforge_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 8. Shopify Product Images (falls lokal gespeichert)
+        try:
+            from shopify_manager.models import ShopifyProduct
+            shopify_total = 0
+            products = ShopifyProduct.objects.filter(local_image__isnull=False)
+            for product in products:
+                if product.local_image:
+                    try:
+                        shopify_total += product.local_image.size
+                    except Exception:
+                        pass
+            if shopify_total > 0:
+                storage_data.append({
+                    'app': 'Shopify Manager',
+                    'table': 'Produkt-Bilder',
+                    'size_mb': round(shopify_total / (1024 * 1024), 2),
+                    'size_gb': round(shopify_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 9. Naturmacher/Schulungen (Course Materials)
+        try:
+            from naturmacher.models import LessonContent
+            naturmacher_total = 0
+            lessons = LessonContent.objects.all()
+            for lesson in lessons:
+                if hasattr(lesson, 'video') and lesson.video:
+                    try:
+                        naturmacher_total += lesson.video.size
+                    except Exception:
+                        pass
+                if hasattr(lesson, 'file') and lesson.file:
+                    try:
+                        naturmacher_total += lesson.file.size
+                    except Exception:
+                        pass
+            if naturmacher_total > 0:
+                storage_data.append({
+                    'app': 'Schulungen',
+                    'table': 'Kurs-Materialien',
+                    'size_mb': round(naturmacher_total / (1024 * 1024), 2),
+                    'size_gb': round(naturmacher_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # 10. Image Editor
+        try:
+            from image_editor.models import EditedImage
+            editor_total = 0
+            edited = EditedImage.objects.filter(image__isnull=False)
+            for img in edited:
+                if img.image:
+                    try:
+                        editor_total += img.image.size
+                    except Exception:
+                        pass
+            if editor_total > 0:
+                storage_data.append({
+                    'app': 'Bild Editor',
+                    'table': 'Bearbeitete Bilder',
+                    'size_mb': round(editor_total / (1024 * 1024), 2),
+                    'size_gb': round(editor_total / (1024 * 1024 * 1024), 2)
+                })
+        except Exception as e:
+            pass
+
+        # Sortiere nach Größe (größte zuerst)
+        storage_data.sort(key=lambda x: x['size_mb'], reverse=True)
+
+        # Falls keine Daten gefunden, zeige Hinweis
+        if not storage_data:
+            storage_data.append({
+                'app': 'Keine Daten',
+                'table': 'Keine Dateien gefunden',
+                'size_mb': 0,
+                'size_gb': 0
+            })
 
         return JsonResponse({
             'success': True,
