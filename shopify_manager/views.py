@@ -1801,27 +1801,42 @@ class ShopifyBlogPostDetailView(LoginRequiredMixin, DetailView):
 def import_blogs_view(request):
     """Importiert Blogs von Shopify"""
     store_id = request.POST.get('store_id')
-    
+    import_mode = request.POST.get('import_mode', 'new_only')  # new_only oder reset_and_import
+
     if not store_id:
         return JsonResponse({
             'success': False,
             'error': 'Store-ID fehlt'
         })
-    
+
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
-    
+
     try:
+        deleted_count = 0
+
+        # Bei reset_and_import: Zuerst alle lokalen Blogs und Posts löschen
+        if import_mode == 'reset_and_import':
+            # Zähle wie viele gelöscht werden
+            deleted_count = ShopifyBlog.objects.filter(store=store).count()
+            # Lösche alle Blogs (Posts werden durch CASCADE automatisch gelöscht)
+            ShopifyBlog.objects.filter(store=store).delete()
+
         blog_sync = ShopifyBlogSync(store)
         log = blog_sync.import_blogs()
-        
+
+        message = f'{log.products_success} Blogs importiert'
+        if deleted_count > 0:
+            message = f'{deleted_count} alte Blogs gelöscht, {log.products_success} Blogs neu importiert'
+
         return JsonResponse({
             'success': log.status in ['success', 'partial'],
-            'message': f'{log.products_success} Blogs importiert',
+            'message': message,
             'imported': log.products_success,
             'failed': log.products_failed,
+            'deleted': deleted_count,
             'status': log.status
         })
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,

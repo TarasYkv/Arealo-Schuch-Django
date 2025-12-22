@@ -107,11 +107,37 @@
                             {% endfor %}
                         </select>
                     </div>
-                    
+
+                    <div class="mb-4">
+                        <label class="form-label">Import-Modus</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import_mode"
+                                   id="importModeNew" value="new_only" checked>
+                            <label class="form-check-label" for="importModeNew">
+                                <strong>Nur neue Blogs importieren</strong>
+                                <small class="text-muted d-block">Importiert nur Blogs, die noch nicht lokal vorhanden sind</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import_mode"
+                                   id="importModeReset" value="reset_and_import">
+                            <label class="form-check-label" for="importModeReset">
+                                <strong class="text-warning">Alle löschen und neu importieren</strong>
+                                <small class="text-muted d-block">Löscht alle lokalen Blogs dieses Stores und importiert alle neu</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Achtung:</strong> Wenn "Alle löschen und neu importieren" aktiviert ist, werden alle bestehenden
+                        lokalen Blog-Daten (inkl. Blog-Posts) für diesen Store unwiderruflich gelöscht!
+                    </div>
+
                     <div id="blogImportProgress" class="d-none">
                         <div class="mb-3">
                             <div class="progress" style="height: 25px;">
-                                <div id="blogImportProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                <div id="blogImportProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
                                      role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
                                     0%
                                 </div>
@@ -308,7 +334,8 @@ function executeImport() {
     const successCount = document.getElementById('blogImportSuccessCount');
     const failedCount = document.getElementById('blogImportFailedCount');
     const submitBtn = document.querySelector('#importModal .btn-success');
-    
+    const importMode = formData.get('import_mode');
+
     // Reset progress
     progressBar.style.width = '0%';
     progressBar.textContent = '0%';
@@ -318,20 +345,26 @@ function executeImport() {
     progressStats.style.display = 'none';
     successCount.textContent = '0';
     failedCount.textContent = '0';
-    
+
     // Show progress
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
     progressDiv.classList.remove('d-none');
-    progressMessage.textContent = 'Importiere Blogs...';
-    
+
+    // Zeige passende Meldung basierend auf Import-Modus
+    if (importMode === 'reset_and_import') {
+        progressMessage.textContent = 'Lösche alte Blogs und importiere neu...';
+    } else {
+        progressMessage.textContent = 'Importiere Blogs...';
+    }
+
     // Show indeterminate progress
     progressBar.style.width = '100%';
     progressBar.textContent = 'Läuft...';
     progressBar.classList.add('progress-bar-animated');
-    
+
     const startTime = Date.now();
-    
+
     fetch('/shopify/api/import-blogs/', {
         method: 'POST',
         headers: {
@@ -342,25 +375,31 @@ function executeImport() {
     .then(response => response.json())
     .then(data => {
         const duration = Math.round((Date.now() - startTime) / 1000);
-        
+
         // Update progress to 100%
         progressBar.style.width = '100%';
         progressBar.textContent = '100%';
         progressBar.setAttribute('aria-valuenow', 100);
         progressBar.classList.remove('progress-bar-animated');
-        
+
         if (data.success) {
             progressBar.classList.remove('bg-primary');
             progressBar.classList.add('bg-success');
-            progressMessage.innerHTML = `<span class="text-success">Import erfolgreich in ${duration}s!</span>`;
-            
+
+            // Zeige Meldung mit gelöschten Blogs falls vorhanden
+            let successMsg = `Import erfolgreich in ${duration}s!`;
+            if (data.deleted && data.deleted > 0) {
+                successMsg = `${data.deleted} alte Blogs gelöscht, ${data.imported} neu importiert (${duration}s)`;
+            }
+            progressMessage.innerHTML = `<span class="text-success">${successMsg}</span>`;
+
             // Show statistics
             const imported = data.imported || 0;
             const failed = data.failed || 0;
             successCount.textContent = imported;
             failedCount.textContent = failed;
             progressStats.style.display = 'block';
-            
+
             setTimeout(() => {
                 location.reload();
             }, 2000);
@@ -368,7 +407,7 @@ function executeImport() {
             progressBar.classList.remove('bg-primary');
             progressBar.classList.add('bg-danger');
             progressMessage.innerHTML = `<span class="text-danger">Import fehlgeschlagen nach ${duration}s: ${data.error}</span>`;
-            
+
             setTimeout(() => {
                 progressDiv.classList.add('d-none');
                 submitBtn.disabled = false;
