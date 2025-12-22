@@ -3127,31 +3127,51 @@ def storage_overview_view(request):
 
     # 16. Shopify Uploads (Fotogravur)
     try:
-        from shopify_uploads.models import FotogravurUpload
+        from shopify_uploads.models import FotogravurImage
 
-        uploads = FotogravurUpload.objects.filter(user=user).order_by('-uploaded_at')
-        for upload in uploads:
-            for field_name in ['image', 'original_image']:
-                img = getattr(upload, field_name, None)
-                if img:
-                    try:
-                        file_size = img.size if hasattr(img, 'size') else 0
-                        if file_size > 0:
-                            all_files.append({
-                                'app': 'shopify_uploads',
-                                'app_name': 'Shopify Uploads',
-                                'app_icon': 'fab fa-shopify',
-                                'name': f"Fotogravur: {upload.customer_name or 'Upload'}",
-                                'filename': os.path.basename(img.name),
-                                'size_bytes': file_size,
-                                'size_mb': file_size / (1024 * 1024),
-                                'created_at': upload.uploaded_at,
-                                'type': 'Fotogravur',
-                                'url': None,
-                                'id': upload.id,
-                            })
-                    except Exception:
-                        pass
+        images = FotogravurImage.objects.filter(uploaded_by=user).order_by('-created_at')
+        for fotogravur in images:
+            # Konvertiertes Bild
+            if fotogravur.image:
+                try:
+                    file_size = fotogravur.image.size if hasattr(fotogravur.image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'shopify_uploads',
+                            'app_name': 'Shopify Uploads',
+                            'app_icon': 'fab fa-shopify',
+                            'name': f"Fotogravur: {fotogravur.original_filename or fotogravur.unique_id}",
+                            'filename': os.path.basename(fotogravur.image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': fotogravur.created_at,
+                            'type': 'Fotogravur (konvertiert)',
+                            'url': None,
+                            'id': fotogravur.id,
+                        })
+                except Exception:
+                    pass
+
+            # Original-Bild
+            if fotogravur.original_image:
+                try:
+                    file_size = fotogravur.original_image.size if hasattr(fotogravur.original_image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'shopify_uploads',
+                            'app_name': 'Shopify Uploads',
+                            'app_icon': 'fab fa-shopify',
+                            'name': f"Original: {fotogravur.original_filename or fotogravur.unique_id}",
+                            'filename': os.path.basename(fotogravur.original_image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': fotogravur.created_at,
+                            'type': 'Fotogravur (Original)',
+                            'url': None,
+                            'id': fotogravur.id,
+                        })
+                except Exception:
+                    pass
     except Exception:
         pass
 
