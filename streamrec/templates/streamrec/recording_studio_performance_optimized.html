@@ -1172,9 +1172,9 @@ class StreamRecorderOptimized {
 
         // 🚀 PERFORMANCE OPTIMIERUNGEN für Segmentation
         this.segmentationOptimization = {
-            // Höhere Auflösung für bessere Masken-Qualität (Balance zwischen Qualität & Performance)
-            inputWidth: 640,   // Erhöht von 256 für schärfere Kanten
-            inputHeight: 360,  // 16:9 Verhältnis beibehalten
+            // Niedrigere Auflösung für Masken-Berechnung (Performance!)
+            inputWidth: 320,   // Niedrig für schnelle Masken-Berechnung
+            inputHeight: 180,  // 16:9 Verhältnis
             // Downscale Canvas für Segmentation
             downscaleCanvas: null,
             downscaleCtx: null,
@@ -1183,12 +1183,17 @@ class StreamRecorderOptimized {
             offscreenCanvas: null,
             // MediaPipe Camera für optimierte Frame-Übergabe
             mediaCamera: null,
-            // KEIN Frame-Skipping mehr - jeder Frame wird verarbeitet
-            processEveryNthFrame: 1,  // Jeden Frame verarbeiten für flüssige Wiedergabe
+            // Frame-Skipping: Maske seltener berechnen, aber Video immer live
+            processEveryNthFrame: 2,  // Maske nur jeden 2. Frame
             frameCounter: 0,
-            // Cached mask für Interpolation zwischen Frames
-            cachedMask: null,
-            lastMaskTime: 0
+            // 🚀 NEU: Gecachte Maske für kontinuierliches Live-Rendering
+            cachedMaskCanvas: null,
+            cachedMaskCtx: null,
+            lastMaskTime: 0,
+            // 🚀 NEU: Live-Rendering Loop (Video immer aktuell!)
+            liveRenderActive: false,
+            liveRenderFrame: null,
+            useLiveVideo: true  // WICHTIG: Immer aktuelles Video nutzen, nicht MediaPipe-Bild
         };
         this.recordingTimer = null;
         this.maxDuration = 180000; // 3 minutes
@@ -3425,177 +3430,174 @@ class StreamRecorderOptimized {
     }
     
     onSegmentationResults(results) {
-        this.backgroundEffects.lastSegmentationResults = results;
+        // 🚀 PERFORMANCE FIX: Nur Maske speichern, LIVE-Video für Rendering verwenden!
+        // Das verhindert die 1-2 Sekunden Verzögerung
 
-        this.logDebug('🔍 MediaPipe Results:', {
-            hasResults: !!results,
-            hasImage: !!(results && results.image),
-            hasSegmentationMask: !!(results && results.segmentationMask),
-            imageType: results && results.image ? results.image.constructor.name : 'none',
-            imageSize: results && results.image ? `${results.image.width}x${results.image.height}` : 'none'
-        });
-
-        if (!results || !results.image) {
-            this.logDebug('❌ Invalid segmentation results received - drawing test pattern');
-            
-            // Draw test pattern directly to canvas
-            const canvas = this.backgroundEffects.segmentationCanvas;
-            const ctx = this.backgroundEffects.segmentationCtx;
-            
-            if (canvas && ctx) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#FF00FF'; // Magenta for "no results"
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#FFFFFF';
-                ctx.font = '20px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('NO RESULTS', canvas.width/2, canvas.height/2);
-                
-                this.updateDebugCanvas(canvas);
-                this.logDebug('🔍 Drew "no results" test pattern');
-            }
-            
+        if (!results || !results.segmentationMask) {
+            this.logDebug('❌ No segmentation mask received');
             return;
         }
-        
+
         const canvas = this.backgroundEffects.segmentationCanvas;
         const ctx = this.backgroundEffects.segmentationCtx;
-        
+
         if (!canvas || !ctx) {
             console.warn('❌ No segmentation canvas available');
-            this.drawDirectVideoToCanvas();
             return;
         }
 
-        // Cache latest segmentation inputs for instant re-application
+        // 🚀 NUR die Maske cachen - NICHT das Bild!
+        const opt = this.segmentationOptimization;
         try {
-            if (!this.backgroundEffects._cachedImageCanvas) {
-                this.backgroundEffects._cachedImageCanvas = document.createElement('canvas');
-                this.backgroundEffects._cachedImageCtx = this.backgroundEffects._cachedImageCanvas.getContext('2d', { willReadFrequently: true });
-            }
-            if (!this.backgroundEffects._cachedMaskCanvas) {
-                this.backgroundEffects._cachedMaskCanvas = document.createElement('canvas');
-                this.backgroundEffects._cachedMaskCtx = this.backgroundEffects._cachedMaskCanvas.getContext('2d', { willReadFrequently: true });
+            // Maske auf volle Canvas-Größe skaliert speichern
+            if (!opt.cachedMaskCanvas) {
+                opt.cachedMaskCanvas = document.createElement('canvas');
+                opt.cachedMaskCtx = opt.cachedMaskCanvas.getContext('2d', { willReadFrequently: true });
             }
 
-            const sourceWidth = (src) => {
-                if (!src) return 0;
-                return src.videoWidth || src.naturalWidth || src.width || (src.canvas ? src.canvas.width : 0) || 0;
+            opt.cachedMaskCanvas.width = canvas.width;
+            opt.cachedMaskCanvas.height = canvas.height;
+            opt.cachedMaskCtx.clearRect(0, 0, canvas.width, canvas.height);
+            opt.cachedMaskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            opt.lastMaskTime = performance.now();
+
+            // Speichere nur die Maske für späteren Zugriff
+            this.backgroundEffects.lastSegmentationResults = {
+                segmentationMask: opt.cachedMaskCanvas
             };
 
-            const sourceHeight = (src) => {
-                if (!src) return 0;
-                return src.videoHeight || src.naturalHeight || src.height || (src.canvas ? src.canvas.height : 0) || 0;
-            };
-
-            const cacheWidth = sourceWidth(results.image) || canvas.width;
-            const cacheHeight = sourceHeight(results.image) || canvas.height;
-
-            if (cacheWidth && cacheHeight) {
-                this.backgroundEffects._cachedImageCanvas.width = cacheWidth;
-                this.backgroundEffects._cachedImageCanvas.height = cacheHeight;
-                this.backgroundEffects._cachedImageCtx.clearRect(0, 0, cacheWidth, cacheHeight);
-                this.backgroundEffects._cachedImageCtx.drawImage(results.image, 0, 0, cacheWidth, cacheHeight);
-
-                this.backgroundEffects._cachedMaskCanvas.width = cacheWidth;
-                this.backgroundEffects._cachedMaskCanvas.height = cacheHeight;
-                this.backgroundEffects._cachedMaskCtx.clearRect(0, 0, cacheWidth, cacheHeight);
-                if (results.segmentationMask) {
-                    this.backgroundEffects._cachedMaskCtx.drawImage(results.segmentationMask, 0, 0, cacheWidth, cacheHeight);
-                }
-
-                this.backgroundEffects.lastSegmentationResults = {
-                    image: this.backgroundEffects._cachedImageCanvas,
-                    segmentationMask: this.backgroundEffects._cachedMaskCanvas
-                };
-            }
         } catch (cacheError) {
-            console.warn('⚠️ Failed to cache segmentation results:', cacheError);
+            console.warn('⚠️ Failed to cache mask:', cacheError);
         }
 
-        try {
-            // Mark MediaPipe as working
-            this.backgroundEffects.mediapipeWorking = true;
-            this.backgroundEffects.segmentationActive = true;
-            
-            // Always start fresh
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            this.logDebug(`🎬 Processing frame: ${canvas.width}x${canvas.height}, mode: ${this.backgroundEffects.mode}`);
-            
-            // Draw based on effect mode to the internal canvas
-            switch (this.backgroundEffects.mode) {
-                case 'remove':
-                    if (results.segmentationMask) {
-                        this.applyBackgroundRemoval(ctx, results);
-                    } else {
-                        // Fallback: just draw the original image
-                        this.logDebug('⚠️ No segmentation mask, drawing original image');
-                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-                    }
-                    break;
-                case 'blur':
-                    if (results.segmentationMask) {
-                        this.applyBackgroundBlur(ctx, results);
-                    } else {
-                        // Fallback: just draw the original image
-                        this.logDebug('⚠️ No segmentation mask, drawing original image');
-                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-                    }
-                    break;
-                case 'image':
-                    if (results.segmentationMask) {
-                        this.applyBackgroundImage(ctx, results);
-                    } else {
-                        // Fallback: just draw the original image
-                        this.logDebug('⚠️ No segmentation mask, drawing original image');
-                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-                    }
-                    break;
-                case 'test':
-                    // Test mode: draw colored rectangles
-                    ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(0, 0, canvas.width/2, canvas.height);
-                    ctx.fillStyle = '#00ff00';
-                    ctx.fillRect(canvas.width/2, 0, canvas.width/2, canvas.height);
-                    this.logDebug('✅ Drew test pattern');
-                    break;
-                default:
-                    // Just draw the original image if available
-                    if (results.image) {
-                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-                        console.log('✅ Drew original image (default)');
-                    } else {
-                        // Try to draw camera video directly
-                        console.log('⚠️ No MediaPipe image, trying direct camera video...');
-                        this.drawDirectVideoToCanvas();
-                        return; // Exit early as drawDirectVideoToCanvas handles everything
-                    }
-            }
-            
-            // ALSO apply intelligent effects to the composition canvas
-            if (results.segmentationMask && this.backgroundEffects.mode !== 'none') {
-                this.applyEffectToCompositionCanvas(this.backgroundEffects.mode, results);
-            }
-            
-            // Validate canvas stream is still active
-            this.validateCanvasStream();
-            
-            // Update the camera stream with processed video (but don't recreate stream every frame)
-            this.updateCameraStreamWithProcessed();
-            
-        } catch (error) {
-            console.error('❌ Error processing segmentation results:', error);
-            this.updateSegmentationStatus('Verarbeitungsfehler');
-            
-            // Fallback: draw original image
-            try {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-            } catch (fallbackError) {
-                console.error('❌ Even fallback failed:', fallbackError);
-            }
+        // Mark MediaPipe as working
+        this.backgroundEffects.mediapipeWorking = true;
+        this.backgroundEffects.segmentationActive = true;
+
+        // 🚀 Starte Live-Render-Loop falls noch nicht aktiv
+        if (!opt.liveRenderActive) {
+            this.startLiveRenderLoop();
         }
+    }
+
+    // 🚀 NEU: Live-Render-Loop - zeichnet AKTUELLES Video mit gecachter Maske
+    startLiveRenderLoop() {
+        const opt = this.segmentationOptimization;
+        if (opt.liveRenderActive) return;
+
+        opt.liveRenderActive = true;
+        console.log('🚀 Live-Render-Loop gestartet (keine Verzögerung mehr!)');
+
+        const renderLiveFrame = () => {
+            if (!this.backgroundEffects.enabled || !opt.liveRenderActive) {
+                opt.liveRenderActive = false;
+                return;
+            }
+
+            const canvas = this.backgroundEffects.segmentationCanvas;
+            const ctx = this.backgroundEffects.segmentationCtx;
+
+            if (!canvas || !ctx) {
+                requestAnimationFrame(renderLiveFrame);
+                return;
+            }
+
+            // 🚀 Hole das AKTUELLE Live-Video (nicht das gecachte!)
+            const liveVideo = document.getElementById('processing-video');
+            if (!liveVideo || liveVideo.readyState < 2) {
+                requestAnimationFrame(renderLiveFrame);
+                return;
+            }
+
+            // 🚀 Zeichne aktuelles Video mit gecachter Maske
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const mask = opt.cachedMaskCanvas;
+            const mode = this.backgroundEffects.mode;
+
+            if (mask && (mode === 'remove' || mode === 'blur' || mode === 'image')) {
+                // Wende Effekt mit LIVE-Video und gecachter Maske an
+                this.applyEffectWithLiveVideo(ctx, liveVideo, mask, mode);
+            } else {
+                // Kein Effekt - zeichne nur das Video
+                ctx.drawImage(liveVideo, 0, 0, canvas.width, canvas.height);
+            }
+
+            // Validate und update stream
+            this.validateCanvasStream();
+            this.updateCameraStreamWithProcessed();
+
+            // Nächster Frame
+            opt.liveRenderFrame = requestAnimationFrame(renderLiveFrame);
+        };
+
+        renderLiveFrame();
+    }
+
+    // 🚀 NEU: Wende Effekt mit Live-Video und gecachter Maske an
+    applyEffectWithLiveVideo(ctx, liveVideo, mask, mode) {
+        const canvas = ctx.canvas;
+        const w = canvas.width;
+        const h = canvas.height;
+
+        try {
+            switch (mode) {
+                case 'remove':
+                    // Zeichne Live-Video
+                    ctx.drawImage(liveVideo, 0, 0, w, h);
+                    // Wende Maske als Clip an (nur Person sichtbar)
+                    ctx.globalCompositeOperation = 'destination-in';
+                    ctx.drawImage(mask, 0, 0, w, h);
+                    ctx.globalCompositeOperation = 'source-over';
+                    break;
+
+                case 'blur':
+                    // Hintergrund: Geblurrtes Video
+                    ctx.filter = 'blur(15px)';
+                    ctx.drawImage(liveVideo, 0, 0, w, h);
+                    ctx.filter = 'none';
+                    // Vordergrund: Scharfes Video mit Maske
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.drawImage(mask, 0, 0, w, h);
+                    ctx.globalCompositeOperation = 'destination-over';
+                    ctx.drawImage(liveVideo, 0, 0, w, h);
+                    ctx.globalCompositeOperation = 'source-over';
+                    break;
+
+                case 'image':
+                    // Hintergrundbild
+                    if (this.backgroundEffects.backgroundImage) {
+                        ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, w, h);
+                    } else {
+                        ctx.fillStyle = this.backgroundEffects.color || '#00ff00';
+                        ctx.fillRect(0, 0, w, h);
+                    }
+                    // Person darüber mit Maske
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.drawImage(mask, 0, 0, w, h);
+                    ctx.globalCompositeOperation = 'destination-over';
+                    ctx.drawImage(liveVideo, 0, 0, w, h);
+                    ctx.globalCompositeOperation = 'source-over';
+                    break;
+
+                default:
+                    ctx.drawImage(liveVideo, 0, 0, w, h);
+            }
+        } catch (error) {
+            console.error('❌ Error applying live effect:', error);
+            ctx.drawImage(liveVideo, 0, 0, w, h);
+        }
+    }
+
+    // Stoppe Live-Render-Loop
+    stopLiveRenderLoop() {
+        const opt = this.segmentationOptimization;
+        opt.liveRenderActive = false;
+        if (opt.liveRenderFrame) {
+            cancelAnimationFrame(opt.liveRenderFrame);
+            opt.liveRenderFrame = null;
+        }
+        console.log('🛑 Live-Render-Loop gestoppt');
     }
     
     applyBackgroundRemoval(ctx, results) {
