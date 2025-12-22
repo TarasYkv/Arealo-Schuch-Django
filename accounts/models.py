@@ -877,7 +877,7 @@ class AppUsageTracking(models.Model):
 
 class AppInfo(models.Model):
     """Detaillierte Informationen über Apps/Features für Info-Seiten"""
-    
+
     # App Names - based on FeatureAccess APP_CHOICES
     APP_CHOICES = [
         # Hauptkategorien
@@ -897,6 +897,27 @@ class AppInfo(models.Model):
         ('core', 'Schuch (Startseite/Kern)'),
         ('loomline', 'LoomLine - SEO Task Timeline'),
         ('keyengine', 'KeyEngine - Keyword Research'),
+
+        # Zusätzliche Apps
+        ('loomconnect', 'LoomConnect - Videocalls'),
+        ('ideopin', 'IdeoPin - Pinterest Generator'),
+        ('imageforge', 'ImageForge - KI Bildgenerierung'),
+        ('vskript', 'VSkript - Video-Skript Generator'),
+        ('questionfinder', 'QuestionFinder'),
+        ('streamrec', 'StreamRec - Kamera-Aufnahmen'),
+        ('promptpro', 'PromptPro'),
+        ('fileshare', 'FileShare'),
+        ('myprompter', 'MyPrompter'),
+        ('somi_plan', 'SoMi-Plan'),
+        ('makeads', 'MakeAds'),
+        ('loomads', 'LoomAds'),
+        ('blogprep', 'BlogPrep - Blog-Vorbereitung'),
+        ('email_templates', 'Email-Vorlagen'),
+        ('codelib', 'CodeLib - Code-Bibliothek'),
+        ('stats', 'Statistiken'),
+        ('lighting_tools', 'Beleuchtungsrechner'),
+        ('lighting_classification', 'DIN 13201-1 Klassifizierung'),
+        ('shopify_uploads', 'Shopify - Fotogravur Uploads'),
     ]
 
     app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Feature")
@@ -956,7 +977,7 @@ class FeatureAccess(models.Model):
     APP_CHOICES = [
         # Hauptkategorien
         ('chat', 'Chat'),
-        ('videos', 'Videos'), 
+        ('videos', 'Videos'),
         ('mail', 'Email'),
         ('shopify_manager', 'Shopify Manager'),
         ('image_editor', 'Bild Editor'),
@@ -970,6 +991,28 @@ class FeatureAccess(models.Model):
         ('payments', 'Zahlungen & Abos'),
         ('core', 'Schuch (Startseite/Kern)'),
         ('keyengine', 'KeyEngine - Keyword Research'),
+
+        # Zusätzliche Apps
+        ('loomconnect', 'LoomConnect - Videocalls'),
+        ('ideopin', 'IdeoPin - Pinterest Generator'),
+        ('imageforge', 'ImageForge - KI Bildgenerierung'),
+        ('vskript', 'VSkript - Video-Skript Generator'),
+        ('questionfinder', 'QuestionFinder'),
+        ('streamrec', 'StreamRec - Kamera-Aufnahmen'),
+        ('promptpro', 'PromptPro'),
+        ('fileshare', 'FileShare'),
+        ('myprompter', 'MyPrompter'),
+        ('somi_plan', 'SoMi-Plan'),
+        ('makeads', 'MakeAds'),
+        ('loomline', 'LoomLine - SEO Task Timeline'),
+        ('loomads', 'LoomAds'),
+        ('blogprep', 'BlogPrep - Blog-Vorbereitung'),
+        ('email_templates', 'Email-Vorlagen'),
+        ('codelib', 'CodeLib - Code-Bibliothek'),
+        ('stats', 'Statistiken'),
+        ('lighting_tools', 'Beleuchtungsrechner'),
+        ('lighting_classification', 'DIN 13201-1 Klassifizierung'),
+        ('shopify_uploads', 'Shopify - Fotogravur Uploads'),
 
         # Spezifische Features/Sub-Bereiche
         ('video_upload', 'Video Upload'),
