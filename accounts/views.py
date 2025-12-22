@@ -2693,10 +2693,10 @@ def storage_overview_view(request):
 
     # 6. Image Editor
     try:
-        from image_editor.models import ImageProject, ProcessingStep, AIGeneratedImage
+        from image_editor.models import ImageProject, AIGenerationHistory
 
         # Original & Processed Images
-        projects = ImageProject.objects.filter(user=user).order_by('-created_at')
+        projects = ImageProject.objects.filter(user=user).order_by('-updated_at')
         for project in projects:
             for field_name, field_type in [('original_image', 'Original'), ('processed_image', 'Bearbeitet')]:
                 img = getattr(project, field_name, None)
@@ -2708,7 +2708,7 @@ def storage_overview_view(request):
                                 'app': 'image_editor',
                                 'app_name': 'Bild Editor',
                                 'app_icon': 'fas fa-paint-brush',
-                                'name': f"{project.title or 'Projekt'} ({field_type})",
+                                'name': f"{project.name or 'Projekt'} ({field_type})",
                                 'filename': os.path.basename(img.name),
                                 'size_bytes': file_size,
                                 'size_mb': file_size / (1024 * 1024),
@@ -2721,7 +2721,7 @@ def storage_overview_view(request):
                         pass
 
         # AI Generated Images
-        ai_images = AIGeneratedImage.objects.filter(user=user, generated_image__isnull=False).order_by('-created_at')
+        ai_images = AIGenerationHistory.objects.filter(user=user, generated_image__isnull=False).order_by('-created_at')
         for ai_img in ai_images:
             if ai_img.generated_image:
                 try:
@@ -2778,7 +2778,7 @@ def storage_overview_view(request):
         from bug_report.models import BugReportAttachment
 
         attachments = BugReportAttachment.objects.filter(
-            bug_report__reported_by=user,
+            bug_report__sender=user,
             file__isnull=False
         ).select_related('bug_report').order_by('-bug_report__created_at')
 
@@ -2807,55 +2807,53 @@ def storage_overview_view(request):
 
     # 9. ImageForge
     try:
-        from imageforge.models import GeneratedImage, ProductShot, ProductMockup
+        from imageforge.models import ImageGeneration, CharacterImage, ProductMockup
 
-        # Generated Images
-        gen_images = GeneratedImage.objects.filter(user=user, image__isnull=False).order_by('-created_at')
-        for img in gen_images:
-            if img.image:
+        # Image Generations
+        generations = ImageGeneration.objects.filter(user=user).order_by('-created_at')
+        for gen in generations:
+            if gen.product_image:
                 try:
-                    file_size = img.image.size if hasattr(img.image, 'size') else 0
+                    file_size = gen.product_image.size if hasattr(gen.product_image, 'size') else 0
                     if file_size > 0:
                         all_files.append({
                             'app': 'imageforge',
                             'app_name': 'ImageForge',
                             'app_icon': 'fas fa-magic',
-                            'name': f"ImageForge: {img.prompt[:30]}..." if hasattr(img, 'prompt') and img.prompt else 'Generiertes Bild',
-                            'filename': os.path.basename(img.image.name),
+                            'name': f"ImageForge: {gen.background_prompt[:30]}..." if gen.background_prompt else 'Generiertes Bild',
+                            'filename': os.path.basename(gen.product_image.name),
                             'size_bytes': file_size,
                             'size_mb': file_size / (1024 * 1024),
-                            'created_at': img.created_at,
+                            'created_at': gen.created_at,
                             'type': 'ImageForge Bild',
                             'url': None,
-                            'id': img.id,
+                            'id': gen.id,
                         })
                 except Exception:
                     pass
 
-        # Product Shots
-        product_shots = ProductShot.objects.filter(user=user).order_by('-created_at')
-        for shot in product_shots:
-            for field_name in ['product_image', 'generated_image']:
-                img = getattr(shot, field_name, None)
-                if img:
-                    try:
-                        file_size = img.size if hasattr(img, 'size') else 0
-                        if file_size > 0:
-                            all_files.append({
-                                'app': 'imageforge',
-                                'app_name': 'ImageForge',
-                                'app_icon': 'fas fa-camera',
-                                'name': f"Produktfoto: {shot.title or 'Unbenannt'}",
-                                'filename': os.path.basename(img.name),
-                                'size_bytes': file_size,
-                                'size_mb': file_size / (1024 * 1024),
-                                'created_at': shot.created_at,
-                                'type': 'Produktfoto',
-                                'url': None,
-                                'id': shot.id,
-                            })
-                    except Exception:
-                        pass
+        # Product Mockups
+        mockups = ProductMockup.objects.filter(user=user).order_by('-created_at')
+        for mockup in mockups:
+            if mockup.mockup_image:
+                try:
+                    file_size = mockup.mockup_image.size if hasattr(mockup.mockup_image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'imageforge',
+                            'app_name': 'ImageForge',
+                            'app_icon': 'fas fa-camera',
+                            'name': f"Mockup: {mockup.name or 'Unbenannt'}",
+                            'filename': os.path.basename(mockup.mockup_image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': mockup.created_at,
+                            'type': 'Produkt-Mockup',
+                            'url': None,
+                            'id': mockup.id,
+                        })
+                except Exception:
+                    pass
     except Exception:
         pass
 
@@ -2875,7 +2873,7 @@ def storage_overview_view(request):
                                 'app': 'ideopin',
                                 'app_name': 'Ideopin',
                                 'app_icon': 'fab fa-pinterest',
-                                'name': f"Pin: {design.title or 'Unbenannt'}",
+                                'name': f"Pin: {design.pin_title or 'Unbenannt'}",
                                 'filename': os.path.basename(img.name),
                                 'size_bytes': file_size,
                                 'size_mb': file_size / (1024 * 1024),
@@ -2891,48 +2889,50 @@ def storage_overview_view(request):
 
     # 11. BlogPrep
     try:
-        from blogprep.models import BlogPost, BlogDiagram
+        from blogprep.models import BlogPrepProject
 
-        posts = BlogPost.objects.filter(user=user, title_image__isnull=False).order_by('-created_at')
-        for post in posts:
-            if post.title_image:
+        # Title images
+        projects = BlogPrepProject.objects.filter(user=user, title_image__isnull=False).order_by('-created_at')
+        for project in projects:
+            if project.title_image:
                 try:
-                    file_size = post.title_image.size if hasattr(post.title_image, 'size') else 0
+                    file_size = project.title_image.size if hasattr(project.title_image, 'size') else 0
                     if file_size > 0:
                         all_files.append({
                             'app': 'blogprep',
                             'app_name': 'BlogPrep',
                             'app_icon': 'fas fa-blog',
-                            'name': f"Blog: {post.title[:30]}..." if post.title else 'Blog-Titelbild',
-                            'filename': os.path.basename(post.title_image.name),
+                            'name': f"Blog: {project.seo_title[:30]}..." if project.seo_title else 'Blog-Titelbild',
+                            'filename': os.path.basename(project.title_image.name),
                             'size_bytes': file_size,
                             'size_mb': file_size / (1024 * 1024),
-                            'created_at': post.created_at,
+                            'created_at': project.created_at,
                             'type': 'Blog-Titelbild',
                             'url': None,
-                            'id': post.id,
+                            'id': project.id,
                         })
                 except Exception:
                     pass
 
-        diagrams = BlogDiagram.objects.filter(blog_post__user=user, diagram_image__isnull=False).select_related('blog_post')
-        for diagram in diagrams:
-            if diagram.diagram_image:
+        # Diagram images
+        projects_with_diagrams = BlogPrepProject.objects.filter(user=user, diagram_image__isnull=False).order_by('-created_at')
+        for project in projects_with_diagrams:
+            if project.diagram_image:
                 try:
-                    file_size = diagram.diagram_image.size if hasattr(diagram.diagram_image, 'size') else 0
+                    file_size = project.diagram_image.size if hasattr(project.diagram_image, 'size') else 0
                     if file_size > 0:
                         all_files.append({
                             'app': 'blogprep',
                             'app_name': 'BlogPrep',
                             'app_icon': 'fas fa-project-diagram',
-                            'name': f"Diagramm: {diagram.title or 'Unbenannt'}",
-                            'filename': os.path.basename(diagram.diagram_image.name),
+                            'name': f"Diagramm: {project.seo_title or 'Unbenannt'}",
+                            'filename': os.path.basename(project.diagram_image.name),
                             'size_bytes': file_size,
                             'size_mb': file_size / (1024 * 1024),
-                            'created_at': diagram.created_at,
+                            'created_at': project.created_at,
                             'type': 'Blog-Diagramm',
                             'url': None,
-                            'id': diagram.id,
+                            'id': project.id,
                         })
                 except Exception:
                     pass
@@ -2941,9 +2941,9 @@ def storage_overview_view(request):
 
     # 12. VSkript
     try:
-        from vskript.models import GeneratedImage as VSkriptImage
+        from vskript.models import VSkriptImage
 
-        images = VSkriptImage.objects.filter(video_script__user=user, image_file__isnull=False).select_related('video_script')
+        images = VSkriptImage.objects.filter(project__user=user, image_file__isnull=False).select_related('project')
         for img in images:
             if img.image_file:
                 try:
@@ -2969,10 +2969,10 @@ def storage_overview_view(request):
 
     # 13. LoomConnect
     try:
-        from loomconnect.models import SocialProfile, Post, Story
+        from loomconnect.models import ConnectProfile, ConnectPost, ConnectStory
 
         # Profile Avatars
-        profiles = SocialProfile.objects.filter(user=user, avatar__isnull=False)
+        profiles = ConnectProfile.objects.filter(user=user, avatar__isnull=False)
         for profile in profiles:
             if profile.avatar:
                 try:
@@ -2982,7 +2982,7 @@ def storage_overview_view(request):
                             'app': 'loomconnect',
                             'app_name': 'LoomConnect',
                             'app_icon': 'fas fa-share-alt',
-                            'name': f"Profil: {profile.platform}",
+                            'name': f"Profil: {profile.user.username}",
                             'filename': os.path.basename(profile.avatar.name),
                             'size_bytes': file_size,
                             'size_mb': file_size / (1024 * 1024),
@@ -2995,7 +2995,7 @@ def storage_overview_view(request):
                     pass
 
         # Posts with images
-        posts = Post.objects.filter(user=user, image__isnull=False).order_by('-created_at')
+        posts = ConnectPost.objects.filter(author__user=user, image__isnull=False).select_related('author').order_by('-created_at')
         for post in posts:
             if post.image:
                 try:
@@ -3012,7 +3012,30 @@ def storage_overview_view(request):
                             'created_at': post.created_at,
                             'type': 'Social Post',
                             'url': None,
-                            'id': post.id,
+                            'id': str(post.id),
+                        })
+                except Exception:
+                    pass
+
+        # Stories with images
+        stories = ConnectStory.objects.filter(profile__user=user, image__isnull=False).select_related('profile').order_by('-created_at')
+        for story in stories:
+            if story.image:
+                try:
+                    file_size = story.image.size if hasattr(story.image, 'size') else 0
+                    if file_size > 0:
+                        all_files.append({
+                            'app': 'loomconnect',
+                            'app_name': 'LoomConnect',
+                            'app_icon': 'fas fa-history',
+                            'name': f"Story: {story.content[:30]}..." if story.content else 'Story',
+                            'filename': os.path.basename(story.image.name),
+                            'size_bytes': file_size,
+                            'size_mb': file_size / (1024 * 1024),
+                            'created_at': story.created_at,
+                            'type': 'Story',
+                            'url': None,
+                            'id': str(story.id),
                         })
                 except Exception:
                     pass
@@ -3021,9 +3044,9 @@ def storage_overview_view(request):
 
     # 14. MakeAds
     try:
-        from makeads.models import ReferenceImage, GeneratedAd
+        from makeads.models import ReferenceImage, Creative
 
-        ref_images = ReferenceImage.objects.filter(user=user, image__isnull=False).order_by('-created_at')
+        ref_images = ReferenceImage.objects.filter(campaign__user=user, image__isnull=False).select_related('campaign').order_by('-uploaded_at')
         for ref in ref_images:
             if ref.image:
                 try:
@@ -3033,11 +3056,11 @@ def storage_overview_view(request):
                             'app': 'makeads',
                             'app_name': 'MakeAds',
                             'app_icon': 'fas fa-ad',
-                            'name': f"Referenz: {ref.name or 'Unbenannt'}",
+                            'name': f"Referenz: {ref.description or ref.campaign.name or 'Unbenannt'}",
                             'filename': os.path.basename(ref.image.name),
                             'size_bytes': file_size,
                             'size_mb': file_size / (1024 * 1024),
-                            'created_at': ref.created_at,
+                            'created_at': ref.uploaded_at,
                             'type': 'Referenzbild',
                             'url': None,
                             'id': ref.id,
@@ -3045,24 +3068,24 @@ def storage_overview_view(request):
                 except Exception:
                     pass
 
-        ads = GeneratedAd.objects.filter(user=user, image_file__isnull=False).order_by('-created_at')
-        for ad in ads:
-            if ad.image_file:
+        creatives = Creative.objects.filter(campaign__user=user, image_file__isnull=False).select_related('campaign').order_by('-created_at')
+        for creative in creatives:
+            if creative.image_file:
                 try:
-                    file_size = ad.image_file.size if hasattr(ad.image_file, 'size') else 0
+                    file_size = creative.image_file.size if hasattr(creative.image_file, 'size') else 0
                     if file_size > 0:
                         all_files.append({
                             'app': 'makeads',
                             'app_name': 'MakeAds',
                             'app_icon': 'fas fa-bullhorn',
-                            'name': f"Ad: {ad.title or 'Generierte Werbung'}",
-                            'filename': os.path.basename(ad.image_file.name),
+                            'name': f"Ad: {creative.title or 'Generierte Werbung'}",
+                            'filename': os.path.basename(creative.image_file.name),
                             'size_bytes': file_size,
                             'size_mb': file_size / (1024 * 1024),
-                            'created_at': ad.created_at,
+                            'created_at': creative.created_at,
                             'type': 'Generierte Werbung',
                             'url': None,
-                            'id': ad.id,
+                            'id': creative.id,
                         })
                 except Exception:
                     pass
