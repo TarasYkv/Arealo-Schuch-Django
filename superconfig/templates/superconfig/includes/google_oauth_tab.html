@@ -240,8 +240,10 @@ function loadGoogleOAuthStatus() {
                     `;
 
                     // Pre-fill form with existing client_id
-                    document.getElementById('google_client_id').value = oauth.client_id_full || '';
-                    document.getElementById('callbackUrl').textContent = oauth.callback_url;
+                    const clientIdInput = document.getElementById('google_client_id');
+                    const callbackUrlEl = document.getElementById('callbackUrl');
+                    if (clientIdInput) clientIdInput.value = oauth.client_id_full || '';
+                    if (callbackUrlEl) callbackUrlEl.textContent = oauth.callback_url;
                 } else {
                     statusDiv.innerHTML = `
                         <div class="alert alert-warning mb-0">
@@ -253,7 +255,8 @@ function loadGoogleOAuthStatus() {
                             <code>${data.callback_url}</code>
                         </div>
                     `;
-                    document.getElementById('callbackUrl').textContent = data.callback_url;
+                    const callbackEl = document.getElementById('callbackUrl');
+                    if (callbackEl) callbackEl.textContent = data.callback_url;
                 }
             } else {
                 statusDiv.innerHTML = `
