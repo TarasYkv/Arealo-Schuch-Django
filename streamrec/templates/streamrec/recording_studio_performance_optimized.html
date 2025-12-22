@@ -3533,14 +3533,23 @@ class StreamRecorderOptimized {
         const w = canvas.width;
         const h = canvas.height;
 
+        // 🪞 Helper: Maske gespiegelt zeichnen (Kamera ist gespiegelt, Maske nicht)
+        const drawMaskMirrored = () => {
+            ctx.save();
+            ctx.translate(w, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(mask, 0, 0, w, h);
+            ctx.restore();
+        };
+
         try {
             switch (mode) {
                 case 'remove':
                     // Zeichne Live-Video
                     ctx.drawImage(liveVideo, 0, 0, w, h);
-                    // Wende Maske als Clip an (nur Person sichtbar)
+                    // Wende gespiegelte Maske als Clip an (nur Person sichtbar)
                     ctx.globalCompositeOperation = 'destination-in';
-                    ctx.drawImage(mask, 0, 0, w, h);
+                    drawMaskMirrored();
                     ctx.globalCompositeOperation = 'source-over';
                     break;
 
@@ -3549,9 +3558,9 @@ class StreamRecorderOptimized {
                     ctx.filter = 'blur(15px)';
                     ctx.drawImage(liveVideo, 0, 0, w, h);
                     ctx.filter = 'none';
-                    // Vordergrund: Scharfes Video mit Maske
+                    // Vordergrund: Scharfes Video mit gespiegelter Maske
                     ctx.globalCompositeOperation = 'destination-out';
-                    ctx.drawImage(mask, 0, 0, w, h);
+                    drawMaskMirrored();
                     ctx.globalCompositeOperation = 'destination-over';
                     ctx.drawImage(liveVideo, 0, 0, w, h);
                     ctx.globalCompositeOperation = 'source-over';
@@ -3565,9 +3574,9 @@ class StreamRecorderOptimized {
                         ctx.fillStyle = this.backgroundEffects.color || '#00ff00';
                         ctx.fillRect(0, 0, w, h);
                     }
-                    // Person darüber mit Maske
+                    // Person darüber mit gespiegelter Maske
                     ctx.globalCompositeOperation = 'destination-out';
-                    ctx.drawImage(mask, 0, 0, w, h);
+                    drawMaskMirrored();
                     ctx.globalCompositeOperation = 'destination-over';
                     ctx.drawImage(liveVideo, 0, 0, w, h);
                     ctx.globalCompositeOperation = 'source-over';
