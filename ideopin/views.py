@@ -2590,6 +2590,7 @@ def api_generate_pin_image(request, project_id, position):
         # Text-Integration Modus
         text_mode = project.text_integration_mode
         overlay_text = pin.overlay_text if text_mode != 'none' else ''
+        has_product_image = bool(project.product_image)
 
         # Bild generieren
         if ai_provider == 'gemini':
@@ -2599,21 +2600,37 @@ def api_generate_pin_image(request, project_id, position):
             if user_settings:
                 model_name = user_settings.gemini_model
 
-            gemini_service = GeminiImageService(gemini_api_key)
-            result = gemini_service.generate_image(
-                background_description=pin.background_description,
-                overlay_text=overlay_text,
-                keywords=project.keywords,
-                pin_format=project.pin_format,
-                text_position=project.text_position,
-                text_color=project.text_color,
-                text_effect=project.text_effect,
-                text_secondary_color=project.text_secondary_color,
-                style_preset=project.style_preset,
-                product_image_path=project.product_image.path if project.product_image else None,
-                model_name=model_name,
-                text_background_enabled=project.text_background_enabled,
-                text_background_creative=project.text_background_creative,
+            service = GeminiImageService(gemini_api_key)
+
+            # Prompt bauen
+            if text_mode == 'ideogram' and overlay_text:
+                prompt = GeminiImageService.build_prompt_with_text(
+                    background_description=pin.background_description,
+                    overlay_text=overlay_text,
+                    text_position=project.text_position,
+                    text_style='modern',
+                    keywords=project.keywords,
+                    has_product_image=has_product_image,
+                    text_color=project.text_color or '#FFFFFF',
+                    text_effect=project.text_effect or 'shadow',
+                    text_secondary_color=project.text_secondary_color or '#000000',
+                    style_preset=project.style_preset or 'modern_bold',
+                    text_background_enabled=project.text_background_enabled,
+                    text_background_creative=project.text_background_creative
+                )
+            else:
+                prompt = GeminiImageService.build_prompt_without_text(
+                    background_description=pin.background_description,
+                    keywords=project.keywords,
+                    has_product_image=has_product_image
+                )
+
+            result = service.generate_image(
+                prompt=prompt,
+                reference_image=project.product_image if project.product_image else None,
+                width=width,
+                height=height,
+                model=model_name
             )
         else:
             from .ideogram_service import IdeogramService
@@ -2624,22 +2641,38 @@ def api_generate_pin_image(request, project_id, position):
                 model_name = user_settings.ideogram_model
                 style_type = user_settings.ideogram_style
 
-            ideogram_service = IdeogramService(ideogram_api_key)
-            result = ideogram_service.generate_image(
-                background_description=pin.background_description,
-                overlay_text=overlay_text,
-                keywords=project.keywords,
-                pin_format=project.pin_format,
-                text_position=project.text_position,
-                text_color=project.text_color,
-                text_effect=project.text_effect,
-                text_secondary_color=project.text_secondary_color,
-                style_preset=project.style_preset,
-                product_image_path=project.product_image.path if project.product_image else None,
-                model_name=model_name,
-                style_type=style_type,
-                text_background_enabled=project.text_background_enabled,
-                text_background_creative=project.text_background_creative,
+            service = IdeogramService(ideogram_api_key)
+
+            # Prompt bauen
+            if text_mode == 'ideogram' and overlay_text:
+                prompt = IdeogramService.build_prompt_with_text(
+                    background_description=pin.background_description,
+                    overlay_text=overlay_text,
+                    text_position=project.text_position,
+                    text_style='modern',
+                    keywords=project.keywords,
+                    has_product_image=has_product_image,
+                    text_color=project.text_color or '#FFFFFF',
+                    text_effect=project.text_effect or 'shadow',
+                    text_secondary_color=project.text_secondary_color or '#000000',
+                    style_preset=project.style_preset or 'modern_bold',
+                    text_background_enabled=project.text_background_enabled,
+                    text_background_creative=project.text_background_creative
+                )
+            else:
+                prompt = IdeogramService.build_prompt_without_text(
+                    background_description=pin.background_description,
+                    keywords=project.keywords,
+                    has_product_image=has_product_image
+                )
+
+            result = service.generate_image(
+                prompt=prompt,
+                reference_image=project.product_image if project.product_image else None,
+                width=width,
+                height=height,
+                model=model_name,
+                style_type=style_type
             )
 
         if not result.get('success'):
