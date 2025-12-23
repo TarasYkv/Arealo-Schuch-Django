@@ -167,70 +167,69 @@
                 <div class="col-md-9">
                     <div class="row">
                         {% for video in videos %}
-                        
-                        <!-- Ad every 3 videos -->
-                        {% if forloop.counter|divisibleby:3 and not forloop.last %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                {% if video.thumbnail %}
+                                    <img src="{{ video.thumbnail.url }}" class="card-img-top" alt="{{ video.title }}" style="height: 200px; object-fit: cover;">
+                                {% else %}
+                                    <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 200px;">
+                                        <i class="fas fa-video fa-3x text-white"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ video.title }}</h5>
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            {{ video.file_size|filesizeformat }}
+                                            {% if video.duration > 0 %}
+                                                • {{ video.duration|floatformat:0 }}s
+                                            {% endif %}
+                                        </small>
+                                    </p>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'videos:detail' video.id %}" class="btn btn-sm btn-primary">View</a>
+                                        <button type="button" class="btn btn-sm btn-info" onclick="copyLink('{{ request.scheme }}://{{ request.get_host }}{% url 'videos:view' video.unique_id %}')">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-success" onclick="openSocialModal({{ video.id }}, '{{ video.title|escapejs }}', '{{ video.description|escapejs|truncatechars:100 }}')" title="Auf Social Media posten">
+                                            <i class="fas fa-share-alt"></i>
+                                        </button>
+                                    </div>
+                                    {% if video.social_platforms_posted %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-check-circle text-success"></i>
+                                            Gepostet: {{ video.social_platforms_posted }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ad after every 6 videos -->
+                        {% if forloop.counter|divisibleby:6 and not forloop.last %}
                         <div class="col-12 mb-4">
                             {% show_ad_zone 'videos_comments_sidebar' %}
                         </div>
                         {% endif %}
-                        
-                    <div class="col-md-4 mb-4">
-                        <div class="card">
-                            {% if video.thumbnail %}
-                                <img src="{{ video.thumbnail.url }}" class="card-img-top" alt="{{ video.title }}" style="height: 200px; object-fit: cover;">
-                            {% else %}
-                                <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 200px;">
-                                    <i class="fas fa-video fa-3x text-white"></i>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body text-center py-5">
+                                    <i class="fas fa-video fa-4x text-muted mb-3"></i>
+                                    <h4>Noch keine Videos hochgeladen</h4>
+                                    <p class="text-muted">Lade dein erstes Video hoch, um zu beginnen.</p>
+                                    <a href="{% url 'videos:upload' %}" class="btn btn-primary">
+                                        <i class="fas fa-upload"></i> Erstes Video hochladen
+                                    </a>
                                 </div>
-                            {% endif %}
-                            <div class="card-body">
-                                <h5 class="card-title">{{ video.title }}</h5>
-                                <p class="card-text">
-                                    <small class="text-muted">
-                                        {{ video.file_size|filesizeformat }}
-                                        {% if video.duration > 0 %}
-                                            • {{ video.duration|floatformat:0 }}s
-                                        {% endif %}
-                                    </small>
-                                </p>
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'videos:detail' video.id %}" class="btn btn-sm btn-primary">View</a>
-                                    <button type="button" class="btn btn-sm btn-info" onclick="copyLink('{{ request.scheme }}://{{ request.get_host }}{% url 'videos:view' video.unique_id %}')">
-                                        <i class="fas fa-link"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-success" onclick="openSocialModal({{ video.id }}, '{{ video.title|escapejs }}', '{{ video.description|escapejs|truncatechars:100 }}')" title="Auf Social Media posten">
-                                        <i class="fas fa-share-alt"></i>
-                                    </button>
-                                </div>
-                                {% if video.social_platforms_posted %}
-                                <div class="mt-2">
-                                    <small class="text-muted">
-                                        <i class="fas fa-check-circle text-success"></i>
-                                        Gepostet: {{ video.social_platforms_posted }}
-                                    </small>
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
-                    </div>
-                        {% empty %}
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-body text-center py-5">
-                                        <i class="fas fa-video fa-4x text-muted mb-3"></i>
-                                        <h4>Noch keine Videos hochgeladen</h4>
-                                        <p class="text-muted">Lade dein erstes Video hoch, um zu beginnen.</p>
-                                        <a href="{% url 'videos:upload' %}" class="btn btn-primary">
-                                            <i class="fas fa-upload"></i> Erstes Video hochladen
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
                         {% endfor %}
                     </div>
                 </div>
-                
+
                 <!-- Sidebar with Ads -->
                 <div class="col-md-3">
                     {% show_ad_zone 'videos_sidebar' %}
