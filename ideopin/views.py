@@ -2343,16 +2343,16 @@ def api_generate_variations(request, project_id):
 
     try:
         data = json.loads(request.body)
-        pin_count = int(data.get('pin_count', 1))
+        pin_count = int(data.get('pin_count', data.get('count', 1)))
         pin_count = max(1, min(7, pin_count))  # Begrenzen auf 1-7
 
         # Pin-Count aktualisieren
         project.pin_count = pin_count
         project.save()
 
-        # Basis-Daten
-        base_text = project.overlay_text or ''
-        base_background = project.background_description or ''
+        # Basis-Daten (aus Request oder aus Projekt)
+        base_text = data.get('base_text') or project.overlay_text or ''
+        base_background = data.get('base_background') or project.background_description or ''
         keywords = project.keywords or ''
 
         # Wenn nur 1 Pin, keine Variationen nötig
@@ -2593,13 +2593,13 @@ def api_generate_pin_image(request, project_id, position):
 
         # Bild generieren
         if ai_provider == 'gemini':
-            from .gemini_service import GeminiService
+            from .gemini_service import GeminiImageService
 
             model_name = 'gemini-2.5-flash-image'
             if user_settings:
                 model_name = user_settings.gemini_model
 
-            gemini_service = GeminiService(gemini_api_key)
+            gemini_service = GeminiImageService(gemini_api_key)
             result = gemini_service.generate_image(
                 background_description=pin.background_description,
                 overlay_text=overlay_text,
