@@ -1669,6 +1669,15 @@ async function applyDistribution() {
         return;
     }
 
+    if (!boardId) {
+        alert('Bitte wähle ein Pinterest Board aus.');
+        return;
+    }
+
+    const btn = document.querySelector('#distributionModal .btn-primary');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Plane Pins...';
+
     try {
         const response = await fetch('{% url "ideopin:api_apply_distribution" project.id %}', {
             method: 'POST',
@@ -1679,20 +1688,33 @@ async function applyDistribution() {
             body: JSON.stringify({
                 start_date: `${startDate}T${startTime}:00`,
                 interval_days: interval,
-                board_id: boardId
+                board_id: boardId,
+                platforms: ['pinterest'],
+                schedule_via_api: true
             })
         });
         const data = await response.json();
 
         if (data.success) {
             bootstrap.Modal.getInstance(document.getElementById('distributionModal')).hide();
-            alert(`Verteilung auf ${data.scheduled_count} Pins angewendet!`);
+            let msg = `${data.scheduled_count} Pins geplant!`;
+            if (data.api_scheduled_count > 0) {
+                msg += ` (${data.api_scheduled_count} via API geplant)`;
+            }
+            if (data.errors && data.errors.length > 0) {
+                msg += '\n\nHinweise:\n' + data.errors.join('\n');
+            }
+            alert(msg);
             window.location.reload();
         } else {
             alert('Fehler: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check"></i> Verteilung anwenden';
         }
     } catch (e) {
         alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check"></i> Verteilung anwenden';
     }
 }
 
@@ -1734,14 +1756,19 @@ async function executeBatchPublish() {
             },
             body: JSON.stringify({
                 positions: positions,
-                board_id: boardId
+                board_id: boardId,
+                platforms: ['pinterest']
             })
         });
         const data = await response.json();
 
         if (data.success) {
             bootstrap.Modal.getInstance(document.getElementById('batchPublishModal')).hide();
-            alert(`${data.published_count} Pins erfolgreich veröffentlicht!`);
+            let msg = `${data.published_count} Pins erfolgreich veröffentlicht!`;
+            if (data.errors && data.errors.length > 0) {
+                msg += '\n\nHinweise:\n' + data.errors.join('\n');
+            }
+            alert(msg);
             window.location.reload();
         } else {
             alert('Fehler: ' + data.error);
@@ -1766,6 +1793,13 @@ async function postSinglePin(position) {
         const boardSelect = document.getElementById('batchBoard');
         const boardId = boardSelect ? boardSelect.value : '';
 
+        if (!boardId) {
+            alert('Bitte wähle zuerst ein Pinterest Board aus (im Batch-Publish Dialog).');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-pinterest"></i>';
+            return;
+        }
+
         const response = await fetch(`{% url "ideopin:api_post_single_pin" project.id 999 %}`.replace('999', position), {
             method: 'POST',
             headers: {
@@ -1773,7 +1807,8 @@ async function postSinglePin(position) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                board_id: boardId
+                board_id: boardId,
+                platforms: ['pinterest']
             })
         });
         const data = await response.json();

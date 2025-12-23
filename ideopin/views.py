@@ -3019,7 +3019,9 @@ def api_schedule_pin(request, project_id, position):
 @login_required
 @require_POST
 def api_apply_distribution(request, project_id):
-    """API: Wendet automatische Zeitverteilung auf alle Pins an"""
+    """API: Wendet automatische Zeitverteilung auf alle Pins an und plant sie via Upload-Post API"""
+    import base64
+    import requests as http_requests
     from datetime import datetime, timedelta
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
@@ -3030,6 +3032,8 @@ def api_apply_distribution(request, project_id):
         interval_days = int(data.get('interval_days', 2))
         board_id = data.get('board_id', '')
         start_time = data.get('start_time', '12:00')
+        platforms = data.get('platforms', ['pinterest'])
+        schedule_via_api = data.get('schedule_via_api', True)  # Standardmäßig via API planen
 
         if not start_date_str:
             return JsonResponse({
@@ -3043,9 +3047,32 @@ def api_apply_distribution(request, project_id):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         hour, minute = map(int, start_time.split(':'))
 
+        # Upload-Post API-Key für Scheduling
+        upload_post_api_key = None
+        if schedule_via_api:
+            upload_post_api_key = getattr(request.user, 'upload_post_api_key', None)
+            if not upload_post_api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Upload-Post API-Key nicht konfiguriert. Bitte in Einstellungen hinterlegen.'
+                }, status=400)
+
+            if not board_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Board-ID erforderlich für API-Scheduling'
+                }, status=400)
+
         # Verteilung anwenden
         pins = project.pins.filter(pinterest_posted=False).order_by('position')
         scheduled_pins = []
+        errors = []
+
+        api_url = 'https://api.upload-post.com/api/upload_photos'
+        headers = {
+            'Authorization': 'Apikey ' + (upload_post_api_key.strip() if upload_post_api_key else ''),
+            'Content-Type': 'application/json',
+        }
 
         for i, pin in enumerate(pins):
             scheduled_datetime = datetime.combine(
@@ -3055,22 +3082,98 @@ def api_apply_distribution(request, project_id):
             pin.scheduled_at = timezone.make_aware(scheduled_datetime)
             if board_id:
                 pin.pinterest_board_id = board_id
-            pin.save()
 
-            scheduled_pins.append({
-                'position': pin.position,
-                'scheduled_at': str(pin.scheduled_at),
-            })
+            # Via Upload-Post API schedulen
+            if schedule_via_api and upload_post_api_key:
+                try:
+                    # Bild für Upload vorbereiten
+                    image_file = pin.get_final_image_for_upload()
+                    if not image_file:
+                        errors.append(f"Pin {pin.position}: Kein Bild vorhanden")
+                        continue
+
+                    # Bild als Base64 kodieren
+                    image_file.seek(0)
+                    image_data = image_file.read()
+                    image_base64 = base64.b64encode(image_data).decode('utf-8')
+
+                    # Scheduled_date im ISO-Format (YYYY-MM-DDTHH:MM:SS)
+                    scheduled_date_iso = scheduled_datetime.strftime('%Y-%m-%dT%H:%M:%S')
+
+                    # API-Daten
+                    post_data = {
+                        'image': f"data:image/png;base64,{image_base64}",
+                        'platforms': platforms if isinstance(platforms, list) else [platforms],
+                        'title': pin.pin_title or project.keywords[:100],
+                        'description': pin.seo_description or '',
+                        'link': project.pin_url or '',
+                        'pinterest_board_id': board_id,
+                        'scheduled_date': scheduled_date_iso,
+                    }
+
+                    logger.info(f"[Multi-Pin] Scheduling Pin {pin.position} für {scheduled_date_iso}")
+
+                    # API-Aufruf
+                    response = http_requests.post(api_url, headers=headers, json=post_data, timeout=60)
+
+                    if response.status_code in [200, 201]:
+                        result = response.json()
+                        pin.upload_post_platforms = ','.join(platforms) if isinstance(platforms, list) else platforms
+                        pin.save()
+
+                        scheduled_pins.append({
+                            'position': pin.position,
+                            'scheduled_at': str(pin.scheduled_at),
+                            'api_scheduled': True,
+                            'api_response': result.get('message', 'Geplant'),
+                        })
+                        logger.info(f"[Multi-Pin] Pin {pin.position} erfolgreich geplant für {scheduled_date_iso}")
+                    else:
+                        error_msg = f"API-Fehler: {response.status_code} - {response.text[:200]}"
+                        errors.append(f"Pin {pin.position}: {error_msg}")
+                        logger.error(f"[Multi-Pin] Pin {pin.position} Scheduling fehlgeschlagen: {error_msg}")
+                        # Trotzdem lokal speichern
+                        pin.save()
+                        scheduled_pins.append({
+                            'position': pin.position,
+                            'scheduled_at': str(pin.scheduled_at),
+                            'api_scheduled': False,
+                            'error': error_msg,
+                        })
+
+                except Exception as pin_error:
+                    error_msg = str(pin_error)
+                    errors.append(f"Pin {pin.position}: {error_msg}")
+                    logger.error(f"[Multi-Pin] Pin {pin.position} Scheduling-Fehler: {error_msg}")
+                    pin.save()
+                    scheduled_pins.append({
+                        'position': pin.position,
+                        'scheduled_at': str(pin.scheduled_at),
+                        'api_scheduled': False,
+                        'error': error_msg,
+                    })
+            else:
+                # Nur lokal speichern (ohne API)
+                pin.save()
+                scheduled_pins.append({
+                    'position': pin.position,
+                    'scheduled_at': str(pin.scheduled_at),
+                    'api_scheduled': False,
+                })
 
         # Projekt-Einstellungen speichern
         project.distribution_mode = 'auto'
         project.distribution_interval_days = interval_days
         project.save()
 
+        api_success_count = sum(1 for p in scheduled_pins if p.get('api_scheduled'))
+
         return JsonResponse({
             'success': True,
             'scheduled_count': len(scheduled_pins),
+            'api_scheduled_count': api_success_count,
             'pins': scheduled_pins,
+            'errors': errors if errors else None,
         })
 
     except Exception as e:
@@ -3183,7 +3286,10 @@ def api_post_single_pin(request, project_id, position):
 @login_required
 @require_POST
 def api_publish_batch(request, project_id):
-    """API: Veröffentlicht mehrere Pins auf einmal"""
+    """API: Veröffentlicht mehrere Pins auf einmal via Upload-Post API"""
+    import base64
+    import requests
+
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
     try:
@@ -3191,6 +3297,7 @@ def api_publish_batch(request, project_id):
         # Akzeptiere sowohl 'pin_positions' als auch 'positions'
         pin_positions = data.get('pin_positions') or data.get('positions', [])
         board_id = data.get('board_id')
+        platforms = data.get('platforms', ['pinterest'])
 
         if not pin_positions:
             return JsonResponse({
@@ -3198,22 +3305,98 @@ def api_publish_batch(request, project_id):
                 'error': 'Keine Pins ausgewählt'
             }, status=400)
 
+        if not board_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Board-ID erforderlich'
+            }, status=400)
+
+        # Upload-Post API-Key prüfen
+        upload_post_api_key = getattr(request.user, 'upload_post_api_key', None)
+        if not upload_post_api_key:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload-Post API-Key nicht konfiguriert'
+            }, status=400)
+
+        api_url = 'https://api.upload-post.com/api/upload_photos'
+        headers = {
+            'Authorization': 'Apikey ' + upload_post_api_key.strip(),
+            'Content-Type': 'application/json',
+        }
+
         results = []
+        published_count = 0
+        errors = []
+
         for position in pin_positions:
-            # Für jeden Pin den einzelnen Post-Endpoint aufrufen
             pin = project.pins.filter(position=position).first()
-            if pin and not pin.pinterest_posted:
-                # Hier würden wir normalerweise den Post-Vorgang durchführen
-                # Für jetzt markieren wir nur als "in Bearbeitung"
+            if not pin or pin.pinterest_posted:
+                continue
+
+            # Bild für Upload vorbereiten
+            image_file = pin.get_final_image_for_upload()
+            if not image_file:
+                errors.append(f"Pin {position}: Kein Bild vorhanden")
+                continue
+
+            try:
+                # Bild als Base64
+                with open(image_file.path, 'rb') as f:
+                    image_base64 = base64.b64encode(f.read()).decode('utf-8')
+
+                post_data = {
+                    'image': f"data:image/png;base64,{image_base64}",
+                    'platforms': platforms,
+                    'title': pin.pin_title or project.keywords[:100],
+                    'description': pin.seo_description or '',
+                    'link': project.pin_url or '',
+                    'pinterest_board_id': board_id,
+                }
+
+                response = requests.post(api_url, headers=headers, json=post_data, timeout=60)
+
+                if response.status_code == 200:
+                    # Pin als gepostet markieren
+                    pin.pinterest_posted = True
+                    pin.pinterest_board_id = board_id
+                    pin.pinterest_posted_at = timezone.now()
+                    pin.upload_post_platforms = ','.join(platforms)
+                    pin.save()
+
+                    results.append({
+                        'position': position,
+                        'status': 'success',
+                    })
+                    published_count += 1
+                else:
+                    error_msg = response.text[:100]
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get('error', error_msg)
+                    except:
+                        pass
+                    errors.append(f"Pin {position}: {error_msg}")
+                    results.append({
+                        'position': position,
+                        'status': 'error',
+                        'error': error_msg,
+                    })
+
+            except Exception as e:
+                errors.append(f"Pin {position}: {str(e)}")
                 results.append({
                     'position': position,
-                    'status': 'pending',
+                    'status': 'error',
+                    'error': str(e),
                 })
 
         return JsonResponse({
-            'success': True,
-            'message': f'{len(results)} Pins werden verarbeitet...',
+            'success': published_count > 0,
+            'message': f'{published_count} von {len(pin_positions)} Pins erfolgreich veröffentlicht!',
+            'published_count': published_count,
             'results': results,
+            'errors': errors if errors else None,
         })
 
     except Exception as e:
