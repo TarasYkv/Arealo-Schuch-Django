@@ -2357,6 +2357,79 @@
         .toast-notification.hiding {
             animation: slideOutRight 0.3s ease-in forwards;
         }
+
+        /* ========== TOAST MOBILE OPTIMIERUNGEN ========== */
+        @media (max-width: 767.98px) {
+            #toast-container {
+                top: auto !important;
+                bottom: 70px !important;
+                right: 0 !important;
+                left: 0 !important;
+                padding: 0 12px;
+            }
+
+            .toast-notification {
+                min-width: auto !important;
+                width: 100% !important;
+                padding: 0.875rem !important;
+                gap: 0.75rem !important;
+                border-radius: 10px !important;
+                margin-bottom: 0.5rem !important;
+                animation: slideInUp 0.3s ease-out !important;
+            }
+
+            .toast-notification.hiding {
+                animation: slideOutDown 0.3s ease-in forwards !important;
+            }
+
+            .toast-icon {
+                width: 36px !important;
+                height: 36px !important;
+                flex-shrink: 0;
+            }
+
+            .toast-icon i {
+                font-size: 1.1rem !important;
+            }
+
+            .toast-title {
+                font-size: 0.9rem !important;
+                margin-bottom: 0.15rem !important;
+            }
+
+            .toast-message {
+                font-size: 0.8rem !important;
+                line-height: 1.4 !important;
+            }
+
+            .toast-close {
+                width: 24px !important;
+                height: 24px !important;
+                font-size: 1rem !important;
+            }
+
+            @keyframes slideInUp {
+                from {
+                    transform: translateY(100px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideOutDown {
+                from {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateY(100px);
+                    opacity: 0;
+                }
+            }
+        }
     </style>
 
     <!-- Editable Footer Section -->
@@ -2531,22 +2604,44 @@
         (function() {
             const originalAlert = window.alert;
             window.alert = function(message) {
-                // Detect type based on message content
-                let type = 'success';
-                let title = 'Hinweis';
+                // Detect type and title based on message content
+                let type = 'info';
+                let title = 'Information';
 
                 const messageLower = (message || '').toString().toLowerCase();
 
-                if (messageLower.includes('fehler') || messageLower.includes('error')) {
+                // Error detection (highest priority)
+                if (messageLower.includes('fehler') || messageLower.includes('error') || messageLower.includes('fehlgeschlagen') || messageLower.includes('failed')) {
                     type = 'error';
-                    title = 'Fehler';
-                } else if (messageLower.includes('erfolgreich') || messageLower.includes('success') || messageLower.includes('gespeichert')) {
+                    title = 'Fehler aufgetreten';
+                }
+                // Success detection
+                else if (messageLower.includes('erfolgreich') || messageLower.includes('success') || messageLower.includes('gespeichert') || messageLower.includes('gelöscht')) {
                     type = 'success';
                     title = 'Erfolgreich';
-                } else if (messageLower.includes('warnung') || messageLower.includes('warning') || messageLower.includes('achtung')) {
+                }
+                // Warning detection
+                else if (messageLower.includes('warnung') || messageLower.includes('warning') || messageLower.includes('achtung') || messageLower.includes('vorsicht')) {
                     type = 'warning';
                     title = 'Warnung';
-                } else if (messageLower.includes('info') || messageLower.includes('hinweis')) {
+                }
+                // Input required detection (common "please enter..." messages)
+                else if (messageLower.includes('bitte') && (messageLower.includes('gib') || messageLower.includes('wähle') || messageLower.includes('eingeben') || messageLower.includes('auswählen') || messageLower.includes('zuerst'))) {
+                    type = 'warning';
+                    title = 'Eingabe erforderlich';
+                }
+                // Confirmation messages
+                else if (messageLower.includes('bestätigt') || messageLower.includes('übernommen') || messageLower.includes('aktualisiert')) {
+                    type = 'success';
+                    title = 'Bestätigt';
+                }
+                // Loading/wait messages
+                else if (messageLower.includes('laden') || messageLower.includes('warten') || messageLower.includes('verarbeite')) {
+                    type = 'info';
+                    title = 'Bitte warten';
+                }
+                // Generic info for other cases
+                else {
                     type = 'info';
                     title = 'Information';
                 }
