@@ -775,21 +775,23 @@ def _render_simple_ad(ad, extra_css_class=''):
     '''
 
     html = f'''
-    <div class="simple-ad-container {extra_css_class}" style="{s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; text-align: center;">
-        <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
-           style="display: flex; align-items: center; justify-content: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
-            {image_html}
-            <div style="flex: 1; min-width: 200px; text-align: left;">
-                <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
-                    {ad.title}
-                </h4>
-                {desc_html}
-                <span style="display: inline-block; background: {s['btn_bg']}; color: {s['btn_color']};
-                             padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">
-                    {ad.button_text}
-                </span>
-            </div>
-        </a>
+    <div class="simple-ad-wrapper {extra_css_class}" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: inherit;">
+        <div class="simple-ad-container" style="{s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; width: 100%; text-align: center;">
+            <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
+               style="display: flex; align-items: center; justify-content: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
+                {image_html}
+                <div style="flex: 1; min-width: 200px; text-align: left;">
+                    <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
+                        {ad.title}
+                    </h4>
+                    {desc_html}
+                    <span style="display: inline-block; background: {s['btn_bg']}; color: {s['btn_color']};
+                                 padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                        {ad.button_text}
+                    </span>
+                </div>
+            </a>
+        </div>
     </div>
     {track_script}
     '''
