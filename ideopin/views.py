@@ -2393,33 +2393,37 @@ def api_generate_variations(request, project_id):
 
         client = openai.OpenAI(api_key=openai_api_key)
 
-        # Prompt für Text-Variationen
-        text_prompt = f"""Erstelle {pin_count} KOMPLETT UNTERSCHIEDLICHE, kurze Pin-Texte zum Thema.
+        # Anzahl der Variationen (Pin 1 bleibt unverändert, nur 2-7 bekommen Variationen)
+        variation_count = pin_count - 1
 
+        # Prompt für Text-Variationen (nur für Pins 2-7)
+        text_prompt = f"""Schreibe den folgenden Text {variation_count}x leicht um. Jede Version soll die gleiche Aussage haben, aber anders formuliert sein.
+
+Original-Text: {base_text}
 Keywords: {keywords}
-{f'Basis-Text (zur Inspiration, NICHT kopieren): {base_text}' if base_text else ''}
 
 Regeln:
-- Jeder Text muss einen ANDEREN Blickwinkel haben (Frage, Statement, Aufruf, Zahl, Tipp, etc.)
+- Behalte die Kernaussage bei
+- Variiere Wortstellung, Synonyme, Formulierung
 - Max 5-8 Wörter pro Text
-- KEINE Wiederholungen von Phrasen oder Strukturen
 - Auf Deutsch
+- Jede Version soll sich vom Original unterscheiden, aber nicht komplett anders sein
 
-Antworte NUR als JSON: {{"texts": ["Text 1", "Text 2", ...]}}"""
+Antworte NUR als JSON: {{"texts": ["Variation 1", "Variation 2", ...]}}"""
 
-        # Prompt für Hintergrund-Variationen
-        bg_prompt = f"""Erstelle {pin_count} VERSCHIEDENE fotorealistische Hintergrund-Beschreibungen für Pinterest Pins.
+        # Prompt für Hintergrund-Variationen (nur für Pins 2-7)
+        bg_prompt = f"""Schreibe die folgende Hintergrund-Beschreibung {variation_count}x leicht um. Jede Version soll die gleiche Szene beschreiben, aber mit kleinen Variationen.
 
+Original-Beschreibung: {base_background}
 Keywords: {keywords}
-{f'Basis-Beschreibung (zur Inspiration): {base_background}' if base_background else ''}
 
-Jede Beschreibung soll:
-- Das gleiche Thema aus einem ANDEREN Blickwinkel zeigen
-- Unterschiedliche Farben, Stimmungen, Perspektiven nutzen
+Jede Variation soll:
+- Die gleiche Grundszene beschreiben
+- Leichte Unterschiede in Details, Perspektive oder Stimmung haben
 - Fotorealistisch und für Bildgenerierung optimiert sein
 - 1-2 Sätze lang sein
 
-Antworte NUR als JSON: {{"backgrounds": ["Beschreibung 1", "Beschreibung 2", ...]}}"""
+Antworte NUR als JSON: {{"backgrounds": ["Variation 1", "Variation 2", ...]}}"""
 
         # Text-Variationen generieren
         text_response = client.chat.completions.create(
@@ -2439,7 +2443,7 @@ Antworte NUR als JSON: {{"backgrounds": ["Beschreibung 1", "Beschreibung 2", ...
             text_data = json.loads(text_content)
             texts = text_data.get('texts', [])
         except json.JSONDecodeError:
-            texts = [base_text] * pin_count
+            texts = [base_text] * variation_count
 
         # Hintergrund-Variationen generieren
         bg_response = client.chat.completions.create(
@@ -2459,23 +2463,47 @@ Antworte NUR als JSON: {{"backgrounds": ["Beschreibung 1", "Beschreibung 2", ...
             bg_data = json.loads(bg_content)
             backgrounds = bg_data.get('backgrounds', [])
         except json.JSONDecodeError:
-            backgrounds = [base_background] * pin_count
+            backgrounds = [base_background] * variation_count
 
-        # Listen auf pin_count erweitern/kürzen
-        while len(texts) < pin_count:
+        # Listen auf variation_count erweitern/kürzen (für Pins 2-7)
+        while len(texts) < variation_count:
             texts.append(base_text or texts[0] if texts else '')
-        while len(backgrounds) < pin_count:
+        while len(backgrounds) < variation_count:
             backgrounds.append(base_background or backgrounds[0] if backgrounds else '')
 
-        texts = texts[:pin_count]
-        backgrounds = backgrounds[:pin_count]
+        texts = texts[:variation_count]
+        backgrounds = backgrounds[:variation_count]
 
         # Pins erstellen/aktualisieren
         pins_data = []
-        for i in range(pin_count):
+
+        # Pin 1: Original-Texte behalten (NICHT ändern)
+        pin1, created = Pin.objects.get_or_create(
+            project=project,
+            position=1,
+            defaults={
+                'overlay_text': base_text,
+                'overlay_text_ai_generated': False,  # Nicht AI-generiert
+                'background_description': base_background,
+            }
+        )
+        if not created:
+            pin1.overlay_text = base_text
+            pin1.overlay_text_ai_generated = False
+            pin1.background_description = base_background
+            pin1.save()
+
+        pins_data.append({
+            'position': 1,
+            'overlay_text': base_text,
+            'background_description': base_background,
+        })
+
+        # Pins 2-7: Variationen verwenden
+        for i in range(variation_count):
             pin, created = Pin.objects.get_or_create(
                 project=project,
-                position=i + 1,
+                position=i + 2,  # Position 2, 3, 4, ...
                 defaults={
                     'overlay_text': texts[i],
                     'overlay_text_ai_generated': True,
@@ -2489,7 +2517,7 @@ Antworte NUR als JSON: {{"backgrounds": ["Beschreibung 1", "Beschreibung 2", ...
                 pin.save()
 
             pins_data.append({
-                'position': i + 1,
+                'position': i + 2,
                 'overlay_text': texts[i],
                 'background_description': backgrounds[i],
             })
