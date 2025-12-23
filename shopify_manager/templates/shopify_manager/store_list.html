@@ -79,7 +79,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{{ store.name }}</h5>
                 <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
                             type="button" data-bs-toggle="dropdown">
                         <i class="fas fa-ellipsis-v"></i>
                     </button>
@@ -104,32 +104,32 @@
                     </ul>
                 </div>
             </div>
-            
+
             <div class="card-body">
                 <div class="mb-3">
                     <strong>Domain:</strong><br>
                     <small class="text-muted">{{ store.shop_domain }}</small>
                 </div>
-                
+
                 {% if store.description %}
                 <div class="mb-3">
                     <strong>Beschreibung:</strong><br>
                     <small class="text-muted">{{ store.description }}</small>
                 </div>
                 {% endif %}
-                
+
                 <div class="mb-3">
                     <strong>Status:</strong>
                     <span class="badge bg-{% if store.is_active %}success{% else %}secondary{% endif %}">
                         {% if store.is_active %}Aktiv{% else %}Inaktiv{% endif %}
                     </span>
                 </div>
-                
+
                 <div class="mb-3">
                     <strong>Produkte:</strong>
                     <span class="badge bg-info">{{ store.products_count }}</span>
                 </div>
-                
+
                 <div class="mb-3">
                     <strong>Letzte Synchronisation:</strong><br>
                     <small class="text-muted">
@@ -141,7 +141,7 @@
                     </small>
                 </div>
             </div>
-            
+
             <div class="card-footer">
                 <div class="d-flex justify-content-between flex-wrap gap-1">
                     <a href="{% url 'shopify_manager:product_list' %}?store={{ store.id }}"
@@ -170,6 +170,36 @@
             </div>
         </div>
     </div>
+    {% if forloop.counter|divisibleby:3 and not forloop.last %}
+    <!-- Werbe-Card alle 3 Stores -->
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100" style="background: #f8f9fa; border: 2px dashed #dee2e6;">
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <div id="shopify-store-ad-{{ forloop.counter }}" class="w-100 text-center">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    (function() {
+        fetch('/loomads/api/zone/shopify_stores_card/ad/')
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('shopify-store-ad-{{ forloop.counter }}');
+                if (el && data.html_content) {
+                    el.innerHTML = data.html_content;
+                } else if (el) {
+                    el.innerHTML = '<small class="text-muted">Werbung</small>';
+                }
+            })
+            .catch(() => {
+                const el = document.getElementById('shopify-store-ad-{{ forloop.counter }}');
+                if (el) el.innerHTML = '';
+            });
+    })();
+    </script>
+    {% endif %}
     {% endfor %}
 </div>
 
