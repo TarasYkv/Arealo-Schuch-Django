@@ -307,6 +307,24 @@
                     <div id="productImageHistoryGrid" class="row g-3">
                         <!-- Bilder werden hier eingefügt -->
                     </div>
+                    <!-- Pagination -->
+                    <nav id="productImageHistoryPagination" class="mt-3" style="display: none;">
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            <li class="page-item" id="paginationPrev">
+                                <a class="page-link" href="#" aria-label="Zurück">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link" id="paginationInfo">1/1</span>
+                            </li>
+                            <li class="page-item" id="paginationNext">
+                                <a class="page-link" href="#" aria-label="Weiter">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
                 </div>
             </div>
             <div class="modal-footer">
@@ -341,21 +359,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const removeProductImageBtn = document.getElementById('removeProductImageBtn');
     const productImageInput = document.getElementById('id_product_image');
 
-    // Produktbild-Verlauf Button
-    productImageHistoryBtn.addEventListener('click', async function() {
-        productImageHistoryModal.show();
+    // Produktbild-Verlauf - Pagination
+    let currentHistoryPage = 1;
+    const paginationNav = document.getElementById('productImageHistoryPagination');
+    const paginationPrev = document.getElementById('paginationPrev');
+    const paginationNext = document.getElementById('paginationNext');
+    const paginationInfo = document.getElementById('paginationInfo');
+
+    async function loadProductImageHistory(page = 1) {
         productImageHistoryLoading.style.display = 'block';
         productImageHistoryEmpty.style.display = 'none';
         productImageHistoryContent.style.display = 'none';
         productImageHistoryGrid.innerHTML = '';
 
         try {
-            const response = await fetch('{% url "ideopin:api_product_image_history" %}');
+            const response = await fetch(`{% url "ideopin:api_product_image_history" %}?page=${page}&per_page=12`);
             const data = await response.json();
 
             productImageHistoryLoading.style.display = 'none';
 
             if (data.success && data.images && data.images.length > 0) {
+                currentHistoryPage = data.page;
+
                 data.images.forEach(image => {
                     const col = document.createElement('div');
                     col.className = 'col-4 col-md-3';
@@ -372,7 +397,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
 
                     card.addEventListener('click', async function() {
-                        // Bild auswählen
                         try {
                             const setResponse = await fetch('{% url "ideopin:api_set_product_image" project.id %}', {
                                 method: 'POST',
@@ -401,11 +425,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     productImageHistoryGrid.appendChild(col);
                 });
 
-                productImageHistoryCount.textContent = `${data.count} Bilder`;
+                productImageHistoryCount.textContent = `${data.total_count} Bilder`;
                 productImageHistoryContent.style.display = 'block';
+
+                // Pagination aktualisieren
+                if (data.total_pages > 1) {
+                    paginationNav.style.display = 'block';
+                    paginationInfo.textContent = `${data.page} / ${data.total_pages}`;
+                    paginationPrev.classList.toggle('disabled', !data.has_prev);
+                    paginationNext.classList.toggle('disabled', !data.has_next);
+                } else {
+                    paginationNav.style.display = 'none';
+                }
             } else {
                 productImageHistoryEmpty.style.display = 'block';
                 productImageHistoryCount.textContent = '';
+                paginationNav.style.display = 'none';
             }
         } catch (error) {
             console.error('Error:', error);
@@ -413,6 +448,26 @@ document.addEventListener('DOMContentLoaded', function() {
             productImageHistoryEmpty.innerHTML = '<i class="bi bi-exclamation-triangle text-danger fs-1 d-block mb-2"></i>Fehler beim Laden.';
             productImageHistoryEmpty.style.display = 'block';
         }
+    }
+
+    // Pagination Buttons
+    paginationPrev.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (currentHistoryPage > 1) {
+            loadProductImageHistory(currentHistoryPage - 1);
+        }
+    });
+
+    paginationNext.addEventListener('click', function(e) {
+        e.preventDefault();
+        loadProductImageHistory(currentHistoryPage + 1);
+    });
+
+    // Produktbild-Verlauf Button
+    productImageHistoryBtn.addEventListener('click', function() {
+        productImageHistoryModal.show();
+        currentHistoryPage = 1;
+        loadProductImageHistory(1);
     });
 
     // Produktbild entfernen

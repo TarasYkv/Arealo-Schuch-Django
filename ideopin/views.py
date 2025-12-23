@@ -331,8 +331,12 @@ def api_generate_keywords(request):
 
 @login_required
 def api_get_product_image_history(request):
-    """API: Gibt alle einzigartigen Produktbilder des Benutzers zurück"""
+    """API: Gibt einzigartige Produktbilder des Benutzers paginiert zurück"""
     try:
+        # Pagination Parameter
+        page = int(request.GET.get('page', 1))
+        per_page = int(request.GET.get('per_page', 12))
+
         # Alle Projekte mit Produktbildern sammeln
         projects = PinProject.objects.filter(
             user=request.user,
@@ -354,10 +358,23 @@ def api_get_product_image_history(request):
                     'date': project['created_at'].strftime('%d.%m.%Y') if project['created_at'] else ''
                 })
 
+        # Pagination berechnen
+        total_count = len(unique_images)
+        total_pages = (total_count + per_page - 1) // per_page  # Aufrunden
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_images = unique_images[start_idx:end_idx]
+
         return JsonResponse({
             'success': True,
-            'images': unique_images,
-            'count': len(unique_images)
+            'images': paginated_images,
+            'count': len(paginated_images),
+            'total_count': total_count,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
         })
 
     except Exception as e:
