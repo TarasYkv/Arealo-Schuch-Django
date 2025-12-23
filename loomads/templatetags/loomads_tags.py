@@ -682,8 +682,15 @@ def show_simple_ad(context, zone_code='', css_class='', fallback=''):
     """
     request = context.get('request')
 
-    # Hole eine zufällige aktive SimpleAd
-    ad = SimpleAd.get_random_ad(zone_code=zone_code if zone_code else None)
+    # User und App für Targeting
+    user = None
+    current_app = None
+    if request:
+        user = getattr(request, 'user', None)
+        current_app = request.resolver_match.app_name if request.resolver_match else None
+
+    # Hole eine zufällige aktive SimpleAd mit App-Filtering
+    ad = SimpleAd.get_random_ad(zone_code=zone_code if zone_code else None, user=user, app_name=current_app)
 
     if not ad:
         if fallback:
