@@ -2419,10 +2419,10 @@ WICHTIG:
 - Beschreibe EXAKT die gleiche Szene
 - Ändere nur die Formulierung (Synonyme, Satzbau)
 - Behalte alle wichtigen Elemente (Objekte, Farben, Stimmung)
-- Die Beschreibung muss für Bildgenerierung geeignet sein
-- 1-2 Sätze lang
+- MAXIMAL 2 kurze Sätze pro Beschreibung (max 50 Wörter)
+- Halte es KURZ und prägnant
 
-Antworte NUR als JSON: {{"backgrounds": ["Paraphrase 1", "Paraphrase 2", ...]}}"""
+Antworte NUR als JSON: {{"backgrounds": ["Kurze Paraphrase 1", "Kurze Paraphrase 2", ...]}}"""
 
         # Text-Variationen generieren (niedrige Temperatur für ähnlichere Ergebnisse)
         text_response = client.chat.completions.create(
@@ -2454,11 +2454,12 @@ Antworte NUR als JSON: {{"backgrounds": ["Paraphrase 1", "Paraphrase 2", ...]}}"
             texts = [f"{base_text} (Var. {i+1})" for i in range(variation_count)]
 
         # Hintergrund-Variationen generieren (niedrige Temperatur für ähnlichere Ergebnisse)
+        # Höhere max_tokens um abgeschnittene JSON-Responses zu vermeiden
         bg_response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": bg_prompt}],
             temperature=0.4,
-            max_tokens=800
+            max_tokens=2000
         )
         bg_content = bg_response.choices[0].message.content.strip()
 
