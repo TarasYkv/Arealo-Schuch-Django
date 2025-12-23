@@ -675,7 +675,9 @@ class SimpleAdForm(forms.ModelForm):
             'channels', 'django_extensions', 'debug_toolbar', 'loomads'
         ]
 
-        choices = []
+        # Spezial-Option für Seiten ohne App (Startseite, etc.)
+        choices = [('__other__', '🏠 Alles andere (Startseite, etc.)')]
+
         for app_config in apps.get_app_configs():
             app_name = app_config.name.split('.')[-1]  # Nur der letzte Teil
             # Ausschließen von Django-internen und Third-Party Apps
@@ -684,7 +686,10 @@ class SimpleAdForm(forms.ModelForm):
                 verbose_name = getattr(app_config, 'verbose_name', app_name.replace('_', ' ').title())
                 choices.append((app_name, verbose_name))
 
-        return sorted(choices, key=lambda x: x[1])
+        # Sortiere, aber "__other__" bleibt am Anfang
+        other_choice = choices[0]
+        sorted_apps = sorted(choices[1:], key=lambda x: x[1])
+        return [other_choice] + sorted_apps
 
     def clean_app_filter(self):
         """Stellt sicher, dass app_filter immer eine Liste ist (nie None)"""

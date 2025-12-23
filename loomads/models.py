@@ -1796,13 +1796,16 @@ class SimpleAd(models.Model):
 
     def is_allowed_in_app(self, app_name):
         """Prüft ob die Anzeige in dieser App angezeigt werden darf"""
+        # "__other__" = Seiten ohne App (Startseite, etc.)
+        effective_app = app_name if app_name else '__other__'
+
         # Ausgeschlossene Apps
-        if self.exclude_apps and app_name and app_name in self.exclude_apps:
+        if self.exclude_apps and effective_app in self.exclude_apps:
             return False
+
         # App-Filter (wenn gesetzt, nur diese Apps erlaubt)
-        # Wenn app_filter gesetzt ist, muss app_name vorhanden UND in der Liste sein
         if self.app_filter:
-            if not app_name or app_name not in self.app_filter:
+            if effective_app not in self.app_filter:
                 return False
         return True
 
