@@ -533,7 +533,7 @@ def get_ad_for_zone(request, zone_code):
             'title': simple_ad.title,
             'description': simple_ad.description,
             'target_url': simple_ad.target_url,
-            'target_type': simple_ad.target_type,
+            'target_type': '_blank',  # SimpleAds öffnen immer in neuem Tab
         }
 
         # SimpleAd HTML rendern
