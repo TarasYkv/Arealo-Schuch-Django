@@ -37,8 +37,8 @@ def show_multi_ad_zone(context, zone_code, ad_count=3, css_class='', style='', f
     if simple_ad:
         # Impression zählen
         simple_ad.record_impression()
-        # HTML direkt rendern - kein AJAX nötig
-        simple_ad_html = _render_simple_ad(simple_ad, css_class)
+        # HTML direkt rendern mit zone_code für format-abhängiges Rendering
+        simple_ad_html = _render_simple_ad(simple_ad, css_class, zone_code)
         return {
             'zone_code': zone_code,
             'simple_ad_html': simple_ad_html,
@@ -126,8 +126,8 @@ def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
     if simple_ad:
         # Impression zählen
         simple_ad.record_impression()
-        # HTML direkt rendern - kein AJAX nötig
-        simple_ad_html = _render_simple_ad(simple_ad, css_class)
+        # HTML direkt rendern mit zone_code für format-abhängiges Rendering
+        simple_ad_html = _render_simple_ad(simple_ad, css_class, zone_code)
         return {
             'zone_code': zone_code,
             'simple_ad_html': simple_ad_html,
@@ -699,43 +699,28 @@ def show_simple_ad(context, zone_code='', css_class='', fallback=''):
     return mark_safe(html)
 
 
-def _render_simple_ad(ad, extra_css_class=''):
+def _render_simple_ad(ad, extra_css_class='', zone_code=''):
     """
     Generiert responsives HTML für eine SimpleAd.
     Alle Styles sind inline für maximale Kompatibilität.
+
+    Zone-abhängiges Rendering:
+    - header/banner: Breites horizontales Format
+    - sidebar: Schmales vertikales Format
+    - inline/content/default: Card-Format
     """
     color = ad.get_primary_color()
     style = ad.template_style
     target = '_blank' if ad.open_in_new_tab else '_self'
 
-    # Media HTML (Bild ODER Icon - Icon hat Priorität wenn kein Bild)
-    media_html = ''
-    if ad.image:
-        media_html = f'''
-            <img src="{ad.image.url}" alt="{ad.title}"
-                 style="width: 100%; max-width: 120px; height: auto; max-height: 80px;
-                        object-fit: cover; border-radius: 8px; flex-shrink: 0;" />
-        '''
-    elif ad.icon:
-        # Icon anzeigen wenn kein Bild aber Icon gesetzt
-        media_html = f'''
-            <div style="width: 60px; height: 60px; background: {color}15; border-radius: 12px;
-                        display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                <i class="bi {ad.icon}" style="font-size: 28px; color: {color};"></i>
-            </div>
-        '''
-
-    # Badge HTML
-    badge_html = ''
-    if ad.badge:
-        badge_text = ad.badge_custom_text if ad.badge == 'custom' and ad.badge_custom_text else ad.badge.upper()
-        badge_html = f'''
-            <span style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white;
-                         padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
-                         text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(239,68,68,0.4);">
-                {badge_text}
-            </span>
-        '''
+    # Zone-Typ aus zone_code ableiten
+    zone_lower = zone_code.lower() if zone_code else ''
+    if 'header' in zone_lower or 'banner' in zone_lower:
+        zone_type = 'banner'
+    elif 'sidebar' in zone_lower:
+        zone_type = 'sidebar'
+    else:
+        zone_type = 'card'
 
     # Style-spezifische CSS
     styles = {
@@ -813,54 +798,160 @@ def _render_simple_ad(ad, extra_css_class=''):
 
     s = styles.get(style, styles['card'])
 
-    # Description HTML
-    desc_html = ''
-    if ad.description:
-        desc_html = f'''
-            <p style="margin: 0 0 12px 0; color: {s['desc_color']}; font-size: 14px; line-height: 1.5;">
-                {ad.description}
-            </p>
+    # Badge HTML
+    badge_html = ''
+    if ad.badge:
+        badge_text = ad.badge_custom_text if ad.badge == 'custom' and ad.badge_custom_text else ad.badge.upper()
+        badge_html = f'''
+            <span style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white;
+                         padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+                         text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(239,68,68,0.4);">
+                {badge_text}
+            </span>
         '''
 
-    # Click-Tracking Script
+    # Click-Tracking Script (einmalig pro Ad-ID)
     track_script = f'''
     <script>
     (function() {{
-        var adLink = document.querySelector('[data-simple-ad-id="{ad.id}"]');
-        if (adLink && !adLink.dataset.tracked) {{
-            adLink.dataset.tracked = 'true';
-            adLink.addEventListener('click', function() {{
-                fetch('/loomads/api/simple-ad/track/{ad.id}/', {{
-                    method: 'POST',
-                    headers: {{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''}}
-                }}).catch(function() {{}});
-            }});
-        }}
+        var adLinks = document.querySelectorAll('[data-simple-ad-id="{ad.id}"]');
+        adLinks.forEach(function(adLink) {{
+            if (!adLink.dataset.tracked) {{
+                adLink.dataset.tracked = 'true';
+                adLink.addEventListener('click', function() {{
+                    fetch('/loomads/api/simple-ad/track/{ad.id}/', {{
+                        method: 'POST',
+                        headers: {{'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''}}
+                    }}).catch(function() {{}});
+                }});
+            }}
+        }});
     }})();
     </script>
     '''
 
-    html = f'''
-    <div class="simple-ad-wrapper {extra_css_class}" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: inherit;">
-        <div class="simple-ad-container" style="position: relative; {s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; width: 100%; text-align: center;">
-            {badge_html}
-            <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
-               style="display: flex; align-items: center; justify-content: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
-                {media_html}
-                <div style="flex: 1; min-width: 200px; text-align: left;">
-                    <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
-                        {ad.title}
-                    </h4>
-                    {desc_html}
-                    <span style="display: inline-block; background: {s['btn_bg']}; color: {s['btn_color']};
-                                 padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">
+    # === BANNER FORMAT (horizontal, volle Breite) ===
+    if zone_type == 'banner':
+        # Media für Banner
+        media_html = ''
+        if ad.image:
+            media_html = f'''
+                <img src="{ad.image.url}" alt="{ad.title}"
+                     style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; flex-shrink: 0;" />
+            '''
+        elif ad.icon:
+            media_html = f'''
+                <i class="bi {ad.icon}" style="font-size: 32px; color: {color}; flex-shrink: 0;"></i>
+            '''
+
+        html = f'''
+        <div class="simple-ad-wrapper simple-ad-banner {extra_css_class}" style="width: 100%;">
+            <div class="simple-ad-container" style="position: relative; {s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%;">
+                {badge_html}
+                <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
+                   style="display: flex; align-items: center; gap: 16px; text-decoration: none;">
+                    {media_html}
+                    <div style="flex: 1; min-width: 0;">
+                        <h4 style="margin: 0; color: {s['text_color']}; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {ad.title}
+                        </h4>
+                        {f'<p style="margin: 4px 0 0 0; color: {s["desc_color"]}; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{ad.description[:80]}</p>' if ad.description else ''}
+                    </div>
+                    <span style="flex-shrink: 0; background: {s['btn_bg']}; color: {s['btn_color']};
+                                 padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 500;">
                         {ad.button_text}
                     </span>
-                </div>
-            </a>
+                </a>
+            </div>
         </div>
-    </div>
-    {track_script}
-    '''
+        {track_script}
+        '''
+
+    # === SIDEBAR FORMAT (vertikal, schmal) ===
+    elif zone_type == 'sidebar':
+        # Media für Sidebar
+        media_html = ''
+        if ad.image:
+            media_html = f'''
+                <img src="{ad.image.url}" alt="{ad.title}"
+                     style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;" />
+            '''
+        elif ad.icon:
+            media_html = f'''
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <i class="bi {ad.icon}" style="font-size: 48px; color: {color};"></i>
+                </div>
+            '''
+
+        html = f'''
+        <div class="simple-ad-wrapper simple-ad-sidebar {extra_css_class}" style="width: 100%;">
+            <div class="simple-ad-container" style="position: relative; {s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; text-align: center;">
+                {badge_html}
+                <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
+                   style="display: block; text-decoration: none;">
+                    {media_html}
+                    <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 15px; font-weight: 600; line-height: 1.3;">
+                        {ad.title}
+                    </h4>
+                    {f'<p style="margin: 0 0 12px 0; color: {s["desc_color"]}; font-size: 13px; line-height: 1.4;">{ad.description[:100]}</p>' if ad.description else ''}
+                    <span style="display: inline-block; background: {s['btn_bg']}; color: {s['btn_color']};
+                                 padding: 10px 24px; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                        {ad.button_text}
+                    </span>
+                </a>
+            </div>
+        </div>
+        {track_script}
+        '''
+
+    # === CARD FORMAT (Standard, flexibles Layout) ===
+    else:
+        # Media für Card
+        media_html = ''
+        if ad.image:
+            media_html = f'''
+                <img src="{ad.image.url}" alt="{ad.title}"
+                     style="width: 100%; max-width: 120px; height: auto; max-height: 80px;
+                            object-fit: cover; border-radius: 8px; flex-shrink: 0;" />
+            '''
+        elif ad.icon:
+            media_html = f'''
+                <div style="width: 60px; height: 60px; background: {color}15; border-radius: 12px;
+                            display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="bi {ad.icon}" style="font-size: 28px; color: {color};"></i>
+                </div>
+            '''
+
+        # Description HTML
+        desc_html = ''
+        if ad.description:
+            desc_html = f'''
+                <p style="margin: 0 0 12px 0; color: {s['desc_color']}; font-size: 14px; line-height: 1.5;">
+                    {ad.description}
+                </p>
+            '''
+
+        html = f'''
+        <div class="simple-ad-wrapper simple-ad-card {extra_css_class}" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: inherit;">
+            <div class="simple-ad-container" style="position: relative; {s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; width: 100%; text-align: center;">
+                {badge_html}
+                <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
+                   style="display: flex; align-items: center; justify-content: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
+                    {media_html}
+                    <div style="flex: 1; min-width: 200px; text-align: left;">
+                        <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
+                            {ad.title}
+                        </h4>
+                        {desc_html}
+                        <span style="display: inline-block; background: {s['btn_bg']}; color: {s['btn_color']};
+                                     padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">
+                            {ad.button_text}
+                        </span>
+                    </div>
+                </a>
+            </div>
+        </div>
+        {track_script}
+        '''
 
     return html
