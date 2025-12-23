@@ -803,7 +803,7 @@ def _render_simple_ad(ad, extra_css_class='', zone_code=''):
     if ad.badge:
         badge_text = ad.badge_custom_text if ad.badge == 'custom' and ad.badge_custom_text else ad.badge.upper()
         badge_html = f'''
-            <span style="position: absolute; top: 4px; right: 8px; background: #ef4444; color: white;
+            <span style="position: absolute; top: 4px; right: -4px; background: #ef4444; color: white;
                          padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
                          text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(239,68,68,0.4);
                          transform: rotate(12deg); z-index: 10;">
