@@ -509,14 +509,50 @@ def get_ad_for_zone(request, zone_code):
     """API: Anzeige für eine bestimmte Zone abrufen"""
     import logging
     logger = logging.getLogger(__name__)
-    
+
+    # === PRIORITÄT 1: SimpleAds (global, keine Zone nötig) ===
+    user = request.user if request.user.is_authenticated else None
+    current_app = request.resolver_match.app_name if request.resolver_match else None
+    simple_ad = SimpleAd.get_random_ad(zone_code=zone_code, user=user, app_name=current_app)
+
+    if simple_ad:
+        logger.debug(f'SimpleAd found for zone {zone_code}: {simple_ad.title}')
+
+        # Impression tracken
+        should_track = (
+            request.GET.get('track') != 'false' and
+            not (request.user.is_authenticated and request.user.is_superuser)
+        )
+        if should_track:
+            simple_ad.record_impression()
+
+        # Response für SimpleAd
+        response_data = {
+            'id': str(simple_ad.id),
+            'type': 'html',  # SimpleAds werden als HTML gerendert
+            'title': simple_ad.title,
+            'description': simple_ad.description,
+            'target_url': simple_ad.target_url,
+            'target_type': simple_ad.target_type,
+        }
+
+        # SimpleAd HTML rendern
+        from .templatetags.loomads_tags import _render_simple_ad
+        response_data['html_content'] = _render_simple_ad(simple_ad, '')
+
+        if simple_ad.image:
+            response_data['image_url'] = request.build_absolute_uri(simple_ad.image.url)
+
+        return JsonResponse(response_data)
+
+    # === PRIORITÄT 2: Zone-basierte Anzeigen ===
     try:
         zone = AdZone.objects.get(code=zone_code, is_active=True)
         logger.debug(f'Found zone: {zone.name} ({zone.code})')
     except AdZone.DoesNotExist:
         logger.warning(f'Zone not found: {zone_code}')
         return JsonResponse({'error': f'Zone "{zone_code}" not found'}, status=404)
-    
+
     # Aktive Anzeigen für diese Zone finden (normale Anzeigen)
     now = timezone.now()
     active_ads = Advertisement.objects.filter(
