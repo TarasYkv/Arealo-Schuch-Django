@@ -2711,7 +2711,14 @@ def api_generate_pin_image(request, project_id, position):
 
         # Bild verarbeiten
         import base64
-        image_data = base64.b64decode(result['image_base64'])
+        # Gemini gibt 'image_data' zurück, Ideogram gibt 'image_base64' zurück
+        image_b64 = result.get('image_data') or result.get('image_base64')
+        if not image_b64:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Bilddaten in der Antwort erhalten'
+            }, status=500)
+        image_data = base64.b64decode(image_b64)
         img = Image.open(BytesIO(image_data))
 
         # Auf Format skalieren
