@@ -201,6 +201,35 @@
     </script>
     {% endif %}
     {% endfor %}
+
+    <!-- Immer eine Ad-Kachel am Ende -->
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100" style="background: #f8f9fa; border: 2px dashed #dee2e6;">
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <div id="shopify-store-ad-end" class="w-100 text-center">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    (function() {
+        fetch('/loomads/api/zone/shopify_stores_card/ad/')
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('shopify-store-ad-end');
+                if (el && data.html_content) {
+                    el.innerHTML = data.html_content;
+                } else if (el) {
+                    el.innerHTML = '<small class="text-muted">Werbung</small>';
+                }
+            })
+            .catch(() => {
+                const el = document.getElementById('shopify-store-ad-end');
+                if (el) el.innerHTML = '';
+            });
+    })();
+    </script>
 </div>
 
 <!-- Store-Statistiken -->
