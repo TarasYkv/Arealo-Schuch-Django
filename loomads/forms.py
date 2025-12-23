@@ -629,12 +629,50 @@ class SimpleAdForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # App-Choices dynamisch laden
+        app_choices = self._get_app_choices()
+        self.fields['app_filter'].widget = forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'})
+        self.fields['app_filter'].choices = app_choices
+        self.fields['exclude_apps'].widget = forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'})
+        self.fields['exclude_apps'].choices = app_choices
+
+        # Bestehende Werte setzen
+        if self.instance.pk:
+            if self.instance.app_filter:
+                self.fields['app_filter'].initial = self.instance.app_filter
+            if self.instance.exclude_apps:
+                self.fields['exclude_apps'].initial = self.instance.exclude_apps
+
         # Format datetime fields für HTML5 datetime-local input
         if self.instance.pk:
             if self.instance.start_date:
                 self.fields['start_date'].initial = self.instance.start_date.strftime('%Y-%m-%dT%H:%M')
             if self.instance.end_date:
                 self.fields['end_date'].initial = self.instance.end_date.strftime('%Y-%m-%dT%H:%M')
+
+    def _get_app_choices(self):
+        """Gibt eine Liste von verfügbaren Django Apps zurück"""
+        from django.apps import apps
+
+        # Apps die für Ads relevant sind (eigene Apps, keine Django-internen)
+        exclude_apps = [
+            'django', 'admin', 'auth', 'contenttypes', 'sessions', 'messages',
+            'staticfiles', 'sites', 'allauth', 'socialaccount', 'account',
+            'crispy_forms', 'crispy_bootstrap5', 'rest_framework', 'corsheaders',
+            'channels', 'django_extensions', 'debug_toolbar', 'loomads'
+        ]
+
+        choices = []
+        for app_config in apps.get_app_configs():
+            app_name = app_config.name.split('.')[-1]  # Nur der letzte Teil
+            # Ausschließen von Django-internen und Third-Party Apps
+            if not any(exc in app_config.name.lower() for exc in exclude_apps):
+                # Nutzerfreundlicher Name
+                verbose_name = getattr(app_config, 'verbose_name', app_name.replace('_', ' ').title())
+                choices.append((app_name, verbose_name))
+
+        return sorted(choices, key=lambda x: x[1])
 
     def clean_app_filter(self):
         """Stellt sicher, dass app_filter immer eine Liste ist (nie None)"""

@@ -708,13 +708,33 @@ def _render_simple_ad(ad, extra_css_class=''):
     style = ad.template_style
     target = '_blank' if ad.open_in_new_tab else '_self'
 
-    # Image HTML
-    image_html = ''
+    # Media HTML (Bild ODER Icon - Icon hat Priorität wenn kein Bild)
+    media_html = ''
     if ad.image:
-        image_html = f'''
+        media_html = f'''
             <img src="{ad.image.url}" alt="{ad.title}"
                  style="width: 100%; max-width: 120px; height: auto; max-height: 80px;
                         object-fit: cover; border-radius: 8px; flex-shrink: 0;" />
+        '''
+    elif ad.icon:
+        # Icon anzeigen wenn kein Bild aber Icon gesetzt
+        media_html = f'''
+            <div style="width: 60px; height: 60px; background: {color}15; border-radius: 12px;
+                        display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i class="bi {ad.icon}" style="font-size: 28px; color: {color};"></i>
+            </div>
+        '''
+
+    # Badge HTML
+    badge_html = ''
+    if ad.badge:
+        badge_text = ad.badge_custom_text if ad.badge == 'custom' and ad.badge_custom_text else ad.badge.upper()
+        badge_html = f'''
+            <span style="position: absolute; top: -8px; right: -8px; background: #ef4444; color: white;
+                         padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+                         text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(239,68,68,0.4);">
+                {badge_text}
+            </span>
         '''
 
     # Style-spezifische CSS
@@ -760,6 +780,34 @@ def _render_simple_ad(ad, extra_css_class=''):
             'desc_color': 'rgba(255,255,255,0.8)',
             'btn_bg': color,
             'btn_color': 'white'
+        },
+        'glass': {
+            'container': f'padding: 20px; border-radius: 16px; background: rgba(255,255,255,0.25); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 8px 32px rgba(0,0,0,0.1);',
+            'text_color': '#1f2937',
+            'desc_color': '#4b5563',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'neon': {
+            'container': f'padding: 20px; border-radius: 12px; background: #0f0f0f; border: 2px solid {color}; box-shadow: 0 0 20px {color}40, inset 0 0 20px {color}10;',
+            'text_color': 'white',
+            'desc_color': 'rgba(255,255,255,0.8)',
+            'btn_bg': color,
+            'btn_color': 'white'
+        },
+        'retro': {
+            'container': f'padding: 20px; border-radius: 0; background: #fef3c7; border: 3px solid #92400e; box-shadow: 6px 6px 0 #92400e;',
+            'text_color': '#78350f',
+            'desc_color': '#92400e',
+            'btn_bg': '#92400e',
+            'btn_color': '#fef3c7'
+        },
+        'threed': {
+            'container': f'padding: 20px; border-radius: 12px; background: linear-gradient(145deg, #ffffff, #e6e6e6); box-shadow: 8px 8px 16px #d1d1d1, -8px -8px 16px #ffffff;',
+            'text_color': '#1f2937',
+            'desc_color': '#6b7280',
+            'btn_bg': color,
+            'btn_color': 'white'
         }
     }
 
@@ -794,10 +842,11 @@ def _render_simple_ad(ad, extra_css_class=''):
 
     html = f'''
     <div class="simple-ad-wrapper {extra_css_class}" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: inherit;">
-        <div class="simple-ad-container" style="{s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; width: 100%; text-align: center;">
+        <div class="simple-ad-container" style="position: relative; {s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; width: 100%; text-align: center;">
+            {badge_html}
             <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
                style="display: flex; align-items: center; justify-content: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
-                {image_html}
+                {media_html}
                 <div style="flex: 1; min-width: 200px; text-align: left;">
                     <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
                         {ad.title}
