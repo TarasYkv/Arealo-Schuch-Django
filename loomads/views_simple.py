@@ -72,6 +72,12 @@ def simple_ad_edit(request, ad_id):
     if request.method == 'POST':
         form = SimpleAdForm(request.POST, request.FILES, instance=ad)
         if form.is_valid():
+            # Bild löschen wenn Checkbox aktiviert
+            if request.POST.get('delete_image') == 'on':
+                if ad.image:
+                    ad.image.delete(save=False)
+                    ad.image = None
+                    ad.save(update_fields=['image'])
             ad = form.save()
             messages.success(request, f'Anzeige "{ad.title}" wurde erfolgreich aktualisiert!')
             return redirect('loomads:simple_ad_list')

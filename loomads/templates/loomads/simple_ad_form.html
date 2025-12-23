@@ -71,11 +71,21 @@
                             <div class="tab-content border border-top-0 rounded-bottom p-3">
                                 <div class="tab-pane fade show active" id="image-pane">
                                     {% if ad.image %}
-                                    <div class="mb-2">
-                                        <img src="{{ ad.image.url }}" alt="Aktuelles Bild" class="rounded" style="max-height: 80px;">
+                                    <div class="mb-2 d-flex align-items-center gap-3">
+                                        <img src="{{ ad.image.url }}" alt="Aktuelles Bild" class="rounded" style="max-height: 80px;" id="current-image-preview">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="id_delete_image" name="delete_image">
+                                            <label class="form-check-label text-danger" for="id_delete_image">
+                                                <i class="bi bi-trash me-1"></i>Bild löschen
+                                            </label>
+                                        </div>
                                     </div>
                                     {% endif %}
                                     {{ form.image }}
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Hinweis: Wenn ein Bild vorhanden ist, wird das Icon nicht angezeigt. Lösche das Bild um ein Icon zu verwenden.
+                                    </small>
                                 </div>
                                 <div class="tab-pane fade" id="icon-pane">
                                     {{ form.icon }}
@@ -502,10 +512,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     previewImageUrl = e.target.result;
+                    // Uncheck delete image if new image is uploaded
+                    const deleteCheckbox = document.getElementById('id_delete_image');
+                    if (deleteCheckbox) deleteCheckbox.checked = false;
                     updatePreview();
                 };
                 reader.readAsDataURL(file);
             }
+        });
+    }
+
+    // Delete Image Checkbox Handler
+    const deleteImageCheckbox = document.getElementById('id_delete_image');
+    if (deleteImageCheckbox) {
+        deleteImageCheckbox.addEventListener('change', function(e) {
+            const currentImagePreview = document.getElementById('current-image-preview');
+            if (e.target.checked) {
+                previewImageUrl = '';
+                if (currentImagePreview) currentImagePreview.style.opacity = '0.3';
+            } else {
+                previewImageUrl = '{% if ad.image %}{{ ad.image.url }}{% endif %}';
+                if (currentImagePreview) currentImagePreview.style.opacity = '1';
+            }
+            updatePreview();
         });
     }
 
