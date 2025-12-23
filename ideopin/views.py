@@ -2862,6 +2862,19 @@ Antworte NUR mit der Beschreibung."""
             )
             description = desc_response.choices[0].message.content.strip()[:500]
 
+            # Emojis entfernen (MySQL utf8 unterstützt keine 4-Byte UTF-8 Zeichen)
+            import re
+            emoji_pattern = re.compile("["
+                u"\U0001F600-\U0001F64F"  # emoticons
+                u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                u"\U0001F1E0-\U0001F1FF"  # flags
+                u"\U00002702-\U000027B0"
+                u"\U000024C2-\U0001F251"
+                "]+", flags=re.UNICODE)
+            title = emoji_pattern.sub('', title).strip()
+            description = emoji_pattern.sub('', description).strip()
+
             # Pin aktualisieren
             pin.pin_title = title
             pin.pin_title_ai_generated = True
