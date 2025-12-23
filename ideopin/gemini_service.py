@@ -141,7 +141,9 @@ class GeminiImageService:
         parts = [{"text": prompt}]
 
         # Wenn Referenzbild vorhanden, füge es hinzu
+        logger.info(f"[Gemini] reference_image parameter: {reference_image}, type: {type(reference_image)}")
         if reference_image:
+            logger.info(f"[Gemini] Attempting to read reference image...")
             image_b64 = self._read_image_as_base64(reference_image)
             if image_b64:
                 parts.append({
@@ -150,7 +152,9 @@ class GeminiImageService:
                         "data": image_b64
                     }
                 })
-                logger.info("Reference image added to Gemini request")
+                logger.info(f"Reference image added to Gemini request (size: {len(image_b64)} chars)")
+            else:
+                logger.warning("[Gemini] Failed to read reference image - image_b64 is empty")
 
         payload = {
             "contents": [{

@@ -2657,6 +2657,11 @@ def api_generate_pin_image(request, project_id, position):
         overlay_text = pin.overlay_text if text_mode != 'none' else ''
         has_product_image = bool(project.product_image)
 
+        # Debug-Logging für Produktbild
+        logger.info(f"[Multi-Pin] Pin {position}: product_image={project.product_image}, has_product_image={has_product_image}")
+        if project.product_image:
+            logger.info(f"[Multi-Pin] Pin {position}: product_image.path={project.product_image.path if hasattr(project.product_image, 'path') else 'no path'}")
+
         # Bild generieren
         if ai_provider == 'gemini':
             from .gemini_service import GeminiImageService
