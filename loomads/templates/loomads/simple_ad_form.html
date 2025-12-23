@@ -229,19 +229,43 @@
                             </h5>
                         </div>
                         <div class="card-body">
-                            <div id="preview-container" class="border rounded p-3 bg-light">
-                                <!-- Preview wird per JS aktualisiert -->
-                                <div id="ad-preview">
-                                    <p class="text-muted text-center mb-0">
-                                        Gib einen Titel ein, um die Vorschau zu sehen...
-                                    </p>
+                            <!-- Format 1: Content Card -->
+                            <div class="mb-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-primary me-2">Content Card</span>
+                                    <small class="text-muted">350x250px</small>
+                                </div>
+                                <div id="preview-card" class="border rounded p-3 bg-light" style="max-width: 350px;">
+                                    <div id="ad-preview-card"></div>
+                                </div>
+                            </div>
+
+                            <!-- Format 2: Banner -->
+                            <div class="mb-4">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-success me-2">Banner</span>
+                                    <small class="text-muted">728x90px</small>
+                                </div>
+                                <div id="preview-banner" class="border rounded p-2 bg-light">
+                                    <div id="ad-preview-banner"></div>
+                                </div>
+                            </div>
+
+                            <!-- Format 3: Sidebar -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-info me-2">Sidebar</span>
+                                    <small class="text-muted">300x250px</small>
+                                </div>
+                                <div id="preview-sidebar" class="border rounded p-3 bg-light" style="max-width: 300px;">
+                                    <div id="ad-preview-sidebar"></div>
                                 </div>
                             </div>
 
                             <div class="mt-3">
                                 <small class="text-muted">
                                     <i class="bi bi-info-circle me-1"></i>
-                                    Die Vorschau zeigt, wie die Anzeige in verschiedenen Zonen aussehen wird.
+                                    Die Anzeige passt sich automatisch an jedes Format an.
                                 </small>
                             </div>
                         </div>
@@ -320,6 +344,9 @@ document.addEventListener('DOMContentLoaded', function() {
         'gray': '#6b7280'
     };
 
+    // Bild-Vorschau URL (für neu hochgeladene oder bestehende Bilder)
+    let previewImageUrl = '{% if ad.image %}{{ ad.image.url }}{% endif %}';
+
     function updatePreview() {
         const title = document.getElementById('id_title').value || 'Beispiel-Titel';
         const description = document.getElementById('id_description').value || '';
@@ -329,7 +356,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const customColor = document.getElementById('id_custom_color').value;
 
         const color = colorScheme === 'custom' ? customColor : colorMap[colorScheme];
-        const preview = document.getElementById('ad-preview');
 
         let isDark = style === 'gradient' || style === 'dark';
         let textColor = isDark ? 'white' : '#1f2937';
@@ -340,15 +366,60 @@ document.addEventListener('DOMContentLoaded', function() {
         let styleClass = `preview-${style}`;
         let inlineStyles = `--preview-color: ${color}; --preview-color-light: ${color}dd; --preview-color-bg: ${color}15; --preview-color-border: ${color}40;`;
 
-        let descHtml = description ? `<p style="margin: 0 0 12px 0; color: ${descColor}; font-size: 14px;">${description}</p>` : '';
+        // Content Card Format (vertikal mit Bild oben)
+        let cardImageHtml = previewImageUrl ? `<img src="${previewImageUrl}" alt="Vorschau" style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;">` : '';
+        let cardDescHtml = description ? `<p style="margin: 0 0 12px 0; color: ${descColor}; font-size: 13px;">${description.substring(0, 80)}${description.length > 80 ? '...' : ''}</p>` : '';
 
-        preview.innerHTML = `
+        document.getElementById('ad-preview-card').innerHTML = `
             <div class="${styleClass}" style="${inlineStyles}">
-                <h4 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 16px;">${title}</h4>
-                ${descHtml}
-                <span style="display: inline-block; background: ${btnBg}; color: ${btnColor}; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">${buttonText}</span>
+                ${cardImageHtml}
+                <h4 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 15px;">${title}</h4>
+                ${cardDescHtml}
+                <span style="display: inline-block; background: ${btnBg}; color: ${btnColor}; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;">${buttonText}</span>
             </div>
         `;
+
+        // Banner Format (horizontal, kompakt)
+        let bannerImageHtml = previewImageUrl ? `<img src="${previewImageUrl}" alt="Vorschau" style="width: 60px; height: 50px; object-fit: cover; border-radius: 6px; margin-right: 12px;">` : '';
+
+        document.getElementById('ad-preview-banner').innerHTML = `
+            <div class="${styleClass}" style="${inlineStyles}; display: flex; align-items: center; padding: 10px 16px;">
+                ${bannerImageHtml}
+                <div style="flex: 1; min-width: 0;">
+                    <h4 style="margin: 0; color: ${textColor}; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${title}</h4>
+                </div>
+                <span style="display: inline-block; background: ${btnBg}; color: ${btnColor}; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 500; margin-left: 12px; white-space: nowrap;">${buttonText}</span>
+            </div>
+        `;
+
+        // Sidebar Format (vertikal, schmaler)
+        let sidebarImageHtml = previewImageUrl ? `<img src="${previewImageUrl}" alt="Vorschau" style="width: 100%; height: 80px; object-fit: cover; border-radius: 6px; margin-bottom: 10px;">` : '';
+        let sidebarDescHtml = description ? `<p style="margin: 0 0 10px 0; color: ${descColor}; font-size: 12px;">${description.substring(0, 60)}${description.length > 60 ? '...' : ''}</p>` : '';
+
+        document.getElementById('ad-preview-sidebar').innerHTML = `
+            <div class="${styleClass}" style="${inlineStyles}">
+                ${sidebarImageHtml}
+                <h4 style="margin: 0 0 6px 0; color: ${textColor}; font-size: 14px;">${title}</h4>
+                ${sidebarDescHtml}
+                <span style="display: inline-block; background: ${btnBg}; color: ${btnColor}; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 500;">${buttonText}</span>
+            </div>
+        `;
+    }
+
+    // Bild-Upload Handler für Live-Vorschau
+    const imageInput = document.getElementById('id_image');
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImageUrl = e.target.result;
+                    updatePreview();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
     }
 
     // Event Listeners
