@@ -775,11 +775,11 @@ def _render_simple_ad(ad, extra_css_class=''):
     '''
 
     html = f'''
-    <div class="simple-ad-container {extra_css_class}" style="{s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div class="simple-ad-container {extra_css_class}" style="{s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; text-align: center;">
         <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
-           style="display: flex; align-items: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
+           style="display: flex; align-items: center; justify-content: center; gap: 16px; text-decoration: none; flex-wrap: wrap;">
             {image_html}
-            <div style="flex: 1; min-width: 200px;">
+            <div style="flex: 1; min-width: 200px; text-align: left;">
                 <h4 style="margin: 0 0 8px 0; color: {s['text_color']}; font-size: 16px; font-weight: 600; line-height: 1.3;">
                     {ad.title}
                 </h4>
