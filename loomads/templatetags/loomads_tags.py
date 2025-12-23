@@ -104,7 +104,9 @@ def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
 
     # === PRIORITÄT 1: SimpleAds (neu, vereinfacht) ===
     # Prüfe zuerst, ob aktive SimpleAds vorhanden sind
-    simple_ad = SimpleAd.get_random_ad(zone_code=zone_code)
+    user = getattr(request, 'user', None)
+    current_app = request.resolver_match.app_name if request.resolver_match else None
+    simple_ad = SimpleAd.get_random_ad(zone_code=zone_code, user=user, app_name=current_app)
     if simple_ad:
         # Impression zählen
         simple_ad.record_impression()

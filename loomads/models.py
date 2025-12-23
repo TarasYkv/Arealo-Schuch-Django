@@ -1835,32 +1835,44 @@ class SimpleAd(models.Model):
         Berücksichtigt alle Filter: Zone, User, App, Zeitplanung
         """
         import random
+        import logging
+        logger = logging.getLogger('loomads')
 
         ads = list(cls.objects.filter(is_active=True))
+        logger.debug(f"[SimpleAd] Suche Ads für zone={zone_code}, app={app_name}, user={user}")
+        logger.debug(f"[SimpleAd] Gefunden: {len(ads)} aktive Ads")
 
         # Alle Filter anwenden
         filtered_ads = []
         for ad in ads:
             # Zeitplanung
             if not ad.is_within_schedule():
+                logger.debug(f"[SimpleAd] {ad.title}: Außerhalb Zeitplan")
                 continue
             # Zone
             if zone_code and not ad.is_allowed_in_zone(zone_code):
+                logger.debug(f"[SimpleAd] {ad.title}: Zone {zone_code} ausgeschlossen")
                 continue
             # User/Zielgruppe
             if user and not ad.is_allowed_for_user(user):
+                logger.debug(f"[SimpleAd] {ad.title}: User nicht erlaubt (target={ad.target_audience})")
                 continue
             # App
             if app_name and not ad.is_allowed_in_app(app_name):
+                logger.debug(f"[SimpleAd] {ad.title}: App {app_name} nicht erlaubt")
                 continue
             filtered_ads.append(ad)
+            logger.debug(f"[SimpleAd] {ad.title}: ✓ Passend")
 
         if not filtered_ads:
+            logger.debug(f"[SimpleAd] Keine passenden Ads gefunden!")
             return None
 
         # Gewichtete Auswahl
         weights = [ad.weight for ad in filtered_ads]
-        return random.choices(filtered_ads, weights=weights, k=1)[0]
+        selected = random.choices(filtered_ads, weights=weights, k=1)[0]
+        logger.debug(f"[SimpleAd] Ausgewählt: {selected.title}")
+        return selected
 
     @classmethod
     def get_ab_test_winner(cls, group_name):
