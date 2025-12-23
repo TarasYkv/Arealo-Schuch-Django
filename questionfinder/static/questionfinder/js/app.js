@@ -107,6 +107,28 @@ document.addEventListener('DOMContentLoaded', function() {
             totalCount.textContent = allQuestions.length;
         }
 
+        // Genutzte Quellen anzeigen
+        const sourcesUsedDiv = document.getElementById('sources-used');
+        const sourcesListSpan = document.getElementById('sources-list');
+        if (sourcesUsedDiv && sourcesListSpan && data.sources_used) {
+            const sourceNames = {
+                'google_autocomplete': 'Google',
+                'google': 'Google',
+                'bing': 'Bing',
+                'reddit': 'Reddit',
+                'duckduckgo': 'DuckDuckGo',
+                'yahoo': 'Yahoo'
+            };
+            const sourcesList = data.sources_used
+                .map(s => sourceNames[s] || s)
+                .join(', ');
+            sourcesListSpan.textContent = sourcesList;
+            if (data.ai_generated_questions && data.ai_generated_questions.length > 0) {
+                sourcesListSpan.textContent += ', KI';
+            }
+            sourcesUsedDiv.classList.remove('d-none');
+        }
+
         // Alle Fragen anzeigen
         if (!allQuestionsDiv) {
             console.error('Element #all-questions not found!');

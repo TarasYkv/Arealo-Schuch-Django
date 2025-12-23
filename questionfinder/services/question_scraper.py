@@ -213,53 +213,102 @@ class MultiSourceQuestionFinder:
 
     def _get_reddit_questions(self, keyword: str) -> List[str]:
         """
-        Sucht Fragen auf Reddit via RSS-Feed (keine Auth nötig)
-        Fragen werden später von der KI übersetzt
+        Sucht Fragen auf Reddit via old.reddit.com (keine Auth nötig)
+        Verwendet verschiedene Fallback-Methoden
         """
         questions = []
 
+        # Methode 1: old.reddit.com HTML scraping (funktioniert oft besser)
         try:
-            # RSS-Feed statt JSON API (funktioniert ohne Auth!)
-            url = f"https://www.reddit.com/search.rss"
+            url = f"https://old.reddit.com/search"
             params = {
                 'q': keyword,
                 'sort': 'relevance',
                 'limit': 25,
             }
 
-            logger.info(f"Reddit RSS: Suche '{keyword}'")
+            # Minimale Headers um Blocking zu vermeiden
+            reddit_headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; QuestionBot/1.0)',
+                'Accept': 'text/html',
+            }
+
+            logger.info(f"Reddit old: Suche '{keyword}'")
 
             response = self.session.get(
                 url,
                 params=params,
-                headers=self.headers,  # Browser-Headers
+                headers=reddit_headers,
                 timeout=self.timeout
             )
 
-            logger.info(f"Reddit RSS: Status={response.status_code}")
+            logger.info(f"Reddit old: Status={response.status_code}")
 
             if response.status_code == 200:
-                # RSS/XML parsen
-                soup = BeautifulSoup(response.text, 'xml')
-                entries = soup.find_all('entry')
-                logger.info(f"Reddit RSS: {len(entries)} Einträge gefunden")
+                soup = BeautifulSoup(response.text, 'html.parser')
+                # Suche nach Post-Titeln
+                titles = soup.find_all('a', class_='search-title')
+                if not titles:
+                    titles = soup.find_all('a', {'data-event-action': 'title'})
+                if not titles:
+                    # Fallback: alle Links mit bestimmten Mustern
+                    titles = soup.find_all('a', href=lambda x: x and '/comments/' in x if x else False)
 
-                for entry in entries:
-                    title_tag = entry.find('title')
-                    if title_tag:
-                        title = title_tag.get_text(strip=True)
+                logger.info(f"Reddit old: {len(titles)} Titel gefunden")
+
+                for title in titles[:25]:
+                    text = title.get_text(strip=True)
+                    if text and len(text) > 10:
+                        cleaned = self._clean_question(text)
+                        if cleaned and len(cleaned) > 15 and cleaned not in questions:
+                            questions.append(cleaned)
+
+            elif response.status_code == 403:
+                logger.warning("Reddit old: 403 - Blockiert, versuche Alternative...")
+            else:
+                logger.warning(f"Reddit old: Status {response.status_code}")
+
+        except Exception as e:
+            logger.error(f"Reddit old Fehler: {type(e).__name__}: {e}")
+
+        # Methode 2: Falls old.reddit nicht funktioniert, Reddit JSON API ohne Auth
+        if not questions:
+            try:
+                url = f"https://www.reddit.com/search.json"
+                params = {
+                    'q': keyword,
+                    'sort': 'relevance',
+                    'limit': 25,
+                }
+
+                reddit_headers = {
+                    'User-Agent': 'Mozilla/5.0 (compatible; QuestionBot/1.0)',
+                    'Accept': 'application/json',
+                }
+
+                response = self.session.get(
+                    url,
+                    params=params,
+                    headers=reddit_headers,
+                    timeout=self.timeout
+                )
+
+                logger.info(f"Reddit JSON: Status={response.status_code}")
+
+                if response.status_code == 200:
+                    data = response.json()
+                    children = data.get('data', {}).get('children', [])
+                    logger.info(f"Reddit JSON: {len(children)} Posts gefunden")
+
+                    for child in children:
+                        title = child.get('data', {}).get('title', '')
                         if title and len(title) > 10:
                             cleaned = self._clean_question(title)
                             if cleaned and len(cleaned) > 15 and cleaned not in questions:
                                 questions.append(cleaned)
 
-            elif response.status_code == 403:
-                logger.warning("Reddit RSS: 403 - Blockiert")
-            else:
-                logger.warning(f"Reddit RSS: Status {response.status_code}")
-
-        except Exception as e:
-            logger.error(f"Reddit RSS Fehler: {type(e).__name__}: {e}")
+            except Exception as e:
+                logger.error(f"Reddit JSON Fehler: {type(e).__name__}: {e}")
 
         logger.info(f"Reddit: {len(questions)} Fragen extrahiert")
         return questions[:15]
@@ -559,22 +608,40 @@ class MultiSourceQuestionFinder:
         unique = []
         for item in questions:
             q = item['question']
-            q_lower = q.lower()
+            q_lower = q.lower().strip()
+            q_normalized = ' '.join(q_lower.split())  # Normalisiere Whitespace
             is_duplicate = False
+
             for existing_item in unique:
-                existing_lower = existing_item['question'].lower()
-                # Einfacher Ähnlichkeitscheck
-                if q_lower in existing_lower or existing_lower in q_lower:
+                existing_lower = existing_item['question'].lower().strip()
+                existing_normalized = ' '.join(existing_lower.split())
+
+                # Nur exakte Duplikate (normalisiert) entfernen
+                if q_normalized == existing_normalized:
                     is_duplicate = True
                     break
-                # Oder wenn 80% der Wörter gleich sind
-                q_words = set(q_lower.split())
-                existing_words = set(existing_lower.split())
-                if len(q_words) > 3 and len(existing_words) > 3:
-                    overlap = len(q_words & existing_words) / min(len(q_words), len(existing_words))
-                    if overlap > 0.8:
+
+                # Oder wenn eine Frage komplett in der anderen enthalten ist
+                # Aber nur wenn der Unterschied minimal ist (< 10 Zeichen)
+                if q_normalized in existing_normalized:
+                    if len(existing_normalized) - len(q_normalized) < 10:
                         is_duplicate = True
                         break
+                elif existing_normalized in q_normalized:
+                    if len(q_normalized) - len(existing_normalized) < 10:
+                        is_duplicate = True
+                        break
+
+                # Wort-Overlap nur bei sehr hoher Ähnlichkeit (90%+) UND kurzen Fragen
+                q_words = set(q_normalized.split())
+                existing_words = set(existing_normalized.split())
+                if len(q_words) >= 4 and len(existing_words) >= 4:
+                    overlap = len(q_words & existing_words) / min(len(q_words), len(existing_words))
+                    # Nur bei 90%+ Überlappung als Duplikat markieren
+                    if overlap >= 0.9:
+                        is_duplicate = True
+                        break
+
             if not is_duplicate:
                 unique.append(item)
         return unique
