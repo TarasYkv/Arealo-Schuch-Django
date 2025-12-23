@@ -2436,14 +2436,23 @@ Antworte NUR als JSON: {{"backgrounds": ["Variation 1", "Variation 2", ...]}}"""
 
         # JSON aus Text-Response extrahieren
         try:
+            logger.info(f"[Multi-Pin] Text-Response roh: {text_content[:500]}")
             if '```json' in text_content:
                 text_content = text_content.split('```json')[1].split('```')[0].strip()
             elif '```' in text_content:
                 text_content = text_content.split('```')[1].split('```')[0].strip()
             text_data = json.loads(text_content)
             texts = text_data.get('texts', [])
-        except json.JSONDecodeError:
-            texts = [base_text] * variation_count
+            logger.info(f"[Multi-Pin] Texts parsed: {len(texts)} items")
+            if not texts:
+                logger.warning("[Multi-Pin] Texts Liste ist leer!")
+                texts = [f"{base_text} (Var. {i+1})" for i in range(variation_count)]
+        except json.JSONDecodeError as e:
+            logger.error(f"[Multi-Pin] JSON-Parse Fehler bei Texts: {e}")
+            texts = [f"{base_text} (Var. {i+1})" for i in range(variation_count)]
+        except Exception as e:
+            logger.error(f"[Multi-Pin] Unerwarteter Fehler bei Texts: {e}")
+            texts = [f"{base_text} (Var. {i+1})" for i in range(variation_count)]
 
         # Hintergrund-Variationen generieren
         bg_response = client.chat.completions.create(
@@ -2456,14 +2465,24 @@ Antworte NUR als JSON: {{"backgrounds": ["Variation 1", "Variation 2", ...]}}"""
 
         # JSON aus Hintergrund-Response extrahieren
         try:
+            logger.info(f"[Multi-Pin] Hintergrund-Response roh: {bg_content[:500]}")
             if '```json' in bg_content:
                 bg_content = bg_content.split('```json')[1].split('```')[0].strip()
             elif '```' in bg_content:
                 bg_content = bg_content.split('```')[1].split('```')[0].strip()
             bg_data = json.loads(bg_content)
             backgrounds = bg_data.get('backgrounds', [])
-        except json.JSONDecodeError:
-            backgrounds = [base_background] * variation_count
+            logger.info(f"[Multi-Pin] Backgrounds parsed: {len(backgrounds)} items")
+            if not backgrounds:
+                logger.warning("[Multi-Pin] Backgrounds Liste ist leer!")
+                backgrounds = [f"{base_background} (Variation {i+1})" for i in range(variation_count)]
+        except json.JSONDecodeError as e:
+            logger.error(f"[Multi-Pin] JSON-Parse Fehler bei Backgrounds: {e}")
+            logger.error(f"[Multi-Pin] Raw content: {bg_content[:300]}")
+            backgrounds = [f"{base_background} (Variation {i+1})" for i in range(variation_count)]
+        except Exception as e:
+            logger.error(f"[Multi-Pin] Unerwarteter Fehler bei Backgrounds: {e}")
+            backgrounds = [f"{base_background} (Variation {i+1})" for i in range(variation_count)]
 
         # Listen auf variation_count erweitern/kürzen (für Pins 2-7)
         while len(texts) < variation_count:
@@ -2524,6 +2543,11 @@ Antworte NUR als JSON: {{"backgrounds": ["Variation 1", "Variation 2", ...]}}"""
 
         # Überzählige Pins löschen
         Pin.objects.filter(project=project, position__gt=pin_count).delete()
+
+        # Debug: Final pins_data loggen
+        logger.info(f"[Multi-Pin] Returning {len(pins_data)} pins:")
+        for p in pins_data:
+            logger.info(f"  Pin {p['position']}: text='{p['overlay_text'][:30]}...' bg='{p['background_description'][:50]}...'")
 
         return JsonResponse({
             'success': True,
