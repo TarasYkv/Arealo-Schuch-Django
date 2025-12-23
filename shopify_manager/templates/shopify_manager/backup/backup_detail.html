@@ -1,5 +1,6 @@
 {% extends 'shopify_manager/base.html' %}
 {% load static %}
+{% load loomads_tags %}
 
 {% block title %}Backup: {{ backup.name }}{% endblock %}
 
@@ -266,32 +267,12 @@ document.getElementById('continueForm').addEventListener('submit', function(e) {
                             </td>
                         </tr>
                         {% if forloop.counter|divisibleby:5 and not forloop.last %}
-                        <!-- Werbe-Zeile alle 5 Items -->
+                        <!-- Banner-Werbung alle 5 Items -->
                         <tr class="loomads-table-row">
                             <td colspan="4" class="p-2" style="background: #f8f9fa;">
-                                <div id="shopify-ad-row-{{ forloop.counter }}" class="d-flex justify-content-center align-items-center">
-                                    <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
-                                </div>
+                                {% show_ad_zone 'shopify_backup_banner' %}
                             </td>
                         </tr>
-                        <script>
-                        (function() {
-                            fetch('/loomads/api/zone/shopify_table/ad/')
-                                .then(r => r.json())
-                                .then(data => {
-                                    const el = document.getElementById('shopify-ad-row-{{ forloop.counter }}');
-                                    if (el && data.html_content) {
-                                        el.innerHTML = data.html_content;
-                                    } else if (el) {
-                                        el.innerHTML = '<small class="text-muted">Werbung</small>';
-                                    }
-                                })
-                                .catch(() => {
-                                    const el = document.getElementById('shopify-ad-row-{{ forloop.counter }}');
-                                    if (el) el.innerHTML = '';
-                                });
-                        })();
-                        </script>
                         {% endif %}
                         {% endfor %}
                     </tbody>
