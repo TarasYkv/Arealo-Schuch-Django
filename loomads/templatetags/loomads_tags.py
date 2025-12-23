@@ -834,7 +834,14 @@ def _render_simple_ad(ad, extra_css_class='', zone_code=''):
     if zone_type == 'banner':
         # Media für Banner
         media_html = ''
-        if ad.image:
+        if ad.video_url:
+            media_html = f'''
+                <video autoplay loop muted playsinline
+                       style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; flex-shrink: 0;">
+                    <source src="{ad.video_url}" type="video/mp4">
+                </video>
+            '''
+        elif ad.image:
             media_html = f'''
                 <img src="{ad.image.url}" alt="{ad.title}"
                      style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; flex-shrink: 0;" />
@@ -871,7 +878,14 @@ def _render_simple_ad(ad, extra_css_class='', zone_code=''):
     elif zone_type == 'sidebar':
         # Media für Sidebar
         media_html = ''
-        if ad.image:
+        if ad.video_url:
+            media_html = f'''
+                <video autoplay loop muted playsinline
+                       style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;">
+                    <source src="{ad.video_url}" type="video/mp4">
+                </video>
+            '''
+        elif ad.image:
             media_html = f'''
                 <img src="{ad.image.url}" alt="{ad.title}"
                      style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;" />
@@ -908,7 +922,15 @@ def _render_simple_ad(ad, extra_css_class='', zone_code=''):
     else:
         # Media für Card
         media_html = ''
-        if ad.image:
+        if ad.video_url:
+            media_html = f'''
+                <video autoplay loop muted playsinline
+                       style="width: 100%; max-width: 120px; height: auto; max-height: 80px;
+                              object-fit: cover; border-radius: 8px; flex-shrink: 0;">
+                    <source src="{ad.video_url}" type="video/mp4">
+                </video>
+            '''
+        elif ad.image:
             media_html = f'''
                 <img src="{ad.image.url}" alt="{ad.title}"
                      style="width: 100%; max-width: 120px; height: auto; max-height: 80px;
