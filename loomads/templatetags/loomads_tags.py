@@ -830,7 +830,7 @@ def _render_simple_ad(ad, extra_css_class='', zone_code=''):
     </script>
     '''
 
-    # === BANNER FORMAT (horizontal, volle Breite) ===
+    # === BANNER FORMAT (horizontal, zentriert) ===
     if zone_type == 'banner':
         # Media für Banner
         media_html = ''
@@ -845,17 +845,17 @@ def _render_simple_ad(ad, extra_css_class='', zone_code=''):
             '''
 
         html = f'''
-        <div class="simple-ad-wrapper simple-ad-banner {extra_css_class}" style="width: 100%;">
-            <div class="simple-ad-container" style="position: relative; {s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%;">
+        <div class="simple-ad-wrapper simple-ad-banner {extra_css_class}" style="width: 100%; display: flex; justify-content: center;">
+            <div class="simple-ad-container" style="position: relative; {s['container']} font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; text-align: center;">
                 {badge_html}
                 <a href="{ad.target_url}" target="{target}" rel="noopener" data-simple-ad-id="{ad.id}"
-                   style="display: flex; align-items: center; gap: 16px; text-decoration: none;">
+                   style="display: inline-flex; align-items: center; gap: 16px; text-decoration: none;">
                     {media_html}
-                    <div style="flex: 1; min-width: 0;">
-                        <h4 style="margin: 0; color: {s['text_color']}; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="text-align: left;">
+                        <h4 style="margin: 0; color: {s['text_color']}; font-size: 15px; font-weight: 600;">
                             {ad.title}
                         </h4>
-                        {f'<p style="margin: 4px 0 0 0; color: {s["desc_color"]}; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{ad.description[:80]}</p>' if ad.description else ''}
+                        {f'<p style="margin: 4px 0 0 0; color: {s["desc_color"]}; font-size: 13px;">{ad.description[:80]}</p>' if ad.description else ''}
                     </div>
                     <span style="flex-shrink: 0; background: {s['btn_bg']}; color: {s['btn_color']};
                                  padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 500;">

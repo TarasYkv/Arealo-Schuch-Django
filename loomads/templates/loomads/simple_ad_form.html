@@ -228,13 +228,36 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label fw-semibold">Nur in diesen Apps</label>
-                                {{ form.app_filter }}
-                                <small class="text-muted">Leer = alle Apps</small>
+                                <label class="form-label fw-semibold">Nur in diesen Apps anzeigen</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#appFilterModal">
+                                        <i class="bi bi-plus-circle me-1"></i> Apps auswählen
+                                    </button>
+                                    <span id="appFilterCount" class="badge bg-primary">0 ausgewählt</span>
+                                </div>
+                                <small class="text-muted d-block mt-1">Leer = in allen Apps anzeigen</small>
+                                <!-- Hidden checkboxes -->
+                                <div id="appFilterHidden" class="d-none">{{ form.app_filter }}</div>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label fw-semibold">Nicht in diesen Apps</label>
-                                {{ form.exclude_apps }}
+                                <label class="form-label fw-semibold">Nicht in diesen Apps anzeigen</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#excludeAppsModal">
+                                        <i class="bi bi-dash-circle me-1"></i> Apps ausschließen
+                                    </button>
+                                    <span id="excludeAppsCount" class="badge bg-danger">0 ausgeschlossen</span>
+                                </div>
+                                <!-- Hidden checkboxes -->
+                                <div id="excludeAppsHidden" class="d-none">{{ form.exclude_apps }}</div>
+                            </div>
+                        </div>
+                        <!-- Ausgewählte Apps anzeigen -->
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <div id="appFilterSelected" class="d-flex flex-wrap gap-1"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <div id="excludeAppsSelected" class="d-flex flex-wrap gap-1"></div>
                             </div>
                         </div>
                     </div>
@@ -362,6 +385,58 @@
             </div>
         </div>
     </form>
+
+    <!-- App Filter Modal -->
+    <div class="modal fade" id="appFilterModal" tabindex="-1" aria-labelledby="appFilterModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="appFilterModalLabel">
+                        <i class="bi bi-plus-circle me-2"></i>Apps auswählen
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Wähle die Apps, in denen diese Anzeige erscheinen soll:</p>
+                    <div id="appFilterModalCheckboxes" class="row g-2">
+                        <!-- Checkboxes werden per JS eingefügt -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" id="appFilterModalSave" data-bs-dismiss="modal">
+                        <i class="bi bi-check-lg me-1"></i>Übernehmen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exclude Apps Modal -->
+    <div class="modal fade" id="excludeAppsModal" tabindex="-1" aria-labelledby="excludeAppsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="excludeAppsModalLabel">
+                        <i class="bi bi-dash-circle me-2"></i>Apps ausschließen
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Wähle die Apps, in denen diese Anzeige NICHT erscheinen soll:</p>
+                    <div id="excludeAppsModalCheckboxes" class="row g-2">
+                        <!-- Checkboxes werden per JS eingefügt -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-danger" id="excludeAppsModalSave" data-bs-dismiss="modal">
+                        <i class="bi bi-check-lg me-1"></i>Übernehmen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -562,6 +637,172 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     updatePreview();
+
+    // ========== APP TARGETING MODAL LOGIC ==========
+
+    // App-Icons für bessere Darstellung
+    const appIcons = {
+        'accounts': 'bi-person-circle',
+        'core': 'bi-house',
+        'promptpro': 'bi-chat-dots',
+        'keyengine': 'bi-key',
+        'questionfinder': 'bi-question-circle',
+        'shopify_manager': 'bi-shop',
+        'imageforge': 'bi-image',
+        'ideopin': 'bi-lightbulb',
+        'loomline': 'bi-journal-text',
+        'loomconnect': 'bi-link-45deg',
+        'superconfig': 'bi-gear',
+    };
+
+    function getAppIcon(appName) {
+        return appIcons[appName] || 'bi-app';
+    }
+
+    // Checkboxes aus Hidden-Container in Modal kopieren
+    function populateModalCheckboxes(hiddenContainerId, modalCheckboxesId, colorClass) {
+        const hiddenContainer = document.getElementById(hiddenContainerId);
+        const modalCheckboxes = document.getElementById(modalCheckboxesId);
+
+        if (!hiddenContainer || !modalCheckboxes) return;
+
+        modalCheckboxes.innerHTML = '';
+        const checkboxes = hiddenContainer.querySelectorAll('input[type="checkbox"]');
+
+        checkboxes.forEach((checkbox, index) => {
+            const label = checkbox.nextElementSibling || checkbox.parentElement.querySelector('label');
+            const labelText = label ? label.textContent.trim() : checkbox.value;
+            const appName = checkbox.value;
+            const icon = getAppIcon(appName);
+
+            const col = document.createElement('div');
+            col.className = 'col-6';
+            col.innerHTML = `
+                <div class="form-check p-3 border rounded ${checkbox.checked ? 'bg-' + colorClass + ' bg-opacity-10 border-' + colorClass : 'bg-light'}"
+                     style="cursor: pointer; transition: all 0.2s;"
+                     onclick="this.querySelector('input').click();">
+                    <input class="form-check-input modal-checkbox" type="checkbox"
+                           value="${checkbox.value}"
+                           id="modal_${modalCheckboxesId}_${index}"
+                           data-original-id="${checkbox.id}"
+                           ${checkbox.checked ? 'checked' : ''}>
+                    <label class="form-check-label d-flex align-items-center" for="modal_${modalCheckboxesId}_${index}" style="cursor: pointer;">
+                        <i class="bi ${icon} me-2 fs-5"></i>
+                        <span>${labelText}</span>
+                    </label>
+                </div>
+            `;
+            modalCheckboxes.appendChild(col);
+
+            // Style ändern bei Check
+            const newCheckbox = col.querySelector('input');
+            const wrapper = col.querySelector('.form-check');
+            newCheckbox.addEventListener('change', function(e) {
+                e.stopPropagation();
+                if (this.checked) {
+                    wrapper.classList.add('bg-' + colorClass, 'bg-opacity-10', 'border-' + colorClass);
+                    wrapper.classList.remove('bg-light');
+                } else {
+                    wrapper.classList.remove('bg-' + colorClass, 'bg-opacity-10', 'border-' + colorClass);
+                    wrapper.classList.add('bg-light');
+                }
+            });
+        });
+    }
+
+    // Modal-Checkboxes zurück in Hidden-Container übertragen
+    function syncModalToHidden(modalCheckboxesId, hiddenContainerId) {
+        const modalCheckboxes = document.querySelectorAll(`#${modalCheckboxesId} .modal-checkbox`);
+
+        modalCheckboxes.forEach(modalCb => {
+            const originalId = modalCb.dataset.originalId;
+            const originalCb = document.getElementById(originalId);
+            if (originalCb) {
+                originalCb.checked = modalCb.checked;
+            }
+        });
+    }
+
+    // Badge-Counts und Selected-Tags aktualisieren
+    function updateAppFilterUI() {
+        const appFilterCheckboxes = document.querySelectorAll('#appFilterHidden input[type="checkbox"]:checked');
+        const excludeAppsCheckboxes = document.querySelectorAll('#excludeAppsHidden input[type="checkbox"]:checked');
+
+        // Counts
+        document.getElementById('appFilterCount').textContent = appFilterCheckboxes.length + ' ausgewählt';
+        document.getElementById('excludeAppsCount').textContent = excludeAppsCheckboxes.length + ' ausgeschlossen';
+
+        // Badge visibility
+        document.getElementById('appFilterCount').style.display = appFilterCheckboxes.length > 0 ? 'inline' : 'none';
+        document.getElementById('excludeAppsCount').style.display = excludeAppsCheckboxes.length > 0 ? 'inline' : 'none';
+
+        // Selected Tags
+        const appFilterSelected = document.getElementById('appFilterSelected');
+        const excludeAppsSelected = document.getElementById('excludeAppsSelected');
+
+        appFilterSelected.innerHTML = '';
+        appFilterCheckboxes.forEach(cb => {
+            const label = cb.nextElementSibling || cb.parentElement.querySelector('label');
+            const labelText = label ? label.textContent.trim() : cb.value;
+            const icon = getAppIcon(cb.value);
+            appFilterSelected.innerHTML += `
+                <span class="badge bg-primary d-flex align-items-center gap-1">
+                    <i class="bi ${icon}"></i> ${labelText}
+                    <i class="bi bi-x ms-1" style="cursor: pointer;" onclick="removeAppFilter('${cb.id}')"></i>
+                </span>`;
+        });
+
+        excludeAppsSelected.innerHTML = '';
+        excludeAppsCheckboxes.forEach(cb => {
+            const label = cb.nextElementSibling || cb.parentElement.querySelector('label');
+            const labelText = label ? label.textContent.trim() : cb.value;
+            const icon = getAppIcon(cb.value);
+            excludeAppsSelected.innerHTML += `
+                <span class="badge bg-danger d-flex align-items-center gap-1">
+                    <i class="bi ${icon}"></i> ${labelText}
+                    <i class="bi bi-x ms-1" style="cursor: pointer;" onclick="removeExcludeApp('${cb.id}')"></i>
+                </span>`;
+        });
+    }
+
+    // App aus Filter entfernen
+    window.removeAppFilter = function(checkboxId) {
+        const cb = document.getElementById(checkboxId);
+        if (cb) {
+            cb.checked = false;
+            updateAppFilterUI();
+        }
+    };
+
+    window.removeExcludeApp = function(checkboxId) {
+        const cb = document.getElementById(checkboxId);
+        if (cb) {
+            cb.checked = false;
+            updateAppFilterUI();
+        }
+    };
+
+    // Modal Events
+    document.getElementById('appFilterModal').addEventListener('show.bs.modal', function() {
+        populateModalCheckboxes('appFilterHidden', 'appFilterModalCheckboxes', 'primary');
+    });
+
+    document.getElementById('excludeAppsModal').addEventListener('show.bs.modal', function() {
+        populateModalCheckboxes('excludeAppsHidden', 'excludeAppsModalCheckboxes', 'danger');
+    });
+
+    document.getElementById('appFilterModalSave').addEventListener('click', function() {
+        syncModalToHidden('appFilterModalCheckboxes', 'appFilterHidden');
+        updateAppFilterUI();
+    });
+
+    document.getElementById('excludeAppsModalSave').addEventListener('click', function() {
+        syncModalToHidden('excludeAppsModalCheckboxes', 'excludeAppsHidden');
+        updateAppFilterUI();
+    });
+
+    // Initial UI Update
+    updateAppFilterUI();
 });
 </script>
 {% endblock %}
