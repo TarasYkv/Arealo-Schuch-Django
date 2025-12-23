@@ -139,11 +139,14 @@
                     <div class="col-md-4">
                         <label class="form-label">Intervall</label>
                         <select class="form-select" id="distInterval">
-                            <option value="1">Täglich (1 Tag)</option>
-                            <option value="2" selected>Alle 2 Tage</option>
-                            <option value="3">Alle 3 Tage</option>
-                            <option value="7">Wöchentlich</option>
+                            <option value="10">Alle 10 Minuten</option>
+                            <option value="60">Jede Stunde</option>
+                            <option value="1440">Täglich (1 Tag)</option>
+                            <option value="2880" selected>Alle 2 Tage</option>
+                            <option value="4320">Alle 3 Tage</option>
+                            <option value="10080">Wöchentlich</option>
                         </select>
+                        <small class="form-text text-muted">Werte in Minuten</small>
                     </div>
                 </div>
                 <div class="mb-3">
@@ -1632,7 +1635,7 @@ async function saveSchedule() {
 function previewDistribution() {
     const startDate = document.getElementById('distStartDate').value;
     const startTime = document.getElementById('distStartTime').value;
-    const interval = parseInt(document.getElementById('distInterval').value);
+    const intervalMinutes = parseInt(document.getElementById('distInterval').value);
     const tbody = document.querySelector('#distPreviewTable tbody');
 
     if (!startDate) {
@@ -1653,7 +1656,8 @@ function previewDistribution() {
         `;
         tbody.appendChild(row);
 
-        currentDate.setDate(currentDate.getDate() + interval);
+        // Intervall in Minuten addieren
+        currentDate.setTime(currentDate.getTime() + intervalMinutes * 60 * 1000);
     }
 }
 
@@ -1661,7 +1665,7 @@ function previewDistribution() {
 async function applyDistribution() {
     const startDate = document.getElementById('distStartDate').value;
     const startTime = document.getElementById('distStartTime').value;
-    const interval = parseInt(document.getElementById('distInterval').value);
+    const intervalMinutes = parseInt(document.getElementById('distInterval').value);
     const boardId = document.getElementById('distBoard').value;
 
     if (!startDate) {
@@ -1687,7 +1691,7 @@ async function applyDistribution() {
             },
             body: JSON.stringify({
                 start_date: `${startDate}T${startTime}:00`,
-                interval_days: interval,
+                interval_minutes: intervalMinutes,
                 board_id: boardId,
                 platforms: ['pinterest'],
                 schedule_via_api: true

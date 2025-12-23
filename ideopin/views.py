@@ -3042,11 +3042,19 @@ def api_apply_distribution(request, project_id):
     try:
         data = json.loads(request.body)
         start_date_str = data.get('start_date')
-        interval_days = int(data.get('interval_days', 2))
         board_id = data.get('board_id', '')
         start_time = data.get('start_time', '12:00')
         platforms = data.get('platforms', ['pinterest'])
         schedule_via_api = data.get('schedule_via_api', True)  # Standardmäßig via API planen
+
+        # Intervall: Unterstützt Minuten (neu) und Tage (backwards compatibility)
+        interval_minutes = data.get('interval_minutes')
+        if interval_minutes is None:
+            # Fallback auf interval_days für alte Requests
+            interval_days = int(data.get('interval_days', 2))
+            interval_minutes = interval_days * 24 * 60
+        else:
+            interval_minutes = int(interval_minutes)
 
         if not start_date_str:
             return JsonResponse({
@@ -3054,9 +3062,14 @@ def api_apply_distribution(request, project_id):
                 'error': 'Startdatum erforderlich'
             }, status=400)
 
-        # Startdatum parsen (unterstützt sowohl 'YYYY-MM-DD' als auch 'YYYY-MM-DDTHH:MM:SS')
+        # Startdatum + Zeit parsen (unterstützt 'YYYY-MM-DD', 'YYYY-MM-DDTHH:MM:SS', 'YYYY-MM-DDTHH:MM')
         if 'T' in start_date_str:
+            # Vollständiges Datetime mit Zeit
+            time_part = start_date_str.split('T')[1]
+            if len(time_part) >= 5:  # HH:MM oder HH:MM:SS
+                start_time = time_part[:5]
             start_date_str = start_date_str.split('T')[0]
+
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         hour, minute = map(int, start_time.split(':'))
 
@@ -3087,11 +3100,15 @@ def api_apply_distribution(request, project_id):
             'Content-Type': 'application/json',
         }
 
+        # Start-Datetime erstellen
+        start_datetime = datetime.combine(
+            start_date,
+            datetime.min.time().replace(hour=hour, minute=minute)
+        )
+
         for i, pin in enumerate(pins):
-            scheduled_datetime = datetime.combine(
-                start_date + timedelta(days=i * interval_days),
-                datetime.min.time().replace(hour=hour, minute=minute)
-            )
+            # Intervall in Minuten addieren
+            scheduled_datetime = start_datetime + timedelta(minutes=i * interval_minutes)
             pin.scheduled_at = timezone.make_aware(scheduled_datetime)
             if board_id:
                 pin.pinterest_board_id = board_id
@@ -3174,9 +3191,9 @@ def api_apply_distribution(request, project_id):
                     'api_scheduled': False,
                 })
 
-        # Projekt-Einstellungen speichern
+        # Projekt-Einstellungen speichern (speichert Minuten als "Tage" für Kompatibilität)
         project.distribution_mode = 'auto'
-        project.distribution_interval_days = interval_days
+        project.distribution_interval_days = interval_minutes  # Speichert jetzt Minuten statt Tage
         project.save()
 
         api_success_count = sum(1 for p in scheduled_pins if p.get('api_scheduled'))
