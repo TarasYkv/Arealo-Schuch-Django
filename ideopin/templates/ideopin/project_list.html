@@ -82,6 +82,37 @@
     {% if projects %}
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
         {% for project in projects %}
+        <!-- Ad Card alle 3 Projekte -->
+        {% if forloop.counter|divisibleby:3 and not forloop.last %}
+        <div class="col">
+            <div class="card h-100 shadow-sm" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px dashed #dee2e6;">
+                <div class="card-body d-flex align-items-center justify-content-center" style="min-height: 300px;">
+                    <div id="ideopin-ad-{{ forloop.counter }}" class="w-100 text-center">
+                        <div class="spinner-border text-secondary" role="status">
+                            <span class="visually-hidden">Lade...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            fetch('/loomads/api/zone/ideopin_card/ad/')
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('ideopin-ad-{{ forloop.counter }}');
+                    if (data.html_content) {
+                        el.innerHTML = data.html_content;
+                    } else if (data.error) {
+                        el.innerHTML = '<small class="text-muted">Werbung</small>';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('ideopin-ad-{{ forloop.counter }}').innerHTML = '';
+                });
+        })();
+        </script>
+        {% endif %}
         <div class="col">
             <div class="card h-100 shadow-sm">
                 <div class="card-img-top-wrapper bg-light" style="height: 200px; overflow: hidden;">
