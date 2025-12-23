@@ -450,11 +450,24 @@ class SimpleAdForm(forms.ModelForm):
     class Meta:
         model = SimpleAd
         fields = [
-            'title', 'description', 'image', 'button_text', 'target_url', 'open_in_new_tab',
-            'template_style', 'color_scheme', 'custom_color',
+            # Content
+            'title', 'description', 'image', 'icon', 'video_url',
+            'button_text', 'target_url', 'open_in_new_tab',
+            # Styling
+            'template_style', 'color_scheme', 'custom_color', 'animation',
+            # Badge
+            'badge', 'badge_custom_text',
+            # Zeitplanung
+            'start_date', 'end_date', 'countdown_enabled', 'countdown_text',
+            # Targeting
+            'target_audience', 'app_filter', 'exclude_apps',
+            # A/B Testing
+            'variant_name', 'ab_test_group',
+            # Display
             'is_active', 'weight'
         ]
         widgets = {
+            # Content
             'title': forms.TextInput(attrs={
                 'class': 'form-control form-control-lg',
                 'placeholder': 'z.B. "Jetzt 20% Rabatt sichern!"',
@@ -470,6 +483,13 @@ class SimpleAdForm(forms.ModelForm):
                 'class': 'form-control',
                 'accept': 'image/*'
             }),
+            'icon': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'video_url': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'https://example.com/video.mp4'
+            }),
             'button_text': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Mehr erfahren',
@@ -482,17 +502,68 @@ class SimpleAdForm(forms.ModelForm):
             'open_in_new_tab': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
             }),
-            'template_style': forms.RadioSelect(attrs={
-                'class': 'btn-check'
+            # Styling
+            'template_style': forms.Select(attrs={
+                'class': 'form-select'
             }),
-            'color_scheme': forms.RadioSelect(attrs={
-                'class': 'btn-check'
+            'color_scheme': forms.Select(attrs={
+                'class': 'form-select'
             }),
             'custom_color': forms.TextInput(attrs={
                 'class': 'form-control form-control-color',
                 'type': 'color',
                 'style': 'width: 60px; height: 38px;'
             }),
+            'animation': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            # Badge
+            'badge': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'badge_custom_text': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Eigener Badge-Text',
+                'maxlength': 20
+            }),
+            # Zeitplanung
+            'start_date': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local'
+            }),
+            'end_date': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local'
+            }),
+            'countdown_enabled': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'countdown_text': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nur noch:'
+            }),
+            # Targeting
+            'target_audience': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'app_filter': forms.SelectMultiple(attrs={
+                'class': 'form-select',
+                'size': 4
+            }),
+            'exclude_apps': forms.SelectMultiple(attrs={
+                'class': 'form-select',
+                'size': 4
+            }),
+            # A/B Testing
+            'variant_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'z.B. Variante A'
+            }),
+            'ab_test_group': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'z.B. Homepage-Banner-Test'
+            }),
+            # Display
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
             }),
@@ -507,12 +578,26 @@ class SimpleAdForm(forms.ModelForm):
             'title': 'Titel',
             'description': 'Beschreibung (optional)',
             'image': 'Bild (optional)',
+            'icon': 'Icon (optional)',
+            'video_url': 'Video-Hintergrund (optional)',
             'button_text': 'Button-Text',
             'target_url': 'Ziel-URL',
             'open_in_new_tab': 'In neuem Tab öffnen',
             'template_style': 'Design-Vorlage',
             'color_scheme': 'Farbschema',
             'custom_color': 'Eigene Farbe',
+            'animation': 'Animation',
+            'badge': 'Badge/Label',
+            'badge_custom_text': 'Eigener Badge-Text',
+            'start_date': 'Startdatum',
+            'end_date': 'Enddatum',
+            'countdown_enabled': 'Countdown anzeigen',
+            'countdown_text': 'Countdown-Text',
+            'target_audience': 'Zielgruppe',
+            'app_filter': 'Nur in diesen Apps',
+            'exclude_apps': 'Nicht in diesen Apps',
+            'variant_name': 'Varianten-Name',
+            'ab_test_group': 'A/B-Test Gruppe',
             'is_active': 'Aktiv',
             'weight': 'Gewichtung',
         }
@@ -520,10 +605,33 @@ class SimpleAdForm(forms.ModelForm):
             'title': 'Kurzer, aussagekräftiger Titel (max. 100 Zeichen)',
             'description': 'Optionale Beschreibung die unter dem Titel angezeigt wird',
             'image': 'Optionales Bild - wird automatisch an das Format angepasst',
+            'icon': 'Bootstrap Icon (Alternative zu Bild)',
+            'video_url': 'URL zu einem kurzen Loop-Video (MP4)',
             'button_text': 'Text auf dem Aktions-Button',
             'target_url': 'Wohin soll die Anzeige verlinken?',
             'template_style': 'Wähle einen Design-Stil für die Anzeige',
             'color_scheme': 'Wähle ein Farbschema',
             'custom_color': 'Nur bei "Eigene Farbe" aktiv',
+            'animation': 'Animations-Effekt beim Laden oder Hover',
+            'badge': 'Auffälliges Label in der Ecke',
+            'badge_custom_text': 'Nur bei "Eigener Text"',
+            'start_date': 'Ab wann soll die Anzeige erscheinen?',
+            'end_date': 'Bis wann soll die Anzeige erscheinen?',
+            'countdown_enabled': 'Zeigt einen Countdown bis zum Enddatum',
+            'countdown_text': 'Text der vor dem Countdown angezeigt wird',
+            'target_audience': 'Für welche Nutzer soll die Anzeige sichtbar sein?',
+            'app_filter': 'Leer = alle Apps',
+            'exclude_apps': 'In diesen Apps nicht anzeigen',
+            'variant_name': 'Name für A/B-Tests',
+            'ab_test_group': 'Anzeigen mit gleichem Gruppennamen werden getestet',
             'weight': '1-10: Höhere Werte = häufigere Anzeige',
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Format datetime fields für HTML5 datetime-local input
+        if self.instance.pk:
+            if self.instance.start_date:
+                self.fields['start_date'].initial = self.instance.start_date.strftime('%Y-%m-%dT%H:%M')
+            if self.instance.end_date:
+                self.fields['end_date'].initial = self.instance.end_date.strftime('%Y-%m-%dT%H:%M')

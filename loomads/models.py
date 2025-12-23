@@ -1479,6 +1479,10 @@ class SimpleAd(models.Model):
         ('banner', 'Banner - Breites Format'),
         ('highlight', 'Highlight - Auffällig mit Akzentfarbe'),
         ('dark', 'Dark - Dunkler Hintergrund'),
+        ('glass', 'Glass - Glasmorphismus-Effekt'),
+        ('neon', 'Neon - Leuchtende Rahmen'),
+        ('retro', 'Retro - Vintage-Look'),
+        ('threed', '3D - Mit Tiefeneffekt'),
     ]
 
     COLOR_SCHEMES = [
@@ -1491,6 +1495,52 @@ class SimpleAd(models.Model):
         ('pink', 'Pink'),
         ('gray', 'Grau'),
         ('custom', 'Eigene Farbe'),
+    ]
+
+    ANIMATION_CHOICES = [
+        ('none', 'Keine Animation'),
+        ('fade', 'Fade-In'),
+        ('slide', 'Slide-In'),
+        ('pulse', 'Pulse beim Hover'),
+        ('bounce', 'Bounce'),
+        ('shake', 'Shake beim Hover'),
+    ]
+
+    BADGE_CHOICES = [
+        ('', 'Kein Badge'),
+        ('neu', 'NEU'),
+        ('sale', 'SALE'),
+        ('hot', 'HOT'),
+        ('top', 'TOP'),
+        ('tipp', 'TIPP'),
+        ('limited', 'LIMITIERT'),
+        ('custom', 'Eigener Text'),
+    ]
+
+    TARGET_AUDIENCE_CHOICES = [
+        ('all', 'Alle Nutzer'),
+        ('logged_in', 'Nur eingeloggte Nutzer'),
+        ('anonymous', 'Nur anonyme Besucher'),
+    ]
+
+    # Bootstrap Icons für Icon-Auswahl
+    ICON_CHOICES = [
+        ('', 'Kein Icon'),
+        ('bi-star-fill', 'Stern'),
+        ('bi-heart-fill', 'Herz'),
+        ('bi-lightning-fill', 'Blitz'),
+        ('bi-fire', 'Feuer'),
+        ('bi-gift', 'Geschenk'),
+        ('bi-trophy', 'Pokal'),
+        ('bi-rocket', 'Rakete'),
+        ('bi-megaphone', 'Megaphone'),
+        ('bi-percent', 'Prozent'),
+        ('bi-tag-fill', 'Tag'),
+        ('bi-cart-fill', 'Warenkorb'),
+        ('bi-cash-coin', 'Geld'),
+        ('bi-bell-fill', 'Glocke'),
+        ('bi-chat-heart-fill', 'Chat-Herz'),
+        ('bi-emoji-smile', 'Smiley'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -1563,6 +1613,113 @@ class SimpleAd(models.Model):
         help_text='1-10: Höhere Werte = häufigere Anzeige'
     )
 
+    # Animation
+    animation = models.CharField(
+        max_length=20,
+        choices=ANIMATION_CHOICES,
+        default='none',
+        verbose_name='Animation',
+        help_text='Animations-Effekt für die Anzeige'
+    )
+
+    # Badge/Label
+    badge = models.CharField(
+        max_length=20,
+        choices=BADGE_CHOICES,
+        blank=True,
+        default='',
+        verbose_name='Badge',
+        help_text='Optionales Badge/Label'
+    )
+    badge_custom_text = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Eigener Badge-Text',
+        help_text='Nur bei "Eigener Text"'
+    )
+
+    # Icon (Alternative zu Bild)
+    icon = models.CharField(
+        max_length=50,
+        choices=ICON_CHOICES,
+        blank=True,
+        default='',
+        verbose_name='Icon',
+        help_text='Bootstrap Icon (Alternative zu Bild)'
+    )
+
+    # Video-Hintergrund
+    video_url = models.URLField(
+        blank=True,
+        verbose_name='Video-URL',
+        help_text='URL zu einem kurzen Loop-Video (MP4)'
+    )
+
+    # Zeitplanung
+    start_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Startdatum',
+        help_text='Ab wann soll die Anzeige erscheinen? (leer = sofort)'
+    )
+    end_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Enddatum',
+        help_text='Bis wann soll die Anzeige erscheinen? (leer = unbegrenzt)'
+    )
+
+    # Countdown
+    countdown_enabled = models.BooleanField(
+        default=False,
+        verbose_name='Countdown anzeigen',
+        help_text='Zeigt einen Countdown bis zum Enddatum'
+    )
+    countdown_text = models.CharField(
+        max_length=50,
+        blank=True,
+        default='Nur noch:',
+        verbose_name='Countdown-Text',
+        help_text='Text vor dem Countdown'
+    )
+
+    # Zielgruppen
+    target_audience = models.CharField(
+        max_length=20,
+        choices=TARGET_AUDIENCE_CHOICES,
+        default='all',
+        verbose_name='Zielgruppe',
+        help_text='Für welche Nutzer soll die Anzeige sichtbar sein?'
+    )
+
+    # App-Filter
+    app_filter = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='App-Filter',
+        help_text='Nur in diesen Apps anzeigen (leer = alle)'
+    )
+    exclude_apps = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Apps ausschließen',
+        help_text='In diesen Apps nicht anzeigen'
+    )
+
+    # A/B Testing
+    variant_name = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='Varianten-Name',
+        help_text='Name für A/B-Test (z.B. "Variante A")'
+    )
+    ab_test_group = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='A/B-Test Gruppe',
+        help_text='Anzeigen mit gleichem Gruppennamen werden getestet'
+    )
+
     # Optional: Zone-Einschränkungen (leer = alle Zonen)
     exclude_zones = models.JSONField(
         default=list,
@@ -1618,6 +1775,51 @@ class SimpleAd(models.Model):
             return True
         return zone_code not in self.exclude_zones
 
+    def is_within_schedule(self):
+        """Prüft ob die Anzeige innerhalb des Zeitplans liegt"""
+        now = timezone.now()
+        if self.start_date and now < self.start_date:
+            return False
+        if self.end_date and now > self.end_date:
+            return False
+        return True
+
+    def is_allowed_for_user(self, user):
+        """Prüft ob die Anzeige für diesen User sichtbar sein soll"""
+        if self.target_audience == 'all':
+            return True
+        if self.target_audience == 'logged_in':
+            return user.is_authenticated
+        if self.target_audience == 'anonymous':
+            return not user.is_authenticated
+        return True
+
+    def is_allowed_in_app(self, app_name):
+        """Prüft ob die Anzeige in dieser App angezeigt werden darf"""
+        # Ausgeschlossene Apps
+        if self.exclude_apps and app_name in self.exclude_apps:
+            return False
+        # App-Filter (wenn gesetzt, nur diese Apps erlaubt)
+        if self.app_filter and app_name not in self.app_filter:
+            return False
+        return True
+
+    def get_badge_text(self):
+        """Gibt den Badge-Text zurück"""
+        if self.badge == 'custom':
+            return self.badge_custom_text
+        return self.badge.upper() if self.badge else ''
+
+    def get_visual(self):
+        """Gibt das visuelle Element zurück (Bild, Icon oder Video)"""
+        if self.video_url:
+            return {'type': 'video', 'url': self.video_url}
+        if self.image:
+            return {'type': 'image', 'url': self.image.url}
+        if self.icon:
+            return {'type': 'icon', 'class': self.icon}
+        return None
+
     def record_impression(self):
         """Impression zählen"""
         SimpleAd.objects.filter(pk=self.pk).update(impressions=models.F('impressions') + 1)
@@ -1627,21 +1829,52 @@ class SimpleAd(models.Model):
         SimpleAd.objects.filter(pk=self.pk).update(clicks=models.F('clicks') + 1)
 
     @classmethod
-    def get_random_ad(cls, zone_code=None):
+    def get_random_ad(cls, zone_code=None, user=None, app_name=None):
         """
         Holt eine zufällige aktive Anzeige (gewichtet).
-        Optional: Zone-Code für Ausschluss-Prüfung
+        Berücksichtigt alle Filter: Zone, User, App, Zeitplanung
         """
         import random
 
         ads = list(cls.objects.filter(is_active=True))
 
-        if zone_code:
-            ads = [ad for ad in ads if ad.is_allowed_in_zone(zone_code)]
+        # Alle Filter anwenden
+        filtered_ads = []
+        for ad in ads:
+            # Zeitplanung
+            if not ad.is_within_schedule():
+                continue
+            # Zone
+            if zone_code and not ad.is_allowed_in_zone(zone_code):
+                continue
+            # User/Zielgruppe
+            if user and not ad.is_allowed_for_user(user):
+                continue
+            # App
+            if app_name and not ad.is_allowed_in_app(app_name):
+                continue
+            filtered_ads.append(ad)
+
+        if not filtered_ads:
+            return None
+
+        # Gewichtete Auswahl
+        weights = [ad.weight for ad in filtered_ads]
+        return random.choices(filtered_ads, weights=weights, k=1)[0]
+
+    @classmethod
+    def get_ab_test_winner(cls, group_name):
+        """
+        Gibt die Anzeige mit der besten CTR aus einer A/B-Test-Gruppe zurück
+        """
+        ads = cls.objects.filter(
+            is_active=True,
+            ab_test_group=group_name
+        ).exclude(ab_test_group='')
 
         if not ads:
             return None
 
-        # Gewichtete Auswahl
-        weights = [ad.weight for ad in ads]
-        return random.choices(ads, weights=weights, k=1)[0]
+        # Sortiere nach CTR
+        best_ad = max(ads, key=lambda ad: ad.ctr)
+        return best_ad
