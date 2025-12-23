@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load loomads_tags %}
 
 {% block title %}Verlauf - ImageForge{% endblock %}
 
@@ -69,6 +70,36 @@
                 </div>
             </div>
         </div>
+        {% if forloop.counter|divisibleby:4 and not forloop.last %}
+        <!-- Werbe-Card alle 4 Items -->
+        <div class="col-md-6 col-lg-4 col-xl-3 mb-4">
+            <div class="card h-100" style="background: #f8f9fa; border: 2px dashed #dee2e6;">
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <div id="imageforge-ad-{{ forloop.counter }}" class="w-100 text-center">
+                        <div class="spinner-border text-secondary" role="status"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            fetch('/loomads/api/zone/imageforge_card/ad/')
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('imageforge-ad-{{ forloop.counter }}');
+                    if (el && data.html_content) {
+                        el.innerHTML = data.html_content;
+                    } else if (el) {
+                        el.innerHTML = '<small class="text-muted">Werbung</small>';
+                    }
+                })
+                .catch(() => {
+                    const el = document.getElementById('imageforge-ad-{{ forloop.counter }}');
+                    if (el) el.innerHTML = '';
+                });
+        })();
+        </script>
+        {% endif %}
         {% endfor %}
     </div>
     {% else %}
