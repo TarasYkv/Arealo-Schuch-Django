@@ -2397,39 +2397,38 @@ def api_generate_variations(request, project_id):
         variation_count = pin_count - 1
 
         # Prompt für Text-Variationen (nur für Pins 2-7)
-        text_prompt = f"""Schreibe den folgenden Text {variation_count}x leicht um. Jede Version soll die gleiche Aussage haben, aber anders formuliert sein.
+        text_prompt = f"""PARAPHRASIERE den folgenden Text {variation_count}x.
 
-Original-Text: {base_text}
-Keywords: {keywords}
+ORIGINAL: "{base_text}"
 
-Regeln:
-- Behalte die Kernaussage bei
-- Variiere Wortstellung, Synonyme, Formulierung
-- Max 5-8 Wörter pro Text
+WICHTIG:
+- Behalte EXAKT die gleiche Bedeutung und Aussage
+- Ändere nur die Formulierung (Synonyme, Wortstellung)
+- Die Länge soll ähnlich bleiben (max 5-8 Wörter)
 - Auf Deutsch
-- Jede Version soll sich vom Original unterscheiden, aber nicht komplett anders sein
+- KEINE neuen Ideen oder Themen hinzufügen
 
-Antworte NUR als JSON: {{"texts": ["Variation 1", "Variation 2", ...]}}"""
+Antworte NUR als JSON: {{"texts": ["Paraphrase 1", "Paraphrase 2", ...]}}"""
 
         # Prompt für Hintergrund-Variationen (nur für Pins 2-7)
-        bg_prompt = f"""Schreibe die folgende Hintergrund-Beschreibung {variation_count}x leicht um. Jede Version soll die gleiche Szene beschreiben, aber mit kleinen Variationen.
+        bg_prompt = f"""PARAPHRASIERE die folgende Hintergrund-Beschreibung {variation_count}x.
 
-Original-Beschreibung: {base_background}
-Keywords: {keywords}
+ORIGINAL: "{base_background}"
 
-Jede Variation soll:
-- Die gleiche Grundszene beschreiben
-- Leichte Unterschiede in Details, Perspektive oder Stimmung haben
-- Fotorealistisch und für Bildgenerierung optimiert sein
-- 1-2 Sätze lang sein
+WICHTIG:
+- Beschreibe EXAKT die gleiche Szene
+- Ändere nur die Formulierung (Synonyme, Satzbau)
+- Behalte alle wichtigen Elemente (Objekte, Farben, Stimmung)
+- Die Beschreibung muss für Bildgenerierung geeignet sein
+- 1-2 Sätze lang
 
-Antworte NUR als JSON: {{"backgrounds": ["Variation 1", "Variation 2", ...]}}"""
+Antworte NUR als JSON: {{"backgrounds": ["Paraphrase 1", "Paraphrase 2", ...]}}"""
 
-        # Text-Variationen generieren
+        # Text-Variationen generieren (niedrige Temperatur für ähnlichere Ergebnisse)
         text_response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": text_prompt}],
-            temperature=0.9,
+            temperature=0.4,
             max_tokens=500
         )
         text_content = text_response.choices[0].message.content.strip()
@@ -2454,11 +2453,11 @@ Antworte NUR als JSON: {{"backgrounds": ["Variation 1", "Variation 2", ...]}}"""
             logger.error(f"[Multi-Pin] Unerwarteter Fehler bei Texts: {e}")
             texts = [f"{base_text} (Var. {i+1})" for i in range(variation_count)]
 
-        # Hintergrund-Variationen generieren
+        # Hintergrund-Variationen generieren (niedrige Temperatur für ähnlichere Ergebnisse)
         bg_response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": bg_prompt}],
-            temperature=0.9,
+            temperature=0.4,
             max_tokens=800
         )
         bg_content = bg_response.choices[0].message.content.strip()
