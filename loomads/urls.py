@@ -58,6 +58,7 @@ urlpatterns = [
     path('simple-ads/<uuid:ad_id>/edit/', views_simple.simple_ad_edit, name='simple_ad_edit'),
     path('simple-ads/<uuid:ad_id>/delete/', views_simple.simple_ad_delete, name='simple_ad_delete'),
     path('simple-ads/<uuid:ad_id>/toggle/', views_simple.simple_ad_toggle, name='simple_ad_toggle'),
+    path('simple-ads/<uuid:ad_id>/duplicate/', views_simple.simple_ad_duplicate, name='simple_ad_duplicate'),
 
     # Ad Creation Wizard
     path('wizard/', views_wizard.wizard_start, name='wizard_start'),

@@ -130,3 +130,50 @@ def simple_ad_preview(request, ad_id):
         'ad': ad,
     }
     return render(request, 'loomads/simple_ad_preview.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def simple_ad_duplicate(request, ad_id):
+    """Simple Ad duplizieren"""
+    original_ad = get_object_or_404(SimpleAd, id=ad_id)
+
+    # Neuen Titel erstellen
+    new_title = f"{original_ad.title} (Kopie)"
+
+    # Alle Felder kopieren außer id, impressions, clicks, created_at, updated_at
+    new_ad = SimpleAd(
+        title=new_title,
+        description=original_ad.description,
+        image=original_ad.image,
+        icon=original_ad.icon,
+        video_url=original_ad.video_url,
+        button_text=original_ad.button_text,
+        target_url=original_ad.target_url,
+        open_in_new_tab=original_ad.open_in_new_tab,
+        template_style=original_ad.template_style,
+        color_scheme=original_ad.color_scheme,
+        custom_color=original_ad.custom_color,
+        animation=original_ad.animation,
+        badge=original_ad.badge,
+        badge_custom_text=original_ad.badge_custom_text,
+        start_date=original_ad.start_date,
+        end_date=original_ad.end_date,
+        countdown_enabled=original_ad.countdown_enabled,
+        countdown_text=original_ad.countdown_text,
+        target_audience=original_ad.target_audience,
+        app_filter=original_ad.app_filter,
+        exclude_apps=original_ad.exclude_apps,
+        variant_name=original_ad.variant_name,
+        ab_test_group=original_ad.ab_test_group,
+        is_active=False,  # Kopie standardmäßig inaktiv
+        weight=original_ad.weight,
+    )
+    new_ad.save()
+
+    # M2M-Felder kopieren (falls vorhanden)
+    if hasattr(original_ad, 'exclude_zones') and original_ad.exclude_zones.exists():
+        new_ad.exclude_zones.set(original_ad.exclude_zones.all())
+
+    messages.success(request, f'Anzeige "{original_ad.title}" wurde dupliziert! Die Kopie ist standardmäßig deaktiviert.')
+    return redirect('loomads:simple_ad_edit', ad_id=new_ad.id)
