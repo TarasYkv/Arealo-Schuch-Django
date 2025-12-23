@@ -635,3 +635,17 @@ class SimpleAdForm(forms.ModelForm):
                 self.fields['start_date'].initial = self.instance.start_date.strftime('%Y-%m-%dT%H:%M')
             if self.instance.end_date:
                 self.fields['end_date'].initial = self.instance.end_date.strftime('%Y-%m-%dT%H:%M')
+
+    def clean_app_filter(self):
+        """Stellt sicher, dass app_filter immer eine Liste ist (nie None)"""
+        value = self.cleaned_data.get('app_filter')
+        if value is None:
+            return []
+        return list(value) if value else []
+
+    def clean_exclude_apps(self):
+        """Stellt sicher, dass exclude_apps immer eine Liste ist (nie None)"""
+        value = self.cleaned_data.get('exclude_apps')
+        if value is None:
+            return []
+        return list(value) if value else []
