@@ -1,0 +1,372 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Simple Ads{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-lightning-charge-fill text-warning me-2"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mb-0">Erstelle eine Anzeige die sich automatisch an alle Formate anpasst</p>
+        </div>
+        <a href="{% url 'loomads:simple_ad_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Zurück
+        </a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="simple-ad-form">
+        {% csrf_token %}
+
+        <div class="row">
+            <!-- Formular -->
+            <div class="col-lg-7">
+                <!-- Inhalt -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-card-text text-primary me-2"></i>
+                            Inhalt
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Titel -->
+                        <div class="mb-3">
+                            <label for="id_title" class="form-label fw-semibold">
+                                Titel <span class="text-danger">*</span>
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">{{ form.title.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">{{ form.title.help_text }}</div>
+                        </div>
+
+                        <!-- Beschreibung -->
+                        <div class="mb-3">
+                            <label for="id_description" class="form-label fw-semibold">
+                                Beschreibung
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">{{ form.description.help_text }}</div>
+                        </div>
+
+                        <!-- Bild -->
+                        <div class="mb-3">
+                            <label for="id_image" class="form-label fw-semibold">
+                                Bild
+                            </label>
+                            {% if ad.image %}
+                            <div class="mb-2">
+                                <img src="{{ ad.image.url }}" alt="Aktuelles Bild" class="rounded" style="max-height: 100px;">
+                                <small class="text-muted d-block mt-1">Aktuelles Bild</small>
+                            </div>
+                            {% endif %}
+                            {{ form.image }}
+                            {% if form.image.errors %}
+                            <div class="invalid-feedback d-block">{{ form.image.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">{{ form.image.help_text }}</div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Button-Text -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_button_text" class="form-label fw-semibold">
+                                    Button-Text
+                                </label>
+                                {{ form.button_text }}
+                                {% if form.button_text.errors %}
+                                <div class="invalid-feedback d-block">{{ form.button_text.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Ziel-URL -->
+                            <div class="col-md-6 mb-3">
+                                <label for="id_target_url" class="form-label fw-semibold">
+                                    Ziel-URL <span class="text-danger">*</span>
+                                </label>
+                                {{ form.target_url }}
+                                {% if form.target_url.errors %}
+                                <div class="invalid-feedback d-block">{{ form.target_url.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- In neuem Tab öffnen -->
+                        <div class="form-check mb-3">
+                            {{ form.open_in_new_tab }}
+                            <label class="form-check-label" for="id_open_in_new_tab">
+                                {{ form.open_in_new_tab.label }}
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Design -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-palette text-success me-2"></i>
+                            Design
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Template Style -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Design-Vorlage</label>
+                            <div class="row g-2">
+                                {% for value, label in form.fields.template_style.choices %}
+                                <div class="col-md-4">
+                                    <input type="radio"
+                                           class="btn-check"
+                                           name="template_style"
+                                           id="style_{{ value }}"
+                                           value="{{ value }}"
+                                           {% if form.template_style.value == value or form.instance.template_style == value %}checked{% endif %}>
+                                    <label class="btn btn-outline-secondary w-100 py-3" for="style_{{ value }}">
+                                        <i class="bi bi-{% if value == 'minimal' %}text-left{% elif value == 'card' %}card-text{% elif value == 'gradient' %}rainbow{% elif value == 'banner' %}layout-wtf{% elif value == 'highlight' %}star{% else %}moon{% endif %} d-block mb-1"></i>
+                                        {{ label|cut:" - "|first }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Farbschema -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Farbschema</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for value, label in form.fields.color_scheme.choices %}
+                                <div>
+                                    <input type="radio"
+                                           class="btn-check"
+                                           name="color_scheme"
+                                           id="color_{{ value }}"
+                                           value="{{ value }}"
+                                           {% if form.color_scheme.value == value or form.instance.color_scheme == value %}checked{% endif %}>
+                                    <label class="btn btn-outline-secondary px-3" for="color_{{ value }}"
+                                           style="{% if value != 'custom' %}background: {% if value == 'blue' %}#3b82f6{% elif value == 'green' %}#10b981{% elif value == 'purple' %}#8b5cf6{% elif value == 'orange' %}#f97316{% elif value == 'red' %}#ef4444{% elif value == 'teal' %}#14b8a6{% elif value == 'pink' %}#ec4899{% elif value == 'gray' %}#6b7280{% endif %}20;{% endif %}">
+                                        {{ label }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Custom Color -->
+                        <div class="mb-3" id="custom-color-section">
+                            <label for="id_custom_color" class="form-label fw-semibold">
+                                Eigene Farbe
+                            </label>
+                            <div class="d-flex align-items-center gap-2">
+                                {{ form.custom_color }}
+                                <span class="text-muted small">Nur aktiv bei "Eigene Farbe"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Einstellungen -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-gear text-info me-2"></i>
+                            Einstellungen
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch mb-3">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label fw-semibold" for="id_is_active">
+                                        Anzeige aktivieren
+                                    </label>
+                                    <div class="form-text">Nur aktive Anzeigen werden angezeigt</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_weight" class="form-label fw-semibold">
+                                    Gewichtung
+                                </label>
+                                <div class="d-flex align-items-center gap-2">
+                                    {{ form.weight }}
+                                    <span class="text-muted small">(1-10)</span>
+                                </div>
+                                <div class="form-text">Höhere Werte = häufigere Anzeige</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-lg me-1"></i>
+                        {{ submit_text }}
+                    </button>
+                    <a href="{% url 'loomads:simple_ad_list' %}" class="btn btn-outline-secondary btn-lg">
+                        Abbrechen
+                    </a>
+                </div>
+            </div>
+
+            <!-- Live Preview -->
+            <div class="col-lg-5">
+                <div class="sticky-top" style="top: 80px;">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-0">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-eye text-warning me-2"></i>
+                                Live-Vorschau
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="preview-container" class="border rounded p-3 bg-light">
+                                <!-- Preview wird per JS aktualisiert -->
+                                <div id="ad-preview">
+                                    <p class="text-muted text-center mb-0">
+                                        Gib einen Titel ein, um die Vorschau zu sehen...
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Die Vorschau zeigt, wie die Anzeige in verschiedenen Zonen aussehen wird.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+.btn-check:checked + .btn-outline-secondary {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    color: white;
+}
+
+#ad-preview {
+    min-height: 100px;
+}
+
+/* Preview Styles */
+.preview-minimal {
+    padding: 16px;
+    border-left: 4px solid var(--preview-color, #3b82f6);
+    background: white;
+}
+
+.preview-card {
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+    background: white;
+}
+
+.preview-gradient {
+    padding: 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--preview-color, #3b82f6), var(--preview-color-light, #3b82f6dd));
+    color: white;
+}
+
+.preview-banner {
+    padding: 16px 24px;
+    border-radius: 8px;
+    background: var(--preview-color-bg, #3b82f615);
+    border: 1px solid var(--preview-color-border, #3b82f640);
+}
+
+.preview-highlight {
+    padding: 20px;
+    border-radius: 12px;
+    background: var(--preview-color-bg, #3b82f610);
+    border: 2px solid var(--preview-color, #3b82f6);
+}
+
+.preview-dark {
+    padding: 20px;
+    border-radius: 12px;
+    background: #1f2937;
+    color: white;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const colorMap = {
+        'blue': '#3b82f6',
+        'green': '#10b981',
+        'purple': '#8b5cf6',
+        'orange': '#f97316',
+        'red': '#ef4444',
+        'teal': '#14b8a6',
+        'pink': '#ec4899',
+        'gray': '#6b7280'
+    };
+
+    function updatePreview() {
+        const title = document.getElementById('id_title').value || 'Beispiel-Titel';
+        const description = document.getElementById('id_description').value || '';
+        const buttonText = document.getElementById('id_button_text').value || 'Mehr erfahren';
+        const style = document.querySelector('input[name="template_style"]:checked')?.value || 'card';
+        const colorScheme = document.querySelector('input[name="color_scheme"]:checked')?.value || 'blue';
+        const customColor = document.getElementById('id_custom_color').value;
+
+        const color = colorScheme === 'custom' ? customColor : colorMap[colorScheme];
+        const preview = document.getElementById('ad-preview');
+
+        let isDark = style === 'gradient' || style === 'dark';
+        let textColor = isDark ? 'white' : '#1f2937';
+        let descColor = isDark ? 'rgba(255,255,255,0.9)' : '#6b7280';
+        let btnBg = isDark ? 'white' : color;
+        let btnColor = isDark ? color : 'white';
+
+        let styleClass = `preview-${style}`;
+        let inlineStyles = `--preview-color: ${color}; --preview-color-light: ${color}dd; --preview-color-bg: ${color}15; --preview-color-border: ${color}40;`;
+
+        let descHtml = description ? `<p style="margin: 0 0 12px 0; color: ${descColor}; font-size: 14px;">${description}</p>` : '';
+
+        preview.innerHTML = `
+            <div class="${styleClass}" style="${inlineStyles}">
+                <h4 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 16px;">${title}</h4>
+                ${descHtml}
+                <span style="display: inline-block; background: ${btnBg}; color: ${btnColor}; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500;">${buttonText}</span>
+            </div>
+        `;
+    }
+
+    // Event Listeners
+    document.getElementById('id_title').addEventListener('input', updatePreview);
+    document.getElementById('id_description').addEventListener('input', updatePreview);
+    document.getElementById('id_button_text').addEventListener('input', updatePreview);
+    document.getElementById('id_custom_color').addEventListener('input', updatePreview);
+
+    document.querySelectorAll('input[name="template_style"]').forEach(radio => {
+        radio.addEventListener('change', updatePreview);
+    });
+
+    document.querySelectorAll('input[name="color_scheme"]').forEach(radio => {
+        radio.addEventListener('change', updatePreview);
+    });
+
+    // Initial Preview
+    updatePreview();
+});
+</script>
+{% endblock %}

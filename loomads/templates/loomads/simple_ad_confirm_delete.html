@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Anzeige löschen - Simple Ads{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <i class="bi bi-exclamation-triangle text-danger display-1"></i>
+                    </div>
+
+                    <h2 class="h4 mb-3">Anzeige löschen?</h2>
+
+                    <p class="text-muted mb-4">
+                        Bist du sicher, dass du die Anzeige
+                        <strong class="text-dark">"{{ ad.title }}"</strong>
+                        löschen möchtest?
+                    </p>
+
+                    <!-- Preview -->
+                    <div class="bg-light rounded p-3 mb-4 text-start">
+                        <div class="d-flex align-items-center">
+                            {% if ad.image %}
+                            <img src="{{ ad.image.url }}"
+                                 alt="{{ ad.title }}"
+                                 class="rounded me-3"
+                                 style="width: 60px; height: 60px; object-fit: cover;">
+                            {% else %}
+                            <div class="rounded me-3 d-flex align-items-center justify-content-center"
+                                 style="width: 60px; height: 60px; background: {{ ad.get_primary_color }}; color: white;">
+                                <i class="bi bi-lightning-charge fs-4"></i>
+                            </div>
+                            {% endif %}
+                            <div>
+                                <div class="fw-semibold">{{ ad.title }}</div>
+                                <small class="text-muted">
+                                    {{ ad.get_template_style_display }} |
+                                    {{ ad.impressions }} Impressionen |
+                                    {{ ad.clicks }} Klicks
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning text-start mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Diese Aktion kann nicht rückgängig gemacht werden.
+                        Alle Statistiken gehen verloren.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="bi bi-trash me-1"></i>
+                                Ja, löschen
+                            </button>
+                            <a href="{% url 'loomads:simple_ad_list' %}" class="btn btn-outline-secondary btn-lg">
+                                Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

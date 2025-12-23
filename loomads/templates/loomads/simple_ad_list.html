@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Simple Ads - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-lightning-charge-fill text-warning me-2"></i>
+                Simple Ads
+            </h1>
+            <p class="text-muted mb-0">Globale Anzeigen - einfach erstellen, überall anzeigen</p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'loomads:simple_ad_create' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-plus-lg me-1"></i> Neue Anzeige
+            </a>
+            <a href="{% url 'loomads:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistik-Karten -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-collection fs-1 opacity-75"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="small opacity-75">Gesamt</div>
+                            <div class="h3 mb-0">{{ total_ads }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-check-circle fs-1 opacity-75"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="small opacity-75">Aktiv</div>
+                            <div class="h3 mb-0">{{ active_ads }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-eye fs-1 opacity-75"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="small opacity-75">Impressionen</div>
+                            <div class="h3 mb-0">{{ total_impressions|intcomma }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-hand-index fs-1 opacity-75"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="small opacity-75">Klicks ({{ overall_ctr|floatformat:1 }}% CTR)</div>
+                            <div class="h3 mb-0">{{ total_clicks|intcomma }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Anzeigen-Liste -->
+    {% if ads %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 80px;">Preview</th>
+                            <th>Titel</th>
+                            <th>Design</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-end">Performance</th>
+                            <th class="text-center">Gewichtung</th>
+                            <th class="text-end">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ad in ads %}
+                        <tr>
+                            <!-- Preview -->
+                            <td>
+                                {% if ad.image %}
+                                <img src="{{ ad.image.url }}"
+                                     alt="{{ ad.title }}"
+                                     class="rounded"
+                                     style="width: 60px; height: 40px; object-fit: cover;">
+                                {% else %}
+                                <div class="rounded d-flex align-items-center justify-content-center"
+                                     style="width: 60px; height: 40px; background: {{ ad.get_primary_color }}; color: white; font-size: 10px;">
+                                    Ad
+                                </div>
+                                {% endif %}
+                            </td>
+
+                            <!-- Titel & Beschreibung -->
+                            <td>
+                                <div class="fw-semibold">{{ ad.title }}</div>
+                                {% if ad.description %}
+                                <small class="text-muted">{{ ad.description|truncatechars:50 }}</small>
+                                {% endif %}
+                            </td>
+
+                            <!-- Design -->
+                            <td>
+                                <span class="badge" style="background: {{ ad.get_primary_color }};">
+                                    {{ ad.get_template_style_display }}
+                                </span>
+                            </td>
+
+                            <!-- Status -->
+                            <td class="text-center">
+                                <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input toggle-status"
+                                           type="checkbox"
+                                           data-ad-id="{{ ad.id }}"
+                                           {% if ad.is_active %}checked{% endif %}
+                                           style="cursor: pointer; width: 40px; height: 20px;">
+                                </div>
+                            </td>
+
+                            <!-- Performance -->
+                            <td class="text-end">
+                                <span class="badge bg-light text-dark me-1">
+                                    <i class="bi bi-eye"></i> {{ ad.impressions|intcomma }}
+                                </span>
+                                <span class="badge bg-light text-dark me-1">
+                                    <i class="bi bi-hand-index"></i> {{ ad.clicks|intcomma }}
+                                </span>
+                                <span class="badge {% if ad.ctr >= 2 %}bg-success{% elif ad.ctr >= 1 %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ ad.ctr }}%
+                                </span>
+                            </td>
+
+                            <!-- Gewichtung -->
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ ad.weight }}</span>
+                            </td>
+
+                            <!-- Aktionen -->
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'loomads:simple_ad_edit' ad.id %}"
+                                       class="btn btn-outline-primary"
+                                       title="Bearbeiten">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'loomads:simple_ad_delete' ad.id %}"
+                                       class="btn btn-outline-danger"
+                                       title="Löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Keine Anzeigen -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-lightning-charge display-1 text-muted mb-3"></i>
+            <h4>Noch keine Simple Ads</h4>
+            <p class="text-muted mb-4">
+                Erstelle deine erste einfache Anzeige - sie wird automatisch in allen Zonen angezeigt.
+            </p>
+            <a href="{% url 'loomads:simple_ad_create' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-plus-lg me-1"></i> Erste Anzeige erstellen
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Info-Box -->
+    <div class="card border-0 shadow-sm mt-4 bg-light">
+        <div class="card-body">
+            <h5 class="card-title mb-3">
+                <i class="bi bi-info-circle text-primary me-2"></i>
+                Wie funktionieren Simple Ads?
+            </h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-start mb-3">
+                        <span class="badge bg-primary rounded-circle me-2" style="width: 24px; height: 24px; line-height: 16px;">1</span>
+                        <div>
+                            <strong>Einfach erstellen</strong>
+                            <p class="text-muted small mb-0">Titel, Beschreibung, Button-Text und Ziel-URL eingeben.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-start mb-3">
+                        <span class="badge bg-primary rounded-circle me-2" style="width: 24px; height: 24px; line-height: 16px;">2</span>
+                        <div>
+                            <strong>Design wählen</strong>
+                            <p class="text-muted small mb-0">Wähle einen Stil und ein Farbschema.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-start mb-3">
+                        <span class="badge bg-primary rounded-circle me-2" style="width: 24px; height: 24px; line-height: 16px;">3</span>
+                        <div>
+                            <strong>Automatisch überall</strong>
+                            <p class="text-muted small mb-0">Die Anzeige passt sich automatisch an jede Zone an.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle Status Handler
+    document.querySelectorAll('.toggle-status').forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const adId = this.dataset.adId;
+            fetch(`/loomads/simple-ads/${adId}/toggle/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Optional: Toast notification
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,6 +1,6 @@
 from django import forms
 from django.utils import timezone
-from .models import Campaign, Advertisement, AdZone, AdTargeting, ZoneIntegration, AppCampaign, AppAdvertisement
+from .models import Campaign, Advertisement, AdZone, AdTargeting, ZoneIntegration, AppCampaign, AppAdvertisement, SimpleAd
 
 
 class CampaignForm(forms.ModelForm):
@@ -438,4 +438,92 @@ class AppAdvertisementForm(forms.ModelForm):
             'device_targeting': 'Für welche Geräte soll die Anzeige angezeigt werden',
             'html_content': 'HTML-Code für Rich Content Anzeigen',
             'link_text': 'Optionaler Text für den Link (falls leer wird der Titel verwendet)',
+        }
+
+
+class SimpleAdForm(forms.ModelForm):
+    """
+    Einfaches Formular für globale Anzeigen.
+    Übersichtlich und benutzerfreundlich.
+    """
+
+    class Meta:
+        model = SimpleAd
+        fields = [
+            'title', 'description', 'image', 'button_text', 'target_url', 'open_in_new_tab',
+            'template_style', 'color_scheme', 'custom_color',
+            'is_active', 'weight'
+        ]
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-control form-control-lg',
+                'placeholder': 'z.B. "Jetzt 20% Rabatt sichern!"',
+                'maxlength': 100
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Optionale kurze Beschreibung (max. 300 Zeichen)',
+                'maxlength': 300
+            }),
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+            'button_text': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Mehr erfahren',
+                'maxlength': 30
+            }),
+            'target_url': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'https://example.com/landing-page'
+            }),
+            'open_in_new_tab': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'template_style': forms.RadioSelect(attrs={
+                'class': 'btn-check'
+            }),
+            'color_scheme': forms.RadioSelect(attrs={
+                'class': 'btn-check'
+            }),
+            'custom_color': forms.TextInput(attrs={
+                'class': 'form-control form-control-color',
+                'type': 'color',
+                'style': 'width: 60px; height: 38px;'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'weight': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1,
+                'max': 10,
+                'style': 'width: 80px;'
+            }),
+        }
+        labels = {
+            'title': 'Titel',
+            'description': 'Beschreibung (optional)',
+            'image': 'Bild (optional)',
+            'button_text': 'Button-Text',
+            'target_url': 'Ziel-URL',
+            'open_in_new_tab': 'In neuem Tab öffnen',
+            'template_style': 'Design-Vorlage',
+            'color_scheme': 'Farbschema',
+            'custom_color': 'Eigene Farbe',
+            'is_active': 'Aktiv',
+            'weight': 'Gewichtung',
+        }
+        help_texts = {
+            'title': 'Kurzer, aussagekräftiger Titel (max. 100 Zeichen)',
+            'description': 'Optionale Beschreibung die unter dem Titel angezeigt wird',
+            'image': 'Optionales Bild - wird automatisch an das Format angepasst',
+            'button_text': 'Text auf dem Aktions-Button',
+            'target_url': 'Wohin soll die Anzeige verlinken?',
+            'template_style': 'Wähle einen Design-Stil für die Anzeige',
+            'color_scheme': 'Wähle ein Farbschema',
+            'custom_color': 'Nur bei "Eigene Farbe" aktiv',
+            'weight': '1-10: Höhere Werte = häufigere Anzeige',
         }

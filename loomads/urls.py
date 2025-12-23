@@ -3,6 +3,7 @@ from . import views
 from . import views_frontend
 from . import views_wizard
 from . import views_app
+from . import views_simple
 
 app_name = 'loomads'
 
@@ -50,6 +51,13 @@ urlpatterns = [
     path('app-campaigns/<uuid:campaign_id>/ads/create/', views.app_ad_create, name='app_ad_create'),
     path('app-ads/<uuid:ad_id>/edit/', views.app_ad_edit, name='app_ad_edit'),
     path('app-ads/<uuid:ad_id>/delete/', views.app_ad_delete, name='app_ad_delete'),
+
+    # Simple Ads (Vereinfachte globale Anzeigen)
+    path('simple-ads/', views_simple.simple_ad_list, name='simple_ad_list'),
+    path('simple-ads/create/', views_simple.simple_ad_create, name='simple_ad_create'),
+    path('simple-ads/<uuid:ad_id>/edit/', views_simple.simple_ad_edit, name='simple_ad_edit'),
+    path('simple-ads/<uuid:ad_id>/delete/', views_simple.simple_ad_delete, name='simple_ad_delete'),
+    path('simple-ads/<uuid:ad_id>/toggle/', views_simple.simple_ad_toggle, name='simple_ad_toggle'),
 
     # Ad Creation Wizard
     path('wizard/', views_wizard.wizard_start, name='wizard_start'),
