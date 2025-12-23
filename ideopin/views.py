@@ -3036,6 +3036,7 @@ def api_apply_distribution(request, project_id):
     import base64
     import requests as http_requests
     from datetime import datetime, timedelta
+    from django.db import connection
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
@@ -3107,6 +3108,9 @@ def api_apply_distribution(request, project_id):
         )
 
         for i, pin in enumerate(pins):
+            # Datenbankverbindung vor jedem Pin prüfen/erneuern (verhindert MySQL Timeout)
+            connection.ensure_connection()
+
             # Intervall in Minuten addieren
             scheduled_datetime = start_datetime + timedelta(minutes=i * interval_minutes)
             pin.scheduled_at = timezone.make_aware(scheduled_datetime)
@@ -3319,6 +3323,7 @@ def api_publish_batch(request, project_id):
     """API: Veröffentlicht mehrere Pins auf einmal via Upload-Post API"""
     import base64
     import requests
+    from django.db import connection
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
 
@@ -3360,6 +3365,9 @@ def api_publish_batch(request, project_id):
         errors = []
 
         for position in pin_positions:
+            # Datenbankverbindung vor jedem Pin prüfen/erneuern (verhindert MySQL Timeout)
+            connection.ensure_connection()
+
             pin = project.pins.filter(position=position).first()
             if not pin or pin.pinterest_posted:
                 continue
@@ -3387,6 +3395,9 @@ def api_publish_batch(request, project_id):
                 response = requests.post(api_url, headers=headers, json=post_data, timeout=60)
 
                 if response.status_code == 200:
+                    # Verbindung vor DB-Schreiben erneut prüfen
+                    connection.ensure_connection()
+
                     # Pin als gepostet markieren
                     pin.pinterest_posted = True
                     pin.pinterest_board_id = board_id
