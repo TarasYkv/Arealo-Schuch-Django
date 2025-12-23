@@ -17,7 +17,7 @@ register = template.Library()
 def show_multi_ad_zone(context, zone_code, ad_count=3, css_class='', style='', fallback=''):
     """
     Template Tag für Mehrfachanzeigen in einer Zone
-    
+
     Verwendung:
     {% load loomads_tags %}
     {% show_multi_ad_zone 'header_main' ad_count=3 css_class='my-ads-container' %}
@@ -29,7 +29,23 @@ def show_multi_ad_zone(context, zone_code, ad_count=3, css_class='', style='', f
             'error': 'Request context not available',
             'fallback': fallback
         }
-    
+
+    # === PRIORITÄT 1: SimpleAds (neu, vereinfacht) ===
+    user = getattr(request, 'user', None)
+    current_app = request.resolver_match.app_name if request.resolver_match else None
+    simple_ad = SimpleAd.get_random_ad(zone_code=zone_code, user=user, app_name=current_app)
+    if simple_ad:
+        # Impression zählen
+        simple_ad.record_impression()
+        # HTML direkt rendern - kein AJAX nötig
+        simple_ad_html = _render_simple_ad(simple_ad, css_class)
+        return {
+            'zone_code': zone_code,
+            'simple_ad_html': simple_ad_html,
+            'css_class': css_class,
+        }
+
+    # === PRIORITÄT 2: Legacy Multi-Ad Zone System ===
     try:
         zone = AdZone.objects.get(code=zone_code, is_active=True)
     except AdZone.DoesNotExist:
