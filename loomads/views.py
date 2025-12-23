@@ -1088,7 +1088,15 @@ def get_simple_ad(request, zone_code=None):
     Holt eine zufällige SimpleAd für eine Zone.
     Gibt HTML zurück, das direkt eingefügt werden kann.
     """
-    ad = SimpleAd.get_random_ad(zone_code=zone_code)
+    # User für Targeting
+    user = request.user if request.user.is_authenticated else None
+
+    # App-Name aus zone_code extrahieren (z.B. "questionfinder_inline" -> "questionfinder")
+    app_name = None
+    if zone_code:
+        app_name = zone_code.split('_')[0]
+
+    ad = SimpleAd.get_random_ad(zone_code=zone_code, user=user, app_name=app_name)
 
     if not ad:
         return JsonResponse({

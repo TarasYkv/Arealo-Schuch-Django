@@ -252,47 +252,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return div;
     }
 
-    // Ad in Container laden
+    // Ad in Container laden (Simple Ads API)
     async function loadAdIntoContainer(container) {
         try {
-            const response = await fetch('/loomads/api/ad/questionfinder_inline/');
+            const response = await fetch('/loomads/api/simple-ad/questionfinder_inline/');
             const data = await response.json();
 
-            if (data.ads && data.ads.length > 0) {
-                const ad = data.ads[0];
-                let adHtml = '';
-
-                if (ad.type === 'text' || ad.title) {
-                    // Text-Ad als Frage darstellen
-                    adHtml = `
-                        <a href="${ad.target_url}" target="${ad.target_type || '_blank'}"
-                           class="text-decoration-none d-block"
-                           onclick="trackAdClick('${ad.id}')">
-                            <span class="question-text" style="color: #667eea;">
-                                <i class="fas fa-ad me-2 text-muted" style="font-size: 0.75rem;"></i>
-                                ${escapeHtml(ad.title || 'Sponsored')}
-                            </span>
-                            ${ad.description ? `<p class="text-muted small mb-0 mt-1">${escapeHtml(ad.description)}</p>` : ''}
-                            <div class="mt-1">
-                                <span class="badge" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
-                                    <i class="fas fa-external-link-alt me-1"></i> Mehr erfahren
-                                </span>
-                            </div>
-                        </a>
-                    `;
-                } else if (ad.type === 'image' && ad.image_url) {
-                    adHtml = `
-                        <a href="${ad.target_url}" target="${ad.target_type || '_blank'}"
-                           class="text-decoration-none" onclick="trackAdClick('${ad.id}')">
-                            <img src="${ad.image_url}" alt="${ad.title || 'Ad'}"
-                                 style="max-width: 100%; height: auto; border-radius: 6px;">
-                        </a>
-                    `;
-                } else if (ad.type === 'html' && ad.html_content) {
-                    adHtml = ad.html_content;
-                }
-
-                container.innerHTML = adHtml;
+            if (data.success && data.html) {
+                // Simple Ad HTML direkt einfügen
+                container.innerHTML = data.html;
             } else {
                 // Fallback: Platzhalter entfernen wenn keine Ad
                 container.parentElement.parentElement.style.display = 'none';
