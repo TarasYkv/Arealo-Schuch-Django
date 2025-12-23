@@ -3188,7 +3188,8 @@ def api_publish_batch(request, project_id):
 
     try:
         data = json.loads(request.body)
-        pin_positions = data.get('pin_positions', [])
+        # Akzeptiere sowohl 'pin_positions' als auch 'positions'
+        pin_positions = data.get('pin_positions') or data.get('positions', [])
         board_id = data.get('board_id')
 
         if not pin_positions:
