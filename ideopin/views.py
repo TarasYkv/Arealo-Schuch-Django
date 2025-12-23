@@ -3404,13 +3404,27 @@ def api_publish_batch(request, project_id):
                     'error': str(e),
                 })
 
-        return JsonResponse({
-            'success': published_count > 0,
+        # Erfolg nur wenn mindestens ein Pin veröffentlicht wurde
+        success = published_count > 0
+
+        response_data = {
+            'success': success,
             'message': f'{published_count} von {len(pin_positions)} Pins erfolgreich veröffentlicht!',
             'published_count': published_count,
             'results': results,
-            'errors': errors if errors else None,
-        })
+        }
+
+        if errors:
+            response_data['errors'] = errors
+
+        # Bei Fehlschlag: error-Feld immer setzen
+        if not success:
+            if errors:
+                response_data['error'] = errors[0] if len(errors) == 1 else f'{len(errors)} Fehler aufgetreten'
+            else:
+                response_data['error'] = 'Keine Pins konnten veröffentlicht werden'
+
+        return JsonResponse(response_data)
 
     except Exception as e:
         logger.error(f"[Multi-Pin] Batch-Posting fehlgeschlagen: {e}")
