@@ -114,8 +114,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         allQuestionsDiv.innerHTML = '';
         if (allQuestions.length > 0) {
-            allQuestions.forEach(q => {
+            allQuestions.forEach((q, index) => {
                 allQuestionsDiv.appendChild(createQuestionItem(q, q.source));
+
+                // Ad-Tile alle 5 Fragen einfügen (als Frage getarnt)
+                if ((index + 1) % 5 === 0 && index < allQuestions.length - 1) {
+                    allQuestionsDiv.appendChild(createAdItem());
+                }
             });
         } else {
             allQuestionsDiv.innerHTML = '<div class="p-3 text-muted text-center">Keine Fragen gefunden</div>';
@@ -202,6 +207,87 @@ document.addEventListener('DOMContentLoaded', function() {
 
         return div;
     }
+
+    // Ad-Item erstellen (als Frage getarnt)
+    function createAdItem() {
+        const div = document.createElement('div');
+        div.className = 'question-item d-flex justify-content-between align-items-start';
+        div.style.cssText = 'background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%); border-left: 3px solid #667eea;';
+
+        // Ad-Zone Container für LoomAds
+        div.innerHTML = `
+            <div class="question-content w-100">
+                <div class="loomads-question-ad" id="qf-ad-${Date.now()}" style="min-height: 40px;">
+                    <!-- LoomAds wird hier geladen -->
+                </div>
+            </div>
+        `;
+
+        // Ad laden via fetch
+        const adContainer = div.querySelector('.loomads-question-ad');
+        loadAdIntoContainer(adContainer);
+
+        return div;
+    }
+
+    // Ad in Container laden
+    async function loadAdIntoContainer(container) {
+        try {
+            const response = await fetch('/loomads/api/ad/questionfinder_inline/');
+            const data = await response.json();
+
+            if (data.ads && data.ads.length > 0) {
+                const ad = data.ads[0];
+                let adHtml = '';
+
+                if (ad.type === 'text' || ad.title) {
+                    // Text-Ad als Frage darstellen
+                    adHtml = `
+                        <a href="${ad.target_url}" target="${ad.target_type || '_blank'}"
+                           class="text-decoration-none d-block"
+                           onclick="trackAdClick('${ad.id}')">
+                            <span class="question-text" style="color: #667eea;">
+                                <i class="fas fa-ad me-2 text-muted" style="font-size: 0.75rem;"></i>
+                                ${escapeHtml(ad.title || 'Sponsored')}
+                            </span>
+                            ${ad.description ? `<p class="text-muted small mb-0 mt-1">${escapeHtml(ad.description)}</p>` : ''}
+                            <div class="mt-1">
+                                <span class="badge" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
+                                    <i class="fas fa-external-link-alt me-1"></i> Mehr erfahren
+                                </span>
+                            </div>
+                        </a>
+                    `;
+                } else if (ad.type === 'image' && ad.image_url) {
+                    adHtml = `
+                        <a href="${ad.target_url}" target="${ad.target_type || '_blank'}"
+                           class="text-decoration-none" onclick="trackAdClick('${ad.id}')">
+                            <img src="${ad.image_url}" alt="${ad.title || 'Ad'}"
+                                 style="max-width: 100%; height: auto; border-radius: 6px;">
+                        </a>
+                    `;
+                } else if (ad.type === 'html' && ad.html_content) {
+                    adHtml = ad.html_content;
+                }
+
+                container.innerHTML = adHtml;
+            } else {
+                // Fallback: Platzhalter entfernen wenn keine Ad
+                container.parentElement.parentElement.style.display = 'none';
+            }
+        } catch (error) {
+            console.log('Ad loading skipped:', error);
+            container.parentElement.parentElement.style.display = 'none';
+        }
+    }
+
+    // Ad-Klick tracken
+    window.trackAdClick = function(adId) {
+        fetch(`/loomads/track/${adId}/click/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        }).catch(() => {});
+    };
 
     // Letzte Suchen klickbar machen
     document.querySelectorAll('.search-keyword').forEach(el => {
