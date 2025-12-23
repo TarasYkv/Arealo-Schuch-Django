@@ -209,6 +209,18 @@ def wizard_step3(request, project_id):
         (ai_provider == 'ideogram' and bool(request.user.ideogram_api_key))
     )
 
+    # Existierende Pins als JSON für JavaScript
+    existing_pins = []
+    for pin in project.pins.all().order_by('position'):
+        pin_data = {
+            'position': pin.position,
+            'overlay_text': pin.overlay_text or '',
+            'background_description': pin.background_description or '',
+            'generated_image_url': pin.generated_image.url if pin.generated_image else '',
+            'final_image_url': pin.final_image.url if pin.final_image else '',
+        }
+        existing_pins.append(pin_data)
+
     context = {
         'form': form,
         'project': project,
@@ -219,6 +231,7 @@ def wizard_step3(request, project_id):
         'has_openai_key': bool(request.user.openai_api_key),
         'has_required_key': has_required_key,
         'ai_provider': ai_provider,
+        'existing_pins_json': json.dumps(existing_pins),
     }
     return render(request, 'ideopin/wizard/step3_image.html', context)
 

@@ -1048,6 +1048,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Pin-Daten speichern
     let multiPinData = [];
 
+    // Existierende Pins aus der Datenbank laden
+    const existingPins = {{ existing_pins_json|safe }};
+    console.log('Existierende Pins:', existingPins);
+
     // Pin-Anzahl Toggle
     pinCountRadios.forEach(radio => {
         radio.addEventListener('change', function() {
@@ -1068,13 +1072,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Initial: Prüfen ob pin_count > 1
+    // Initial: Prüfen ob pin_count > 1 ODER existierende Pins vorhanden
     const initialPinCount = parseInt(document.querySelector('input[name="pin_count"]:checked')?.value || 1);
-    if (initialPinCount > 1) {
+    const hasExistingPins = existingPins.length > 1;
+
+    if (initialPinCount > 1 || hasExistingPins) {
+        const pinCount = hasExistingPins ? Math.max(initialPinCount, existingPins.length) : initialPinCount;
+        // Radio-Button aktualisieren falls existierende Pins
+        if (hasExistingPins) {
+            const radioBtn = document.querySelector(`input[name="pin_count"][value="${pinCount}"]`);
+            if (radioBtn) radioBtn.checked = true;
+        }
         multiPinPanel.style.display = 'block';
         singlePinPanel.style.display = 'none';
         const initBackground = document.getElementById('id_background_description')?.value || '{{ project.background_description|escapejs }}';
-        createAccordionItems(initialPinCount, '{{ project.overlay_text|escapejs }}', initBackground);
+        createAccordionItems(pinCount, '{{ project.overlay_text|escapejs }}', initBackground);
     }
 
     // Accordion-Items erstellen
@@ -1087,15 +1099,29 @@ document.addEventListener('DOMContentLoaded', function() {
         multiPinData = [];
 
         for (let i = 1; i <= count; i++) {
-            const overlayText = i === 1 ? pin1Text : '';
-            const backgroundDesc = i === 1 ? pin1Background : '';
+            // Prüfen ob existierende Pin-Daten vorhanden sind
+            const existingPin = existingPins.find(p => p.position === i);
+
+            let overlayText, backgroundDesc, imageUrl;
+
+            if (existingPin) {
+                // Existierende Daten verwenden
+                overlayText = existingPin.overlay_text || (i === 1 ? pin1Text : '');
+                backgroundDesc = existingPin.background_description || (i === 1 ? pin1Background : '');
+                imageUrl = existingPin.final_image_url || existingPin.generated_image_url || null;
+            } else {
+                // Fallback: Nur Pin 1 bekommt Default-Werte
+                overlayText = i === 1 ? pin1Text : '';
+                backgroundDesc = i === 1 ? pin1Background : '';
+                imageUrl = null;
+            }
 
             multiPinData.push({
                 position: i,
                 overlay_text: overlayText,
                 background_description: backgroundDesc,
-                image_url: null,
-                generated: false
+                image_url: imageUrl,
+                generated: !!imageUrl
             });
 
             const accordionItem = document.createElement('div');
@@ -1109,7 +1135,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         </span>
                         Pin ${i}
                         <span class="ms-auto me-3" id="pinStatus${i}">
-                            <i class="bi bi-circle text-muted"></i>
+                            ${imageUrl ?
+                                '<i class="bi bi-check-circle-fill text-success"></i>' :
+                                '<i class="bi bi-circle text-muted"></i>'
+                            }
                         </span>
                     </button>
                 </h2>
@@ -1146,22 +1175,25 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <!-- Buttons -->
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-success btn-sm" id="generatePinBtn${i}"
-                                            onclick="generateSinglePinImage(${i})">
+                                            onclick="generateSinglePinImage(${i})" style="${imageUrl ? 'display: none;' : ''}">
                                         <i class="bi bi-image"></i> Bild generieren
                                     </button>
                                     <button type="button" class="btn btn-outline-warning btn-sm" id="regeneratePinBtn${i}"
-                                            onclick="generateSinglePinImage(${i})" style="display: none;">
-                                        <i class="bi bi-arrow-clockwise"></i>
+                                            onclick="generateSinglePinImage(${i})" style="${imageUrl ? '' : 'display: none;'}">
+                                        <i class="bi bi-arrow-clockwise"></i> Neu generieren
                                     </button>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <!-- Bild-Vorschau -->
                                 <div class="pin-preview-small" id="pinPreview${i}">
-                                    <div class="bg-light rounded p-3 text-center text-muted" style="min-height: 150px;">
-                                        <i class="bi bi-image fs-3 d-block"></i>
-                                        <small>Noch kein Bild</small>
-                                    </div>
+                                    ${imageUrl ?
+                                        `<img src="${imageUrl}" class="img-fluid rounded" alt="Pin ${i}" style="max-height: 200px;">` :
+                                        `<div class="bg-light rounded p-3 text-center text-muted" style="min-height: 150px;">
+                                            <i class="bi bi-image fs-3 d-block"></i>
+                                            <small>Noch kein Bild</small>
+                                        </div>`
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -1169,6 +1201,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
             multiPinAccordion.appendChild(accordionItem);
+        }
+
+        // Galerie mit existierenden Bildern anzeigen
+        const pinsWithImages = multiPinData.filter(p => p.image_url);
+        if (pinsWithImages.length > 0) {
+            multiPinGallery.style.display = 'block';
+            multiPinGalleryGrid.innerHTML = '';
+
+            pinsWithImages.forEach(pin => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 col-lg-3';
+                col.innerHTML = `
+                    <div class="card h-100">
+                        <img src="${pin.image_url}" class="card-img-top" alt="Pin ${pin.position}" style="max-height: 300px; object-fit: contain;">
+                        <div class="card-body p-2 text-center">
+                            <small class="text-muted">Pin ${pin.position}</small>
+                        </div>
+                    </div>
+                `;
+                multiPinGalleryGrid.appendChild(col);
+            });
         }
     }
 
