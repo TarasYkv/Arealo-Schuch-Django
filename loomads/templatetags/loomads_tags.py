@@ -806,7 +806,7 @@ def _render_simple_ad(ad, extra_css_class='', zone_code=''):
             <span style="position: absolute; top: -6px; right: 8px; background: #ef4444; color: white;
                          padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
                          text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(239,68,68,0.4);
-                         transform: rotate(-12deg); z-index: 10;">
+                         transform: rotate(12deg); z-index: 10;">
                 {badge_text}
             </span>
         '''
