@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class PinProject(models.Model):
@@ -378,6 +379,31 @@ class PinProject(models.Model):
         verbose_name="Upload-Post gepostet am"
     )
 
+    # Multi-Pin Felder
+    pin_count = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(7)],
+        verbose_name="Anzahl Pins",
+        help_text="Anzahl der zu erstellenden Pins (1-7)"
+    )
+
+    DISTRIBUTION_MODE_CHOICES = [
+        ('manual', 'Manuell'),
+        ('auto', 'Automatisch verteilen'),
+    ]
+    distribution_mode = models.CharField(
+        max_length=20,
+        choices=DISTRIBUTION_MODE_CHOICES,
+        default='manual',
+        verbose_name="Verteilungs-Modus",
+        help_text="Wie sollen die Pins zeitlich verteilt werden?"
+    )
+    distribution_interval_days = models.PositiveIntegerField(
+        default=2,
+        verbose_name="Verteilungs-Intervall (Tage)",
+        help_text="Tage zwischen automatisch geplanten Pins"
+    )
+
     class Meta:
         ordering = ['-updated_at']
         verbose_name = "Pin Projekt"
@@ -570,3 +596,142 @@ class PinSettings(models.Model):
 
     def __str__(self):
         return f"Pin-Einstellungen: {self.user.username}"
+
+
+class Pin(models.Model):
+    """Einzelner Pin innerhalb eines PinProject (für Multi-Pin Feature)"""
+
+    project = models.ForeignKey(
+        PinProject,
+        on_delete=models.CASCADE,
+        related_name='pins'
+    )
+
+    # Position/Reihenfolge
+    position = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Position",
+        help_text="Reihenfolge des Pins (1-7)"
+    )
+
+    # Content (variiert pro Pin)
+    overlay_text = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Overlay-Text",
+        help_text="Catchy Pin-Text für dieses Bild"
+    )
+    overlay_text_ai_generated = models.BooleanField(default=False)
+
+    background_description = models.TextField(
+        blank=True,
+        verbose_name="Hintergrund-Beschreibung",
+        help_text="Individuelle Hintergrund-Beschreibung für diesen Pin"
+    )
+
+    # Bilder
+    generated_image = models.ImageField(
+        upload_to='ideopin/pins/generated/',
+        blank=True,
+        null=True,
+        verbose_name="Generiertes Bild"
+    )
+    final_image = models.ImageField(
+        upload_to='ideopin/pins/final/',
+        blank=True,
+        null=True,
+        verbose_name="Finales Bild mit Text"
+    )
+
+    # SEO
+    pin_title = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Pin-Titel",
+        help_text="Pinterest Pin-Titel (max. 100 Zeichen)"
+    )
+    pin_title_ai_generated = models.BooleanField(default=False)
+
+    seo_description = models.TextField(
+        blank=True,
+        max_length=500,
+        verbose_name="SEO Pin-Beschreibung",
+        help_text="Pinterest-optimierte Beschreibung (max. 500 Zeichen)"
+    )
+    seo_description_ai_generated = models.BooleanField(default=False)
+
+    # Scheduling
+    scheduled_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Geplant für",
+        help_text="Datum und Uhrzeit für automatisches Posten"
+    )
+
+    # Publishing Status
+    pinterest_posted = models.BooleanField(
+        default=False,
+        verbose_name="Auf Pinterest gepostet"
+    )
+    pinterest_pin_id = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Pinterest Pin ID"
+    )
+    pinterest_board_id = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Pinterest Board ID"
+    )
+    pinterest_board_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Pinterest Board Name"
+    )
+    pinterest_posted_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Gepostet am"
+    )
+    pinterest_post_error = models.TextField(
+        blank=True,
+        verbose_name="Posting-Fehler"
+    )
+
+    # Upload-Post Tracking
+    upload_post_platforms = models.TextField(
+        blank=True,
+        verbose_name="Upload-Post Plattformen"
+    )
+    upload_post_posted_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Upload-Post gepostet am"
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['position']
+        unique_together = ['project', 'position']
+        verbose_name = "Pin"
+        verbose_name_plural = "Pins"
+
+    def __str__(self):
+        return f"Pin {self.position} von Projekt {self.project.id}"
+
+    def get_final_image_for_upload(self):
+        """Gibt das finale Bild für den Pinterest-Upload zurück"""
+        if self.final_image:
+            return self.final_image
+        elif self.generated_image:
+            return self.generated_image
+        return None
+
+    def get_pinterest_url(self):
+        """Gibt die Pinterest-URL des geposteten Pins zurück"""
+        if self.pinterest_pin_id:
+            return f"https://www.pinterest.com/pin/{self.pinterest_pin_id}/"
+        return None

@@ -4,8 +4,13 @@
 <div class="row">
     <div class="col-lg-7">
         <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="bi bi-search"></i> Schritt 5: SEO Titel & Beschreibung</h5>
+                {% if project.pins.count > 1 %}
+                <button type="button" class="btn btn-light btn-sm" id="generateAllSeoBtn">
+                    <i class="bi bi-magic"></i> Alle SEO generieren
+                </button>
+                {% endif %}
             </div>
             <div class="card-body">
                 <p class="text-muted mb-4">
@@ -16,6 +21,93 @@
                 <form method="post" id="step5Form">
                     {% csrf_token %}
 
+                    {% if project.pins.count > 1 %}
+                    <!-- Multi-Pin Tab-Navigation -->
+                    <ul class="nav nav-tabs mb-4" id="pinSeoTabs" role="tablist">
+                        {% for pin in project.pins.all %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {% if forloop.first %}active{% endif %}"
+                                    id="pin{{ pin.position }}-tab"
+                                    data-bs-toggle="tab"
+                                    data-bs-target="#pin{{ pin.position }}-content"
+                                    type="button" role="tab">
+                                <span class="badge {% if pin.pin_title and pin.seo_description %}bg-success{% else %}bg-secondary{% endif %} me-1">
+                                    {{ pin.position }}
+                                </span>
+                                Pin {{ pin.position }}
+                                {% if pin.pin_title and pin.seo_description %}
+                                <i class="bi bi-check-circle text-success ms-1"></i>
+                                {% endif %}
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    <!-- Multi-Pin Tab-Inhalte -->
+                    <div class="tab-content" id="pinSeoTabContent">
+                        {% for pin in project.pins.all %}
+                        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+                             id="pin{{ pin.position }}-content" role="tabpanel">
+
+                            <!-- Pin-Vorschau im Tab -->
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    {% if pin.final_image %}
+                                    <img src="{{ pin.final_image.url }}" alt="Pin {{ pin.position }}" class="img-fluid rounded" style="max-height: 150px;">
+                                    {% elif pin.generated_image %}
+                                    <img src="{{ pin.generated_image.url }}" alt="Pin {{ pin.position }}" class="img-fluid rounded" style="max-height: 150px;">
+                                    {% else %}
+                                    <div class="bg-light rounded p-4 text-center text-muted">
+                                        <i class="bi bi-image fs-3"></i>
+                                        <small class="d-block">Kein Bild</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <small class="text-muted d-block"><strong>Text:</strong> {{ pin.overlay_text|default:"Nicht gesetzt"|truncatechars:60 }}</small>
+                                </div>
+                            </div>
+
+                            <!-- Pin-Titel -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Pin-Titel</label>
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" name="pin_title_{{ pin.position }}"
+                                           id="pinTitle{{ pin.position }}" maxlength="100"
+                                           value="{{ pin.pin_title }}"
+                                           placeholder="Ansprechender Titel für diesen Pin...">
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                            onclick="generatePinTitle({{ pin.position }})">
+                                        <i class="bi bi-magic"></i> KI generieren
+                                    </button>
+                                    <span class="text-counter" id="titleCounter{{ pin.position }}">0 / 100</span>
+                                </div>
+                            </div>
+
+                            <!-- Pin-Beschreibung -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Pin-Beschreibung</label>
+                                <div class="input-group mb-2">
+                                    <textarea class="form-control" name="seo_description_{{ pin.position }}"
+                                              id="pinSeo{{ pin.position }}" rows="5" maxlength="500"
+                                              placeholder="SEO-optimierte Beschreibung...">{{ pin.seo_description }}</textarea>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                            onclick="generatePinSeo({{ pin.position }})">
+                                        <i class="bi bi-magic"></i> KI generieren
+                                    </button>
+                                    <span class="text-counter" id="seoCounter{{ pin.position }}">0 / 490</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% else %}
+                    <!-- Single-Pin SEO (Original) -->
                     <!-- Pin-Titel -->
                     <div class="mb-4">
                         <label class="form-label fw-bold">Pin-Titel</label>
@@ -49,6 +141,7 @@
                             Ideal: 470-490 Zeichen. Die ersten 100 Zeichen sind besonders wichtig!
                         </div>
                     </div>
+                    {% endif %}
 
                     <div class="alert alert-success">
                         <h6><i class="bi bi-check-circle"></i> Pinterest SEO Tipps:</h6>
@@ -67,7 +160,7 @@
                             <i class="bi bi-arrow-left"></i> Zurück
                         </a>
                         <button type="submit" class="btn btn-success btn-lg">
-                            <i class="bi bi-check-lg"></i> Pin fertigstellen
+                            <i class="bi bi-check-lg"></i> {% if project.pins.count > 1 %}Pins fertigstellen{% else %}Pin fertigstellen{% endif %}
                         </button>
                     </div>
                 </form>
@@ -81,6 +174,34 @@
                 <h6 class="mb-0"><i class="bi bi-eye"></i> Pin-Vorschau</h6>
             </div>
             <div class="card-body">
+                {% if project.pins.count > 1 %}
+                <!-- Multi-Pin Vorschau -->
+                <div class="row g-2">
+                    {% for pin in project.pins.all %}
+                    <div class="col-6">
+                        <div class="card h-100 pin-preview-card" id="previewCard{{ pin.position }}"
+                             style="cursor: pointer;" onclick="activatePinTab({{ pin.position }})">
+                            {% if pin.final_image %}
+                            <img src="{{ pin.final_image.url }}" class="card-img-top" style="height: 120px; object-fit: cover;">
+                            {% elif pin.generated_image %}
+                            <img src="{{ pin.generated_image.url }}" class="card-img-top" style="height: 120px; object-fit: cover;">
+                            {% else %}
+                            <div class="bg-light text-center py-4">
+                                <i class="bi bi-image text-muted fs-4"></i>
+                            </div>
+                            {% endif %}
+                            <div class="card-body p-2">
+                                <span class="badge bg-primary">Pin {{ pin.position }}</span>
+                                {% if pin.pin_title and pin.seo_description %}
+                                <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <!-- Single-Pin Vorschau -->
                 {% if project.final_image %}
                     <img src="{{ project.final_image.url }}" alt="Pin" class="img-fluid rounded mb-3">
                 {% elif project.generated_image %}
@@ -91,6 +212,7 @@
                     <p><strong>Text:</strong> {{ project.overlay_text|default:"Nicht gesetzt" }}</p>
                     <p><strong>Link:</strong> {{ project.pin_url|default:"Nicht gesetzt" }}</p>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -100,108 +222,263 @@
 {% block wizard_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Titel-Elemente
-    const titleInput = document.querySelector('#{{ form.pin_title.id_for_label }}');
-    const titleCounter = document.getElementById('titleCounter');
-    const generateTitleBtn = document.getElementById('generateTitleBtn');
+    const isMultiPin = {{ project.pins.count }} > 1;
 
-    // Beschreibung-Elemente
-    const seoInput = document.querySelector('#{{ form.seo_description.id_for_label }}');
-    const seoCounter = document.getElementById('seoCounter');
-    const generateSeoBtn = document.getElementById('generateSeoBtn');
+    if (isMultiPin) {
+        // ========================================
+        // MULTI-PIN SEO LOGIC
+        // ========================================
 
-    // Title Counter
-    function updateTitleCounter() {
-        const len = titleInput.value.length;
-        titleCounter.textContent = `${len} / 100`;
-        titleCounter.className = 'text-counter';
-        if (len > 90) titleCounter.classList.add('danger');
-        else if (len > 70) titleCounter.classList.add('warning');
+        // Counter für alle Pins initialisieren
+        {% for pin in project.pins.all %}
+        initPinCounters({{ pin.position }});
+        {% endfor %}
+
+        function initPinCounters(position) {
+            const titleInput = document.getElementById(`pinTitle${position}`);
+            const seoInput = document.getElementById(`pinSeo${position}`);
+            const titleCounter = document.getElementById(`titleCounter${position}`);
+            const seoCounter = document.getElementById(`seoCounter${position}`);
+
+            if (titleInput && titleCounter) {
+                titleInput.addEventListener('input', () => {
+                    const len = titleInput.value.length;
+                    titleCounter.textContent = `${len} / 100`;
+                    titleCounter.className = 'text-counter';
+                    if (len > 90) titleCounter.classList.add('danger');
+                    else if (len > 70) titleCounter.classList.add('warning');
+                });
+                titleInput.dispatchEvent(new Event('input'));
+            }
+
+            if (seoInput && seoCounter) {
+                seoInput.addEventListener('input', () => {
+                    const len = seoInput.value.length;
+                    seoCounter.textContent = `${len} / 490`;
+                    seoCounter.className = 'text-counter';
+                    if (len > 490) seoCounter.classList.add('danger');
+                    else if (len > 470) seoCounter.classList.add('success');
+                    else if (len > 400) seoCounter.classList.add('warning');
+                });
+                seoInput.dispatchEvent(new Event('input'));
+            }
+        }
+
+        // Alle SEO generieren
+        const generateAllSeoBtn = document.getElementById('generateAllSeoBtn');
+        if (generateAllSeoBtn) {
+            generateAllSeoBtn.addEventListener('click', async function() {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+                try {
+                    const response = await fetch('{% url "ideopin:api_generate_all_seo" project.id %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        data.pins.forEach(pin => {
+                            const titleInput = document.getElementById(`pinTitle${pin.position}`);
+                            const seoInput = document.getElementById(`pinSeo${pin.position}`);
+
+                            if (titleInput) {
+                                titleInput.value = pin.pin_title;
+                                titleInput.dispatchEvent(new Event('input'));
+                            }
+                            if (seoInput) {
+                                seoInput.value = pin.seo_description;
+                                seoInput.dispatchEvent(new Event('input'));
+                            }
+
+                            // Tab Badge aktualisieren
+                            const tabBtn = document.getElementById(`pin${pin.position}-tab`);
+                            if (tabBtn) {
+                                const badge = tabBtn.querySelector('.badge');
+                                if (badge) badge.className = 'badge bg-success me-1';
+                                if (!tabBtn.querySelector('.bi-check-circle')) {
+                                    tabBtn.innerHTML += ' <i class="bi bi-check-circle text-success ms-1"></i>';
+                                }
+                            }
+                        });
+                        alert('SEO für alle Pins erfolgreich generiert!');
+                    } else {
+                        alert('Fehler: ' + data.error);
+                    }
+                } catch (e) {
+                    alert('Fehler: ' + e.message);
+                }
+
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-magic"></i> Alle SEO generieren';
+            });
+        }
+
+    } else {
+        // ========================================
+        // SINGLE-PIN SEO LOGIC (Original)
+        // ========================================
+
+        const titleInput = document.querySelector('#{{ form.pin_title.id_for_label }}');
+        const titleCounter = document.getElementById('titleCounter');
+        const generateTitleBtn = document.getElementById('generateTitleBtn');
+        const seoInput = document.querySelector('#{{ form.seo_description.id_for_label }}');
+        const seoCounter = document.getElementById('seoCounter');
+        const generateSeoBtn = document.getElementById('generateSeoBtn');
+
+        function updateTitleCounter() {
+            const len = titleInput.value.length;
+            titleCounter.textContent = `${len} / 100`;
+            titleCounter.className = 'text-counter';
+            if (len > 90) titleCounter.classList.add('danger');
+            else if (len > 70) titleCounter.classList.add('warning');
+        }
+
+        titleInput.addEventListener('input', updateTitleCounter);
+        updateTitleCounter();
+
+        function updateSeoCounter() {
+            const len = seoInput.value.length;
+            seoCounter.textContent = `${len} / 490`;
+            seoCounter.className = 'text-counter';
+            if (len > 490) seoCounter.classList.add('danger');
+            else if (len > 470) seoCounter.classList.add('success');
+            else if (len > 400) seoCounter.classList.add('warning');
+        }
+
+        seoInput.addEventListener('input', updateSeoCounter);
+        updateSeoCounter();
+
+        async function generateTitle() {
+            generateTitleBtn.disabled = true;
+            generateTitleBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+            try {
+                const response = await fetch('{% url "ideopin:api_generate_title" project.id %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    titleInput.value = data.title;
+                    updateTitleCounter();
+                }
+            } catch (e) {
+                console.error('Fehler:', e);
+            }
+
+            generateTitleBtn.disabled = false;
+            generateTitleBtn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+        }
+
+        async function generateSeoDescription() {
+            generateSeoBtn.disabled = true;
+            generateSeoBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+            try {
+                const response = await fetch('{% url "ideopin:api_generate_seo" project.id %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    seoInput.value = data.description;
+                    updateSeoCounter();
+                }
+            } catch (e) {
+                console.error('Fehler:', e);
+            }
+
+            generateSeoBtn.disabled = false;
+            generateSeoBtn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+        }
+
+        generateTitleBtn.addEventListener('click', generateTitle);
+        generateSeoBtn.addEventListener('click', generateSeoDescription);
+
+        if (!titleInput.value.trim()) generateTitle();
+        if (!seoInput.value.trim()) generateSeoDescription();
     }
 
-    titleInput.addEventListener('input', updateTitleCounter);
-    updateTitleCounter();
+    // ========================================
+    // EINZELNE PIN SEO GENERIERUNG (Multi-Pin)
+    // ========================================
 
-    // SEO Counter (ideal: 470-490 Zeichen)
-    function updateSeoCounter() {
-        const len = seoInput.value.length;
-        seoCounter.textContent = `${len} / 490`;
-        seoCounter.className = 'text-counter';
-        if (len > 490) seoCounter.classList.add('danger');
-        else if (len > 470) seoCounter.classList.add('success');
-        else if (len > 400) seoCounter.classList.add('warning');
-    }
+    window.generatePinTitle = async function(position) {
+        const input = document.getElementById(`pinTitle${position}`);
+        const btn = input.closest('.mb-4').querySelector('button');
 
-    seoInput.addEventListener('input', updateSeoCounter);
-    updateSeoCounter();
-
-    // Generate Title Funktion
-    async function generateTitle() {
-        generateTitleBtn.disabled = true;
-        generateTitleBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
         try {
-            const response = await fetch('{% url "ideopin:api_generate_title" project.id %}', {
+            const response = await fetch(`{% url "ideopin:api_generate_pin_seo" project.id 999 %}`.replace('999', position), {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                }
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ type: 'title' })
             });
             const data = await response.json();
 
             if (data.success) {
-                titleInput.value = data.title;
-                updateTitleCounter();
+                input.value = data.pin_title;
+                input.dispatchEvent(new Event('input'));
             } else {
-                console.error('Fehler: ' + data.error);
+                alert('Fehler: ' + data.error);
             }
         } catch (e) {
-            console.error('Fehler bei der Titel-Generierung:', e);
+            alert('Fehler: ' + e.message);
         }
 
-        generateTitleBtn.disabled = false;
-        generateTitleBtn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
-    }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+    };
 
-    // Generate SEO Beschreibung Funktion
-    async function generateSeoDescription() {
-        generateSeoBtn.disabled = true;
-        generateSeoBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+    window.generatePinSeo = async function(position) {
+        const input = document.getElementById(`pinSeo${position}`);
+        const btn = input.closest('.mb-4').querySelector('button');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
         try {
-            const response = await fetch('{% url "ideopin:api_generate_seo" project.id %}', {
+            const response = await fetch(`{% url "ideopin:api_generate_pin_seo" project.id 999 %}`.replace('999', position), {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                }
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ type: 'description' })
             });
             const data = await response.json();
 
             if (data.success) {
-                seoInput.value = data.description;
-                updateSeoCounter();
+                input.value = data.seo_description;
+                input.dispatchEvent(new Event('input'));
             } else {
-                console.error('Fehler: ' + data.error);
+                alert('Fehler: ' + data.error);
             }
         } catch (e) {
-            console.error('Fehler bei der SEO-Generierung:', e);
+            alert('Fehler: ' + e.message);
         }
 
-        generateSeoBtn.disabled = false;
-        generateSeoBtn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
-    }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-magic"></i> KI generieren';
+    };
 
-    // Event Listener für Buttons
-    generateTitleBtn.addEventListener('click', generateTitle);
-    generateSeoBtn.addEventListener('click', generateSeoDescription);
-
-    // Automatisch generieren wenn Felder leer sind
-    if (!titleInput.value.trim()) {
-        generateTitle();
-    }
-    if (!seoInput.value.trim()) {
-        generateSeoDescription();
-    }
+    window.activatePinTab = function(position) {
+        const tabBtn = document.getElementById(`pin${position}-tab`);
+        if (tabBtn) {
+            tabBtn.click();
+        }
+    };
 });
 </script>
 {% endblock %}

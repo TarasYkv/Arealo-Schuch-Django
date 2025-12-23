@@ -1,6 +1,223 @@
 {% extends 'ideopin/base_wizard.html' %}
 
 {% block wizard_content %}
+{% if project.pins.count > 1 %}
+<!-- ========================================
+     MULTI-PIN ANSICHT
+     ======================================== -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-check-circle"></i> {{ project.pins.count }} Pinterest Pins fertig!</h5>
+        <div>
+            <button type="button" class="btn btn-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#distributionModal">
+                <i class="bi bi-calendar-range"></i> Auto-Verteilung
+            </button>
+            <button type="button" class="btn btn-light btn-sm" id="batchPublishBtn" onclick="openBatchPublish()">
+                <i class="bi bi-cloud-upload"></i> Batch-Publish
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for pin in project.pins.all %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 multi-pin-card" data-position="{{ pin.position }}">
+                    <!-- Pin-Bild -->
+                    <div class="position-relative">
+                        {% if pin.final_image %}
+                        <img src="{{ pin.final_image.url }}" class="card-img-top" style="height: 250px; object-fit: cover;" alt="Pin {{ pin.position }}">
+                        {% elif pin.generated_image %}
+                        <img src="{{ pin.generated_image.url }}" class="card-img-top" style="height: 250px; object-fit: cover;" alt="Pin {{ pin.position }}">
+                        {% else %}
+                        <div class="bg-light d-flex align-items-center justify-content-center" style="height: 250px;">
+                            <i class="bi bi-image text-muted fs-1"></i>
+                        </div>
+                        {% endif %}
+                        <!-- Badges -->
+                        <span class="badge bg-primary position-absolute top-0 start-0 m-2">Pin {{ pin.position }}</span>
+                        {% if pin.pinterest_posted %}
+                        <span class="badge bg-success position-absolute top-0 end-0 m-2">
+                            <i class="bi bi-check"></i> Gepostet
+                        </span>
+                        {% elif pin.scheduled_at %}
+                        <span class="badge bg-info position-absolute top-0 end-0 m-2">
+                            <i class="bi bi-clock"></i> Geplant
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="card-body p-3">
+                        <h6 class="card-title small mb-1">{{ pin.pin_title|default:"Kein Titel"|truncatechars:40 }}</h6>
+                        <p class="card-text text-muted small mb-2">{{ pin.overlay_text|truncatechars:50 }}</p>
+
+                        {% if pin.scheduled_at %}
+                        <div class="alert alert-info py-1 px-2 mb-2 small">
+                            <i class="bi bi-calendar-check me-1"></i>
+                            {{ pin.scheduled_at|date:"d.m.Y H:i" }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="card-footer bg-white border-top-0 pt-0">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{% url 'ideopin:download_pin_image' project.id pin.position %}" class="btn btn-outline-primary btn-sm" title="Download">
+                                <i class="bi bi-download"></i>
+                            </a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openScheduleModal({{ pin.position }})" title="Planen">
+                                <i class="bi bi-calendar-event"></i>
+                            </button>
+                            {% if not pin.pinterest_posted %}
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="postSinglePin({{ pin.position }})" title="Jetzt posten">
+                                <i class="bi bi-pinterest"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Scheduling Modal -->
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-calendar-event"></i> Pin <span id="scheduleModalPinNumber"></span> planen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="schedulePinPosition">
+                <div class="mb-3">
+                    <label class="form-label">Datum & Uhrzeit</label>
+                    <div class="row g-2">
+                        <div class="col-7">
+                            <input type="date" class="form-control" id="schedulePinDate">
+                        </div>
+                        <div class="col-5">
+                            <input type="time" class="form-control" id="schedulePinTime" value="12:00">
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Pinterest Board</label>
+                    <select class="form-select" id="schedulePinBoard">
+                        <option value="">Board laden...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveSchedule()">
+                    <i class="bi bi-check"></i> Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Auto-Verteilung Modal -->
+<div class="modal fade" id="distributionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-calendar-range"></i> Automatische Verteilung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Startdatum</label>
+                        <input type="date" class="form-control" id="distStartDate">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Startzeit</label>
+                        <input type="time" class="form-control" id="distStartTime" value="12:00">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Intervall</label>
+                        <select class="form-select" id="distInterval">
+                            <option value="1">Täglich (1 Tag)</option>
+                            <option value="2" selected>Alle 2 Tage</option>
+                            <option value="3">Alle 3 Tage</option>
+                            <option value="7">Wöchentlich</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Pinterest Board</label>
+                    <select class="form-select" id="distBoard">
+                        <option value="">Board laden...</option>
+                    </select>
+                </div>
+                <hr>
+                <h6><i class="bi bi-list-check"></i> Vorschau der Verteilung</h6>
+                <table class="table table-sm" id="distPreviewTable">
+                    <thead><tr><th>Pin</th><th>Geplant für</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-outline-primary" onclick="previewDistribution()">
+                    <i class="bi bi-eye"></i> Vorschau
+                </button>
+                <button type="button" class="btn btn-primary" onclick="applyDistribution()">
+                    <i class="bi bi-check"></i> Verteilung anwenden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch-Publish Modal -->
+<div class="modal fade" id="batchPublishModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> Batch-Publish</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Wähle die Pins aus, die du jetzt veröffentlichen möchtest:</p>
+                <div id="batchPinList">
+                    {% for pin in project.pins.all %}
+                    {% if not pin.pinterest_posted %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input batch-pin-check" type="checkbox" value="{{ pin.position }}" id="batchPin{{ pin.position }}">
+                        <label class="form-check-label" for="batchPin{{ pin.position }}">
+                            Pin {{ pin.position }}: {{ pin.pin_title|default:pin.overlay_text|truncatechars:40 }}
+                        </label>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Pinterest Board</label>
+                    <select class="form-select" id="batchBoard">
+                        <option value="">Board laden...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" onclick="executeBatchPublish()">
+                    <i class="bi bi-pinterest"></i> Ausgewählte veröffentlichen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Linke Spalte: Projekt-Infos -->
+    <div class="col-lg-6">
+{% else %}
+<!-- ========================================
+     SINGLE-PIN ANSICHT (Original)
+     ======================================== -->
 <div class="row">
     <div class="col-lg-6">
         <div class="card shadow-sm">
@@ -29,6 +246,7 @@
                 </div>
             </div>
         </div>
+{% endif %}
 
         <!-- Pinterest Posting Card -->
         <div class="card shadow-sm mt-4">
@@ -1290,6 +1508,284 @@ function postToPinterest() {
         postBtn.innerHTML = '<i class="bi bi-pinterest me-2"></i>Erneut versuchen';
     });
 }
+{% endif %}
+
+// ========================================
+// MULTI-PIN FUNKTIONEN
+// ========================================
+{% if project.pins.count > 1 %}
+
+// Boards für alle Modals laden
+document.addEventListener('DOMContentLoaded', function() {
+    loadMultiPinBoards();
+    initDateFields();
+});
+
+function loadMultiPinBoards() {
+    const selects = ['schedulePinBoard', 'distBoard', 'batchBoard'];
+
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Boards werden geladen...</option>';
+        select.disabled = true;
+    });
+
+    fetch('{% url "ideopin:api_upload_post_boards" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.boards) {
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    if (!select) return;
+
+                    select.innerHTML = '<option value="">Board auswählen...</option>';
+                    const boards = Array.isArray(data.boards) ? data.boards : [];
+                    boards.forEach(board => {
+                        const option = document.createElement('option');
+                        option.value = board.id || board.board_id || board.pinterest_board_id || '';
+                        const name = board.name || board.board_name || board.title || 'Unbenannt';
+                        option.textContent = name;
+                        select.appendChild(option);
+                    });
+                    select.disabled = false;
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Board loading error:', error);
+        });
+}
+
+function initDateFields() {
+    const today = new Date().toISOString().split('T')[0];
+
+    ['schedulePinDate', 'distStartDate'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.min = today;
+            input.value = today;
+        }
+    });
+}
+
+// Schedule Modal öffnen
+function openScheduleModal(position) {
+    document.getElementById('schedulePinPosition').value = position;
+    document.getElementById('scheduleModalPinNumber').textContent = position;
+
+    const modal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+    modal.show();
+}
+
+// Schedule speichern
+async function saveSchedule() {
+    const position = document.getElementById('schedulePinPosition').value;
+    const date = document.getElementById('schedulePinDate').value;
+    const time = document.getElementById('schedulePinTime').value;
+    const boardId = document.getElementById('schedulePinBoard').value;
+
+    if (!date) {
+        alert('Bitte wähle ein Datum aus.');
+        return;
+    }
+
+    const scheduledAt = `${date}T${time}:00`;
+
+    try {
+        const response = await fetch(`{% url "ideopin:api_schedule_pin" project.id 999 %}`.replace('999', position), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                scheduled_at: scheduledAt,
+                board_id: boardId
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('scheduleModal')).hide();
+            alert('Pin erfolgreich geplant!');
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+    }
+}
+
+// Vorschau der Verteilung
+function previewDistribution() {
+    const startDate = document.getElementById('distStartDate').value;
+    const startTime = document.getElementById('distStartTime').value;
+    const interval = parseInt(document.getElementById('distInterval').value);
+    const tbody = document.querySelector('#distPreviewTable tbody');
+
+    if (!startDate) {
+        alert('Bitte wähle ein Startdatum aus.');
+        return;
+    }
+
+    tbody.innerHTML = '';
+
+    let currentDate = new Date(`${startDate}T${startTime}:00`);
+    const pinCount = {{ project.pins.count }};
+
+    for (let i = 1; i <= pinCount; i++) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><span class="badge bg-primary">Pin ${i}</span></td>
+            <td>${currentDate.toLocaleDateString('de-DE')} um ${currentDate.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}</td>
+        `;
+        tbody.appendChild(row);
+
+        currentDate.setDate(currentDate.getDate() + interval);
+    }
+}
+
+// Verteilung anwenden
+async function applyDistribution() {
+    const startDate = document.getElementById('distStartDate').value;
+    const startTime = document.getElementById('distStartTime').value;
+    const interval = parseInt(document.getElementById('distInterval').value);
+    const boardId = document.getElementById('distBoard').value;
+
+    if (!startDate) {
+        alert('Bitte wähle ein Startdatum aus.');
+        return;
+    }
+
+    try {
+        const response = await fetch('{% url "ideopin:api_apply_distribution" project.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                start_date: `${startDate}T${startTime}:00`,
+                interval_days: interval,
+                board_id: boardId
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('distributionModal')).hide();
+            alert(`Verteilung auf ${data.scheduled_count} Pins angewendet!`);
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+    }
+}
+
+// Batch-Publish Modal öffnen
+function openBatchPublish() {
+    const modal = new bootstrap.Modal(document.getElementById('batchPublishModal'));
+    modal.show();
+}
+
+// Batch-Publish ausführen
+async function executeBatchPublish() {
+    const positions = [];
+    document.querySelectorAll('.batch-pin-check:checked').forEach(cb => {
+        positions.push(parseInt(cb.value));
+    });
+
+    const boardId = document.getElementById('batchBoard').value;
+
+    if (positions.length === 0) {
+        alert('Bitte wähle mindestens einen Pin aus.');
+        return;
+    }
+
+    if (!boardId) {
+        alert('Bitte wähle ein Board aus.');
+        return;
+    }
+
+    const btn = document.querySelector('#batchPublishModal .btn-danger');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Posten...';
+
+    try {
+        const response = await fetch('{% url "ideopin:api_publish_batch" project.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                positions: positions,
+                board_id: boardId
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('batchPublishModal')).hide();
+            alert(`${data.published_count} Pins erfolgreich veröffentlicht!`);
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-pinterest"></i> Ausgewählte veröffentlichen';
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-pinterest"></i> Ausgewählte veröffentlichen';
+    }
+}
+
+// Einzelnen Pin posten
+async function postSinglePin(position) {
+    const btn = event.target.closest('button');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        // Board-ID aus Modal holen (falls gesetzt) oder leer lassen
+        const boardSelect = document.getElementById('batchBoard');
+        const boardId = boardSelect ? boardSelect.value : '';
+
+        const response = await fetch(`{% url "ideopin:api_post_single_pin" project.id 999 %}`.replace('999', position), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                board_id: boardId
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            btn.innerHTML = '<i class="bi bi-check"></i>';
+            btn.classList.remove('btn-outline-danger');
+            btn.classList.add('btn-success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-pinterest"></i>';
+        }
+    } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-pinterest"></i>';
+    }
+}
+
 {% endif %}
 </script>
 {% endblock %}

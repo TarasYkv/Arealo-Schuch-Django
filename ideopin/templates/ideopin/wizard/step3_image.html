@@ -34,6 +34,54 @@
                 <form method="post" enctype="multipart/form-data" id="step3Form">
                     {% csrf_token %}
 
+                    <!-- Multi-Pin Anzahl Auswahl -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-grid-3x2"></i> Anzahl der Pins
+                        </label>
+                        <div class="btn-group w-100" role="group" aria-label="Pin-Anzahl">
+                            {% for i in "1234567" %}
+                            <input type="radio" class="btn-check" name="pin_count" id="pinCount{{ i }}"
+                                   value="{{ i }}" {% if project.pin_count|default:1|stringformat:"d" == i %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="pinCount{{ i }}">{{ i }}</label>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> Mehr Pins = mehr Reichweite durch Content-Variation
+                        </div>
+                    </div>
+
+                    <!-- Multi-Pin Panel (erscheint bei pin_count > 1) -->
+                    <div id="multiPinPanel" class="mb-4" style="display: none;">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-collection"></i> Multi-Pin Erstellung</span>
+                                <button type="button" class="btn btn-light btn-sm" id="generateVariationsBtn">
+                                    <i class="bi bi-magic"></i> Variationen generieren
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="accordion accordion-flush" id="multiPinAccordion">
+                                    <!-- Pins werden hier dynamisch eingefügt -->
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <button type="button" class="btn btn-success w-100" id="generateAllImagesBtn" disabled>
+                                    <i class="bi bi-images"></i> Alle Bilder generieren
+                                </button>
+                                <div id="multiPinProgress" class="mt-2" style="display: none;">
+                                    <div class="progress">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                             role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <small class="text-muted" id="multiPinProgressText">Bild 0 von 0 wird generiert...</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Single-Pin Panel (Standard bei pin_count = 1) -->
+                    <div id="singlePinPanel">
                     <div class="mb-4">
                         <label class="form-label fw-bold">Produktbild (optional)</label>
                         <div class="input-group">
@@ -221,6 +269,21 @@
                         <button type="button" class="btn btn-success btn-lg w-100 mt-3" id="useServerImageBtn" disabled>
                             <i class="bi bi-check"></i> Ausgewähltes Bild verwenden
                         </button>
+                    </div>
+                    </div><!-- Ende Single-Pin Panel -->
+
+                    <!-- Multi-Pin Galerie (erscheint bei pin_count > 1 nach Generierung) -->
+                    <div id="multiPinGallery" class="mb-4" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="bi bi-images"></i> Generierte Pins</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3" id="multiPinGalleryGrid">
+                                    <!-- Bilder werden hier dynamisch eingefügt -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <hr class="my-4">
@@ -965,6 +1028,425 @@ document.addEventListener('DOMContentLoaded', function() {
             this.disabled = false;
             this.innerHTML = '<i class="bi bi-magic"></i>';
         });
+    }
+
+    // ========================================
+    // MULTI-PIN FUNKTIONALITÄT
+    // ========================================
+
+    const multiPinPanel = document.getElementById('multiPinPanel');
+    const singlePinPanel = document.getElementById('singlePinPanel');
+    const multiPinAccordion = document.getElementById('multiPinAccordion');
+    const multiPinGallery = document.getElementById('multiPinGallery');
+    const multiPinGalleryGrid = document.getElementById('multiPinGalleryGrid');
+    const generateVariationsBtn = document.getElementById('generateVariationsBtn');
+    const generateAllImagesBtn = document.getElementById('generateAllImagesBtn');
+    const multiPinProgress = document.getElementById('multiPinProgress');
+    const multiPinProgressText = document.getElementById('multiPinProgressText');
+    const pinCountRadios = document.querySelectorAll('input[name="pin_count"]');
+
+    // Pin-Daten speichern
+    let multiPinData = [];
+
+    // Pin-Anzahl Toggle
+    pinCountRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const count = parseInt(this.value);
+            if (count > 1) {
+                multiPinPanel.style.display = 'block';
+                singlePinPanel.style.display = 'none';
+                createAccordionItems(count);
+            } else {
+                multiPinPanel.style.display = 'none';
+                singlePinPanel.style.display = 'block';
+                multiPinGallery.style.display = 'none';
+            }
+        });
+    });
+
+    // Initial: Prüfen ob pin_count > 1
+    const initialPinCount = parseInt(document.querySelector('input[name="pin_count"]:checked')?.value || 1);
+    if (initialPinCount > 1) {
+        multiPinPanel.style.display = 'block';
+        singlePinPanel.style.display = 'none';
+        createAccordionItems(initialPinCount);
+    }
+
+    // Accordion-Items erstellen
+    function createAccordionItems(count) {
+        multiPinAccordion.innerHTML = '';
+        multiPinData = [];
+
+        for (let i = 1; i <= count; i++) {
+            multiPinData.push({
+                position: i,
+                overlay_text: i === 1 ? '{{ project.overlay_text|escapejs }}' : '',
+                background_description: i === 1 ? '{{ project.background_description|escapejs }}' : '',
+                image_url: null,
+                generated: false
+            });
+
+            const accordionItem = document.createElement('div');
+            accordionItem.className = 'accordion-item';
+            accordionItem.innerHTML = `
+                <h2 class="accordion-header">
+                    <button class="accordion-button ${i > 1 ? 'collapsed' : ''}" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#pinCollapse${i}">
+                        <span class="me-2">
+                            <span class="badge bg-secondary" id="pinBadge${i}">${i}</span>
+                        </span>
+                        Pin ${i}
+                        <span class="ms-auto me-3" id="pinStatus${i}">
+                            <i class="bi bi-circle text-muted"></i>
+                        </span>
+                    </button>
+                </h2>
+                <div id="pinCollapse${i}" class="accordion-collapse collapse ${i === 1 ? 'show' : ''}"
+                     data-bs-parent="#multiPinAccordion">
+                    <div class="accordion-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <!-- Overlay Text -->
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">Overlay-Text</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" id="pinText${i}"
+                                               placeholder="Catchy Pin-Text..."
+                                               value="${i === 1 ? '{{ project.overlay_text|escapejs }}' : ''}">
+                                        <button type="button" class="btn btn-outline-primary"
+                                                onclick="regeneratePinText(${i})" title="Text neu generieren">
+                                            <i class="bi bi-magic"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Hintergrund -->
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">Hintergrund-Beschreibung</label>
+                                    <div class="input-group input-group-sm">
+                                        <textarea class="form-control" id="pinBackground${i}" rows="2"
+                                                  placeholder="Beschreibung für den Hintergrund...">${i === 1 ? '{{ project.background_description|escapejs }}' : ''}</textarea>
+                                        <button type="button" class="btn btn-outline-primary"
+                                                onclick="regeneratePinBackground(${i})" title="Hintergrund neu generieren">
+                                            <i class="bi bi-magic"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Buttons -->
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-success btn-sm" id="generatePinBtn${i}"
+                                            onclick="generateSinglePinImage(${i})">
+                                        <i class="bi bi-image"></i> Bild generieren
+                                    </button>
+                                    <button type="button" class="btn btn-outline-warning btn-sm" id="regeneratePinBtn${i}"
+                                            onclick="generateSinglePinImage(${i})" style="display: none;">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <!-- Bild-Vorschau -->
+                                <div class="pin-preview-small" id="pinPreview${i}">
+                                    <div class="bg-light rounded p-3 text-center text-muted" style="min-height: 150px;">
+                                        <i class="bi bi-image fs-3 d-block"></i>
+                                        <small>Noch kein Bild</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            multiPinAccordion.appendChild(accordionItem);
+        }
+    }
+
+    // Variationen generieren
+    generateVariationsBtn.addEventListener('click', async function() {
+        const count = parseInt(document.querySelector('input[name="pin_count"]:checked')?.value || 1);
+        const baseText = document.getElementById('pinText1')?.value || '{{ project.overlay_text|escapejs }}';
+        const baseBackground = document.getElementById('pinBackground1')?.value || '{{ project.background_description|escapejs }}';
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_generate_variations" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    count: count,
+                    base_text: baseText,
+                    base_background: baseBackground
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // Texte und Hintergründe in die Felder eintragen
+                data.pins.forEach((pin, index) => {
+                    const position = index + 1;
+                    const textInput = document.getElementById(`pinText${position}`);
+                    const bgInput = document.getElementById(`pinBackground${position}`);
+
+                    if (textInput) textInput.value = pin.overlay_text;
+                    if (bgInput) bgInput.value = pin.background_description;
+
+                    multiPinData[index].overlay_text = pin.overlay_text;
+                    multiPinData[index].background_description = pin.background_description;
+                });
+
+                generateAllImagesBtn.disabled = false;
+                alert(`${count} Variationen erfolgreich generiert!`);
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (e) {
+            alert('Fehler: ' + e.message);
+        }
+
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-magic"></i> Variationen generieren';
+    });
+
+    // Alle Bilder generieren
+    generateAllImagesBtn.addEventListener('click', async function() {
+        const count = parseInt(document.querySelector('input[name="pin_count"]:checked')?.value || 1);
+
+        // Erst Pins speichern
+        await savePinsToServer();
+
+        this.disabled = true;
+        multiPinProgress.style.display = 'block';
+
+        for (let i = 1; i <= count; i++) {
+            multiPinProgressText.textContent = `Bild ${i} von ${count} wird generiert...`;
+            const progressBar = multiPinProgress.querySelector('.progress-bar');
+            progressBar.style.width = `${((i - 1) / count) * 100}%`;
+
+            await generateSinglePinImage(i);
+
+            progressBar.style.width = `${(i / count) * 100}%`;
+
+            // Kleine Pause zwischen den Generierungen
+            if (i < count) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+
+        multiPinProgressText.textContent = 'Alle Bilder generiert!';
+        setTimeout(() => {
+            multiPinProgress.style.display = 'none';
+            this.disabled = false;
+        }, 2000);
+
+        // Galerie anzeigen
+        updateMultiPinGallery();
+    });
+
+    // Pins auf Server speichern
+    async function savePinsToServer() {
+        const count = parseInt(document.querySelector('input[name="pin_count"]:checked')?.value || 1);
+        const pins = [];
+
+        for (let i = 1; i <= count; i++) {
+            pins.push({
+                position: i,
+                overlay_text: document.getElementById(`pinText${i}`)?.value || '',
+                background_description: document.getElementById(`pinBackground${i}`)?.value || ''
+            });
+        }
+
+        try {
+            const response = await fetch('{% url "ideopin:api_save_pins" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pins: pins })
+            });
+            const data = await response.json();
+            return data.success;
+        } catch (e) {
+            console.error('Error saving pins:', e);
+            return false;
+        }
+    }
+
+    // Einzelnes Pin-Bild generieren
+    window.generateSinglePinImage = async function(position) {
+        const btn = document.getElementById(`generatePinBtn${position}`);
+        const regenBtn = document.getElementById(`regeneratePinBtn${position}`);
+        const preview = document.getElementById(`pinPreview${position}`);
+        const status = document.getElementById(`pinStatus${position}`);
+        const badge = document.getElementById(`pinBadge${position}`);
+
+        // Erst den Pin speichern
+        const overlayText = document.getElementById(`pinText${position}`)?.value || '';
+        const backgroundDesc = document.getElementById(`pinBackground${position}`)?.value || '';
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        }
+
+        preview.innerHTML = `
+            <div class="bg-light rounded p-3 text-center" style="min-height: 150px;">
+                <span class="spinner-border spinner-border-sm"></span>
+                <small class="d-block mt-2">Generiere Bild...</small>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`{% url "ideopin:api_generate_pin_image" project.id 999 %}`.replace('999', position), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    overlay_text: overlayText,
+                    background_description: backgroundDesc
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                preview.innerHTML = `
+                    <img src="${data.image_url}?t=${Date.now()}" alt="Pin ${position}"
+                         class="img-fluid rounded" style="max-height: 200px;">
+                `;
+
+                multiPinData[position - 1].image_url = data.image_url;
+                multiPinData[position - 1].generated = true;
+
+                status.innerHTML = '<i class="bi bi-check-circle text-success"></i>';
+                badge.className = 'badge bg-success';
+
+                if (regenBtn) regenBtn.style.display = 'inline-block';
+            } else {
+                preview.innerHTML = `
+                    <div class="bg-danger bg-opacity-10 rounded p-3 text-center text-danger" style="min-height: 150px;">
+                        <i class="bi bi-exclamation-triangle fs-3 d-block"></i>
+                        <small>${data.error}</small>
+                    </div>
+                `;
+                status.innerHTML = '<i class="bi bi-x-circle text-danger"></i>';
+            }
+        } catch (e) {
+            preview.innerHTML = `
+                <div class="bg-danger bg-opacity-10 rounded p-3 text-center text-danger" style="min-height: 150px;">
+                    <i class="bi bi-exclamation-triangle fs-3 d-block"></i>
+                    <small>Fehler: ${e.message}</small>
+                </div>
+            `;
+            status.innerHTML = '<i class="bi bi-x-circle text-danger"></i>';
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-image"></i> Bild generieren';
+        }
+    };
+
+    // Text für einzelnen Pin neu generieren
+    window.regeneratePinText = async function(position) {
+        const input = document.getElementById(`pinText${position}`);
+        const btn = input.nextElementSibling;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_generate_variations" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    count: 1,
+                    base_text: '{{ project.overlay_text|escapejs }}',
+                    single_regenerate: true
+                })
+            });
+            const data = await response.json();
+
+            if (data.success && data.pins.length > 0) {
+                input.value = data.pins[0].overlay_text;
+            } else {
+                alert('Fehler: ' + (data.error || 'Keine Variation generiert'));
+            }
+        } catch (e) {
+            alert('Fehler: ' + e.message);
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-magic"></i>';
+    };
+
+    // Hintergrund für einzelnen Pin neu generieren
+    window.regeneratePinBackground = async function(position) {
+        const input = document.getElementById(`pinBackground${position}`);
+        const btn = input.nextElementSibling;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        try {
+            const response = await fetch('{% url "ideopin:api_generate_variations" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    count: 1,
+                    base_background: '{{ project.background_description|escapejs }}',
+                    single_regenerate: true
+                })
+            });
+            const data = await response.json();
+
+            if (data.success && data.pins.length > 0) {
+                input.value = data.pins[0].background_description;
+            } else {
+                alert('Fehler: ' + (data.error || 'Keine Variation generiert'));
+            }
+        } catch (e) {
+            alert('Fehler: ' + e.message);
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-magic"></i>';
+    };
+
+    // Multi-Pin Galerie aktualisieren
+    function updateMultiPinGallery() {
+        const generatedPins = multiPinData.filter(p => p.generated);
+
+        if (generatedPins.length > 0) {
+            multiPinGallery.style.display = 'block';
+            multiPinGalleryGrid.innerHTML = '';
+
+            generatedPins.forEach(pin => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4';
+                col.innerHTML = `
+                    <div class="card h-100">
+                        <img src="${pin.image_url}?t=${Date.now()}" class="card-img-top" alt="Pin ${pin.position}">
+                        <div class="card-body p-2">
+                            <span class="badge bg-primary">Pin ${pin.position}</span>
+                            <p class="small text-muted mb-0 mt-1">${pin.overlay_text.substring(0, 50)}...</p>
+                        </div>
+                    </div>
+                `;
+                multiPinGalleryGrid.appendChild(col);
+            });
+        }
     }
 
 });

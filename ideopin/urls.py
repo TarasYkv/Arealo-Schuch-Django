@@ -51,4 +51,16 @@ urlpatterns = [
     # Upload-Post API
     path('api/upload-post/<int:project_id>/', views.api_upload_post, name='api_upload_post'),
     path('api/upload-post/boards/', views.api_upload_post_boards, name='api_upload_post_boards'),
+
+    # Multi-Pin API
+    path('api/generate-variations/<int:project_id>/', views.api_generate_variations, name='api_generate_variations'),
+    path('api/save-pins/<int:project_id>/', views.api_save_pins, name='api_save_pins'),
+    path('api/generate-pin-image/<int:project_id>/<int:position>/', views.api_generate_pin_image, name='api_generate_pin_image'),
+    path('api/generate-all-seo/<int:project_id>/', views.api_generate_all_seo, name='api_generate_all_seo'),
+    path('api/generate-pin-seo/<int:project_id>/<int:position>/', views.api_generate_pin_seo, name='api_generate_pin_seo'),
+    path('api/schedule-pin/<int:project_id>/<int:position>/', views.api_schedule_pin, name='api_schedule_pin'),
+    path('api/apply-distribution/<int:project_id>/', views.api_apply_distribution, name='api_apply_distribution'),
+    path('api/post-pin/<int:project_id>/<int:position>/', views.api_post_single_pin, name='api_post_single_pin'),
+    path('api/publish-batch/<int:project_id>/', views.api_publish_batch, name='api_publish_batch'),
+    path('download-pin/<int:project_id>/<int:position>/', views.download_pin_image, name='download_pin_image'),
 ]
