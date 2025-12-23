@@ -447,6 +447,20 @@ class SimpleAdForm(forms.ModelForm):
     Übersichtlich und benutzerfreundlich.
     """
 
+    # Explizite Felder für JSONField mit MultipleChoice
+    app_filter = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Nur in diesen Apps',
+        help_text='Leer = alle Apps'
+    )
+    exclude_apps = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='Nicht in diesen Apps',
+        help_text='In diesen Apps nicht anzeigen'
+    )
+
     class Meta:
         model = SimpleAd
         fields = [
@@ -632,17 +646,15 @@ class SimpleAdForm(forms.ModelForm):
 
         # App-Choices dynamisch laden
         app_choices = self._get_app_choices()
-        self.fields['app_filter'].widget = forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'})
         self.fields['app_filter'].choices = app_choices
-        self.fields['exclude_apps'].widget = forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'})
         self.fields['exclude_apps'].choices = app_choices
 
-        # Bestehende Werte setzen
+        # Bestehende Werte setzen (für Edit-Formular)
         if self.instance.pk:
             if self.instance.app_filter:
-                self.fields['app_filter'].initial = self.instance.app_filter
+                self.initial['app_filter'] = self.instance.app_filter
             if self.instance.exclude_apps:
-                self.fields['exclude_apps'].initial = self.instance.exclude_apps
+                self.initial['exclude_apps'] = self.instance.exclude_apps
 
         # Format datetime fields für HTML5 datetime-local input
         if self.instance.pk:
