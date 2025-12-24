@@ -262,7 +262,71 @@
                     {% endif %}
                     {% endfor %}
                 </div>
+                <!-- Plattform-Auswahl -->
                 <div class="mt-3">
+                    <label class="form-label fw-bold">Plattformen</label>
+                    <div class="row g-2">
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="pinterest" id="batch-platform-pinterest" checked onchange="toggleBatchPinterestBoard()">
+                                <label class="form-check-label" for="batch-platform-pinterest">
+                                    <i class="bi bi-pinterest me-1" style="color: #E60023;"></i> Pinterest
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="instagram" id="batch-platform-instagram">
+                                <label class="form-check-label" for="batch-platform-instagram">
+                                    <i class="bi bi-instagram me-1" style="color: #E4405F;"></i> Instagram
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="facebook" id="batch-platform-facebook">
+                                <label class="form-check-label" for="batch-platform-facebook">
+                                    <i class="bi bi-facebook me-1" style="color: #1877F2;"></i> Facebook
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="threads" id="batch-platform-threads">
+                                <label class="form-check-label" for="batch-platform-threads">
+                                    <i class="bi bi-threads me-1"></i> Threads
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="x" id="batch-platform-x">
+                                <label class="form-check-label" for="batch-platform-x">
+                                    <i class="bi bi-twitter-x me-1"></i> X
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="linkedin" id="batch-platform-linkedin">
+                                <label class="form-check-label" for="batch-platform-linkedin">
+                                    <i class="bi bi-linkedin me-1" style="color: #0A66C2;"></i> LinkedIn
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="bluesky" id="batch-platform-bluesky">
+                                <label class="form-check-label" for="batch-platform-bluesky">
+                                    <i class="bi bi-cloud me-1" style="color: #0085FF;"></i> Bluesky
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pinterest Board (nur wenn Pinterest ausgewählt) -->
+                <div class="mt-3" id="batchBoardContainer">
                     <label class="form-label">Pinterest Board</label>
                     <select class="form-select" id="batchBoard">
                         <option value="">Board laden...</option>
@@ -271,8 +335,8 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                <button type="button" class="btn btn-danger" onclick="executeBatchPublish()">
-                    <i class="bi bi-pinterest"></i> Ausgewählte veröffentlichen
+                <button type="button" class="btn btn-primary" onclick="executeBatchPublish()">
+                    <i class="bi bi-cloud-upload"></i> Ausgewählte veröffentlichen
                 </button>
             </div>
         </div>
@@ -1831,6 +1895,15 @@ function openBatchPublish() {
     modal.show();
 }
 
+// Toggle Pinterest Board Auswahl für Batch-Publish
+function toggleBatchPinterestBoard() {
+    const pinterestChecked = document.getElementById('batch-platform-pinterest')?.checked;
+    const boardContainer = document.getElementById('batchBoardContainer');
+    if (boardContainer) {
+        boardContainer.style.display = pinterestChecked ? 'block' : 'none';
+    }
+}
+
 // Batch-Publish ausführen
 async function executeBatchPublish() {
     const positions = [];
@@ -1840,17 +1913,33 @@ async function executeBatchPublish() {
 
     const boardId = document.getElementById('batchBoard').value;
 
+    // Ausgewählte Plattformen sammeln
+    const platforms = [];
+    if (document.getElementById('batch-platform-pinterest')?.checked) platforms.push('pinterest');
+    if (document.getElementById('batch-platform-instagram')?.checked) platforms.push('instagram');
+    if (document.getElementById('batch-platform-facebook')?.checked) platforms.push('facebook');
+    if (document.getElementById('batch-platform-threads')?.checked) platforms.push('threads');
+    if (document.getElementById('batch-platform-x')?.checked) platforms.push('x');
+    if (document.getElementById('batch-platform-linkedin')?.checked) platforms.push('linkedin');
+    if (document.getElementById('batch-platform-bluesky')?.checked) platforms.push('bluesky');
+
     if (positions.length === 0) {
         alert('Bitte wähle mindestens einen Pin aus.');
         return;
     }
 
-    if (!boardId) {
-        alert('Bitte wähle ein Board aus.');
+    if (platforms.length === 0) {
+        alert('Bitte wähle mindestens eine Plattform aus.');
         return;
     }
 
-    const btn = document.querySelector('#batchPublishModal .btn-danger');
+    // Board nur bei Pinterest erforderlich
+    if (platforms.includes('pinterest') && !boardId) {
+        alert('Bitte wähle ein Pinterest Board aus.');
+        return;
+    }
+
+    const btn = document.querySelector('#batchPublishModal .btn-primary');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Posten...';
 
@@ -1864,7 +1953,7 @@ async function executeBatchPublish() {
             body: JSON.stringify({
                 positions: positions,
                 board_id: boardId,
-                platforms: ['pinterest']
+                platforms: platforms
             })
         });
         const data = await response.json();
@@ -1872,6 +1961,9 @@ async function executeBatchPublish() {
         if (data.success) {
             bootstrap.Modal.getInstance(document.getElementById('batchPublishModal')).hide();
             let msg = `${data.published_count} Pins erfolgreich veröffentlicht!`;
+            if (platforms.length > 1) {
+                msg += `\nPlattformen: ${platforms.join(', ')}`;
+            }
             if (data.errors && data.errors.length > 0) {
                 msg += '\n\nHinweise:\n' + data.errors.join('\n');
             }
@@ -1882,12 +1974,12 @@ async function executeBatchPublish() {
             let errorMsg = data.error || data.message || (data.errors ? data.errors.join('\n') : 'Unbekannter Fehler');
             alert('Fehler: ' + errorMsg);
             btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-pinterest"></i> Ausgewählte veröffentlichen';
+            btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Ausgewählte veröffentlichen';
         }
     } catch (e) {
         alert('Fehler: ' + e.message);
         btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-pinterest"></i> Ausgewählte veröffentlichen';
+        btn.innerHTML = '<i class="bi bi-cloud-upload"></i> Ausgewählte veröffentlichen';
     }
 }
 
