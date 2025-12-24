@@ -1284,10 +1284,34 @@ document.addEventListener('DOMContentLoaded', function() {
     generateAllImagesBtn.addEventListener('click', async function() {
         const count = parseInt(document.querySelector('input[name="pin_count"]:checked')?.value || 1);
 
-        // Erst Pins speichern
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Speichere...';
+
+        // 1. Erst Formular (inkl. Produktbild) speichern
+        try {
+            const formData = new FormData(step3Form);
+            const saveResponse = await fetch('{% url "ideopin:api_save_step3" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: formData
+            });
+            const saveData = await saveResponse.json();
+            if (!saveData.success) {
+                alert('Fehler beim Speichern: ' + saveData.error);
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-images"></i> Alle Bilder generieren';
+                return;
+            }
+        } catch (e) {
+            console.error('Formular speichern fehlgeschlagen:', e);
+        }
+
+        // 2. Pins speichern
         await savePinsToServer();
 
-        this.disabled = true;
+        this.innerHTML = '<i class="bi bi-images"></i> Alle Bilder generieren';
         multiPinProgress.style.display = 'block';
 
         for (let i = 1; i <= count; i++) {
