@@ -3099,10 +3099,11 @@ def api_apply_distribution(request, project_id):
                     'error': 'Upload-Post User-ID nicht konfiguriert. Bitte in Einstellungen hinterlegen.'
                 }, status=400)
 
-            if not board_id:
+            # Board-ID nur erforderlich wenn Pinterest ausgewählt
+            if 'pinterest' in platforms and not board_id:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Board-ID erforderlich für API-Scheduling'
+                    'error': 'Board-ID erforderlich für Pinterest'
                 }, status=400)
 
         # Verteilung anwenden
@@ -3285,10 +3286,11 @@ def api_post_single_pin(request, project_id, position):
         platforms = data.get('platforms', ['pinterest'])
         scheduled_date = data.get('scheduled_date')
 
-        if not board_id:
+        # Board-ID nur erforderlich wenn Pinterest ausgewählt
+        if 'pinterest' in platforms and not board_id:
             return JsonResponse({
                 'success': False,
-                'error': 'Board-ID erforderlich'
+                'error': 'Board-ID erforderlich für Pinterest'
             }, status=400)
 
         # Bild für Upload vorbereiten
@@ -3435,10 +3437,11 @@ def api_publish_batch(request, project_id):
                 'error': 'Keine Pins ausgewählt'
             }, status=400)
 
-        if not board_id:
+        # Board-ID nur erforderlich wenn Pinterest ausgewählt
+        if 'pinterest' in platforms and not board_id:
             return JsonResponse({
                 'success': False,
-                'error': 'Board-ID erforderlich'
+                'error': 'Board-ID erforderlich für Pinterest'
             }, status=400)
 
         # Upload-Post API-Key und User-ID prüfen
