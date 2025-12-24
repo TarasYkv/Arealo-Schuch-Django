@@ -3139,23 +3139,23 @@ def api_apply_distribution(request, project_id):
             # Via Upload-Post API schedulen
             if schedule_via_api and upload_post_api_key:
                 try:
-                    # Bild für Upload vorbereiten
-                    image_file = pin.get_final_image_for_upload()
-                    if not image_file:
+                    # Bild-URL für Upload vorbereiten (URL-basiert statt base64 - viel effizienter)
+                    image_url = None
+                    if pin.final_image:
+                        image_url = f"https://www.workloom.de{pin.final_image.url}"
+                    elif pin.generated_image:
+                        image_url = f"https://www.workloom.de{pin.generated_image.url}"
+
+                    if not image_url:
                         errors.append(f"Pin {pin.position}: Kein Bild vorhanden")
                         continue
-
-                    # Bild als Base64 kodieren
-                    image_file.seek(0)
-                    image_data = image_file.read()
-                    image_base64 = base64.b64encode(image_data).decode('utf-8')
 
                     # Scheduled_date im ISO-Format (YYYY-MM-DDTHH:MM:SS)
                     scheduled_date_iso = scheduled_datetime.strftime('%Y-%m-%dT%H:%M:%S')
 
-                    # API-Daten
+                    # API-Daten mit URL statt base64
                     post_data = {
-                        'image': f"data:image/png;base64,{image_base64}",
+                        'image': image_url,
                         'platforms': platforms if isinstance(platforms, list) else [platforms],
                         'title': pin.pin_title or project.keywords[:100],
                         'description': pin.seo_description or '',
@@ -3304,9 +3304,8 @@ def api_post_single_pin(request, project_id, position):
                 'error': 'Upload-Post API-Key nicht konfiguriert'
             }, status=400)
 
-        # Bild als Base64
-        with open(image_file.path, 'rb') as f:
-            image_base64 = base64.b64encode(f.read()).decode('utf-8')
+        # Bild-URL für Upload (URL-basiert statt base64 - viel effizienter)
+        image_url = f"https://www.workloom.de{image_file.url}"
 
         # API-Request vorbereiten
         api_url = 'https://api.upload-post.com/api/upload_photos'
@@ -3315,11 +3314,11 @@ def api_post_single_pin(request, project_id, position):
             'Content-Type': 'application/json',
         }
 
-        # Session mit Retry-Logik erstellen (verhindert SSL-Fehler auf PythonAnywhere)
+        # Session mit schneller Retry-Logik
         session = requests.Session()
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=2,
+            total=1,
+            backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -3327,7 +3326,7 @@ def api_post_single_pin(request, project_id, position):
         session.mount("http://", adapter)
 
         post_data = {
-            'image': f"data:image/png;base64,{image_base64}",
+            'image': image_url,
             'platforms': platforms,
             'title': pin.pin_title or project.keywords[:100],
             'description': pin.seo_description or '',
@@ -3455,8 +3454,8 @@ def api_publish_batch(request, project_id):
         # Session mit Retry-Logik erstellen (verhindert SSL-Fehler auf PythonAnywhere)
         session = requests.Session()
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=2,
+            total=1,
+            backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -3475,19 +3474,20 @@ def api_publish_batch(request, project_id):
             if not pin or pin.pinterest_posted:
                 continue
 
-            # Bild für Upload vorbereiten
-            image_file = pin.get_final_image_for_upload()
-            if not image_file:
+            # Bild-URL für Upload (URL-basiert statt base64 - viel effizienter)
+            image_url = None
+            if pin.final_image:
+                image_url = f"https://www.workloom.de{pin.final_image.url}"
+            elif pin.generated_image:
+                image_url = f"https://www.workloom.de{pin.generated_image.url}"
+
+            if not image_url:
                 errors.append(f"Pin {position}: Kein Bild vorhanden")
                 continue
 
             try:
-                # Bild als Base64
-                with open(image_file.path, 'rb') as f:
-                    image_base64 = base64.b64encode(f.read()).decode('utf-8')
-
                 post_data = {
-                    'image': f"data:image/png;base64,{image_base64}",
+                    'image': image_url,
                     'platforms': platforms,
                     'title': pin.pin_title or project.keywords[:100],
                     'description': pin.seo_description or '',
