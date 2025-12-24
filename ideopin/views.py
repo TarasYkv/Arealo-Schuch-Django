@@ -3147,23 +3147,88 @@ def api_apply_distribution(request, project_id):
                     # Scheduled_date im ISO-Format (YYYY-MM-DDTHH:MM:SS)
                     scheduled_date_iso = scheduled_datetime.strftime('%Y-%m-%dT%H:%M:%S')
 
+                    # ============================================================
+                    # PLATTFORM-SPEZIFISCHE INHALTE (wie Einzelpin)
+                    # ============================================================
+                    pin_title = pin.pin_title or project.keywords[:100]
+                    seo_description = pin.seo_description or ''
+                    post_link = project.pin_url or ''
+
+                    # Instagram: Beschreibung + "Link in Bio!"
+                    content_instagram = f"{seo_description}\n\n-> Link in Bio!" if seo_description else "-> Link in Bio!"
+
+                    # Facebook: Beschreibung + Link
+                    content_facebook = f"{seo_description}\n\n{post_link}" if post_link else seo_description
+
+                    # X: 280 Zeichen Limit
+                    if post_link:
+                        x_max_len = 280 - len(post_link) - 2
+                        x_desc = seo_description[:x_max_len] if len(seo_description) > x_max_len else seo_description
+                        content_x = f"{x_desc}\n{post_link}"
+                    else:
+                        content_x = seo_description[:280]
+
+                    # LinkedIn: Beschreibung + Link
+                    content_linkedin = f"{seo_description}\n\n{post_link}" if post_link else seo_description
+
+                    # Threads: 500 Zeichen Limit
+                    if post_link:
+                        threads_max_len = 500 - len(post_link) - 2
+                        threads_desc = seo_description[:threads_max_len] if len(seo_description) > threads_max_len else seo_description
+                        content_threads = f"{threads_desc}\n\n{post_link}"
+                    else:
+                        content_threads = seo_description[:500]
+
+                    # Bluesky: 300 Zeichen, Titel + Link
+                    if post_link:
+                        content_bluesky = f"{pin_title}\n\n{post_link}"[:300]
+                    else:
+                        content_bluesky = pin_title[:300]
+
                     # Form-Daten (wie funktionierender Einzelpin-Upload)
                     form_data = [
                         ('user', upload_post_user_id),
-                        ('title', pin.pin_title or project.keywords[:100]),
+                        ('title', content_instagram),  # Standard für Instagram
                         ('scheduled_date', scheduled_date_iso),
                     ]
 
-                    # Plattformen hinzufügen
-                    for platform in (platforms if isinstance(platforms, list) else [platforms]):
+                    # Plattformen hinzufügen (ohne Bluesky - wird separat behandelt)
+                    platforms_list = platforms if isinstance(platforms, list) else [platforms]
+                    has_bluesky = 'bluesky' in platforms_list
+                    other_platforms = [p for p in platforms_list if p != 'bluesky']
+
+                    for platform in other_platforms:
                         form_data.append(('platform[]', platform))
 
                     # Pinterest-spezifische Felder
-                    if 'pinterest' in platforms:
-                        form_data.append(('pinterest_board_id', board_id))
-                        form_data.append(('pinterest_description', pin.seo_description or ''))
-                        if project.pin_url:
-                            form_data.append(('pinterest_link', project.pin_url))
+                    if 'pinterest' in platforms_list:
+                        if board_id:
+                            form_data.append(('pinterest_board_id', board_id))
+                        form_data.append(('pinterest_title', pin_title))
+                        form_data.append(('pinterest_description', seo_description))
+                        if post_link:
+                            form_data.append(('pinterest_link', post_link))
+
+                    # Instagram-spezifische Felder
+                    if 'instagram' in platforms_list:
+                        form_data.append(('instagram_caption', content_instagram))
+
+                    # Facebook-spezifische Felder
+                    if 'facebook' in platforms_list:
+                        form_data.append(('facebook_title', content_facebook))
+
+                    # X-spezifische Felder
+                    if 'x' in platforms_list:
+                        form_data.append(('x_title', content_x))
+
+                    # LinkedIn-spezifische Felder
+                    if 'linkedin' in platforms_list:
+                        form_data.append(('linkedin_title', content_linkedin))
+                        form_data.append(('linkedin_description', content_linkedin))
+
+                    # Threads-spezifische Felder
+                    if 'threads' in platforms_list:
+                        form_data.append(('threads_title', content_threads))
 
                     logger.info(f"[Multi-Pin] Scheduling Pin {pin.position} für {scheduled_date_iso}")
 
@@ -3486,22 +3551,86 @@ def api_publish_batch(request, project_id):
                 image_path = image_file.path
                 image_name = os.path.basename(image_path)
 
+                # ============================================================
+                # PLATTFORM-SPEZIFISCHE INHALTE (wie Einzelpin)
+                # ============================================================
+                pin_title = pin.pin_title or project.keywords[:100]
+                seo_description = pin.seo_description or ''
+                post_link = project.pin_url or ''
+
+                # Instagram: Beschreibung + "Link in Bio!"
+                content_instagram = f"{seo_description}\n\n-> Link in Bio!" if seo_description else "-> Link in Bio!"
+
+                # Facebook: Beschreibung + Link
+                content_facebook = f"{seo_description}\n\n{post_link}" if post_link else seo_description
+
+                # X: 280 Zeichen Limit
+                if post_link:
+                    x_max_len = 280 - len(post_link) - 2
+                    x_desc = seo_description[:x_max_len] if len(seo_description) > x_max_len else seo_description
+                    content_x = f"{x_desc}\n{post_link}"
+                else:
+                    content_x = seo_description[:280]
+
+                # LinkedIn: Beschreibung + Link
+                content_linkedin = f"{seo_description}\n\n{post_link}" if post_link else seo_description
+
+                # Threads: 500 Zeichen Limit
+                if post_link:
+                    threads_max_len = 500 - len(post_link) - 2
+                    threads_desc = seo_description[:threads_max_len] if len(seo_description) > threads_max_len else seo_description
+                    content_threads = f"{threads_desc}\n\n{post_link}"
+                else:
+                    content_threads = seo_description[:500]
+
+                # Bluesky: 300 Zeichen, Titel + Link
+                if post_link:
+                    content_bluesky = f"{pin_title}\n\n{post_link}"[:300]
+                else:
+                    content_bluesky = pin_title[:300]
+
                 # Form-Daten (wie funktionierender Einzelpin-Upload)
                 form_data = [
                     ('user', upload_post_user_id),
-                    ('title', pin.pin_title or project.keywords[:100]),
+                    ('title', content_instagram),  # Standard für Instagram
                 ]
 
-                # Plattformen hinzufügen
-                for platform in platforms:
+                # Plattformen hinzufügen (ohne Bluesky - wird separat behandelt)
+                has_bluesky = 'bluesky' in platforms
+                other_platforms = [p for p in platforms if p != 'bluesky']
+
+                for platform in other_platforms:
                     form_data.append(('platform[]', platform))
 
                 # Pinterest-spezifische Felder
                 if 'pinterest' in platforms:
-                    form_data.append(('pinterest_board_id', board_id))
-                    form_data.append(('pinterest_description', pin.seo_description or ''))
-                    if project.pin_url:
-                        form_data.append(('pinterest_link', project.pin_url))
+                    if board_id:
+                        form_data.append(('pinterest_board_id', board_id))
+                    form_data.append(('pinterest_title', pin_title))
+                    form_data.append(('pinterest_description', seo_description))
+                    if post_link:
+                        form_data.append(('pinterest_link', post_link))
+
+                # Instagram-spezifische Felder
+                if 'instagram' in platforms:
+                    form_data.append(('instagram_caption', content_instagram))
+
+                # Facebook-spezifische Felder
+                if 'facebook' in platforms:
+                    form_data.append(('facebook_title', content_facebook))
+
+                # X-spezifische Felder
+                if 'x' in platforms:
+                    form_data.append(('x_title', content_x))
+
+                # LinkedIn-spezifische Felder
+                if 'linkedin' in platforms:
+                    form_data.append(('linkedin_title', content_linkedin))
+                    form_data.append(('linkedin_description', content_linkedin))
+
+                # Threads-spezifische Felder
+                if 'threads' in platforms:
+                    form_data.append(('threads_title', content_threads))
 
                 # API-Aufruf mit multipart/form-data
                 response = None
