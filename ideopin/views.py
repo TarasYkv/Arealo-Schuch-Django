@@ -3165,11 +3165,13 @@ def api_apply_distribution(request, project_id):
                     }
 
                     logger.info(f"[Multi-Pin] Scheduling Pin {pin.position} für {scheduled_date_iso}")
+                    logger.info(f"[Multi-Pin] API-URL: {api_url}, Image-URL: {image_url}")
 
                     # API-Aufruf mit SSL-Fehlerbehandlung (20s Timeout für schnelle Fehlermeldungen)
                     response = None
                     try:
                         response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=True)
+                        logger.info(f"[Multi-Pin] Pin {pin.position} Response: {response.status_code if response else 'None'}")
                     except http_requests.exceptions.SSLError as ssl_err:
                         logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {pin.position}, versuche ohne Verifizierung: {ssl_err}")
                         # Fallback ohne SSL-Verifizierung
