@@ -548,6 +548,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Produktbild-Vorschau bei Dateiauswahl aktualisieren
+    if (productImageInput) {
+        productImageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Vorschau mit FileReader erstellen
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    productImagePreview.src = event.target.result;
+                    currentProductImage.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Keine Datei ausgewählt - Vorschau ausblenden
+                productImagePreview.src = '';
+                currentProductImage.style.display = 'none';
+            }
+        });
+    }
+
     // Bild-Quelle Toggle
     const aiGenerationSection = document.getElementById('aiGenerationSection');
     const uploadSection = document.getElementById('uploadSection');
