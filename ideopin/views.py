@@ -3304,8 +3304,9 @@ def api_post_single_pin(request, project_id, position):
                 'error': 'Upload-Post API-Key nicht konfiguriert'
             }, status=400)
 
-        # Bild-URL für Upload (URL-basiert statt base64 - viel effizienter)
-        image_url = f"https://www.workloom.de{image_file.url}"
+        # Bild als Base64
+        with open(image_file.path, 'rb') as f:
+            image_base64 = base64.b64encode(f.read()).decode('utf-8')
 
         # API-Request vorbereiten
         api_url = 'https://api.upload-post.com/api/upload_photos'
@@ -3314,11 +3315,11 @@ def api_post_single_pin(request, project_id, position):
             'Content-Type': 'application/json',
         }
 
-        # Session mit schneller Retry-Logik
+        # Session mit Retry-Logik
         session = requests.Session()
         retry_strategy = Retry(
-            total=1,
-            backoff_factor=1,
+            total=3,
+            backoff_factor=2,
             status_forcelist=[429, 500, 502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -3326,7 +3327,7 @@ def api_post_single_pin(request, project_id, position):
         session.mount("http://", adapter)
 
         post_data = {
-            'image': image_url,
+            'image': f"data:image/png;base64,{image_base64}",
             'platforms': platforms,
             'title': pin.pin_title or project.keywords[:100],
             'description': pin.seo_description or '',
