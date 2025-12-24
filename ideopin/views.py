@@ -3137,39 +3137,50 @@ def api_apply_distribution(request, project_id):
             # Via Upload-Post API schedulen
             if schedule_via_api and upload_post_api_key:
                 try:
-                    # Bild-URL für Upload vorbereiten (URL-basiert statt base64 - viel effizienter)
-                    image_url = None
-                    if pin.final_image:
-                        image_url = f"https://www.workloom.de{pin.final_image.url}"
-                    elif pin.generated_image:
-                        image_url = f"https://www.workloom.de{pin.generated_image.url}"
-
-                    if not image_url:
+                    # Bild für Upload vorbereiten
+                    image_file = pin.final_image or pin.generated_image
+                    if not image_file:
                         errors.append(f"Pin {pin.position}: Kein Bild vorhanden")
                         continue
 
                     # Scheduled_date im ISO-Format (YYYY-MM-DDTHH:MM:SS)
                     scheduled_date_iso = scheduled_datetime.strftime('%Y-%m-%dT%H:%M:%S')
 
-                    # API-Daten mit URL statt base64
-                    post_data = {
-                        'user': upload_post_user_id,
-                        'image': image_url,
-                        'platforms': platforms if isinstance(platforms, list) else [platforms],
-                        'title': pin.pin_title or project.keywords[:100],
-                        'description': pin.seo_description or '',
-                        'link': project.pin_url or '',
-                        'pinterest_board_id': board_id,
-                        'scheduled_date': scheduled_date_iso,
-                    }
+                    # Form-Daten (wie funktionierender Einzelpin-Upload)
+                    form_data = [
+                        ('user', upload_post_user_id),
+                        ('title', pin.pin_title or project.keywords[:100]),
+                        ('scheduled_date', scheduled_date_iso),
+                    ]
+
+                    # Plattformen hinzufügen
+                    for platform in (platforms if isinstance(platforms, list) else [platforms]):
+                        form_data.append(('platform[]', platform))
+
+                    # Pinterest-spezifische Felder
+                    if 'pinterest' in platforms:
+                        form_data.append(('pinterest_board_id', board_id))
+                        form_data.append(('pinterest_description', pin.seo_description or ''))
+                        if project.pin_url:
+                            form_data.append(('pinterest_link', project.pin_url))
 
                     logger.info(f"[Multi-Pin] Scheduling Pin {pin.position} für {scheduled_date_iso}")
-                    logger.info(f"[Multi-Pin] API-URL: {api_url}, Image-URL: {image_url}")
 
-                    # API-Aufruf (direkter Request, 20s Timeout)
+                    # Bild als Datei öffnen und senden
+                    import os
+                    image_path = image_file.path
+                    image_name = os.path.basename(image_path)
+
+                    # API-Aufruf mit multipart/form-data (wie funktionierender Code)
                     response = None
                     try:
-                        response = http_requests.post(api_url, headers=headers, json=post_data, timeout=20)
+                        with open(image_path, 'rb') as f:
+                            files = {'photos[]': (image_name, f, 'image/png')}
+                            # Ohne Content-Type Header für multipart
+                            multipart_headers = {
+                                'Authorization': headers['Authorization'],
+                            }
+                            response = http_requests.post(api_url, headers=multipart_headers, data=form_data, files=files, timeout=60)
                         logger.info(f"[Multi-Pin] Pin {pin.position} Response: {response.status_code} - {response.text[:100]}")
                     except http_requests.exceptions.Timeout:
                         raise Exception("Timeout beim Upload.")
