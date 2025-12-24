@@ -51,6 +51,28 @@
                         </div>
                     </div>
 
+                    <!-- Produktbild - Immer sichtbar (unabhängig von Single/Multi-Pin) -->
+                    <div class="mb-4" id="productImageSection">
+                        <label class="form-label fw-bold">Produktbild (optional)</label>
+                        <div class="input-group">
+                            {{ form.product_image }}
+                            <button type="button" class="btn btn-outline-secondary" id="productImageHistoryBtn" title="Frühere Produktbilder">
+                                <i class="bi bi-clock-history"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            Wird als Referenz für die Bildgenerierung verwendet.
+                        </div>
+                        <div id="currentProductImage" class="mt-2" {% if not project.product_image %}style="display: none;"{% endif %}>
+                            <img src="{% if project.product_image %}{{ project.product_image.url }}{% endif %}" alt="Produktbild"
+                                 id="productImagePreview" style="max-width: 100px; border-radius: 8px;">
+                            <span class="text-success ms-2"><i class="bi bi-check"></i> Ausgewählt</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeProductImageBtn" title="Produktbild entfernen">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Multi-Pin Panel (erscheint bei pin_count > 1) -->
                     <div id="multiPinPanel" class="mb-4" style="display: none;">
                         <div class="card border-primary">
@@ -82,26 +104,6 @@
 
                     <!-- Single-Pin Panel (Standard bei pin_count = 1) -->
                     <div id="singlePinPanel">
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">Produktbild (optional)</label>
-                        <div class="input-group">
-                            {{ form.product_image }}
-                            <button type="button" class="btn btn-outline-secondary" id="productImageHistoryBtn" title="Frühere Produktbilder">
-                                <i class="bi bi-clock-history"></i>
-                            </button>
-                        </div>
-                        <div class="form-text">
-                            Wird als Referenz für die Bildgenerierung verwendet.
-                        </div>
-                        <div id="currentProductImage" class="mt-2" {% if not project.product_image %}style="display: none;"{% endif %}>
-                            <img src="{% if project.product_image %}{{ project.product_image.url }}{% endif %}" alt="Produktbild"
-                                 id="productImagePreview" style="max-width: 100px; border-radius: 8px;">
-                            <span class="text-success ms-2"><i class="bi bi-check"></i> Ausgewählt</span>
-                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeProductImageBtn" title="Produktbild entfernen">
-                                <i class="bi bi-x"></i>
-                            </button>
-                        </div>
-                    </div>
 
                     <div class="mb-4">
                         <label class="form-label fw-bold">Hintergrund-Beschreibung</label>
@@ -289,13 +291,15 @@
                     <hr class="my-4">
 
                     <div class="d-flex justify-content-between">
-                        <a href="{% url 'ideopin:wizard_step2' project.id %}" class="btn btn-outline-secondary">
+                        <button type="button" class="btn btn-outline-secondary" id="backBtn">
                             <i class="bi bi-arrow-left"></i> Zurück
-                        </a>
+                        </button>
                         <button type="submit" class="btn btn-primary btn-lg">
                             Weiter <i class="bi bi-arrow-right"></i>
                         </button>
                     </div>
+                    <!-- Hidden input für Redirect-Ziel -->
+                    <input type="hidden" name="redirect_to" id="redirectTo" value="">
                 </form>
             </div>
         </div>
@@ -1512,6 +1516,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 multiPinGalleryGrid.appendChild(col);
             });
         }
+    }
+
+    // ========================================
+    // ZURÜCK-BUTTON MIT AUTO-SPEICHERN
+    // ========================================
+    const backBtn = document.getElementById('backBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', async function() {
+            const pinCount = parseInt(document.querySelector('input[name="pin_count"]:checked')?.value || 1);
+
+            // Bei Multi-Pin: Erst Daten speichern
+            if (pinCount > 1 && multiPinData.length > 0) {
+                backBtn.disabled = true;
+                backBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Speichere...';
+
+                try {
+                    // Aktuelle Werte aus den Inputs sammeln
+                    for (let i = 0; i < multiPinData.length; i++) {
+                        const pos = multiPinData[i].position;
+                        const textInput = document.getElementById(`pinText${pos}`);
+                        const bgInput = document.getElementById(`pinBackground${pos}`);
+
+                        if (textInput) multiPinData[i].overlay_text = textInput.value;
+                        if (bgInput) multiPinData[i].background_description = bgInput.value;
+                    }
+
+                    await savePinsToServer();
+                } catch (e) {
+                    console.error('Fehler beim Speichern:', e);
+                }
+            }
+
+            // Zur vorherigen Seite navigieren
+            window.location.href = '{% url "ideopin:wizard_step2" project.id %}';
+        });
     }
 
 });
