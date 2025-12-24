@@ -3082,14 +3082,21 @@ def api_apply_distribution(request, project_id):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         hour, minute = map(int, start_time.split(':'))
 
-        # Upload-Post API-Key für Scheduling
+        # Upload-Post API-Key und User-ID für Scheduling
         upload_post_api_key = None
+        upload_post_user_id = None
         if schedule_via_api:
             upload_post_api_key = getattr(request.user, 'upload_post_api_key', None)
+            upload_post_user_id = getattr(request.user, 'upload_post_user_id', None)
             if not upload_post_api_key:
                 return JsonResponse({
                     'success': False,
                     'error': 'Upload-Post API-Key nicht konfiguriert. Bitte in Einstellungen hinterlegen.'
+                }, status=400)
+            if not upload_post_user_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Upload-Post User-ID nicht konfiguriert. Bitte in Einstellungen hinterlegen.'
                 }, status=400)
 
             if not board_id:
@@ -3146,6 +3153,7 @@ def api_apply_distribution(request, project_id):
 
                     # API-Daten mit URL statt base64
                     post_data = {
+                        'user': upload_post_user_id,
                         'image': image_url,
                         'platforms': platforms if isinstance(platforms, list) else [platforms],
                         'title': pin.pin_title or project.keywords[:100],
