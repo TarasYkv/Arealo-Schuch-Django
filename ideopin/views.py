@@ -3109,11 +3109,11 @@ def api_apply_distribution(request, project_id):
             'Content-Type': 'application/json',
         }
 
-        # Session mit Retry-Logik erstellen (verhindert SSL-Fehler auf PythonAnywhere)
+        # Session mit schneller Retry-Logik (1 Retry, kurze Timeouts)
         session = http_requests.Session()
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=2,
+            total=1,  # Nur 1 Retry für schnellere Fehlermeldungen
+            backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -3166,16 +3166,16 @@ def api_apply_distribution(request, project_id):
 
                     logger.info(f"[Multi-Pin] Scheduling Pin {pin.position} für {scheduled_date_iso}")
 
-                    # API-Aufruf mit SSL-Fehlerbehandlung
+                    # API-Aufruf mit SSL-Fehlerbehandlung (20s Timeout für schnelle Fehlermeldungen)
                     response = None
                     try:
-                        response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=True)
+                        response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=True)
                     except http_requests.exceptions.SSLError as ssl_err:
                         logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {pin.position}, versuche ohne Verifizierung: {ssl_err}")
                         # Fallback ohne SSL-Verifizierung
                         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                         try:
-                            response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=False)
+                            response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=False)
                         except Exception as inner_e:
                             logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
                             raise inner_e
@@ -3338,15 +3338,15 @@ def api_post_single_pin(request, project_id, position):
         if scheduled_date:
             post_data['scheduled_date'] = scheduled_date
 
-        # API-Aufruf mit SSL-Fehlerbehandlung
+        # API-Aufruf mit SSL-Fehlerbehandlung (20s Timeout für schnelle Fehlermeldungen)
         response = None
         try:
-            response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=True)
+            response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=True)
         except requests.exceptions.SSLError as ssl_err:
             logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {position}, versuche ohne Verifizierung: {ssl_err}")
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             try:
-                response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=False)
+                response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=False)
             except Exception as inner_e:
                 logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
                 return JsonResponse({
@@ -3495,15 +3495,15 @@ def api_publish_batch(request, project_id):
                     'pinterest_board_id': board_id,
                 }
 
-                # API-Aufruf mit SSL-Fehlerbehandlung
+                # API-Aufruf mit SSL-Fehlerbehandlung (20s Timeout für schnelle Fehlermeldungen)
                 response = None
                 try:
-                    response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=True)
+                    response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=True)
                 except requests.exceptions.SSLError as ssl_err:
                     logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {position}, versuche ohne Verifizierung: {ssl_err}")
                     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                     try:
-                        response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=False)
+                        response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=False)
                     except Exception as inner_e:
                         logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
                         raise inner_e
