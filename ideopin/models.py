@@ -382,9 +382,9 @@ class PinProject(models.Model):
     # Multi-Pin Felder
     pin_count = models.PositiveIntegerField(
         default=1,
-        validators=[MinValueValidator(1), MaxValueValidator(7)],
+        validators=[MinValueValidator(1), MaxValueValidator(14)],
         verbose_name="Anzahl Pins",
-        help_text="Anzahl der zu erstellenden Pins (1-7)"
+        help_text="Anzahl der zu erstellenden Pins (1-14)"
     )
 
     DISTRIBUTION_MODE_CHOICES = [

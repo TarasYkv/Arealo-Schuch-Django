@@ -2357,7 +2357,7 @@ def api_generate_variations(request, project_id):
     try:
         data = json.loads(request.body)
         pin_count = int(data.get('pin_count', data.get('count', 1)))
-        pin_count = max(1, min(7, pin_count))  # Begrenzen auf 1-7
+        pin_count = max(1, min(14, pin_count))  # Begrenzen auf 1-14
 
         # Pin-Count aktualisieren
         project.pin_count = pin_count
