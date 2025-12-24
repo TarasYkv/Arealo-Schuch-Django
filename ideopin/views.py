@@ -3188,7 +3188,7 @@ def api_apply_distribution(request, project_id):
                         logger.error(f"[Multi-Pin] Verbindungsfehler: {conn_err}")
                         raise Exception("Verbindung zu Upload-Post.com fehlgeschlagen.")
 
-                    if response and response.status_code in [200, 201]:
+                    if response and response.status_code in [200, 201, 202]:
                         result = response.json()
                         pin.upload_post_platforms = ','.join(platforms) if isinstance(platforms, list) else platforms
                         pin.save()
@@ -3368,7 +3368,7 @@ def api_post_single_pin(request, project_id, position):
                 'error': 'Verbindung zu Upload-Post.com fehlgeschlagen'
             }, status=503)
 
-        if response and response.status_code == 200:
+        if response and response.status_code in [200, 201, 202]:
             result = response.json()
 
             # Pin als gepostet markieren
@@ -3513,7 +3513,7 @@ def api_publish_batch(request, project_id):
                     logger.error(f"[Batch-Publish] Verbindungsfehler: {conn_err}")
                     raise Exception("Verbindung zu Upload-Post.com fehlgeschlagen")
 
-                if response.status_code == 200:
+                if response.status_code in [200, 201, 202]:
                     # Verbindung vor DB-Schreiben erneut prüfen
                     connection.ensure_connection()
 
