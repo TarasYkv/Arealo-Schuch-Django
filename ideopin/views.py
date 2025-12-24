@@ -3441,30 +3441,24 @@ def api_publish_batch(request, project_id):
                 'error': 'Board-ID erforderlich'
             }, status=400)
 
-        # Upload-Post API-Key prüfen
+        # Upload-Post API-Key und User-ID prüfen
         upload_post_api_key = getattr(request.user, 'upload_post_api_key', None)
+        upload_post_user_id = getattr(request.user, 'upload_post_user_id', None)
         if not upload_post_api_key:
             return JsonResponse({
                 'success': False,
                 'error': 'Upload-Post API-Key nicht konfiguriert'
             }, status=400)
+        if not upload_post_user_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload-Post User-ID nicht konfiguriert'
+            }, status=400)
 
         api_url = 'https://api.upload-post.com/api/upload_photos'
         headers = {
             'Authorization': 'Apikey ' + upload_post_api_key.strip(),
-            'Content-Type': 'application/json',
         }
-
-        # Session mit Retry-Logik erstellen (verhindert SSL-Fehler auf PythonAnywhere)
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=1,
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
 
         results = []
         published_count = 0
@@ -3478,43 +3472,45 @@ def api_publish_batch(request, project_id):
             if not pin or pin.pinterest_posted:
                 continue
 
-            # Bild-URL für Upload (URL-basiert statt base64 - viel effizienter)
-            image_url = None
-            if pin.final_image:
-                image_url = f"https://www.workloom.de{pin.final_image.url}"
-            elif pin.generated_image:
-                image_url = f"https://www.workloom.de{pin.generated_image.url}"
-
-            if not image_url:
+            # Bild für Upload vorbereiten
+            image_file = pin.final_image or pin.generated_image
+            if not image_file:
                 errors.append(f"Pin {position}: Kein Bild vorhanden")
                 continue
 
             try:
-                post_data = {
-                    'image': image_url,
-                    'platforms': platforms,
-                    'title': pin.pin_title or project.keywords[:100],
-                    'description': pin.seo_description or '',
-                    'link': project.pin_url or '',
-                    'pinterest_board_id': board_id,
-                }
+                import os
+                image_path = image_file.path
+                image_name = os.path.basename(image_path)
 
-                # API-Aufruf mit SSL-Fehlerbehandlung (20s Timeout für schnelle Fehlermeldungen)
+                # Form-Daten (wie funktionierender Einzelpin-Upload)
+                form_data = [
+                    ('user', upload_post_user_id),
+                    ('title', pin.pin_title or project.keywords[:100]),
+                ]
+
+                # Plattformen hinzufügen
+                for platform in platforms:
+                    form_data.append(('platform[]', platform))
+
+                # Pinterest-spezifische Felder
+                if 'pinterest' in platforms:
+                    form_data.append(('pinterest_board_id', board_id))
+                    form_data.append(('pinterest_description', pin.seo_description or ''))
+                    if project.pin_url:
+                        form_data.append(('pinterest_link', project.pin_url))
+
+                # API-Aufruf mit multipart/form-data
                 response = None
                 try:
-                    response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=True)
-                except requests.exceptions.SSLError as ssl_err:
-                    logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {position}, versuche ohne Verifizierung: {ssl_err}")
-                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-                    try:
-                        response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=False)
-                    except Exception as inner_e:
-                        logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
-                        raise inner_e
+                    with open(image_path, 'rb') as f:
+                        files = {'photos[]': (image_name, f, 'image/png')}
+                        response = requests.post(api_url, headers=headers, data=form_data, files=files, timeout=60)
+                    logger.info(f"[Batch-Publish] Pin {position} Response: {response.status_code} - {response.text[:100]}")
                 except requests.exceptions.Timeout:
                     raise Exception("Timeout beim Upload")
                 except requests.exceptions.ConnectionError as conn_err:
-                    logger.error(f"[Multi-Pin] Verbindungsfehler: {conn_err}")
+                    logger.error(f"[Batch-Publish] Verbindungsfehler: {conn_err}")
                     raise Exception("Verbindung zu Upload-Post.com fehlgeschlagen")
 
                 if response.status_code == 200:
