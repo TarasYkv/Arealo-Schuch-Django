@@ -149,11 +149,75 @@
                         <small class="form-text text-muted">Werte in Minuten</small>
                     </div>
                 </div>
+                <!-- Plattform-Auswahl -->
                 <div class="mb-3">
+                    <label class="form-label fw-bold">Plattformen</label>
+                    <div class="row g-2">
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="pinterest" id="dist-platform-pinterest" checked>
+                                <label class="form-check-label" for="dist-platform-pinterest">
+                                    <i class="bi bi-pinterest me-1" style="color: #E60023;"></i> Pinterest
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="instagram" id="dist-platform-instagram">
+                                <label class="form-check-label" for="dist-platform-instagram">
+                                    <i class="bi bi-instagram me-1" style="color: #E1306C;"></i> Instagram
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="facebook" id="dist-platform-facebook">
+                                <label class="form-check-label" for="dist-platform-facebook">
+                                    <i class="bi bi-facebook text-primary me-1"></i> Facebook
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="threads" id="dist-platform-threads">
+                                <label class="form-check-label" for="dist-platform-threads">
+                                    <i class="bi bi-threads me-1"></i> Threads
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="bluesky" id="dist-platform-bluesky">
+                                <label class="form-check-label" for="dist-platform-bluesky">
+                                    <i class="bi bi-cloud me-1" style="color: #0085FF;"></i> Bluesky
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="x" id="dist-platform-x">
+                                <label class="form-check-label" for="dist-platform-x">
+                                    <i class="bi bi-twitter-x me-1"></i> X (Twitter)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="linkedin" id="dist-platform-linkedin">
+                                <label class="form-check-label" for="dist-platform-linkedin">
+                                    <i class="bi bi-linkedin me-1" style="color: #0A66C2;"></i> LinkedIn
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="distBoardSection">
                     <label class="form-label">Pinterest Board</label>
                     <select class="form-select" id="distBoard">
                         <option value="">Board laden...</option>
                     </select>
+                    <small class="text-muted">Nur erforderlich wenn Pinterest ausgewählt</small>
                 </div>
                 <hr>
                 <h6><i class="bi bi-list-check"></i> Vorschau der Verteilung</h6>
@@ -1571,8 +1635,12 @@ function loadMultiPinBoards() {
 }
 
 function initDateFields() {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    // Aktuelle Uhrzeit im HH:MM Format
+    const currentTime = now.toTimeString().slice(0, 5);
 
+    // Datum-Felder auf heute setzen
     ['schedulePinDate', 'distStartDate'].forEach(id => {
         const input = document.getElementById(id);
         if (input) {
@@ -1580,6 +1648,23 @@ function initDateFields() {
             input.value = today;
         }
     });
+
+    // Zeit-Felder auf aktuelle Uhrzeit setzen
+    ['schedulePinTime', 'distStartTime'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.value = currentTime;
+        }
+    });
+
+    // Pinterest-Checkbox Toggle für Board-Feld
+    const pinterestCheckbox = document.getElementById('dist-platform-pinterest');
+    const boardSection = document.getElementById('distBoardSection');
+    if (pinterestCheckbox && boardSection) {
+        pinterestCheckbox.addEventListener('change', function() {
+            boardSection.style.display = this.checked ? 'block' : 'none';
+        });
+    }
 }
 
 // Schedule Modal öffnen
@@ -1668,12 +1753,28 @@ async function applyDistribution() {
     const intervalMinutes = parseInt(document.getElementById('distInterval').value);
     const boardId = document.getElementById('distBoard').value;
 
+    // Ausgewählte Plattformen sammeln
+    const platforms = [];
+    if (document.getElementById('dist-platform-pinterest')?.checked) platforms.push('pinterest');
+    if (document.getElementById('dist-platform-instagram')?.checked) platforms.push('instagram');
+    if (document.getElementById('dist-platform-facebook')?.checked) platforms.push('facebook');
+    if (document.getElementById('dist-platform-threads')?.checked) platforms.push('threads');
+    if (document.getElementById('dist-platform-bluesky')?.checked) platforms.push('bluesky');
+    if (document.getElementById('dist-platform-x')?.checked) platforms.push('x');
+    if (document.getElementById('dist-platform-linkedin')?.checked) platforms.push('linkedin');
+
     if (!startDate) {
         alert('Bitte wähle ein Startdatum aus.');
         return;
     }
 
-    if (!boardId) {
+    if (platforms.length === 0) {
+        alert('Bitte wähle mindestens eine Plattform aus.');
+        return;
+    }
+
+    // Board nur bei Pinterest erforderlich
+    if (platforms.includes('pinterest') && !boardId) {
         alert('Bitte wähle ein Pinterest Board aus.');
         return;
     }
@@ -1693,7 +1794,7 @@ async function applyDistribution() {
                 start_date: `${startDate}T${startTime}:00`,
                 interval_minutes: intervalMinutes,
                 board_id: boardId,
-                platforms: ['pinterest'],
+                platforms: platforms,
                 schedule_via_api: true
             })
         });
