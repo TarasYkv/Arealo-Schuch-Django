@@ -3040,6 +3040,9 @@ def api_apply_distribution(request, project_id):
     """API: Wendet automatische Zeitverteilung auf alle Pins an und plant sie via Upload-Post API"""
     import base64
     import requests as http_requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    import urllib3
     from datetime import datetime, timedelta
     from django.db import connection
 
@@ -3106,6 +3109,17 @@ def api_apply_distribution(request, project_id):
             'Content-Type': 'application/json',
         }
 
+        # Session mit Retry-Logik erstellen (verhindert SSL-Fehler auf PythonAnywhere)
+        session = http_requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=2,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
         # Start-Datetime erstellen
         start_datetime = datetime.combine(
             start_date,
@@ -3152,10 +3166,26 @@ def api_apply_distribution(request, project_id):
 
                     logger.info(f"[Multi-Pin] Scheduling Pin {pin.position} für {scheduled_date_iso}")
 
-                    # API-Aufruf
-                    response = http_requests.post(api_url, headers=headers, json=post_data, timeout=60)
+                    # API-Aufruf mit SSL-Fehlerbehandlung
+                    response = None
+                    try:
+                        response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=True)
+                    except http_requests.exceptions.SSLError as ssl_err:
+                        logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {pin.position}, versuche ohne Verifizierung: {ssl_err}")
+                        # Fallback ohne SSL-Verifizierung
+                        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                        try:
+                            response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=False)
+                        except Exception as inner_e:
+                            logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
+                            raise inner_e
+                    except http_requests.exceptions.Timeout:
+                        raise Exception("Timeout beim Upload. Das Bild ist möglicherweise zu groß.")
+                    except http_requests.exceptions.ConnectionError as conn_err:
+                        logger.error(f"[Multi-Pin] Verbindungsfehler: {conn_err}")
+                        raise Exception("Verbindung zu Upload-Post.com fehlgeschlagen.")
 
-                    if response.status_code in [200, 201]:
+                    if response and response.status_code in [200, 201]:
                         result = response.json()
                         pin.upload_post_platforms = ','.join(platforms) if isinstance(platforms, list) else platforms
                         pin.save()
@@ -3167,11 +3197,21 @@ def api_apply_distribution(request, project_id):
                             'api_response': result.get('message', 'Geplant'),
                         })
                         logger.info(f"[Multi-Pin] Pin {pin.position} erfolgreich geplant für {scheduled_date_iso}")
-                    else:
+                    elif response:
                         error_msg = f"API-Fehler: {response.status_code} - {response.text[:200]}"
                         errors.append(f"Pin {pin.position}: {error_msg}")
                         logger.error(f"[Multi-Pin] Pin {pin.position} Scheduling fehlgeschlagen: {error_msg}")
                         # Trotzdem lokal speichern
+                        pin.save()
+                        scheduled_pins.append({
+                            'position': pin.position,
+                            'scheduled_at': str(pin.scheduled_at),
+                            'api_scheduled': False,
+                            'error': error_msg,
+                        })
+                    else:
+                        error_msg = "Keine Antwort vom API-Server"
+                        errors.append(f"Pin {pin.position}: {error_msg}")
                         pin.save()
                         scheduled_pins.append({
                             'position': pin.position,
@@ -3229,6 +3269,9 @@ def api_post_single_pin(request, project_id, position):
     """API: Veröffentlicht einen einzelnen Pin auf Pinterest"""
     import base64
     import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    import urllib3
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
     pin = get_object_or_404(Pin, project=project, position=position)
@@ -3272,6 +3315,17 @@ def api_post_single_pin(request, project_id, position):
             'Content-Type': 'application/json',
         }
 
+        # Session mit Retry-Logik erstellen (verhindert SSL-Fehler auf PythonAnywhere)
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=2,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
         post_data = {
             'image': f"data:image/png;base64,{image_base64}",
             'platforms': platforms,
@@ -3284,9 +3338,34 @@ def api_post_single_pin(request, project_id, position):
         if scheduled_date:
             post_data['scheduled_date'] = scheduled_date
 
-        response = requests.post(api_url, headers=headers, json=post_data, timeout=60)
+        # API-Aufruf mit SSL-Fehlerbehandlung
+        response = None
+        try:
+            response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=True)
+        except requests.exceptions.SSLError as ssl_err:
+            logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {position}, versuche ohne Verifizierung: {ssl_err}")
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            try:
+                response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=False)
+            except Exception as inner_e:
+                logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'SSL-Verbindungsfehler zu Upload-Post.com'
+                }, status=503)
+        except requests.exceptions.Timeout:
+            return JsonResponse({
+                'success': False,
+                'error': 'Timeout beim Upload'
+            }, status=504)
+        except requests.exceptions.ConnectionError as conn_err:
+            logger.error(f"[Multi-Pin] Verbindungsfehler: {conn_err}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Verbindung zu Upload-Post.com fehlgeschlagen'
+            }, status=503)
 
-        if response.status_code == 200:
+        if response and response.status_code == 200:
             result = response.json()
 
             # Pin als gepostet markieren
@@ -3301,7 +3380,7 @@ def api_post_single_pin(request, project_id, position):
                 'message': 'Pin erfolgreich veröffentlicht!' if not scheduled_date else 'Pin erfolgreich geplant!',
                 'position': position,
             })
-        else:
+        elif response:
             error_msg = response.text[:200]
             try:
                 error_data = response.json()
@@ -3313,6 +3392,11 @@ def api_post_single_pin(request, project_id, position):
                 'success': False,
                 'error': error_msg
             }, status=response.status_code)
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Antwort vom API-Server'
+            }, status=503)
 
     except Exception as e:
         logger.error(f"[Multi-Pin] Pin-Posting fehlgeschlagen: {e}")
@@ -3328,6 +3412,9 @@ def api_publish_batch(request, project_id):
     """API: Veröffentlicht mehrere Pins auf einmal via Upload-Post API"""
     import base64
     import requests
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+    import urllib3
     from django.db import connection
 
     project = get_object_or_404(PinProject, id=project_id, user=request.user)
@@ -3365,6 +3452,17 @@ def api_publish_batch(request, project_id):
             'Content-Type': 'application/json',
         }
 
+        # Session mit Retry-Logik erstellen (verhindert SSL-Fehler auf PythonAnywhere)
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=2,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
         results = []
         published_count = 0
         errors = []
@@ -3397,7 +3495,23 @@ def api_publish_batch(request, project_id):
                     'pinterest_board_id': board_id,
                 }
 
-                response = requests.post(api_url, headers=headers, json=post_data, timeout=60)
+                # API-Aufruf mit SSL-Fehlerbehandlung
+                response = None
+                try:
+                    response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=True)
+                except requests.exceptions.SSLError as ssl_err:
+                    logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {position}, versuche ohne Verifizierung: {ssl_err}")
+                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                    try:
+                        response = session.post(api_url, headers=headers, json=post_data, timeout=90, verify=False)
+                    except Exception as inner_e:
+                        logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
+                        raise inner_e
+                except requests.exceptions.Timeout:
+                    raise Exception("Timeout beim Upload")
+                except requests.exceptions.ConnectionError as conn_err:
+                    logger.error(f"[Multi-Pin] Verbindungsfehler: {conn_err}")
+                    raise Exception("Verbindung zu Upload-Post.com fehlgeschlagen")
 
                 if response.status_code == 200:
                     # Verbindung vor DB-Schreiben erneut prüfen
