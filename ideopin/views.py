@@ -3109,16 +3109,7 @@ def api_apply_distribution(request, project_id):
             'Content-Type': 'application/json',
         }
 
-        # Session mit schneller Retry-Logik (1 Retry, kurze Timeouts)
-        session = http_requests.Session()
-        retry_strategy = Retry(
-            total=1,  # Nur 1 Retry für schnellere Fehlermeldungen
-            backoff_factor=1,
-            status_forcelist=[429, 500, 502, 503, 504],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("https://", adapter)
-        session.mount("http://", adapter)
+        # Direkter Request ohne Session (Session verursacht None-Response)
 
         # Start-Datetime erstellen
         start_datetime = datetime.combine(
@@ -3167,22 +3158,13 @@ def api_apply_distribution(request, project_id):
                     logger.info(f"[Multi-Pin] Scheduling Pin {pin.position} für {scheduled_date_iso}")
                     logger.info(f"[Multi-Pin] API-URL: {api_url}, Image-URL: {image_url}")
 
-                    # API-Aufruf mit SSL-Fehlerbehandlung (20s Timeout für schnelle Fehlermeldungen)
+                    # API-Aufruf (direkter Request, 20s Timeout)
                     response = None
                     try:
-                        response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=True)
-                        logger.info(f"[Multi-Pin] Pin {pin.position} Response: {response.status_code if response else 'None'}")
-                    except http_requests.exceptions.SSLError as ssl_err:
-                        logger.warning(f"[Multi-Pin] SSL-Fehler bei Pin {pin.position}, versuche ohne Verifizierung: {ssl_err}")
-                        # Fallback ohne SSL-Verifizierung
-                        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-                        try:
-                            response = session.post(api_url, headers=headers, json=post_data, timeout=20, verify=False)
-                        except Exception as inner_e:
-                            logger.error(f"[Multi-Pin] Auch ohne SSL-Verifizierung fehlgeschlagen: {inner_e}")
-                            raise inner_e
+                        response = http_requests.post(api_url, headers=headers, json=post_data, timeout=20)
+                        logger.info(f"[Multi-Pin] Pin {pin.position} Response: {response.status_code} - {response.text[:100]}")
                     except http_requests.exceptions.Timeout:
-                        raise Exception("Timeout beim Upload. Das Bild ist möglicherweise zu groß.")
+                        raise Exception("Timeout beim Upload.")
                     except http_requests.exceptions.ConnectionError as conn_err:
                         logger.error(f"[Multi-Pin] Verbindungsfehler: {conn_err}")
                         raise Exception("Verbindung zu Upload-Post.com fehlgeschlagen.")
