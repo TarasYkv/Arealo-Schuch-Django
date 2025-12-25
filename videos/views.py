@@ -1125,25 +1125,21 @@ def api_check_upload_status(request, video_id):
         if response.status_code == 200:
             result = response.json()
 
-            # URLs extrahieren
+            # URLs extrahieren - results ist eine Liste von Objekten
             posted_urls = {}
-            if 'results' in result:
-                for platform, data in result.get('results', {}).items():
-                    if isinstance(data, dict) and data.get('success') and data.get('url'):
-                        posted_urls[platform] = data['url']
+            results_list = result.get('results', [])
+            if isinstance(results_list, list):
+                for item in results_list:
+                    if isinstance(item, dict) and item.get('success') and item.get('post_url'):
+                        platform = item.get('platform', 'unknown')
+                        post_url = item.get('post_url')
+                        posted_urls[platform] = post_url
 
-                        # YouTube Shorts: zusätzlich den normalen watch-Link
+                        # YouTube: zusätzlich Embed-Link speichern
                         if platform.lower() == 'youtube':
-                            youtube_url = data.get('url', '')
-                            video_id_yt = data.get('video_id', '')
-                            if '/shorts/' in youtube_url:
-                                if video_id_yt:
-                                    posted_urls['youtube_watch'] = f'https://www.youtube.com/watch?v={video_id_yt}'
-                                else:
-                                    import re
-                                    match = re.search(r'/shorts/([a-zA-Z0-9_-]+)', youtube_url)
-                                    if match:
-                                        posted_urls['youtube_watch'] = f'https://www.youtube.com/watch?v={match.group(1)}'
+                            video_id_yt = item.get('platform_post_id', '')
+                            if video_id_yt:
+                                posted_urls['youtube_embed'] = f'https://www.youtube.com/embed/{video_id_yt}'
 
             # URLs im Video speichern
             if posted_urls:
