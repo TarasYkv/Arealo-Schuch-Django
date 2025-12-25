@@ -156,16 +156,15 @@ class VideoService:
         if not content:
             return None
 
-        # Bereinige Content
         content = content.strip()
 
-        # 1. Direktes Parsen versuchen
+        # Direktes Parsen
         try:
             return json.loads(content)
         except json.JSONDecodeError:
             pass
 
-        # 2. Markdown-Codeblock extrahieren
+        # Markdown-Codeblock extrahieren
         json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
         if json_match:
             try:
@@ -173,33 +172,6 @@ class VideoService:
             except json.JSONDecodeError:
                 pass
 
-        # 3. JSON-Objekt mit geschweiften Klammern finden (greedy)
-        json_match = re.search(r'\{[\s\S]*\}', content)
-        if json_match:
-            json_str = json_match.group(0)
-            try:
-                return json.loads(json_str)
-            except json.JSONDecodeError:
-                # 4. Versuche Zeilenumbrüche und Probleme zu bereinigen
-                try:
-                    # Entferne problematische Zeichen
-                    cleaned = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_str)
-                    # Ersetze einfache Anführungszeichen
-                    cleaned = cleaned.replace("'", '"')
-                    return json.loads(cleaned)
-                except json.JSONDecodeError:
-                    pass
-
-        # 5. Letzter Versuch: Finde das erste { und letzte }
-        first_brace = content.find('{')
-        last_brace = content.rfind('}')
-        if first_brace != -1 and last_brace > first_brace:
-            try:
-                return json.loads(content[first_brace:last_brace + 1])
-            except json.JSONDecodeError:
-                pass
-
-        logger.warning(f"JSON parsing failed for content: {content[:200]}...")
         return None
 
     # Blog-basierte Skript-Art Prompts
@@ -690,9 +662,11 @@ Antworte NUR mit dem JSON-Objekt."""
                 'duration': result.get('duration', 0)
             }
 
+        # Zeige die ersten 500 Zeichen der KI-Antwort im Fehler
+        raw_preview = result['content'][:500] if result.get('content') else 'Keine Antwort'
         return {
             'success': False,
-            'error': 'Konnte Diagramm-Analyse nicht parsen',
+            'error': f'JSON-Parsing fehlgeschlagen. KI-Antwort:\n\n{raw_preview}',
             'raw_content': result['content']
         }
 
