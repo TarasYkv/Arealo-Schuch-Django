@@ -982,6 +982,13 @@ def api_post_to_social(request, video_id):
             result = response.json()
             logger.info(f"[Video Social] Erfolgreich gepostet: {result}")
 
+            # Posted URLs aus Response extrahieren
+            posted_urls = {}
+            if 'results' in result:
+                for platform, data in result.get('results', {}).items():
+                    if isinstance(data, dict) and data.get('success') and data.get('url'):
+                        posted_urls[platform] = data['url']
+
             # Video-Model aktualisieren
             video.social_platforms_posted = ','.join(platforms)
             video.social_posted_at = timezone.now() if not scheduled_date else None
@@ -996,6 +1003,7 @@ def api_post_to_social(request, video_id):
                 'success': True,
                 'message': f'Video erfolgreich auf {", ".join(platforms)} gepostet!' if not scheduled_date else f'Video für {scheduled_date} geplant!',
                 'platforms': platforms,
+                'posted_urls': posted_urls,
                 'result': result
             })
         elif response:

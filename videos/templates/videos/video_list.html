@@ -994,13 +994,46 @@ async function postToSocial() {
         if (data.success) {
             if (statusDiv) {
                 statusDiv.className = 'alert alert-success';
-                statusDiv.textContent = data.message;
+
+                // Links anzeigen wenn vorhanden
+                if (data.posted_urls && Object.keys(data.posted_urls).length > 0) {
+                    let linksHtml = `<div class="mb-2"><strong>${data.message}</strong></div>`;
+                    linksHtml += '<div class="posted-links"><small><strong>Video-Links:</strong></small>';
+
+                    const platformIcons = {
+                        'youtube': '<i class="fab fa-youtube text-danger"></i>',
+                        'instagram': '<i class="fab fa-instagram" style="color: #E4405F;"></i>',
+                        'facebook': '<i class="fab fa-facebook" style="color: #1877F2;"></i>',
+                        'tiktok': '<i class="fab fa-tiktok"></i>',
+                        'linkedin': '<i class="fab fa-linkedin" style="color: #0A66C2;"></i>'
+                    };
+
+                    for (const [platform, url] of Object.entries(data.posted_urls)) {
+                        const icon = platformIcons[platform.toLowerCase()] || '<i class="fas fa-link"></i>';
+                        linksHtml += `
+                            <div class="d-flex align-items-center mt-1">
+                                ${icon}
+                                <code class="ms-2 me-2 flex-grow-1 text-truncate" style="max-width: 300px;" title="${url}">${url}</code>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="copyLink('${url}')" title="Link kopieren">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <a href="${url}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1" title="Öffnen">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                            </div>
+                        `;
+                    }
+                    linksHtml += '</div>';
+                    statusDiv.innerHTML = linksHtml;
+                } else {
+                    statusDiv.textContent = data.message;
+                }
                 statusDiv.classList.remove('d-none');
             }
 
             showToast(data.message, 'success');
 
-            // Nach 2 Sekunden Modal schließen und Seite neu laden
+            // Nach 5 Sekunden Modal schließen (mehr Zeit zum Kopieren der Links)
             setTimeout(() => {
                 const modal = document.getElementById('socialModal');
                 if (modal) {
@@ -1008,7 +1041,7 @@ async function postToSocial() {
                     if (modalInstance) modalInstance.hide();
                 }
                 location.reload();
-            }, 2000);
+            }, 5000);
         } else {
             const errorMsg = data.error || 'Fehler beim Posten';
             if (statusDiv) {
