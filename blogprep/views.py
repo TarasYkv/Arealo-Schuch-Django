@@ -102,21 +102,34 @@ def log_generation(project, step, provider, model, prompt, response, success=Tru
 @login_required
 def project_list(request):
     """Zeigt alle BlogPrep-Projekte des Users"""
-    projects = BlogPrepProject.objects.filter(user=request.user).order_by('-created_at')
+    all_projects = BlogPrepProject.objects.filter(user=request.user).order_by('-created_at')
     settings = get_user_settings(request.user)
 
-    # Statistiken
+    # Statistiken (immer auf Basis aller Projekte)
     stats = {
-        'total': projects.count(),
-        'in_progress': projects.exclude(status__in=['completed', 'published']).count(),
-        'completed': projects.filter(status='completed').count(),
-        'published': projects.filter(status='published').count()
+        'total': all_projects.count(),
+        'in_progress': all_projects.exclude(status__in=['completed', 'published']).count(),
+        'completed': all_projects.filter(status='completed').count(),
+        'published': all_projects.filter(status='published').count()
     }
+
+    # Filter anwenden
+    filter_type = request.GET.get('filter', 'all')
+    if filter_type == 'exported':
+        # Exportierte Projekte (completed oder published)
+        projects = all_projects.filter(status__in=['completed', 'published'])
+    elif filter_type == 'not_exported':
+        # Noch nicht exportierte Projekte
+        projects = all_projects.exclude(status__in=['completed', 'published'])
+    else:
+        # Alle Projekte
+        projects = all_projects
 
     context = {
         'projects': projects,
         'settings': settings,
-        'stats': stats
+        'stats': stats,
+        'current_filter': filter_type
     }
     return render(request, 'blogprep/project_list.html', context)
 
