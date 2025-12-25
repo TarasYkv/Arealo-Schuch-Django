@@ -1009,11 +1009,17 @@ async function postToSocial() {
                     };
 
                     for (const [platform, url] of Object.entries(data.posted_urls)) {
+                        // youtube_watch separat behandeln
+                        if (platform === 'youtube_watch') continue;
+
                         const icon = platformIcons[platform.toLowerCase()] || '<i class="fas fa-link"></i>';
+                        const isYouTubeShort = platform === 'youtube' && url.includes('/shorts/');
+                        const badge = isYouTubeShort ? '<span class="ms-1 badge bg-secondary">Short</span>' : '';
+
                         linksHtml += `
-                            <div class="d-flex align-items-center mt-1">
-                                ${icon}
-                                <code class="ms-2 me-2 flex-grow-1 text-truncate" style="max-width: 300px;" title="${url}">${url}</code>
+                            <div class="d-flex align-items-center mt-2">
+                                ${icon}${badge}
+                                <code class="ms-2 me-2 flex-grow-1 text-truncate" style="max-width: 260px;" title="${url}">${url}</code>
                                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="copyLink('${url}')" title="Link kopieren">
                                     <i class="fas fa-copy"></i>
                                 </button>
@@ -1023,6 +1029,24 @@ async function postToSocial() {
                             </div>
                         `;
                     }
+
+                    // YouTube Embed-Link (nur bei Shorts)
+                    if (data.posted_urls.youtube_watch) {
+                        linksHtml += `
+                            <div class="d-flex align-items-center mt-2">
+                                <i class="fab fa-youtube text-danger"></i>
+                                <span class="ms-1 badge bg-primary">Embed</span>
+                                <code class="ms-2 me-2 flex-grow-1 text-truncate" style="max-width: 260px;" title="${data.posted_urls.youtube_watch}">${data.posted_urls.youtube_watch}</code>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="copyLink('${data.posted_urls.youtube_watch}')" title="Link kopieren">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <a href="${data.posted_urls.youtube_watch}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1" title="Öffnen">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                            </div>
+                        `;
+                    }
+
                     linksHtml += '</div>';
                     statusDiv.innerHTML = linksHtml;
                 } else {

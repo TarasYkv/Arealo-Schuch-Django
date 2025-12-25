@@ -989,6 +989,22 @@ def api_post_to_social(request, video_id):
                     if isinstance(data, dict) and data.get('success') and data.get('url'):
                         posted_urls[platform] = data['url']
 
+                        # YouTube Shorts: zusätzlich den normalen watch-Link für Embed
+                        if platform.lower() == 'youtube':
+                            youtube_url = data.get('url', '')
+                            video_id = data.get('video_id', '')
+
+                            if '/shorts/' in youtube_url:
+                                if video_id:
+                                    posted_urls['youtube_watch'] = f'https://www.youtube.com/watch?v={video_id}'
+                                else:
+                                    # Video-ID aus Shorts-URL extrahieren
+                                    import re
+                                    match = re.search(r'/shorts/([a-zA-Z0-9_-]+)', youtube_url)
+                                    if match:
+                                        extracted_id = match.group(1)
+                                        posted_urls['youtube_watch'] = f'https://www.youtube.com/watch?v={extracted_id}'
+
             # Video-Model aktualisieren
             video.social_platforms_posted = ','.join(platforms)
             video.social_posted_at = timezone.now() if not scheduled_date else None
