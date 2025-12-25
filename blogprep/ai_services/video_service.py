@@ -622,7 +622,7 @@ REGELN:
 - Bei Checklisten/Features → checklist oder icons_grid
 - values müssen zur Aussage passen (nicht immer 30,25,20,15,10!)
 
-Antworte NUR mit dem JSON-Objekt."""
+WICHTIG: Antworte NUR mit validem JSON. KEINE Kommentare (// oder /* */) im JSON!"""
 
         result = self._call_llm(system_prompt, user_prompt, max_tokens=1500)
 
