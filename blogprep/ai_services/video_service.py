@@ -153,21 +153,53 @@ class VideoService:
 
     def _parse_json_response(self, content: str) -> Optional[Dict]:
         """Versucht JSON aus der LLM-Antwort zu extrahieren"""
+        if not content:
+            return None
+
+        # Bereinige Content
+        content = content.strip()
+
+        # 1. Direktes Parsen versuchen
         try:
             return json.loads(content)
         except json.JSONDecodeError:
-            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
-            if json_match:
+            pass
+
+        # 2. Markdown-Codeblock extrahieren
+        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1).strip())
+            except json.JSONDecodeError:
+                pass
+
+        # 3. JSON-Objekt mit geschweiften Klammern finden (greedy)
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        if json_match:
+            json_str = json_match.group(0)
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                # 4. Versuche Zeilenumbrüche und Probleme zu bereinigen
                 try:
-                    return json.loads(json_match.group(1))
+                    # Entferne problematische Zeichen
+                    cleaned = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_str)
+                    # Ersetze einfache Anführungszeichen
+                    cleaned = cleaned.replace("'", '"')
+                    return json.loads(cleaned)
                 except json.JSONDecodeError:
                     pass
-            json_match = re.search(r'\{[\s\S]*\}', content)
-            if json_match:
-                try:
-                    return json.loads(json_match.group(0))
-                except json.JSONDecodeError:
-                    pass
+
+        # 5. Letzter Versuch: Finde das erste { und letzte }
+        first_brace = content.find('{')
+        last_brace = content.rfind('}')
+        if first_brace != -1 and last_brace > first_brace:
+            try:
+                return json.loads(content[first_brace:last_brace + 1])
+            except json.JSONDecodeError:
+                pass
+
+        logger.warning(f"JSON parsing failed for content: {content[:200]}...")
         return None
 
     # Blog-basierte Skript-Art Prompts
