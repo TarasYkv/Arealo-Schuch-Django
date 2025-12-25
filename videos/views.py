@@ -10,6 +10,7 @@ from .forms import VideoUploadForm
 from .utils import generate_video_thumbnail, get_video_duration
 # Tasks removed - direct video hosting without conversion
 import os
+import logging
 import mimetypes
 from wsgiref.util import FileWrapper
 
