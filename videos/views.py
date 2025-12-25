@@ -1135,12 +1135,6 @@ def api_check_upload_status(request, video_id):
                         post_url = item.get('post_url')
                         posted_urls[platform] = post_url
 
-                        # YouTube: zusätzlich Embed-Link speichern
-                        if platform.lower() == 'youtube':
-                            video_id_yt = item.get('platform_post_id', '')
-                            if video_id_yt:
-                                posted_urls['youtube_embed'] = f'https://www.youtube.com/embed/{video_id_yt}'
-
             # URLs im Video speichern
             if posted_urls:
                 video.social_posted_urls = posted_urls
