@@ -12,6 +12,7 @@ from .utils import generate_video_thumbnail, get_video_duration
 import os
 import logging
 import mimetypes
+import requests
 from wsgiref.util import FileWrapper
 
 
