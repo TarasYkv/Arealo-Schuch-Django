@@ -234,6 +234,13 @@
                                             </a>
                                             {% endfor %}
                                         </div>
+                                        {% elif video.social_request_id %}
+                                        <div class="mt-1">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="checkUploadStatus({{ video.id }})" id="check-status-btn-{{ video.id }}">
+                                                <i class="fas fa-sync-alt"></i> Status prüfen
+                                            </button>
+                                            <span id="check-status-result-{{ video.id }}" class="ms-2"></span>
+                                        </div>
                                         {% endif %}
                                     </div>
                                     {% endif %}
@@ -758,6 +765,53 @@ function showToast(message, type = 'info') {
     document.body.appendChild(toast);
 
     setTimeout(() => toast.remove(), 3000);
+}
+
+async function checkUploadStatus(videoId) {
+    const btn = document.getElementById(`check-status-btn-${videoId}`);
+    const resultSpan = document.getElementById(`check-status-result-${videoId}`);
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Prüfe...';
+    }
+
+    try {
+        const response = await fetch(`/videos/api/social/check-upload/${videoId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.posted_urls && Object.keys(data.posted_urls).length > 0) {
+            showToast('Links erfolgreich abgerufen!', 'success');
+            // Seite neu laden um Links anzuzeigen
+            location.reload();
+        } else if (data.success) {
+            if (resultSpan) resultSpan.innerHTML = `<small class="text-muted">${data.status || 'Noch in Bearbeitung...'}</small>`;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Nochmal prüfen';
+            }
+        } else {
+            if (resultSpan) resultSpan.innerHTML = `<small class="text-danger">${data.error || 'Fehler'}</small>`;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Nochmal prüfen';
+            }
+        }
+    } catch (error) {
+        console.error('Status check error:', error);
+        if (resultSpan) resultSpan.innerHTML = '<small class="text-danger">Verbindungsfehler</small>';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync-alt"></i> Nochmal prüfen';
+        }
+    }
 }
 
 function openSocialModal(videoId, title, description) {

@@ -1005,6 +1005,10 @@ def api_post_to_social(request, video_id):
                                         extracted_id = match.group(1)
                                         posted_urls['youtube_watch'] = f'https://www.youtube.com/watch?v={extracted_id}'
 
+            # Request-ID speichern falls Background-Upload
+            request_id = result.get('request_id', '')
+            is_background = 'background' in result.get('message', '').lower()
+
             # Video-Model aktualisieren
             video.social_platforms_posted = ','.join(platforms)
             video.social_posted_at = timezone.now() if not scheduled_date else None
@@ -1014,13 +1018,24 @@ def api_post_to_social(request, video_id):
             video.social_post_hashtags = hashtags
             video.social_post_error = ''
             video.social_posted_urls = posted_urls  # URLs persistent speichern
+            video.social_request_id = request_id  # Request-ID für Status-Check
             video.save()
+
+            # Nachricht anpassen wenn Background-Upload
+            if is_background and not posted_urls:
+                message = f'Video wird im Hintergrund auf {", ".join(platforms)} hochgeladen. Klicke "Status prüfen" um die Links abzurufen.'
+            elif scheduled_date:
+                message = f'Video für {scheduled_date} geplant!'
+            else:
+                message = f'Video erfolgreich auf {", ".join(platforms)} gepostet!'
 
             return JsonResponse({
                 'success': True,
-                'message': f'Video erfolgreich auf {", ".join(platforms)} gepostet!' if not scheduled_date else f'Video für {scheduled_date} geplant!',
+                'message': message,
                 'platforms': platforms,
                 'posted_urls': posted_urls,
+                'request_id': request_id,
+                'is_background': is_background,
                 'result': result
             })
         elif response:
@@ -1070,3 +1085,86 @@ def api_social_status(request, video_id):
         'hashtags': video.social_post_hashtags,
         'error': video.social_post_error
     })
+
+
+@login_required
+@require_POST
+def api_check_upload_status(request, video_id):
+    """API: Prüft den Upload-Status bei Background-Uploads und holt URLs"""
+    logger = logging.getLogger(__name__)
+    video = get_object_or_404(Video, id=video_id, user=request.user)
+
+    if not video.social_request_id:
+        return JsonResponse({
+            'success': False,
+            'error': 'Keine Request-ID vorhanden. Video wurde nicht im Hintergrund hochgeladen.'
+        }, status=400)
+
+    # API-Key holen
+    upload_post_api_key = request.user.upload_post_api_key
+    if not upload_post_api_key:
+        return JsonResponse({
+            'success': False,
+            'error': 'Upload-Post API-Key nicht konfiguriert.'
+        }, status=400)
+
+    api_key_clean = ''.join(c for c in upload_post_api_key if c.isascii() and c.isprintable()).strip()
+
+    try:
+        # Status-API aufrufen
+        status_url = f'https://api.upload-post.com/api/uploadposts/status?request_id={video.social_request_id}'
+        headers = {
+            'Authorization': f'Apikey {api_key_clean}',
+        }
+
+        response = requests.get(status_url, headers=headers, timeout=30)
+        logger.info(f"[Video Status] Response: {response.status_code} - {response.text[:500]}")
+
+        if response.status_code == 200:
+            result = response.json()
+
+            # URLs extrahieren
+            posted_urls = {}
+            if 'results' in result:
+                for platform, data in result.get('results', {}).items():
+                    if isinstance(data, dict) and data.get('success') and data.get('url'):
+                        posted_urls[platform] = data['url']
+
+                        # YouTube Shorts: zusätzlich den normalen watch-Link
+                        if platform.lower() == 'youtube':
+                            youtube_url = data.get('url', '')
+                            video_id_yt = data.get('video_id', '')
+                            if '/shorts/' in youtube_url:
+                                if video_id_yt:
+                                    posted_urls['youtube_watch'] = f'https://www.youtube.com/watch?v={video_id_yt}'
+                                else:
+                                    import re
+                                    match = re.search(r'/shorts/([a-zA-Z0-9_-]+)', youtube_url)
+                                    if match:
+                                        posted_urls['youtube_watch'] = f'https://www.youtube.com/watch?v={match.group(1)}'
+
+            # URLs im Video speichern
+            if posted_urls:
+                video.social_posted_urls = posted_urls
+                video.save()
+
+            status = result.get('status', 'unknown')
+            return JsonResponse({
+                'success': True,
+                'status': status,
+                'posted_urls': posted_urls,
+                'message': 'URLs erfolgreich abgerufen!' if posted_urls else f'Status: {status}',
+                'result': result
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f'API Fehler: {response.status_code} - {response.text[:200]}'
+            }, status=400)
+
+    except Exception as e:
+        logger.error(f"[Video Status] Error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

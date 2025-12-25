@@ -31,4 +31,5 @@ urlpatterns = [
     path('api/social/generate/<int:video_id>/', views.api_generate_social_text, name='api_generate_social'),
     path('api/social/post/<int:video_id>/', views.api_post_to_social, name='api_post_social'),
     path('api/social/status/<int:video_id>/', views.api_social_status, name='api_social_status'),
+    path('api/social/check-upload/<int:video_id>/', views.api_check_upload_status, name='api_check_upload_status'),
 ]
