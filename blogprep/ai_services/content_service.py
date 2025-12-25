@@ -376,15 +376,15 @@ SEKUNDÄRE KEYWORDS:
 
 2. STRUKTUR:
    - 5-7 H2-Überschriften (mehr Detail = besser)
-   - Gesamtlänge: ca. 1600-1800 Wörter (Einleitung ~400, Hauptteil ~600, Tipps ~600)
-   - Lesedauer: 6-8 Minuten
+   - Gesamtlänge: ca. 1700-1900 Wörter
+   - Lesedauer: 7-9 Minuten
    - Jeder Abschnitt mit 3-5 konkreten Key Points
 
-3. ABSCHNITTE:
-   - Einleitung (~400 Wörter): Persönlicher Einstieg, Problem aufgreifen, Mehrwert versprechen
-   - Hauptteil (~600 Wörter): Grundlagen, Empfehlungen, Vergleiche
-   - Tipps & Do's/Don'ts (~600 Wörter): Praktische Anleitungen, häufige Fehler
-   - Fazit: Zusammenfassung + Call-to-Action
+3. ABSCHNITTE (NEUE VERTEILUNG):
+   - Einleitung (~300 Wörter): Fokussierter Hook, Problem aufgreifen, Mehrwert versprechen
+   - Hauptteil (~800 Wörter): Ausführliche Grundlagen, Empfehlungen, Vergleiche mit Tiefe
+   - Do's & Don'ts (~250-300 Wörter): KURZE, scannable Tabelle - keine langen Erklärungen!
+   - Fazit (~100 Wörter): Zusammenfassung + Call-to-Action
 
 4. SEO-OPTIMIERUNG:
    - Keyword "{keyword}" in mindestens 2 H2-Überschriften
@@ -397,14 +397,19 @@ Erstelle als JSON:
         {{
             "h2": "Konkrete, aussagekräftige Überschrift",
             "section": "intro|main|tips",
-            "word_target": 400,
+            "word_target": 300,
             "key_points": ["Detaillierter Punkt 1", "Detaillierter Punkt 2", "Detaillierter Punkt 3"],
             "research_reference": "Welche Recherche-Erkenntnisse hier einfließen"
         }}
     ],
-    "total_word_target": 1600,
+    "total_word_target": 1800,
     "unique_angle": "Was macht diesen Artikel besser als die Konkurrenz?"
 }}
+
+WORD_TARGET PRO SECTION:
+- intro: 300
+- main: 800
+- tips: 300
 
 Antworte NUR mit dem JSON-Objekt."""
 
@@ -466,18 +471,18 @@ Antworte NUR mit dem JSON-Objekt."""
             product_links_text += "\nWICHTIG: Verlinke mindestens 1-2 Produkte natürlich im Text, wenn sie thematisch passen!"
 
         section_prompts = {
-            'intro': f"""Schreibe die EINLEITUNG (ca. 400 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
+            'intro': f"""Schreibe die EINLEITUNG (ca. 300 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
 
 ÜBERSCHRIFT: {outline_section.get('h2', '')}
 WICHTIGE PUNKTE: {', '.join(outline_section.get('key_points', []))}
 
 ANFORDERUNGEN:
-- Persönlicher Einstieg mit eigener Erfahrung aus Sicht des Unternehmens
-- Erkläre warum das Thema wichtig ist
-- Nenne Kriterien für gute Entscheidungen
+- Fokussierter Hook: Greife das Problem/Bedürfnis sofort auf
+- Erkläre kurz warum das Thema wichtig ist
+- Verspreche konkreten Mehrwert (was lernt der Leser?)
 - Verwende Aufzählungen und fette wichtige Begriffe
 - Baue das Keyword natürlich ein (2-3 mal)
-- WICHTIG: Halte dich an max. 400 Wörter!
+- WICHTIG: Halte dich an max. 300 Wörter - sei prägnant!
 
 UNTERNEHMEN: {company_info.get('name', '')}
 EXPERTISE: {company_info.get('expertise', '')}{product_links_text}
@@ -487,18 +492,19 @@ EXPERTISE: {company_info.get('expertise', '')}{product_links_text}
 Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <a> Tags.
 Beginne DIREKT mit dem Content, keine Überschrift.""",
 
-            'main': f"""Schreibe den HAUPTTEIL (ca. 600 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
+            'main': f"""Schreibe den HAUPTTEIL (ca. 800 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
 
 ÜBERSCHRIFT: {outline_section.get('h2', '')}
 WICHTIGE PUNKTE: {', '.join(outline_section.get('key_points', []))}
 
 ANFORDERUNGEN:
-- Präsentiere konkrete Empfehlungen/Informationen
-- Unterteile in übersichtliche Kategorien
+- Präsentiere konkrete Empfehlungen/Informationen mit TIEFE
+- Unterteile in übersichtliche Kategorien (H3-Überschriften)
 - Füge eine Vergleichstabelle ein (HTML <table>)
+- Erkläre Hintergründe und Zusammenhänge ausführlich
 - Verweise subtil auf Produkte/Dienstleistungen des Unternehmens
-- Begründe Empfehlungen mit Fakten oder Erfahrung
-- WICHTIG: Halte dich an max. 600 Wörter!
+- Begründe Empfehlungen mit Fakten, Beispielen oder Erfahrung
+- WICHTIG: Nutze ca. 800 Wörter für ausreichend Tiefe und Autorität!
 
 UNTERNEHMEN: {company_info.get('name', '')}
 PRODUKTE: {company_info.get('products', '')}{product_links_text}
@@ -508,24 +514,33 @@ PRODUKTE: {company_info.get('products', '')}{product_links_text}
 Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <table>, <h3>, <a> Tags.
 Beginne DIREKT mit dem Content, keine H2-Überschrift (die kommt separat).""",
 
-            'tips': f"""Schreibe den TIPPS-BEREICH (ca. 600 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
+            'tips': f"""Schreibe PRÄGNANTE Do's & Don'ts (ca. 250-300 Wörter) zum Thema "{keyword}".
 
 ÜBERSCHRIFT: {outline_section.get('h2', '')}
 WICHTIGE PUNKTE: {', '.join(outline_section.get('key_points', []))}
 
+FORMAT - NUTZE EINE TABELLE:
+<table>
+  <tr><th>✅ DO</th><th>❌ DON'T</th></tr>
+  <tr>
+    <td><strong>Kurzer Tipp</strong><br><small>→ Begründung in 10 Wörtern</small></td>
+    <td><strong>Kurze Warnung</strong><br><small>→ Konsequenz in 10 Wörtern</small></td>
+  </tr>
+</table>
+
 ANFORDERUNGEN:
-- Detaillierte Liste von Do's und Don'ts
-- Erkläre häufige Fehler und wie man sie vermeidet
-- Gib wertvolle, praktische Tipps
-- Nutze Tabellen für Übersichtlichkeit
-- Teile persönliche Erfahrungen
-- WICHTIG: Halte dich an max. 600 Wörter!
+- 5-7 DO's und 5-7 DON'TS in Tabellenform
+- Jeder Punkt: 1 Satz Tipp/Warnung + kurze Begründung
+- SCANNABLE: User sollen auf einen Blick verstehen
+- Keine langen Erklärungen - das gehört in den Hauptteil
+- Optional: 2-3 Sätze Einleitung VOR der Tabelle
+- WICHTIG: MAX. 250-300 WÖRTER GESAMT!
 {product_links_text}
 
 {style_instructions.get(writing_style, style_instructions['du'])}
 
-Formatiere als HTML mit <p>, <ul>, <li>, <strong>, <table>, <h3>, <a> Tags.
-Beginne DIREKT mit dem Content, keine H2-Überschrift."""
+Formatiere als HTML mit <table>, <tr>, <th>, <td>, <strong>, <small>, <br> Tags.
+Beginne mit kurzem Einleitungssatz, dann die Tabelle."""
         }
 
         system_prompt = f"""Du bist ein erfahrener Content-Writer der informative, persönliche Blogbeiträge schreibt.
@@ -564,24 +579,31 @@ Dein Stil ist {writing_style}-Form, informativ aber nicht werblich."""
         system_prompt = """Du bist ein Experte für FAQ-Erstellung die sowohl nutzerfreundlich als auch SEO-optimiert sind.
 Erstelle FAQs die echte Nutzerfragen beantworten und für Featured Snippets optimiert sind."""
 
-        user_prompt = f"""Erstelle 5 FAQs zum Thema "{keyword}".
+        user_prompt = f"""Erstelle 7-10 FAQs zum Thema "{keyword}" - optimiert für Featured Snippets.
 
 HÄUFIGE NUTZERFRAGEN AUS DER RECHERCHE:
 {chr(10).join(f'- {q}' for q in questions)}
 
 ANFORDERUNGEN:
-- 5 relevante Fragen die Nutzer wirklich haben
-- Ausführliche, hilfreiche Antworten (je 50-100 Wörter)
+- 7-10 relevante Fragen die Nutzer wirklich googeln
+- Fragen mit "Was", "Wie", "Warum", "Wann", "Welche" beginnen
+- Antworten: 40-60 Wörter (Featured Snippet optimiert!)
+- WICHTIG: Die ersten 50 Zeichen = DIREKTE Antwort auf die Frage
+- Danach kurze Erklärung/Kontext
 - Einfache, verständliche Sprache
 - Keyword natürlich integrieren
 - Schema.org FAQ-optimiert
+
+BEISPIEL GUTER FAQ-ANTWORT:
+Frage: "Wie lange hält ein Bürostuhl?"
+Antwort: "Ein hochwertiger Bürostuhl hält 8-12 Jahre bei täglicher Nutzung. Die Lebensdauer hängt von der Qualität der Mechanik, dem verwendeten Material und der Pflege ab. Günstige Modelle verschleißen oft nach 3-5 Jahren."
 
 Erstelle als JSON:
 {{
     "faqs": [
         {{
             "question": "Die Frage?",
-            "answer": "Die ausführliche Antwort..."
+            "answer": "Direkte Antwort in 40-60 Wörtern..."
         }}
     ]
 }}
