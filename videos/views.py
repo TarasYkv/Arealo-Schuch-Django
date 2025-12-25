@@ -1013,6 +1013,7 @@ def api_post_to_social(request, video_id):
             video.social_post_description = description
             video.social_post_hashtags = hashtags
             video.social_post_error = ''
+            video.social_posted_urls = posted_urls  # URLs persistent speichern
             video.save()
 
             return JsonResponse({

@@ -249,6 +249,7 @@ class Video(models.Model):
     social_post_description = models.TextField(blank=True)
     social_post_hashtags = models.TextField(blank=True)
     social_post_error = models.TextField(blank=True)
+    social_posted_urls = models.JSONField(default=dict, blank=True, help_text="URLs der geposteten Videos pro Plattform")
 
     class Meta:
         ordering = ['-created_at']
