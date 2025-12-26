@@ -336,6 +336,44 @@ def api_suggest_keywords(request):
     return JsonResponse(result)
 
 
+@login_required
+@require_POST
+def api_check_duplicate_keyword(request):
+    """API: Prüft ob ein Keyword bereits verwendet wurde"""
+    main_keyword = request.POST.get('main_keyword', '').strip()
+
+    if not main_keyword:
+        return JsonResponse({'success': False, 'error': 'Kein Keyword angegeben'})
+
+    # Suche nach exakt gleichem Keyword (case-insensitive)
+    existing_projects = BlogPrepProject.objects.filter(
+        user=request.user,
+        main_keyword__iexact=main_keyword
+    ).exclude(
+        main_keyword=''
+    ).values('id', 'main_keyword', 'created_at', 'title')
+
+    duplicates = list(existing_projects)
+
+    if duplicates:
+        # Formatiere die Daten für die Anzeige
+        for dup in duplicates:
+            dup['created_at'] = dup['created_at'].strftime('%d.%m.%Y')
+            dup['id'] = str(dup['id'])
+
+        return JsonResponse({
+            'success': True,
+            'is_duplicate': True,
+            'duplicates': duplicates,
+            'message': f'Dieses Keyword wurde bereits {len(duplicates)}x verwendet.'
+        })
+
+    return JsonResponse({
+        'success': True,
+        'is_duplicate': False
+    })
+
+
 # ============================================================================
 # Wizard Step 2: Recherche & Gliederung
 # ============================================================================

@@ -23,6 +23,7 @@ urlpatterns = [
     path('wizard/step1/', views.wizard_step1, name='wizard_step1'),
     path('wizard/step1/<uuid:project_id>/', views.wizard_step1, name='wizard_step1_edit'),
     path('api/suggest-keywords/', views.api_suggest_keywords, name='api_suggest_keywords'),
+    path('api/check-duplicate-keyword/', views.api_check_duplicate_keyword, name='api_check_duplicate_keyword'),
 
     # Wizard Step 2: Recherche & Gliederung
     path('wizard/step2/<uuid:project_id>/', views.wizard_step2, name='wizard_step2'),

@@ -3,6 +3,99 @@
 {% block wizard_content %}
 <h2><i class="bi bi-key me-2"></i>Schritt 1: Keywords eingeben</h2>
 
+<!-- Duplicate Warning Modal -->
+<div id="duplicateModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <i class="bi bi-exclamation-triangle text-warning" style="font-size: 2rem;"></i>
+            <h3>Keyword bereits verwendet</h3>
+        </div>
+        <div class="modal-body">
+            <p id="duplicateMessage"></p>
+            <div id="duplicateList" class="duplicate-list"></div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeDuplicateModal()">
+                <i class="bi bi-x-lg"></i> Abbrechen
+            </button>
+            <button type="button" class="btn btn-primary" onclick="proceedAnyway()">
+                <i class="bi bi-check-lg"></i> Trotzdem erstellen
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+    }
+    .modal-content {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    }
+    .modal-header {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    .modal-header h3 {
+        margin-top: 0.5rem;
+        color: #1e293b;
+    }
+    .modal-body {
+        margin-bottom: 1.5rem;
+    }
+    .modal-body p {
+        color: #64748b;
+        margin-bottom: 1rem;
+    }
+    .duplicate-list {
+        background: #f8fafc;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .duplicate-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .duplicate-item:last-child {
+        border-bottom: none;
+    }
+    .duplicate-item .keyword {
+        font-weight: 600;
+        color: #1e293b;
+    }
+    .duplicate-item .date {
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+    .text-warning {
+        color: #f59e0b;
+    }
+</style>
+
 <form method="post" id="keywordsForm">
     {% csrf_token %}
 
@@ -55,6 +148,72 @@
 
 {% block wizard_js %}
 <script>
+    let skipDuplicateCheck = false;
+
+    // Form Submit Handler
+    document.getElementById('keywordsForm').addEventListener('submit', async function(e) {
+        // Wenn bereits bestätigt, direkt absenden
+        if (skipDuplicateCheck) {
+            return true;
+        }
+
+        e.preventDefault();
+
+        const mainKeyword = document.getElementById('main_keyword').value.trim();
+        if (!mainKeyword) {
+            alert('Bitte gib ein Hauptkeyword ein.');
+            return;
+        }
+
+        showLoading('Prüfe Keyword...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_check_duplicate_keyword" %}', {
+                main_keyword: mainKeyword
+            });
+
+            hideLoading();
+
+            if (result.success && result.is_duplicate) {
+                // Zeige Warnung
+                showDuplicateModal(result.duplicates, result.message);
+            } else {
+                // Kein Duplikat - direkt absenden
+                skipDuplicateCheck = true;
+                document.getElementById('keywordsForm').submit();
+            }
+        } catch (error) {
+            hideLoading();
+            // Bei Fehler trotzdem fortfahren
+            skipDuplicateCheck = true;
+            document.getElementById('keywordsForm').submit();
+        }
+    });
+
+    function showDuplicateModal(duplicates, message) {
+        document.getElementById('duplicateMessage').textContent = message;
+
+        const listContainer = document.getElementById('duplicateList');
+        listContainer.innerHTML = duplicates.map(dup => `
+            <div class="duplicate-item">
+                <span class="keyword">${dup.title || dup.main_keyword}</span>
+                <span class="date">${dup.created_at}</span>
+            </div>
+        `).join('');
+
+        document.getElementById('duplicateModal').style.display = 'flex';
+    }
+
+    function closeDuplicateModal() {
+        document.getElementById('duplicateModal').style.display = 'none';
+    }
+
+    function proceedAnyway() {
+        closeDuplicateModal();
+        skipDuplicateCheck = true;
+        document.getElementById('keywordsForm').submit();
+    }
+
     async function suggestKeywords() {
         const mainKeyword = document.getElementById('main_keyword').value;
         if (!mainKeyword) {
