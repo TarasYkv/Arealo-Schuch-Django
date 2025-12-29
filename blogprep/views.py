@@ -341,6 +341,7 @@ def api_suggest_keywords(request):
 def api_check_duplicate_keyword(request):
     """API: Prüft ob ein Keyword bereits verwendet wurde"""
     main_keyword = request.POST.get('main_keyword', '').strip()
+    current_project_id = request.POST.get('project_id', '').strip()
 
     if not main_keyword:
         return JsonResponse({'success': False, 'error': 'Kein Keyword angegeben'})
@@ -351,7 +352,13 @@ def api_check_duplicate_keyword(request):
         main_keyword__iexact=main_keyword
     ).exclude(
         main_keyword=''
-    ).values('id', 'main_keyword', 'created_at', 'title')
+    )
+
+    # Aktuelles Projekt ausschließen (beim Bearbeiten)
+    if current_project_id:
+        existing_projects = existing_projects.exclude(id=current_project_id)
+
+    existing_projects = existing_projects.values('id', 'main_keyword', 'created_at', 'title')
 
     duplicates = list(existing_projects)
 

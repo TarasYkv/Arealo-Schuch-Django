@@ -168,9 +168,11 @@
         showLoading('Prüfe Keyword...');
 
         try {
-            const result = await apiCall('{% url "blogprep:api_check_duplicate_keyword" %}', {
-                main_keyword: mainKeyword
-            });
+            const params = { main_keyword: mainKeyword };
+            {% if project %}
+            params.project_id = '{{ project.id }}';
+            {% endif %}
+            const result = await apiCall('{% url "blogprep:api_check_duplicate_keyword" %}', params);
 
             hideLoading();
 
