@@ -488,6 +488,44 @@ def api_generate_outline(request, project_id):
     return JsonResponse(result)
 
 
+@login_required
+@require_POST
+def api_analyze_internal_articles(request, project_id):
+    """API: Analysiert interne Artikel für Verlinkung"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    from .ai_services import InternalLinkingService
+
+    linking_service = InternalLinkingService(request.user, settings)
+
+    result = linking_service.analyze_internal_articles(
+        project.main_keyword,
+        project.secondary_keywords
+    )
+
+    if result['success']:
+        # Merge mit bestehenden research_data
+        research_data = project.research_data or {}
+        research_data['internal_articles'] = result.get('internal_articles', [])
+        research_data['internal_articles_analyzed'] = result.get('internal_articles_analyzed', 0)
+        research_data['internal_articles_relevant'] = result.get('internal_articles_relevant', 0)
+
+        project.research_data = research_data
+        project.save()
+
+        log_generation(
+            project, 'internal_links', settings.ai_provider, settings.ai_model,
+            f'Internal links for: {project.main_keyword}',
+            json.dumps(result.get('internal_articles', [])[:5]),  # Nur erste 5 loggen
+            duration=result.get('duration', 0),
+            tokens_in=result.get('tokens_input', 0),
+            tokens_out=result.get('tokens_output', 0)
+        )
+
+    return JsonResponse(result)
+
+
 # ============================================================================
 # Wizard Step 3: Content generieren
 # ============================================================================
@@ -546,12 +584,18 @@ def api_generate_content_section(request, project_id):
             outline_section = item
             break
 
+    # Interne Artikel aus research_data holen für Verlinkung
+    internal_articles = []
+    if project.research_data:
+        internal_articles = project.research_data.get('internal_articles', [])
+
     result = content_service.generate_content_section(
         section_type,
         project.main_keyword,
         outline_section,
         company_info,
-        settings.writing_style
+        settings.writing_style,
+        internal_articles=internal_articles
     )
 
     if result['success']:

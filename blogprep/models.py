@@ -523,6 +523,7 @@ class BlogPrepGenerationLog(models.Model):
 
     STEP_CHOICES = [
         ('research', 'Web-Recherche'),
+        ('internal_links', 'Interne Verlinkung'),
         ('outline', 'Gliederung'),
         ('content_intro', 'Einleitung'),
         ('content_main', 'Hauptteil'),

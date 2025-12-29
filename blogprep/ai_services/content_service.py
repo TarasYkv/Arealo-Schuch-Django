@@ -440,7 +440,8 @@ Antworte NUR mit dem JSON-Objekt."""
         keyword: str,
         outline_section: Dict,
         company_info: Dict,
-        writing_style: str = 'du'
+        writing_style: str = 'du',
+        internal_articles: List[Dict] = None
     ) -> Dict:
         """
         Generiert einen Content-Abschnitt (Intro, Main, Tips).
@@ -451,6 +452,7 @@ Antworte NUR mit dem JSON-Objekt."""
             outline_section: Gliederung für diesen Abschnitt
             company_info: Unternehmensinformationen
             writing_style: 'du', 'sie', oder 'neutral'
+            internal_articles: Liste relevanter interner Artikel für Verlinkung
 
         Returns:
             Dict mit content (HTML-formatierter Text)
@@ -470,6 +472,26 @@ Antworte NUR mit dem JSON-Objekt."""
                 product_links_text += f'- <a href="{p.get("url", "")}">{p.get("name", "")}</a>\n'
             product_links_text += "\nWICHTIG: Verlinke mindestens 1-2 Produkte natürlich im Text, wenn sie thematisch passen!"
 
+        # Interne Artikel für Verlinkung formatieren
+        internal_links_text = ""
+        if internal_articles:
+            internal_links_text = "\n\nINTERNE VERLINKUNG (füge diese natürlich im Text ein wo passend):\n"
+            for article in internal_articles[:5]:  # Max 5 Artikel pro Abschnitt
+                anchors = article.get('suggested_anchor_texts', [article.get('title', '')])
+                internal_links_text += (
+                    f'- Artikel: "{article.get("title", "")}"\n'
+                    f'  URL: {article.get("url", "")}\n'
+                    f'  Mögliche Ankertexte: {", ".join(anchors[:3])}\n'
+                    f'  Relevanz: {article.get("relevance_reason", "")}\n\n'
+                )
+            internal_links_text += """WICHTIG für interne Links:
+- Nur verlinken wenn es NATÜRLICH in den Textfluss passt
+- Format: <a href="URL">Beschreibender Ankertext</a>
+- KEINE erzwungenen Links - Qualität vor Quantität
+- Verlinke z.B. mit "In unserem Artikel über [Thema] erfährst du mehr..."
+- Oder: "Weitere Tipps findest du in [Ankertext]"
+"""
+
         section_prompts = {
             'intro': f"""Schreibe die EINLEITUNG (ca. 300 Wörter) für einen Blogbeitrag zum Thema "{keyword}".
 
@@ -485,7 +507,7 @@ ANFORDERUNGEN:
 - WICHTIG: Halte dich an max. 300 Wörter - sei prägnant!
 
 UNTERNEHMEN: {company_info.get('name', '')}
-EXPERTISE: {company_info.get('expertise', '')}{product_links_text}
+EXPERTISE: {company_info.get('expertise', '')}{product_links_text}{internal_links_text}
 
 {style_instructions.get(writing_style, style_instructions['du'])}
 
@@ -507,7 +529,7 @@ ANFORDERUNGEN:
 - WICHTIG: Nutze ca. 800 Wörter für ausreichend Tiefe und Autorität!
 
 UNTERNEHMEN: {company_info.get('name', '')}
-PRODUKTE: {company_info.get('products', '')}{product_links_text}
+PRODUKTE: {company_info.get('products', '')}{product_links_text}{internal_links_text}
 
 {style_instructions.get(writing_style, style_instructions['du'])}
 
@@ -535,7 +557,7 @@ ANFORDERUNGEN:
 - Keine langen Erklärungen - das gehört in den Hauptteil
 - Optional: 2-3 Sätze Einleitung VOR der Tabelle
 - WICHTIG: MAX. 250-300 WÖRTER GESAMT!
-{product_links_text}
+{product_links_text}{internal_links_text}
 
 {style_instructions.get(writing_style, style_instructions['du'])}
 

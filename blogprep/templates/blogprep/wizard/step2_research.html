@@ -83,6 +83,55 @@
     </div>
 </div>
 
+<!-- Internal Articles Section -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Interne Artikel</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="analyzeInternalArticles()" id="internalBtn"
+                {% if not project.research_data %}disabled{% endif %}>
+            <i class="bi bi-search"></i> Analysieren
+        </button>
+    </div>
+    <div class="card-body" id="internalResults">
+        {% if project.research_data.internal_articles %}
+        <div class="internal-data">
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>{{ project.research_data.internal_articles_relevant }}</strong> von {{ project.research_data.internal_articles_analyzed }} Artikeln sind thematisch relevant.
+            </div>
+
+            {% for article in project.research_data.internal_articles %}
+            <div class="internal-article mb-2 p-2 bg-light rounded border-start border-3 border-success">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>{{ article.title }}</strong>
+                        <span class="badge bg-success ms-2">{{ article.relevance_score|floatformat:0|default:"0" }}%</span>
+                    </div>
+                    <small class="text-muted">{{ article.store_name }}</small>
+                </div>
+                <p class="mb-1 small text-muted">{{ article.relevance_reason }}</p>
+                <div class="small">
+                    <span class="text-primary">Ankertexte:</span>
+                    {% for anchor in article.suggested_anchor_texts %}
+                    <span class="badge bg-secondary me-1">{{ anchor }}</span>
+                    {% endfor %}
+                </div>
+                <a href="{{ article.url }}" target="_blank" class="small text-muted">
+                    <i class="bi bi-box-arrow-up-right"></i> {{ article.url|truncatechars:50 }}
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">
+            <i class="bi bi-info-circle me-2"></i>
+            Klicke auf "Analysieren" um deine bestehenden Blog-Artikel zu durchsuchen.
+            Relevante Artikel werden beim Content-Generieren automatisch verlinkt.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Outline Section -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -202,8 +251,9 @@
                 html += '</div></div></div>';
                 document.getElementById('researchResults').innerHTML = html;
 
-                // Enable outline button
+                // Enable outline button and internal articles button
                 document.getElementById('outlineBtn').disabled = false;
+                document.getElementById('internalBtn').disabled = false;
             } else {
                 alert(result.error || 'Fehler bei der Recherche');
             }
@@ -270,6 +320,66 @@
                 document.getElementById('nextBtn').disabled = false;
             } else {
                 alert(result.error || 'Fehler beim Generieren der Gliederung');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+
+    async function analyzeInternalArticles() {
+        showLoading('Analysiere interne Blog-Artikel...');
+        const btn = document.getElementById('internalBtn');
+        btn.disabled = true;
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_analyze_internal_articles" project_id=project.id %}');
+
+            if (result.success) {
+                let html = '<div class="internal-data">';
+
+                const relevant = result.internal_articles_relevant || 0;
+                const total = result.internal_articles_analyzed || 0;
+
+                html += `<div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>${relevant}</strong> von ${total} Artikeln sind thematisch relevant.
+                </div>`;
+
+                if (result.internal_articles && result.internal_articles.length > 0) {
+                    result.internal_articles.forEach(article => {
+                        const score = Math.round((article.relevance_score || 0) * 100);
+                        const anchors = article.suggested_anchor_texts || [];
+
+                        html += `
+                        <div class="internal-article mb-2 p-2 bg-light rounded border-start border-3 border-success">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${article.title}</strong>
+                                    <span class="badge bg-success ms-2">${score}%</span>
+                                </div>
+                                <small class="text-muted">${article.store_name || ''}</small>
+                            </div>
+                            <p class="mb-1 small text-muted">${article.relevance_reason || ''}</p>
+                            <div class="small">
+                                <span class="text-primary">Ankertexte:</span>
+                                ${anchors.map(a => `<span class="badge bg-secondary me-1">${a}</span>`).join('')}
+                            </div>
+                            <a href="${article.url}" target="_blank" class="small text-muted">
+                                <i class="bi bi-box-arrow-up-right"></i> ${article.url.substring(0, 50)}...
+                            </a>
+                        </div>`;
+                    });
+                } else {
+                    html += '<p class="text-muted">Keine thematisch passenden Artikel gefunden.</p>';
+                }
+
+                html += '</div>';
+                document.getElementById('internalResults').innerHTML = html;
+            } else {
+                alert(result.error || result.message || 'Fehler bei der Analyse');
             }
         } catch (error) {
             alert('Fehler: ' + error.message);
