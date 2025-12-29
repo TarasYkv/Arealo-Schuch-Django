@@ -493,16 +493,33 @@ class BlogPrepProject(models.Model):
         if custom_img:
             html_parts.append(custom_img)
 
-        # FAQs
+        # FAQs mit JSON-LD Schema
         if self.faqs:
-            faq_html = '<div class="blog-faqs"><h2>Häufig gestellte Fragen</h2>'
+            import json
+            # JSON-LD Schema für Google Rich Snippets
+            faq_schema = {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": faq.get("question", ""),
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "text": faq.get("answer", "")
+                        }
+                    }
+                    for faq in self.faqs
+                ]
+            }
+
+            faq_html = f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script>\n'
+            faq_html += '<div class="blog-faqs"><h2>Häufig gestellte Fragen</h2>'
             for faq in self.faqs:
                 faq_html += f'''
-                <div class="faq-item" itemscope itemtype="https://schema.org/Question">
-                    <h3 itemprop="name">{faq.get("question", "")}</h3>
-                    <div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
-                        <p itemprop="text">{faq.get("answer", "")}</p>
-                    </div>
+                <div class="faq-item">
+                    <h3>{faq.get("question", "")}</h3>
+                    <p>{faq.get("answer", "")}</p>
                 </div>
                 '''
             faq_html += '</div>'
