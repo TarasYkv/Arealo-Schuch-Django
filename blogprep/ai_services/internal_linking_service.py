@@ -32,14 +32,16 @@ class InternalLinkingService:
         self.settings = settings
         self.content_service = ContentService(user, settings)
 
-    def get_user_blog_posts(self, exclude_draft: bool = True) -> List[Dict]:
+    def get_user_blog_posts(self, exclude_draft: bool = True) -> Dict:
         """
         Lädt alle veröffentlichten Blog-Artikel des Users aus allen Stores.
 
         Returns:
-            Liste von Artikel-Dicts mit id, title, url, summary, content_preview
+            Dict mit articles, sync_info
         """
         from shopify_manager.models import ShopifyBlogPost
+        from django.db.models import Max
+        from django.utils import timezone
 
         filters = {
             'blog__store__user': self.user,
@@ -58,7 +60,18 @@ class InternalLinkingService:
             shopify_id__isnull=True
         ).select_related('blog', 'blog__store')
 
-        return [
+        # Sync-Info ermitteln
+        last_sync = posts.aggregate(last_updated=Max('updated_at'))['last_updated']
+
+        # Berechne wie alt der Sync ist
+        sync_age_days = None
+        sync_warning = False
+        if last_sync:
+            sync_age = timezone.now() - last_sync
+            sync_age_days = sync_age.days
+            sync_warning = sync_age_days > 7  # Warnung wenn älter als 7 Tage
+
+        articles = [
             {
                 'id': post.id,
                 'title': post.title,
@@ -70,6 +83,16 @@ class InternalLinkingService:
             }
             for post in posts
         ]
+
+        return {
+            'articles': articles,
+            'sync_info': {
+                'last_sync': last_sync.isoformat() if last_sync else None,
+                'sync_age_days': sync_age_days,
+                'sync_warning': sync_warning,
+                'total_count': len(articles)
+            }
+        }
 
     def _extract_text_preview(self, html_content: str, max_length: int = 500) -> str:
         """Extrahiert Text aus HTML für Vorschau"""
@@ -249,8 +272,10 @@ Antworte NUR mit dem JSON-Objekt. Wenn KEIN Artikel relevant ist, gib ein leeres
         Returns:
             Dict mit relevanten Artikeln für research_data
         """
-        # 1. Alle Artikel laden
-        all_articles = self.get_user_blog_posts()
+        # 1. Alle Artikel laden (mit Sync-Info)
+        posts_data = self.get_user_blog_posts()
+        all_articles = posts_data['articles']
+        sync_info = posts_data['sync_info']
 
         if not all_articles:
             return {
@@ -258,6 +283,7 @@ Antworte NUR mit dem JSON-Objekt. Wenn KEIN Artikel relevant ist, gib ein leeres
                 'internal_articles': [],
                 'internal_articles_analyzed': 0,
                 'internal_articles_relevant': 0,
+                'sync_info': sync_info,
                 'message': 'Keine veröffentlichten Blog-Artikel gefunden'
             }
 
@@ -270,6 +296,7 @@ Antworte NUR mit dem JSON-Objekt. Wenn KEIN Artikel relevant ist, gib ein leeres
                 'internal_articles': [],
                 'internal_articles_analyzed': len(all_articles),
                 'internal_articles_relevant': 0,
+                'sync_info': sync_info,
                 'message': 'Keine thematisch passenden Artikel gefunden'
             }
 
@@ -277,6 +304,7 @@ Antworte NUR mit dem JSON-Objekt. Wenn KEIN Artikel relevant ist, gib ein leeres
         result = self.analyze_relevance(keyword, filtered)
 
         if not result['success']:
+            result['sync_info'] = sync_info
             return result
 
         return {
@@ -284,6 +312,7 @@ Antworte NUR mit dem JSON-Objekt. Wenn KEIN Artikel relevant ist, gib ein leeres
             'internal_articles': result['relevant_articles'],
             'internal_articles_analyzed': len(all_articles),
             'internal_articles_relevant': len(result['relevant_articles']),
+            'sync_info': sync_info,
             'tokens_input': result.get('tokens_input', 0),
             'tokens_output': result.get('tokens_output', 0),
             'duration': result.get('duration', 0)

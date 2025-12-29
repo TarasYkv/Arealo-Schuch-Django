@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/research/<uuid:project_id>/', views.api_run_research, name='api_run_research'),
     path('api/outline/<uuid:project_id>/', views.api_generate_outline, name='api_generate_outline'),
     path('api/internal-articles/<uuid:project_id>/', views.api_analyze_internal_articles, name='api_analyze_internal_articles'),
+    path('api/sync-blog-articles/', views.api_sync_blog_articles, name='api_sync_blog_articles'),
 
     # Wizard Step 3: Content
     path('wizard/step3/<uuid:project_id>/', views.wizard_step3, name='wizard_step3'),

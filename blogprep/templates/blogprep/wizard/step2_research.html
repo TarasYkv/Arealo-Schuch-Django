@@ -87,12 +87,19 @@
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Interne Artikel</h5>
-        <button type="button" class="btn btn-primary btn-sm" onclick="analyzeInternalArticles()" id="internalBtn"
-                {% if not project.research_data %}disabled{% endif %}>
-            <i class="bi bi-search"></i> Analysieren
-        </button>
+        <div>
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="syncBlogArticles()" id="syncBtn"
+                    title="Artikel von Shopify aktualisieren">
+                <i class="bi bi-arrow-repeat"></i> Aktualisieren
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="analyzeInternalArticles()" id="internalBtn"
+                    {% if not project.research_data %}disabled{% endif %}>
+                <i class="bi bi-search"></i> Analysieren
+            </button>
+        </div>
     </div>
     <div class="card-body" id="internalResults">
+        <div id="syncInfo" class="mb-3" style="display: none;"></div>
         {% if project.research_data.internal_articles %}
         <div class="internal-data">
             <div class="alert alert-info mb-3">
@@ -338,7 +345,14 @@
             const result = await apiCall('{% url "blogprep:api_analyze_internal_articles" project_id=project.id %}');
 
             if (result.success) {
-                let html = '<div class="internal-data">';
+                let html = '';
+
+                // Sync-Info anzeigen
+                if (result.sync_info) {
+                    html += renderSyncInfo(result.sync_info);
+                }
+
+                html += '<div class="internal-data">';
 
                 const relevant = result.internal_articles_relevant || 0;
                 const total = result.internal_articles_analyzed || 0;
@@ -380,6 +394,60 @@
                 document.getElementById('internalResults').innerHTML = html;
             } else {
                 alert(result.error || result.message || 'Fehler bei der Analyse');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+            btn.disabled = false;
+        }
+    }
+
+    function renderSyncInfo(syncInfo) {
+        if (!syncInfo || !syncInfo.last_sync) return '';
+
+        const lastSync = new Date(syncInfo.last_sync);
+        const formattedDate = lastSync.toLocaleDateString('de-DE', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+
+        const alertClass = syncInfo.sync_warning ? 'alert-warning' : 'alert-secondary';
+        const icon = syncInfo.sync_warning ? 'bi-exclamation-triangle' : 'bi-clock';
+
+        let message = `<i class="bi ${icon} me-2"></i>`;
+        message += `<strong>${syncInfo.total_count}</strong> Artikel in Datenbank`;
+        message += ` (Stand: ${formattedDate})`;
+
+        if (syncInfo.sync_warning) {
+            message += `<br><small class="text-muted">Daten sind ${syncInfo.sync_age_days} Tage alt. Klicke "Aktualisieren" für aktuelle Daten.</small>`;
+        }
+
+        return `<div class="alert ${alertClass} py-2 mb-3">${message}</div>`;
+    }
+
+    async function syncBlogArticles() {
+        showLoading('Synchronisiere Artikel von Shopify...');
+        const btn = document.getElementById('syncBtn');
+        btn.disabled = true;
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_sync_blog_articles" %}');
+
+            if (result.success) {
+                let message = result.message || 'Synchronisierung abgeschlossen';
+                if (result.errors && result.errors.length > 0) {
+                    message += '\n\nFehler:\n' + result.errors.join('\n');
+                }
+                alert(message);
+
+                // Nach Sync die Analyse neu starten falls schon einmal ausgeführt
+                const internalResults = document.getElementById('internalResults');
+                if (internalResults.querySelector('.internal-data')) {
+                    analyzeInternalArticles();
+                }
+            } else {
+                alert(result.error || 'Fehler bei der Synchronisierung');
             }
         } catch (error) {
             alert('Fehler: ' + error.message);

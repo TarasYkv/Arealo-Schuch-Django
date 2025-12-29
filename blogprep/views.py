@@ -526,6 +526,51 @@ def api_analyze_internal_articles(request, project_id):
     return JsonResponse(result)
 
 
+@login_required
+@require_POST
+def api_sync_blog_articles(request):
+    """API: Synchronisiert Blog-Artikel von Shopify"""
+    from shopify_manager.models import ShopifyStore, ShopifyBlog
+    from shopify_manager.shopify_api import ShopifyBlogSync
+
+    # Hole alle aktiven Stores des Users
+    stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
+
+    if not stores.exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Keine aktiven Shopify-Stores gefunden'
+        })
+
+    total_synced = 0
+    errors = []
+
+    for store in stores:
+        try:
+            blog_sync = ShopifyBlogSync(store)
+
+            # Hole alle Blogs des Stores
+            blogs = ShopifyBlog.objects.filter(store=store)
+
+            for blog in blogs:
+                try:
+                    # Sync nur neue Artikel (schneller)
+                    log = blog_sync.import_blog_posts(blog, import_mode='new_only')
+                    total_synced += log.products_success
+                except Exception as e:
+                    errors.append(f"{blog.title}: {str(e)}")
+
+        except Exception as e:
+            errors.append(f"{store.name}: {str(e)}")
+
+    return JsonResponse({
+        'success': True,
+        'synced_count': total_synced,
+        'errors': errors if errors else None,
+        'message': f'{total_synced} neue Artikel synchronisiert'
+    })
+
+
 # ============================================================================
 # Wizard Step 3: Content generieren
 # ============================================================================
