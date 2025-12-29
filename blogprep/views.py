@@ -1099,6 +1099,11 @@ def wizard_step7(request, project_id):
 
         messages.success(request, 'Projekt ist bereit zum Export!')
 
+    # HTML für Vorschau generieren (falls noch nicht geschehen)
+    if not project.full_html_content:
+        project.generate_full_html()
+        project.save()
+
     context = {
         'project': project,
         'settings': settings,
