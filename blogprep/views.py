@@ -568,8 +568,8 @@ def api_check_blog_articles(request):
 
             for blog in blogs:
                 try:
-                    # Shopify Count API
-                    count_url = f"{base_url}/blogs/{blog.shopify_id}/articles/count.json"
+                    # Shopify Count API - nur veröffentlichte Artikel
+                    count_url = f"{base_url}/blogs/{blog.shopify_id}/articles/count.json?published_status=published"
                     response = requests.get(count_url, headers=headers, timeout=10)
 
                     if response.status_code == 200:
