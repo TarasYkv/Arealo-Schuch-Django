@@ -48,9 +48,14 @@ class InternalLinkingService:
 
         if exclude_draft:
             filters['status'] = 'published'
+            filters['published_at__isnull'] = False  # Muss veröffentlicht worden sein
 
         posts = ShopifyBlogPost.objects.filter(
             **filters
+        ).exclude(
+            shopify_id=''  # Nur Artikel die tatsächlich in Shopify existieren
+        ).exclude(
+            shopify_id__isnull=True
         ).select_related('blog', 'blog__store')
 
         return [
