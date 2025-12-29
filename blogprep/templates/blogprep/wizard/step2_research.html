@@ -88,9 +88,9 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>Interne Artikel</h5>
         <div>
-            <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="syncBlogArticles()" id="syncBtn"
-                    title="Artikel von Shopify aktualisieren">
-                <i class="bi bi-arrow-repeat"></i> Aktualisieren
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="checkBlogArticles()" id="syncBtn"
+                    title="Vergleiche mit Shopify">
+                <i class="bi bi-arrow-repeat"></i> Prüfen
             </button>
             <button type="button" class="btn btn-primary btn-sm" onclick="analyzeInternalArticles()" id="internalBtn"
                     {% if not project.research_data %}disabled{% endif %}>
@@ -426,28 +426,49 @@
         return `<div class="alert ${alertClass} py-2 mb-3">${message}</div>`;
     }
 
-    async function syncBlogArticles() {
-        showLoading('Synchronisiere Artikel von Shopify...');
+    async function checkBlogArticles() {
+        showLoading('Prüfe Shopify-Datenbestand...');
         const btn = document.getElementById('syncBtn');
         btn.disabled = true;
 
         try {
-            const result = await apiCall('{% url "blogprep:api_sync_blog_articles" %}');
+            const result = await apiCall('{% url "blogprep:api_check_blog_articles" %}');
 
             if (result.success) {
-                let message = result.message || 'Synchronisierung abgeschlossen';
-                if (result.errors && result.errors.length > 0) {
-                    message += '\n\nFehler:\n' + result.errors.join('\n');
-                }
-                alert(message);
+                // Zeige Vergleichsergebnis
+                let alertClass = 'alert-success';
+                let icon = 'bi-check-circle';
 
-                // Nach Sync die Analyse neu starten falls schon einmal ausgeführt
-                const internalResults = document.getElementById('internalResults');
-                if (internalResults.querySelector('.internal-data')) {
-                    analyzeInternalArticles();
+                if (result.difference > 0) {
+                    alertClass = 'alert-info';
+                    icon = 'bi-plus-circle';
+                } else if (result.difference < 0) {
+                    alertClass = 'alert-warning';
+                    icon = 'bi-exclamation-triangle';
+                }
+
+                let html = `<div class="alert ${alertClass} mb-3">
+                    <i class="bi ${icon} me-2"></i>
+                    <strong>Shopify:</strong> ${result.total_shopify} Artikel |
+                    <strong>Lokal:</strong> ${result.total_local} Artikel
+                    <br><small>${result.status_message}</small>`;
+
+                if (result.difference !== 0) {
+                    html += `<br><small class="text-muted mt-1 d-block">
+                        → Für vollständigen Sync: <a href="/shopify/blogs/" target="_blank">Shopify Manager → Blogs</a>
+                    </small>`;
+                }
+
+                html += '</div>';
+
+                // Füge das Ergebnis oben in internalResults ein
+                const syncInfoDiv = document.getElementById('syncInfo');
+                if (syncInfoDiv) {
+                    syncInfoDiv.innerHTML = html;
+                    syncInfoDiv.style.display = 'block';
                 }
             } else {
-                alert(result.error || 'Fehler bei der Synchronisierung');
+                alert(result.error || 'Fehler beim Prüfen');
             }
         } catch (error) {
             alert('Fehler: ' + error.message);

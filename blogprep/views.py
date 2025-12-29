@@ -528,10 +528,10 @@ def api_analyze_internal_articles(request, project_id):
 
 @login_required
 @require_POST
-def api_sync_blog_articles(request):
-    """API: Synchronisiert Blog-Artikel von Shopify"""
-    from shopify_manager.models import ShopifyStore, ShopifyBlog
-    from shopify_manager.shopify_api import ShopifyBlogSync
+def api_check_blog_articles(request):
+    """API: Schnell-Check - vergleicht Shopify-Anzahl mit lokaler Datenbank"""
+    import requests
+    from shopify_manager.models import ShopifyStore, ShopifyBlog, ShopifyBlogPost
 
     # Hole alle aktiven Stores des Users
     stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
@@ -542,32 +542,81 @@ def api_sync_blog_articles(request):
             'error': 'Keine aktiven Shopify-Stores gefunden'
         })
 
-    total_synced = 0
-    errors = []
+    results = []
+    total_shopify = 0
+    total_local = 0
 
     for store in stores:
         try:
-            blog_sync = ShopifyBlogSync(store)
+            # API Client Setup
+            api_version = '2024-01'
+            headers = {
+                'X-Shopify-Access-Token': store.access_token,
+                'Content-Type': 'application/json'
+            }
+            base_url = f"https://{store.shop_domain}/admin/api/{api_version}"
 
             # Hole alle Blogs des Stores
             blogs = ShopifyBlog.objects.filter(store=store)
 
             for blog in blogs:
                 try:
-                    # Sync nur neue Artikel (schneller)
-                    log = blog_sync.import_blog_posts(blog, import_mode='new_only')
-                    total_synced += log.products_success
+                    # Shopify Count API
+                    count_url = f"{base_url}/blogs/{blog.shopify_id}/articles/count.json"
+                    response = requests.get(count_url, headers=headers, timeout=10)
+
+                    if response.status_code == 200:
+                        shopify_count = response.json().get('count', 0)
+                    else:
+                        shopify_count = '?'
+
+                    # Lokale Anzahl (nur published)
+                    local_count = ShopifyBlogPost.objects.filter(
+                        blog=blog,
+                        status='published',
+                        published_at__isnull=False
+                    ).exclude(shopify_id='').count()
+
+                    total_shopify += shopify_count if isinstance(shopify_count, int) else 0
+                    total_local += local_count
+
+                    results.append({
+                        'store': store.name,
+                        'blog': blog.title,
+                        'shopify_count': shopify_count,
+                        'local_count': local_count,
+                        'difference': (shopify_count - local_count) if isinstance(shopify_count, int) else None
+                    })
+
                 except Exception as e:
-                    errors.append(f"{blog.title}: {str(e)}")
+                    results.append({
+                        'store': store.name,
+                        'blog': blog.title,
+                        'error': str(e)
+                    })
 
         except Exception as e:
-            errors.append(f"{store.name}: {str(e)}")
+            results.append({
+                'store': store.name,
+                'error': str(e)
+            })
+
+    # Zusammenfassung
+    diff = total_shopify - total_local
+    if diff > 0:
+        status_msg = f'{diff} neue Artikel in Shopify'
+    elif diff < 0:
+        status_msg = f'{abs(diff)} Artikel lokal mehr als in Shopify (evtl. gelöscht)'
+    else:
+        status_msg = 'Datenbank ist aktuell'
 
     return JsonResponse({
         'success': True,
-        'synced_count': total_synced,
-        'errors': errors if errors else None,
-        'message': f'{total_synced} neue Artikel synchronisiert'
+        'total_shopify': total_shopify,
+        'total_local': total_local,
+        'difference': diff,
+        'status_message': status_msg,
+        'details': results
     })
 
 
