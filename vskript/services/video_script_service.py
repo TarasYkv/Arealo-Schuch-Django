@@ -589,12 +589,15 @@ PLATTFORM: {platform_config['name']}
 {platform_config['instructions']}
 
 ═══════════════════════════════════════════════════════════════════
-FORMATIERUNG:
+FORMATIERUNG (SEHR WICHTIG!):
 ═══════════════════════════════════════════════════════════════════
-- Nutze Absätze (Leerzeilen) um den Text zu strukturieren
-- Jeder größere Gedanke sollte ein eigener Absatz sein
-- Halte Absätze bei 2-4 Sätzen
-- Der Text soll leicht zu lesen und zu sprechen sein"""
+- Strukturiere den Text mit VIELEN Absätzen (Leerzeilen zwischen Abschnitten)
+- Jeder Gedanke/Punkt sollte ein eigener Absatz sein (2-4 Sätze max)
+- Bei Aufzählungen: Jeder Punkt in einer neuen Zeile
+- Nach jedem Hook, Übergang oder Themenwechsel: Neuer Absatz
+- Der Text muss optisch gut lesbar und übersichtlich sein
+- KEINE langen Textblöcke - lieber mehr kürzere Absätze
+- Verwende Zeilenumbrüche großzügig für bessere Lesbarkeit"""
 
         # Baue User-Prompt
         description_part = f"\n\nZusätzliche Details:\n{description}" if description else ""
@@ -612,10 +615,18 @@ ANFORDERUNGEN:
 - KEINE Rollenbezeichnungen
 - IMMER "du"-Form verwenden
 - Natürlicher, fließender Sprachstil
-- Mit klaren Absätzen strukturieren
+
+═══════════════════════════════════════════════════════════════════
+FORMATIERUNG (ZWINGEND EINHALTEN!):
+═══════════════════════════════════════════════════════════════════
+- Nach JEDEM Gedanken/Punkt: Leerzeile einfügen
+- Maximal 2-3 Sätze pro Absatz
+- Bei Listen/Aufzählungen: Jeder Punkt in eigener Zeile
+- Text muss gut strukturiert und übersichtlich sein
+- VIELE kurze Absätze statt wenige lange
 
 Das Skript beginnt DIREKT mit dem gesprochenen Text.
-Schreibe ca. {target_words} Wörter."""
+Schreibe ca. {target_words} Wörter mit guter Absatzstruktur."""
 
         # Generiere Skript
         result = self._call_llm(system_prompt, user_prompt, max_tokens=4000, temperature=0.85)
