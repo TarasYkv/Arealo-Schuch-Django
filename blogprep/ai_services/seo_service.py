@@ -890,6 +890,11 @@ Analysiere und antworte als JSON:
                 project.main_keyword
             )
 
+            # Projektspezifische Update-Einstellung hinzufügen
+            if hasattr(project, 'custom_update_days') and project.custom_update_days:
+                results['update_reminders']['project_custom_days'] = project.custom_update_days
+                results['update_reminders']['project_note'] = f"Dieser Artikel hat eine eigene Update-Frist: {project.custom_update_days} Tage"
+
             # Gesamt-Score berechnen (gewichtet)
             weights = {
                 'keyword_density': 0.20,

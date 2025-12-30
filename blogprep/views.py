@@ -662,6 +662,16 @@ def wizard_step3(request, project_id):
         except json.JSONDecodeError:
             project.faqs = []
 
+        # Projektspezifische Update-Erinnerung
+        custom_update_days = request.POST.get('custom_update_days', '').strip()
+        if custom_update_days:
+            try:
+                project.custom_update_days = int(custom_update_days)
+            except (ValueError, TypeError):
+                project.custom_update_days = None
+        else:
+            project.custom_update_days = None
+
         project.status = 'step3'
         project.save()
 

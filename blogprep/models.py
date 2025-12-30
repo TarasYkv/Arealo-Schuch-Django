@@ -289,6 +289,14 @@ class BlogPrepProject(models.Model):
         help_text='Liste von {question, answer} Objekten'
     )
 
+    # SEO Update-Reminder (projektspezifisch, überschreibt globale Einstellungen)
+    custom_update_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Update-Erinnerung (Tage)',
+        help_text='Leer = globale Einstellungen verwenden. Sonst: nach X Tagen als aktualisierungsbedürftig markieren'
+    )
+
     # Schritt 4: Bilder
     title_image = models.ImageField(
         upload_to='blogprep/images/',
