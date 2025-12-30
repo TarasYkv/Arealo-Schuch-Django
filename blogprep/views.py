@@ -102,52 +102,55 @@ def log_generation(project, step, provider, model, prompt, response, success=Tru
 @login_required
 def project_list(request):
     """Zeigt alle BlogPrep-Projekte des Users"""
-    all_projects = BlogPrepProject.objects.filter(user=request.user).order_by('-created_at')
+    all_projects = list(BlogPrepProject.objects.filter(user=request.user).order_by('-created_at'))
     settings = get_user_settings(request.user)
 
-    # Statistiken (immer auf Basis aller Projekte)
-    stats = {
-        'total': all_projects.count(),
-        'in_progress': all_projects.exclude(status__in=['completed', 'published']).count(),
-        'completed': all_projects.filter(status='completed').count(),
-        'published': all_projects.filter(status='published').count()
-    }
-
-    # Filter anwenden
-    filter_type = request.GET.get('filter', 'all')
-    if filter_type == 'exported':
-        # Exportierte Projekte (completed oder published)
-        projects = all_projects.filter(status__in=['completed', 'published'])
-    elif filter_type == 'not_exported':
-        # Noch nicht exportierte Projekte
-        projects = all_projects.exclude(status__in=['completed', 'published'])
-    else:
-        # Alle Projekte
-        projects = all_projects
-
-    # Update-Status für jedes Projekt berechnen
+    # Update-Status für alle Projekte berechnen (vor Filter, für Statistik)
     from django.utils import timezone
     today = timezone.now().date()
     warning_days = settings.update_reminder_warning_days or 270
     critical_days = settings.update_reminder_critical_days or 365
 
-    for project in projects:
-        project.update_status = None  # Kein Status
+    outdated_count = 0
+    for project in all_projects:
+        project.update_status = None
+        project.age_days = 0
         if project.status in ['completed', 'published']:
+            age = (today - project.created_at.date()).days
+            project.age_days = age
             # Projektspezifische Einstellung hat Priorität
             if project.custom_update_days:
-                threshold = project.custom_update_days
-                age = (today - project.created_at.date()).days
-                if age >= threshold:
+                if age >= project.custom_update_days:
                     project.update_status = 'critical'
+                    outdated_count += 1
             else:
                 # Globale Einstellungen verwenden
-                age = (today - project.created_at.date()).days
                 if age >= critical_days:
                     project.update_status = 'critical'
+                    outdated_count += 1
                 elif age >= warning_days:
                     project.update_status = 'warning'
-            project.age_days = age if project.status in ['completed', 'published'] else 0
+                    outdated_count += 1
+
+    # Statistiken (immer auf Basis aller Projekte)
+    stats = {
+        'total': len(all_projects),
+        'in_progress': len([p for p in all_projects if p.status not in ['completed', 'published']]),
+        'completed': len([p for p in all_projects if p.status == 'completed']),
+        'published': len([p for p in all_projects if p.status == 'published']),
+        'outdated': outdated_count
+    }
+
+    # Filter anwenden
+    filter_type = request.GET.get('filter', 'all')
+    if filter_type == 'exported':
+        projects = [p for p in all_projects if p.status in ['completed', 'published']]
+    elif filter_type == 'not_exported':
+        projects = [p for p in all_projects if p.status not in ['completed', 'published']]
+    elif filter_type == 'outdated':
+        projects = [p for p in all_projects if p.update_status in ['warning', 'critical']]
+    else:
+        projects = all_projects
 
     context = {
         'projects': projects,
