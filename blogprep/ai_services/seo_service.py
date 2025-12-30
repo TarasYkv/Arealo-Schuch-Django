@@ -787,12 +787,12 @@ Analysiere und antworte als JSON:
         try:
             # Content zusammenbauen
             content_parts = []
-            if project.intro_content:
-                content_parts.append(project.intro_content)
-            if project.main_content:
-                content_parts.append(project.main_content)
-            if project.tips_content:
-                content_parts.append(project.tips_content)
+            if project.content_intro:
+                content_parts.append(project.content_intro)
+            if project.content_main:
+                content_parts.append(project.content_main)
+            if project.content_tips:
+                content_parts.append(project.content_tips)
 
             full_content = '\n\n'.join(content_parts)
 
