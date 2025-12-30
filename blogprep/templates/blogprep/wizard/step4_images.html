@@ -129,9 +129,9 @@
             {% for img in project.section_images %}
             <div class="col-md-4 mb-3" data-image-index="{{ forloop.counter0 }}">
                 <div class="card h-100">
-                    <img src="data:image/png;base64,{{ img.image_data }}" class="card-img-top" alt="{{ img.section }}">
+                    <img src="data:image/png;base64,{{ img.image_data }}" class="card-img-top" alt="{{ img.alt_text|default:img.section }}">
                     <div class="card-body p-2">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="badge bg-primary">{{ img.section }}</span>
                             <div class="btn-group btn-group-sm">
                                 <button type="button" class="btn btn-outline-secondary"
@@ -145,6 +145,14 @@
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
+                        </div>
+                        <div class="alt-text-display">
+                            <small class="text-muted d-block mb-1">Alt-Text:</small>
+                            <input type="text" class="form-control form-control-sm alt-text-input"
+                                   value="{{ img.alt_text|default:'' }}"
+                                   data-index="{{ forloop.counter0 }}"
+                                   onchange="updateAltText({{ forloop.counter0 }}, this.value)"
+                                   placeholder="Alt-Text eingeben...">
                         </div>
                     </div>
                 </div>
@@ -341,11 +349,12 @@
                 div.className = 'col-md-4 mb-3';
                 div.setAttribute('data-image-index', newIndex);
                 const filename = `{{ project.main_keyword|slugify }}-${section}.png`;
+                const altText = result.alt_text || `{{ project.main_keyword }} - ${section}`;
                 div.innerHTML = `
                     <div class="card h-100">
-                        <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${section}">
+                        <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${altText}">
                         <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge bg-primary">${section}</span>
                                 <div class="btn-group btn-group-sm">
                                     <button type="button" class="btn btn-outline-secondary"
@@ -359,6 +368,14 @@
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
+                            </div>
+                            <div class="alt-text-display">
+                                <small class="text-muted d-block mb-1">Alt-Text:</small>
+                                <input type="text" class="form-control form-control-sm alt-text-input"
+                                       value="${altText}"
+                                       data-index="${newIndex}"
+                                       onchange="updateAltText(${newIndex}, this.value)"
+                                       placeholder="Alt-Text eingeben...">
                             </div>
                         </div>
                     </div>
@@ -568,11 +585,12 @@
                 div.setAttribute('data-image-index', newIndex);
                 const filename = `{{ project.main_keyword|slugify }}-${section}.png`;
 
+                const altText = result.alt_text || `{{ project.main_keyword }} - ${section}`;
                 div.innerHTML = `
                     <div class="card h-100">
-                        <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${section}">
+                        <img src="data:image/png;base64,${result.image_data}" class="card-img-top" alt="${altText}">
                         <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge bg-primary">${section}</span>
                                 <span class="badge bg-secondary">Server</span>
                                 <div class="btn-group btn-group-sm">
@@ -587,6 +605,14 @@
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
+                            </div>
+                            <div class="alt-text-display">
+                                <small class="text-muted d-block mb-1">Alt-Text:</small>
+                                <input type="text" class="form-control form-control-sm alt-text-input"
+                                       value="${altText}"
+                                       data-index="${newIndex}"
+                                       onchange="updateAltText(${newIndex}, this.value)"
+                                       placeholder="Alt-Text eingeben...">
                             </div>
                         </div>
                     </div>
@@ -651,6 +677,32 @@
             }
         } catch (error) {
             alert('Fehler: ' + error.message);
+        }
+    }
+
+    // ========================================
+    // Alt-Text Update Funktion
+    // ========================================
+
+    async function updateAltText(imageIndex, newAltText) {
+        try {
+            const result = await apiCall('{% url "blogprep:api_update_section_image_alt" project_id=project.id %}', {
+                image_index: imageIndex,
+                alt_text: newAltText
+            });
+
+            if (result.success) {
+                // Visuelles Feedback: kurz grün aufleuchten
+                const input = document.querySelector(`input.alt-text-input[data-index="${imageIndex}"]`);
+                if (input) {
+                    input.classList.add('is-valid');
+                    setTimeout(() => input.classList.remove('is-valid'), 2000);
+                }
+            } else {
+                alert(result.error || 'Fehler beim Speichern des Alt-Textes');
+            }
+        } catch (error) {
+            console.error('Fehler beim Speichern des Alt-Textes:', error);
         }
     }
 </script>

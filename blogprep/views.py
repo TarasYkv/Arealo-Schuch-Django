@@ -933,13 +933,24 @@ def api_generate_section_image(request, project_id):
         filename = f"{project.id}_{section_name}_{unique_id}"
         image_url = image_service.save_image_to_media(result['image_data'], filename)
 
+        # Alt-Text generieren mit Keyword für SEO
+        section_labels = {
+            'intro': 'Einleitung',
+            'main': 'Hauptteil',
+            'tips': 'Tipps',
+            'custom': 'Illustration'
+        }
+        section_label = section_labels.get(section_name, section_name)
+        alt_text = f"{project.main_keyword} - {section_label}"
+
         # Füge zu section_images hinzu (mit URL UND base64 für lokale Anzeige)
         section_images = project.section_images or []
         section_images.append({
             'section': section_name,
             'image_data': result['image_data'],
             'image_url': image_url,  # URL für Shopify Export
-            'prompt': result.get('prompt', '')
+            'prompt': result.get('prompt', ''),
+            'alt_text': alt_text  # SEO-optimierter Alt-Text
         })
         project.section_images = section_images
         project.save()
@@ -951,8 +962,9 @@ def api_generate_section_image(request, project_id):
             duration=result.get('duration', 0)
         )
 
-        # Füge URL zur Response hinzu
+        # Füge URL und alt_text zur Response hinzu
         result['image_url'] = image_url
+        result['alt_text'] = alt_text
 
     return JsonResponse(result)
 
@@ -1584,6 +1596,16 @@ def api_use_server_image(request, project_id):
         # Generiere eindeutige ID
         unique_id = str(uuid.uuid4())[:8]
 
+        # Alt-Text generieren mit Keyword für SEO
+        section_labels = {
+            'intro': 'Einleitung',
+            'main': 'Hauptteil',
+            'tips': 'Tipps',
+            'custom': 'Illustration'
+        }
+        section_label = section_labels.get(section_name, section_name)
+        alt_text = f"{project.main_keyword} - {section_label}"
+
         # Füge zu section_images hinzu
         section_images = project.section_images or []
         section_images.append({
@@ -1591,7 +1613,8 @@ def api_use_server_image(request, project_id):
             'image_data': image_data,
             'image_url': image_field.url,
             'prompt': prompt,
-            'source': 'server'
+            'source': 'server',
+            'alt_text': alt_text  # SEO-optimierter Alt-Text
         })
         project.section_images = section_images
         project.save()
@@ -1607,7 +1630,8 @@ def api_use_server_image(request, project_id):
             'success': True,
             'image_data': image_data,
             'image_url': image_field.url,
-            'section': section_name
+            'section': section_name,
+            'alt_text': alt_text
         })
 
     except (ImageGeneration.DoesNotExist, ProductMockup.DoesNotExist):
@@ -1649,6 +1673,42 @@ def api_delete_section_image(request, project_id):
         return JsonResponse({'success': False, 'error': f'Ungültiger Index: {e}'})
     except Exception as e:
         logger.error(f"Error deleting section image: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def api_update_section_image_alt(request, project_id):
+    """API: Aktualisiert den Alt-Text eines Abschnittsbildes"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    image_index = request.POST.get('image_index')
+    alt_text = request.POST.get('alt_text', '').strip()
+
+    if image_index is None:
+        return JsonResponse({'success': False, 'error': 'Kein Bild-Index angegeben'})
+
+    try:
+        index = int(image_index)
+        section_images = project.section_images or []
+
+        if 0 <= index < len(section_images):
+            section_images[index]['alt_text'] = alt_text
+            project.section_images = section_images
+            project.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Alt-Text wurde aktualisiert',
+                'alt_text': alt_text
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Ungültiger Bild-Index'})
+
+    except (ValueError, TypeError) as e:
+        return JsonResponse({'success': False, 'error': f'Ungültiger Index: {e}'})
+    except Exception as e:
+        logger.error(f"Error updating section image alt text: {e}")
         return JsonResponse({'success': False, 'error': str(e)})
 
 
