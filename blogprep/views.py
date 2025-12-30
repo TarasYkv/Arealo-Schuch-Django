@@ -125,6 +125,30 @@ def project_list(request):
         # Alle Projekte
         projects = all_projects
 
+    # Update-Status für jedes Projekt berechnen
+    from django.utils import timezone
+    today = timezone.now().date()
+    warning_days = settings.update_reminder_warning_days or 270
+    critical_days = settings.update_reminder_critical_days or 365
+
+    for project in projects:
+        project.update_status = None  # Kein Status
+        if project.status in ['completed', 'published']:
+            # Projektspezifische Einstellung hat Priorität
+            if project.custom_update_days:
+                threshold = project.custom_update_days
+                age = (today - project.created_at.date()).days
+                if age >= threshold:
+                    project.update_status = 'critical'
+            else:
+                # Globale Einstellungen verwenden
+                age = (today - project.created_at.date()).days
+                if age >= critical_days:
+                    project.update_status = 'critical'
+                elif age >= warning_days:
+                    project.update_status = 'warning'
+            project.age_days = age if project.status in ['completed', 'published'] else 0
+
     context = {
         'projects': projects,
         'settings': settings,

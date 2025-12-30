@@ -123,13 +123,24 @@
                 <!-- Status Badge oben -->
                 <div class="card-header bg-transparent border-0 pb-0">
                     <div class="d-flex justify-content-between align-items-center">
-                        {% if project.status == 'completed' %}
-                        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Exportiert</span>
-                        {% elif project.status == 'published' %}
-                        <span class="badge bg-info"><i class="bi bi-globe me-1"></i>Veröffentlicht</span>
-                        {% else %}
-                        <span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>{{ project.get_status_display }}</span>
-                        {% endif %}
+                        <div>
+                            {% if project.status == 'completed' %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Exportiert</span>
+                            {% elif project.status == 'published' %}
+                            <span class="badge bg-info"><i class="bi bi-globe me-1"></i>Veröffentlicht</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-pencil me-1"></i>{{ project.get_status_display }}</span>
+                            {% endif %}
+                            {% if project.update_status == 'critical' %}
+                            <span class="badge bg-danger" title="Artikel ist {{ project.age_days }} Tage alt - Aktualisierung dringend empfohlen">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Veraltet
+                            </span>
+                            {% elif project.update_status == 'warning' %}
+                            <span class="badge bg-warning text-dark" title="Artikel ist {{ project.age_days }} Tage alt - Aktualisierung empfohlen">
+                                <i class="bi bi-clock-history me-1"></i>Update empfohlen
+                            </span>
+                            {% endif %}
+                        </div>
                         <small class="text-muted">{{ project.created_at|date:"d.m.Y" }}</small>
                     </div>
                 </div>
