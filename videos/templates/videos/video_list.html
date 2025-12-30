@@ -767,6 +767,46 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 3000);
 }
 
+function showSuccessAlert(message, postedUrls) {
+    // Bestehende Alerts entfernen
+    document.querySelectorAll('.social-success-alert').forEach(el => el.remove());
+
+    const platformIcons = {
+        'youtube': '<i class="fab fa-youtube text-danger"></i> YouTube',
+        'instagram': '<i class="fab fa-instagram" style="color: #E4405F;"></i> Instagram',
+        'facebook': '<i class="fab fa-facebook" style="color: #1877F2;"></i> Facebook',
+        'tiktok': '<i class="fab fa-tiktok"></i> TikTok',
+        'linkedin': '<i class="fab fa-linkedin" style="color: #0A66C2;"></i> LinkedIn'
+    };
+
+    let linksHtml = '';
+    if (postedUrls && Object.keys(postedUrls).length > 0) {
+        linksHtml = '<div class="mt-3"><strong>Video-Links:</strong><ul class="list-unstyled mt-2 mb-0">';
+        for (const [platform, url] of Object.entries(postedUrls)) {
+            if (platform === 'youtube_watch') continue;
+            const icon = platformIcons[platform] || `<i class="fas fa-link"></i> ${platform}`;
+            linksHtml += `<li class="mb-2">${icon}: <a href="${url}" target="_blank" class="text-white">${url}</a></li>`;
+        }
+        linksHtml += '</ul></div>';
+    }
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show social-success-alert';
+    alertDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 400px; max-width: 600px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+    alertDiv.innerHTML = `
+        <h5 class="alert-heading mb-2">
+            <i class="fas fa-check-circle me-2"></i>${message}
+        </h5>
+        ${linksHtml}
+        <div class="mt-2">
+            <small><i class="fas fa-sync-alt fa-spin me-1"></i> Seite wird in 3 Sekunden neu geladen...</small>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+}
+
 async function checkUploadStatus(videoId) {
     const btn = document.getElementById(`check-status-btn-${videoId}`);
     const resultSpan = document.getElementById(`check-status-result-${videoId}`);
@@ -1067,85 +1107,30 @@ async function postToSocial() {
         const data = await response.json();
 
         if (data.success) {
-            if (statusDiv) {
-                statusDiv.className = 'alert alert-success';
+            // Modal schließen
+            const modalEl = document.getElementById('socialModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
 
-                // Links anzeigen wenn vorhanden
-                if (data.posted_urls && Object.keys(data.posted_urls).length > 0) {
-                    let linksHtml = `<div class="mb-2"><strong>${data.message}</strong></div>`;
-                    linksHtml += '<div class="posted-links"><small><strong>Video-Links:</strong></small>';
+            // Erfolgsmeldung mit Plattformen erstellen
+            const platformNames = {
+                'youtube': 'YouTube',
+                'instagram': 'Instagram',
+                'facebook': 'Facebook',
+                'tiktok': 'TikTok',
+                'linkedin': 'LinkedIn'
+            };
 
-                    const platformIcons = {
-                        'youtube': '<i class="fab fa-youtube text-danger"></i>',
-                        'instagram': '<i class="fab fa-instagram" style="color: #E4405F;"></i>',
-                        'facebook': '<i class="fab fa-facebook" style="color: #1877F2;"></i>',
-                        'tiktok': '<i class="fab fa-tiktok"></i>',
-                        'linkedin': '<i class="fab fa-linkedin" style="color: #0A66C2;"></i>'
-                    };
+            let postedTo = platforms.map(p => platformNames[p] || p).join(', ');
+            let successMessage = `✅ Video erfolgreich gepostet auf: ${postedTo}`;
 
-                    for (const [platform, url] of Object.entries(data.posted_urls)) {
-                        // youtube_watch separat behandeln
-                        if (platform === 'youtube_watch') continue;
+            // Große Erfolgsmeldung anzeigen
+            showSuccessAlert(successMessage, data.posted_urls || {});
 
-                        const icon = platformIcons[platform.toLowerCase()] || '<i class="fas fa-link"></i>';
-                        const isYouTubeShort = platform === 'youtube' && url.includes('/shorts/');
-                        const badge = isYouTubeShort ? '<span class="ms-1 badge bg-secondary">Short</span>' : '';
-
-                        linksHtml += `
-                            <div class="d-flex align-items-center mt-2">
-                                ${icon}${badge}
-                                <code class="ms-2 me-2 flex-grow-1 text-truncate" style="max-width: 260px;" title="${url}">${url}</code>
-                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="copyLink('${url}')" title="Link kopieren">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                                <a href="${url}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1" title="Öffnen">
-                                    <i class="fas fa-external-link-alt"></i>
-                                </a>
-                            </div>
-                        `;
-                    }
-
-                    // YouTube Embed-Link (nur bei Shorts)
-                    if (data.posted_urls.youtube_watch) {
-                        linksHtml += `
-                            <div class="d-flex align-items-center mt-2">
-                                <i class="fab fa-youtube text-danger"></i>
-                                <span class="ms-1 badge bg-primary">Embed</span>
-                                <code class="ms-2 me-2 flex-grow-1 text-truncate" style="max-width: 260px;" title="${data.posted_urls.youtube_watch}">${data.posted_urls.youtube_watch}</code>
-                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="copyLink('${data.posted_urls.youtube_watch}')" title="Link kopieren">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                                <a href="${data.posted_urls.youtube_watch}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1" title="Öffnen">
-                                    <i class="fas fa-external-link-alt"></i>
-                                </a>
-                            </div>
-                        `;
-                    }
-
-                    linksHtml += '</div>';
-                    statusDiv.innerHTML = linksHtml;
-                } else {
-                    statusDiv.textContent = data.message;
-                }
-                statusDiv.classList.remove('d-none');
-            }
-
-            showToast(data.message, 'success');
-
-            // Modal offen lassen - User schließt manuell
-            // Reload-Button anzeigen statt auto-close
-            if (statusDiv) {
-                statusDiv.innerHTML += `
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-primary" onclick="location.reload()">
-                            <i class="fas fa-sync-alt me-1"></i> Seite neu laden
-                        </button>
-                        <button type="button" class="btn btn-secondary ms-2" data-bs-dismiss="modal">
-                            <i class="fas fa-times me-1"></i> Schließen
-                        </button>
-                    </div>
-                `;
-            }
+            // Seite nach kurzer Verzögerung neu laden um Links anzuzeigen
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
         } else {
             const errorMsg = data.error || 'Fehler beim Posten';
             if (statusDiv) {
