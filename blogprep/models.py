@@ -503,28 +503,11 @@ class BlogPrepProject(models.Model):
         if custom_img:
             html_parts.append(custom_img)
 
-        # FAQs mit JSON-LD Schema
+        # FAQs (ohne JSON-LD Schema im Body - Shopify entfernt Script-Tags)
         if self.faqs:
-            import json
-            # JSON-LD Schema für Google Rich Snippets
-            faq_schema = {
-                "@context": "https://schema.org",
-                "@type": "FAQPage",
-                "mainEntity": [
-                    {
-                        "@type": "Question",
-                        "name": faq.get("question", ""),
-                        "acceptedAnswer": {
-                            "@type": "Answer",
-                            "text": faq.get("answer", "")
-                        }
-                    }
-                    for faq in self.faqs
-                ]
-            }
-
-            faq_html = f'<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script>\n'
-            faq_html += '<div class="blog-faqs"><h2>Häufig gestellte Fragen</h2>'
+            # Hinweis: JSON-LD Schema für FAQs muss im Theme eingebaut werden,
+            # da Shopify <script> Tags aus Blog-Content entfernt
+            faq_html = '<div class="blog-faqs"><h2>Häufig gestellte Fragen</h2>'
             for faq in self.faqs:
                 faq_html += f'''
                 <div class="faq-item">
