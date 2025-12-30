@@ -384,6 +384,339 @@ class VideoService:
 - Halte den Ton locker und unterhaltsam
 - Rege zum Nachdenken und Lachen an
 - Sprich den Zuschauer direkt mit "du" an"""
+        },
+
+        # ═══════════════════════════════════════════════════════════════
+        # NEUE SKRIPTARTEN - KURZ BIS MITTEL
+        # ═══════════════════════════════════════════════════════════════
+
+        'kw_pov': {
+            'name': 'POV (Point of View)',
+            'instructions': """Erstelle ein POV-Format (Point of View).
+- Starte mit "POV: Du bist..." oder "POV: Du hast gerade..."
+- Der Zuschauer IST die Hauptperson
+- Beschreibe die Situation aus Ich-Perspektive des Zuschauers
+- Schaffe eine immersive Erfahrung
+- Kann lustig, relatable oder dramatisch sein
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_unpopular_opinion': {
+            'name': 'Unpopuläre Meinung',
+            'instructions': """Teile eine unpopuläre aber begründete Meinung.
+- Starte mit "Unpopuläre Meinung:" oder "Das wird nicht jedem gefallen, aber..."
+- Präsentiere eine Meinung gegen den Mainstream
+- Begründe sachlich und überzeugend
+- Sei respektvoll aber direkt
+- Fordere zur Diskussion auf
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_mistakes': {
+            'name': 'Häufige Fehler',
+            'instructions': """Zeige die häufigsten Fehler die Menschen machen.
+- Starte mit "Diese Fehler macht fast jeder bei..."
+- Liste 3-5 konkrete Fehler auf
+- Erkläre warum es ein Fehler ist
+- Gib die richtige Alternative
+- Schließe mit dem größten/wichtigsten Fehler
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_secrets': {
+            'name': 'Geheimtipps & Insider',
+            'instructions': """Enthülle Insider-Wissen und Geheimtipps.
+- Starte mit "Was dir niemand über X verrät..." oder "Insider-Wissen:"
+- Teile exklusives, wenig bekanntes Wissen
+- Erkläre warum das nicht jeder weiß
+- Gib praktische Anwendungstipps
+- Mache den Zuschauer zum "Insider"
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_reaction': {
+            'name': 'Reaktions-Format',
+            'instructions': """Erstelle ein Reaktions-Skript zu einem Thema.
+- Starte mit deiner ersten spontanen Reaktion
+- Kommentiere verschiedene Aspekte
+- Zeige echte Emotionen (Überraschung, Begeisterung, Skepsis)
+- Teile deine persönliche Meinung
+- Schließe mit einem Fazit
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_what_if': {
+            'name': 'Was wäre wenn...',
+            'instructions': """Erkunde ein hypothetisches Szenario.
+- Starte mit "Was wäre, wenn..."
+- Beschreibe das Szenario detailliert
+- Gehe verschiedene Konsequenzen durch
+- Nutze Fakten um die Theorie zu untermauern
+- Schließe mit einer überraschenden Erkenntnis
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_before_after': {
+            'name': 'Vorher/Nachher',
+            'instructions': """Zeige eine Transformation oder Veränderung.
+- Beschreibe den Ausgangszustand ("Vorher war es so...")
+- Erkläre was sich geändert hat
+- Zeige den neuen Zustand ("Jetzt ist es so...")
+- Betone den Unterschied dramatisch
+- Teile die Lektion oder das Learning
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_review': {
+            'name': 'Ehrliche Bewertung',
+            'instructions': """Erstelle eine ehrliche, ausgewogene Bewertung.
+- Starte mit dem ersten Eindruck
+- Nenne konkrete Vorteile
+- Nenne ehrlich die Nachteile
+- Vergleiche mit Alternativen
+- Gib eine klare Empfehlung (für wen geeignet/nicht geeignet)
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_prediction': {
+            'name': 'Zukunfts-Prognose',
+            'instructions': """Mache Vorhersagen für die Zukunft.
+- Starte mit "In X Jahren wird..."
+- Basiere auf aktuellen Trends
+- Erkläre die Logik hinter der Prognose
+- Zeige mögliche Szenarien auf
+- Schließe mit einer konkreten Vorhersage
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_rant': {
+            'name': 'Meinungs-Rant',
+            'instructions': """Lass Dampf ab zu einem Thema (konstruktiv).
+- Starte energisch mit dem Problem
+- Zeige echte Emotion und Leidenschaft
+- Erkläre was dich stört und warum
+- Bringe konkrete Beispiele
+- Schließe mit einem Lösungsvorschlag oder Appell
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_hot_take': {
+            'name': 'Hot Take',
+            'instructions': """Präsentiere einen heißen, spontanen Take.
+- Starte direkt mit der provokanten Aussage
+- Sei mutig und direkt
+- Begründe kurz aber überzeugend
+- Keine langen Erklärungen - auf den Punkt
+- Fordere Reaktionen heraus
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_this_or_that': {
+            'name': 'Dies oder Das',
+            'instructions': """Stelle zwei Optionen gegenüber und wähle.
+- Präsentiere zwei Alternativen
+- Gehe kurz auf beide ein
+- Triff eine klare Entscheidung
+- Begründe deine Wahl
+- Frage die Zuschauer nach ihrer Meinung
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_day_in_life': {
+            'name': 'Ein Tag als...',
+            'instructions': """Beschreibe einen typischen Tag aus einer bestimmten Perspektive.
+- Starte mit dem Morgen/Beginn
+- Gehe chronologisch durch den Tag
+- Zeige interessante/überraschende Momente
+- Teile Einblicke die man sonst nicht bekommt
+- Schließe mit einem Fazit zum Tag
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_myth_busting': {
+            'name': 'Mythen aufdecken',
+            'instructions': """Decke populäre Mythen und Irrtümer zum Thema auf.
+- Starte mit einem weit verbreiteten Mythos
+- Erkläre warum viele Menschen das glauben
+- Enthülle dann die überraschende Wahrheit
+- Belege mit Fakten oder Beispielen
+- Schließe mit einer Lektion ab
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_comparison': {
+            'name': 'Vergleich A vs B',
+            'instructions': """Vergleiche zwei Dinge, Methoden oder Ansätze miteinander.
+- Stelle beide Optionen kurz vor
+- Nenne Vorteile und Nachteile beider
+- Verwende konkrete Beispiele
+- Gib am Ende eine klare Empfehlung
+- Erkläre für wen was besser geeignet ist
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_top_list': {
+            'name': 'Top 5/10 Liste',
+            'instructions': """Erstelle eine Top-Liste zum Thema.
+- Starte mit "Hier sind meine Top X..."
+- Beginne mit dem schwächsten Punkt
+- Steigere dich zum Highlight
+- Erkläre jeden Punkt kurz
+- Das Beste kommt am Schluss
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+        'kw_challenge': {
+            'name': 'Challenge-Format',
+            'instructions': """Erstelle ein unterhaltsames Challenge-Format.
+- Stelle die Challenge klar vor
+- Erkläre die Regeln
+- Beschreibe den Ablauf spannend
+- Baue Spannung auf
+- Fordere die Zuschauer zur Teilnahme auf
+- Sprich den Zuschauer direkt mit "du" an"""
+        },
+
+        # ═══════════════════════════════════════════════════════════════
+        # LÄNGERE FORMATE (5+ Minuten empfohlen)
+        # ═══════════════════════════════════════════════════════════════
+
+        'kw_deep_dive': {
+            'name': '🕐 Deep Dive (5+ Min)',
+            'instructions': """Tauche tief in ein Thema ein - für längere Videos.
+- Beginne mit einem spannenden Hook
+- Gib einen Überblick was kommt
+- Behandle das Thema von allen Seiten
+- Nutze Beispiele, Daten, Geschichten
+- Beantworte alle wichtigen Fragen
+- Strukturiere in klare Abschnitte
+- Schließe mit einem starken Fazit und Call-to-Action
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+        'kw_documentary': {
+            'name': '🕐 Mini-Dokumentation (5+ Min)',
+            'instructions': """Erstelle ein dokumentarisches Skript - für längere Videos.
+- Beginne mit einem fesselnden Einstieg
+- Stelle das Thema/die Person/das Ereignis vor
+- Erzähle die Geschichte chronologisch oder thematisch
+- Nutze Fakten, Zitate und Hintergründe
+- Baue dramatische Wendepunkte ein
+- Zeige verschiedene Perspektiven
+- Schließe mit der Bedeutung/dem Vermächtnis
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+        'kw_storytime_long': {
+            'name': '🕐 Ausführliche Storytime (5+ Min)',
+            'instructions': """Erzähle eine ausführliche, persönliche Geschichte - für längere Videos.
+- Setze die Szene: Wann, wo, wer war dabei?
+- Baue die Charaktere auf
+- Entwickle die Handlung mit Höhen und Tiefen
+- Nutze Dialoge und Details
+- Schaffe emotionale Momente
+- Baue zu einem Höhepunkt auf
+- Schließe mit der Lektion/dem Takeaway
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+        'kw_case_study': {
+            'name': '🕐 Fallstudie (5+ Min)',
+            'instructions': """Analysiere einen konkreten Fall ausführlich - für längere Videos.
+- Stelle den Fall/das Beispiel vor
+- Erkläre den Hintergrund und Kontext
+- Analysiere was passiert ist und warum
+- Zeige die Ergebnisse/Konsequenzen
+- Ziehe übertragbare Lehren daraus
+- Gib konkrete Handlungsempfehlungen
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+        'kw_complete_guide': {
+            'name': '🕐 Kompletter Guide (7+ Min)',
+            'instructions': """Erstelle einen umfassenden Leitfaden - für längere Videos.
+- Beginne mit dem Nutzen: "Nach diesem Video wirst du..."
+- Gib einen Überblick über die Themen
+- Erkläre Grundlagen für Anfänger
+- Gehe in fortgeschrittene Details
+- Gib praktische Beispiele bei jedem Punkt
+- Teile Pro-Tipps und Fallstricke
+- Fasse die wichtigsten Punkte zusammen
+- Gib nächste Schritte/Ressourcen
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 7 Minuten gedacht."""
+        },
+        'kw_history': {
+            'name': '🕐 Geschichte & Ursprung (5+ Min)',
+            'instructions': """Erzähle die Geschichte/Historie eines Themas - für längere Videos.
+- Starte mit einem interessanten Fakt aus der Geschichte
+- Gehe chronologisch vor: Ursprung → Entwicklung → Heute
+- Erzähle von wichtigen Personen und Ereignissen
+- Zeige Wendepunkte und deren Auswirkungen
+- Verbinde Vergangenheit mit der Gegenwart
+- Schließe mit einem Ausblick in die Zukunft
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+        'kw_interview_style': {
+            'name': '🕐 Interview-Format (5+ Min)',
+            'instructions': """Simuliere ein Interview mit Fragen und Antworten - für längere Videos.
+- Beginne mit einer kurzen Vorstellung des Themas
+- Stelle interessante, tiefgehende Fragen
+- Beantworte sie ausführlich und persönlich
+- Variiere zwischen einfachen und komplexen Fragen
+- Baue auch kontroverse Fragen ein
+- Schließe mit einer überraschenden letzten Frage
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+        'kw_debate': {
+            'name': '🕐 Pro & Contra Debatte (5+ Min)',
+            'instructions': """Führe eine ausgewogene Debatte mit dir selbst - für längere Videos.
+- Stelle das kontroverse Thema vor
+- Präsentiere die Pro-Seite mit starken Argumenten
+- Präsentiere die Contra-Seite mit starken Argumenten
+- Gehe auf Gegenargumente ein
+- Zeige Nuancen und Grauzonen
+- Gib am Ende deine persönliche Einschätzung
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+        'kw_masterclass': {
+            'name': '🕐 Masterclass (10+ Min)',
+            'instructions': """Erstelle eine ausführliche Lehr-Session - für lange Videos.
+- Beginne mit dem Lernziel und warum es wichtig ist
+- Gib einen Überblick über den Inhalt
+- Erkläre Konzepte von einfach zu komplex
+- Nutze viele praktische Beispiele
+- Gib Übungen oder Aufgaben
+- Teile Experten-Tipps und häufige Fehler
+- Wiederhole wichtige Punkte
+- Schließe mit nächsten Schritten und Ressourcen
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 10 Minuten gedacht."""
+        },
+        'kw_analysis': {
+            'name': '🕐 Tiefgehende Analyse (7+ Min)',
+            'instructions': """Analysiere ein Thema von allen Seiten - für längere Videos.
+- Starte mit der zentralen Frage oder These
+- Zerlege das Thema in Komponenten
+- Analysiere jeden Aspekt systematisch
+- Nutze Daten, Fakten und Beispiele
+- Zeige Zusammenhänge und Muster
+- Diskutiere verschiedene Interpretationen
+- Schließe mit einer fundierten Schlussfolgerung
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 7 Minuten gedacht."""
+        },
+        'kw_ultimate_list': {
+            'name': '🕐 Ultimate Liste (7+ Min)',
+            'instructions': """Erstelle eine umfangreiche, definitive Liste - für längere Videos.
+- Kündige die Anzahl an: "Die X besten/wichtigsten..."
+- Beginne mit den soliden Einträgen
+- Steigere dich zu den Top-Einträgen
+- Erkläre jeden Punkt ausführlich
+- Gib Kontext und Beispiele
+- Füge einen Bonus oder Geheimtipp hinzu
+- Die Nummer 1 soll beeindrucken
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 7 Minuten gedacht."""
+        },
+        'kw_journey': {
+            'name': '🕐 Meine Reise/Entwicklung (5+ Min)',
+            'instructions': """Erzähle von einer persönlichen Entwicklung - für längere Videos.
+- Starte mit dem Ausgangspunkt: "Wo ich angefangen habe..."
+- Zeige die ersten Schritte und Herausforderungen
+- Beschreibe wichtige Wendepunkte
+- Teile Fehler und was du daraus gelernt hast
+- Zeige den aktuellen Stand
+- Gib Tipps für andere auf dem gleichen Weg
+- Sprich den Zuschauer direkt mit "du" an
+HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
         }
     }
 
