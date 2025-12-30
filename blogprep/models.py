@@ -364,6 +364,14 @@ class BlogPrepProject(models.Model):
         verbose_name='Vollständiger HTML-Content'
     )
 
+    # SEO-Analyse Ergebnisse
+    seo_analysis = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='SEO-Analyse',
+        help_text='Ergebnisse der SEO-Analyse (Keyword-Dichte, Bild-SEO, etc.)'
+    )
+
     class Meta:
         verbose_name = 'BlogPrep Projekt'
         verbose_name_plural = 'BlogPrep Projekte'

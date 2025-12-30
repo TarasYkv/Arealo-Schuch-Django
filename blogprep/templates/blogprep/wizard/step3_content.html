@@ -148,6 +148,118 @@
 
     <input type="hidden" name="faqs" id="faqsData" value='{{ project.faqs|safe|default:"[]" }}'>
 
+    <!-- SEO-Analyse -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>SEO-Analyse</h5>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="runSeoAnalysis()" id="seoAnalyzeBtn">
+                <i class="bi bi-search"></i> Analysieren
+            </button>
+        </div>
+        <div class="card-body" id="seoAnalysisContainer">
+            {% if project.seo_analysis and project.seo_analysis.success %}
+            <!-- Ergebnis anzeigen falls vorhanden -->
+            <div class="seo-results">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <span class="h4 me-2">Gesamt-Score: {{ project.seo_analysis.overall_score }}/100</span>
+                        {% if project.seo_analysis.overall_score >= 80 %}
+                        <span class="badge bg-success">Gut</span>
+                        {% elif project.seo_analysis.overall_score >= 60 %}
+                        <span class="badge bg-warning">Verbesserbar</span>
+                        {% else %}
+                        <span class="badge bg-danger">Optimieren</span>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">Zuletzt analysiert</small>
+                </div>
+                <p class="text-muted">Klicke auf "Analysieren" um eine neue Analyse durchzuführen.</p>
+            </div>
+            {% else %}
+            <p class="text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                Führe eine SEO-Analyse durch, um deinen Content zu optimieren.
+                Die Analyse prüft Keyword-Dichte, Bild-SEO, Outbound-Links und mehr.
+            </p>
+            {% endif %}
+            <div id="seoAnalysisResults" style="display: none;"></div>
+        </div>
+    </div>
+
+    <style>
+        .seo-check-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .seo-check-item:last-child {
+            border-bottom: none;
+        }
+        .seo-check-status {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 1rem;
+        }
+        .seo-check-status.good { background: #dcfce7; color: #16a34a; }
+        .seo-check-status.warning { background: #fef3c7; color: #d97706; }
+        .seo-check-status.bad { background: #fee2e2; color: #dc2626; }
+        .seo-check-content {
+            flex: 1;
+        }
+        .seo-check-title {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .seo-check-desc {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        .seo-check-score {
+            font-weight: 700;
+            font-size: 1.1rem;
+            width: 50px;
+            text-align: right;
+        }
+        .seo-recommendations {
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .seo-recommendations h6 {
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+        }
+        .seo-recommendations ul {
+            margin: 0;
+            padding-left: 1.25rem;
+        }
+        .seo-recommendations li {
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+        .seo-overall-score {
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-radius: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .seo-overall-score .score-value {
+            font-size: 3rem;
+            font-weight: 700;
+        }
+        .seo-overall-score.good .score-value { color: #16a34a; }
+        .seo-overall-score.warning .score-value { color: #d97706; }
+        .seo-overall-score.bad .score-value { color: #dc2626; }
+    </style>
+
     <div class="wizard-actions">
         <a href="{% url 'blogprep:wizard_step2' project_id=project.id %}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Zurück
@@ -309,5 +421,181 @@
 
         document.getElementById('faqsData').value = JSON.stringify(faqs);
     });
+
+    // SEO Analysis
+    async function runSeoAnalysis() {
+        const btn = document.getElementById('seoAnalyzeBtn');
+        const resultsDiv = document.getElementById('seoAnalysisResults');
+        const container = document.getElementById('seoAnalysisContainer');
+
+        // Check if content exists
+        const intro = document.getElementById('content_intro').value;
+        const main = document.getElementById('content_main').value;
+        if (!intro && !main) {
+            alert('Bitte erst Content generieren, bevor du die SEO-Analyse durchführst.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Analysiere...';
+        showLoading('SEO-Analyse wird durchgeführt...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_seo_analysis" project_id=project.id %}');
+            hideLoading();
+
+            if (result.success) {
+                renderSeoResults(result, resultsDiv);
+                resultsDiv.style.display = 'block';
+
+                // Hide the initial text
+                const initialText = container.querySelector('p.text-muted');
+                if (initialText) initialText.style.display = 'none';
+                const existingResults = container.querySelector('.seo-results');
+                if (existingResults) existingResults.style.display = 'none';
+            } else {
+                alert(result.error || 'Fehler bei der SEO-Analyse');
+            }
+        } catch (error) {
+            hideLoading();
+            alert('Fehler: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-search"></i> Analysieren';
+        }
+    }
+
+    function renderSeoResults(data, container) {
+        const results = data.results;
+        const overallScore = data.overall_score;
+
+        // Score class
+        let scoreClass = 'bad';
+        if (overallScore >= 80) scoreClass = 'good';
+        else if (overallScore >= 60) scoreClass = 'warning';
+
+        // Check configurations
+        const checks = [
+            {
+                key: 'keyword_density',
+                title: 'Keyword-Dichte',
+                getDesc: (r) => {
+                    if (r.main_keyword) {
+                        return `${r.main_keyword.keyword}: ${r.main_keyword.count}x (${r.main_keyword.percentage}%)`;
+                    }
+                    return r.message || 'Analyse durchgeführt';
+                }
+            },
+            {
+                key: 'image_seo',
+                title: 'Bild-SEO',
+                getDesc: (r) => {
+                    if (r.total_images > 0) {
+                        return `${r.with_keyword}/${r.total_images} Bilder mit Keyword im Alt-Text`;
+                    }
+                    return r.message || 'Keine Bilder vorhanden';
+                }
+            },
+            {
+                key: 'outbound_links',
+                title: 'Externe Links',
+                getDesc: (r) => `${r.current_count} externe Links vorhanden`
+            },
+            {
+                key: 'content_gaps',
+                title: 'Content-Vollständigkeit',
+                getDesc: (r) => {
+                    const missing = r.missing_topics?.length || 0;
+                    return missing > 0 ? `${missing} fehlende Themen identifiziert` : 'Alle wichtigen Themen abgedeckt';
+                }
+            },
+            {
+                key: 'duplicate_check',
+                title: 'Einzigartigkeit',
+                getDesc: (r) => {
+                    if (r.similar_articles?.length > 0) {
+                        return `${r.similar_articles.length} ähnliche Artikel gefunden`;
+                    }
+                    return 'Content ist einzigartig';
+                }
+            },
+            {
+                key: 'cannibalization',
+                title: 'Keyword-Kannibalisierung',
+                getDesc: (r) => {
+                    if (r.conflicts?.length > 0) {
+                        return `${r.conflicts.length} Konflikte gefunden`;
+                    }
+                    return 'Keine Konflikte';
+                }
+            },
+            {
+                key: 'update_reminders',
+                title: 'Alte Artikel',
+                getDesc: (r) => {
+                    if (r.outdated_articles?.length > 0) {
+                        return `${r.outdated_articles.length} Artikel sollten aktualisiert werden`;
+                    }
+                    return 'Keine veralteten Artikel';
+                }
+            }
+        ];
+
+        let html = `
+            <div class="seo-overall-score ${scoreClass}">
+                <div class="score-value">${overallScore}</div>
+                <div class="text-muted">von 100 Punkten</div>
+            </div>
+
+            <div class="seo-checks">
+        `;
+
+        checks.forEach(check => {
+            const result = results[check.key];
+            if (!result) return;
+
+            const score = result.score || 0;
+            let statusClass = 'bad';
+            let icon = 'x-lg';
+            if (score >= 80) {
+                statusClass = 'good';
+                icon = 'check-lg';
+            } else if (score >= 60) {
+                statusClass = 'warning';
+                icon = 'exclamation-lg';
+            }
+
+            html += `
+                <div class="seo-check-item">
+                    <div class="seo-check-status ${statusClass}">
+                        <i class="bi bi-${icon}"></i>
+                    </div>
+                    <div class="seo-check-content">
+                        <div class="seo-check-title">${check.title}</div>
+                        <div class="seo-check-desc">${check.getDesc(result)}</div>
+                    </div>
+                    <div class="seo-check-score" style="color: ${score >= 80 ? '#16a34a' : score >= 60 ? '#d97706' : '#dc2626'}">
+                        ${score}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+
+        // Recommendations
+        if (data.top_recommendations && data.top_recommendations.length > 0) {
+            html += `
+                <div class="seo-recommendations">
+                    <h6><i class="bi bi-lightbulb me-2"></i>Empfehlungen</h6>
+                    <ul>
+                        ${data.top_recommendations.map(r => `<li>${r}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+    }
 </script>
 {% endblock %}

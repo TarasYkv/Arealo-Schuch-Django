@@ -786,6 +786,43 @@ def api_generate_seo_meta(request, project_id):
     return JsonResponse(result)
 
 
+@login_required
+@require_POST
+def api_run_seo_analysis(request, project_id):
+    """API: Führt eine vollständige SEO-Analyse durch"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+    settings = get_user_settings(request.user)
+
+    # Prüfe ob Content vorhanden
+    if not project.content_intro and not project.content_main:
+        return JsonResponse({
+            'success': False,
+            'error': 'Kein Content vorhanden. Bitte erst Content generieren.'
+        })
+
+    from .ai_services import SEOAnalysisService
+    seo_service = SEOAnalysisService(request.user, settings)
+
+    # Vollständige Analyse durchführen
+    result = seo_service.run_full_analysis(project)
+
+    if result.get('success'):
+        # Ergebnisse speichern
+        project.seo_analysis = result
+        project.save()
+
+        log_generation(
+            project, 'seo', settings.ai_provider, settings.ai_model,
+            f'SEO Analysis for: {project.main_keyword}',
+            json.dumps(result, ensure_ascii=False)[:5000],
+            duration=0,
+            tokens_in=0,
+            tokens_out=0
+        )
+
+    return JsonResponse(result)
+
+
 # ============================================================================
 # Wizard Step 4: Bilder
 # ============================================================================

@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/content/<uuid:project_id>/', views.api_generate_content_section, name='api_generate_content'),
     path('api/faqs/<uuid:project_id>/', views.api_generate_faqs, name='api_generate_faqs'),
     path('api/seo-meta/<uuid:project_id>/', views.api_generate_seo_meta, name='api_generate_seo_meta'),
+    path('api/seo-analysis/<uuid:project_id>/', views.api_run_seo_analysis, name='api_seo_analysis'),
 
     # Wizard Step 4: Bilder
     path('wizard/step4/<uuid:project_id>/', views.wizard_step4, name='wizard_step4'),
