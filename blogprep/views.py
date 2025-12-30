@@ -202,6 +202,15 @@ def settings_view(request):
         settings.image_provider = request.POST.get('image_provider', 'gemini')
         settings.image_model = request.POST.get('image_model', 'imagen-3.0-generate-001')
 
+        # SEO Update-Reminder Einstellungen
+        try:
+            settings.update_reminder_warning_days = int(request.POST.get('update_reminder_warning_days', 270))
+            settings.update_reminder_critical_days = int(request.POST.get('update_reminder_critical_days', 365))
+            settings.update_reminder_keyword_days = int(request.POST.get('update_reminder_keyword_days', 180))
+        except (ValueError, TypeError):
+            pass  # Behalte Standardwerte bei ungültiger Eingabe
+        settings.update_reminder_keywords = request.POST.get('update_reminder_keywords', '')
+
         settings.save()
         messages.success(request, 'Einstellungen wurden gespeichert.')
         return redirect('blogprep:settings')

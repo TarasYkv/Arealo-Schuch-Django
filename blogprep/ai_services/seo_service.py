@@ -678,6 +678,7 @@ Analysiere und antworte als JSON:
     def check_update_reminders(self, main_keyword: str) -> Dict:
         """
         Findet alte Artikel zu ähnlichen Themen, die aktualisiert werden sollten.
+        Verwendet die konfigurierbaren Einstellungen für Fristen.
 
         Args:
             main_keyword: Das Hauptkeyword
@@ -688,13 +689,22 @@ Analysiere und antworte als JSON:
         try:
             from shopify_manager.models import ShopifyBlogPost
 
-            # Artikel älter als 6 Monate mit ähnlichem Thema
-            six_months_ago = datetime.now() - timedelta(days=180)
+            # Einstellungen laden (mit Standardwerten falls nicht gesetzt)
+            warning_days = getattr(self.settings, 'update_reminder_warning_days', 270) if self.settings else 270
+            critical_days = getattr(self.settings, 'update_reminder_critical_days', 365) if self.settings else 365
+            keyword_days = getattr(self.settings, 'update_reminder_keyword_days', 180) if self.settings else 180
+            time_sensitive_keywords = getattr(self.settings, 'update_reminder_keywords', '') if self.settings else ''
+
+            # Keywords in Liste umwandeln
+            time_keywords = [kw.strip().lower() for kw in time_sensitive_keywords.split(',') if kw.strip()]
+
+            # Mindestens warning_days alte Artikel suchen
+            min_age = datetime.now() - timedelta(days=warning_days)
 
             articles = ShopifyBlogPost.objects.filter(
                 blog__store__user=self.user,
                 status='published',
-                published_at__lt=six_months_ago
+                published_at__lt=min_age
             ).order_by('-published_at')[:50]
 
             main_kw_lower = main_keyword.lower()
@@ -718,13 +728,29 @@ Analysiere und antworte als JSON:
                 if relevance >= 0.3:
                     age_days = (datetime.now() - article.published_at.replace(tzinfo=None)).days if article.published_at else 365
 
-                    # Dringlichkeit bestimmen
-                    if age_days > 365:
-                        urgency = 'hoch'
-                    elif age_days > 270:
-                        urgency = 'mittel'
+                    # Prüfen ob zeitkritische Keywords im Titel
+                    has_time_keyword = any(kw in title_lower for kw in time_keywords) if time_keywords else False
+
+                    # Dringlichkeit bestimmen - basierend auf Einstellungen
+                    if has_time_keyword:
+                        # Zeitkritische Inhalte haben kürzere Frist
+                        if age_days >= keyword_days:
+                            urgency = 'hoch'
+                            urgency_reason = 'zeitkritisch'
+                        else:
+                            urgency = 'mittel'
+                            urgency_reason = 'zeitkritisch'
                     else:
-                        urgency = 'niedrig'
+                        # Normale Inhalte
+                        if age_days >= critical_days:
+                            urgency = 'hoch'
+                            urgency_reason = 'alter'
+                        elif age_days >= warning_days:
+                            urgency = 'mittel'
+                            urgency_reason = 'alter'
+                        else:
+                            urgency = 'niedrig'
+                            urgency_reason = 'alter'
 
                     outdated_articles.append({
                         'title': article.title,
@@ -732,11 +758,14 @@ Analysiere und antworte als JSON:
                         'published_at': article.published_at.strftime('%d.%m.%Y') if article.published_at else 'Unbekannt',
                         'shopify_id': article.shopify_id,
                         'urgency': urgency,
+                        'urgency_reason': urgency_reason,
+                        'has_time_keyword': has_time_keyword,
                         'relevance': round(relevance * 100)
                     })
 
             # Sortieren nach Dringlichkeit und Alter
-            outdated_articles.sort(key=lambda x: (-x['age_days'], -x['relevance']))
+            urgency_order = {'hoch': 0, 'mittel': 1, 'niedrig': 2}
+            outdated_articles.sort(key=lambda x: (urgency_order.get(x['urgency'], 2), -x['age_days']))
             outdated_articles = outdated_articles[:5]
 
             # Score berechnen
@@ -744,17 +773,23 @@ Analysiere und antworte als JSON:
                 score = 100
             else:
                 high_urgency = sum(1 for a in outdated_articles if a['urgency'] == 'hoch')
+                medium_urgency = sum(1 for a in outdated_articles if a['urgency'] == 'mittel')
                 if high_urgency >= 2:
                     score = 50
                 elif high_urgency == 1:
-                    score = 70
+                    score = 65
+                elif medium_urgency >= 2:
+                    score = 75
                 else:
                     score = 85
 
             recommendations = []
             for article in outdated_articles[:3]:
                 if article['urgency'] == 'hoch':
-                    recommendations.append(f"Dringend aktualisieren: '{article['title']}' ({article['age_days']} Tage alt)")
+                    if article.get('has_time_keyword'):
+                        recommendations.append(f"Dringend: '{article['title']}' enthält zeitkritische Begriffe ({article['age_days']} Tage)")
+                    else:
+                        recommendations.append(f"Dringend aktualisieren: '{article['title']}' ({article['age_days']} Tage alt)")
                 elif article['urgency'] == 'mittel':
                     recommendations.append(f"Aktualisierung empfohlen: '{article['title']}'")
 
@@ -762,7 +797,13 @@ Analysiere und antworte als JSON:
                 'score': score,
                 'status': 'aktuell' if score >= 85 else 'aktualisierung_nötig',
                 'outdated_articles': outdated_articles,
-                'recommendations': recommendations
+                'recommendations': recommendations,
+                'settings_used': {
+                    'warning_days': warning_days,
+                    'critical_days': critical_days,
+                    'keyword_days': keyword_days,
+                    'time_keywords_count': len(time_keywords)
+                }
             }
 
         except Exception as e:

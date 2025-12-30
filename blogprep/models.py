@@ -146,6 +146,29 @@ class BlogPrepSettings(models.Model):
         verbose_name='Bild-Modell'
     )
 
+    # SEO Update-Reminder Einstellungen
+    update_reminder_warning_days = models.PositiveIntegerField(
+        default=270,  # 9 Monate
+        verbose_name='Warnung (Tage)',
+        help_text='Ab diesem Alter wird eine Warnung angezeigt'
+    )
+    update_reminder_critical_days = models.PositiveIntegerField(
+        default=365,  # 12 Monate
+        verbose_name='Kritisch (Tage)',
+        help_text='Ab diesem Alter ist eine Aktualisierung dringend empfohlen'
+    )
+    update_reminder_keywords = models.TextField(
+        blank=True,
+        default='2024,2025,aktuell,neu,jetzt,heute,dieses jahr',
+        verbose_name='Zeitkritische Keywords',
+        help_text='Komma-getrennte Liste von Keywords, die kürzere Fristen auslösen'
+    )
+    update_reminder_keyword_days = models.PositiveIntegerField(
+        default=180,  # 6 Monate für zeitkritische Inhalte
+        verbose_name='Zeitkritisch (Tage)',
+        help_text='Kürzere Frist für Artikel mit zeitkritischen Keywords'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
