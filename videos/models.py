@@ -386,3 +386,106 @@ class Subscription(models.Model):
     def is_premium_plan(self):
         """Check if this is a premium plan"""
         return self.storage_limit_mb > 100
+
+
+def chunked_upload_path(instance, filename):
+    """Generate upload path for chunked uploads"""
+    return os.path.join('chunks', str(instance.user.id), str(instance.upload_id), filename)
+
+
+class ChunkedUpload(models.Model):
+    """Track chunked uploads for large files"""
+
+    STATUS_CHOICES = [
+        ('uploading', 'Wird hochgeladen'),
+        ('complete', 'Abgeschlossen'),
+        ('failed', 'Fehlgeschlagen'),
+        ('expired', 'Abgelaufen'),
+    ]
+
+    upload_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='chunked_uploads')
+
+    # File metadata
+    filename = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    total_size = models.BigIntegerField(default=0)  # Total file size in bytes
+    uploaded_size = models.BigIntegerField(default=0)  # Bytes uploaded so far
+
+    # Chunk tracking
+    total_chunks = models.IntegerField(default=0)
+    chunks_received = models.IntegerField(default=0)
+    chunk_size = models.IntegerField(default=52428800)  # 50MB default
+
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='uploading')
+    error_message = models.TextField(blank=True)
+
+    # Resulting video (after completion)
+    video = models.OneToOneField(Video, on_delete=models.SET_NULL, null=True, blank=True, related_name='chunked_upload')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    expires_at = models.DateTimeField(null=True, blank=True)  # Cleanup incomplete uploads
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Chunked Upload'
+        verbose_name_plural = 'Chunked Uploads'
+
+    def __str__(self):
+        return f"{self.filename} - {self.user.username} ({self.get_progress_percent()}%)"
+
+    def get_progress_percent(self):
+        """Get upload progress as percentage"""
+        if self.total_size == 0:
+            return 0
+        return round((self.uploaded_size / self.total_size) * 100, 1)
+
+    def get_chunk_dir(self):
+        """Get directory path for chunks"""
+        from django.conf import settings
+        return os.path.join(settings.MEDIA_ROOT, 'chunks', str(self.user.id), str(self.upload_id))
+
+    def is_complete(self):
+        """Check if all chunks have been received"""
+        return self.chunks_received >= self.total_chunks and self.total_chunks > 0
+
+    def mark_complete(self):
+        """Mark upload as complete"""
+        self.status = 'complete'
+        self.save()
+
+    def mark_failed(self, error_message=''):
+        """Mark upload as failed"""
+        self.status = 'failed'
+        self.error_message = error_message
+        self.save()
+
+    def cleanup_chunks(self):
+        """Delete chunk files after successful merge or on failure"""
+        import shutil
+        chunk_dir = self.get_chunk_dir()
+        if os.path.exists(chunk_dir):
+            shutil.rmtree(chunk_dir)
+
+
+class UploadChunk(models.Model):
+    """Individual chunk of a chunked upload"""
+
+    chunked_upload = models.ForeignKey(ChunkedUpload, on_delete=models.CASCADE, related_name='chunks')
+    chunk_number = models.IntegerField()  # 0-indexed
+    chunk_size = models.IntegerField(default=0)  # Size of this chunk in bytes
+    chunk_file = models.FileField(upload_to=chunked_upload_path)
+
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['chunk_number']
+        unique_together = ['chunked_upload', 'chunk_number']
+        verbose_name = 'Upload Chunk'
+        verbose_name_plural = 'Upload Chunks'
+
+    def __str__(self):
+        return f"Chunk {self.chunk_number} of {self.chunked_upload.filename}"

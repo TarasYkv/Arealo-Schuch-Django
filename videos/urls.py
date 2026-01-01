@@ -32,4 +32,10 @@ urlpatterns = [
     path('api/social/post/<int:video_id>/', views.api_post_to_social, name='api_post_social'),
     path('api/social/status/<int:video_id>/', views.api_social_status, name='api_social_status'),
     path('api/social/check-upload/<int:video_id>/', views.api_check_upload_status, name='api_check_upload_status'),
+
+    # Chunked Upload API (for large files > 100MB)
+    path('api/chunked/init/', views.api_chunked_upload_init, name='api_chunked_init'),
+    path('api/chunked/chunk/', views.api_chunked_upload_chunk, name='api_chunked_chunk'),
+    path('api/chunked/complete/', views.api_chunked_upload_complete, name='api_chunked_complete'),
+    path('api/chunked/status/<uuid:upload_id>/', views.api_chunked_upload_status, name='api_chunked_status'),
 ]

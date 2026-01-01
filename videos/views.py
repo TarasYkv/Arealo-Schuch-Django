@@ -5,7 +5,7 @@ from django.http import HttpResponse, Http404, StreamingHttpResponse, JsonRespon
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.http import require_POST
-from .models import Video, UserStorage
+from .models import Video, UserStorage, ChunkedUpload, UploadChunk
 from .forms import VideoUploadForm
 from .utils import generate_video_thumbnail, get_video_duration
 # Tasks removed - direct video hosting without conversion
@@ -13,7 +13,13 @@ import os
 import logging
 import mimetypes
 import requests
+import json
+import math
 from wsgiref.util import FileWrapper
+from django.core.files.base import ContentFile
+from django.conf import settings
+from datetime import timedelta
+from django.utils import timezone
 
 
 @login_required
@@ -1190,3 +1196,313 @@ def api_check_upload_status(request, video_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+# ==================== CHUNKED UPLOAD ====================
+
+CHUNK_SIZE = 50 * 1024 * 1024  # 50MB chunks (under Cloudflare 100MB limit)
+
+
+@login_required
+@require_POST
+def api_chunked_upload_init(request):
+    """Initialize a chunked upload session"""
+    from .subscription_sync import StorageSubscriptionSync
+    from .storage_management import StorageOverageService
+
+    try:
+        data = json.loads(request.body)
+        filename = data.get('filename', '')
+        total_size = int(data.get('total_size', 0))
+        title = data.get('title', '')
+        description = data.get('description', '')
+
+        if not filename or not total_size:
+            return JsonResponse({
+                'success': False,
+                'error': 'Filename und Dateigröße sind erforderlich.'
+            }, status=400)
+
+        # Check user storage
+        user_storage = StorageSubscriptionSync.sync_user_storage(request.user)
+        StorageOverageService.check_user_storage_overage(request.user)
+        user_storage.refresh_from_db()
+
+        if not user_storage.can_upload():
+            return JsonResponse({
+                'success': False,
+                'error': user_storage.get_restriction_message()
+            }, status=403)
+
+        # Check if enough storage available
+        if not user_storage.has_storage_available(total_size):
+            available_mb = (user_storage.max_storage - user_storage.used_storage) / (1024 * 1024)
+            needed_mb = total_size / (1024 * 1024)
+            return JsonResponse({
+                'success': False,
+                'error': f'Nicht genügend Speicherplatz. Verfügbar: {available_mb:.1f} MB, benötigt: {needed_mb:.1f} MB'
+            }, status=413)
+
+        # Calculate number of chunks
+        total_chunks = math.ceil(total_size / CHUNK_SIZE)
+
+        # Create chunked upload record
+        chunked_upload = ChunkedUpload.objects.create(
+            user=request.user,
+            filename=filename,
+            title=title or os.path.splitext(filename)[0],
+            description=description,
+            total_size=total_size,
+            total_chunks=total_chunks,
+            chunk_size=CHUNK_SIZE,
+            expires_at=timezone.now() + timedelta(hours=24)  # 24 hour expiry
+        )
+
+        # Create chunk directory
+        chunk_dir = chunked_upload.get_chunk_dir()
+        os.makedirs(chunk_dir, exist_ok=True)
+
+        return JsonResponse({
+            'success': True,
+            'upload_id': str(chunked_upload.upload_id),
+            'chunk_size': CHUNK_SIZE,
+            'total_chunks': total_chunks,
+            'message': f'Upload initialisiert. {total_chunks} Chunks werden erwartet.'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_chunked_upload_chunk(request):
+    """Upload a single chunk"""
+    try:
+        upload_id = request.POST.get('upload_id')
+        chunk_number = int(request.POST.get('chunk_number', -1))
+        chunk_file = request.FILES.get('chunk')
+
+        if not upload_id or chunk_number < 0 or not chunk_file:
+            return JsonResponse({
+                'success': False,
+                'error': 'upload_id, chunk_number und chunk sind erforderlich.'
+            }, status=400)
+
+        # Get chunked upload
+        try:
+            chunked_upload = ChunkedUpload.objects.get(
+                upload_id=upload_id,
+                user=request.user,
+                status='uploading'
+            )
+        except ChunkedUpload.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload nicht gefunden oder bereits abgeschlossen.'
+            }, status=404)
+
+        # Check if chunk already exists
+        if UploadChunk.objects.filter(chunked_upload=chunked_upload, chunk_number=chunk_number).exists():
+            return JsonResponse({
+                'success': True,
+                'message': f'Chunk {chunk_number} bereits vorhanden.',
+                'chunks_received': chunked_upload.chunks_received,
+                'progress': chunked_upload.get_progress_percent()
+            })
+
+        # Save chunk to file
+        chunk_filename = f'chunk_{chunk_number:05d}'
+        chunk_path = os.path.join(chunked_upload.get_chunk_dir(), chunk_filename)
+
+        with open(chunk_path, 'wb') as f:
+            for part in chunk_file.chunks():
+                f.write(part)
+
+        chunk_size = os.path.getsize(chunk_path)
+
+        # Create chunk record
+        UploadChunk.objects.create(
+            chunked_upload=chunked_upload,
+            chunk_number=chunk_number,
+            chunk_size=chunk_size,
+            chunk_file=f'chunks/{request.user.id}/{upload_id}/{chunk_filename}'
+        )
+
+        # Update progress
+        chunked_upload.chunks_received += 1
+        chunked_upload.uploaded_size += chunk_size
+        chunked_upload.save()
+
+        return JsonResponse({
+            'success': True,
+            'chunk_number': chunk_number,
+            'chunks_received': chunked_upload.chunks_received,
+            'total_chunks': chunked_upload.total_chunks,
+            'progress': chunked_upload.get_progress_percent(),
+            'is_complete': chunked_upload.is_complete()
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_chunked_upload_complete(request):
+    """Complete chunked upload and merge chunks into final video"""
+    from .subscription_sync import StorageSubscriptionSync
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        data = json.loads(request.body)
+        upload_id = data.get('upload_id')
+
+        if not upload_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'upload_id ist erforderlich.'
+            }, status=400)
+
+        # Get chunked upload
+        try:
+            chunked_upload = ChunkedUpload.objects.get(
+                upload_id=upload_id,
+                user=request.user
+            )
+        except ChunkedUpload.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Upload nicht gefunden.'
+            }, status=404)
+
+        # Check if all chunks received
+        if not chunked_upload.is_complete():
+            return JsonResponse({
+                'success': False,
+                'error': f'Nicht alle Chunks empfangen. {chunked_upload.chunks_received}/{chunked_upload.total_chunks}'
+            }, status=400)
+
+        # Merge chunks into final file
+        try:
+            chunk_dir = chunked_upload.get_chunk_dir()
+            ext = os.path.splitext(chunked_upload.filename)[1] or '.mp4'
+            final_filename = f"{chunked_upload.upload_id}{ext}"
+            final_path = os.path.join(
+                settings.MEDIA_ROOT,
+                'videos',
+                str(request.user.id),
+                final_filename
+            )
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(final_path), exist_ok=True)
+
+            # Merge chunks in order
+            logger.info(f"[Chunked Upload] Merging {chunked_upload.total_chunks} chunks...")
+            with open(final_path, 'wb') as final_file:
+                for i in range(chunked_upload.total_chunks):
+                    chunk_path = os.path.join(chunk_dir, f'chunk_{i:05d}')
+                    if os.path.exists(chunk_path):
+                        with open(chunk_path, 'rb') as chunk_file:
+                            final_file.write(chunk_file.read())
+                    else:
+                        logger.error(f"[Chunked Upload] Missing chunk {i}")
+                        chunked_upload.mark_failed(f'Chunk {i} fehlt')
+                        return JsonResponse({
+                            'success': False,
+                            'error': f'Chunk {i} fehlt.'
+                        }, status=400)
+
+            # Verify file size
+            actual_size = os.path.getsize(final_path)
+            if abs(actual_size - chunked_upload.total_size) > 1024:  # Allow 1KB tolerance
+                logger.warning(f"[Chunked Upload] Size mismatch: expected {chunked_upload.total_size}, got {actual_size}")
+
+            # Create video record
+            video = Video(
+                user=request.user,
+                title=chunked_upload.title,
+                description=chunked_upload.description,
+                file_size=actual_size
+            )
+            video.video_file.name = f'videos/{request.user.id}/{final_filename}'
+            video.save()
+
+            # Update user storage
+            user_storage = StorageSubscriptionSync.sync_user_storage(request.user)
+            user_storage.used_storage += actual_size
+            user_storage.save()
+
+            # Generate thumbnail for smaller videos
+            if actual_size < 50 * 1024 * 1024:
+                try:
+                    generate_video_thumbnail(video)
+                    video.duration = get_video_duration(video.video_file.path)
+                    video.save()
+                except Exception as e:
+                    logger.warning(f"[Chunked Upload] Thumbnail generation failed: {e}")
+
+            # Link video to chunked upload and mark complete
+            chunked_upload.video = video
+            chunked_upload.mark_complete()
+
+            # Cleanup chunks
+            chunked_upload.cleanup_chunks()
+
+            logger.info(f"[Chunked Upload] Complete! Video ID: {video.id}")
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Video erfolgreich hochgeladen!',
+                'video_id': video.id,
+                'video_title': video.title,
+                'redirect_url': '/videos/'
+            })
+
+        except Exception as e:
+            logger.error(f"[Chunked Upload] Merge failed: {e}")
+            chunked_upload.mark_failed(str(e))
+            return JsonResponse({
+                'success': False,
+                'error': f'Zusammenfügen fehlgeschlagen: {str(e)}'
+            }, status=500)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def api_chunked_upload_status(request, upload_id):
+    """Get status of a chunked upload"""
+    try:
+        chunked_upload = ChunkedUpload.objects.get(
+            upload_id=upload_id,
+            user=request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'upload_id': str(chunked_upload.upload_id),
+            'status': chunked_upload.status,
+            'filename': chunked_upload.filename,
+            'total_size': chunked_upload.total_size,
+            'uploaded_size': chunked_upload.uploaded_size,
+            'chunks_received': chunked_upload.chunks_received,
+            'total_chunks': chunked_upload.total_chunks,
+            'progress': chunked_upload.get_progress_percent(),
+            'is_complete': chunked_upload.is_complete(),
+            'video_id': chunked_upload.video.id if chunked_upload.video else None,
+            'error_message': chunked_upload.error_message
+        })
+
+    except ChunkedUpload.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Upload nicht gefunden.'
+        }, status=404)

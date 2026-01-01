@@ -180,10 +180,17 @@ const maxStorage = {{ user_storage.max_storage }};
 const usedStorage = {{ user_storage.used_storage }};
 const availableStorage = maxStorage - usedStorage;
 
+// Chunk size: 50MB (under Cloudflare 100MB limit)
+const CHUNK_SIZE = 50 * 1024 * 1024;
+
 // Upload state
 let uploadStartTime = null;
 let lastLoaded = 0;
 let lastTime = null;
+let currentUploadId = null;
+
+// CSRF token
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
 // Format bytes to readable size
 function formatBytes(bytes, decimals = 1) {
@@ -203,15 +210,11 @@ function updateProgress(loaded, total) {
     const totalSize = document.getElementById('totalSize');
     const speedValue = document.getElementById('speedValue');
 
-    // Update progress bar
     progressBar.style.width = percent + '%';
     progressText.textContent = percent + '%';
-
-    // Update sizes
     uploadedSize.textContent = formatBytes(loaded);
     totalSize.textContent = formatBytes(total);
 
-    // Calculate speed
     const now = Date.now();
     if (lastTime && (now - lastTime) > 500) {
         const bytesPerSecond = (loaded - lastLoaded) / ((now - lastTime) / 1000);
@@ -251,7 +254,6 @@ function showError(message) {
     progressBar.classList.add('bg-danger');
     setStage(1, 'error');
 
-    // Add close button
     const modalBody = document.querySelector('#uploadModal .modal-body');
     if (!document.getElementById('closeModalBtn')) {
         const closeBtn = document.createElement('button');
@@ -266,7 +268,191 @@ function showError(message) {
     }
 }
 
-// File size validation
+// Show success
+function showSuccess(message) {
+    document.getElementById('uploadIcon').innerHTML = '<i class="fas fa-check-circle fa-4x text-success"></i>';
+    document.getElementById('uploadStatus').textContent = message;
+    const progressBar = document.getElementById('modalProgressBar');
+    progressBar.style.width = '100%';
+    progressBar.classList.remove('progress-bar-animated');
+    progressBar.classList.add('bg-success');
+    setStage(3, 'done');
+
+    setTimeout(function() {
+        window.location.href = '{% url "videos:list" %}';
+    }, 1500);
+}
+
+// ============ CHUNKED UPLOAD ============
+
+async function uploadChunked(file, title, description) {
+    const totalSize = file.size;
+    const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
+
+    console.log(`Starting chunked upload: ${totalChunks} chunks of ${formatBytes(CHUNK_SIZE)}`);
+    document.getElementById('uploadStatus').textContent = `Upload wird vorbereitet (${totalChunks} Teile)...`;
+
+    // Step 1: Initialize upload
+    let initResponse;
+    try {
+        initResponse = await fetch('{% url "videos:api_chunked_init" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                filename: file.name,
+                total_size: totalSize,
+                title: title,
+                description: description
+            })
+        });
+
+        const initData = await initResponse.json();
+        if (!initData.success) {
+            throw new Error(initData.error || 'Initialisierung fehlgeschlagen');
+        }
+
+        currentUploadId = initData.upload_id;
+        console.log('Upload initialized:', currentUploadId);
+
+    } catch (error) {
+        showError('Initialisierung fehlgeschlagen: ' + error.message);
+        return;
+    }
+
+    // Step 2: Upload chunks
+    let uploadedBytes = 0;
+    document.getElementById('uploadStatus').textContent = 'Video wird hochgeladen...';
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, totalSize);
+        const chunk = file.slice(start, end);
+
+        console.log(`Uploading chunk ${chunkIndex + 1}/${totalChunks}`);
+
+        try {
+            const formData = new FormData();
+            formData.append('upload_id', currentUploadId);
+            formData.append('chunk_number', chunkIndex);
+            formData.append('chunk', chunk, `chunk_${chunkIndex}`);
+
+            const chunkResponse = await fetch('{% url "videos:api_chunked_chunk" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            });
+
+            const chunkData = await chunkResponse.json();
+            if (!chunkData.success) {
+                throw new Error(chunkData.error || `Chunk ${chunkIndex} fehlgeschlagen`);
+            }
+
+            uploadedBytes += (end - start);
+            updateProgress(uploadedBytes, totalSize);
+
+            // Update status text
+            document.getElementById('uploadStatus').textContent =
+                `Teil ${chunkIndex + 1} von ${totalChunks} hochgeladen...`;
+
+        } catch (error) {
+            showError(`Chunk ${chunkIndex + 1} fehlgeschlagen: ${error.message}`);
+            return;
+        }
+    }
+
+    // Step 3: Complete upload
+    document.getElementById('uploadStatus').textContent = 'Video wird zusammengefügt...';
+    setStage(2, 'active');
+
+    try {
+        const completeResponse = await fetch('{% url "videos:api_chunked_complete" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                upload_id: currentUploadId
+            })
+        });
+
+        const completeData = await completeResponse.json();
+        if (!completeData.success) {
+            throw new Error(completeData.error || 'Zusammenfügen fehlgeschlagen');
+        }
+
+        console.log('Upload complete!', completeData);
+        showSuccess('Video erfolgreich hochgeladen!');
+
+    } catch (error) {
+        showError('Zusammenfügen fehlgeschlagen: ' + error.message);
+    }
+}
+
+// ============ REGULAR UPLOAD (for small files) ============
+
+function uploadRegular(form) {
+    const formData = new FormData(form);
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            updateProgress(e.loaded, e.total);
+        }
+    });
+
+    xhr.upload.addEventListener('load', function() {
+        document.getElementById('uploadStatus').textContent = 'Video wird verarbeitet...';
+        document.getElementById('uploadSpeed').style.display = 'none';
+        setStage(2, 'active');
+    });
+
+    xhr.addEventListener('load', function() {
+        if (xhr.status === 200) {
+            if (xhr.responseURL && xhr.responseURL.includes('/videos/')) {
+                showSuccess('Upload erfolgreich!');
+            } else {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        showError(response.error);
+                    } else {
+                        showSuccess('Upload erfolgreich!');
+                    }
+                } catch(e) {
+                    if (xhr.responseText.includes('errorlist') || xhr.responseText.includes('alert-danger')) {
+                        showError('Upload fehlgeschlagen.');
+                    } else {
+                        showSuccess('Upload erfolgreich!');
+                    }
+                }
+            }
+        } else {
+            showError('Server-Fehler: ' + xhr.status);
+        }
+    });
+
+    xhr.addEventListener('error', function() {
+        showError('Verbindungsfehler.');
+    });
+
+    xhr.addEventListener('timeout', function() {
+        showError('Zeitüberschreitung.');
+    });
+
+    xhr.open('POST', form.action || window.location.href, true);
+    xhr.timeout = 600000;
+    xhr.setRequestHeader('X-CSRFToken', csrfToken);
+    xhr.send(formData);
+}
+
+// ============ FILE VALIDATION ============
+
 document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('change', function(e) {
     const file = e.target.files[0];
     const warningDiv = document.getElementById('fileSizeWarning');
@@ -281,25 +467,23 @@ document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('
 
         if (fileSize > availableStorage) {
             const totalNeededMB = ((usedStorage + fileSize) / (1024 * 1024)).toFixed(1);
-
             messageSpan.innerHTML = `
                 Datei zu groß! Benötigt: <strong>${fileSizeMB} MB</strong>,
-                verfügbar: <strong>${availableMB} MB</strong>
-                (gesamt würde: ${totalNeededMB} MB von ${maxStorageMB} MB belegen).
+                verfügbar: <strong>${availableMB} MB</strong>.
                 <br><a href="{% url 'payments:subscription_plans' %}" class="alert-link">Speicher erweitern</a>
-                oder Videos löschen.
             `;
             warningDiv.style.display = 'block';
             warningDiv.className = 'alert alert-danger mt-2';
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="fas fa-ban"></i> Datei zu groß';
-        } else if (fileSize > availableStorage * 0.8) {
+        } else if (fileSize > 50 * 1024 * 1024) {
+            // Large file - will use chunked upload
             messageSpan.innerHTML = `
-                Warnung: Datei ist ${fileSizeMB} MB groß.
-                Nach dem Upload verbleiben nur noch ${(availableMB - fileSizeMB).toFixed(1)} MB.
+                <i class="fas fa-info-circle"></i> Große Datei (${fileSizeMB} MB) -
+                wird in Teilen hochgeladen für optimale Zuverlässigkeit.
             `;
             warningDiv.style.display = 'block';
-            warningDiv.className = 'alert alert-warning mt-2';
+            warningDiv.className = 'alert alert-info mt-2';
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-upload"></i> Video hochladen';
         } else {
@@ -314,24 +498,27 @@ document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('
     }
 });
 
-// Form submission with real progress tracking
+// ============ FORM SUBMISSION ============
+
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
     e.preventDefault();
 
     const form = this;
     const submitBtn = document.getElementById('submitBtn');
     const fileInput = document.getElementById('{{ form.video_file.id_for_label }}');
+    const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+    const descInput = document.getElementById('{{ form.description.id_for_label }}');
 
-    // Final check before submit
-    if (fileInput.files[0] && fileInput.files[0].size > availableStorage) {
-        alert('Die gewählte Datei ist zu groß für Ihren verfügbaren Speicherplatz.');
-        return false;
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('Bitte wählen Sie eine Video-Datei aus.');
+        return;
     }
 
-    // Check if file selected
-    if (!fileInput.files[0]) {
-        alert('Bitte wählen Sie eine Video-Datei aus.');
-        return false;
+    if (file.size > availableStorage) {
+        alert('Die gewählte Datei ist zu groß für Ihren verfügbaren Speicherplatz.');
+        return;
     }
 
     // Disable submit button
@@ -348,112 +535,16 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     lastTime = null;
     setStage(1, 'active');
 
-    // Create FormData
-    const formData = new FormData(form);
-
-    // Create XMLHttpRequest for progress tracking
-    const xhr = new XMLHttpRequest();
-
-    // Progress event
-    xhr.upload.addEventListener('progress', function(e) {
-        console.log('Upload progress:', e.loaded, '/', e.total);
-        if (e.lengthComputable) {
-            updateProgress(e.loaded, e.total);
-        }
-    });
-
-    // Upload error on xhr.upload
-    xhr.upload.addEventListener('error', function(e) {
-        console.error('Upload error event:', e);
-        showError('Upload-Fehler aufgetreten.');
-    });
-
-    // Upload complete - now server is processing
-    xhr.upload.addEventListener('load', function() {
-        console.log('Upload complete, waiting for server response...');
-        document.getElementById('uploadStatus').textContent = 'Video wird verarbeitet...';
-        document.getElementById('uploadSpeed').style.display = 'none';
-        setStage(2, 'active');
-
-        // Keep progress at 100% during processing
-        const progressBar = document.getElementById('modalProgressBar');
-        progressBar.style.width = '100%';
-        document.getElementById('progressText').textContent = '100%';
-    });
-
-    // Response received
-    xhr.addEventListener('load', function() {
-        console.log('Server response received:', xhr.status, xhr.responseURL);
-        if (xhr.status === 200) {
-            // Check if response is a redirect (HTML page)
-            if (xhr.responseURL && xhr.responseURL.includes('/videos/')) {
-                // Success - show completion
-                document.getElementById('uploadIcon').innerHTML = '<i class="fas fa-check-circle fa-4x text-success"></i>';
-                document.getElementById('uploadStatus').textContent = 'Upload erfolgreich!';
-                const progressBar = document.getElementById('modalProgressBar');
-                progressBar.classList.remove('progress-bar-animated');
-                progressBar.classList.add('bg-success');
-                setStage(3, 'done');
-
-                // Redirect after short delay
-                setTimeout(function() {
-                    window.location.href = '{% url "videos:list" %}';
-                }, 1500);
-            } else {
-                // Try to parse as JSON error
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.error) {
-                        showError(response.error);
-                    } else {
-                        // Success - redirect
-                        window.location.href = '{% url "videos:list" %}';
-                    }
-                } catch(e) {
-                    // HTML response - check for success or error
-                    if (xhr.responseText.includes('errorlist') || xhr.responseText.includes('alert-danger')) {
-                        showError('Upload fehlgeschlagen. Bitte überprüfen Sie die Eingaben.');
-                    } else {
-                        // Assume success, redirect
-                        window.location.href = '{% url "videos:list" %}';
-                    }
-                }
-            }
-        } else {
-            showError('Server-Fehler: ' + xhr.status);
-        }
-    });
-
-    // Error handling
-    xhr.addEventListener('error', function(e) {
-        console.error('XHR error:', e);
-        showError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
-    });
-
-    xhr.addEventListener('timeout', function() {
-        console.error('XHR timeout');
-        showError('Zeitüberschreitung. Das Video ist möglicherweise zu groß.');
-    });
-
-    xhr.addEventListener('abort', function() {
-        console.error('XHR aborted');
-        showError('Upload abgebrochen.');
-    });
-
-    // Ready state change for debugging
-    xhr.onreadystatechange = function() {
-        console.log('XHR readyState:', xhr.readyState, 'status:', xhr.status);
-    };
-
-    // Send request
-    xhr.open('POST', form.action || window.location.href, true);
-    xhr.timeout = 600000; // 10 minutes timeout
-
-    // Add CSRF token header (required by Django)
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    xhr.setRequestHeader('X-CSRFToken', csrfToken);
-
-    xhr.send(formData);
+    // Choose upload method based on file size
+    if (file.size > 50 * 1024 * 1024) {
+        // Large file: use chunked upload
+        console.log('Using chunked upload for large file');
+        uploadChunked(file, titleInput.value, descInput ? descInput.value : '');
+    } else {
+        // Small file: use regular upload
+        console.log('Using regular upload for small file');
+        uploadRegular(form);
+    }
 });
 </script>
 {% endblock %}
