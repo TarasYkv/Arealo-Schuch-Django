@@ -86,16 +86,10 @@
                             </div>
                         </div>
                         
-                        <div class="progress mb-3" style="display: none;" id="uploadProgress">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                 role="progressbar" style="width: 0%"
-                                 aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="submitBtn">
                             <i class="fas fa-upload"></i> Video hochladen
                         </button>
-                        <a href="{% url 'videos:list' %}" class="btn btn-secondary">Abbrechen</a>
+                        <a href="{% url 'videos:list' %}" class="btn btn-secondary mt-2">Abbrechen</a>
                     </form>
                 </div>
             </div>
@@ -103,11 +97,174 @@
     </div>
 </div>
 
+<!-- Upload Progress Modal -->
+<div class="modal fade" id="uploadModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <div id="uploadIcon" class="mb-4">
+                    <i class="fas fa-cloud-upload-alt fa-4x text-primary"></i>
+                </div>
+
+                <h4 id="uploadStatus" class="mb-3">Video wird hochgeladen...</h4>
+
+                <div class="progress mb-3" style="height: 25px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                         id="modalProgressBar" role="progressbar" style="width: 0%">
+                        <span id="progressText">0%</span>
+                    </div>
+                </div>
+
+                <p id="uploadDetails" class="text-muted mb-0">
+                    <span id="uploadedSize">0 MB</span> von <span id="totalSize">0 MB</span>
+                </p>
+
+                <p id="uploadSpeed" class="text-muted small mt-2">
+                    Geschwindigkeit: <span id="speedValue">-- MB/s</span>
+                </p>
+
+                <div id="uploadStage" class="mt-4">
+                    <div class="d-flex justify-content-center align-items-center gap-3">
+                        <div class="upload-stage active" id="stage1">
+                            <i class="fas fa-upload"></i>
+                            <small>Hochladen</small>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                        <div class="upload-stage" id="stage2">
+                            <i class="fas fa-cog"></i>
+                            <small>Verarbeiten</small>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                        <div class="upload-stage" id="stage3">
+                            <i class="fas fa-check"></i>
+                            <small>Fertig</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.upload-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 15px;
+    border-radius: 10px;
+    color: #6c757d;
+    transition: all 0.3s;
+}
+.upload-stage i {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+.upload-stage.active {
+    background: #e7f1ff;
+    color: #0d6efd;
+}
+.upload-stage.done {
+    background: #d1e7dd;
+    color: #198754;
+}
+.upload-stage.error {
+    background: #f8d7da;
+    color: #dc3545;
+}
+</style>
+
 <script>
 // Storage limits from backend
 const maxStorage = {{ user_storage.max_storage }};
 const usedStorage = {{ user_storage.used_storage }};
 const availableStorage = maxStorage - usedStorage;
+
+// Upload state
+let uploadStartTime = null;
+let lastLoaded = 0;
+let lastTime = null;
+
+// Format bytes to readable size
+function formatBytes(bytes, decimals = 1) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+}
+
+// Update progress UI
+function updateProgress(loaded, total) {
+    const percent = Math.round((loaded / total) * 100);
+    const progressBar = document.getElementById('modalProgressBar');
+    const progressText = document.getElementById('progressText');
+    const uploadedSize = document.getElementById('uploadedSize');
+    const totalSize = document.getElementById('totalSize');
+    const speedValue = document.getElementById('speedValue');
+
+    // Update progress bar
+    progressBar.style.width = percent + '%';
+    progressText.textContent = percent + '%';
+
+    // Update sizes
+    uploadedSize.textContent = formatBytes(loaded);
+    totalSize.textContent = formatBytes(total);
+
+    // Calculate speed
+    const now = Date.now();
+    if (lastTime && (now - lastTime) > 500) {
+        const bytesPerSecond = (loaded - lastLoaded) / ((now - lastTime) / 1000);
+        speedValue.textContent = formatBytes(bytesPerSecond) + '/s';
+        lastLoaded = loaded;
+        lastTime = now;
+    } else if (!lastTime) {
+        lastTime = now;
+        lastLoaded = loaded;
+    }
+}
+
+// Set upload stage
+function setStage(stageNum, status) {
+    const stages = ['stage1', 'stage2', 'stage3'];
+    stages.forEach((id, idx) => {
+        const el = document.getElementById(id);
+        el.classList.remove('active', 'done', 'error');
+        if (idx + 1 < stageNum) {
+            el.classList.add('done');
+        } else if (idx + 1 === stageNum) {
+            el.classList.add(status || 'active');
+        }
+    });
+}
+
+// Show error in modal
+function showError(message) {
+    const uploadIcon = document.getElementById('uploadIcon');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const progressBar = document.getElementById('modalProgressBar');
+
+    uploadIcon.innerHTML = '<i class="fas fa-exclamation-circle fa-4x text-danger"></i>';
+    uploadStatus.textContent = message;
+    uploadStatus.classList.add('text-danger');
+    progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+    progressBar.classList.add('bg-danger');
+    setStage(1, 'error');
+
+    // Add close button
+    const modalBody = document.querySelector('#uploadModal .modal-body');
+    if (!document.getElementById('closeModalBtn')) {
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'closeModalBtn';
+        closeBtn.className = 'btn btn-secondary mt-4';
+        closeBtn.innerHTML = '<i class="fas fa-times"></i> Schließen';
+        closeBtn.onclick = function() {
+            bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
+            location.reload();
+        };
+        modalBody.appendChild(closeBtn);
+    }
+}
 
 // File size validation
 document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('change', function(e) {
@@ -115,21 +272,21 @@ document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('
     const warningDiv = document.getElementById('fileSizeWarning');
     const messageSpan = document.getElementById('fileSizeMessage');
     const submitBtn = document.getElementById('submitBtn');
-    
+
     if (file) {
         const fileSize = file.size;
         const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
         const availableMB = (availableStorage / (1024 * 1024)).toFixed(1);
         const maxStorageMB = (maxStorage / (1024 * 1024)).toFixed(0);
-        
+
         if (fileSize > availableStorage) {
             const totalNeededMB = ((usedStorage + fileSize) / (1024 * 1024)).toFixed(1);
-            
+
             messageSpan.innerHTML = `
-                Datei zu groß! Benötigt: <strong>${fileSizeMB} MB</strong>, 
+                Datei zu groß! Benötigt: <strong>${fileSizeMB} MB</strong>,
                 verfügbar: <strong>${availableMB} MB</strong>
                 (gesamt würde: ${totalNeededMB} MB von ${maxStorageMB} MB belegen).
-                <br><a href="{% url 'payments:subscription_plans' %}" class="alert-link">Speicher erweitern</a> 
+                <br><a href="{% url 'payments:subscription_plans' %}" class="alert-link">Speicher erweitern</a>
                 oder Videos löschen.
             `;
             warningDiv.style.display = 'block';
@@ -138,7 +295,7 @@ document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('
             submitBtn.innerHTML = '<i class="fas fa-ban"></i> Datei zu groß';
         } else if (fileSize > availableStorage * 0.8) {
             messageSpan.innerHTML = `
-                Warnung: Datei ist ${fileSizeMB} MB groß. 
+                Warnung: Datei ist ${fileSizeMB} MB groß.
                 Nach dem Upload verbleiben nur noch ${(availableMB - fileSizeMB).toFixed(1)} MB.
             `;
             warningDiv.style.display = 'block';
@@ -157,36 +314,124 @@ document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('
     }
 });
 
+// Form submission with real progress tracking
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const form = this;
     const submitBtn = document.getElementById('submitBtn');
-    const progressDiv = document.getElementById('uploadProgress');
-    const progressBar = progressDiv.querySelector('.progress-bar');
     const fileInput = document.getElementById('{{ form.video_file.id_for_label }}');
-    
+
     // Final check before submit
     if (fileInput.files[0] && fileInput.files[0].size > availableStorage) {
-        e.preventDefault();
         alert('Die gewählte Datei ist zu groß für Ihren verfügbaren Speicherplatz.');
         return false;
     }
-    
-    // Show progress
-    progressDiv.style.display = 'block';
+
+    // Check if file selected
+    if (!fileInput.files[0]) {
+        alert('Bitte wählen Sie eine Video-Datei aus.');
+        return false;
+    }
+
+    // Disable submit button
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird hochgeladen...';
-    
-    // Simulate progress (in real implementation, use XMLHttpRequest for actual progress)
-    let progress = 0;
-    const interval = setInterval(function() {
-        progress += Math.random() * 10;
-        if (progress > 90) {
-            clearInterval(interval);
-            progress = 90;
+
+    // Show modal
+    const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+    uploadModal.show();
+
+    // Reset state
+    uploadStartTime = Date.now();
+    lastLoaded = 0;
+    lastTime = null;
+    setStage(1, 'active');
+
+    // Create FormData
+    const formData = new FormData(form);
+
+    // Create XMLHttpRequest for progress tracking
+    const xhr = new XMLHttpRequest();
+
+    // Progress event
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            updateProgress(e.loaded, e.total);
         }
-        progressBar.style.width = progress + '%';
-        progressBar.textContent = Math.round(progress) + '%';
-        progressBar.setAttribute('aria-valuenow', progress);
-    }, 500);
+    });
+
+    // Upload complete - now server is processing
+    xhr.upload.addEventListener('load', function() {
+        document.getElementById('uploadStatus').textContent = 'Video wird verarbeitet...';
+        document.getElementById('uploadSpeed').style.display = 'none';
+        setStage(2, 'active');
+
+        // Keep progress at 100% during processing
+        const progressBar = document.getElementById('modalProgressBar');
+        progressBar.style.width = '100%';
+        document.getElementById('progressText').textContent = '100%';
+    });
+
+    // Response received
+    xhr.addEventListener('load', function() {
+        if (xhr.status === 200) {
+            // Check if response is a redirect (HTML page)
+            if (xhr.responseURL && xhr.responseURL.includes('/videos/')) {
+                // Success - show completion
+                document.getElementById('uploadIcon').innerHTML = '<i class="fas fa-check-circle fa-4x text-success"></i>';
+                document.getElementById('uploadStatus').textContent = 'Upload erfolgreich!';
+                const progressBar = document.getElementById('modalProgressBar');
+                progressBar.classList.remove('progress-bar-animated');
+                progressBar.classList.add('bg-success');
+                setStage(3, 'done');
+
+                // Redirect after short delay
+                setTimeout(function() {
+                    window.location.href = '{% url "videos:list" %}';
+                }, 1500);
+            } else {
+                // Try to parse as JSON error
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        showError(response.error);
+                    } else {
+                        // Success - redirect
+                        window.location.href = '{% url "videos:list" %}';
+                    }
+                } catch(e) {
+                    // HTML response - check for success or error
+                    if (xhr.responseText.includes('errorlist') || xhr.responseText.includes('alert-danger')) {
+                        showError('Upload fehlgeschlagen. Bitte überprüfen Sie die Eingaben.');
+                    } else {
+                        // Assume success, redirect
+                        window.location.href = '{% url "videos:list" %}';
+                    }
+                }
+            }
+        } else {
+            showError('Server-Fehler: ' + xhr.status);
+        }
+    });
+
+    // Error handling
+    xhr.addEventListener('error', function() {
+        showError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
+    });
+
+    xhr.addEventListener('timeout', function() {
+        showError('Zeitüberschreitung. Das Video ist möglicherweise zu groß.');
+    });
+
+    xhr.addEventListener('abort', function() {
+        showError('Upload abgebrochen.');
+    });
+
+    // Send request
+    xhr.open('POST', form.action || window.location.href, true);
+    xhr.timeout = 600000; // 10 minutes timeout
+    xhr.send(formData);
 });
 </script>
 {% endblock %}
