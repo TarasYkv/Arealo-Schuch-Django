@@ -84,16 +84,16 @@ def video_upload(request):
             
             video.file_size = file_size
             video.save()
-            
-            # Generate thumbnail
-            try:
-                generate_video_thumbnail(video)
-                # Try to get video duration
-                video.duration = get_video_duration(video.video_file.path)
-                video.save()
-            except Exception as e:
-                # Log error but don't fail the upload
-                print(f"Error generating thumbnail: {e}")
+
+            # Generate thumbnail nur für kleinere Videos (< 50MB)
+            # Größere Videos würden Timeout verursachen
+            if file_size < 50 * 1024 * 1024:  # 50 MB
+                try:
+                    generate_video_thumbnail(video)
+                    video.duration = get_video_duration(video.video_file.path)
+                    video.save()
+                except Exception as e:
+                    print(f"Error generating thumbnail: {e}")
             
             # Update user storage immediately
             user_storage.used_storage += file_size
