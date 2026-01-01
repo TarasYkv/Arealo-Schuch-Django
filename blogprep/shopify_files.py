@@ -66,7 +66,6 @@ class ShopifyFilesService:
             file_id = file_result.get('file_id', '')
 
             if cdn_url:
-                logger.info(f"Shopify Upload erfolgreich: {cdn_url}")
                 return True, cdn_url, file_id
             else:
                 # Falls URL noch nicht verfügbar, Resource URL zurückgeben

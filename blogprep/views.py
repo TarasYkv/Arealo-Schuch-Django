@@ -462,12 +462,10 @@ def api_run_research(request, project_id):
     web_results = research_service.search_and_analyze(project.main_keyword, num_results=5)
 
     if not web_results['success']:
-        logger.warning(f"Web-Recherche fehlgeschlagen: {web_results.get('error')}")
         # Fallback: Leere Suchergebnisse, KI analysiert nur Keyword
         search_results = []
     else:
         search_results = web_results.get('search_results', [])
-        logger.info(f"Web-Recherche erfolgreich: {len(search_results)} Ergebnisse mit Inhalt")
 
     # Content Service für KI-Analyse
     content_service = ContentService(request.user, settings)
@@ -1396,12 +1394,9 @@ def api_export_to_shopify(request, project_id):
                     if success:
                         img['shopify_cdn_url'] = cdn_url
                         img['shopify_file_id'] = file_id
-                        # Setze image_url auf CDN URL für HTML-Generierung
                         img['image_url'] = cdn_url
-                        logger.info(f"Bild '{section_name}' zu Shopify hochgeladen: {cdn_url}")
                     else:
-                        logger.warning(f"Shopify Upload fehlgeschlagen für '{section_name}': {cdn_url}")
-                        # Fallback: Behalte lokale URL wenn vorhanden
+                        logger.warning(f"Shopify Upload fehlgeschlagen: {section_name}")
 
                 updated_section_images.append(img)
 
@@ -1424,7 +1419,6 @@ def api_export_to_shopify(request, project_id):
 
                     if success:
                         diagram_cdn_url = cdn_url
-                        logger.info(f"Diagramm zu Shopify hochgeladen: {cdn_url}")
             except Exception as e:
                 logger.warning(f"Diagramm Upload fehlgeschlagen: {e}")
 
@@ -1471,28 +1465,20 @@ def api_export_to_shopify(request, project_id):
 
         # Titelbild als Article Featured Image (nicht im body_html)
         if project.title_image:
-            logger.info(f"Titelbild vorhanden: {project.title_image.name}")
             try:
-                # Lese Bild und konvertiere zu Base64
                 with project.title_image.open('rb') as img_file:
-                    image_bytes = img_file.read()
-                    image_data = base64.b64encode(image_bytes).decode('utf-8')
-                    logger.info(f"Titelbild gelesen: {len(image_bytes)} bytes, Base64: {len(image_data)} chars")
+                    image_data = base64.b64encode(img_file.read()).decode('utf-8')
                     article_data['article']['image'] = {
                         'attachment': image_data,
                         'alt': project.seo_title or project.title
                     }
             except Exception as img_error:
-                logger.warning(f"Could not read title image: {img_error}")
-                # Fallback: Verwende URL wenn lokales Lesen fehlschlägt
-                img_url = f"{base_url}{project.title_image.url}"
-                logger.info(f"Titelbild Fallback URL: {img_url}")
+                logger.warning(f"Titelbild Fehler: {img_error}")
+                # Fallback: URL verwenden
                 article_data['article']['image'] = {
-                    'src': img_url,
+                    'src': f"{base_url}{project.title_image.url}",
                     'alt': project.seo_title or project.title
                 }
-        else:
-            logger.warning(f"Kein Titelbild für Projekt {project.id} vorhanden")
 
         # Meta-Description als Metafield
         if project.meta_description:
