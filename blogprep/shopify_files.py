@@ -261,11 +261,19 @@ class ShopifyFilesService:
                 return {'success': False, 'error': 'Keine Datei erstellt'}
 
             file_obj = files[0]
-            file_id = file_obj.get('id', '')
+            if not file_obj:
+                return {'success': False, 'error': 'Datei-Objekt ist None'}
 
-            # URL aus MediaImage extrahieren
-            image_data = file_obj.get('image', {})
-            url = image_data.get('url') or image_data.get('originalSrc', '')
+            file_id = file_obj.get('id', '') if file_obj else ''
+
+            # URL aus MediaImage extrahieren - mit Null-Check
+            image_data = file_obj.get('image') if file_obj else None
+            if image_data:
+                url = image_data.get('url') or image_data.get('originalSrc', '')
+            else:
+                # Fallback: Versuche resource_url zu verwenden
+                url = ''
+                logger.warning(f"Shopify file created but no image URL yet (file_id: {file_id})")
 
             return {
                 'success': True,

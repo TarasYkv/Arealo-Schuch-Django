@@ -1471,10 +1471,13 @@ def api_export_to_shopify(request, project_id):
 
         # Titelbild als Article Featured Image (nicht im body_html)
         if project.title_image:
+            logger.info(f"Titelbild vorhanden: {project.title_image.name}")
             try:
                 # Lese Bild und konvertiere zu Base64
                 with project.title_image.open('rb') as img_file:
-                    image_data = base64.b64encode(img_file.read()).decode('utf-8')
+                    image_bytes = img_file.read()
+                    image_data = base64.b64encode(image_bytes).decode('utf-8')
+                    logger.info(f"Titelbild gelesen: {len(image_bytes)} bytes, Base64: {len(image_data)} chars")
                     article_data['article']['image'] = {
                         'attachment': image_data,
                         'alt': project.seo_title or project.title
@@ -1483,10 +1486,13 @@ def api_export_to_shopify(request, project_id):
                 logger.warning(f"Could not read title image: {img_error}")
                 # Fallback: Verwende URL wenn lokales Lesen fehlschlägt
                 img_url = f"{base_url}{project.title_image.url}"
+                logger.info(f"Titelbild Fallback URL: {img_url}")
                 article_data['article']['image'] = {
                     'src': img_url,
                     'alt': project.seo_title or project.title
                 }
+        else:
+            logger.warning(f"Kein Titelbild für Projekt {project.id} vorhanden")
 
         # Meta-Description als Metafield
         if project.meta_description:
