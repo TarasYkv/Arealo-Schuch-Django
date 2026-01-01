@@ -356,13 +356,21 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
     // Progress event
     xhr.upload.addEventListener('progress', function(e) {
+        console.log('Upload progress:', e.loaded, '/', e.total);
         if (e.lengthComputable) {
             updateProgress(e.loaded, e.total);
         }
     });
 
+    // Upload error on xhr.upload
+    xhr.upload.addEventListener('error', function(e) {
+        console.error('Upload error event:', e);
+        showError('Upload-Fehler aufgetreten.');
+    });
+
     // Upload complete - now server is processing
     xhr.upload.addEventListener('load', function() {
+        console.log('Upload complete, waiting for server response...');
         document.getElementById('uploadStatus').textContent = 'Video wird verarbeitet...';
         document.getElementById('uploadSpeed').style.display = 'none';
         setStage(2, 'active');
@@ -375,6 +383,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
     // Response received
     xhr.addEventListener('load', function() {
+        console.log('Server response received:', xhr.status, xhr.responseURL);
         if (xhr.status === 200) {
             // Check if response is a redirect (HTML page)
             if (xhr.responseURL && xhr.responseURL.includes('/videos/')) {
@@ -416,17 +425,25 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     });
 
     // Error handling
-    xhr.addEventListener('error', function() {
+    xhr.addEventListener('error', function(e) {
+        console.error('XHR error:', e);
         showError('Verbindungsfehler. Bitte überprüfen Sie Ihre Internetverbindung.');
     });
 
     xhr.addEventListener('timeout', function() {
+        console.error('XHR timeout');
         showError('Zeitüberschreitung. Das Video ist möglicherweise zu groß.');
     });
 
     xhr.addEventListener('abort', function() {
+        console.error('XHR aborted');
         showError('Upload abgebrochen.');
     });
+
+    // Ready state change for debugging
+    xhr.onreadystatechange = function() {
+        console.log('XHR readyState:', xhr.readyState, 'status:', xhr.status);
+    };
 
     // Send request
     xhr.open('POST', form.action || window.location.href, true);
