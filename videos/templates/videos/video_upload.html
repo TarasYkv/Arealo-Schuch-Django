@@ -431,6 +431,11 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     // Send request
     xhr.open('POST', form.action || window.location.href, true);
     xhr.timeout = 600000; // 10 minutes timeout
+
+    // Add CSRF token header (required by Django)
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    xhr.setRequestHeader('X-CSRFToken', csrfToken);
+
     xhr.send(formData);
 });
 </script>
