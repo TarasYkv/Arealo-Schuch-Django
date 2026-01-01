@@ -882,12 +882,12 @@ def api_post_to_social(request, video_id):
                 'error': 'Kein Video vorhanden.'
             }, status=400)
 
-        # Prüfe Dateigröße (Upload-Post hat möglicherweise Limits)
+        # Prüfe Dateigröße (YouTube: 256GB, TikTok: 4GB - wir limitieren auf 500MB)
         file_size_mb = video.file_size / (1024 * 1024)
-        if file_size_mb > 100:  # 100MB Limit
+        if file_size_mb > 500:  # 500MB Limit
             return JsonResponse({
                 'success': False,
-                'error': f'Video zu groß ({file_size_mb:.1f}MB). Maximum: 100MB'
+                'error': f'Video zu groß ({file_size_mb:.1f}MB). Maximum: 500MB'
             }, status=400)
 
         # Video-Datei lesen
