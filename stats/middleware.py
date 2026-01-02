@@ -9,8 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 class StatsTrackingMiddleware(MiddlewareMixin):
+    def has_statistics_consent(self, request):
+        """Check if user has given consent for statistics tracking"""
+        # Check for cookie consent
+        consent_cookie = request.COOKIES.get('cookie_consent_statistics', '')
+        return consent_cookie.lower() == 'true'
+
     def process_response(self, request, response):
         try:
+            # Check for statistics consent first
+            if not self.has_statistics_consent(request):
+                return response
+
             # Nur für erfolgreiche GET-Requests tracken
             if (request.method == 'GET' and
                 response.status_code == 200 and

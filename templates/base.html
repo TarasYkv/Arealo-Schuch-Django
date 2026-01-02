@@ -2474,7 +2474,8 @@
                     <div class="footer-links">
                         <a href="{% url 'impressum' %}" class="text-muted me-3">Impressum</a>
                         <a href="{% url 'agb' %}" class="text-muted me-3">AGB</a>
-                        <a href="{% url 'datenschutz' %}" class="text-muted">Datenschutzerklärung</a>
+                        <a href="{% url 'datenschutz' %}" class="text-muted me-3">Datenschutzerklärung</a>
+                        <a href="#" class="text-muted" onclick="showCookieSettings(); return false;">Cookie-Einstellungen</a>
                     </div>
                 </div>
             </div>
@@ -4905,6 +4906,279 @@
 
     <!-- Global Messages Scripts (CSS & JavaScript) -->
     {% global_messages_scripts %}
+
+    <!-- Cookie Consent Banner -->
+    <div id="cookie-consent-banner" class="cookie-banner" style="display: none;">
+        <div class="cookie-banner-content">
+            <div class="cookie-banner-text">
+                <h5><i class="fas fa-cookie-bite me-2"></i>Cookie-Einstellungen</h5>
+                <p>Wir verwenden Cookies und ähnliche Technologien. Einige sind technisch notwendig, andere helfen uns, die Website zu verbessern.</p>
+            </div>
+            <div class="cookie-banner-options">
+                <div class="cookie-option">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="cookie-necessary" checked disabled>
+                        <label class="form-check-label" for="cookie-necessary">
+                            <strong>Notwendig</strong>
+                            <small class="d-block text-muted">Session, Sicherheit (immer aktiv)</small>
+                        </label>
+                    </div>
+                </div>
+                <div class="cookie-option">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="cookie-statistics">
+                        <label class="form-check-label" for="cookie-statistics">
+                            <strong>Statistik</strong>
+                            <small class="d-block text-muted">Anonyme Nutzungsanalyse (IP, Seitenaufrufe)</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="cookie-banner-buttons">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="acceptSelectedCookies()">
+                    Auswahl speichern
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="acceptAllCookies()">
+                    Alle akzeptieren
+                </button>
+            </div>
+            <div class="cookie-banner-links">
+                <a href="{% url 'datenschutz' %}" target="_blank">Datenschutzerklärung</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cookie Settings Modal -->
+    <div class="modal fade" id="cookieSettingsModal" tabindex="-1" aria-labelledby="cookieSettingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cookieSettingsModalLabel">
+                        <i class="fas fa-cookie-bite me-2"></i>Cookie-Einstellungen
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-4">Hier kannst du deine Cookie-Präferenzen anpassen.</p>
+
+                    <div class="cookie-setting-item mb-3 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Notwendige Cookies</strong>
+                                <p class="text-muted small mb-0">Session-Cookies, CSRF-Schutz. Diese sind für die Grundfunktionen erforderlich.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="modal-cookie-necessary" checked disabled>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cookie-setting-item mb-3 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Statistik-Cookies</strong>
+                                <p class="text-muted small mb-0">Anonyme Analyse der Websitenutzung (Seitenaufrufe, Browser, Gerät). Hilft uns, die Website zu verbessern.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="modal-cookie-statistics">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="saveModalCookieSettings()">Einstellungen speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    /* Cookie Banner Styles */
+    .cookie-banner {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+        z-index: 9999;
+        padding: 20px;
+        border-top: 3px solid #667eea;
+    }
+
+    [data-theme="dark"] .cookie-banner {
+        background: #2d3748;
+        color: #e2e8f0;
+    }
+
+    .cookie-banner-content {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .cookie-banner-text h5 {
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    [data-theme="dark"] .cookie-banner-text h5 {
+        color: #e2e8f0;
+    }
+
+    .cookie-banner-text p {
+        margin-bottom: 15px;
+        color: #666;
+        font-size: 14px;
+    }
+
+    [data-theme="dark"] .cookie-banner-text p {
+        color: #a0aec0;
+    }
+
+    .cookie-banner-options {
+        display: flex;
+        gap: 30px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+
+    .cookie-option {
+        min-width: 200px;
+    }
+
+    .cookie-banner-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+    }
+
+    .cookie-banner-links {
+        font-size: 12px;
+    }
+
+    .cookie-banner-links a {
+        color: #667eea;
+    }
+
+    @media (max-width: 768px) {
+        .cookie-banner {
+            padding: 15px;
+        }
+        .cookie-banner-options {
+            flex-direction: column;
+            gap: 10px;
+        }
+        .cookie-banner-buttons {
+            flex-direction: column;
+        }
+        .cookie-banner-buttons .btn {
+            width: 100%;
+        }
+    }
+    </style>
+
+    <script>
+    // Cookie Consent Management
+    const COOKIE_CONSENT_KEY = 'workloom_cookie_consent';
+    const COOKIE_CONSENT_VERSION = '1';
+
+    function getCookieConsent() {
+        try {
+            const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
+            if (consent) {
+                const parsed = JSON.parse(consent);
+                if (parsed.version === COOKIE_CONSENT_VERSION) {
+                    return parsed;
+                }
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function setCookieConsent(settings) {
+        const consent = {
+            version: COOKIE_CONSENT_VERSION,
+            necessary: true,
+            statistics: settings.statistics || false,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(consent));
+
+        // Set a cookie for server-side checking
+        const expires = new Date();
+        expires.setFullYear(expires.getFullYear() + 1);
+        document.cookie = `cookie_consent_statistics=${consent.statistics}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+
+        return consent;
+    }
+
+    function showCookieBanner() {
+        const banner = document.getElementById('cookie-consent-banner');
+        if (banner) {
+            banner.style.display = 'block';
+        }
+    }
+
+    function hideCookieBanner() {
+        const banner = document.getElementById('cookie-consent-banner');
+        if (banner) {
+            banner.style.display = 'none';
+        }
+    }
+
+    function acceptAllCookies() {
+        setCookieConsent({ statistics: true });
+        hideCookieBanner();
+        // Reload to enable tracking
+        location.reload();
+    }
+
+    function acceptSelectedCookies() {
+        const statisticsChecked = document.getElementById('cookie-statistics')?.checked || false;
+        setCookieConsent({ statistics: statisticsChecked });
+        hideCookieBanner();
+        // Reload to apply settings
+        location.reload();
+    }
+
+    function showCookieSettings() {
+        const consent = getCookieConsent();
+        const modal = document.getElementById('cookieSettingsModal');
+        const statisticsCheckbox = document.getElementById('modal-cookie-statistics');
+
+        if (statisticsCheckbox && consent) {
+            statisticsCheckbox.checked = consent.statistics;
+        }
+
+        if (modal) {
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        }
+    }
+
+    function saveModalCookieSettings() {
+        const statisticsChecked = document.getElementById('modal-cookie-statistics')?.checked || false;
+        setCookieConsent({ statistics: statisticsChecked });
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('cookieSettingsModal'));
+        if (modal) {
+            modal.hide();
+        }
+
+        // Reload to apply settings
+        location.reload();
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const consent = getCookieConsent();
+        if (!consent) {
+            showCookieBanner();
+        }
+    });
+    </script>
 
 </body>
 </html>
