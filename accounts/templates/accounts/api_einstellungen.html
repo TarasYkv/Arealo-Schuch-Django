@@ -166,6 +166,22 @@ body.bg-dark .password-toggle {
 body.bg-dark .password-toggle:hover {
     background-color: #4a5568 !important;
 }
+
+/* Direct Link Button Animation */
+.direct-link-btn {
+    animation: fadeInSlide 0.3s ease-out;
+}
+
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 </style>
 
 <div class="container-fluid py-4">
@@ -257,12 +273,22 @@ body.bg-dark .password-toggle:hover {
                         </div>
                     </form>
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="openai-links-container">
                         <a href="{{ api_providers.openai.affiliate_link|default:'https://platform.openai.com/api-keys' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('openai')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.openai.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
+                        {% if api_providers.openai.direct_link %}
+                        <a href="{{ api_providers.openai.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="openai-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.openai.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -329,12 +355,22 @@ body.bg-dark .password-toggle:hover {
                         </div>
                     </form>
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="youtube-links-container">
                         <a href="{{ api_providers.youtube.affiliate_link|default:'https://console.developers.google.com/apis/credentials' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('youtube')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.youtube.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
+                        {% if api_providers.youtube.direct_link %}
+                        <a href="{{ api_providers.youtube.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="youtube-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.youtube.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -390,12 +426,22 @@ body.bg-dark .password-toggle:hover {
                         </div>
                     {% endif %}
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="zoho-links-container">
                         <a href="{{ api_providers.zoho.affiliate_link|default:'https://api-console.zoho.eu/' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('zoho')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.zoho.affiliate_link_text|default:'Zoho API Console' }}
                         </a>
+                        {% if api_providers.zoho.direct_link %}
+                        <a href="{{ api_providers.zoho.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="zoho-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.zoho.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -469,12 +515,22 @@ body.bg-dark .password-toggle:hover {
                         </div>
                     </form>
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="ideogram-links-container">
                         <a href="{{ api_providers.ideogram.affiliate_link|default:'https://ideogram.ai/manage-api' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('ideogram')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.ideogram.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
+                        {% if api_providers.ideogram.direct_link %}
+                        <a href="{{ api_providers.ideogram.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="ideogram-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.ideogram.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -541,12 +597,22 @@ body.bg-dark .password-toggle:hover {
                         </div>
                     </form>
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="gemini-links-container">
                         <a href="{{ api_providers.gemini.affiliate_link|default:'https://aistudio.google.com/apikey' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('gemini')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.gemini.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
+                        {% if api_providers.gemini.direct_link %}
+                        <a href="{{ api_providers.gemini.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="gemini-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.gemini.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -610,12 +676,22 @@ body.bg-dark .password-toggle:hover {
                         </div>
                     {% endif %}
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="shopify-links-container">
                         <a href="{{ api_providers.shopify.affiliate_link|default:'https://partners.shopify.com/' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('shopify')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.shopify.affiliate_link_text|default:'Shopify Partner Dashboard' }}
                         </a>
+                        {% if api_providers.shopify.direct_link %}
+                        <a href="{{ api_providers.shopify.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="shopify-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.shopify.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -743,12 +819,22 @@ body.bg-dark .password-toggle:hover {
                         </form>
                     {% endif %}
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="pinterest-links-container">
                         <a href="{{ api_providers.pinterest.affiliate_link|default:'https://developers.pinterest.com/apps/' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('pinterest')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.pinterest.affiliate_link_text|default:'Pinterest Developer Portal' }}
                         </a>
+                        {% if api_providers.pinterest.direct_link %}
+                        <a href="{{ api_providers.pinterest.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="pinterest-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.pinterest.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -839,12 +925,22 @@ body.bg-dark .password-toggle:hover {
                         <strong>Upload-Post</strong> ermöglicht direktes Posten auf Pinterest, Instagram, TikTok, Facebook, YouTube, X und mehr über eine einzige API.
                     </div>
 
-                    <div class="mt-auto">
+                    <div class="mt-auto" id="upload_post-links-container">
                         <a href="{{ api_providers.upload_post.affiliate_link|default:'https://www.upload-post.com/' }}"
                            target="_blank"
-                           class="btn btn-outline-primary btn-sm">
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('upload_post')">
                             <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.upload_post.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
+                        {% if api_providers.upload_post.direct_link %}
+                        <a href="{{ api_providers.upload_post.direct_link }}"
+                           target="_blank"
+                           class="btn btn-outline-success btn-sm ms-2 direct-link-btn"
+                           id="upload_post-direct-link"
+                           style="display: none;">
+                            <i class="fas fa-arrow-right me-1"></i>{{ api_providers.upload_post.direct_link_text|default:'Direkt zum Anbieter' }}
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1020,10 +1116,59 @@ body.bg-dark .password-toggle:hover {
 </div>
 
 <script>
+// Affiliate Link Click Tracking
+const AFFILIATE_CLICKS_KEY = 'workloom_affiliate_clicks';
+
+function getAffiliateClicks() {
+    try {
+        return JSON.parse(localStorage.getItem(AFFILIATE_CLICKS_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveAffiliateClicks(clicks) {
+    try {
+        localStorage.setItem(AFFILIATE_CLICKS_KEY, JSON.stringify(clicks));
+    } catch (e) {
+        console.warn('Could not save to localStorage');
+    }
+}
+
+function trackAffiliateClick(provider) {
+    const clicks = getAffiliateClicks();
+    clicks[provider] = Date.now();
+    saveAffiliateClicks(clicks);
+
+    // Show the direct link button immediately after click
+    showDirectLinkButton(provider);
+}
+
+function showDirectLinkButton(provider) {
+    const directLinkBtn = document.getElementById(provider + '-direct-link');
+    if (directLinkBtn) {
+        directLinkBtn.style.display = 'inline-block';
+    }
+}
+
+function initDirectLinkButtons() {
+    const clicks = getAffiliateClicks();
+    const providers = ['openai', 'youtube', 'zoho', 'ideogram', 'gemini', 'shopify', 'pinterest', 'upload_post'];
+
+    providers.forEach(provider => {
+        if (clicks[provider]) {
+            showDirectLinkButton(provider);
+        }
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initDirectLinkButtons);
+
 function togglePasswordVisibility(fieldId, button) {
     const field = document.getElementById(fieldId);
     const icon = button.querySelector('i');
-    
+
     if (field.type === 'password') {
         field.type = 'text';
         icon.classList.remove('fa-eye');

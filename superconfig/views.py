@@ -2391,6 +2391,8 @@ def api_providers_list(request):
                 'display_name': p.display_name or p.get_provider_display(),
                 'affiliate_link': p.affiliate_link,
                 'affiliate_link_text': p.affiliate_link_text,
+                'direct_link': p.direct_link,
+                'direct_link_text': p.direct_link_text,
                 'is_visible': p.is_visible,
                 'sort_order': p.sort_order,
             })
@@ -2423,6 +2425,8 @@ def api_providers_save(request):
                 provider = APIProviderSettings.objects.get(provider=provider_key)
                 provider.affiliate_link = settings_data.get('affiliate_link', '')
                 provider.affiliate_link_text = settings_data.get('affiliate_link_text', 'API-Key erhalten')
+                provider.direct_link = settings_data.get('direct_link', '')
+                provider.direct_link_text = settings_data.get('direct_link_text', 'Direkt zum Anbieter')
                 provider.is_visible = settings_data.get('is_visible', True)
                 provider.sort_order = settings_data.get('sort_order', 0)
                 provider.updated_by = request.user
@@ -2434,6 +2438,8 @@ def api_providers_save(request):
                     provider=provider_key,
                     affiliate_link=settings_data.get('affiliate_link', ''),
                     affiliate_link_text=settings_data.get('affiliate_link_text', 'API-Key erhalten'),
+                    direct_link=settings_data.get('direct_link', ''),
+                    direct_link_text=settings_data.get('direct_link_text', 'Direkt zum Anbieter'),
                     is_visible=settings_data.get('is_visible', True),
                     sort_order=settings_data.get('sort_order', 0),
                     updated_by=request.user

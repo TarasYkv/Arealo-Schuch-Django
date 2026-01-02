@@ -150,6 +150,26 @@ function renderApiProviders(providers) {
                                    value="${provider.affiliate_link_text || 'API-Key erhalten'}"
                                    placeholder="API-Key erhalten">
                         </div>
+                        <hr class="my-3">
+                        <div class="mb-3">
+                            <label for="direct_link_${provider.provider}" class="form-label">
+                                <i class="fas fa-external-link-alt me-1"></i>Direkt-Link <small class="text-muted">(nach Affiliate-Klick)</small>
+                            </label>
+                            <input type="url" class="form-control"
+                                   id="direct_link_${provider.provider}"
+                                   value="${provider.direct_link || ''}"
+                                   placeholder="https://...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="direct_text_${provider.provider}" class="form-label">
+                                <i class="fas fa-font me-1"></i>Direkt-Link Button Text
+                            </label>
+                            <input type="text" class="form-control"
+                                   id="direct_text_${provider.provider}"
+                                   value="${provider.direct_link_text || 'Direkt zum Anbieter'}"
+                                   placeholder="Direkt zum Anbieter">
+                        </div>
+                        <hr class="my-3">
                         <div class="mb-2">
                             <label for="order_${provider.provider}" class="form-label">
                                 <i class="fas fa-sort me-1"></i>Sortierung
@@ -176,6 +196,8 @@ function saveAllApiProviders() {
     providers.forEach(provider => {
         const linkEl = document.getElementById(`link_${provider}`);
         const textEl = document.getElementById(`text_${provider}`);
+        const directLinkEl = document.getElementById(`direct_link_${provider}`);
+        const directTextEl = document.getElementById(`direct_text_${provider}`);
         const visibleEl = document.getElementById(`visible_${provider}`);
         const orderEl = document.getElementById(`order_${provider}`);
 
@@ -183,6 +205,8 @@ function saveAllApiProviders() {
             data[provider] = {
                 affiliate_link: linkEl.value,
                 affiliate_link_text: textEl ? textEl.value : 'API-Key erhalten',
+                direct_link: directLinkEl ? directLinkEl.value : '',
+                direct_link_text: directTextEl ? directTextEl.value : 'Direkt zum Anbieter',
                 is_visible: visibleEl ? visibleEl.checked : true,
                 sort_order: orderEl ? parseInt(orderEl.value) || 0 : 0
             };

@@ -469,6 +469,18 @@ class APIProviderSettings(models.Model):
         help_text='Button-Text für den Affiliate Link'
     )
 
+    direct_link = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text='Direkter Link zum Anbieter (erscheint nach Affiliate-Klick)'
+    )
+
+    direct_link_text = models.CharField(
+        max_length=100,
+        default='Direkt zum Anbieter',
+        help_text='Button-Text für den Direkt-Link'
+    )
+
     is_visible = models.BooleanField(
         default=True,
         help_text='Karte für normale Nutzer anzeigen'
@@ -505,6 +517,8 @@ class APIProviderSettings(models.Model):
             settings_dict[setting.provider] = {
                 'affiliate_link': setting.affiliate_link,
                 'affiliate_link_text': setting.affiliate_link_text,
+                'direct_link': setting.direct_link,
+                'direct_link_text': setting.direct_link_text,
                 'is_visible': setting.is_visible,
                 'display_name': setting.display_name,
                 'sort_order': setting.sort_order,
