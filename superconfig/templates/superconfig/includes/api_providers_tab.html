@@ -1,0 +1,222 @@
+<!-- API Providers/Affiliates Tab Pane -->
+<div class="tab-pane fade" id="api-providers-main-pane" role="tabpanel">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-link me-2"></i>
+                        API Provider Einstellungen
+                    </h5>
+                    <button class="btn btn-light btn-sm" onclick="loadApiProviders()">
+                        <i class="fas fa-sync-alt me-1"></i>Aktualisieren
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Hier können Sie Affiliate-Links für die API-Anbieter konfigurieren und deren Sichtbarkeit steuern.
+                        Die Links werden auf der Seite <code>/accounts/neue-api-einstellungen/</code> angezeigt.
+                    </p>
+
+                    <!-- Provider List -->
+                    <div id="apiProvidersContainer">
+                        <div class="d-flex justify-content-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Lädt...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Save All Button -->
+                    <div class="mt-4 d-flex justify-content-end">
+                        <button class="btn btn-success btn-lg" onclick="saveAllApiProviders()">
+                            <i class="fas fa-save me-2"></i>Alle Änderungen speichern
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// API Provider Icon Mapping
+const providerIcons = {
+    'openai': 'fas fa-robot',
+    'youtube': 'fab fa-youtube',
+    'zoho': 'fas fa-envelope',
+    'ideogram': 'bi bi-pinterest',
+    'gemini': 'fab fa-google',
+    'shopify': 'fab fa-shopify',
+    'pinterest': 'bi bi-pinterest',
+    'upload_post': 'fas fa-cloud-upload-alt'
+};
+
+const providerColors = {
+    'openai': '#28a745',
+    'youtube': '#dc3545',
+    'zoho': '#17a2b8',
+    'ideogram': '#E60023',
+    'gemini': '#4285F4',
+    'shopify': '#96bf48',
+    'pinterest': '#E60023',
+    'upload_post': '#6366f1'
+};
+
+const providerNames = {
+    'openai': 'OpenAI',
+    'youtube': 'YouTube',
+    'zoho': 'Zoho Mail',
+    'ideogram': 'Ideogram',
+    'gemini': 'Gemini',
+    'shopify': 'Shopify',
+    'pinterest': 'Pinterest',
+    'upload_post': 'Upload-Post'
+};
+
+function loadApiProviders() {
+    const container = document.getElementById('apiProvidersContainer');
+    container.innerHTML = `
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Lädt...</span>
+            </div>
+        </div>
+    `;
+
+    fetch('{% url "superconfig:api_providers_list" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderApiProviders(data.providers);
+            } else {
+                container.innerHTML = `<div class="alert alert-danger">${data.error || 'Fehler beim Laden'}</div>`;
+            }
+        })
+        .catch(error => {
+            container.innerHTML = `<div class="alert alert-danger">Netzwerkfehler: ${error}</div>`;
+        });
+}
+
+function renderApiProviders(providers) {
+    const container = document.getElementById('apiProvidersContainer');
+
+    if (!providers || providers.length === 0) {
+        container.innerHTML = '<div class="alert alert-info">Keine API-Provider konfiguriert. Bitte initialisieren Sie die Provider.</div>';
+        return;
+    }
+
+    let html = '<div class="row g-3">';
+
+    providers.forEach(provider => {
+        const icon = providerIcons[provider.provider] || 'fas fa-cog';
+        const color = providerColors[provider.provider] || '#6c757d';
+        const name = provider.display_name || providerNames[provider.provider] || provider.provider;
+
+        html += `
+            <div class="col-md-6">
+                <div class="card h-100" style="border-left: 4px solid ${color};">
+                    <div class="card-header d-flex justify-content-between align-items-center" style="background-color: ${color}15;">
+                        <div class="d-flex align-items-center">
+                            <i class="${icon} me-2" style="color: ${color}; font-size: 1.5rem;"></i>
+                            <strong>${name}</strong>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox"
+                                   id="visible_${provider.provider}"
+                                   ${provider.is_visible ? 'checked' : ''}
+                                   style="cursor: pointer;">
+                            <label class="form-check-label" for="visible_${provider.provider}">
+                                Sichtbar
+                            </label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="link_${provider.provider}" class="form-label">
+                                <i class="fas fa-link me-1"></i>Affiliate Link
+                            </label>
+                            <input type="url" class="form-control"
+                                   id="link_${provider.provider}"
+                                   value="${provider.affiliate_link || ''}"
+                                   placeholder="https://...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="text_${provider.provider}" class="form-label">
+                                <i class="fas fa-font me-1"></i>Button Text
+                            </label>
+                            <input type="text" class="form-control"
+                                   id="text_${provider.provider}"
+                                   value="${provider.affiliate_link_text || 'API-Key erhalten'}"
+                                   placeholder="API-Key erhalten">
+                        </div>
+                        <div class="mb-2">
+                            <label for="order_${provider.provider}" class="form-label">
+                                <i class="fas fa-sort me-1"></i>Sortierung
+                            </label>
+                            <input type="number" class="form-control form-control-sm"
+                                   id="order_${provider.provider}"
+                                   value="${provider.sort_order || 0}"
+                                   min="0" max="100" style="width: 100px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function saveAllApiProviders() {
+    const providers = ['openai', 'youtube', 'zoho', 'ideogram', 'gemini', 'shopify', 'pinterest', 'upload_post'];
+    const data = {};
+
+    providers.forEach(provider => {
+        const linkEl = document.getElementById(`link_${provider}`);
+        const textEl = document.getElementById(`text_${provider}`);
+        const visibleEl = document.getElementById(`visible_${provider}`);
+        const orderEl = document.getElementById(`order_${provider}`);
+
+        if (linkEl) {
+            data[provider] = {
+                affiliate_link: linkEl.value,
+                affiliate_link_text: textEl ? textEl.value : 'API-Key erhalten',
+                is_visible: visibleEl ? visibleEl.checked : true,
+                sort_order: orderEl ? parseInt(orderEl.value) || 0 : 0
+            };
+        }
+    });
+
+    fetch('{% url "superconfig:api_providers_save" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showAlert(`Alle API-Provider Einstellungen wurden gespeichert.`, 'success');
+        } else {
+            showAlert(`Fehler: ${result.error}`, 'danger');
+        }
+    })
+    .catch(error => {
+        showAlert(`Netzwerkfehler: ${error}`, 'danger');
+    });
+}
+
+// Load providers when tab is shown
+document.addEventListener('DOMContentLoaded', function() {
+    const tabEl = document.querySelector('#api-providers-main-tab');
+    if (tabEl) {
+        tabEl.addEventListener('shown.bs.tab', function (event) {
+            loadApiProviders();
+        });
+    }
+});
+</script>

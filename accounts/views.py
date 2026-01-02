@@ -1010,6 +1010,13 @@ def neue_api_einstellungen_view(request):
     except PinterestAPISettings.DoesNotExist:
         pinterest_settings = None
 
+    # Hole API Provider Settings für Affiliate Links und Sichtbarkeit
+    try:
+        from superconfig.models import APIProviderSettings
+        api_provider_settings = APIProviderSettings.get_all_settings()
+    except:
+        api_provider_settings = {}
+
     # Erstelle maskierte Versionen der API-Keys für die Anzeige
     context = {
         'user': user,
@@ -1031,6 +1038,8 @@ def neue_api_einstellungen_view(request):
         'pinterest_settings': pinterest_settings,
         'pinterest_configured': bool(pinterest_settings and pinterest_settings.app_id and pinterest_settings.app_secret),
         'pinterest_connected': bool(pinterest_settings and pinterest_settings.is_connected),
+        # API Provider Settings for affiliate links
+        'api_providers': api_provider_settings,
     }
 
     return render(request, 'accounts/api_einstellungen.html', context)

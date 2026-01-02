@@ -50,4 +50,8 @@ urlpatterns = [
     path('api/google-oauth/save/', views.save_google_oauth, name='save_google_oauth'),
     path('api/google-oauth/delete/', views.delete_google_oauth, name='delete_google_oauth'),
     path('api/google-oauth/test/', views.test_google_oauth, name='test_google_oauth'),
+
+    # API Provider Settings URLs
+    path('api/providers/list/', views.api_providers_list, name='api_providers_list'),
+    path('api/providers/save/', views.api_providers_save, name='api_providers_save'),
 ]

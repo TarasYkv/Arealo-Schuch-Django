@@ -16,7 +16,7 @@ import sqlite3
 import smtplib
 import ssl
 import requests
-from .models import EmailConfiguration, SuperuserEmailShare, GlobalMessage, GlobalMessageDebugSettings
+from .models import EmailConfiguration, SuperuserEmailShare, GlobalMessage, GlobalMessageDebugSettings, APIProviderSettings
 
 
 def is_superuser(user):
@@ -2367,3 +2367,85 @@ def test_google_oauth(request):
             'success': False,
             'message': f'Fehler beim Testen: {str(e)}'
         })
+
+
+# ============================================
+# API Provider Settings Views
+# ============================================
+
+@login_required
+@user_passes_test(is_superuser)
+def api_providers_list(request):
+    """Get all API provider settings"""
+    try:
+        # Ensure all providers exist
+        APIProviderSettings.ensure_all_providers_exist(request.user)
+
+        # Get all providers
+        providers = APIProviderSettings.objects.all().order_by('sort_order', 'provider')
+
+        provider_list = []
+        for p in providers:
+            provider_list.append({
+                'provider': p.provider,
+                'display_name': p.display_name or p.get_provider_display(),
+                'affiliate_link': p.affiliate_link,
+                'affiliate_link_text': p.affiliate_link_text,
+                'is_visible': p.is_visible,
+                'sort_order': p.sort_order,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'providers': provider_list
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def api_providers_save(request):
+    """Save all API provider settings"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+
+        updated_count = 0
+        for provider_key, settings_data in data.items():
+            try:
+                provider = APIProviderSettings.objects.get(provider=provider_key)
+                provider.affiliate_link = settings_data.get('affiliate_link', '')
+                provider.affiliate_link_text = settings_data.get('affiliate_link_text', 'API-Key erhalten')
+                provider.is_visible = settings_data.get('is_visible', True)
+                provider.sort_order = settings_data.get('sort_order', 0)
+                provider.updated_by = request.user
+                provider.save()
+                updated_count += 1
+            except APIProviderSettings.DoesNotExist:
+                # Create if doesn't exist
+                APIProviderSettings.objects.create(
+                    provider=provider_key,
+                    affiliate_link=settings_data.get('affiliate_link', ''),
+                    affiliate_link_text=settings_data.get('affiliate_link_text', 'API-Key erhalten'),
+                    is_visible=settings_data.get('is_visible', True),
+                    sort_order=settings_data.get('sort_order', 0),
+                    updated_by=request.user
+                )
+                updated_count += 1
+
+        return JsonResponse({
+            'success': True,
+            'message': f'{updated_count} Provider aktualisiert'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

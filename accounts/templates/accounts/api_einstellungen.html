@@ -198,6 +198,7 @@ body.bg-dark .password-toggle:hover {
     <!-- API Providers Grid -->
     <div class="row g-4">
         <!-- OpenAI -->
+        {% if api_providers.openai.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
@@ -220,18 +221,18 @@ body.bg-dark .password-toggle:hover {
                     <form method="post" class="mb-3">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="update_openai">
-                        
+
                         <div class="mb-3">
                             <label for="openai_api_key" class="form-label">API-Schlüssel:</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-key"></i></span>
-                                <input type="password" 
-                                       class="form-control" 
-                                       id="openai_api_key" 
+                                <input type="password"
+                                       class="form-control"
+                                       id="openai_api_key"
                                        name="openai_api_key"
                                        placeholder="sk-..."
                                        value="{% if openai_configured %}{{ openai_key_masked }}{% endif %}">
-                                <button class="password-toggle" type="button" 
+                                <button class="password-toggle" type="button"
                                         onclick="togglePasswordVisibility('openai_api_key', this)">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -248,7 +249,7 @@ body.bg-dark .password-toggle:hover {
                                 <i class="fas fa-save me-1"></i>Speichern
                             </button>
                             {% if openai_configured %}
-                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
                                         onclick="testApiKey('openai')">
                                     <i class="fas fa-vial me-1"></i>Testen
                                 </button>
@@ -257,17 +258,19 @@ body.bg-dark .password-toggle:hover {
                     </form>
 
                     <div class="mt-auto">
-                        <a href="https://platform.openai.com/api-keys" 
-                           target="_blank" 
+                        <a href="{{ api_providers.openai.affiliate_link|default:'https://platform.openai.com/api-keys' }}"
+                           target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.openai.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- YouTube API -->
+        {% if api_providers.youtube.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
@@ -290,18 +293,18 @@ body.bg-dark .password-toggle:hover {
                     <form method="post" class="mb-3">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="update_youtube">
-                        
+
                         <div class="mb-3">
                             <label for="youtube_api_key" class="form-label">API-Schlüssel:</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fab fa-youtube"></i></span>
-                                <input type="password" 
-                                       class="form-control" 
-                                       id="youtube_api_key" 
+                                <input type="password"
+                                       class="form-control"
+                                       id="youtube_api_key"
                                        name="youtube_api_key"
                                        placeholder="AIzaSy..."
                                        value="{% if youtube_configured %}{{ youtube_key_masked }}{% endif %}">
-                                <button class="password-toggle" type="button" 
+                                <button class="password-toggle" type="button"
                                         onclick="togglePasswordVisibility('youtube_api_key', this)">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -318,7 +321,7 @@ body.bg-dark .password-toggle:hover {
                                 <i class="fas fa-save me-1"></i>Speichern
                             </button>
                             {% if youtube_configured %}
-                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
                                         onclick="testApiKey('youtube')">
                                     <i class="fas fa-vial me-1"></i>Testen
                                 </button>
@@ -327,17 +330,19 @@ body.bg-dark .password-toggle:hover {
                     </form>
 
                     <div class="mt-auto">
-                        <a href="https://console.developers.google.com/apis/credentials" 
-                           target="_blank" 
+                        <a href="{{ api_providers.youtube.affiliate_link|default:'https://console.developers.google.com/apis/credentials' }}"
+                           target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.youtube.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Zoho Mail Integration -->
+        {% if api_providers.zoho.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
@@ -366,7 +371,7 @@ body.bg-dark .password-toggle:hover {
                             <a href="{% url 'mail_app:dashboard' %}" class="btn btn-info btn-sm">
                                 <i class="fas fa-envelope me-1"></i>Mail Dashboard
                             </a>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
                                     onclick="testZohoConnection()">
                                 <i class="fas fa-vial me-1"></i>Verbindung testen
                             </button>
@@ -377,8 +382,8 @@ body.bg-dark .password-toggle:hover {
                             Zoho Mail ist noch nicht konfiguriert.
                         </div>
                         <div class="d-grid">
-                            <button type="button" class="btn btn-info" 
-                                    data-bs-toggle="modal" 
+                            <button type="button" class="btn btn-info"
+                                    data-bs-toggle="modal"
                                     data-bs-target="#zohoSetupModal">
                                 <i class="fas fa-cog me-2"></i>Zoho Mail einrichten
                             </button>
@@ -386,15 +391,16 @@ body.bg-dark .password-toggle:hover {
                     {% endif %}
 
                     <div class="mt-auto">
-                        <a href="https://api-console.zoho.eu/" 
-                           target="_blank" 
+                        <a href="{{ api_providers.zoho.affiliate_link|default:'https://api-console.zoho.eu/' }}"
+                           target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>Zoho API Console
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.zoho.affiliate_link_text|default:'Zoho API Console' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Ad Card 1 -->
         <div class="col-lg-6">
@@ -404,6 +410,7 @@ body.bg-dark .password-toggle:hover {
         </div>
 
         <!-- Ideogram API -->
+        {% if api_providers.ideogram.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #E60023, #BD081C);">
@@ -463,17 +470,19 @@ body.bg-dark .password-toggle:hover {
                     </form>
 
                     <div class="mt-auto">
-                        <a href="https://ideogram.ai/manage-api"
+                        <a href="{{ api_providers.ideogram.affiliate_link|default:'https://ideogram.ai/manage-api' }}"
                            target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.ideogram.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Gemini API -->
+        {% if api_providers.gemini.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #4285F4, #34A853);">
@@ -533,17 +542,19 @@ body.bg-dark .password-toggle:hover {
                     </form>
 
                     <div class="mt-auto">
-                        <a href="https://aistudio.google.com/apikey"
+                        <a href="{{ api_providers.gemini.affiliate_link|default:'https://aistudio.google.com/apikey' }}"
                            target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.gemini.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Shopify Integration -->
+        {% if api_providers.shopify.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
@@ -600,17 +611,19 @@ body.bg-dark .password-toggle:hover {
                     {% endif %}
 
                     <div class="mt-auto">
-                        <a href="https://partners.shopify.com/1234567/apps"
+                        <a href="{{ api_providers.shopify.affiliate_link|default:'https://partners.shopify.com/' }}"
                            target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>Shopify Partner Dashboard
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.shopify.affiliate_link_text|default:'Shopify Partner Dashboard' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Pinterest API Integration -->
+        {% if api_providers.pinterest.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #E60023, #BD081C);">
@@ -731,17 +744,19 @@ body.bg-dark .password-toggle:hover {
                     {% endif %}
 
                     <div class="mt-auto">
-                        <a href="https://developers.pinterest.com/apps/"
+                        <a href="{{ api_providers.pinterest.affiliate_link|default:'https://developers.pinterest.com/apps/' }}"
                            target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>Pinterest Developer Portal
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.pinterest.affiliate_link_text|default:'Pinterest Developer Portal' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Upload-Post API -->
+        {% if api_providers.upload_post.is_visible != False %}
         <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
@@ -825,15 +840,16 @@ body.bg-dark .password-toggle:hover {
                     </div>
 
                     <div class="mt-auto">
-                        <a href="https://www.upload-post.com/"
+                        <a href="{{ api_providers.upload_post.affiliate_link|default:'https://www.upload-post.com/' }}"
                            target="_blank"
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.upload_post.affiliate_link_text|default:'API-Key erhalten' }}
                         </a>
                     </div>
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- Ad Card 2 -->
         <div class="col-lg-6">

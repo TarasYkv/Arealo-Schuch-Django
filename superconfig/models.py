@@ -426,3 +426,125 @@ class GlobalMessageDebugSettings(models.Model):
             return True
 
         return False
+
+
+class APIProviderSettings(models.Model):
+    """
+    Settings for API Provider Cards on /accounts/neue-api-einstellungen/
+    Allows superusers to set affiliate links and control visibility
+    """
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI'),
+        ('youtube', 'YouTube'),
+        ('zoho', 'Zoho Mail'),
+        ('ideogram', 'Ideogram'),
+        ('gemini', 'Gemini'),
+        ('shopify', 'Shopify'),
+        ('pinterest', 'Pinterest'),
+        ('upload_post', 'Upload-Post'),
+    ]
+
+    provider = models.CharField(
+        max_length=50,
+        choices=PROVIDER_CHOICES,
+        unique=True,
+        help_text='API Provider'
+    )
+
+    display_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Anzeigename (falls abweichend vom Standard)'
+    )
+
+    affiliate_link = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text='Affiliate Link (öffnet in neuem Tab)'
+    )
+
+    affiliate_link_text = models.CharField(
+        max_length=100,
+        default='API-Key erhalten',
+        help_text='Button-Text für den Affiliate Link'
+    )
+
+    is_visible = models.BooleanField(
+        default=True,
+        help_text='Karte für normale Nutzer anzeigen'
+    )
+
+    sort_order = models.IntegerField(
+        default=0,
+        help_text='Sortierreihenfolge (niedrigere Werte zuerst)'
+    )
+
+    # Metadata
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "API Provider Einstellung"
+        verbose_name_plural = "API Provider Einstellungen"
+        ordering = ['sort_order', 'provider']
+
+    def __str__(self):
+        status = "✓" if self.is_visible else "✗"
+        return f"{status} {self.get_provider_display()}"
+
+    @classmethod
+    def get_all_settings(cls):
+        """Get all provider settings as a dict keyed by provider name"""
+        settings_dict = {}
+        for setting in cls.objects.all():
+            settings_dict[setting.provider] = {
+                'affiliate_link': setting.affiliate_link,
+                'affiliate_link_text': setting.affiliate_link_text,
+                'is_visible': setting.is_visible,
+                'display_name': setting.display_name,
+                'sort_order': setting.sort_order,
+            }
+        return settings_dict
+
+    @classmethod
+    def get_provider_setting(cls, provider_name):
+        """Get settings for a specific provider"""
+        try:
+            return cls.objects.get(provider=provider_name)
+        except cls.DoesNotExist:
+            return None
+
+    @classmethod
+    def ensure_all_providers_exist(cls, user=None):
+        """Create default entries for all providers if they don't exist"""
+        default_links = {
+            'openai': 'https://platform.openai.com/api-keys',
+            'youtube': 'https://console.developers.google.com/apis/credentials',
+            'zoho': 'https://api-console.zoho.eu/',
+            'ideogram': 'https://ideogram.ai/manage-api',
+            'gemini': 'https://aistudio.google.com/apikey',
+            'shopify': 'https://partners.shopify.com/',
+            'pinterest': 'https://developers.pinterest.com/apps/',
+            'upload_post': 'https://www.upload-post.com/',
+        }
+
+        created_count = 0
+        for provider, _ in cls.PROVIDER_CHOICES:
+            obj, created = cls.objects.get_or_create(
+                provider=provider,
+                defaults={
+                    'affiliate_link': default_links.get(provider, ''),
+                    'is_visible': True,
+                    'sort_order': list(dict(cls.PROVIDER_CHOICES).keys()).index(provider),
+                    'updated_by': user,
+                }
+            )
+            if created:
+                created_count += 1
+
+        return created_count
