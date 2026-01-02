@@ -534,25 +534,56 @@ class APIProviderSettings(models.Model):
             return None
 
     @classmethod
+    def get_default_links(cls):
+        """Return default affiliate and direct links for all providers"""
+        return {
+            'openai': {
+                'affiliate_link': 'https://platform.openai.com/api-keys',
+                'direct_link': 'https://platform.openai.com/api-keys',
+            },
+            'youtube': {
+                'affiliate_link': 'https://console.developers.google.com/apis/credentials',
+                'direct_link': 'https://console.developers.google.com/apis/credentials',
+            },
+            'zoho': {
+                'affiliate_link': 'https://api-console.zoho.eu/',
+                'direct_link': 'https://api-console.zoho.eu/',
+            },
+            'ideogram': {
+                'affiliate_link': 'https://ideogram.ai/manage-api',
+                'direct_link': 'https://ideogram.ai/manage-api',
+            },
+            'gemini': {
+                'affiliate_link': 'https://aistudio.google.com/apikey',
+                'direct_link': 'https://aistudio.google.com/apikey',
+            },
+            'shopify': {
+                'affiliate_link': 'https://partners.shopify.com/',
+                'direct_link': 'https://admin.shopify.com/',
+            },
+            'pinterest': {
+                'affiliate_link': 'https://developers.pinterest.com/apps/',
+                'direct_link': 'https://developers.pinterest.com/apps/',
+            },
+            'upload_post': {
+                'affiliate_link': 'https://www.upload-post.com/',
+                'direct_link': 'https://www.upload-post.com/dashboard',
+            },
+        }
+
+    @classmethod
     def ensure_all_providers_exist(cls, user=None):
         """Create default entries for all providers if they don't exist"""
-        default_links = {
-            'openai': 'https://platform.openai.com/api-keys',
-            'youtube': 'https://console.developers.google.com/apis/credentials',
-            'zoho': 'https://api-console.zoho.eu/',
-            'ideogram': 'https://ideogram.ai/manage-api',
-            'gemini': 'https://aistudio.google.com/apikey',
-            'shopify': 'https://partners.shopify.com/',
-            'pinterest': 'https://developers.pinterest.com/apps/',
-            'upload_post': 'https://www.upload-post.com/',
-        }
+        default_links = cls.get_default_links()
 
         created_count = 0
         for provider, _ in cls.PROVIDER_CHOICES:
+            provider_defaults = default_links.get(provider, {})
             obj, created = cls.objects.get_or_create(
                 provider=provider,
                 defaults={
-                    'affiliate_link': default_links.get(provider, ''),
+                    'affiliate_link': provider_defaults.get('affiliate_link', ''),
+                    'direct_link': provider_defaults.get('direct_link', ''),
                     'is_visible': True,
                     'sort_order': list(dict(cls.PROVIDER_CHOICES).keys()).index(provider),
                     'updated_by': user,
@@ -562,3 +593,22 @@ class APIProviderSettings(models.Model):
                 created_count += 1
 
         return created_count
+
+    @classmethod
+    def reset_direct_links_to_defaults(cls, user=None):
+        """Reset all direct_link fields to their default values"""
+        default_links = cls.get_default_links()
+        updated_count = 0
+
+        for provider, links in default_links.items():
+            try:
+                obj = cls.objects.get(provider=provider)
+                obj.direct_link = links.get('direct_link', '')
+                if user:
+                    obj.updated_by = user
+                obj.save()
+                updated_count += 1
+            except cls.DoesNotExist:
+                pass
+
+        return updated_count
