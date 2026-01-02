@@ -465,6 +465,15 @@ class BlogPrepProject(models.Model):
         """
         html_parts = []
 
+        def get_h2_for_section(section_type):
+            """Holt die H2-Überschrift aus dem Outline für einen Abschnitt"""
+            if not self.outline:
+                return None
+            for item in self.outline:
+                if item.get('section') == section_type:
+                    return item.get('h2')
+            return None
+
         def get_image_url(image_field):
             """Konvertiert Bild-URL zu absoluter URL wenn base_url gesetzt"""
             if not image_field:
@@ -502,7 +511,12 @@ class BlogPrepProject(models.Model):
 
         # Einleitung
         if self.content_intro:
-            html_parts.append(f'<div class="blog-intro">{self.content_intro}</div>')
+            intro_h2 = get_h2_for_section('intro')
+            intro_html = ''
+            if intro_h2:
+                intro_html = f'<h2>{intro_h2}</h2>\n'
+            intro_html += f'<div class="blog-intro">{self.content_intro}</div>'
+            html_parts.append(intro_html)
             # Abschnittsbild für Einleitung
             intro_img = get_section_image_html('intro')
             if intro_img:
@@ -510,7 +524,12 @@ class BlogPrepProject(models.Model):
 
         # Hauptteil
         if self.content_main:
-            html_parts.append(f'<div class="blog-main">{self.content_main}</div>')
+            main_h2 = get_h2_for_section('main')
+            main_html = ''
+            if main_h2:
+                main_html = f'<h2>{main_h2}</h2>\n'
+            main_html += f'<div class="blog-main">{self.content_main}</div>'
+            html_parts.append(main_html)
             # Abschnittsbild für Hauptteil
             main_img = get_section_image_html('main')
             if main_img:
@@ -523,7 +542,12 @@ class BlogPrepProject(models.Model):
 
         # Tipps
         if self.content_tips:
-            html_parts.append(f'<div class="blog-tips">{self.content_tips}</div>')
+            tips_h2 = get_h2_for_section('tips')
+            tips_html = ''
+            if tips_h2:
+                tips_html = f'<h2>{tips_h2}</h2>\n'
+            tips_html += f'<div class="blog-tips">{self.content_tips}</div>'
+            html_parts.append(tips_html)
             # Abschnittsbild für Tipps
             tips_img = get_section_image_html('tips')
             if tips_img:
