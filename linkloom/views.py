@@ -42,8 +42,16 @@ def get_client_ip(request):
 def public_page_view(request, slug):
     """
     Zeigt die öffentliche LinkLoom-Seite für einen Slug.
+    Falls der Slug nicht existiert, zeige eine "Slug verfügbar" Seite.
     """
-    page = get_object_or_404(LinkLoomPage, slug=slug, is_active=True)
+    try:
+        page = LinkLoomPage.objects.get(slug=slug, is_active=True)
+    except LinkLoomPage.DoesNotExist:
+        # Slug existiert nicht - zeige "Slug verfügbar" Seite
+        return render(request, 'linkloom/slug_available.html', {
+            'slug': slug,
+        })
+
     icons = page.icons.filter(is_active=True).order_by('sort_order')
     buttons = page.buttons.filter(is_active=True).order_by('sort_order')
 
