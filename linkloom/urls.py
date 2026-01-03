@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/check-slug/', views.check_slug_availability, name='check_slug'),
     path('api/save/', views.save_page, name='save_page'),
     path('api/upload-image/', views.upload_image, name='upload_image'),
+    path('api/delete/', views.delete_page, name='delete_page'),
 
     # Icon API
     path('api/icon/add/', views.icon_add, name='icon_add'),

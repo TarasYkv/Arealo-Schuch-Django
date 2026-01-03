@@ -285,6 +285,31 @@ def upload_image(request):
     })
 
 
+@login_required
+@require_POST
+def delete_page(request):
+    """
+    Löscht die LinkLoom-Seite des Users komplett.
+    POST /linkloom/api/delete/
+    """
+    try:
+        page = request.user.linkloom_page
+    except LinkLoomPage.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Keine Seite vorhanden'})
+
+    # Profilbild löschen falls vorhanden
+    if page.profile_picture:
+        page.profile_picture.delete(save=False)
+
+    # Seite löschen (Buttons, Icons, Clicks werden durch CASCADE gelöscht)
+    page.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Seite erfolgreich gelöscht'
+    })
+
+
 # ============================================
 # Icon API Endpoints
 # ============================================

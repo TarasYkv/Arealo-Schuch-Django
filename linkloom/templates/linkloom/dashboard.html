@@ -531,6 +531,9 @@
             <a href="{% url 'linkloom_public' page.slug %}" target="_blank" class="btn btn-secondary-custom ms-2">
                 <i class="fas fa-external-link-alt me-1"></i> Ansehen
             </a>
+            <button class="btn btn-outline-danger ms-2" onclick="deletePage()">
+                <i class="fas fa-trash me-1"></i> Loeschen
+            </button>
             {% endif %}
         </div>
     </div>
@@ -1127,6 +1130,36 @@ function updatePreview() {
             </div>
         `).join('')
         : '';
+}
+
+// Delete Page
+async function deletePage() {
+    if (!confirm('Bist du sicher, dass du deine LinkLoom-Seite loeschen moechtest?\n\nAlle Links, Icons und Statistiken werden unwiderruflich geloescht!')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/linkloom/api/delete/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert('Seite erfolgreich geloescht!', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert(result.error || 'Fehler beim Loeschen', 'danger');
+        }
+    } catch (error) {
+        showAlert('Fehler beim Loeschen', 'danger');
+    }
 }
 
 // Stats
