@@ -180,8 +180,8 @@ const maxStorage = {{ user_storage.max_storage }};
 const usedStorage = {{ user_storage.used_storage }};
 const availableStorage = maxStorage - usedStorage;
 
-// Chunk size: 50MB (under Cloudflare 100MB limit)
-const CHUNK_SIZE = 50 * 1024 * 1024;
+// Chunk size: 5MB (kleinere Chunks = flüssigerer Progress)
+const CHUNK_SIZE = 5 * 1024 * 1024;
 
 // Upload state
 let uploadStartTime = null;
@@ -330,6 +330,7 @@ async function uploadChunked(file, title, description) {
         const start = chunkIndex * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, totalSize);
         const chunk = file.slice(start, end);
+        const chunkSize = end - start;
 
         console.log(`Uploading chunk ${chunkIndex + 1}/${totalChunks}`);
 
@@ -339,20 +340,45 @@ async function uploadChunked(file, title, description) {
             formData.append('chunk_number', chunkIndex);
             formData.append('chunk', chunk, `chunk_${chunkIndex}`);
 
-            const chunkResponse = await fetch('{% url "videos:api_chunked_chunk" %}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken
-                },
-                body: formData
+            // XMLHttpRequest für echten Upload-Progress (fetch unterstützt das nicht)
+            const chunkData = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+
+                // Progress-Event für flüssige Anzeige
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        const chunkProgress = e.loaded;
+                        const totalProgress = uploadedBytes + chunkProgress;
+                        updateProgress(totalProgress, totalSize);
+                    }
+                });
+
+                xhr.addEventListener('load', function() {
+                    if (xhr.status === 200) {
+                        try {
+                            resolve(JSON.parse(xhr.responseText));
+                        } catch(e) {
+                            reject(new Error('Ungültige Server-Antwort'));
+                        }
+                    } else {
+                        reject(new Error(`HTTP ${xhr.status}`));
+                    }
+                });
+
+                xhr.addEventListener('error', () => reject(new Error('Netzwerkfehler')));
+                xhr.addEventListener('timeout', () => reject(new Error('Zeitüberschreitung')));
+
+                xhr.open('POST', '{% url "videos:api_chunked_chunk" %}', true);
+                xhr.timeout = 120000; // 2 Minuten pro Chunk
+                xhr.setRequestHeader('X-CSRFToken', csrfToken);
+                xhr.send(formData);
             });
 
-            const chunkData = await chunkResponse.json();
             if (!chunkData.success) {
                 throw new Error(chunkData.error || `Chunk ${chunkIndex} fehlgeschlagen`);
             }
 
-            uploadedBytes += (end - start);
+            uploadedBytes += chunkSize;
             updateProgress(uploadedBytes, totalSize);
 
             // Update status text

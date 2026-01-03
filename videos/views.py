@@ -1198,7 +1198,7 @@ def api_check_upload_status(request, video_id):
 
 # ==================== CHUNKED UPLOAD ====================
 
-CHUNK_SIZE = 50 * 1024 * 1024  # 50MB chunks (under Cloudflare 100MB limit)
+CHUNK_SIZE = 5 * 1024 * 1024  # 5MB chunks (kleinere Chunks = flüssigerer Progress)
 
 
 @login_required
