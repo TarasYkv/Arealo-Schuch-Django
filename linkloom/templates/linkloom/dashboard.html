@@ -5,24 +5,116 @@
 
 {% block extra_css %}
 <style>
+    :root {
+        --primary-color: #667eea;
+        --text-dark: #111827;
+        --text-medium: #374151;
+        --text-muted: #6b7280;
+        --border-color: #d1d5db;
+        --bg-light: #f9fafb;
+        --bg-white: #ffffff;
+    }
+
     .linkloom-container {
         max-width: 1400px;
         margin: 0 auto;
         padding: 20px;
     }
 
+    /* Info Card */
+    .linkloom-info-card {
+        background: var(--bg-white);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .linkloom-info-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 5px;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .info-card-content {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+
+    .info-icon {
+        width: 64px;
+        height: 64px;
+        background: linear-gradient(135deg, #f8f9fb 0%, #ffffff 100%);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .info-icon i {
+        font-size: 1.75rem;
+        color: var(--primary-color);
+    }
+
+    .info-text h2 {
+        margin: 0 0 8px 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-dark);
+    }
+
+    .info-text p {
+        margin: 0;
+        color: var(--text-medium);
+        line-height: 1.6;
+    }
+
+    .info-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+        .info-card-content {
+            flex-direction: column;
+            text-align: center;
+        }
+        .info-actions {
+            margin-left: 0;
+            margin-top: 16px;
+        }
+    }
+
+    /* Header */
     .linkloom-header {
+        background: var(--bg-white);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 24px;
         flex-wrap: wrap;
         gap: 16px;
     }
 
     .linkloom-header h1 {
         margin: 0;
-        font-size: 1.75rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-dark);
     }
 
     .slug-input-group {
@@ -33,24 +125,34 @@
     }
 
     .slug-prefix {
-        color: #6c757d;
+        color: var(--text-muted);
         font-size: 0.9rem;
+        font-weight: 500;
     }
 
     #slugInput {
         width: 200px;
         font-family: monospace;
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+    }
+
+    #slugInput:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
     .slug-status {
         font-size: 0.85rem;
         min-width: 150px;
+        font-weight: 500;
     }
 
-    .slug-available { color: #28a745; }
-    .slug-unavailable { color: #dc3545; }
-    .slug-checking { color: #6c757d; }
+    .slug-available { color: #059669; }
+    .slug-unavailable { color: #dc2626; }
+    .slug-checking { color: var(--text-muted); }
 
+    /* Main Grid */
     .main-grid {
         display: grid;
         grid-template-columns: 1fr 400px;
@@ -63,46 +165,57 @@
         }
     }
 
+    /* Editor Section */
     .editor-section {
-        background: #fff;
-        border-radius: 12px;
-        padding: 20px;
+        background: var(--bg-white);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
     .editor-section h3 {
-        margin-top: 0;
-        margin-bottom: 16px;
+        margin: 0 0 20px 0;
         font-size: 1.1rem;
-        color: #333;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 8px;
+        font-weight: 700;
+        color: var(--text-dark);
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--border-color);
     }
 
+    .editor-section h3 i {
+        color: var(--primary-color);
+    }
+
+    /* Color Grid */
     .color-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
+        gap: 16px;
     }
 
     .color-input-group {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
+        background: var(--bg-light);
+        padding: 12px;
+        border-radius: 10px;
+        border: 2px solid var(--border-color);
     }
 
     .color-input-group label {
-        font-size: 0.85rem;
-        color: #666;
-        min-width: 80px;
+        font-size: 0.875rem;
+        color: var(--text-medium);
+        font-weight: 500;
+        flex: 1;
     }
 
     .color-input-group input[type="color"] {
-        width: 40px;
-        height: 32px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
+        width: 44px;
+        height: 36px;
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
         cursor: pointer;
         padding: 2px;
     }
@@ -114,26 +227,32 @@
     }
 
     .preview-frame {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        background: var(--bg-white);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        padding: 20px;
     }
 
     .preview-frame h3 {
-        margin-top: 0;
-        margin-bottom: 12px;
+        margin: 0 0 16px 0;
         font-size: 1rem;
-        color: #666;
+        font-weight: 700;
+        color: var(--text-dark);
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .preview-frame h3 i {
+        color: var(--primary-color);
     }
 
     .preview-phone {
         background: #fff;
+        border: 2px solid var(--border-color);
         border-radius: 24px;
         padding: 40px 20px;
         max-width: 320px;
         margin: 0 auto;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         min-height: 500px;
     }
 
@@ -144,19 +263,20 @@
         object-fit: cover;
         margin: 0 auto 12px;
         display: block;
-        border: 2px solid rgba(0,0,0,0.1);
+        border: 3px solid var(--border-color);
     }
 
     .preview-profile-picture-placeholder {
         width: 80px;
         height: 80px;
         border-radius: 50%;
-        background: #e9ecef;
+        background: var(--bg-light);
+        border: 3px solid var(--border-color);
         margin: 0 auto 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #adb5bd;
+        color: var(--text-muted);
         font-size: 2rem;
     }
 
@@ -164,7 +284,7 @@
         text-align: center;
         font-size: 0.9rem;
         margin-bottom: 16px;
-        line-height: 1.4;
+        line-height: 1.5;
     }
 
     .preview-icons {
@@ -182,11 +302,12 @@
 
     .preview-button {
         display: block;
-        padding: 12px 16px;
-        border-radius: 8px;
+        padding: 14px 18px;
+        border-radius: 10px;
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         font-size: 0.9rem;
+        font-weight: 500;
         text-decoration: none;
     }
 
@@ -194,28 +315,41 @@
         font-size: 0.75rem;
         opacity: 0.85;
         margin-top: 4px;
+        font-weight: 400;
     }
 
-    /* Lists */
+    /* Item Cards */
     .items-list {
         min-height: 60px;
     }
 
     .item-card {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 8px;
+        background: var(--bg-light);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 10px;
         display: flex;
         align-items: center;
         gap: 12px;
+        transition: border-color 0.2s;
+    }
+
+    .item-card:hover {
+        border-color: var(--primary-color);
     }
 
     .item-card .item-icon {
         font-size: 1.25rem;
-        width: 32px;
-        text-align: center;
-        color: #495057;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-white);
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--primary-color);
     }
 
     .item-card .item-content {
@@ -224,8 +358,9 @@
     }
 
     .item-card .item-title {
-        font-weight: 500;
+        font-weight: 600;
         font-size: 0.9rem;
+        color: var(--text-dark);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -233,7 +368,7 @@
 
     .item-card .item-url {
         font-size: 0.75rem;
-        color: #6c757d;
+        color: var(--text-muted);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -241,12 +376,13 @@
 
     .item-card .item-actions {
         display: flex;
-        gap: 4px;
+        gap: 6px;
     }
 
     .item-card .item-actions button {
-        padding: 4px 8px;
+        padding: 6px 10px;
         font-size: 0.75rem;
+        border-radius: 6px;
     }
 
     .item-inactive {
@@ -256,26 +392,30 @@
     /* Stats */
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 12px;
     }
 
     .stat-card {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 12px;
+        background: var(--bg-light);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 16px;
         text-align: center;
     }
 
     .stat-card .stat-value {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #333;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--primary-color);
     }
 
     .stat-card .stat-label {
         font-size: 0.75rem;
-        color: #6c757d;
+        color: var(--text-muted);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
     /* Alert */
@@ -289,17 +429,55 @@
 
     /* No page state */
     .no-page-notice {
-        background: #e3f2fd;
-        border: 1px solid #90caf9;
-        border-radius: 8px;
-        padding: 20px;
+        background: var(--bg-white);
+        border: 2px solid #93c5fd;
+        border-radius: 12px;
+        padding: 24px;
         text-align: center;
         margin-bottom: 20px;
     }
 
     .no-page-notice h4 {
-        margin-top: 0;
-        color: #1565c0;
+        margin: 0 0 8px 0;
+        color: #1d4ed8;
+        font-weight: 700;
+    }
+
+    .no-page-notice p {
+        margin: 0;
+        color: var(--text-medium);
+    }
+
+    /* Buttons */
+    .btn-primary-custom {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-primary-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+
+    .btn-secondary-custom {
+        background: var(--bg-white);
+        color: var(--text-medium);
+        border: 2px solid var(--border-color);
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-secondary-custom:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
     }
 </style>
 {% endblock %}
@@ -309,9 +487,30 @@
     <!-- Alert Area -->
     <div class="alert-area" id="alertArea"></div>
 
+    <!-- Info Card -->
+    <div class="linkloom-info-card">
+        <div class="info-card-content">
+            <div class="info-icon">
+                <i class="fas fa-link"></i>
+            </div>
+            <div class="info-text">
+                <h2>LinkLoom - Deine Link-in-Bio Seite</h2>
+                <p>
+                    Erstelle deine persoenliche Link-Seite mit all deinen wichtigen Links.
+                    Teile sie auf Social Media und erreiche deine Zielgruppe mit einem einzigen Link.
+                </p>
+            </div>
+            <div class="info-actions">
+                <a href="{% url 'public_app_info' 'linkloom' %}" class="btn btn-secondary-custom">
+                    <i class="fas fa-info-circle me-2"></i>Mehr erfahren
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <div class="linkloom-header">
-        <h1><i class="fas fa-link me-2"></i>LinkLoom</h1>
+        <h1><i class="fas fa-link me-2" style="color: var(--primary-color);"></i>LinkLoom</h1>
         <div class="slug-input-group">
             <span class="slug-prefix">workloom.de/l/</span>
             <input type="text" id="slugInput" class="form-control form-control-sm"
@@ -320,16 +519,16 @@
                    pattern="[a-z0-9-]+"
                    maxlength="50">
             <button class="btn btn-sm btn-outline-secondary" onclick="checkSlug()">
-                <i class="fas fa-check"></i> Prüfen
+                <i class="fas fa-check"></i> Pruefen
             </button>
             <span class="slug-status" id="slugStatus"></span>
         </div>
         <div>
-            <button class="btn btn-primary" onclick="savePage()">
+            <button class="btn btn-primary-custom" onclick="savePage()">
                 <i class="fas fa-save me-1"></i> Speichern
             </button>
             {% if page %}
-            <a href="{% url 'linkloom_public' page.slug %}" target="_blank" class="btn btn-outline-secondary ms-2">
+            <a href="{% url 'linkloom_public' page.slug %}" target="_blank" class="btn btn-secondary-custom ms-2">
                 <i class="fas fa-external-link-alt me-1"></i> Ansehen
             </a>
             {% endif %}
@@ -339,7 +538,7 @@
     {% if not page %}
     <div class="no-page-notice">
         <h4><i class="fas fa-info-circle me-2"></i>Erstelle deine Link-Seite</h4>
-        <p class="mb-0">Gib oben einen Slug ein (z.B. "max-mustermann") und klicke auf "Speichern", um deine Seite zu erstellen.</p>
+        <p>Gib oben einen Slug ein (z.B. "max-mustermann") und klicke auf "Speichern", um deine Seite zu erstellen.</p>
     </div>
     {% endif %}
 
@@ -362,14 +561,15 @@
                         </div>
                         <input type="file" id="profilePictureInput" accept="image/*" style="display: none;" onchange="uploadProfilePicture()">
                         <button class="btn btn-sm btn-outline-primary mt-2" onclick="document.getElementById('profilePictureInput').click()" {% if not page %}disabled{% endif %}>
-                            <i class="fas fa-upload me-1"></i> Bild ändern
+                            <i class="fas fa-upload me-1"></i> Bild aendern
                         </button>
                     </div>
                     <div class="col-md-8">
-                        <label class="form-label">Beschreibung</label>
+                        <label class="form-label fw-semibold">Beschreibung</label>
                         <textarea id="profileDescription" class="form-control" rows="4"
                                   maxlength="500"
-                                  placeholder="Erzähle etwas über dich...">{{ page.profile_description|default:'' }}</textarea>
+                                  placeholder="Erzaehle etwas ueber dich..."
+                                  style="border: 2px solid var(--border-color); border-radius: 10px;">{{ page.profile_description|default:'' }}</textarea>
                         <small class="text-muted"><span id="descCharCount">0</span>/500</small>
                     </div>
                 </div>
@@ -402,21 +602,21 @@
             <div class="editor-section">
                 <h3><i class="fas fa-share-alt me-2"></i>Social Icons</h3>
                 <div class="items-list" id="iconsList">
-                    <p class="text-muted text-center py-3">Keine Icons hinzugefügt</p>
+                    <p class="text-muted text-center py-3">Keine Icons hinzugefuegt</p>
                 </div>
                 <div class="row g-2 mt-2">
                     <div class="col-md-4">
-                        <select id="newIconPlatform" class="form-select form-select-sm">
+                        <select id="newIconPlatform" class="form-select form-select-sm" style="border: 2px solid var(--border-color); border-radius: 8px;">
                             {% for value, label in platform_choices %}
                             <option value="{{ value }}">{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <input type="url" id="newIconUrl" class="form-control form-control-sm" placeholder="https://...">
+                        <input type="url" id="newIconUrl" class="form-control form-control-sm" placeholder="https://..." style="border: 2px solid var(--border-color); border-radius: 8px;">
                     </div>
                     <div class="col-md-2">
-                        <button class="btn btn-sm btn-primary w-100" onclick="addIcon()" {% if not page %}disabled{% endif %}>
+                        <button class="btn btn-sm btn-primary w-100" onclick="addIcon()" {% if not page %}disabled{% endif %} style="border-radius: 8px;">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -427,20 +627,20 @@
             <div class="editor-section">
                 <h3><i class="fas fa-mouse-pointer me-2"></i>Buttons</h3>
                 <div class="items-list" id="buttonsList">
-                    <p class="text-muted text-center py-3">Keine Buttons hinzugefügt</p>
+                    <p class="text-muted text-center py-3">Keine Buttons hinzugefuegt</p>
                 </div>
                 <div class="row g-2 mt-2">
                     <div class="col-md-4">
-                        <input type="text" id="newButtonTitle" class="form-control form-control-sm" placeholder="Titel" maxlength="100">
+                        <input type="text" id="newButtonTitle" class="form-control form-control-sm" placeholder="Titel" maxlength="100" style="border: 2px solid var(--border-color); border-radius: 8px;">
                     </div>
                     <div class="col-md-4">
-                        <input type="url" id="newButtonUrl" class="form-control form-control-sm" placeholder="https://...">
+                        <input type="url" id="newButtonUrl" class="form-control form-control-sm" placeholder="https://..." style="border: 2px solid var(--border-color); border-radius: 8px;">
                     </div>
                     <div class="col-md-3">
-                        <input type="text" id="newButtonDesc" class="form-control form-control-sm" placeholder="Beschreibung (optional)" maxlength="200">
+                        <input type="text" id="newButtonDesc" class="form-control form-control-sm" placeholder="Beschreibung (optional)" maxlength="200" style="border: 2px solid var(--border-color); border-radius: 8px;">
                     </div>
                     <div class="col-md-1">
-                        <button class="btn btn-sm btn-primary w-100" onclick="addButton()" {% if not page %}disabled{% endif %}>
+                        <button class="btn btn-sm btn-primary w-100" onclick="addButton()" {% if not page %}disabled{% endif %} style="border-radius: 8px;">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
@@ -451,7 +651,8 @@
             <div class="editor-section">
                 <h3><i class="fas fa-gavel me-2"></i>Impressum</h3>
                 <textarea id="customImpressum" class="form-control" rows="5"
-                          placeholder="Dein Impressum (Name, Adresse, Kontakt...)">{{ page.custom_impressum|default:'' }}</textarea>
+                          placeholder="Dein Impressum (Name, Adresse, Kontakt...)"
+                          style="border: 2px solid var(--border-color); border-radius: 10px;">{{ page.custom_impressum|default:'' }}</textarea>
                 <small class="text-muted">Wird im Footer deiner Seite angezeigt</small>
             </div>
 
@@ -465,7 +666,8 @@
                     <label class="form-check-label" for="showAffiliateDisclaimer">Affiliate-Hinweis anzeigen</label>
                 </div>
                 <textarea id="affiliateDisclaimerText" class="form-control" rows="2"
-                          placeholder="Diese Seite enthält Affiliate-Links...">{{ page.affiliate_disclaimer_text|default:'Diese Seite enthält Affiliate-Links. Bei einem Kauf erhalte ich eine kleine Provision.' }}</textarea>
+                          placeholder="Diese Seite enthaelt Affiliate-Links..."
+                          style="border: 2px solid var(--border-color); border-radius: 10px;">{{ page.affiliate_disclaimer_text|default:'Diese Seite enthaelt Affiliate-Links. Bei einem Kauf erhalte ich eine kleine Provision.' }}</textarea>
             </div>
 
             <!-- Statistics -->
@@ -562,7 +764,7 @@ async function checkSlug() {
         return;
     }
 
-    statusEl.textContent = 'Prüfe...';
+    statusEl.textContent = 'Pruefe...';
     statusEl.className = 'slug-status slug-checking';
 
     try {
@@ -570,14 +772,14 @@ async function checkSlug() {
         const data = await response.json();
 
         if (data.available) {
-            statusEl.innerHTML = '<i class="fas fa-check"></i> Verfügbar!';
+            statusEl.innerHTML = '<i class="fas fa-check"></i> Verfuegbar!';
             statusEl.className = 'slug-status slug-available';
         } else {
             statusEl.innerHTML = `<i class="fas fa-times"></i> ${data.reason}`;
             statusEl.className = 'slug-status slug-unavailable';
         }
     } catch (error) {
-        statusEl.textContent = 'Fehler beim Prüfen';
+        statusEl.textContent = 'Fehler beim Pruefen';
         statusEl.className = 'slug-status slug-unavailable';
     }
 }
@@ -617,7 +819,6 @@ async function savePage() {
         if (result.success) {
             showAlert(result.created ? 'Seite erstellt!' : 'Gespeichert!', 'success');
             if (result.created) {
-                // Reload to enable all features
                 window.location.reload();
             }
         } else {
@@ -649,7 +850,6 @@ async function uploadProfilePicture() {
 
         if (result.success) {
             currentProfilePicture = result.url;
-            // Update editor preview
             document.getElementById('profilePictureContainer').innerHTML = `
                 <img src="${result.url}" class="preview-profile-picture" id="profilePicturePreview">
             `;
@@ -670,7 +870,7 @@ function renderIcons() {
     const container = document.getElementById('iconsList');
 
     if (icons.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center py-3">Keine Icons hinzugefügt</p>';
+        container.innerHTML = '<p class="text-muted text-center py-3">Keine Icons hinzugefuegt</p>';
         return;
     }
 
@@ -719,19 +919,18 @@ async function addIcon() {
             renderIcons();
             updatePreview();
             document.getElementById('newIconUrl').value = '';
-            showAlert('Icon hinzugefügt!', 'success');
+            showAlert('Icon hinzugefuegt!', 'success');
         } else {
             showAlert(result.error || 'Fehler', 'danger');
         }
     } catch (error) {
-        showAlert('Fehler beim Hinzufügen', 'danger');
+        showAlert('Fehler beim Hinzufuegen', 'danger');
     }
 }
 
 async function deleteIcon(iconId) {
-    if (!confirm('Icon wirklich löschen?')) return;
+    if (!confirm('Icon wirklich loeschen?')) return;
 
-    // Optimistic update
     icons = icons.filter(i => i.id !== iconId);
     renderIcons();
     updatePreview();
@@ -739,24 +938,20 @@ async function deleteIcon(iconId) {
     try {
         const response = await fetch(`/linkloom/api/icon/${iconId}/delete/`, {
             method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            }
+            headers: { 'X-CSRFToken': csrfToken }
         });
 
         const result = await response.json();
         if (!result.success) {
-            showAlert('Fehler beim Löschen', 'danger');
-            // Reload to restore state
+            showAlert('Fehler beim Loeschen', 'danger');
             window.location.reload();
         }
     } catch (error) {
-        showAlert('Fehler beim Löschen', 'danger');
+        showAlert('Fehler beim Loeschen', 'danger');
     }
 }
 
 async function toggleIcon(iconId) {
-    // Optimistic update
     const icon = icons.find(i => i.id === iconId);
     if (icon) {
         icon.is_active = !icon.is_active;
@@ -767,9 +962,7 @@ async function toggleIcon(iconId) {
     try {
         const response = await fetch(`/linkloom/api/icon/${iconId}/toggle/`, {
             method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            }
+            headers: { 'X-CSRFToken': csrfToken }
         });
 
         const result = await response.json();
@@ -787,7 +980,7 @@ function renderButtons() {
     const container = document.getElementById('buttonsList');
 
     if (buttons.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center py-3">Keine Buttons hinzugefügt</p>';
+        container.innerHTML = '<p class="text-muted text-center py-3">Keine Buttons hinzugefuegt</p>';
         return;
     }
 
@@ -840,19 +1033,18 @@ async function addButton() {
             document.getElementById('newButtonTitle').value = '';
             document.getElementById('newButtonUrl').value = '';
             document.getElementById('newButtonDesc').value = '';
-            showAlert('Button hinzugefügt!', 'success');
+            showAlert('Button hinzugefuegt!', 'success');
         } else {
             showAlert(result.error || 'Fehler', 'danger');
         }
     } catch (error) {
-        showAlert('Fehler beim Hinzufügen', 'danger');
+        showAlert('Fehler beim Hinzufuegen', 'danger');
     }
 }
 
 async function deleteButton(buttonId) {
-    if (!confirm('Button wirklich löschen?')) return;
+    if (!confirm('Button wirklich loeschen?')) return;
 
-    // Optimistic update
     buttons = buttons.filter(b => b.id !== buttonId);
     renderButtons();
     updatePreview();
@@ -860,23 +1052,20 @@ async function deleteButton(buttonId) {
     try {
         const response = await fetch(`/linkloom/api/button/${buttonId}/delete/`, {
             method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            }
+            headers: { 'X-CSRFToken': csrfToken }
         });
 
         const result = await response.json();
         if (!result.success) {
-            showAlert('Fehler beim Löschen', 'danger');
+            showAlert('Fehler beim Loeschen', 'danger');
             window.location.reload();
         }
     } catch (error) {
-        showAlert('Fehler beim Löschen', 'danger');
+        showAlert('Fehler beim Loeschen', 'danger');
     }
 }
 
 async function toggleButton(buttonId) {
-    // Optimistic update
     const button = buttons.find(b => b.id === buttonId);
     if (button) {
         button.is_active = !button.is_active;
@@ -887,9 +1076,7 @@ async function toggleButton(buttonId) {
     try {
         const response = await fetch(`/linkloom/api/button/${buttonId}/toggle/`, {
             method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            }
+            headers: { 'X-CSRFToken': csrfToken }
         });
 
         const result = await response.json();
@@ -912,7 +1099,6 @@ function updatePreview() {
 
     phone.style.backgroundColor = bgColor;
 
-    // Profile picture
     const previewPic = document.getElementById('previewProfilePicture');
     if (currentProfilePicture) {
         previewPic.outerHTML = `<img src="${currentProfilePicture}" class="preview-profile-picture" id="previewProfilePicture">`;
@@ -920,36 +1106,27 @@ function updatePreview() {
         previewPic.outerHTML = `<div class="preview-profile-picture-placeholder" id="previewProfilePicture"><i class="fas fa-user"></i></div>`;
     }
 
-    // Description
     const desc = document.getElementById('profileDescription').value || 'Deine Beschreibung...';
     const previewDesc = document.getElementById('previewDescription');
     previewDesc.textContent = desc;
     previewDesc.style.color = profileTextColor;
 
-    // Icons
     const previewIcons = document.getElementById('previewIcons');
     const activeIcons = icons.filter(i => i.is_active);
-    if (activeIcons.length > 0) {
-        previewIcons.innerHTML = activeIcons.map(icon =>
-            `<i class="${faIcons[icon.platform] || 'fas fa-link'}"></i>`
-        ).join('');
-    } else {
-        previewIcons.innerHTML = '';
-    }
+    previewIcons.innerHTML = activeIcons.length > 0
+        ? activeIcons.map(icon => `<i class="${faIcons[icon.platform] || 'fas fa-link'}"></i>`).join('')
+        : '';
 
-    // Buttons
     const previewButtons = document.getElementById('previewButtons');
     const activeButtons = buttons.filter(b => b.is_active);
-    if (activeButtons.length > 0) {
-        previewButtons.innerHTML = activeButtons.map(btn => `
+    previewButtons.innerHTML = activeButtons.length > 0
+        ? activeButtons.map(btn => `
             <div class="preview-button" style="background-color: ${btnColor}; color: ${btnTextColor};">
                 ${btn.title}
                 ${btn.description ? `<div class="preview-button-desc">${btn.description}</div>` : ''}
             </div>
-        `).join('');
-    } else {
-        previewButtons.innerHTML = '';
-    }
+        `).join('')
+        : '';
 }
 
 // Stats
@@ -957,7 +1134,6 @@ async function loadStats() {
     try {
         const response = await fetch('/linkloom/api/stats/');
         const data = await response.json();
-
         if (data.success) {
             document.getElementById('totalClicks').textContent = data.total_clicks;
         }

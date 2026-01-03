@@ -901,6 +901,7 @@ class AppInfo(models.Model):
 
         # Zusätzliche Apps
         ('loomconnect', 'LoomConnect - Videocalls'),
+        ('linkloom', 'LinkLoom - Link in Bio'),
         ('ideopin', 'IdeoPin - Pinterest Generator'),
         ('imageforge', 'ImageForge - KI Bildgenerierung'),
         ('vskript', 'VSkript - Video-Skript Generator'),
