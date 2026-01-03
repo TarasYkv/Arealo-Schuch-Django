@@ -273,6 +273,13 @@ MENU_STRUCTURE = {
                 'icon': 'bi bi-people',
                 'auth_url_name': 'loomconnect:dashboard',
             },
+            {'divider': True, 'label': 'Profile'},
+            {
+                'app_name': 'linkloom',
+                'label': 'LinkLoom',
+                'icon': 'fas fa-link',
+                'auth_url_name': 'linkloom:dashboard',
+            },
         ],
     },
 }
