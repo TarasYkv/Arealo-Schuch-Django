@@ -1216,3 +1216,79 @@ def robots_txt(request):
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+# ============================================
+# Social Page (Link in Bio)
+# ============================================
+
+def social_page_view(request):
+    """
+    Öffentliche Social Page (Link in Bio)
+    Ähnlich wie Linktree/Wonderlink
+    """
+    from superconfig.models import SocialPageConfig
+    from django.http import HttpResponseNotFound
+
+    config = SocialPageConfig.objects.first()
+    if not config or not config.is_active:
+        return HttpResponseNotFound("Seite nicht gefunden")
+
+    icons = config.icons.filter(is_active=True).order_by('sort_order')
+    buttons = config.buttons.filter(is_active=True).order_by('sort_order')
+
+    return render(request, 'core/social_page.html', {
+        'config': config,
+        'icons': icons,
+        'buttons': buttons,
+    })
+
+
+def social_button_click(request, button_id):
+    """
+    Trackt Button-Klick und leitet weiter
+    DSGVO-konform: IP wird anonymisiert
+    """
+    from superconfig.models import SocialPageButton, SocialPageClick
+    from django.shortcuts import redirect, get_object_or_404
+    from django.utils import timezone
+    from django.db.models import F
+
+    button = get_object_or_404(SocialPageButton, id=button_id, is_active=True)
+
+    # IP anonymisieren (DSGVO-konform)
+    def anonymize_ip(ip):
+        if not ip:
+            return '0.0.0.0'
+        if '.' in ip and ':' not in ip:
+            parts = ip.split('.')
+            if len(parts) == 4:
+                parts[3] = '0'
+                return '.'.join(parts)
+        if ':' in ip:
+            parts = ip.split(':')
+            if len(parts) >= 3:
+                return ':'.join(parts[:3]) + '::0'
+        return '0.0.0.0'
+
+    # Client IP ermitteln
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+    # Klick speichern
+    SocialPageClick.objects.create(
+        button=button,
+        ip_address=anonymize_ip(ip),
+        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+        referer=request.META.get('HTTP_REFERER', '')[:200] if request.META.get('HTTP_REFERER') else ''
+    )
+
+    # Counter erhöhen
+    button.click_count = F('click_count') + 1
+    button.last_clicked = timezone.now()
+    button.save(update_fields=['click_count', 'last_clicked'])
+
+    return redirect(button.url)

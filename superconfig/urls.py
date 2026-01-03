@@ -54,4 +54,18 @@ urlpatterns = [
     # API Provider Settings URLs
     path('api/providers/list/', views.api_providers_list, name='api_providers_list'),
     path('api/providers/save/', views.api_providers_save, name='api_providers_save'),
+
+    # Social Page (Link in Bio) URLs
+    path('api/social/config/', views.social_page_config, name='social_page_config'),
+    path('api/social/config/save/', views.social_page_config_save, name='social_page_config_save'),
+    path('api/social/upload-image/', views.social_page_upload_image, name='social_page_upload_image'),
+    path('api/social/icon/add/', views.social_icon_add, name='social_icon_add'),
+    path('api/social/icon/<int:icon_id>/update/', views.social_icon_update, name='social_icon_update'),
+    path('api/social/icon/<int:icon_id>/delete/', views.social_icon_delete, name='social_icon_delete'),
+    path('api/social/icon/reorder/', views.social_icon_reorder, name='social_icon_reorder'),
+    path('api/social/button/add/', views.social_button_add, name='social_button_add'),
+    path('api/social/button/<int:button_id>/update/', views.social_button_update, name='social_button_update'),
+    path('api/social/button/<int:button_id>/delete/', views.social_button_delete, name='social_button_delete'),
+    path('api/social/button/reorder/', views.social_button_reorder, name='social_button_reorder'),
+    path('api/social/stats/', views.social_page_stats, name='social_page_stats'),
 ]

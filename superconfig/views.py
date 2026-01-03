@@ -2455,3 +2455,436 @@ def api_providers_save(request):
         return JsonResponse({'success': False, 'error': 'Ungültiges JSON'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ============================================
+# Social Page (Link in Bio) Views
+# ============================================
+
+from .models import SocialPageConfig, SocialPageIcon, SocialPageButton, SocialPageClick
+from datetime import timedelta
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_page_config(request):
+    """Get Social Page configuration"""
+    try:
+        config = SocialPageConfig.get_config()
+
+        # Get icons
+        icons = []
+        for icon in config.icons.filter(is_active=True).order_by('sort_order'):
+            icons.append({
+                'id': icon.id,
+                'platform': icon.platform,
+                'platform_display': icon.get_platform_display(),
+                'url': icon.url,
+                'sort_order': icon.sort_order,
+                'fa_icon_class': icon.fa_icon_class,
+            })
+
+        # Get buttons
+        buttons = []
+        for btn in config.buttons.all().order_by('sort_order'):
+            buttons.append({
+                'id': btn.id,
+                'title': btn.title,
+                'url': btn.url,
+                'description': btn.description,
+                'sort_order': btn.sort_order,
+                'is_active': btn.is_active,
+                'click_count': btn.click_count,
+            })
+
+        return JsonResponse({
+            'success': True,
+            'config': {
+                'id': config.id,
+                'profile_picture': config.profile_picture.url if config.profile_picture else None,
+                'profile_description': config.profile_description,
+                'background_color': config.background_color,
+                'button_color': config.button_color,
+                'button_text_color': config.button_text_color,
+                'show_affiliate_disclaimer': config.show_affiliate_disclaimer,
+                'affiliate_disclaimer_text': config.affiliate_disclaimer_text,
+                'is_active': config.is_active,
+            },
+            'icons': icons,
+            'buttons': buttons,
+            'platform_choices': SocialPageIcon.PLATFORM_CHOICES,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_page_config_save(request):
+    """Save Social Page configuration"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        config = SocialPageConfig.get_config()
+
+        # Handle file upload
+        if request.FILES.get('profile_picture'):
+            config.profile_picture = request.FILES['profile_picture']
+
+        # Handle JSON data
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+        else:
+            # Form data
+            data = request.POST
+
+        # Update fields
+        if 'profile_description' in data:
+            config.profile_description = data['profile_description']
+        if 'background_color' in data:
+            config.background_color = data['background_color']
+        if 'button_color' in data:
+            config.button_color = data['button_color']
+        if 'button_text_color' in data:
+            config.button_text_color = data['button_text_color']
+        if 'show_affiliate_disclaimer' in data:
+            config.show_affiliate_disclaimer = data['show_affiliate_disclaimer'] in [True, 'true', 'True', '1', 1]
+        if 'affiliate_disclaimer_text' in data:
+            config.affiliate_disclaimer_text = data['affiliate_disclaimer_text']
+        if 'is_active' in data:
+            config.is_active = data['is_active'] in [True, 'true', 'True', '1', 1]
+
+        config.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Konfiguration gespeichert',
+            'profile_picture': config.profile_picture.url if config.profile_picture else None,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_page_upload_image(request):
+    """Upload profile picture for Social Page"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        config = SocialPageConfig.get_config()
+
+        if 'profile_picture' not in request.FILES:
+            return JsonResponse({'success': False, 'error': 'Kein Bild hochgeladen'})
+
+        config.profile_picture = request.FILES['profile_picture']
+        config.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Profilbild hochgeladen',
+            'profile_picture': config.profile_picture.url,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_icon_add(request):
+    """Add a Social Media Icon"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        config = SocialPageConfig.get_config()
+
+        # Get max sort order
+        max_order = config.icons.aggregate(models.Max('sort_order'))['sort_order__max'] or 0
+
+        icon = SocialPageIcon.objects.create(
+            config=config,
+            platform=data.get('platform', 'instagram'),
+            url=data.get('url', ''),
+            sort_order=max_order + 1,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Icon hinzugefügt',
+            'icon': {
+                'id': icon.id,
+                'platform': icon.platform,
+                'platform_display': icon.get_platform_display(),
+                'url': icon.url,
+                'sort_order': icon.sort_order,
+                'fa_icon_class': icon.fa_icon_class,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_icon_update(request, icon_id):
+    """Update a Social Media Icon"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        icon = SocialPageIcon.objects.get(id=icon_id)
+
+        if 'platform' in data:
+            icon.platform = data['platform']
+        if 'url' in data:
+            icon.url = data['url']
+        if 'sort_order' in data:
+            icon.sort_order = data['sort_order']
+
+        icon.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Icon aktualisiert',
+            'icon': {
+                'id': icon.id,
+                'platform': icon.platform,
+                'platform_display': icon.get_platform_display(),
+                'url': icon.url,
+                'sort_order': icon.sort_order,
+                'fa_icon_class': icon.fa_icon_class,
+            }
+        })
+
+    except SocialPageIcon.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Icon nicht gefunden'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_icon_delete(request, icon_id):
+    """Delete a Social Media Icon"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        icon = SocialPageIcon.objects.get(id=icon_id)
+        icon.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Icon gelöscht'
+        })
+
+    except SocialPageIcon.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Icon nicht gefunden'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_button_add(request):
+    """Add a Button"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        config = SocialPageConfig.get_config()
+
+        # Get max sort order
+        max_order = config.buttons.aggregate(models.Max('sort_order'))['sort_order__max'] or 0
+
+        button = SocialPageButton.objects.create(
+            config=config,
+            title=data.get('title', 'Neuer Button'),
+            url=data.get('url', ''),
+            description=data.get('description', ''),
+            sort_order=max_order + 1,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Button hinzugefügt',
+            'button': {
+                'id': button.id,
+                'title': button.title,
+                'url': button.url,
+                'description': button.description,
+                'sort_order': button.sort_order,
+                'is_active': button.is_active,
+                'click_count': button.click_count,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_button_update(request, button_id):
+    """Update a Button"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        button = SocialPageButton.objects.get(id=button_id)
+
+        if 'title' in data:
+            button.title = data['title']
+        if 'url' in data:
+            button.url = data['url']
+        if 'description' in data:
+            button.description = data['description']
+        if 'sort_order' in data:
+            button.sort_order = data['sort_order']
+        if 'is_active' in data:
+            button.is_active = data['is_active']
+
+        button.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Button aktualisiert',
+            'button': {
+                'id': button.id,
+                'title': button.title,
+                'url': button.url,
+                'description': button.description,
+                'sort_order': button.sort_order,
+                'is_active': button.is_active,
+                'click_count': button.click_count,
+            }
+        })
+
+    except SocialPageButton.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Button nicht gefunden'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_button_delete(request, button_id):
+    """Delete a Button"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        button = SocialPageButton.objects.get(id=button_id)
+        button.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Button gelöscht'
+        })
+
+    except SocialPageButton.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Button nicht gefunden'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_button_reorder(request):
+    """Reorder Buttons (Drag & Drop)"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        button_ids = data.get('button_ids', [])
+
+        for index, button_id in enumerate(button_ids):
+            SocialPageButton.objects.filter(id=button_id).update(sort_order=index)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Reihenfolge aktualisiert'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_icon_reorder(request):
+    """Reorder Icons (Drag & Drop)"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST required'})
+
+    try:
+        data = json.loads(request.body)
+        icon_ids = data.get('icon_ids', [])
+
+        for index, icon_id in enumerate(icon_ids):
+            SocialPageIcon.objects.filter(id=icon_id).update(sort_order=index)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Reihenfolge aktualisiert'
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def social_page_stats(request):
+    """Get click statistics for Social Page buttons"""
+    try:
+        config = SocialPageConfig.get_config()
+        now = timezone.now()
+        seven_days_ago = now - timedelta(days=7)
+        thirty_days_ago = now - timedelta(days=30)
+
+        stats = []
+        for button in config.buttons.all().order_by('sort_order'):
+            clicks_7d = button.clicks.filter(clicked_at__gte=seven_days_ago).count()
+            clicks_30d = button.clicks.filter(clicked_at__gte=thirty_days_ago).count()
+
+            stats.append({
+                'id': button.id,
+                'title': button.title,
+                'url': button.url,
+                'is_active': button.is_active,
+                'clicks_total': button.click_count,
+                'clicks_7d': clicks_7d,
+                'clicks_30d': clicks_30d,
+                'last_clicked': button.last_clicked.isoformat() if button.last_clicked else None,
+            })
+
+        # Total stats
+        total_clicks = sum(s['clicks_total'] for s in stats)
+        total_7d = sum(s['clicks_7d'] for s in stats)
+        total_30d = sum(s['clicks_30d'] for s in stats)
+
+        return JsonResponse({
+            'success': True,
+            'buttons': stats,
+            'totals': {
+                'total': total_clicks,
+                'last_7_days': total_7d,
+                'last_30_days': total_30d,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

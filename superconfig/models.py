@@ -612,3 +612,241 @@ class APIProviderSettings(models.Model):
                 pass
 
         return updated_count
+
+
+# ============================================================================
+# Social Page (Link in Bio) Models
+# ============================================================================
+
+class SocialPageConfig(models.Model):
+    """
+    Haupt-Konfiguration für die /social/ Seite (Link in Bio)
+    Singleton-Pattern: Es gibt nur eine Konfiguration für die gesamte Seite
+    """
+    # Profil
+    profile_picture = models.ImageField(
+        upload_to='social_page/',
+        blank=True,
+        null=True,
+        verbose_name="Profilbild"
+    )
+    profile_description = models.TextField(
+        blank=True,
+        max_length=500,
+        verbose_name="Profil-Beschreibung",
+        help_text="Optionale Beschreibung unter dem Profilbild (max. 500 Zeichen)"
+    )
+
+    # Design
+    background_color = models.CharField(
+        max_length=7,
+        default='#ffffff',
+        verbose_name="Hintergrundfarbe",
+        help_text="Hex-Farbcode (z.B. #ffffff)"
+    )
+    button_color = models.CharField(
+        max_length=7,
+        default='#000000',
+        verbose_name="Button-Farbe",
+        help_text="Hex-Farbcode für die Buttons"
+    )
+    button_text_color = models.CharField(
+        max_length=7,
+        default='#ffffff',
+        verbose_name="Button-Textfarbe",
+        help_text="Hex-Farbcode für den Button-Text"
+    )
+
+    # Footer
+    show_affiliate_disclaimer = models.BooleanField(
+        default=False,
+        verbose_name="Affiliate-Hinweis anzeigen"
+    )
+    affiliate_disclaimer_text = models.TextField(
+        blank=True,
+        default='Diese Seite enthält Affiliate-Links. Bei einem Kauf über diese Links erhalte ich eine kleine Provision.',
+        verbose_name="Affiliate-Hinweis Text"
+    )
+
+    # Meta
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Seite aktiv",
+        help_text="Seite öffentlich zugänglich machen"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Social Page Konfiguration"
+        verbose_name_plural = "Social Page Konfiguration"
+
+    def __str__(self):
+        status = "Aktiv" if self.is_active else "Inaktiv"
+        return f"Social Page ({status})"
+
+    @classmethod
+    def get_config(cls):
+        """Get or create the singleton config"""
+        config = cls.objects.first()
+        if not config:
+            config = cls.objects.create()
+        return config
+
+
+class SocialPageIcon(models.Model):
+    """
+    Social Media Icons unter dem Profil
+    """
+    PLATFORM_CHOICES = [
+        ('instagram', 'Instagram'),
+        ('tiktok', 'TikTok'),
+        ('youtube', 'YouTube'),
+        ('facebook', 'Facebook'),
+        ('twitter', 'Twitter/X'),
+        ('linkedin', 'LinkedIn'),
+        ('pinterest', 'Pinterest'),
+        ('whatsapp', 'WhatsApp'),
+        ('telegram', 'Telegram'),
+        ('email', 'E-Mail'),
+    ]
+
+    # FontAwesome Icon-Klassen
+    ICON_FA_CLASSES = {
+        'instagram': 'fab fa-instagram',
+        'tiktok': 'fab fa-tiktok',
+        'youtube': 'fab fa-youtube',
+        'facebook': 'fab fa-facebook',
+        'twitter': 'fab fa-x-twitter',
+        'linkedin': 'fab fa-linkedin',
+        'pinterest': 'fab fa-pinterest',
+        'whatsapp': 'fab fa-whatsapp',
+        'telegram': 'fab fa-telegram',
+        'email': 'fas fa-envelope',
+    }
+
+    config = models.ForeignKey(
+        SocialPageConfig,
+        on_delete=models.CASCADE,
+        related_name='icons'
+    )
+    platform = models.CharField(
+        max_length=20,
+        choices=PLATFORM_CHOICES,
+        verbose_name="Plattform"
+    )
+    url = models.URLField(
+        verbose_name="URL",
+        help_text="Link zum Social Media Profil"
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Reihenfolge"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktiv"
+    )
+
+    class Meta:
+        verbose_name = "Social Media Icon"
+        verbose_name_plural = "Social Media Icons"
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return f"{self.get_platform_display()} - {self.url[:30]}..."
+
+    @property
+    def fa_icon_class(self):
+        """Get FontAwesome icon class for this platform"""
+        return self.ICON_FA_CLASSES.get(self.platform, 'fas fa-link')
+
+
+class SocialPageButton(models.Model):
+    """
+    Klickbare Buttons auf der Social Page
+    """
+    config = models.ForeignKey(
+        SocialPageConfig,
+        on_delete=models.CASCADE,
+        related_name='buttons'
+    )
+    title = models.CharField(
+        max_length=100,
+        verbose_name="Button-Titel"
+    )
+    url = models.URLField(
+        verbose_name="URL",
+        help_text="Ziel-URL beim Klick"
+    )
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Beschreibung",
+        help_text="Optionale Beschreibung unter dem Button"
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Reihenfolge"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktiv"
+    )
+
+    # Klick-Tracking
+    click_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Klicks (gesamt)"
+    )
+    last_clicked = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Letzter Klick"
+    )
+
+    class Meta:
+        verbose_name = "Social Page Button"
+        verbose_name_plural = "Social Page Buttons"
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return f"{self.title} ({self.click_count} Klicks)"
+
+
+class SocialPageClick(models.Model):
+    """
+    Detaillierte Klick-Statistik für Social Page Buttons
+    IP-Adressen werden anonymisiert gespeichert (DSGVO-konform)
+    """
+    button = models.ForeignKey(
+        SocialPageButton,
+        on_delete=models.CASCADE,
+        related_name='clicks'
+    )
+    clicked_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Zeitpunkt"
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        verbose_name="IP-Adresse (anonymisiert)"
+    )
+    user_agent = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="User-Agent"
+    )
+    referer = models.URLField(
+        blank=True,
+        verbose_name="Referrer"
+    )
+
+    class Meta:
+        verbose_name = "Button-Klick"
+        verbose_name_plural = "Button-Klicks"
+        ordering = ['-clicked_at']
+
+    def __str__(self):
+        return f"Klick auf '{self.button.title}' am {self.clicked_at.strftime('%d.%m.%Y %H:%M')}"

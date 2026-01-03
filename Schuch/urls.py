@@ -32,6 +32,10 @@ urlpatterns = [
     path('agb/', core_views.agb_view, name='agb'),
     path('datenschutz/', core_views.datenschutz_view, name='datenschutz'),
 
+    # Social Page (Link in Bio)
+    path('social/', core_views.social_page_view, name='social_page'),
+    path('social/click/<int:button_id>/', core_views.social_button_click, name='social_button_click'),
+
     # Der Rest bleibt unverändert
     path('accounts/', include('accounts.urls')),
     path('accounts/', include('allauth.urls')),  # django-allauth für Social Login
