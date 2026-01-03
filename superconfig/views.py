@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.core.management import call_command
-from django.db import connection
+from django.db import connection, models
 from django.core.mail import send_mail, EmailMessage
 import sqlite3
 import smtplib
