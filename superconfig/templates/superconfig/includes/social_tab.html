@@ -647,6 +647,11 @@ function saveIcon() {
 function deleteIcon(iconId) {
     if (!confirm('Icon wirklich loschen?')) return;
 
+    // Optimistic update - sofort aus der Liste entfernen
+    socialIcons = socialIcons.filter(icon => icon.id !== iconId);
+    renderIcons();
+    updatePreview();
+
     fetch(`/superconfig/api/social/icon/${iconId}/delete/`, {
         method: 'POST',
         headers: {
@@ -656,9 +661,10 @@ function deleteIcon(iconId) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            loadSocialConfig();
             showAlert('success', 'Icon geloscht');
         } else {
+            // Bei Fehler: Daten neu laden
+            loadSocialConfig();
             showAlert('danger', data.error);
         }
     });
@@ -735,6 +741,14 @@ function saveButton() {
 }
 
 function toggleButton(buttonId, newState) {
+    // Optimistic update - sofort Status ändern
+    const btn = socialButtons.find(b => b.id === buttonId);
+    if (btn) {
+        btn.is_active = newState;
+        renderButtons();
+        updatePreview();
+    }
+
     fetch(`/superconfig/api/social/button/${buttonId}/update/`, {
         method: 'POST',
         headers: {
@@ -745,7 +759,8 @@ function toggleButton(buttonId, newState) {
     })
     .then(r => r.json())
     .then(data => {
-        if (data.success) {
+        if (!data.success) {
+            // Bei Fehler: Daten neu laden
             loadSocialConfig();
         }
     });
@@ -753,6 +768,11 @@ function toggleButton(buttonId, newState) {
 
 function deleteButton(buttonId) {
     if (!confirm('Button wirklich loschen?')) return;
+
+    // Optimistic update - sofort aus der Liste entfernen
+    socialButtons = socialButtons.filter(btn => btn.id !== buttonId);
+    renderButtons();
+    updatePreview();
 
     fetch(`/superconfig/api/social/button/${buttonId}/delete/`, {
         method: 'POST',
@@ -763,9 +783,10 @@ function deleteButton(buttonId) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            loadSocialConfig();
             showAlert('success', 'Button geloscht');
         } else {
+            // Bei Fehler: Daten neu laden
+            loadSocialConfig();
             showAlert('danger', data.error);
         }
     });
