@@ -1249,7 +1249,8 @@ class StreamRecorderOptimized {
         // 🚀 PERFORMANCE OPTIMIZATIONS
         this.videoElements = new Map(); // Video Element Pool
         this.lastRenderTime = 0;
-        this.targetFPS = 30;
+        // 📱 Mobile: Niedrigere FPS für bessere Performance
+        this.targetFPS = this.isMobile ? 24 : 30;
         this.frameInterval = 1000 / this.targetFPS;
         this.skipFrameCount = 0;
         this.maxSkipFrames = 2;
@@ -4801,18 +4802,21 @@ class StreamRecorderOptimized {
             const audioConstraints = this.getAudioConstraints();
 
             // Build video constraints with selected camera
-            // WICHTIG: Full HD für beste Qualität + min frameRate für flüssige Aufnahme
-            const videoConstraints = {
+            // 📱 Mobile: Reduzierte Auflösung für bessere Performance
+            // 🖥️ Desktop: Full HD für beste Qualität
+            const videoConstraints = this.isMobile ? {
+                width: { ideal: 1280, min: 640 },
+                height: { ideal: 720, min: 480 },
+                frameRate: { min: 15, ideal: 24, max: 30 },
+                facingMode: { ideal: this.currentFacingMode }
+            } : {
                 width: { ideal: 1920, min: 1280 },
                 height: { ideal: 1080, min: 720 },
                 frameRate: { min: 24, ideal: this.targetFPS, max: 60 }
             };
 
-            // 📱 Mobile: Use facingMode instead of deviceId for camera switching
-            if (this.isMobile) {
-                videoConstraints.facingMode = { ideal: this.currentFacingMode };
-            } else if (videoDeviceId) {
-                // Desktop: Use specific device if selected
+            // 🖥️ Desktop: Use specific device if selected
+            if (!this.isMobile && videoDeviceId) {
                 videoConstraints.deviceId = { exact: videoDeviceId };
             }
 
@@ -6538,7 +6542,14 @@ class StreamRecorderOptimized {
                 width = 1920;
                 height = 1080;
         }
-        
+
+        // 📱 Mobile: Reduzierte Canvas-Größe für bessere Performance
+        if (this.isMobile) {
+            width = Math.floor(width * 0.7);
+            height = Math.floor(height * 0.7);
+            console.log(`📱 Mobile Canvas-Optimierung: ${width}x${height}`);
+        }
+
         this.aspectRatioDimensions = { width, height };
         
         // Update canvas dimensions
