@@ -560,6 +560,28 @@ def _get_all_apps():
     """Gibt ALLE App-Informationen zurück (ohne Filterung) - mit vollständigen Beschreibungen"""
     return {
         # === SEO Apps ===
+        'seo_dashboard': {
+            'name': 'SEO Dashboard',
+            'icon': 'fas fa-chart-line',
+            'color': 'primary',
+            'short_desc': 'Dein SEO-Cockpit - alle SEO-Tools auf einen Blick.',
+            'features': [
+                'LoomLine-Integration - Deine SEO-Aufgaben im Überblick',
+                'KeyEngine-Anbindung - Keyword-Recherche direkt starten',
+                'QuestionFinder - Fragen deiner Zielgruppe finden',
+                'Performance-Übersicht - Alle wichtigen Metriken',
+                'Quick-Actions - Schnellzugriff auf häufige Aktionen',
+                'Status-Widgets - Offene Tasks und Fortschritt'
+            ],
+            'benefits': {
+                'Zentrale Übersicht': 'Alle SEO-Tools an einem Ort',
+                'Schneller Einstieg': 'Direkt loslegen ohne Suchen',
+                'Besserer Überblick': 'SEO-Status auf einen Blick',
+                'Effizienter arbeiten': 'Weniger Klicks, mehr Ergebnisse'
+            },
+            'pricing': 'Kostenlos nutzbar',
+            'url_name': 'seo_dashboard'
+        },
         'loomline': {
             'name': 'LoomLine',
             'icon': 'fas fa-list-alt',
