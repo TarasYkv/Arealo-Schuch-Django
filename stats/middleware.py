@@ -9,18 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 class StatsTrackingMiddleware(MiddlewareMixin):
-    def has_statistics_consent(self, request):
-        """Check if user has given consent for statistics tracking"""
-        # Check for cookie consent
-        consent_cookie = request.COOKIES.get('cookie_consent_statistics', '')
-        return consent_cookie.lower() == 'true'
+    """
+    Statistik-Middleware mit DSGVO-konformer IP-Anonymisierung.
+
+    Keine Einwilligung erforderlich, da:
+    - IP-Adressen werden anonymisiert (letztes Oktett = 0)
+    - Keine Nutzerprofile werden erstellt
+    - Nur aggregierte Daten
+    - Rechtsgrundlage: Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO)
+    """
 
     def process_response(self, request, response):
         try:
-            # Check for statistics consent first
-            if not self.has_statistics_consent(request):
-                return response
-
             # Nur für erfolgreiche GET-Requests tracken
             if (request.method == 'GET' and
                 response.status_code == 200 and
@@ -85,13 +85,45 @@ class StatsTrackingMiddleware(MiddlewareMixin):
         return response
 
     def get_client_ip(self, request):
-        """IP-Adresse des Clients ermitteln (berücksichtigt Proxies)"""
+        """
+        IP-Adresse des Clients ermitteln und ANONYMISIEREN (DSGVO-konform).
+
+        Das letzte Oktett der IPv4-Adresse wird auf 0 gesetzt.
+        Beispiel: 192.168.1.123 → 192.168.1.0
+        """
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             ip = x_forwarded_for.split(',')[0].strip()
         else:
             ip = request.META.get('REMOTE_ADDR', '127.0.0.1')
-        return ip
+
+        # IP anonymisieren (letztes Oktett auf 0)
+        return self.anonymize_ip(ip)
+
+    def anonymize_ip(self, ip):
+        """
+        Anonymisiert die IP-Adresse für DSGVO-Konformität.
+        IPv4: Letztes Oktett wird auf 0 gesetzt (192.168.1.123 → 192.168.1.0)
+        IPv6: Letzte 80 Bits werden auf 0 gesetzt
+        """
+        if not ip:
+            return '0.0.0.0'
+
+        # IPv4
+        if '.' in ip and ':' not in ip:
+            parts = ip.split('.')
+            if len(parts) == 4:
+                parts[3] = '0'
+                return '.'.join(parts)
+
+        # IPv6
+        if ':' in ip:
+            # Vereinfacht: Nur die ersten 3 Gruppen behalten
+            parts = ip.split(':')
+            if len(parts) >= 3:
+                return ':'.join(parts[:3]) + '::0'
+
+        return '0.0.0.0'
 
     def extract_page_title(self, response):
         """Seitentitel aus HTML-Response extrahieren"""
