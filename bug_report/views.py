@@ -96,10 +96,16 @@ def create_bug_chat_room(bug_report):
     # Erstelle Chat-Raum
     category_display = bug_report.get_category_type_display()
     room_name = f"{category_display}: {bug_report.subject}"
+
+    # Zähle Teilnehmer: Sender + Superusers
+    participant_count = superusers.count() + (1 if bug_report.sender else 0)
+    is_group = participant_count > 2  # Mehr als 2 Teilnehmer = Gruppenchat
+
     chat_room = ChatRoom.objects.create(
         name=room_name,
         created_by=bug_report.sender,
-        is_bug_report_room=True
+        is_bug_report_room=True,
+        is_group_chat=is_group
     )
     
     # Füge Super User zum Chat-Raum hinzu
