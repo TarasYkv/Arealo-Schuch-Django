@@ -6207,7 +6207,6 @@ class StreamRecorderOptimized {
     }
 
     async saveVideoToServer(videoUrl) {
-        console.log('🚀 saveVideoToServer gestartet mit URL:', videoUrl);
         const saveBtn = document.getElementById('saveToServerBtn');
         const originalBtnText = saveBtn.innerHTML;
 
@@ -6316,9 +6315,7 @@ class StreamRecorderOptimized {
             }
 
             // Show upload progress modal
-            console.log('📤 Zeige Upload-Modal...');
             const uploadModal = showUploadModal();
-            console.log('✅ Upload-Modal sollte jetzt sichtbar sein');
             uploadStartTime = Date.now();
             lastTime = uploadStartTime;
 
@@ -6401,7 +6398,6 @@ class StreamRecorderOptimized {
                     xhr.setRequestHeader('X-CSRFToken', this.getCSRFToken());
                     xhr.setRequestHeader('Content-Type', 'application/json');
                     xhr.timeout = 300000; // 5 minutes timeout
-                    console.log('📡 XHR wird gesendet, Größe:', (jsonBody.length / 1024 / 1024).toFixed(2), 'MB');
                     xhr.send(jsonBody);
 
                 } catch (error) {
@@ -6439,16 +6435,19 @@ class StreamRecorderOptimized {
     }
 
     showSuccessMessage(result) {
+        // API gibt: filename, file_size (bytes), video_id, video_url
+        const fileSizeMB = (result.file_size / 1024 / 1024).toFixed(2);
+        const videoUrl = result.video_url || `/videos/${result.video_id}/`;
+
         const message = `
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <h6><i class="fas fa-cloud-upload-alt me-2"></i>Video erfolgreich gespeichert!</h6>
                 <p class="mb-2">
-                    <strong>${result.video.title}</strong><br>
-                    Größe: ${result.video.file_size_mb} MB | 
-                    Speicher: ${result.storage.used_mb}/${result.storage.max_mb} MB (${result.storage.used_percentage}%)
+                    <strong>${result.filename || 'StreamRec Aufnahme'}</strong><br>
+                    Größe: ${fileSizeMB} MB
                 </p>
                 <div class="btn-group btn-group-sm">
-                    <a href="${result.video.share_link}" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <a href="${videoUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-eye me-1"></i>Video ansehen
                     </a>
                     <a href="/videos/" target="_blank" class="btn btn-outline-secondary btn-sm">
@@ -6461,7 +6460,7 @@ class StreamRecorderOptimized {
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         `;
-        
+
         this.showNotification(message);
     }
 
