@@ -4823,7 +4823,10 @@ class StreamRecorderOptimized {
 
             this.streams.set('camera', stream);
             this.activeStreams.add('camera');
-            this.streamOrder.push('camera'); // Add to order for z-index
+            // Add to order for z-index (only if not already present - for camera switch)
+            if (!this.streamOrder.includes('camera')) {
+                this.streamOrder.push('camera');
+            }
             this.streamDisplayModes.set('camera', 'cover'); // Default for camera
             this.streamMirror.set('camera', false); // Default: not mirrored
 
@@ -4971,26 +4974,40 @@ class StreamRecorderOptimized {
             return;
         }
 
-        console.log('🔄 Wechsle Kamera von', this.currentFacingMode, 'zu', this.currentFacingMode === 'user' ? 'environment' : 'user');
+        const oldFacingMode = this.currentFacingMode;
+        const newFacingMode = oldFacingMode === 'user' ? 'environment' : 'user';
+        console.log('🔄 Wechsle Kamera von', oldFacingMode, 'zu', newFacingMode);
 
         // Toggle facing mode
-        this.currentFacingMode = this.currentFacingMode === 'user' ? 'environment' : 'user';
+        this.currentFacingMode = newFacingMode;
 
-        // Stop current camera stream
+        // Stop current camera stream and remove thumbnail
         const stream = this.streams.get('camera');
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             this.streams.delete('camera');
+
+            // Remove old thumbnail (important for live preview!)
+            this.removeStreamThumbnail('camera');
+
+            // Keep camera in streamOrder so position is preserved
+            // streamOrder stays unchanged
         }
 
         // Restart camera with new facing mode
         try {
             await this.startCamera();
-            console.log('✅ Kamera gewechselt zu:', this.currentFacingMode === 'user' ? 'Frontkamera' : 'Rückkamera');
+            console.log('✅ Kamera gewechselt zu:', newFacingMode === 'user' ? 'Frontkamera' : 'Rückkamera');
         } catch (error) {
             console.error('❌ Fehler beim Kamerawechsel:', error);
             // Revert facing mode on error
-            this.currentFacingMode = this.currentFacingMode === 'user' ? 'environment' : 'user';
+            this.currentFacingMode = oldFacingMode;
+            // Try to restart with old facing mode
+            try {
+                await this.startCamera();
+            } catch (e) {
+                console.error('❌ Konnte nicht zur ursprünglichen Kamera zurückkehren:', e);
+            }
         }
     }
 
