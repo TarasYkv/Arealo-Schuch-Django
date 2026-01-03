@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     'imageforge',
     'blogprep',
     'vskript',
+    'linkloom',
 ]
 
 

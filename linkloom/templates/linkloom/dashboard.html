@@ -1,0 +1,969 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}LinkLoom - Deine Link-Seite{% endblock %}
+
+{% block extra_css %}
+<style>
+    .linkloom-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .linkloom-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .linkloom-header h1 {
+        margin: 0;
+        font-size: 1.75rem;
+    }
+
+    .slug-input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .slug-prefix {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    #slugInput {
+        width: 200px;
+        font-family: monospace;
+    }
+
+    .slug-status {
+        font-size: 0.85rem;
+        min-width: 150px;
+    }
+
+    .slug-available { color: #28a745; }
+    .slug-unavailable { color: #dc3545; }
+    .slug-checking { color: #6c757d; }
+
+    .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+        .main-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .editor-section {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .editor-section h3 {
+        margin-top: 0;
+        margin-bottom: 16px;
+        font-size: 1.1rem;
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 8px;
+    }
+
+    .color-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .color-input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .color-input-group label {
+        font-size: 0.85rem;
+        color: #666;
+        min-width: 80px;
+    }
+
+    .color-input-group input[type="color"] {
+        width: 40px;
+        height: 32px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        padding: 2px;
+    }
+
+    /* Preview */
+    .preview-container {
+        position: sticky;
+        top: 20px;
+    }
+
+    .preview-frame {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .preview-frame h3 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        font-size: 1rem;
+        color: #666;
+    }
+
+    .preview-phone {
+        background: #fff;
+        border-radius: 24px;
+        padding: 40px 20px;
+        max-width: 320px;
+        margin: 0 auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        min-height: 500px;
+    }
+
+    .preview-profile-picture {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin: 0 auto 12px;
+        display: block;
+        border: 2px solid rgba(0,0,0,0.1);
+    }
+
+    .preview-profile-picture-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #e9ecef;
+        margin: 0 auto 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #adb5bd;
+        font-size: 2rem;
+    }
+
+    .preview-description {
+        text-align: center;
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+        line-height: 1.4;
+    }
+
+    .preview-icons {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .preview-icons i {
+        font-size: 1.5rem;
+        color: #333;
+    }
+
+    .preview-button {
+        display: block;
+        padding: 12px 16px;
+        border-radius: 8px;
+        text-align: center;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        text-decoration: none;
+    }
+
+    .preview-button-desc {
+        font-size: 0.75rem;
+        opacity: 0.85;
+        margin-top: 4px;
+    }
+
+    /* Lists */
+    .items-list {
+        min-height: 60px;
+    }
+
+    .item-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .item-card .item-icon {
+        font-size: 1.25rem;
+        width: 32px;
+        text-align: center;
+        color: #495057;
+    }
+
+    .item-card .item-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .item-card .item-title {
+        font-weight: 500;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .item-card .item-url {
+        font-size: 0.75rem;
+        color: #6c757d;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .item-card .item-actions {
+        display: flex;
+        gap: 4px;
+    }
+
+    .item-card .item-actions button {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+
+    .item-inactive {
+        opacity: 0.5;
+    }
+
+    /* Stats */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+    }
+
+    .stat-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .stat-card .stat-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+
+    /* Alert */
+    .alert-area {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 1050;
+        max-width: 350px;
+    }
+
+    /* No page state */
+    .no-page-notice {
+        background: #e3f2fd;
+        border: 1px solid #90caf9;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .no-page-notice h4 {
+        margin-top: 0;
+        color: #1565c0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="linkloom-container">
+    <!-- Alert Area -->
+    <div class="alert-area" id="alertArea"></div>
+
+    <!-- Header -->
+    <div class="linkloom-header">
+        <h1><i class="fas fa-link me-2"></i>LinkLoom</h1>
+        <div class="slug-input-group">
+            <span class="slug-prefix">workloom.de/l/</span>
+            <input type="text" id="slugInput" class="form-control form-control-sm"
+                   placeholder="dein-name"
+                   value="{{ page.slug|default:'' }}"
+                   pattern="[a-z0-9-]+"
+                   maxlength="50">
+            <button class="btn btn-sm btn-outline-secondary" onclick="checkSlug()">
+                <i class="fas fa-check"></i> Prüfen
+            </button>
+            <span class="slug-status" id="slugStatus"></span>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="savePage()">
+                <i class="fas fa-save me-1"></i> Speichern
+            </button>
+            {% if page %}
+            <a href="{% url 'linkloom_public' page.slug %}" target="_blank" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-external-link-alt me-1"></i> Ansehen
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not page %}
+    <div class="no-page-notice">
+        <h4><i class="fas fa-info-circle me-2"></i>Erstelle deine Link-Seite</h4>
+        <p class="mb-0">Gib oben einen Slug ein (z.B. "max-mustermann") und klicke auf "Speichern", um deine Seite zu erstellen.</p>
+    </div>
+    {% endif %}
+
+    <div class="main-grid">
+        <!-- Editor Column -->
+        <div class="editor-column">
+            <!-- Profil -->
+            <div class="editor-section">
+                <h3><i class="fas fa-user me-2"></i>Profil</h3>
+                <div class="row mb-3">
+                    <div class="col-md-4 text-center">
+                        <div id="profilePictureContainer">
+                            {% if page.profile_picture %}
+                            <img src="{{ page.profile_picture.url }}" class="preview-profile-picture" id="profilePicturePreview">
+                            {% else %}
+                            <div class="preview-profile-picture-placeholder" id="profilePicturePreview">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <input type="file" id="profilePictureInput" accept="image/*" style="display: none;" onchange="uploadProfilePicture()">
+                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="document.getElementById('profilePictureInput').click()" {% if not page %}disabled{% endif %}>
+                            <i class="fas fa-upload me-1"></i> Bild ändern
+                        </button>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Beschreibung</label>
+                        <textarea id="profileDescription" class="form-control" rows="4"
+                                  maxlength="500"
+                                  placeholder="Erzähle etwas über dich...">{{ page.profile_description|default:'' }}</textarea>
+                        <small class="text-muted"><span id="descCharCount">0</span>/500</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Design -->
+            <div class="editor-section">
+                <h3><i class="fas fa-palette me-2"></i>Design</h3>
+                <div class="color-grid">
+                    <div class="color-input-group">
+                        <label>Hintergrund</label>
+                        <input type="color" id="backgroundColor" value="{{ page.background_color|default:'#ffffff' }}" onchange="updatePreview()">
+                    </div>
+                    <div class="color-input-group">
+                        <label>Button</label>
+                        <input type="color" id="buttonColor" value="{{ page.button_color|default:'#000000' }}" onchange="updatePreview()">
+                    </div>
+                    <div class="color-input-group">
+                        <label>Button-Text</label>
+                        <input type="color" id="buttonTextColor" value="{{ page.button_text_color|default:'#ffffff' }}" onchange="updatePreview()">
+                    </div>
+                    <div class="color-input-group">
+                        <label>Profil-Text</label>
+                        <input type="color" id="profileTextColor" value="{{ page.profile_text_color|default:'#333333' }}" onchange="updatePreview()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Social Icons -->
+            <div class="editor-section">
+                <h3><i class="fas fa-share-alt me-2"></i>Social Icons</h3>
+                <div class="items-list" id="iconsList">
+                    <p class="text-muted text-center py-3">Keine Icons hinzugefügt</p>
+                </div>
+                <div class="row g-2 mt-2">
+                    <div class="col-md-4">
+                        <select id="newIconPlatform" class="form-select form-select-sm">
+                            {% for value, label in platform_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <input type="url" id="newIconUrl" class="form-control form-control-sm" placeholder="https://...">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-sm btn-primary w-100" onclick="addIcon()" {% if not page %}disabled{% endif %}>
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="editor-section">
+                <h3><i class="fas fa-mouse-pointer me-2"></i>Buttons</h3>
+                <div class="items-list" id="buttonsList">
+                    <p class="text-muted text-center py-3">Keine Buttons hinzugefügt</p>
+                </div>
+                <div class="row g-2 mt-2">
+                    <div class="col-md-4">
+                        <input type="text" id="newButtonTitle" class="form-control form-control-sm" placeholder="Titel" maxlength="100">
+                    </div>
+                    <div class="col-md-4">
+                        <input type="url" id="newButtonUrl" class="form-control form-control-sm" placeholder="https://...">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" id="newButtonDesc" class="form-control form-control-sm" placeholder="Beschreibung (optional)" maxlength="200">
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-sm btn-primary w-100" onclick="addButton()" {% if not page %}disabled{% endif %}>
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Impressum -->
+            <div class="editor-section">
+                <h3><i class="fas fa-gavel me-2"></i>Impressum</h3>
+                <textarea id="customImpressum" class="form-control" rows="5"
+                          placeholder="Dein Impressum (Name, Adresse, Kontakt...)">{{ page.custom_impressum|default:'' }}</textarea>
+                <small class="text-muted">Wird im Footer deiner Seite angezeigt</small>
+            </div>
+
+            <!-- Footer / Affiliate -->
+            <div class="editor-section">
+                <h3><i class="fas fa-asterisk me-2"></i>Affiliate-Hinweis</h3>
+                <div class="form-check mb-2">
+                    <input type="checkbox" class="form-check-input" id="showAffiliateDisclaimer"
+                           {% if page.show_affiliate_disclaimer %}checked{% endif %}
+                           onchange="updatePreview()">
+                    <label class="form-check-label" for="showAffiliateDisclaimer">Affiliate-Hinweis anzeigen</label>
+                </div>
+                <textarea id="affiliateDisclaimerText" class="form-control" rows="2"
+                          placeholder="Diese Seite enthält Affiliate-Links...">{{ page.affiliate_disclaimer_text|default:'Diese Seite enthält Affiliate-Links. Bei einem Kauf erhalte ich eine kleine Provision.' }}</textarea>
+            </div>
+
+            <!-- Statistics -->
+            {% if page %}
+            <div class="editor-section">
+                <h3><i class="fas fa-chart-bar me-2"></i>Statistiken</h3>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalClicks">0</div>
+                        <div class="stat-label">Gesamt-Klicks</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Preview Column -->
+        <div class="preview-container">
+            <div class="preview-frame">
+                <h3><i class="fas fa-eye me-2"></i>Live-Vorschau</h3>
+                <div class="preview-phone" id="previewPhone">
+                    <div id="previewProfilePicture" class="preview-profile-picture-placeholder">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <p class="preview-description" id="previewDescription">Deine Beschreibung...</p>
+                    <div class="preview-icons" id="previewIcons"></div>
+                    <div id="previewButtons"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Data
+let icons = {{ icons_json|safe }};
+let buttons = {{ buttons_json|safe }};
+const faIcons = {{ fa_icons|safe }};
+const csrfToken = '{{ csrf_token }}';
+let currentProfilePicture = '{% if page.profile_picture %}{{ page.profile_picture.url }}{% endif %}';
+let slugCheckTimeout = null;
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    renderIcons();
+    renderButtons();
+    updatePreview();
+    updateDescCharCount();
+    loadStats();
+
+    // Auto-check slug on input
+    document.getElementById('slugInput').addEventListener('input', function(e) {
+        e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        clearTimeout(slugCheckTimeout);
+        slugCheckTimeout = setTimeout(checkSlug, 500);
+    });
+
+    // Update preview on description change
+    document.getElementById('profileDescription').addEventListener('input', function() {
+        updateDescCharCount();
+        updatePreview();
+    });
+
+    // Update preview on textarea changes
+    document.getElementById('customImpressum').addEventListener('input', updatePreview);
+    document.getElementById('affiliateDisclaimerText').addEventListener('input', updatePreview);
+});
+
+function updateDescCharCount() {
+    const desc = document.getElementById('profileDescription').value;
+    document.getElementById('descCharCount').textContent = desc.length;
+}
+
+function showAlert(message, type = 'success') {
+    const alertArea = document.getElementById('alertArea');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    alertArea.appendChild(alert);
+    setTimeout(() => alert.remove(), 5000);
+}
+
+// Slug Check
+async function checkSlug() {
+    const slug = document.getElementById('slugInput').value.trim();
+    const statusEl = document.getElementById('slugStatus');
+
+    if (!slug) {
+        statusEl.textContent = '';
+        statusEl.className = 'slug-status';
+        return;
+    }
+
+    statusEl.textContent = 'Prüfe...';
+    statusEl.className = 'slug-status slug-checking';
+
+    try {
+        const response = await fetch(`/linkloom/api/check-slug/?slug=${encodeURIComponent(slug)}`);
+        const data = await response.json();
+
+        if (data.available) {
+            statusEl.innerHTML = '<i class="fas fa-check"></i> Verfügbar!';
+            statusEl.className = 'slug-status slug-available';
+        } else {
+            statusEl.innerHTML = `<i class="fas fa-times"></i> ${data.reason}`;
+            statusEl.className = 'slug-status slug-unavailable';
+        }
+    } catch (error) {
+        statusEl.textContent = 'Fehler beim Prüfen';
+        statusEl.className = 'slug-status slug-unavailable';
+    }
+}
+
+// Save Page
+async function savePage() {
+    const data = {
+        slug: document.getElementById('slugInput').value.trim(),
+        profile_description: document.getElementById('profileDescription').value,
+        background_color: document.getElementById('backgroundColor').value,
+        button_color: document.getElementById('buttonColor').value,
+        button_text_color: document.getElementById('buttonTextColor').value,
+        profile_text_color: document.getElementById('profileTextColor').value,
+        custom_impressum: document.getElementById('customImpressum').value,
+        show_affiliate_disclaimer: document.getElementById('showAffiliateDisclaimer').checked,
+        affiliate_disclaimer_text: document.getElementById('affiliateDisclaimerText').value,
+        is_active: true
+    };
+
+    if (!data.slug) {
+        showAlert('Bitte gib einen Slug ein', 'danger');
+        return;
+    }
+
+    try {
+        const response = await fetch('/linkloom/api/save/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showAlert(result.created ? 'Seite erstellt!' : 'Gespeichert!', 'success');
+            if (result.created) {
+                // Reload to enable all features
+                window.location.reload();
+            }
+        } else {
+            showAlert(result.error || 'Fehler beim Speichern', 'danger');
+        }
+    } catch (error) {
+        showAlert('Fehler beim Speichern', 'danger');
+    }
+}
+
+// Profile Picture Upload
+async function uploadProfilePicture() {
+    const input = document.getElementById('profilePictureInput');
+    if (!input.files || !input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('image', input.files[0]);
+
+    try {
+        const response = await fetch('/linkloom/api/upload-image/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            currentProfilePicture = result.url;
+            // Update editor preview
+            document.getElementById('profilePictureContainer').innerHTML = `
+                <img src="${result.url}" class="preview-profile-picture" id="profilePicturePreview">
+            `;
+            updatePreview();
+            showAlert('Profilbild aktualisiert!', 'success');
+        } else {
+            showAlert(result.error || 'Fehler beim Hochladen', 'danger');
+        }
+    } catch (error) {
+        showAlert('Fehler beim Hochladen', 'danger');
+    }
+
+    input.value = '';
+}
+
+// Icons
+function renderIcons() {
+    const container = document.getElementById('iconsList');
+
+    if (icons.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center py-3">Keine Icons hinzugefügt</p>';
+        return;
+    }
+
+    container.innerHTML = icons.map(icon => `
+        <div class="item-card ${icon.is_active ? '' : 'item-inactive'}" data-id="${icon.id}">
+            <span class="item-icon"><i class="${faIcons[icon.platform] || 'fas fa-link'}"></i></span>
+            <div class="item-content">
+                <div class="item-title">${icon.platform}</div>
+                <div class="item-url">${icon.url}</div>
+            </div>
+            <div class="item-actions">
+                <button class="btn btn-sm btn-outline-${icon.is_active ? 'secondary' : 'success'}" onclick="toggleIcon(${icon.id})">
+                    <i class="fas fa-${icon.is_active ? 'eye-slash' : 'eye'}"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteIcon(${icon.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function addIcon() {
+    const platform = document.getElementById('newIconPlatform').value;
+    const url = document.getElementById('newIconUrl').value.trim();
+
+    if (!url) {
+        showAlert('Bitte URL eingeben', 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch('/linkloom/api/icon/add/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ platform, url })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            icons.push(result.icon);
+            renderIcons();
+            updatePreview();
+            document.getElementById('newIconUrl').value = '';
+            showAlert('Icon hinzugefügt!', 'success');
+        } else {
+            showAlert(result.error || 'Fehler', 'danger');
+        }
+    } catch (error) {
+        showAlert('Fehler beim Hinzufügen', 'danger');
+    }
+}
+
+async function deleteIcon(iconId) {
+    if (!confirm('Icon wirklich löschen?')) return;
+
+    // Optimistic update
+    icons = icons.filter(i => i.id !== iconId);
+    renderIcons();
+    updatePreview();
+
+    try {
+        const response = await fetch(`/linkloom/api/icon/${iconId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            showAlert('Fehler beim Löschen', 'danger');
+            // Reload to restore state
+            window.location.reload();
+        }
+    } catch (error) {
+        showAlert('Fehler beim Löschen', 'danger');
+    }
+}
+
+async function toggleIcon(iconId) {
+    // Optimistic update
+    const icon = icons.find(i => i.id === iconId);
+    if (icon) {
+        icon.is_active = !icon.is_active;
+        renderIcons();
+        updatePreview();
+    }
+
+    try {
+        const response = await fetch(`/linkloom/api/icon/${iconId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            showAlert('Fehler', 'danger');
+            window.location.reload();
+        }
+    } catch (error) {
+        showAlert('Fehler', 'danger');
+    }
+}
+
+// Buttons
+function renderButtons() {
+    const container = document.getElementById('buttonsList');
+
+    if (buttons.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center py-3">Keine Buttons hinzugefügt</p>';
+        return;
+    }
+
+    container.innerHTML = buttons.map(btn => `
+        <div class="item-card ${btn.is_active ? '' : 'item-inactive'}" data-id="${btn.id}">
+            <span class="item-icon"><i class="fas fa-link"></i></span>
+            <div class="item-content">
+                <div class="item-title">${btn.title}</div>
+                <div class="item-url">${btn.url}</div>
+            </div>
+            <div class="item-actions">
+                <span class="badge bg-secondary me-1">${btn.click_count || 0} Klicks</span>
+                <button class="btn btn-sm btn-outline-${btn.is_active ? 'secondary' : 'success'}" onclick="toggleButton(${btn.id})">
+                    <i class="fas fa-${btn.is_active ? 'eye-slash' : 'eye'}"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteButton(${btn.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function addButton() {
+    const title = document.getElementById('newButtonTitle').value.trim();
+    const url = document.getElementById('newButtonUrl').value.trim();
+    const description = document.getElementById('newButtonDesc').value.trim();
+
+    if (!title || !url) {
+        showAlert('Titel und URL sind erforderlich', 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch('/linkloom/api/button/add/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ title, url, description })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            buttons.push(result.button);
+            renderButtons();
+            updatePreview();
+            document.getElementById('newButtonTitle').value = '';
+            document.getElementById('newButtonUrl').value = '';
+            document.getElementById('newButtonDesc').value = '';
+            showAlert('Button hinzugefügt!', 'success');
+        } else {
+            showAlert(result.error || 'Fehler', 'danger');
+        }
+    } catch (error) {
+        showAlert('Fehler beim Hinzufügen', 'danger');
+    }
+}
+
+async function deleteButton(buttonId) {
+    if (!confirm('Button wirklich löschen?')) return;
+
+    // Optimistic update
+    buttons = buttons.filter(b => b.id !== buttonId);
+    renderButtons();
+    updatePreview();
+
+    try {
+        const response = await fetch(`/linkloom/api/button/${buttonId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            showAlert('Fehler beim Löschen', 'danger');
+            window.location.reload();
+        }
+    } catch (error) {
+        showAlert('Fehler beim Löschen', 'danger');
+    }
+}
+
+async function toggleButton(buttonId) {
+    // Optimistic update
+    const button = buttons.find(b => b.id === buttonId);
+    if (button) {
+        button.is_active = !button.is_active;
+        renderButtons();
+        updatePreview();
+    }
+
+    try {
+        const response = await fetch(`/linkloom/api/button/${buttonId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            showAlert('Fehler', 'danger');
+            window.location.reload();
+        }
+    } catch (error) {
+        showAlert('Fehler', 'danger');
+    }
+}
+
+// Preview
+function updatePreview() {
+    const phone = document.getElementById('previewPhone');
+    const bgColor = document.getElementById('backgroundColor').value;
+    const btnColor = document.getElementById('buttonColor').value;
+    const btnTextColor = document.getElementById('buttonTextColor').value;
+    const profileTextColor = document.getElementById('profileTextColor').value;
+
+    phone.style.backgroundColor = bgColor;
+
+    // Profile picture
+    const previewPic = document.getElementById('previewProfilePicture');
+    if (currentProfilePicture) {
+        previewPic.outerHTML = `<img src="${currentProfilePicture}" class="preview-profile-picture" id="previewProfilePicture">`;
+    } else {
+        previewPic.outerHTML = `<div class="preview-profile-picture-placeholder" id="previewProfilePicture"><i class="fas fa-user"></i></div>`;
+    }
+
+    // Description
+    const desc = document.getElementById('profileDescription').value || 'Deine Beschreibung...';
+    const previewDesc = document.getElementById('previewDescription');
+    previewDesc.textContent = desc;
+    previewDesc.style.color = profileTextColor;
+
+    // Icons
+    const previewIcons = document.getElementById('previewIcons');
+    const activeIcons = icons.filter(i => i.is_active);
+    if (activeIcons.length > 0) {
+        previewIcons.innerHTML = activeIcons.map(icon =>
+            `<i class="${faIcons[icon.platform] || 'fas fa-link'}"></i>`
+        ).join('');
+    } else {
+        previewIcons.innerHTML = '';
+    }
+
+    // Buttons
+    const previewButtons = document.getElementById('previewButtons');
+    const activeButtons = buttons.filter(b => b.is_active);
+    if (activeButtons.length > 0) {
+        previewButtons.innerHTML = activeButtons.map(btn => `
+            <div class="preview-button" style="background-color: ${btnColor}; color: ${btnTextColor};">
+                ${btn.title}
+                ${btn.description ? `<div class="preview-button-desc">${btn.description}</div>` : ''}
+            </div>
+        `).join('');
+    } else {
+        previewButtons.innerHTML = '';
+    }
+}
+
+// Stats
+async function loadStats() {
+    try {
+        const response = await fetch('/linkloom/api/stats/');
+        const data = await response.json();
+
+        if (data.success) {
+            document.getElementById('totalClicks').textContent = data.total_clicks;
+        }
+    } catch (error) {
+        console.log('Stats not available');
+    }
+}
+</script>
+{% endblock %}

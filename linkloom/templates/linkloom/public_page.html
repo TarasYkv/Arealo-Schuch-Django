@@ -1,0 +1,280 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.slug }} - Links</title>
+    <meta name="description" content="{% if page.profile_description %}{{ page.profile_description|truncatewords:20 }}{% else %}Alle wichtigen Links auf einen Blick{% endif %}">
+    <meta name="robots" content="noindex, nofollow">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+
+    <!-- Bootstrap CSS (lokal) -->
+    <link href="{% static 'vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
+    <!-- FontAwesome (lokal) -->
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            min-height: 100vh;
+        }
+
+        body {
+            background-color: {{ page.background_color|default:"#ffffff" }};
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .social-container {
+            max-width: 680px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 40px 20px;
+            text-align: center;
+            flex: 1;
+        }
+
+        .profile-picture {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 16px;
+            border: 3px solid rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .profile-description {
+            color: {{ page.profile_text_color|default:"#333333" }};
+            margin-bottom: 24px;
+            font-size: 16px;
+            line-height: 1.5;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .social-icons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+
+        .social-icons a {
+            color: #333;
+            font-size: 28px;
+            transition: transform 0.2s, color 0.2s;
+        }
+
+        .social-icons a:hover {
+            transform: scale(1.2);
+            color: {{ page.button_color|default:"#000000" }};
+        }
+
+        .buttons-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .link-button {
+            display: block;
+            background-color: {{ page.button_color|default:"#000000" }};
+            color: {{ page.button_text_color|default:"#ffffff" }};
+            padding: 16px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            margin-bottom: 12px;
+            font-weight: 500;
+            font-size: 16px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .link-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            color: {{ page.button_text_color|default:"#ffffff" }};
+            text-decoration: none;
+        }
+
+        .link-button:active {
+            transform: translateY(-1px);
+        }
+
+        .button-description {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        .footer {
+            padding: 24px 20px;
+            text-align: center;
+            background-color: rgba(0,0,0,0.02);
+        }
+
+        .affiliate-disclaimer {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 16px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.4;
+        }
+
+        .impressum-text {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 16px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        .footer-links {
+            font-size: 13px;
+        }
+
+        .footer-links a {
+            color: #666;
+            text-decoration: none;
+            margin: 0 12px;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: #333;
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 576px) {
+            .social-container {
+                padding: 30px 16px;
+            }
+
+            .profile-picture {
+                width: 100px;
+                height: 100px;
+            }
+
+            .social-icons {
+                gap: 16px;
+            }
+
+            .social-icons a {
+                font-size: 24px;
+            }
+
+            .link-button {
+                padding: 14px 20px;
+                font-size: 15px;
+            }
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .link-button:nth-child(1) { animation-delay: 0.1s; }
+        .link-button:nth-child(2) { animation-delay: 0.15s; }
+        .link-button:nth-child(3) { animation-delay: 0.2s; }
+        .link-button:nth-child(4) { animation-delay: 0.25s; }
+        .link-button:nth-child(5) { animation-delay: 0.3s; }
+        .link-button:nth-child(6) { animation-delay: 0.35s; }
+        .link-button:nth-child(7) { animation-delay: 0.4s; }
+        .link-button:nth-child(8) { animation-delay: 0.45s; }
+    </style>
+</head>
+<body>
+    <div class="social-container">
+        <!-- Profilbild -->
+        {% if page.profile_picture %}
+        <img src="{{ page.profile_picture.url }}" alt="Profilbild" class="profile-picture animate-in">
+        {% endif %}
+
+        <!-- Beschreibung -->
+        {% if page.profile_description %}
+        <p class="profile-description animate-in">{{ page.profile_description }}</p>
+        {% endif %}
+
+        <!-- Social Media Icons -->
+        {% if icons %}
+        <div class="social-icons animate-in">
+            {% for icon in icons %}
+            <a href="{{ icon.url }}" target="_blank" rel="noopener" title="{{ icon.get_platform_display }}">
+                <i class="{{ icon.fa_icon_class }}"></i>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Buttons -->
+        {% if buttons %}
+        <div class="buttons-container">
+            {% for button in buttons %}
+            <a href="{% url 'linkloom_click' page.slug button.id %}" class="link-button animate-in">
+                {{ button.title }}
+                {% if button.description %}
+                <div class="button-description">{{ button.description }}</div>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        {% if page.show_affiliate_disclaimer and page.affiliate_disclaimer_text %}
+        <p class="affiliate-disclaimer">
+            {{ page.affiliate_disclaimer_text }}
+        </p>
+        {% endif %}
+
+        {% if page.custom_impressum %}
+        <div class="impressum-text">
+            <strong>Impressum:</strong><br>
+            {{ page.custom_impressum }}
+        </div>
+        {% endif %}
+
+        <div class="footer-links">
+            <a href="{% url 'datenschutz' %}">Datenschutz</a>
+            {% if not page.custom_impressum %}
+            <a href="{% url 'impressum' %}">Impressum</a>
+            {% endif %}
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS (lokal) -->
+    <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

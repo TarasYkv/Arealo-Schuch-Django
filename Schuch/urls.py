@@ -9,6 +9,7 @@ from django.contrib.sitemaps.views import sitemap
 # GEÄNDERT: Wir importieren jetzt aus unserer neuen 'core'-App
 from core import views as core_views
 from videos import views as video_views
+from linkloom import views as linkloom_views
 from core.sitemaps import sitemaps
 
 urlpatterns = [
@@ -35,6 +36,11 @@ urlpatterns = [
     # Social Page (Link in Bio)
     path('social/', core_views.social_page_view, name='social_page'),
     path('social/click/<int:button_id>/', core_views.social_button_click, name='social_button_click'),
+
+    # LinkLoom - Multi-User Link-in-Bio
+    path('linkloom/', include('linkloom.urls')),
+    path('l/<slug:slug>/', linkloom_views.public_page_view, name='linkloom_public'),
+    path('l/<slug:slug>/click/<int:button_id>/', linkloom_views.button_click, name='linkloom_click'),
 
     # Der Rest bleibt unverändert
     path('accounts/', include('accounts.urls')),
