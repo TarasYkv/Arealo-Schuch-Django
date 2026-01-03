@@ -197,6 +197,7 @@ class AppPermission(models.Model):
         ('promptpro', 'PromptPro'),
         ('fileshare', 'FileShare'),
         ('loomconnect', 'LoomConnect'),
+        ('linkloom', 'LinkLoom'),
         ('myprompter', 'MyPrompter'),
         ('keyengine', 'KeyEngine'),
         ('ideopin', 'IdeoPin - Pinterest Generator'),
