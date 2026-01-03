@@ -1792,6 +1792,9 @@
                                         <!-- Einzelne App -->
                                         <li><a class="dropdown-item{% if app.is_header %} fw-bold{% endif %}" href="{{ app.url }}">
                                             <i class="{{ app.icon }} me-2"></i>{{ app.label }}
+                                            {% if 'chat' in app.url and user.is_authenticated %}
+                                                <span id="chat-menu-badge" class="badge bg-danger rounded-pill ms-2" style="display: none; font-size: 0.7rem;"></span>
+                                            {% endif %}
                                         </a></li>
                                     {% endif %}
                                 {% endif %}
@@ -4867,14 +4870,25 @@
         fetch('/organization/chat/unread-count/')
             .then(response => response.json())
             .then(data => {
-                const badge = document.getElementById('user-chat-notification-badge');
-                if (badge) {
-                    if (data.unread_count > 0) {
-                        badge.style.display = 'inline-block';
-                        // Optional: Update badge with count if you want to show number instead of just icon
-                        // badge.innerHTML = '<span style="font-size: 9px;">' + data.unread_count + '</span>';
-                    } else {
-                        badge.style.display = 'none';
+                const organisationBadge = document.getElementById('user-chat-notification-badge');
+                const chatMenuBadge = document.getElementById('chat-menu-badge');
+
+                if (data.unread_count > 0) {
+                    // Organisation-Badge (roter Punkt)
+                    if (organisationBadge) {
+                        organisationBadge.style.display = 'inline-block';
+                    }
+                    // Chat-Menü-Badge (Anzahl)
+                    if (chatMenuBadge) {
+                        chatMenuBadge.style.display = 'inline-block';
+                        chatMenuBadge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                    }
+                } else {
+                    if (organisationBadge) {
+                        organisationBadge.style.display = 'none';
+                    }
+                    if (chatMenuBadge) {
+                        chatMenuBadge.style.display = 'none';
                     }
                 }
             })
