@@ -1070,6 +1070,31 @@ def _get_all_apps():
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
+        'linkloom': {
+            'name': 'LinkLoom',
+            'icon': 'fas fa-link',
+            'color': 'primary',
+            'short_desc': 'Link in Bio - erstelle deine persönliche Link-Seite mit eigenem URL und teile alle wichtigen Links.',
+            'features': [
+                'Eigener URL-Slug - Deine persönliche Adresse (workloom.de/l/dein-name)',
+                'Unbegrenzte Links - Füge beliebig viele Links mit Beschreibungen hinzu',
+                'Social Media Icons - Instagram, TikTok, YouTube, Twitter und mehr',
+                'Profilbild & Beschreibung - Personalisiere deine Seite',
+                'Eigenes Impressum - Für rechtliche Konformität in Deutschland',
+                'Klick-Statistiken - Sehe welche Links am häufigsten geklickt werden',
+                'Anpassbares Design - Wähle Farben für Hintergrund, Buttons und Text',
+                'Live-Vorschau - Sehe Änderungen sofort beim Bearbeiten',
+                'DSGVO-konform - Anonymisiertes Click-Tracking'
+            ],
+            'benefits': {
+                'Ein Link für alles': 'Teile einen Link statt vieler',
+                'Perfekt für Social Media': 'Der ideale Bio-Link für Instagram & Co.',
+                'Professioneller Auftritt': 'Eigene gebrandete Link-Seite',
+                'Rechtssicher': 'Eigenes Impressum für Deutschland'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!',
+            'url_name': 'linkloom:dashboard'
+        },
 
         # === Legacy/Fallback entries ===
         'loomads': {
