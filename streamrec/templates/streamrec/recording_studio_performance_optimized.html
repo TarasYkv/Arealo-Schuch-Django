@@ -4981,14 +4981,17 @@ class StreamRecorderOptimized {
         // Toggle facing mode
         this.currentFacingMode = newFacingMode;
 
-        // Stop current camera stream and remove thumbnail
+        // Stop current camera stream and cleanup all related elements
         const stream = this.streams.get('camera');
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             this.streams.delete('camera');
 
-            // Remove old thumbnail (important for live preview!)
+            // Remove old thumbnail (important for active streams display!)
             this.removeStreamThumbnail('camera');
+
+            // 🔑 WICHTIG: Cleanup cached video element (sonst zeigt Live-Vorschau alten Stream!)
+            this.cleanupVideoElement('camera');
 
             // Keep camera in streamOrder so position is preserved
             // streamOrder stays unchanged
