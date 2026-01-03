@@ -65,34 +65,34 @@ var klaroConfig = {
         de: {
             privacyPolicyUrl: '/datenschutz/',
             consentModal: {
-                title: 'Cookie-Einstellungen',
-                description: 'Wir nutzen Cookies und ähnliche Technologien, um dir die bestmögliche Nutzung unserer Website zu ermöglichen. Einige sind technisch notwendig, andere helfen uns, die Website zu verbessern.',
+                title: 'Datenschutz-Einstellungen',
+                description: 'Wähle aus, welche Cookies du zulassen möchtest.',
             },
             consentNotice: {
-                title: 'Cookie-Einstellungen',
-                description: 'Wir nutzen Cookies für den Betrieb der Website und zur Analyse. Du kannst selbst entscheiden, welche Cookies du zulassen möchtest.',
-                changeDescription: 'Es gab Änderungen seit deinem letzten Besuch. Bitte aktualisiere deine Einstellungen.',
-                learnMore: 'Mehr erfahren',
+                title: 'Cookies',
+                description: 'Wir nutzen Cookies für den Betrieb und zur Verbesserung der Website.',
+                changeDescription: 'Bitte aktualisiere deine Einstellungen.',
+                learnMore: 'Einstellungen',
             },
-            ok: 'Alle akzeptieren',
-            save: 'Auswahl speichern',
-            decline: 'Nur notwendige',
+            ok: 'Akzeptieren',
+            save: 'Speichern',
+            decline: 'Ablehnen',
             close: 'Schließen',
-            acceptAll: 'Alle akzeptieren',
-            acceptSelected: 'Auswahl speichern',
-            declineAll: 'Alle ablehnen',
+            acceptAll: 'Akzeptieren',
+            acceptSelected: 'Speichern',
+            declineAll: 'Ablehnen',
             service: {
                 disableAll: {
-                    title: 'Alle Services (de)aktivieren',
-                    description: 'Nutze diesen Schalter, um alle Services zu (de)aktivieren.',
+                    title: 'Alle (de)aktivieren',
+                    description: '',
                 },
                 optOut: {
                     title: '(Opt-out)',
-                    description: 'Dieser Service ist standardmäßig aktiviert (du kannst ihn aber deaktivieren).',
+                    description: '',
                 },
                 required: {
-                    title: '(erforderlich)',
-                    description: 'Dieser Service ist für die Nutzung der Website erforderlich.',
+                    title: '(Pflicht)',
+                    description: '',
                 },
                 purposes: {
                     essential: 'Notwendig',
@@ -104,12 +104,12 @@ var klaroConfig = {
             },
             purposes: {
                 essential: {
-                    title: 'Notwendige Cookies',
-                    description: 'Diese Cookies sind für den Betrieb der Website unbedingt erforderlich.',
+                    title: 'Notwendig',
+                    description: 'Für den Betrieb erforderlich.',
                 },
                 statistics: {
                     title: 'Statistik',
-                    description: 'Diese Cookies helfen uns zu verstehen, wie Besucher mit unserer Website interagieren.',
+                    description: 'Hilft uns, die Website zu verbessern.',
                 },
             },
             poweredBy: '',
@@ -120,38 +120,39 @@ var klaroConfig = {
     services: [
         {
             name: 'essential',
-            title: 'Technisch notwendige Cookies',
+            title: 'Notwendig',
             purposes: ['essential'],
             required: true,
             default: true,
-            description: 'Diese Cookies sind für den Betrieb der Website unbedingt erforderlich und können nicht deaktiviert werden.',
+            description: 'Session & Sicherheit',
             cookies: [
                 ['sessionid', '/', 'workloom.de'],
                 ['csrftoken', '/', 'workloom.de'],
+                ['klaro', '/', 'workloom.de'],
             ],
             translations: {
                 de: {
-                    title: 'Technisch notwendige Cookies',
-                    description: 'Diese Cookies sind für den Betrieb der Website unbedingt erforderlich: Session-Verwaltung und CSRF-Schutz.',
+                    title: 'Notwendig',
+                    description: 'Session-Verwaltung und Sicherheit. Kann nicht deaktiviert werden.',
                 },
             },
         },
         {
             name: 'statistics',
-            title: 'Statistik-Cookies',
+            title: 'Statistik',
             purposes: ['statistics'],
             required: false,
             default: false,
             optOut: false,
             onlyOnce: false,
-            description: 'Anonymisierte Nutzungsstatistiken zur Verbesserung der Website.',
+            description: 'Anonyme Nutzungsstatistiken',
             cookies: [
                 ['cookie_consent_statistics', '/', 'workloom.de'],
             ],
             translations: {
                 de: {
                     title: 'Statistik',
-                    description: 'Mit deiner Einwilligung erfassen wir anonymisierte Nutzungsdaten (besuchte Seiten, Browser, Gerätetyp), um unsere Website zu verbessern. Es werden keine Daten an Dritte weitergegeben.',
+                    description: 'Anonyme Nutzungsdaten zur Verbesserung der Website. Keine Weitergabe an Dritte.',
                 },
             },
             callback: function(consent, service) {
