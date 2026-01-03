@@ -55,6 +55,22 @@ def public_page_view(request, slug):
     return render(request, 'linkloom/public_page.html', context)
 
 
+def page_impressum(request, slug):
+    """
+    Zeigt das Impressum einer LinkLoom-Seite.
+    """
+    page = get_object_or_404(LinkLoomPage, slug=slug, is_active=True)
+
+    if not page.custom_impressum:
+        # Kein eigenes Impressum - zur Hauptseite weiterleiten
+        return redirect('linkloom_public', slug=slug)
+
+    context = {
+        'page': page,
+    }
+    return render(request, 'linkloom/impressum.html', context)
+
+
 def button_click(request, slug, button_id):
     """
     Trackt einen Button-Klick und leitet zur Ziel-URL weiter.

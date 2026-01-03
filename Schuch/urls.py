@@ -40,6 +40,7 @@ urlpatterns = [
     # LinkLoom - Multi-User Link-in-Bio
     path('linkloom/', include('linkloom.urls')),
     path('l/<slug:slug>/', linkloom_views.public_page_view, name='linkloom_public'),
+    path('l/<slug:slug>/impressum/', linkloom_views.page_impressum, name='linkloom_impressum'),
     path('l/<slug:slug>/click/<int:button_id>/', linkloom_views.button_click, name='linkloom_click'),
 
     # Der Rest bleibt unverändert
