@@ -656,6 +656,12 @@ class SocialPageConfig(models.Model):
         verbose_name="Button-Textfarbe",
         help_text="Hex-Farbcode für den Button-Text"
     )
+    profile_text_color = models.CharField(
+        max_length=7,
+        default='#333333',
+        verbose_name="Profil-Textfarbe",
+        help_text="Hex-Farbcode für die Profilbeschreibung"
+    )
 
     # Footer
     show_affiliate_disclaimer = models.BooleanField(

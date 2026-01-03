@@ -2506,6 +2506,7 @@ def social_page_config(request):
                 'background_color': config.background_color,
                 'button_color': config.button_color,
                 'button_text_color': config.button_text_color,
+                'profile_text_color': config.profile_text_color,
                 'show_affiliate_disclaimer': config.show_affiliate_disclaimer,
                 'affiliate_disclaimer_text': config.affiliate_disclaimer_text,
                 'is_active': config.is_active,
@@ -2549,6 +2550,8 @@ def social_page_config_save(request):
             config.button_color = data['button_color']
         if 'button_text_color' in data:
             config.button_text_color = data['button_text_color']
+        if 'profile_text_color' in data:
+            config.profile_text_color = data['profile_text_color']
         if 'show_affiliate_disclaimer' in data:
             config.show_affiliate_disclaimer = data['show_affiliate_disclaimer'] in [True, 'true', 'True', '1', 1]
         if 'affiliate_disclaimer_text' in data:

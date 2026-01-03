@@ -70,6 +70,13 @@
                                 <input type="text" id="socialBtnTextColorText" class="form-control" value="#ffffff" maxlength="7">
                             </div>
                         </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Profil-Textfarbe</label>
+                            <div class="input-group">
+                                <input type="color" id="socialProfileTextColor" class="form-control form-control-color" value="#333333">
+                                <input type="text" id="socialProfileTextColorText" class="form-control" value="#333333" maxlength="7">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -303,6 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
     syncColorPickers('socialBgColor', 'socialBgColorText');
     syncColorPickers('socialBtnColor', 'socialBtnColorText');
     syncColorPickers('socialBtnTextColor', 'socialBtnTextColorText');
+    syncColorPickers('socialProfileTextColor', 'socialProfileTextColorText');
 
     // Description char counter
     document.getElementById('socialProfileDescription')?.addEventListener('input', function() {
@@ -362,6 +370,8 @@ function loadSocialConfig() {
                 document.getElementById('socialBtnColorText').value = socialConfig.button_color || '#000000';
                 document.getElementById('socialBtnTextColor').value = socialConfig.button_text_color || '#ffffff';
                 document.getElementById('socialBtnTextColorText').value = socialConfig.button_text_color || '#ffffff';
+                document.getElementById('socialProfileTextColor').value = socialConfig.profile_text_color || '#333333';
+                document.getElementById('socialProfileTextColorText').value = socialConfig.profile_text_color || '#333333';
 
                 document.getElementById('showAffiliateDisclaimer').checked = socialConfig.show_affiliate_disclaimer;
                 document.getElementById('affiliateDisclaimerText').value = socialConfig.affiliate_disclaimer_text || '';
@@ -455,6 +465,7 @@ function updatePreview() {
     const bgColor = document.getElementById('socialBgColor').value;
     const btnColor = document.getElementById('socialBtnColor').value;
     const btnTextColor = document.getElementById('socialBtnTextColor').value;
+    const profileTextColor = document.getElementById('socialProfileTextColor').value;
     const description = document.getElementById('socialProfileDescription').value;
     const showAffiliate = document.getElementById('showAffiliateDisclaimer').checked;
     const affiliateText = document.getElementById('affiliateDisclaimerText').value;
@@ -463,7 +474,9 @@ function updatePreview() {
     document.getElementById('socialPreviewFrame').style.backgroundColor = bgColor;
 
     // Update description
-    document.getElementById('previewDescription').textContent = description;
+    const previewDesc = document.getElementById('previewDescription');
+    previewDesc.textContent = description;
+    previewDesc.style.color = profileTextColor;
 
     // Update profile picture in preview
     const previewPic = document.getElementById('previewProfilePic');
@@ -526,6 +539,7 @@ function saveSocialConfig() {
         background_color: document.getElementById('socialBgColor').value,
         button_color: document.getElementById('socialBtnColor').value,
         button_text_color: document.getElementById('socialBtnTextColor').value,
+        profile_text_color: document.getElementById('socialProfileTextColor').value,
         show_affiliate_disclaimer: document.getElementById('showAffiliateDisclaimer').checked,
         affiliate_disclaimer_text: document.getElementById('affiliateDisclaimerText').value,
         is_active: document.getElementById('socialPageActive').checked
