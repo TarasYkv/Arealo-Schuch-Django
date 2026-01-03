@@ -533,6 +533,10 @@
                             <button id="stopCameraBtn" class="btn btn-outline-danger" disabled>
                                 <i class="fas fa-stop me-2"></i>Kamera stoppen
                             </button>
+                            <!-- Mobile: Kamerawechsel Button (Front/Rück) -->
+                            <button id="switchCameraBtn" class="btn btn-outline-info d-none" disabled>
+                                <i class="fas fa-sync-alt me-2"></i>Kamera wechseln
+                            </button>
                         </div>
                         <small id="cameraStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
 
@@ -1235,6 +1239,10 @@ class StreamRecorderOptimized {
         this.aspectRatio = '9:16'; // Current aspect ratio - 9:16 für Social Media
         this.aspectRatioDimensions = { width: 360, height: 640 }; // Canvas dimensions für 9:16
         this.resizeStream = null;
+
+        // 📱 Mobile Camera Switch
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.currentFacingMode = 'user'; // 'user' = Frontkamera, 'environment' = Rückkamera
         this.dragOffset = { x: 0, y: 0 };
         this.resizeHandle = null;
         
@@ -1424,23 +1432,30 @@ class StreamRecorderOptimized {
 
     checkMobileCompatibility() {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
+
         if (isMobile) {
             // Disable screen sharing buttons on mobile
             const startScreenBtn = document.getElementById('startScreenBtn');
             const addScreenBtn = document.getElementById('addScreenBtn');
-            
+
             if (startScreenBtn) {
                 startScreenBtn.disabled = true;
                 startScreenBtn.title = 'Bildschirm-Sharing ist auf Mobilgeräten nicht verfügbar';
                 startScreenBtn.innerHTML = '<i class="fas fa-mobile-alt me-2"></i>Nicht verfügbar auf Mobilgeräten';
             }
-            
+
             if (addScreenBtn) {
                 addScreenBtn.disabled = true;
                 addScreenBtn.title = 'Bildschirm-Sharing ist auf Mobilgeräten nicht verfügbar';
             }
-            
+
+            // Show camera switch button on mobile
+            const switchCameraBtn = document.getElementById('switchCameraBtn');
+            if (switchCameraBtn) {
+                switchCameraBtn.classList.remove('d-none');
+                console.log('📱 Kamerawechsel-Button aktiviert für Mobilgerät');
+            }
+
             console.log('📱 Mobile Kompatibilitätsprüfung: Bildschirm-Sharing deaktiviert');
         }
     }
@@ -1567,6 +1582,7 @@ class StreamRecorderOptimized {
         // Camera controls
         document.getElementById('startCameraBtn')?.addEventListener('click', () => this.startCamera());
         document.getElementById('stopCameraBtn')?.addEventListener('click', () => this.stopCamera());
+        document.getElementById('switchCameraBtn')?.addEventListener('click', () => this.switchCamera());
 
         // Green Screen Toggle
         document.getElementById('greenScreenToggle')?.addEventListener('change', (e) => {
@@ -4776,14 +4792,14 @@ class StreamRecorderOptimized {
     async startCamera() {
         try {
             this.updateStatus('camera', 'Kamera wird gestartet...', 'info');
-            
+
             // Get selected camera device
             const cameraSelect = document.getElementById('cameraSelect');
             const videoDeviceId = cameraSelect ? cameraSelect.value : undefined;
-            
+
             // Get audio processing settings from UI with selected microphone
             const audioConstraints = this.getAudioConstraints();
-            
+
             // Build video constraints with selected camera
             // WICHTIG: Full HD für beste Qualität + min frameRate für flüssige Aufnahme
             const videoConstraints = {
@@ -4791,12 +4807,15 @@ class StreamRecorderOptimized {
                 height: { ideal: 1080, min: 720 },
                 frameRate: { min: 24, ideal: this.targetFPS, max: 60 }
             };
-            
-            // Add specific device if selected
-            if (videoDeviceId) {
+
+            // 📱 Mobile: Use facingMode instead of deviceId for camera switching
+            if (this.isMobile) {
+                videoConstraints.facingMode = { ideal: this.currentFacingMode };
+            } else if (videoDeviceId) {
+                // Desktop: Use specific device if selected
                 videoConstraints.deviceId = { exact: videoDeviceId };
             }
-            
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: videoConstraints,
                 audio: audioConstraints
@@ -4819,6 +4838,12 @@ class StreamRecorderOptimized {
                 if (mirrorToggle) mirrorToggle.checked = false;
             }
 
+            // 📱 Enable camera switch button on mobile
+            const switchCameraBtn = document.getElementById('switchCameraBtn');
+            if (switchCameraBtn && this.isMobile) {
+                switchCameraBtn.disabled = false;
+            }
+
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
             this.updateStatusBadge('camera', 'success');
@@ -4828,7 +4853,7 @@ class StreamRecorderOptimized {
             this.refreshLayoutChips();
             this.checkAudioStream(); // Check audio status after stream added
 
-            console.log('✅ Kamera-Stream erfolgreich gestartet');
+            console.log('✅ Kamera-Stream erfolgreich gestartet' + (this.isMobile ? ` (${this.currentFacingMode})` : ''));
         } catch (error) {
             console.error('❌ Kamera-Zugriff fehlgeschlagen:', error);
             this.updateStatus('camera', `Fehler: ${error.message}`, 'danger');
@@ -4930,6 +4955,42 @@ class StreamRecorderOptimized {
             this.updateActiveStreamsCount();
             this.refreshLayoutChips();
             this.checkCompositionReady();
+
+            // 📱 Disable camera switch button
+            const switchCameraBtn = document.getElementById('switchCameraBtn');
+            if (switchCameraBtn) {
+                switchCameraBtn.disabled = true;
+            }
+        }
+    }
+
+    // 📱 Mobile: Switch between front and back camera
+    async switchCamera() {
+        if (!this.isMobile) {
+            console.log('⚠️ Kamerawechsel nur auf Mobilgeräten verfügbar');
+            return;
+        }
+
+        console.log('🔄 Wechsle Kamera von', this.currentFacingMode, 'zu', this.currentFacingMode === 'user' ? 'environment' : 'user');
+
+        // Toggle facing mode
+        this.currentFacingMode = this.currentFacingMode === 'user' ? 'environment' : 'user';
+
+        // Stop current camera stream
+        const stream = this.streams.get('camera');
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete('camera');
+        }
+
+        // Restart camera with new facing mode
+        try {
+            await this.startCamera();
+            console.log('✅ Kamera gewechselt zu:', this.currentFacingMode === 'user' ? 'Frontkamera' : 'Rückkamera');
+        } catch (error) {
+            console.error('❌ Fehler beim Kamerawechsel:', error);
+            // Revert facing mode on error
+            this.currentFacingMode = this.currentFacingMode === 'user' ? 'environment' : 'user';
         }
     }
 
