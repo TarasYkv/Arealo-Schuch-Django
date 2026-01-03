@@ -1,5 +1,8 @@
 <!-- Social Page (Link in Bio) Tab -->
 <div class="tab-pane fade" id="social-main-pane" role="tabpanel">
+    <!-- Alert Area for notifications -->
+    <div id="alertArea" class="mb-3"></div>
+
     <div class="row">
         <!-- Left Column: Editor -->
         <div class="col-lg-7">
@@ -346,9 +349,14 @@ function syncColorPickers(colorId, textId) {
 }
 
 function loadSocialConfig() {
+    console.log('Loading social config...');
     fetch('/superconfig/api/social/config/')
-        .then(r => r.json())
+        .then(r => {
+            console.log('Config load response status:', r.status);
+            return r.json();
+        })
         .then(data => {
+            console.log('Config load response data:', data);
             if (data.success) {
                 socialConfig = data.config;
                 socialIcons = data.icons;
@@ -585,9 +593,12 @@ function editIcon(iconId) {
 }
 
 function saveIcon() {
+    console.log('saveIcon() called');
     const iconId = document.getElementById('editIconId').value;
     const platform = document.getElementById('iconPlatform').value;
     const url = document.getElementById('iconUrl').value;
+
+    console.log('Icon data:', { iconId, platform, url });
 
     if (!url) {
         showAlert('warning', 'Bitte URL eingeben');
@@ -598,6 +609,8 @@ function saveIcon() {
         ? `/superconfig/api/social/icon/${iconId}/update/`
         : '/superconfig/api/social/icon/add/';
 
+    console.log('Sending to endpoint:', endpoint);
+
     fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -606,15 +619,23 @@ function saveIcon() {
         },
         body: JSON.stringify({ platform, url })
     })
-    .then(r => r.json())
+    .then(r => {
+        console.log('Icon save response status:', r.status);
+        return r.json();
+    })
     .then(data => {
+        console.log('Icon save response data:', data);
         if (data.success) {
             iconModal.hide();
             loadSocialConfig();
             showAlert('success', data.message);
         } else {
-            showAlert('danger', data.error);
+            showAlert('danger', data.error || 'Unbekannter Fehler');
         }
+    })
+    .catch(err => {
+        console.error('Icon save error:', err);
+        showAlert('danger', 'Fehler beim Speichern: ' + err.message);
     });
 }
 
@@ -661,10 +682,13 @@ function editButton(buttonId) {
 }
 
 function saveButton() {
+    console.log('saveButton() called');
     const buttonId = document.getElementById('editButtonId').value;
     const title = document.getElementById('buttonTitle').value;
     const url = document.getElementById('buttonUrl').value;
     const description = document.getElementById('buttonDescription').value;
+
+    console.log('Button data:', { buttonId, title, url, description });
 
     if (!title || !url) {
         showAlert('warning', 'Bitte Titel und URL eingeben');
@@ -675,6 +699,8 @@ function saveButton() {
         ? `/superconfig/api/social/button/${buttonId}/update/`
         : '/superconfig/api/social/button/add/';
 
+    console.log('Sending to endpoint:', endpoint);
+
     fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -683,15 +709,23 @@ function saveButton() {
         },
         body: JSON.stringify({ title, url, description })
     })
-    .then(r => r.json())
+    .then(r => {
+        console.log('Button save response status:', r.status);
+        return r.json();
+    })
     .then(data => {
+        console.log('Button save response data:', data);
         if (data.success) {
             buttonModal.hide();
             loadSocialConfig();
             showAlert('success', data.message);
         } else {
-            showAlert('danger', data.error);
+            showAlert('danger', data.error || 'Unbekannter Fehler');
         }
+    })
+    .catch(err => {
+        console.error('Button save error:', err);
+        showAlert('danger', 'Fehler beim Speichern: ' + err.message);
     });
 }
 
