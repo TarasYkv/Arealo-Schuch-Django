@@ -91,15 +91,13 @@ def video_upload(request):
             video.file_size = file_size
             video.save()
 
-            # Generate thumbnail nur für kleinere Videos (< 50MB)
-            # Größere Videos würden Timeout verursachen
-            if file_size < 50 * 1024 * 1024:  # 50 MB
-                try:
-                    generate_video_thumbnail(video)
-                    video.duration = get_video_duration(video.video_file.path)
-                    video.save()
-                except Exception as e:
-                    print(f"Error generating thumbnail: {e}")
+            # Generate thumbnail (schnell dank optimiertem ffmpeg)
+            try:
+                generate_video_thumbnail(video)
+                video.duration = get_video_duration(video.video_file.path)
+                video.save()
+            except Exception as e:
+                print(f"Error generating thumbnail: {e}")
             
             # Update user storage immediately
             user_storage.used_storage += file_size
@@ -527,12 +525,12 @@ def api_upload_video(request):
         
         # Save video
         video.save()
-        
+
         # Update user storage
         user_storage.used_storage += file_size
         user_storage.save()
-        
-        # Generate thumbnail (optional, don't fail if it doesn't work)
+
+        # Generate thumbnail (schnell dank optimiertem ffmpeg)
         try:
             generate_video_thumbnail(video)
             video.duration = get_video_duration(video.video_file.path)
@@ -1437,14 +1435,13 @@ def api_chunked_upload_complete(request):
             user_storage.used_storage += actual_size
             user_storage.save()
 
-            # Generate thumbnail for smaller videos
-            if actual_size < 50 * 1024 * 1024:
-                try:
-                    generate_video_thumbnail(video)
-                    video.duration = get_video_duration(video.video_file.path)
-                    video.save()
-                except Exception as e:
-                    logger.warning(f"[Chunked Upload] Thumbnail generation failed: {e}")
+            # Generate thumbnail (schnell dank optimiertem ffmpeg)
+            try:
+                generate_video_thumbnail(video)
+                video.duration = get_video_duration(video.video_file.path)
+                video.save()
+            except Exception as e:
+                logger.warning(f"[Chunked Upload] Thumbnail generation failed: {e}")
 
             # Link video to chunked upload and mark complete
             chunked_upload.video = video

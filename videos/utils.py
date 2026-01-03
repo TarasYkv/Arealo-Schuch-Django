@@ -42,10 +42,11 @@ def generate_thumbnail_with_ffmpeg(video_instance):
     
     try:
         # Extract frame at 1 second mark
+        # WICHTIG: -ss VOR -i = schnelle Keyframe-Suche (auch bei großen Videos <2 Sek)
         cmd = [
             'ffmpeg',
-            '-i', video_path,
             '-ss', '00:00:01.000',
+            '-i', video_path,
             '-vframes', '1',
             '-vf', 'scale=640:360',
             '-y',
