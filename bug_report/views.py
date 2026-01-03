@@ -116,7 +116,7 @@ def create_bug_chat_room(bug_report):
     if bug_report.sender:
         chat_room.participants.add(bug_report.sender)
     
-    # Erstelle initiale Chat-Nachricht
+    # Erstelle initiale Chat-Nachricht (schön formatiert)
     category_icons = {
         'bug': '🐛',
         'idea': '💡',
@@ -126,18 +126,36 @@ def create_bug_chat_room(bug_report):
     }
     icon = category_icons.get(bug_report.category_type, '📝')
     category_display = bug_report.get_category_type_display()
-    
-    initial_message = f"{icon} **{category_display}**\n\n"
-    initial_message += f"**Betreff:** {bug_report.subject}\n"
-    initial_message += f"**Von:** {bug_report.get_sender_name()}\n"
+
+    # Übersichtliche Formatierung
+    initial_message = f"""{icon} {category_display}
+━━━━━━━━━━━━━━━━━━━━━━
+
+📌 {bug_report.subject}
+
+👤 Von: {bug_report.get_sender_name()}"""
+
     if bug_report.get_sender_email():
-        initial_message += f"**E-Mail:** {bug_report.get_sender_email()}\n"
-    initial_message += f"**URL:** {bug_report.url}\n\n"
-    initial_message += f"**Nachricht:**\n{bug_report.message}"
-    
-    # Füge Console Log hinzu falls vorhanden
-    if bug_report.console_log:
-        initial_message += f"\n\n**Console Log (letzte {bug_report.console_log.count(chr(10))} Zeilen):**\n```\n{bug_report.console_log}\n```"
+        initial_message += f"\n📧 E-Mail: {bug_report.get_sender_email()}"
+
+    initial_message += f"\n🔗 URL: {bug_report.url}"
+
+    initial_message += f"""
+
+━━━━━━━━━━━━━━━━━━━━━━
+💬 Nachricht:
+
+{bug_report.message}"""
+
+    # Füge Console Log hinzu falls vorhanden (gekürzt)
+    if bug_report.console_log and bug_report.console_log.strip():
+        log_lines = bug_report.console_log.strip().split('\n')
+        # Maximal 5 Zeilen anzeigen
+        if len(log_lines) > 5:
+            log_preview = '\n'.join(log_lines[-5:])
+            initial_message += f"\n\n━━━━━━━━━━━━━━━━━━━━━━\n🖥️ Console Log (letzte 5 von {len(log_lines)} Zeilen):\n\n{log_preview}"
+        else:
+            initial_message += f"\n\n━━━━━━━━━━━━━━━━━━━━━━\n🖥️ Console Log:\n\n{bug_report.console_log}"
     
     ChatMessage.objects.create(
         chat_room=chat_room,
