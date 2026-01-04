@@ -402,24 +402,12 @@
 }
 
 /* 📱 Mobile Floating Control Bar */
+/* Control Bar CSS - display wird via JS gesteuert */
 #mobileControlBar {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    background: #1a1a2e !important;  /* Solid dark blue für Test */
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    padding: 12px 16px !important;
-    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
-    z-index: 99999 !important;  /* Sehr hoch */
-    display: flex !important;  /* Immer sichtbar */
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: 10px;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
-    border-top: 3px solid #667eea !important;  /* Sichtbare Borderlinie */
-    min-height: 70px !important;  /* Mindesthöhe */
+    /* display: none - wird via inline style und JS kontrolliert */
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
 }
 
 #mobileControlBar .control-btn {
@@ -6732,7 +6720,17 @@ class StreamRecorderOptimized {
         });
         
         if (window.bootstrap) {
-            const modal = new bootstrap.Modal(document.getElementById('recordPreviewModal'));
+            const modalEl = document.getElementById('recordPreviewModal');
+            const modal = new bootstrap.Modal(modalEl);
+
+            // 📱 Control Bar verstecken während Modal offen ist
+            this.hideMobileControlBar();
+
+            // Bei Modal-Schließung Control Bar wieder anzeigen (falls Streams aktiv)
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                this.updateControlBarVisibility();
+            }, { once: true });
+
             modal.show();
         }
     }
