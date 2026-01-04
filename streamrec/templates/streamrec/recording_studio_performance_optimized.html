@@ -1294,20 +1294,20 @@
         </div>
     </div>
 
-    <!-- 📱 Mobile Live Preview Overlay -->
-    <div id="mobilePreviewOverlay">
-        <div class="preview-wrapper">
-            <button class="close-preview" id="closeMobilePreview" title="Vorschau schließen">
-                <i class="fas fa-times"></i>
-            </button>
-            <canvas id="mobilePreviewCanvas"></canvas>
-            <div class="preview-info">
-                <i class="fas fa-expand-arrows-alt me-1"></i>
-                <span id="mobilePreviewSize">--</span>
-            </div>
+</div>
+
+<!-- 📱 Mobile Live Preview Overlay - AUSSERHALB DES CONTAINERS -->
+<div id="mobilePreviewOverlay" style="position:fixed !important; top:0 !important; left:0 !important; right:0 !important; bottom:80px !important; background:rgba(0,0,0,0.95) !important; z-index:99999 !important; display:none; align-items:center !important; justify-content:center !important; padding:10px !important;">
+    <div class="preview-wrapper" style="position:relative !important; width:100% !important; height:100% !important; display:flex !important; align-items:center !important; justify-content:center !important;">
+        <button class="close-preview" id="closeMobilePreview" title="Vorschau schließen" style="position:absolute !important; top:10px !important; right:10px !important; width:44px !important; height:44px !important; border-radius:50% !important; background:rgba(255,255,255,0.2) !important; border:none !important; color:white !important; font-size:1.3rem !important; display:flex !important; align-items:center !important; justify-content:center !important; z-index:10 !important; cursor:pointer !important;">
+            <i class="fas fa-times"></i>
+        </button>
+        <canvas id="mobilePreviewCanvas" style="max-width:100% !important; max-height:100% !important; object-fit:contain !important; border-radius:8px !important; box-shadow:0 4px 20px rgba(0,0,0,0.5) !important;"></canvas>
+        <div class="preview-info" style="position:absolute !important; bottom:10px !important; left:50% !important; transform:translateX(-50%) !important; background:rgba(0,0,0,0.7) !important; color:white !important; padding:5px 15px !important; border-radius:20px !important; font-size:0.8rem !important;">
+            <i class="fas fa-expand-arrows-alt me-1"></i>
+            <span id="mobilePreviewSize">--</span>
         </div>
     </div>
-
 </div>
 
 <!-- 📱 Mobile Floating Control Bar -->
@@ -5308,14 +5308,21 @@ class StreamRecorderOptimized {
         const btn = document.getElementById('mobilePreviewBtn');
         const mobileCanvas = document.getElementById('mobilePreviewCanvas');
 
-        if (!overlay || !mobileCanvas) return;
+        if (!overlay || !mobileCanvas) {
+            console.error('❌ Mobile Preview Elemente nicht gefunden');
+            return;
+        }
 
         // Setup mobile preview canvas size
         this.setupMobilePreviewCanvas();
 
+        // Direkt inline style setzen (weil inline styles CSS überschreiben)
+        overlay.style.display = 'flex';
         overlay.classList.add('visible');
+
         if (btn) {
             btn.classList.add('active');
+            btn.style.background = 'linear-gradient(135deg, #28a745 0%, #218838 100%)';
             btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
         }
 
@@ -5331,10 +5338,12 @@ class StreamRecorderOptimized {
         const btn = document.getElementById('mobilePreviewBtn');
 
         if (overlay) {
+            overlay.style.display = 'none';
             overlay.classList.remove('visible');
         }
         if (btn) {
             btn.classList.remove('active');
+            btn.style.background = 'linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%)';
             btn.innerHTML = '<i class="fas fa-eye"></i>';
         }
 
