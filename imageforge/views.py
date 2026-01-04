@@ -518,6 +518,7 @@ def generate_mockup(request):
             return JsonResponse({
                 'success': True,
                 'mockup_id': mockup.id,
+                'mockup_name': mockup.name,
                 'mockup_image_url': mockup.mockup_image.url,
                 'generation_time': round(generation_time, 1)
             })

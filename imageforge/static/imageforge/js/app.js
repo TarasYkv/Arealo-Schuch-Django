@@ -565,6 +565,21 @@ function initMockupWizard() {
                     if (step1Card) step1Card.classList.add('d-none');
                     // Show mockup preview and activate step 2
                     activateStep2(data.mockup_id, data.mockup_image_url);
+
+                    // Neues Mockup zur Dropdown hinzufügen
+                    if (savedMockupSelect) {
+                        const option = document.createElement('option');
+                        option.value = data.mockup_id;
+                        option.dataset.image = data.mockup_image_url;
+                        option.textContent = data.mockup_name || `Mockup: ${textContent.substring(0, 40)}`;
+                        // Nach der leeren "-- Mockup wählen --" Option einfügen
+                        if (savedMockupSelect.options.length > 1) {
+                            savedMockupSelect.insertBefore(option, savedMockupSelect.options[1]);
+                        } else {
+                            savedMockupSelect.appendChild(option);
+                        }
+                    }
+
                     alert(`Mockup erfolgreich erstellt! (${data.generation_time}s)`);
                 } else {
                     alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
