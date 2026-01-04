@@ -2891,10 +2891,10 @@ def api_use_server_image_for_pin(request, project_id, position):
                         text_background_creative=project.text_background_creative
                     )
 
-                    # Bild mit Text generieren
-                    result = service.add_text_to_image(
-                        image_path=pin.generated_image.path,
+                    # Bild mit Text generieren - verwende generate_image mit Referenzbild
+                    result = service.generate_image(
                         prompt=prompt,
+                        reference_image=pin.generated_image.path,
                         width=width,
                         height=height,
                         model=model_name

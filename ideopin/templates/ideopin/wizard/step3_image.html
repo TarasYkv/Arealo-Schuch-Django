@@ -365,7 +365,19 @@
 <!-- Server-Bild Modal für Multi-Pin -->
 <div class="modal fade" id="serverImagePinModal" tabindex="-1" aria-labelledby="serverImagePinModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+        <div class="modal-content position-relative">
+            <!-- Loading Overlay -->
+            <div id="serverImagePinLoading" class="position-absolute top-0 start-0 w-100 h-100 d-none"
+                 style="background: rgba(255,255,255,0.9); z-index: 1050; border-radius: inherit;">
+                <div class="d-flex flex-column align-items-center justify-content-center h-100">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">Lädt...</span>
+                    </div>
+                    <h5 class="text-primary mb-2" id="serverImagePinLoadingTitle">Bild wird übernommen...</h5>
+                    <p class="text-muted mb-0" id="serverImagePinLoadingText">Bitte warten</p>
+                    <small class="text-muted mt-2" id="serverImagePinLoadingSubtext"></small>
+                </div>
+            </div>
             <div class="modal-header">
                 <h5 class="modal-title" id="serverImagePinModalLabel">
                     <i class="bi bi-folder2-open"></i> Bild vom Server auswählen
@@ -1680,8 +1692,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const serverImagePinBadge = document.getElementById('serverImagePinBadge');
     const serverImagePinTextInfo = document.getElementById('serverImagePinTextInfo');
     const useServerImagePinBtn = document.getElementById('useServerImagePinBtn');
+    const serverImagePinLoading = document.getElementById('serverImagePinLoading');
+    const serverImagePinLoadingTitle = document.getElementById('serverImagePinLoadingTitle');
+    const serverImagePinLoadingText = document.getElementById('serverImagePinLoadingText');
+    const serverImagePinLoadingSubtext = document.getElementById('serverImagePinLoadingSubtext');
     let serverPinImagesLoaded = false;
     let allServerPinImages = [];
+
+    // Loading-Overlay Hilfsfunktionen
+    function showPinLoading(title, text, subtext = '') {
+        serverImagePinLoadingTitle.textContent = title;
+        serverImagePinLoadingText.textContent = text;
+        serverImagePinLoadingSubtext.textContent = subtext;
+        serverImagePinLoading.classList.remove('d-none');
+    }
+
+    function hidePinLoading() {
+        serverImagePinLoading.classList.add('d-none');
+    }
+
+    // Modal Reset beim Schließen
+    document.getElementById('serverImagePinModal').addEventListener('hidden.bs.modal', function() {
+        hidePinLoading();
+        useServerImagePinBtn.disabled = true;
+        serverImagePinPath.value = '';
+        document.querySelectorAll('.server-pin-image-card').forEach(c => c.classList.remove('border-primary', 'border-2'));
+    });
 
     // Modal öffnen für einen bestimmten Pin
     window.openServerImagePinModal = function(position) {
@@ -1689,6 +1725,7 @@ document.addEventListener('DOMContentLoaded', function() {
         serverImagePinBadge.textContent = `Pin ${position}`;
         serverImagePinPath.value = '';
         useServerImagePinBtn.disabled = true;
+        hidePinLoading();
 
         // Zeige Text-Info wenn Pin Text hat
         const pinText = document.getElementById(`pinText${position}`)?.value || '';
@@ -1800,13 +1837,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!imagePath || !position) return;
 
-        const originalHtml = this.innerHTML;
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Wird übernommen...';
-
-        // Pin zuerst speichern (Text aktualisieren)
         const overlayText = document.getElementById(`pinText${position}`)?.value || '';
         const backgroundDesc = document.getElementById(`pinBackground${position}`)?.value || '';
+        const hasText = overlayText.trim().length > 0;
+
+        // Loading-Overlay anzeigen
+        this.disabled = true;
+        showPinLoading(
+            'Bild wird übernommen...',
+            'Pin-Daten werden gespeichert',
+            hasText ? 'Text-Overlay wird anschließend hinzugefügt' : ''
+        );
 
         try {
             // Erst Pin-Daten speichern
@@ -1825,9 +1866,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
 
-            // Server-Bild für Pin verwenden
-            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Bild wird verarbeitet...';
+            // Loading-Text aktualisieren
+            if (hasText) {
+                showPinLoading(
+                    'Text wird hinzugefügt...',
+                    `"${overlayText.substring(0, 40)}${overlayText.length > 40 ? '...' : ''}"`,
+                    'KI generiert das Bild mit Text-Overlay'
+                );
+            } else {
+                showPinLoading(
+                    'Bild wird verarbeitet...',
+                    'Bild wird auf Pin-Format angepasst',
+                    ''
+                );
+            }
 
+            // Server-Bild für Pin verwenden
             const response = await fetch(`/ideopin/api/use-server-image-for-pin/{{ project.id }}/${position}/`, {
                 method: 'POST',
                 headers: {
@@ -1837,6 +1891,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ image_path: imagePath })
             });
             const data = await response.json();
+
+            hidePinLoading();
 
             if (data.success) {
                 // UI aktualisieren
@@ -1876,13 +1932,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateMultiPinGallery();
             } else {
                 alert('Fehler: ' + data.error);
-                this.innerHTML = originalHtml;
                 this.disabled = false;
             }
         } catch (error) {
             console.error('Error:', error);
+            hidePinLoading();
             alert('Fehler beim Übernehmen des Bildes.');
-            this.innerHTML = originalHtml;
             this.disabled = false;
         }
     });
