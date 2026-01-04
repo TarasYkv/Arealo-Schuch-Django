@@ -1828,14 +1828,12 @@ class StreamRecorderOptimized {
         document.getElementById('stopRecordBtn')?.addEventListener('click', () => this.stopRecording());
         document.getElementById('pauseBtn')?.addEventListener('click', () => this.togglePauseRecording());
 
-        // 📱 Mobile Control Bar
-        if (this.isMobile) {
-            document.getElementById('mobileRecordBtn')?.addEventListener('click', () => this.handleMobileRecordBtn());
-            document.getElementById('mobileStopBtn')?.addEventListener('click', () => this.stopRecording());
-            document.getElementById('mobileSwitchCameraBtn')?.addEventListener('click', () => this.switchCamera());
-            document.getElementById('mobilePreviewBtn')?.addEventListener('click', () => this.toggleMobilePreview());
-            document.getElementById('closeMobilePreview')?.addEventListener('click', () => this.hideMobilePreview());
-        }
+        // 📱 Control Bar (immer aktiv)
+        document.getElementById('mobileRecordBtn')?.addEventListener('click', () => this.handleMobileRecordBtn());
+        document.getElementById('mobileStopBtn')?.addEventListener('click', () => this.stopRecording());
+        document.getElementById('mobileSwitchCameraBtn')?.addEventListener('click', () => this.switchCamera());
+        document.getElementById('mobilePreviewBtn')?.addEventListener('click', () => this.toggleMobilePreview());
+        document.getElementById('closeMobilePreview')?.addEventListener('click', () => this.hideMobilePreview());
 
         // Output mode controls
         document.querySelectorAll('input[name="outputMode"]').forEach(radio => {
@@ -5078,10 +5076,8 @@ class StreamRecorderOptimized {
                 switchCameraBtn.disabled = false;
             }
 
-            // 📱 Show mobile control bar
-            if (this.isMobile) {
-                this.showMobileControlBar();
-            }
+            // 📱 Show control bar (immer, nicht nur auf Mobile)
+            this.showMobileControlBar();
 
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
@@ -5201,14 +5197,12 @@ class StreamRecorderOptimized {
                 switchCameraBtn.disabled = true;
             }
 
-            // 📱 Hide mobile control bar
-            if (this.isMobile) {
-                this.hideMobileControlBar();
-            }
+            // 📱 Hide control bar (immer)
+            this.hideMobileControlBar();
         }
     }
 
-    // 📱 Mobile Control Bar Functions
+    // 📱 Control Bar Functions
     showMobileControlBar() {
         const bar = document.getElementById('mobileControlBar');
         console.log('📱 showMobileControlBar called, bar element:', bar, 'isMobile:', this.isMobile);
