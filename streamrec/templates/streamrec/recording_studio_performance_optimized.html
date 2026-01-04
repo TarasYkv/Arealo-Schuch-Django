@@ -1577,9 +1577,9 @@ class StreamRecorderOptimized {
         // Initialize PIP controls visibility based on default layout
         this.updateLayoutUI(this.currentLayout);
         
-        // Initialize aspect ratio preview
+        // Initialize aspect ratio preview (default: 9:16 Mobile)
         setTimeout(() => {
-            const currentRatio = document.getElementById('aspectRatioSetting')?.value || '16:9';
+            const currentRatio = document.getElementById('aspectRatioSetting')?.value || '9:16';
             this.updateAspectRatio(currentRatio);
         }, 100);
         
@@ -7542,24 +7542,24 @@ class StreamRecorderOptimized {
                     if (select) select.value = settings.outputFormat;
                 }
             } else {
-                // No stored settings - apply default 16:9 format and mp4
-                this.updateAspectRatio('16:9');
-                document.getElementById('aspectRatioSetting').value = '16:9';
+                // No stored settings - apply default 9:16 format (Mobile/TikTok) and mp4
+                this.updateAspectRatio('9:16');
+                document.getElementById('aspectRatioSetting').value = '9:16';
                 this.outputFormat = 'mp4';
                 const select = document.getElementById('outputFormatSetting');
                 if (select) select.value = 'mp4';
             }
         } catch (e) {
             console.warn('Settings load error:', e);
-            // On error, fallback to default 16:9 format
-            this.updateAspectRatio('16:9');
-            document.getElementById('aspectRatioSetting').value = '16:9';
+            // On error, fallback to default 9:16 format
+            this.updateAspectRatio('9:16');
+            document.getElementById('aspectRatioSetting').value = '9:16';
         }
     }
 
     saveSettings() {
         try {
-            const aspectRatio = document.getElementById('aspectRatioSetting')?.value ?? '16:9';
+            const aspectRatio = document.getElementById('aspectRatioSetting')?.value ?? '9:16';
             const outputFormat = document.getElementById('outputFormatSetting')?.value ?? 'mp4';
 
             const settings = {
