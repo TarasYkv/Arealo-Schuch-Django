@@ -962,6 +962,14 @@ def api_post_to_social(request, video_id):
             li_opts = platform_options.get('linkedin', {})
             form_data.append(('visibility', li_opts.get('visibility', 'PUBLIC')))
 
+        # Pinterest Optionen
+        if 'pinterest' in platforms:
+            pin_opts = platform_options.get('pinterest', {})
+            if pin_opts.get('board_id'):
+                form_data.append(('pinterest_board_id', pin_opts.get('board_id')))
+            if pin_opts.get('link'):
+                form_data.append(('pinterest_link', pin_opts.get('link')))
+
         if scheduled_date:
             form_data.append(('scheduled_date', scheduled_date))
 

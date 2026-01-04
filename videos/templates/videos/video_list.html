@@ -228,6 +228,8 @@
                                                 <i class="fab fa-tiktok"></i>
                                                 {% elif platform == 'linkedin' %}
                                                 <i class="fab fa-linkedin" style="color: #0A66C2;"></i>
+                                                {% elif platform == 'pinterest' %}
+                                                <i class="fab fa-pinterest" style="color: #E60023;"></i>
                                                 {% else %}
                                                 <i class="fas fa-link"></i>
                                                 {% endif %}
@@ -482,6 +484,14 @@
                                 </label>
                             </div>
                         </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input platform-checkbox" type="checkbox" value="pinterest" id="platform-pinterest" onchange="togglePlatformOptions('pinterest')">
+                                <label class="form-check-label" for="platform-pinterest">
+                                    <i class="fab fa-pinterest" style="color: #E60023;"></i> Pinterest
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -615,6 +625,29 @@
                                         <option value="PUBLIC" selected>Öffentlich</option>
                                         <option value="CONNECTIONS">Nur Kontakte</option>
                                     </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pinterest Optionen -->
+                    <div id="options-pinterest" class="platform-options card mb-3" style="display: none;">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2">
+                                <i class="fab fa-pinterest" style="color: #E60023;"></i> Pinterest Optionen
+                            </h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Board auswählen</label>
+                                    <select class="form-select form-select-sm" id="pinterest-board">
+                                        <option value="">Board wird geladen...</option>
+                                    </select>
+                                    <small class="text-muted">Videos werden als Video-Pins gepostet</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">Link (optional)</label>
+                                    <input type="url" class="form-control form-control-sm" id="pinterest-link" placeholder="https://...">
+                                    <small class="text-muted">Ziel-URL beim Klick auf den Pin</small>
                                 </div>
                             </div>
                         </div>
@@ -893,6 +926,46 @@ function togglePlatformOptions(platform) {
 
     if (checkbox && optionsDiv) {
         optionsDiv.style.display = checkbox.checked ? 'block' : 'none';
+
+        // Pinterest-Boards laden wenn Pinterest ausgewählt
+        if (platform === 'pinterest' && checkbox.checked) {
+            loadPinterestBoards();
+        }
+    }
+}
+
+// Pinterest-Boards laden
+let pinterestBoardsLoaded = false;
+async function loadPinterestBoards() {
+    if (pinterestBoardsLoaded) return;
+
+    const boardSelect = document.getElementById('pinterest-board');
+    if (!boardSelect) return;
+
+    boardSelect.innerHTML = '<option value="">Lädt Boards...</option>';
+
+    try {
+        // Nutze die IdeoPin-API für Pinterest-Boards
+        const response = await fetch('/ideopin/api/pinterest/boards/');
+        const data = await response.json();
+
+        if (data.success && data.boards && data.boards.length > 0) {
+            boardSelect.innerHTML = '<option value="">-- Board wählen --</option>';
+            data.boards.forEach(board => {
+                const option = document.createElement('option');
+                option.value = board.id;
+                option.textContent = board.name;
+                boardSelect.appendChild(option);
+            });
+            pinterestBoardsLoaded = true;
+        } else if (data.error) {
+            boardSelect.innerHTML = `<option value="">Fehler: ${data.error}</option>`;
+        } else {
+            boardSelect.innerHTML = '<option value="">Keine Boards gefunden</option>';
+        }
+    } catch (error) {
+        console.error('Pinterest-Boards laden fehlgeschlagen:', error);
+        boardSelect.innerHTML = '<option value="">Pinterest nicht verbunden</option>';
     }
 }
 
@@ -937,6 +1010,14 @@ function getPlatformOptions() {
     if (document.getElementById('platform-linkedin')?.checked) {
         options.linkedin = {
             visibility: document.getElementById('linkedin-visibility')?.value || 'PUBLIC'
+        };
+    }
+
+    // Pinterest
+    if (document.getElementById('platform-pinterest')?.checked) {
+        options.pinterest = {
+            board_id: document.getElementById('pinterest-board')?.value || '',
+            link: document.getElementById('pinterest-link')?.value || ''
         };
     }
 
