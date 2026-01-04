@@ -934,7 +934,7 @@ function togglePlatformOptions(platform) {
     }
 }
 
-// Pinterest-Boards laden
+// Pinterest-Boards laden (über Upload-Post API wie in IdeoPin)
 let pinterestBoardsLoaded = false;
 async function loadPinterestBoards() {
     if (pinterestBoardsLoaded) return;
@@ -945,40 +945,40 @@ async function loadPinterestBoards() {
     boardSelect.innerHTML = '<option value="">Lädt Boards...</option>';
 
     try {
-        // Nutze die IdeoPin-API für Pinterest-Boards
-        const response = await fetch('/ideopin/api/pinterest/boards/');
+        // Nutze die Upload-Post API für Pinterest-Boards (wie in IdeoPin)
+        const response = await fetch('/ideopin/api/upload-post/boards/');
         const data = await response.json();
 
         if (data.success && data.boards && data.boards.length > 0) {
             boardSelect.innerHTML = '<option value="">-- Board wählen --</option>';
             data.boards.forEach(board => {
                 const option = document.createElement('option');
-                option.value = board.id;
-                option.textContent = board.name;
+                // Upload-Post gibt board.id oder board.board_id zurück
+                option.value = board.id || board.board_id || board.name;
+                option.textContent = board.name || board.title || board.id;
                 boardSelect.appendChild(option);
             });
             pinterestBoardsLoaded = true;
         } else if (data.error) {
-            boardSelect.innerHTML = '<option value="">Pinterest nicht verbunden</option>';
-            // Zeige Hinweis zur Konfiguration
-            showPinterestConfigHint();
+            boardSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+            showPinterestConfigHint(data.error);
         } else {
             boardSelect.innerHTML = '<option value="">Keine Boards gefunden</option>';
         }
     } catch (error) {
         console.error('Pinterest-Boards laden fehlgeschlagen:', error);
-        boardSelect.innerHTML = '<option value="">Pinterest nicht verbunden</option>';
-        showPinterestConfigHint();
+        boardSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+        showPinterestConfigHint('Upload-Post API nicht erreichbar');
     }
 }
 
 // Zeige Pinterest-Konfigurationshinweis
-function showPinterestConfigHint() {
+function showPinterestConfigHint(errorMsg) {
     const optionsDiv = document.getElementById('options-pinterest');
     if (optionsDiv && !optionsDiv.querySelector('.pinterest-config-hint')) {
         const hint = document.createElement('div');
         hint.className = 'alert alert-warning mt-2 py-2 pinterest-config-hint';
-        hint.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Pinterest ist nicht verbunden. <a href="/ideopin/settings/" class="alert-link">Jetzt in den IdeoPin-Einstellungen verbinden</a>';
+        hint.innerHTML = `<i class="fas fa-exclamation-triangle me-1"></i> ${errorMsg || 'Pinterest nicht konfiguriert'}. <a href="/accounts/api-settings/" class="alert-link">API-Einstellungen prüfen</a>`;
         optionsDiv.querySelector('.card-body').appendChild(hint);
     }
 }
