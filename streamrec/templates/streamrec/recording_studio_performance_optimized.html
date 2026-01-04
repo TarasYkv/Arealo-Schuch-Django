@@ -1291,6 +1291,14 @@
             <i class="fas fa-times"></i>
         </button>
         <canvas id="mobilePreviewCanvas" style="max-width:100% !important; max-height:100% !important; object-fit:contain !important; border-radius:8px !important; box-shadow:0 4px 20px rgba(0,0,0,0.5) !important;"></canvas>
+
+        <!-- 📱 Countdown Overlay für Mobile Preview -->
+        <div id="mobileCountdownOverlay" style="position:absolute !important; top:50% !important; left:50% !important; transform:translate(-50%,-50%) !important; display:none; z-index:20 !important;">
+            <div style="width:120px !important; height:120px !important; border-radius:50% !important; background:rgba(220,53,69,0.9) !important; display:flex !important; align-items:center !important; justify-content:center !important; box-shadow:0 0 40px rgba(220,53,69,0.6) !important;">
+                <span id="mobileCountdownNumber" style="font-size:4rem !important; font-weight:bold !important; color:white !important;">3</span>
+            </div>
+        </div>
+
         <div class="preview-info" style="position:absolute !important; bottom:10px !important; left:50% !important; transform:translateX(-50%) !important; background:rgba(0,0,0,0.7) !important; color:white !important; padding:5px 15px !important; border-radius:20px !important; font-size:0.8rem !important;">
             <i class="fas fa-expand-arrows-alt me-1"></i>
             <span id="mobilePreviewSize">--</span>
@@ -6176,23 +6184,45 @@ class StreamRecorderOptimized {
             alert('Bitte starten Sie zuerst die Live-Komposition');
             return;
         }
-        
+
         const overlay = document.getElementById('countdownOverlay');
         const num = document.getElementById('countdownNumber');
+
+        // 📱 Mobile Preview Countdown Elemente
+        const mobileOverlay = document.getElementById('mobileCountdownOverlay');
+        const mobileNum = document.getElementById('mobileCountdownNumber');
+
         if (!overlay || !num) return this.startRecording();
-        
+
         let n = 3;
         num.textContent = n;
         overlay.style.display = 'block';
-        
+
+        // 📱 Auch Mobile Countdown anzeigen (falls Preview aktiv)
+        if (mobileOverlay && mobileNum && this.mobilePreviewActive) {
+            mobileNum.textContent = n;
+            mobileOverlay.style.display = 'block';
+        }
+
         const interval = setInterval(() => {
             n -= 1;
             if (n === 0) {
                 clearInterval(interval);
                 overlay.style.display = 'none';
+
+                // 📱 Mobile Countdown verstecken
+                if (mobileOverlay) {
+                    mobileOverlay.style.display = 'none';
+                }
+
                 this.startRecording();
             } else {
                 num.textContent = n;
+
+                // 📱 Mobile Countdown aktualisieren
+                if (mobileNum && this.mobilePreviewActive) {
+                    mobileNum.textContent = n;
+                }
             }
         }, 700);
     }
