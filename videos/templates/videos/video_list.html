@@ -959,13 +959,27 @@ async function loadPinterestBoards() {
             });
             pinterestBoardsLoaded = true;
         } else if (data.error) {
-            boardSelect.innerHTML = `<option value="">Fehler: ${data.error}</option>`;
+            boardSelect.innerHTML = '<option value="">Pinterest nicht verbunden</option>';
+            // Zeige Hinweis zur Konfiguration
+            showPinterestConfigHint();
         } else {
             boardSelect.innerHTML = '<option value="">Keine Boards gefunden</option>';
         }
     } catch (error) {
         console.error('Pinterest-Boards laden fehlgeschlagen:', error);
         boardSelect.innerHTML = '<option value="">Pinterest nicht verbunden</option>';
+        showPinterestConfigHint();
+    }
+}
+
+// Zeige Pinterest-Konfigurationshinweis
+function showPinterestConfigHint() {
+    const optionsDiv = document.getElementById('options-pinterest');
+    if (optionsDiv && !optionsDiv.querySelector('.pinterest-config-hint')) {
+        const hint = document.createElement('div');
+        hint.className = 'alert alert-warning mt-2 py-2 pinterest-config-hint';
+        hint.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Pinterest ist nicht verbunden. <a href="/ideopin/settings/" class="alert-link">Jetzt in den IdeoPin-Einstellungen verbinden</a>';
+        optionsDiv.querySelector('.card-body').appendChild(hint);
     }
 }
 
