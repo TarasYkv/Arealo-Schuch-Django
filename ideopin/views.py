@@ -2805,6 +2805,159 @@ def api_generate_pin_image(request, project_id, position):
 
 @login_required
 @require_POST
+def api_use_server_image_for_pin(request, project_id, position):
+    """API: Verwendet ein Server-Bild für einen einzelnen Pin mit optionalem Text-Overlay"""
+    import os
+    from io import BytesIO
+    from django.conf import settings as django_settings
+    from django.core.files.base import ContentFile
+
+    project = get_object_or_404(PinProject, id=project_id, user=request.user)
+    pin = get_object_or_404(Pin, project=project, position=position)
+
+    try:
+        data = json.loads(request.body)
+        image_path = data.get('image_path', '').strip()
+
+        if not image_path:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein Bildpfad angegeben'
+            }, status=400)
+
+        # Vollständigen Pfad erstellen
+        full_path = os.path.join(django_settings.MEDIA_ROOT, image_path)
+
+        # Sicherheitscheck: Pfad muss im MEDIA_ROOT sein
+        real_path = os.path.realpath(full_path)
+        real_media = os.path.realpath(django_settings.MEDIA_ROOT)
+        if not real_path.startswith(real_media):
+            return JsonResponse({
+                'success': False,
+                'error': 'Ungültiger Bildpfad'
+            }, status=400)
+
+        if not os.path.exists(full_path):
+            return JsonResponse({
+                'success': False,
+                'error': 'Bild nicht gefunden'
+            }, status=404)
+
+        # Bild laden und auf Format skalieren
+        img = Image.open(full_path)
+        width, height = project.get_format_dimensions()
+        img = resize_and_crop_to_format(img, width, height)
+
+        # Als PNG speichern
+        buffer = BytesIO()
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        img.save(buffer, format='PNG', quality=95)
+        buffer.seek(0)
+
+        # Als generated_image speichern
+        ext = os.path.splitext(image_path)[1] or '.png'
+        filename = f"pin_{project_id}_{position}_server{ext}"
+        pin.generated_image.save(filename, ContentFile(buffer.read()), save=False)
+
+        # Text-Overlay prüfen: Automatisch wenn Pin-Text vorhanden und ideogram-Mode aktiv
+        text_mode = project.text_integration_mode
+        overlay_text = pin.overlay_text.strip() if pin.overlay_text else ''
+        added_text_overlay = False
+
+        if text_mode == 'ideogram' and overlay_text:
+            # Text-Overlay mit KI hinzufügen
+            gemini_api_key = getattr(request.user, 'gemini_api_key', None)
+
+            if gemini_api_key:
+                try:
+                    from .gemini_service import GeminiImageService
+
+                    # User-Settings für Modell laden
+                    try:
+                        user_settings = request.user.pin_settings
+                        model_name = user_settings.gemini_model if user_settings else 'gemini-2.5-flash-preview-05-20'
+                    except PinSettings.DoesNotExist:
+                        model_name = 'gemini-2.5-flash-preview-05-20'
+
+                    service = GeminiImageService(gemini_api_key)
+
+                    # Prompt für Text-Overlay
+                    prompt = GeminiImageService.build_prompt_for_text_overlay(
+                        overlay_text=overlay_text,
+                        text_position=project.text_position or 'center',
+                        text_color=project.text_color or '#FFFFFF',
+                        text_background_enabled=project.text_background_enabled,
+                        text_background_creative=project.text_background_creative
+                    )
+
+                    # Bild mit Text generieren
+                    result = service.add_text_to_image(
+                        image_path=pin.generated_image.path,
+                        prompt=prompt,
+                        width=width,
+                        height=height,
+                        model=model_name
+                    )
+
+                    if result.get('success'):
+                        import base64
+                        image_b64 = result.get('image_data') or result.get('image_base64')
+                        if image_b64:
+                            image_data = base64.b64decode(image_b64)
+                            final_img = Image.open(BytesIO(image_data))
+                            final_img = resize_and_crop_to_format(final_img, width, height)
+
+                            final_buffer = BytesIO()
+                            if final_img.mode in ('RGBA', 'P'):
+                                final_img = final_img.convert('RGB')
+                            final_img.save(final_buffer, format='PNG', quality=95)
+                            final_buffer.seek(0)
+
+                            pin.final_image.save(
+                                f"pin_{project_id}_{position}_final.png",
+                                ContentFile(final_buffer.read()),
+                                save=False
+                            )
+                            added_text_overlay = True
+                            logger.info(f"[Multi-Pin] Text-Overlay für Pin {position} hinzugefügt")
+                    else:
+                        logger.warning(f"[Multi-Pin] Text-Overlay fehlgeschlagen: {result.get('error')}")
+
+                except Exception as e:
+                    logger.error(f"[Multi-Pin] Text-Overlay Fehler: {e}")
+            else:
+                logger.warning(f"[Multi-Pin] Kein Gemini API-Key für Text-Overlay")
+
+        # Wenn kein Text-Overlay, dann generated = final
+        if not added_text_overlay:
+            buffer.seek(0)
+            pin.final_image.save(f"pin_{project_id}_{position}_final.png", ContentFile(buffer.read()), save=False)
+
+        pin.save()
+
+        logger.info(f"[Multi-Pin] Server-Bild für Pin {position} verwendet: {image_path}")
+
+        return JsonResponse({
+            'success': True,
+            'position': position,
+            'image_url': pin.final_image.url if pin.final_image else pin.generated_image.url,
+            'added_text_overlay': added_text_overlay,
+            'overlay_text': overlay_text if added_text_overlay else None
+        })
+
+    except Exception as e:
+        logger.error(f"[Multi-Pin] Server-Bild für Pin fehlgeschlagen: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_POST
 def api_generate_all_seo(request, project_id):
     """API: Generiert SEO-Titel und Beschreibung für alle Pins"""
     import openai

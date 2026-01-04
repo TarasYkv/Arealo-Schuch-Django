@@ -56,6 +56,7 @@ urlpatterns = [
     path('api/generate-variations/<int:project_id>/', views.api_generate_variations, name='api_generate_variations'),
     path('api/save-pins/<int:project_id>/', views.api_save_pins, name='api_save_pins'),
     path('api/generate-pin-image/<int:project_id>/<int:position>/', views.api_generate_pin_image, name='api_generate_pin_image'),
+    path('api/use-server-image-for-pin/<int:project_id>/<int:position>/', views.api_use_server_image_for_pin, name='api_use_server_image_for_pin'),
     path('api/generate-all-seo/<int:project_id>/', views.api_generate_all_seo, name='api_generate_all_seo'),
     path('api/generate-pin-seo/<int:project_id>/<int:position>/', views.api_generate_pin_seo, name='api_generate_pin_seo'),
     path('api/schedule-pin/<int:project_id>/<int:position>/', views.api_schedule_pin, name='api_schedule_pin'),

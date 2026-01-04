@@ -362,6 +362,57 @@
     </div>
 </div>
 
+<!-- Server-Bild Modal für Multi-Pin -->
+<div class="modal fade" id="serverImagePinModal" tabindex="-1" aria-labelledby="serverImagePinModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="serverImagePinModalLabel">
+                    <i class="bi bi-folder2-open"></i> Bild vom Server auswählen
+                    <span class="badge bg-primary ms-2" id="serverImagePinBadge">Pin 1</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filter Buttons -->
+                <div class="mb-3">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary active" data-pin-filter="all">
+                            Alle
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" data-pin-filter="imageforge">
+                            <i class="bi bi-magic"></i> ImageForge
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" data-pin-filter="products">
+                            <i class="bi bi-box"></i> Produktbilder
+                        </button>
+                    </div>
+                </div>
+                <!-- Bilder-Galerie -->
+                <div id="serverImagePinGallery" class="row g-2" style="max-height: 400px; overflow-y: auto;">
+                    <div class="col-12 text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Lädt...</span>
+                        </div>
+                        <p class="text-muted mt-2">Bilder werden geladen...</p>
+                    </div>
+                </div>
+                <input type="hidden" id="serverImagePinPath" value="">
+                <input type="hidden" id="serverImagePinPosition" value="">
+            </div>
+            <div class="modal-footer">
+                <div class="me-auto">
+                    <small class="text-muted" id="serverImagePinTextInfo"></small>
+                </div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="useServerImagePinBtn" disabled>
+                    <i class="bi bi-check"></i> Bild verwenden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Produktbild-Verlauf Modal -->
 <div class="modal fade" id="productImageHistoryModal" tabindex="-1" aria-labelledby="productImageHistoryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -1210,14 +1261,22 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                 </div>
                                 <!-- Buttons -->
-                                <div class="d-flex gap-2">
+                                <div class="d-flex gap-2 flex-wrap">
                                     <button type="button" class="btn btn-success btn-sm" id="generatePinBtn${i}"
                                             onclick="generateSinglePinImage(${i})" style="${imageUrl ? 'display: none;' : ''}">
-                                        <i class="bi bi-image"></i> Bild generieren
+                                        <i class="bi bi-magic"></i> KI generieren
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="serverImagePinBtn${i}"
+                                            onclick="openServerImagePinModal(${i})" style="${imageUrl ? 'display: none;' : ''}">
+                                        <i class="bi bi-folder2-open"></i> Vom Server
                                     </button>
                                     <button type="button" class="btn btn-outline-warning btn-sm" id="regeneratePinBtn${i}"
                                             onclick="generateSinglePinImage(${i})" style="${imageUrl ? '' : 'display: none;'}">
-                                        <i class="bi bi-arrow-clockwise"></i> Neu generieren
+                                        <i class="bi bi-arrow-clockwise"></i> Neu
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="changeServerPinBtn${i}"
+                                            onclick="openServerImagePinModal(${i})" style="${imageUrl ? '' : 'display: none;'}">
+                                        <i class="bi bi-folder2-open"></i> Anderes Bild
                                     </button>
                                 </div>
                             </div>
@@ -1609,6 +1668,224 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = '{% url "ideopin:wizard_step2" project.id %}';
         });
     }
+
+    // ========================================
+    // SERVER-BILD FÜR MULTI-PIN
+    // ========================================
+
+    const serverImagePinModal = new bootstrap.Modal(document.getElementById('serverImagePinModal'));
+    const serverImagePinGallery = document.getElementById('serverImagePinGallery');
+    const serverImagePinPath = document.getElementById('serverImagePinPath');
+    const serverImagePinPosition = document.getElementById('serverImagePinPosition');
+    const serverImagePinBadge = document.getElementById('serverImagePinBadge');
+    const serverImagePinTextInfo = document.getElementById('serverImagePinTextInfo');
+    const useServerImagePinBtn = document.getElementById('useServerImagePinBtn');
+    let serverPinImagesLoaded = false;
+    let allServerPinImages = [];
+
+    // Modal öffnen für einen bestimmten Pin
+    window.openServerImagePinModal = function(position) {
+        serverImagePinPosition.value = position;
+        serverImagePinBadge.textContent = `Pin ${position}`;
+        serverImagePinPath.value = '';
+        useServerImagePinBtn.disabled = true;
+
+        // Zeige Text-Info wenn Pin Text hat
+        const pinText = document.getElementById(`pinText${position}`)?.value || '';
+        if (pinText) {
+            serverImagePinTextInfo.innerHTML = `<i class="bi bi-info-circle"></i> Text "${pinText.substring(0, 40)}..." wird automatisch hinzugefügt`;
+        } else {
+            serverImagePinTextInfo.textContent = '';
+        }
+
+        serverImagePinModal.show();
+        loadServerPinImages();
+    };
+
+    // Server-Bilder laden
+    async function loadServerPinImages() {
+        if (serverPinImagesLoaded) {
+            renderServerPinImages(allServerPinImages);
+            return;
+        }
+
+        serverImagePinGallery.innerHTML = `
+            <div class="col-12 text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <p class="text-muted mt-2">Bilder werden geladen...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch('{% url "ideopin:api_server_images" %}');
+            const data = await response.json();
+
+            if (data.success && data.images.length > 0) {
+                allServerPinImages = data.images;
+                renderServerPinImages(allServerPinImages);
+                serverPinImagesLoaded = true;
+            } else {
+                serverImagePinGallery.innerHTML = `
+                    <div class="col-12 text-center py-4">
+                        <i class="bi bi-image text-muted fs-1 d-block mb-2"></i>
+                        <p class="text-muted">Keine Bilder gefunden</p>
+                        <small class="text-muted">Erstelle Bilder in <a href="{% url 'imageforge:dashboard' %}">ImageForge</a></small>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading server images:', error);
+            serverImagePinGallery.innerHTML = `
+                <div class="col-12 text-center py-4">
+                    <i class="bi bi-exclamation-triangle text-danger fs-1 d-block mb-2"></i>
+                    <p class="text-danger">Fehler beim Laden der Bilder</p>
+                </div>
+            `;
+        }
+    }
+
+    // Server-Bilder rendern
+    function renderServerPinImages(images) {
+        serverImagePinGallery.innerHTML = '';
+
+        images.forEach(img => {
+            const col = document.createElement('div');
+            col.className = 'col-4 col-md-3';
+            col.innerHTML = `
+                <div class="card server-pin-image-card" data-path="${img.path}" data-type="${img.type}" style="cursor: pointer;">
+                    <img src="${img.url}" class="card-img-top" style="height: 100px; object-fit: cover;" alt="${img.name}">
+                    <div class="card-body p-1 text-center">
+                        <small class="text-muted text-truncate d-block" style="font-size: 0.7rem;">${img.name}</small>
+                        <span class="badge ${img.type === 'imageforge' ? 'bg-primary' : 'bg-secondary'}" style="font-size: 0.6rem;">
+                            ${img.type === 'imageforge' ? 'ImageForge' : 'Produkt'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            serverImagePinGallery.appendChild(col);
+        });
+
+        // Click-Handler für Bildauswahl
+        document.querySelectorAll('.server-pin-image-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.server-pin-image-card').forEach(c => c.classList.remove('border-primary', 'border-2'));
+                this.classList.add('border-primary', 'border-2');
+                serverImagePinPath.value = this.dataset.path;
+                useServerImagePinBtn.disabled = false;
+            });
+        });
+    }
+
+    // Filter-Buttons
+    document.querySelectorAll('[data-pin-filter]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('[data-pin-filter]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            const filter = this.dataset.pinFilter;
+            if (filter === 'all') {
+                renderServerPinImages(allServerPinImages);
+            } else {
+                renderServerPinImages(allServerPinImages.filter(img => img.type === filter));
+            }
+        });
+    });
+
+    // Bild verwenden Button
+    useServerImagePinBtn.addEventListener('click', async function() {
+        const imagePath = serverImagePinPath.value;
+        const position = parseInt(serverImagePinPosition.value);
+
+        if (!imagePath || !position) return;
+
+        const originalHtml = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Wird übernommen...';
+
+        // Pin zuerst speichern (Text aktualisieren)
+        const overlayText = document.getElementById(`pinText${position}`)?.value || '';
+        const backgroundDesc = document.getElementById(`pinBackground${position}`)?.value || '';
+
+        try {
+            // Erst Pin-Daten speichern
+            await fetch('{% url "ideopin:api_save_pins" project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    pins: [{
+                        position: position,
+                        overlay_text: overlayText,
+                        background_description: backgroundDesc
+                    }]
+                })
+            });
+
+            // Server-Bild für Pin verwenden
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Bild wird verarbeitet...';
+
+            const response = await fetch(`/ideopin/api/use-server-image-for-pin/{{ project.id }}/${position}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image_path: imagePath })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                // UI aktualisieren
+                const preview = document.getElementById(`pinPreview${position}`);
+                const status = document.getElementById(`pinStatus${position}`);
+                const badge = document.getElementById(`pinBadge${position}`);
+                const generateBtn = document.getElementById(`generatePinBtn${position}`);
+                const serverBtn = document.getElementById(`serverImagePinBtn${position}`);
+                const regenBtn = document.getElementById(`regeneratePinBtn${position}`);
+                const changeBtn = document.getElementById(`changeServerPinBtn${position}`);
+
+                if (preview) {
+                    const textBadge = data.added_text_overlay
+                        ? '<span class="badge bg-success mt-1" style="font-size: 0.6rem;"><i class="bi bi-magic"></i> + Text</span>'
+                        : '';
+                    preview.innerHTML = `
+                        <img src="${data.image_url}?t=${Date.now()}" alt="Pin ${position}"
+                             class="img-fluid rounded" style="max-height: 200px;">
+                        ${textBadge}
+                    `;
+                }
+
+                if (status) status.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+                if (badge) badge.className = 'badge bg-success';
+                if (generateBtn) generateBtn.style.display = 'none';
+                if (serverBtn) serverBtn.style.display = 'none';
+                if (regenBtn) regenBtn.style.display = 'inline-block';
+                if (changeBtn) changeBtn.style.display = 'inline-block';
+
+                // multiPinData aktualisieren
+                if (multiPinData[position - 1]) {
+                    multiPinData[position - 1].image_url = data.image_url;
+                    multiPinData[position - 1].generated = true;
+                }
+
+                serverImagePinModal.hide();
+                updateMultiPinGallery();
+            } else {
+                alert('Fehler: ' + data.error);
+                this.innerHTML = originalHtml;
+                this.disabled = false;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Fehler beim Übernehmen des Bildes.');
+            this.innerHTML = originalHtml;
+            this.disabled = false;
+        }
+    });
 
 });
 </script>
