@@ -401,6 +401,104 @@
     color: #dc3545;
 }
 
+/* 📱 Mobile Floating Control Bar */
+#mobileControlBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, rgba(30, 30, 40, 0.95) 0%, rgba(50, 50, 70, 0.95) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    z-index: 1050;
+    display: none;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#mobileControlBar.visible {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+#mobileControlBar .control-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+#mobileControlBar .control-btn:active {
+    transform: scale(0.95);
+}
+
+#mobileControlBar .btn-record {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+
+#mobileControlBar .btn-record.recording {
+    animation: recordingPulse 1.5s ease-in-out infinite;
+}
+
+#mobileControlBar .btn-pause {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    color: #212529;
+}
+
+#mobileControlBar .btn-stop {
+    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%);
+    color: white;
+}
+
+#mobileControlBar .btn-switch {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    color: white;
+}
+
+#mobileControlBar .recording-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+#mobileControlBar .recording-timer {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    font-family: 'SF Mono', 'Monaco', monospace;
+    letter-spacing: 1px;
+}
+
+#mobileControlBar .recording-status {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#mobileControlBar .recording-status.active {
+    color: #dc3545;
+}
+
+@keyframes recordingPulse {
+    0%, 100% { box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4); }
+    50% { box-shadow: 0 4px 25px rgba(220, 53, 69, 0.7); }
+}
+
 /* LoomAds Integration */
 {% loomads_css %}
 </style>
@@ -1113,6 +1211,30 @@
             </div>
         </div>
     </div>
+
+    <!-- 📱 Mobile Floating Control Bar -->
+    <div id="mobileControlBar">
+        <!-- Record/Pause Button -->
+        <button id="mobileRecordBtn" class="control-btn btn-record" title="Aufnahme starten">
+            <i class="fas fa-circle"></i>
+        </button>
+
+        <!-- Recording Info (Timer & Status) -->
+        <div class="recording-info">
+            <div id="mobileRecordingTimer" class="recording-timer">00:00</div>
+            <div id="mobileRecordingStatus" class="recording-status">Bereit</div>
+        </div>
+
+        <!-- Stop Button -->
+        <button id="mobileStopBtn" class="control-btn btn-stop" title="Stoppen" disabled>
+            <i class="fas fa-stop"></i>
+        </button>
+
+        <!-- Camera Switch Button -->
+        <button id="mobileSwitchCameraBtn" class="control-btn btn-switch" title="Kamera wechseln">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
 </div>
 {% endblock %}
 
@@ -1150,6 +1272,7 @@ class StreamRecorderOptimized {
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.isRecording = false;
+        this.isPaused = false; // 📱 For mobile control bar
         this.outputMode = 'merged'; // 'merged' or 'separate'
         this.outputFormat = 'mp4'; // 'webm' or 'mp4' - format for browser-native recording
         this.separateFiles = null; // Store separate file data for bulk download
@@ -1609,6 +1732,13 @@ class StreamRecorderOptimized {
         document.getElementById('recordBtn')?.addEventListener('click', () => this.startRecordingWithCountdown());
         document.getElementById('stopRecordBtn')?.addEventListener('click', () => this.stopRecording());
         document.getElementById('pauseBtn')?.addEventListener('click', () => this.togglePauseRecording());
+
+        // 📱 Mobile Control Bar
+        if (this.isMobile) {
+            document.getElementById('mobileRecordBtn')?.addEventListener('click', () => this.handleMobileRecordBtn());
+            document.getElementById('mobileStopBtn')?.addEventListener('click', () => this.stopRecording());
+            document.getElementById('mobileSwitchCameraBtn')?.addEventListener('click', () => this.switchCamera());
+        }
 
         // Output mode controls
         document.querySelectorAll('input[name="outputMode"]').forEach(radio => {
@@ -4851,6 +4981,11 @@ class StreamRecorderOptimized {
                 switchCameraBtn.disabled = false;
             }
 
+            // 📱 Show mobile control bar
+            if (this.isMobile) {
+                this.showMobileControlBar();
+            }
+
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
             this.updateStatusBadge('camera', 'success');
@@ -4968,6 +5103,87 @@ class StreamRecorderOptimized {
             if (switchCameraBtn) {
                 switchCameraBtn.disabled = true;
             }
+
+            // 📱 Hide mobile control bar
+            if (this.isMobile) {
+                this.hideMobileControlBar();
+            }
+        }
+    }
+
+    // 📱 Mobile Control Bar Functions
+    showMobileControlBar() {
+        const bar = document.getElementById('mobileControlBar');
+        if (bar) {
+            bar.classList.add('visible');
+            console.log('📱 Mobile Control Bar angezeigt');
+        }
+    }
+
+    hideMobileControlBar() {
+        const bar = document.getElementById('mobileControlBar');
+        if (bar) {
+            bar.classList.remove('visible');
+            console.log('📱 Mobile Control Bar versteckt');
+        }
+    }
+
+    handleMobileRecordBtn() {
+        if (this.isRecording) {
+            // If recording, toggle pause
+            this.togglePauseRecording();
+        } else {
+            // Start recording
+            this.startRecordingWithCountdown();
+        }
+    }
+
+    updateMobileControlBar() {
+        const recordBtn = document.getElementById('mobileRecordBtn');
+        const stopBtn = document.getElementById('mobileStopBtn');
+        const statusEl = document.getElementById('mobileRecordingStatus');
+        const timerEl = document.getElementById('mobileRecordingTimer');
+
+        if (!recordBtn || !stopBtn) return;
+
+        if (this.isRecording) {
+            recordBtn.classList.add('recording');
+            stopBtn.disabled = false;
+
+            if (this.isPaused) {
+                recordBtn.innerHTML = '<i class="fas fa-play"></i>';
+                recordBtn.title = 'Fortsetzen';
+                if (statusEl) {
+                    statusEl.textContent = 'Pausiert';
+                    statusEl.classList.remove('active');
+                }
+            } else {
+                recordBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                recordBtn.title = 'Pausieren';
+                if (statusEl) {
+                    statusEl.textContent = 'Aufnahme';
+                    statusEl.classList.add('active');
+                }
+            }
+        } else {
+            recordBtn.classList.remove('recording');
+            recordBtn.innerHTML = '<i class="fas fa-circle"></i>';
+            recordBtn.title = 'Aufnahme starten';
+            stopBtn.disabled = true;
+            if (statusEl) {
+                statusEl.textContent = 'Bereit';
+                statusEl.classList.remove('active');
+            }
+            if (timerEl) {
+                timerEl.textContent = '00:00';
+            }
+        }
+    }
+
+    updateMobileTimer(timeString) {
+        const timerEl = document.getElementById('mobileRecordingTimer');
+        if (timerEl) {
+            timerEl.textContent = timeString;
         }
     }
 
@@ -5965,6 +6181,7 @@ class StreamRecorderOptimized {
 
             this.mediaRecorder.start();
             this.isRecording = true;
+            this.isPaused = false; // 📱 Reset pause state
             this.recordingStartTime = Date.now();
             
             document.getElementById('recordBtn').disabled = true;
@@ -5975,6 +6192,11 @@ class StreamRecorderOptimized {
             
             this.startRecordingTimer();
             console.log('📹 Recording gestartet');
+
+            // 📱 Update mobile control bar
+            if (this.isMobile) {
+                this.updateMobileControlBar();
+            }
 
         } catch (error) {
             console.error('❌ Recording Fehler:', error);
@@ -6002,7 +6224,13 @@ class StreamRecorderOptimized {
         }
         
         this.isRecording = false;
+        this.isPaused = false; // 📱 Reset pause state
         this.stopRecordingTimer();
+
+        // 📱 Update mobile control bar
+        if (this.isMobile) {
+            this.updateMobileControlBar();
+        }
     }
 
     togglePauseRecording() {
@@ -6065,6 +6293,13 @@ class StreamRecorderOptimized {
                 document.getElementById('recordingStatus').textContent = 'Status: Aufnahme läuft';
             }
         }
+
+        // 📱 Update mobile control bar pause state
+        if (this.isMobile) {
+            // Toggle isPaused flag for mobile UI
+            this.isPaused = !this.isPaused;
+            this.updateMobileControlBar();
+        }
     }
 
     startRecordingTimer() {
@@ -6076,7 +6311,12 @@ class StreamRecorderOptimized {
             const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             document.getElementById('recordingTime').textContent = timeStr;
             document.getElementById('recordingTimeIndicator').textContent = timeStr;
-            
+
+            // 📱 Update mobile timer
+            if (this.isMobile) {
+                this.updateMobileTimer(timeStr);
+            }
+
             const progress = (elapsed / this.maxDuration) * 100;
             document.getElementById('recordingProgress').style.width = `${Math.min(progress, 100)}%`;
             
