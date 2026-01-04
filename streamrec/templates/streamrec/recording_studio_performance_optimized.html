@@ -1310,8 +1310,8 @@
     </div>
 </div>
 
-<!-- 📱 Mobile Floating Control Bar -->
-<div id="mobileControlBar" style="position:fixed !important; bottom:0 !important; left:0 !important; right:0 !important; z-index:999999 !important; display:flex !important; align-items:center !important; justify-content:center !important; gap:12px !important; background:linear-gradient(135deg, rgba(30, 30, 40, 0.98) 0%, rgba(50, 50, 70, 0.98) 100%) !important; backdrop-filter:blur(10px) !important; -webkit-backdrop-filter:blur(10px) !important; padding:12px 16px !important; padding-bottom:max(12px, env(safe-area-inset-bottom)) !important; min-height:70px !important; border-top:1px solid rgba(255,255,255,0.1) !important; box-shadow:0 -4px 20px rgba(0,0,0,0.3) !important; box-sizing:border-box !important;">
+<!-- 📱 Mobile Floating Control Bar - Versteckt bis Stream aktiv -->
+<div id="mobileControlBar" style="position:fixed !important; bottom:0 !important; left:0 !important; right:0 !important; z-index:999999 !important; display:none; align-items:center !important; justify-content:center !important; gap:12px !important; background:linear-gradient(135deg, rgba(30, 30, 40, 0.98) 0%, rgba(50, 50, 70, 0.98) 100%) !important; backdrop-filter:blur(10px) !important; -webkit-backdrop-filter:blur(10px) !important; padding:12px 16px !important; padding-bottom:max(12px, env(safe-area-inset-bottom)) !important; min-height:70px !important; border-top:1px solid rgba(255,255,255,0.1) !important; box-shadow:0 -4px 20px rgba(0,0,0,0.3) !important; box-sizing:border-box !important;">
 
     <!-- Preview Toggle Button -->
     <button id="mobilePreviewBtn" class="control-btn btn-preview" title="Vorschau" style="width:46px !important; height:46px !important; min-width:46px !important; border-radius:50% !important; background:linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%) !important; color:white !important; border:none !important; display:flex !important; align-items:center !important; justify-content:center !important; font-size:1.1rem !important; flex-shrink:0 !important; cursor:pointer !important;">
@@ -5086,8 +5086,8 @@ class StreamRecorderOptimized {
                 switchCameraBtn.disabled = false;
             }
 
-            // 📱 Show control bar (immer, nicht nur auf Mobile)
-            this.showMobileControlBar();
+            // 📱 Control Bar Sichtbarkeit aktualisieren
+            this.updateControlBarVisibility();
 
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
@@ -5163,6 +5163,7 @@ class StreamRecorderOptimized {
             this.updateActiveStreamsCount();
             this.refreshLayoutChips();
             this.checkAudioStream(); // Check audio status after stream added
+            this.updateControlBarVisibility(); // 📱 Control Bar anzeigen
 
             // Handle screen sharing end event
             stream.getVideoTracks()[0].addEventListener('ended', () => {
@@ -5207,28 +5208,37 @@ class StreamRecorderOptimized {
                 switchCameraBtn.disabled = true;
             }
 
-            // 📱 Hide control bar (immer)
-            this.hideMobileControlBar();
+            // 📱 Control Bar Sichtbarkeit aktualisieren
+            this.updateControlBarVisibility();
         }
     }
 
     // 📱 Control Bar Functions
     showMobileControlBar() {
         const bar = document.getElementById('mobileControlBar');
-        console.log('📱 showMobileControlBar called, bar element:', bar, 'isMobile:', this.isMobile);
         if (bar) {
-            bar.classList.add('visible');
-            console.log('📱 Mobile Control Bar angezeigt, classes:', bar.className);
-        } else {
-            console.error('❌ mobileControlBar Element nicht gefunden!');
+            bar.style.display = 'flex';
+            console.log('📱 Mobile Control Bar angezeigt');
         }
     }
 
     hideMobileControlBar() {
         const bar = document.getElementById('mobileControlBar');
         if (bar) {
-            bar.classList.remove('visible');
+            bar.style.display = 'none';
+            // Auch Preview schließen wenn Bar versteckt wird
+            this.hideMobilePreview();
             console.log('📱 Mobile Control Bar versteckt');
+        }
+    }
+
+    // Prüft ob mindestens ein Stream aktiv ist und zeigt/versteckt Bar entsprechend
+    updateControlBarVisibility() {
+        const hasActiveStream = this.streams.size > 0;
+        if (hasActiveStream) {
+            this.showMobileControlBar();
+        } else {
+            this.hideMobileControlBar();
         }
     }
 
@@ -5471,6 +5481,7 @@ class StreamRecorderOptimized {
             this.updateActiveStreamsCount();
             this.refreshLayoutChips();
             this.checkCompositionReady();
+            this.updateControlBarVisibility(); // 📱 Control Bar aktualisieren
         }
     }
 
