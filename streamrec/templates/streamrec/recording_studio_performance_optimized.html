@@ -3763,53 +3763,32 @@ class StreamRecorderOptimized {
             opt.cachedMaskCanvas.height = canvas.height;
             opt.cachedMaskCtx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 🎚️ Slider-Parameter anwenden: Masken-Blur
+            // 🎚️ Slider-Parameter anwenden: Masken-Blur + Kontrast via CSS Filter
             const blurRadius = Math.max(0, this.backgroundEffects.maskBlurRadius || 0);
-            if (blurRadius > 0) {
-                opt.cachedMaskCtx.filter = `blur(${blurRadius}px)`;
-            }
-            opt.cachedMaskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
-            opt.cachedMaskCtx.filter = 'none';
-
-            // 🎚️ Threshold/Feather anwenden (Kontrast-Anpassung der Maske)
             const threshold = this.backgroundEffects.confidenceThreshold ?? 0.6;
             const feather = this.backgroundEffects.edgeFeather ?? 0.12;
 
-            // Nur anwenden wenn Werte deutlich von Default abweichen
-            const thresholdChanged = Math.abs(threshold - 0.6) > 0.01;
-            const featherChanged = Math.abs(feather - 0.12) > 0.01;
+            // Kontrast und Helligkeit basierend auf Threshold/Feather berechnen
+            // Threshold > 0.6 = mehr Kontrast (strengere Erkennung)
+            // Feather < 0.12 = schärfere Kanten
+            const contrastBoost = 1 + (threshold - 0.6) * 2;  // 0.6 -> 1.0, 0.95 -> 1.7
+            const brightness = 1 - (threshold - 0.6) * 0.5;   // 0.6 -> 1.0, 0.95 -> 0.825
 
-            if (thresholdChanged || featherChanged) {
-                try {
-                    const imageData = opt.cachedMaskCtx.getImageData(0, 0, canvas.width, canvas.height);
-                    const data = imageData.data;
-                    const thresholdShift = (threshold - 0.6) * 1.4;
-                    const normalizeDenominator = Math.max(0.0001, 1 - thresholdShift);
-                    const featherGamma = Math.max(0.1, 1.0 + (0.25 - feather) * 3.5);
-
-                    for (let i = 0; i < data.length; i += 4) {
-                        // Hole Rot-Kanal als Maske-Wert
-                        let maskValue = data[i] / 255;
-
-                        // Threshold anwenden
-                        maskValue = (maskValue - thresholdShift) / normalizeDenominator;
-                        maskValue = Math.min(1, Math.max(0, maskValue));
-
-                        // Feather (Gamma) anwenden
-                        maskValue = Math.pow(maskValue, featherGamma);
-
-                        // Zurückschreiben
-                        const newValue = Math.round(maskValue * 255);
-                        data[i] = newValue;     // R
-                        data[i + 1] = newValue; // G
-                        data[i + 2] = newValue; // B
-                        data[i + 3] = 255;      // A
-                    }
-                    opt.cachedMaskCtx.putImageData(imageData, 0, 0);
-                } catch (pixelError) {
-                    console.warn('⚠️ Fehler bei Masken-Verarbeitung:', pixelError);
-                }
+            // Filter-String bauen
+            let filterStr = '';
+            if (blurRadius > 0) {
+                filterStr += `blur(${blurRadius}px) `;
             }
+            if (Math.abs(contrastBoost - 1) > 0.05) {
+                filterStr += `contrast(${contrastBoost.toFixed(2)}) `;
+            }
+            if (Math.abs(brightness - 1) > 0.05) {
+                filterStr += `brightness(${brightness.toFixed(2)}) `;
+            }
+
+            opt.cachedMaskCtx.filter = filterStr.trim() || 'none';
+            opt.cachedMaskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            opt.cachedMaskCtx.filter = 'none';
 
             opt.lastMaskTime = performance.now();
 
