@@ -3762,7 +3762,48 @@ class StreamRecorderOptimized {
             opt.cachedMaskCanvas.width = canvas.width;
             opt.cachedMaskCanvas.height = canvas.height;
             opt.cachedMaskCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 🎚️ Slider-Parameter anwenden: Masken-Blur
+            const blurRadius = Math.max(0, this.backgroundEffects.maskBlurRadius || 0);
+            if (blurRadius > 0) {
+                opt.cachedMaskCtx.filter = `blur(${blurRadius}px)`;
+            }
             opt.cachedMaskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            opt.cachedMaskCtx.filter = 'none';
+
+            // 🎚️ Threshold/Feather anwenden (Kontrast-Anpassung der Maske)
+            const threshold = this.backgroundEffects.confidenceThreshold ?? 0.6;
+            const feather = this.backgroundEffects.edgeFeather ?? 0.12;
+
+            // Nur anwenden wenn Werte von Default abweichen
+            if (threshold !== 0.6 || feather !== 0.12) {
+                const imageData = opt.cachedMaskCtx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const thresholdShift = (threshold - 0.6) * 1.4;
+                const normalizeDenominator = Math.max(0.0001, 1 - thresholdShift);
+                const featherGamma = Math.max(0.1, 1.0 + (0.25 - feather) * 3.5);
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // Hole Alpha-Wert (oder Rot-Kanal als Maske)
+                    let maskValue = data[i] / 255;
+
+                    // Threshold anwenden
+                    maskValue = (maskValue - thresholdShift) / normalizeDenominator;
+                    maskValue = Math.min(1, Math.max(0, maskValue));
+
+                    // Feather (Gamma) anwenden
+                    maskValue = Math.pow(maskValue, featherGamma);
+
+                    // Zurückschreiben
+                    const newValue = Math.round(maskValue * 255);
+                    data[i] = newValue;     // R
+                    data[i + 1] = newValue; // G
+                    data[i + 2] = newValue; // B
+                    data[i + 3] = 255;      // A
+                }
+                opt.cachedMaskCtx.putImageData(imageData, 0, 0);
+            }
+
             opt.lastMaskTime = performance.now();
 
             // Speichere nur die Maske für späteren Zugriff
