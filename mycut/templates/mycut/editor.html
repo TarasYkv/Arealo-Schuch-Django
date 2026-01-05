@@ -28,6 +28,7 @@
             <button class="btn btn-sm btn-ai" data-bs-toggle="modal" data-bs-target="#exportModal">
                 <i class="fas fa-file-export me-1"></i> Exportieren
             </button>
+            <button class="btn btn-sm btn-warning" onclick="testModal()">TEST Modal</button>
         </div>
     </div>
 
@@ -410,8 +411,38 @@
 <script src="{% static 'mycut/js/editor.js' %}?v=20260105c"></script>
 
 <script>
+// Debug: Test Modal function
+function testModal() {
+    console.log('testModal() called');
+    console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
+
+    const modalEl = document.getElementById('exportModal');
+    console.log('Modal element found:', modalEl);
+
+    if (modalEl) {
+        console.log('Modal parent:', modalEl.parentElement?.tagName);
+        console.log('Modal in DOM:', document.body.contains(modalEl));
+
+        if (typeof bootstrap !== 'undefined') {
+            try {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+                console.log('Modal.show() called');
+            } catch (e) {
+                console.error('Error creating modal:', e);
+            }
+        } else {
+            alert('Bootstrap nicht geladen!');
+        }
+    } else {
+        alert('Modal Element nicht gefunden!');
+    }
+}
+
 // Initialize MyCut Editor - window.editor fuer inline onclick Handler
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded - Bootstrap check:', typeof bootstrap);
+
     window.editor = new MyCutEditor({
         projectId: {{ project.id }},
         csrfToken: '{{ csrf_token }}',
