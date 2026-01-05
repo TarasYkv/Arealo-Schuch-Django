@@ -601,6 +601,30 @@ def export_step(project_id: int, export_job_id: int) -> dict:
         logger.error(f"Export job or project not found: {e}")
         return {'status': 'failed', 'error': str(e), 'progress': 0}
 
+    # Bereits abgeschlossene Jobs nicht erneut verarbeiten
+    if export_job.status == 'completed':
+        return {
+            'status': 'completed',
+            'progress': 100,
+            'next_step': None,
+            'message': 'Export bereits abgeschlossen!',
+            'output_url': export_job.output_file.url if export_job.output_file else None,
+            'file_size': export_job.file_size,
+        }
+
+    if export_job.status == 'failed':
+        return {
+            'status': 'failed',
+            'error': export_job.error_message or 'Export fehlgeschlagen',
+            'progress': export_job.progress,
+        }
+
+    # Status auf "processing" setzen
+    if export_job.status == 'pending':
+        export_job.status = 'processing'
+        export_job.started_at = timezone.now()
+        export_job.save(update_fields=['status', 'started_at'])
+
     # State aus export_settings laden
     state = export_job.export_settings.copy()
     current_step = state.get('current_step', 'init')
@@ -866,6 +890,11 @@ def export_step(project_id: int, export_job_id: int) -> dict:
             final_path = state.get('final_path')
             output_filename = state.get('output_filename')
 
+            # Pruefen ob Datei existiert
+            if not final_path or not os.path.exists(final_path):
+                export_job.fail("Finale Datei nicht gefunden")
+                return {'status': 'failed', 'error': 'Final file not found', 'progress': 95}
+
             # Dateigroesse ermitteln
             file_size = os.path.getsize(final_path)
 
@@ -878,11 +907,12 @@ def export_step(project_id: int, export_job_id: int) -> dict:
                     save=False
                 )
 
-            # Job als abgeschlossen markieren
+            # Job als abgeschlossen markieren - SOFORT speichern
             export_job.status = 'completed'
             export_job.completed_at = timezone.now()
             export_job.file_size = file_size
             export_job.progress = 100
+            export_job.error_message = ''
             export_job.save()
 
             # Projekt-Status aktualisieren
@@ -891,11 +921,11 @@ def export_step(project_id: int, export_job_id: int) -> dict:
             project.processing_message = 'Export abgeschlossen!'
             project.save(update_fields=['status', 'processing_progress', 'processing_message'])
 
-            # Temp-Ordner aufraumen
+            # Temp-Ordner aufraumen (Fehler hier ignorieren)
             try:
                 shutil.rmtree(temp_dir)
-            except Exception as e:
-                logger.warning(f"Could not cleanup temp dir: {e}")
+            except Exception:
+                pass  # Nicht kritisch
 
             logger.info(f"Chunked export completed: {export_job.output_file.url}")
 
