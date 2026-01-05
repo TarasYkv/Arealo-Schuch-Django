@@ -101,16 +101,30 @@ def export_video(self, project_id: int, export_job_id: int) -> dict:
                     'volume': 1.0,
                 }]
             else:
-                clips = [
-                    {
-                        'source_start': c.source_start,
-                        'source_end': c.source_end,
-                        'speed': c.speed,
+                clips = []
+                for c in project.clips.filter(clip_type='video', is_hidden=False).order_by('start_time'):
+                    source_start = c.source_start or 0
+                    source_end = c.source_end if c.source_end > 0 else c.duration
+                    # Falls source_end immer noch 0, ueberspringe
+                    if source_end <= source_start:
+                        source_end = source_start + (c.duration or total_duration)
+                    clips.append({
+                        'source_start': source_start,
+                        'source_end': source_end,
+                        'speed': c.speed or 1.0,
                         'is_muted': c.is_muted,
-                        'volume': c.volume,
-                    }
-                    for c in clips
-                ]
+                        'volume': c.volume or 1.0,
+                    })
+
+            # Falls keine gueltigen Clips, komplettes Video
+            if not clips:
+                clips = [{
+                    'source_start': 0,
+                    'source_end': total_duration,
+                    'speed': 1.0,
+                    'is_muted': False,
+                    'volume': 1.0,
+                }]
 
             update_progress(15, f'{len(clips)} Clip(s) werden verarbeitet...')
 
@@ -246,6 +260,13 @@ def _extract_segment(
     start_sec = start_ms / 1000
     duration_sec = (end_ms - start_ms) / 1000
 
+    # Validierung
+    if duration_sec <= 0:
+        logger.error(f"Invalid segment duration: {duration_sec}s (start={start_ms}ms, end={end_ms}ms)")
+        return False
+
+    logger.info(f"Extracting segment: {start_sec}s - {end_ms/1000}s (duration={duration_sec}s)")
+
     # Filter bauen
     video_filters = []
     audio_filters = []
@@ -309,7 +330,8 @@ def _extract_segment(
 
             cmd.extend(['-c:v', 'libx264', '-preset', 'fast', '-c:a', 'aac', output_path])
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Timeout: 5 Minuten pro Segment
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             logger.error(f"FFmpeg error: {result.stderr}")
             # Fallback: Einfaches Kopieren ohne Filter
@@ -321,10 +343,13 @@ def _extract_segment(
                 '-c', 'copy',
                 output_path
             ]
-            subprocess.run(cmd_simple, capture_output=True, check=True)
+            subprocess.run(cmd_simple, capture_output=True, check=True, timeout=300)
 
         return True
 
+    except subprocess.TimeoutExpired:
+        logger.error(f"Segment extraction timed out after 5 minutes")
+        return False
     except subprocess.CalledProcessError as e:
         logger.error(f"Segment extraction failed: {e}")
         return False

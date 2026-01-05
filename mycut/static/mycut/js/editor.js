@@ -365,29 +365,90 @@ class MyCutEditor {
 
     // Clip operations
     async updateClip(clip) {
-        try {
-            await this.apiCall(`/mycut/api/project/${this.projectId}/clip/${clip.id}/`, 'PUT', clip);
-        } catch (error) {
-            console.error('Error updating clip:', error);
+        // Temporaere IDs (Date.now()) sind groesser als 1000000000000
+        // Server-IDs sind typischerweise kleine Zahlen
+        const isTempId = clip.id > 1000000000000;
+
+        if (isTempId) {
+            // Temporaere ID - muss erst gespeichert werden
+            console.log('Clip has temp ID, saving all clips...');
+            await this.saveClips();
+        } else {
+            try {
+                await this.apiCall(`/mycut/api/project/${this.projectId}/clip/${clip.id}/`, 'PUT', clip);
+            } catch (error) {
+                console.error('Error updating clip:', error);
+                // Fallback: Alle Clips speichern
+                await this.saveClips();
+            }
         }
     }
 
     async deleteClip(clipId) {
-        try {
-            await this.apiCall(`/mycut/api/project/${this.projectId}/clip/${clipId}/`, 'DELETE');
-            this.project.clips = this.project.clips.filter(c => c.id !== clipId);
-        } catch (error) {
-            console.error('Error deleting clip:', error);
+        // Lokal entfernen
+        this.project.clips = this.project.clips.filter(c => c.id !== clipId);
+
+        // Temporaere IDs muessen nicht vom Server geloescht werden
+        const isTempId = clipId > 1000000000000;
+
+        if (isTempId) {
+            // Nur lokal entfernt, alle Clips synchronisieren
+            await this.saveClips();
+        } else {
+            try {
+                await this.apiCall(`/mycut/api/project/${this.projectId}/clip/${clipId}/`, 'DELETE');
+            } catch (error) {
+                console.error('Error deleting clip:', error);
+            }
         }
     }
 
     async saveClips() {
         try {
-            await this.apiCall(`/mycut/api/project/${this.projectId}/clips/`, 'POST', {
+            const result = await this.apiCall(`/mycut/api/project/${this.projectId}/clips/`, 'POST', {
                 clips: this.project.clips
             });
+
+            if (result.success) {
+                // Clips neu laden um Server-IDs zu synchronisieren
+                await this.reloadClips();
+            }
         } catch (error) {
             console.error('Error saving clips:', error);
+        }
+    }
+
+    async reloadClips() {
+        try {
+            const result = await this.apiCall(`/mycut/api/project/${this.projectId}/clips/`);
+            if (result.success && result.clips) {
+                this.project.clips = result.clips;
+
+                // Timeline aktualisieren
+                const allClips = [
+                    ...this.project.clips,
+                    ...this.project.subtitles.map(sub => ({
+                        id: 'sub_' + sub.id,
+                        clip_type: 'subtitle',
+                        start_time: sub.start_time,
+                        duration: sub.end_time - sub.start_time,
+                        text: sub.text,
+                        source_id: sub.id
+                    })),
+                    ...this.project.textOverlays.map(overlay => ({
+                        id: 'overlay_' + overlay.id,
+                        clip_type: 'text_overlay',
+                        start_time: overlay.start_time,
+                        duration: overlay.end_time - overlay.start_time,
+                        text: overlay.text,
+                        source_id: overlay.id
+                    }))
+                ];
+
+                this.timeline.setClips(allClips);
+            }
+        } catch (error) {
+            console.error('Error reloading clips:', error);
         }
     }
 
