@@ -448,6 +448,54 @@ document.addEventListener('DOMContentLoaded', function() {
         csrfToken: '{{ csrf_token }}',
         videoUrl: '{% if video.video_file %}{{ video.video_file.url }}{% endif %}'
     });
+
+    // OVERRIDE startExport to bypass cache - INLINE VERSION
+    window.editor.startExport = async function() {
+        console.log('=== INLINE startExport() CALLED ===');
+        alert('Export startet! (Inline Version)');
+
+        const quality = document.getElementById('modal-export-quality')?.value || '1080p';
+        const format = document.getElementById('modal-export-format')?.value || 'mp4';
+        const burnSubtitles = document.getElementById('burn-subtitles')?.checked || false;
+
+        console.log('Export settings:', { quality, format, burnSubtitles, projectId: this.projectId });
+
+        const exportBtn = document.getElementById('start-export-btn');
+        if (exportBtn) {
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Export läuft...';
+        }
+
+        this.showExportProgress(true);
+        this.updateExportProgress(0, 'Export wird vorbereitet...');
+
+        try {
+            console.log('=== Sending export request... ===');
+            const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/`, 'POST', {
+                quality, format, burn_subtitles: burnSubtitles
+            });
+
+            console.log('=== Export API response ===', result);
+            alert('API Response: ' + JSON.stringify(result).substring(0, 300));
+
+            if (result.success) {
+                this.currentExportJobId = result.job_id;
+                if (result.output_url) {
+                    this.handleExportComplete(result);
+                } else {
+                    this.showNotification('info', 'Export gestartet', `${quality} ${format.toUpperCase()} wird erstellt...`);
+                    this.pollExportStatus(result.job_id);
+                }
+            } else {
+                this.handleExportError(result.error || 'Unbekannter Fehler');
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Export Fehler: ' + error.message);
+            this.handleExportError('Netzwerkfehler: ' + error.message);
+        }
+    };
+    console.log('startExport OVERRIDDEN with inline version');
 });
 </script>
 {% endblock %}
