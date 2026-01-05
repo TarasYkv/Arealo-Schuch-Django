@@ -194,14 +194,49 @@ class MyCutEditor {
     async loadProject() {
         try {
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/`);
-            if (result.success) {
+
+            // API returns data directly, not wrapped in {success: true}
+            if (result.id) {
                 this.project.clips = result.clips || [];
                 this.project.subtitles = result.subtitles || [];
-                this.project.suggestions = result.suggestions || [];
+                this.project.textOverlays = result.text_overlays || [];
+                this.project.suggestions = result.ai_suggestions || [];
 
-                this.timeline.setClips(this.project.clips);
+                // Convert subtitles to timeline clips
+                const subtitleClips = this.project.subtitles.map(sub => ({
+                    id: 'sub_' + sub.id,
+                    clip_type: 'subtitle',
+                    start_time: sub.start_time,
+                    duration: sub.end_time - sub.start_time,
+                    text: sub.text,
+                    source_id: sub.id
+                }));
+
+                // Convert text overlays to timeline clips
+                const overlayClips = this.project.textOverlays.map(overlay => ({
+                    id: 'overlay_' + overlay.id,
+                    clip_type: 'text_overlay',
+                    start_time: overlay.start_time,
+                    duration: overlay.end_time - overlay.start_time,
+                    text: overlay.text,
+                    source_id: overlay.id
+                }));
+
+                // Combine all clips
+                const allClips = [
+                    ...this.project.clips,
+                    ...subtitleClips,
+                    ...overlayClips
+                ];
+
+                this.timeline.setClips(allClips);
                 this.renderSubtitlesList();
                 this.renderSuggestionsList();
+
+                // Store video duration
+                if (result.source_video && result.source_video.duration) {
+                    this.videoDuration = result.source_video.duration * 1000; // Convert to ms
+                }
             }
         } catch (error) {
             console.error('Error loading project:', error);
@@ -337,38 +372,105 @@ class MyCutEditor {
 
     // AI operations
     async startTranscription() {
-        if (!confirm('Transkription starten? Dies kann einige Minuten dauern.')) return;
+        if (!confirm('Transkription starten? Dies kann je nach Videolänge 1-5 Minuten dauern.\n\nVoraussetzung: OpenAI API-Key in den Einstellungen konfiguriert.')) return;
 
-        this.showProgress('Transkribiere Audio...');
+        const btn = document.querySelector('[onclick="editor.startTranscription()"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Transkribiere...';
+        }
+
+        this.showProgress('Audio wird extrahiert...');
+        this.updateProgressBar(10);
 
         try {
+            // Simulate progress stages
+            setTimeout(() => {
+                this.showProgress('Sende an OpenAI Whisper API...');
+                this.updateProgressBar(30);
+            }, 1000);
+
+            setTimeout(() => {
+                this.showProgress('Transkription läuft...');
+                this.updateProgressBar(50);
+            }, 3000);
+
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/transcribe/`, 'POST');
 
             if (result.success) {
-                this.showSuccess(`Fertig! ${result.segments} Segmente erkannt.`);
-                setTimeout(() => location.reload(), 1500);
+                this.updateProgressBar(100);
+                this.showSuccess(`Fertig! ${result.segments} Segmente, ${result.words} Woerter erkannt.`);
+
+                // Show notification
+                this.showNotification('success', 'Transkription abgeschlossen', `${result.segments} Untertitel wurden erstellt.`);
+
+                setTimeout(() => location.reload(), 2000);
             } else {
                 this.showError('Fehler: ' + result.error);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-microphone me-1"></i> Transkribieren';
+                }
             }
         } catch (error) {
-            this.showError('Fehler bei der Transkription');
+            this.showError('Fehler bei der Transkription: ' + error.message);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-microphone me-1"></i> Transkribieren';
+            }
         }
     }
 
     async startAnalysis() {
-        this.showProgress('Analysiere fuer Auto-Edit...');
+        const btn = document.querySelector('[onclick="editor.startAnalysis()"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Analysiere...';
+        }
+
+        this.showProgress('Analysiere Transkription...');
+        this.updateProgressBar(20);
 
         try {
+            setTimeout(() => {
+                this.showProgress('Suche Fuellwoerter...');
+                this.updateProgressBar(40);
+            }, 500);
+
+            setTimeout(() => {
+                this.showProgress('Erkenne Pausen...');
+                this.updateProgressBar(60);
+            }, 1000);
+
+            setTimeout(() => {
+                this.showProgress('Analysiere Sprechgeschwindigkeit...');
+                this.updateProgressBar(80);
+            }, 1500);
+
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/analyze/`, 'POST');
 
             if (result.success) {
-                this.showSuccess(`${result.filler_words} Fuellwoerter, ${result.silences} Pausen gefunden.`);
+                this.updateProgressBar(100);
+                const total = result.filler_words + result.silences + result.speed_changes;
+                this.showSuccess(`${total} Vorschlaege erstellt!`);
+
+                this.showNotification('success', 'Analyse abgeschlossen',
+                    `${result.filler_words} Fuellwoerter, ${result.silences} Pausen, ${result.speed_changes} Speed-Aenderungen`);
+
                 setTimeout(() => location.reload(), 2000);
             } else {
                 this.showError('Fehler: ' + result.error);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-magic me-1"></i> Auto-Edit analysieren';
+                }
             }
         } catch (error) {
-            this.showError('Fehler bei der Analyse');
+            this.showError('Fehler bei der Analyse: ' + error.message);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic me-1"></i> Auto-Edit analysieren';
+            }
         }
     }
 
@@ -547,24 +649,78 @@ class MyCutEditor {
         const progress = document.getElementById('ai-progress');
         const status = document.getElementById('ai-status');
         if (progress) progress.classList.remove('d-none');
-        if (status) status.textContent = message;
+        if (status) {
+            status.textContent = message;
+            status.classList.remove('text-success', 'text-danger');
+            status.classList.add('text-warning');
+        }
+    }
+
+    updateProgressBar(percent) {
+        const progressBar = document.querySelector('#ai-progress .progress-bar');
+        if (progressBar) {
+            progressBar.style.width = percent + '%';
+            progressBar.setAttribute('aria-valuenow', percent);
+        }
     }
 
     showSuccess(message) {
         const status = document.getElementById('ai-status');
         if (status) {
             status.textContent = message;
+            status.classList.remove('text-warning', 'text-danger');
             status.classList.add('text-success');
         }
+        this.updateProgressBar(100);
     }
 
     showError(message) {
         const status = document.getElementById('ai-status');
         if (status) {
             status.textContent = message;
+            status.classList.remove('text-warning', 'text-success');
             status.classList.add('text-danger');
         }
+        this.updateProgressBar(0);
         console.error(message);
+    }
+
+    showNotification(type, title, message) {
+        // Create toast notification
+        const toastContainer = document.getElementById('toast-container') || this.createToastContainer();
+
+        const toastId = 'toast-' + Date.now();
+        const bgClass = type === 'success' ? 'bg-success' : (type === 'error' ? 'bg-danger' : 'bg-info');
+
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>
+                        <small>${message}</small>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+        const toastEl = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+        toast.show();
+
+        // Remove after hidden
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    }
+
+    createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        container.style.zIndex = '1100';
+        document.body.appendChild(container);
+        return container;
     }
 
     undo() {

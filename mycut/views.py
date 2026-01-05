@@ -247,13 +247,29 @@ def api_transcribe(request, project_id):
         # Temp-Datei löschen
         os.unlink(audio_path)
 
+        # Alte Untertitel löschen (falls Retry)
+        project.subtitles.filter(is_auto_generated=True).delete()
+
+        # Alle Wörter für Zuordnung zu Segmenten
+        all_words = transcription.get('words', [])
+
         # Untertitel aus Transkription erstellen
         for segment in transcription.get('segments', []):
+            seg_start = segment.get('start', 0)
+            seg_end = segment.get('end', 0)
+
+            # Wörter für dieses Segment finden
+            segment_words = [
+                w for w in all_words
+                if w.get('start', 0) >= seg_start and w.get('end', 0) <= seg_end
+            ]
+
             Subtitle.objects.create(
                 project=project,
-                text=segment.get('text', ''),
-                start_time=segment.get('start', 0),
-                end_time=segment.get('end', 0),
+                text=segment.get('text', '').strip(),
+                start_time=seg_start,
+                end_time=seg_end,
+                word_timestamps=segment_words,
                 is_auto_generated=True,
                 confidence=0.9,
                 language=transcription.get('language', 'de'),
