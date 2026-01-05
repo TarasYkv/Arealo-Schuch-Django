@@ -784,7 +784,8 @@ class MyCutEditor {
 
     // Export
     async startExport() {
-        console.log('startExport() called');
+        console.log('=== startExport() CALLED ===');
+        alert('Export startet - check Console!');
 
         const quality = document.getElementById('modal-export-quality')?.value || '1080p';
         const format = document.getElementById('modal-export-format')?.value || 'mp4';
@@ -804,12 +805,13 @@ class MyCutEditor {
         this.updateExportProgress(0, 'Export wird vorbereitet...');
 
         try {
-            console.log('Sending export request to API...');
+            console.log('=== Sending export request to API... ===');
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/`, 'POST', {
                 quality, format, burn_subtitles: burnSubtitles
             });
 
-            console.log('Export API response:', result);
+            console.log('=== Export API response ===', result);
+            alert('API Response: ' + JSON.stringify(result).substring(0, 200));
 
             if (result.success) {
                 this.currentExportJobId = result.job_id;
