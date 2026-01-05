@@ -3,24 +3,37 @@
 """
 Celery Tasks fuer MyCut Video-Editor.
 Handhabt asynchrone Video-Verarbeitung und Export.
+Funktioniert auch ohne Celery (synchroner Fallback).
 """
 
 import os
 import logging
 import tempfile
 import subprocess
-from celery import shared_task
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+# Celery optional - funktioniert auch ohne
+try:
+    from celery import shared_task
+    CELERY_AVAILABLE = True
+except ImportError:
+    CELERY_AVAILABLE = False
+    # Dummy-Decorator wenn Celery nicht installiert
+    def shared_task(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
 
 @shared_task(bind=True, max_retries=2)
-def export_video(self, project_id: int, export_job_id: int) -> dict:
+def export_video(self_or_project_id, project_id_or_job_id: int = None, export_job_id: int = None) -> dict:
     """
     Celery Task: Exportiert ein bearbeitetes Video.
+    Funktioniert mit Celery (self, project_id, job_id) oder direkt (project_id, job_id).
 
     Workflow:
     1. Timeline-Clips laden und sortieren
@@ -37,6 +50,16 @@ def export_video(self, project_id: int, export_job_id: int) -> dict:
     Returns:
         dict mit status und output_path
     """
+    # Handle beide Aufruf-Konventionen: Celery (self, proj, job) vs direkt (proj, job)
+    if CELERY_AVAILABLE and hasattr(self_or_project_id, 'request'):
+        # Celery-Aufruf: self ist Task-Objekt
+        project_id = project_id_or_job_id
+        # export_job_id kommt vom Parameter
+    else:
+        # Direkter Aufruf: self_or_project_id ist project_id
+        project_id = self_or_project_id
+        export_job_id = project_id_or_job_id
+
     from .models import EditProject, ExportJob, TimelineClip
     from .services.ffmpeg_service import FFmpegService, has_ffmpeg
 
