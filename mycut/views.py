@@ -471,13 +471,36 @@ def _ms_to_vtt_time(ms):
 # =============================================================================
 
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def api_get_waveform(request, project_id):
     """
-    Gibt Waveform-Daten zurück (generiert bei Bedarf).
+    GET: Gibt Waveform-Daten zurück (generiert bei Bedarf).
+    POST: Speichert Client-generierte Waveform-Daten.
     """
     project = get_object_or_404(EditProject, id=project_id, user=request.user)
 
+    # POST: Client-generierte Waveform speichern
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body) if request.body else {}
+            waveform = data.get('waveform', [])
+
+            if waveform and isinstance(waveform, list):
+                project.waveform_data = waveform
+                project.save(update_fields=['waveform_data'])
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Waveform gespeichert'
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Keine gültigen Waveform-Daten'
+                }, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    # GET: Waveform abrufen oder generieren
     if project.waveform_data:
         return JsonResponse({
             'success': True,
