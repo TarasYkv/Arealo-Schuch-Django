@@ -605,9 +605,13 @@ class MyCutEditor {
 
     async applySuggestion(id) {
         try {
+            // ID als Zahl konvertieren (DOM-Attribute sind Strings)
+            const numericId = parseInt(id, 10);
+
             // Vorschlag finden
-            const suggestion = this.project.suggestions.find(s => s.id === id);
+            const suggestion = this.project.suggestions.find(s => s.id === numericId || s.id === id);
             if (!suggestion) {
+                console.error('Vorschlag nicht gefunden:', id, 'Verfügbare:', this.project.suggestions.map(s => s.id));
                 this.showError('Vorschlag nicht gefunden');
                 return;
             }
@@ -757,13 +761,25 @@ class MyCutEditor {
     async applyAllSuggestions() {
         if (!confirm('Alle Vorschlaege anwenden?')) return;
 
-        const suggestions = document.querySelectorAll('.ai-suggestion');
-        for (const el of suggestions) {
-            const id = el.dataset.id;
-            await this.applySuggestion(id);
+        // Kopie der Vorschläge machen (da wir sie während der Iteration entfernen)
+        const suggestionsToApply = [...this.project.suggestions];
+
+        if (suggestionsToApply.length === 0) {
+            this.showNotification('info', 'Keine Vorschläge', 'Es gibt keine Vorschläge zum Anwenden.');
+            return;
         }
 
-        this.showSuccess('Alle Vorschlaege angewendet');
+        let applied = 0;
+        for (const suggestion of suggestionsToApply) {
+            try {
+                await this.applySuggestion(suggestion.id);
+                applied++;
+            } catch (error) {
+                console.error('Fehler beim Anwenden von Vorschlag', suggestion.id, error);
+            }
+        }
+
+        this.showNotification('success', 'Vorschläge angewendet', `${applied} von ${suggestionsToApply.length} Vorschlägen wurden angewendet.`);
     }
 
     // Export
