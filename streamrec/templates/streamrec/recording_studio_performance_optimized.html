@@ -748,6 +748,30 @@
                                         <span id="greenScreenFPS" class="ms-1"></span>
                                     </span>
                                 </div>
+
+                                <!-- Hintergrundbild-Auswahl (erscheint wenn Green Screen aktiv) -->
+                                <div id="backgroundImageSection" class="mt-2" style="display: none;">
+                                    <label class="form-label small mb-1">
+                                        <i class="fas fa-image me-1"></i>Hintergrundbild (optional)
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="file" class="form-control form-control-sm" id="backgroundImageUpload"
+                                               accept="image/*" style="font-size: 0.75rem;">
+                                        <button class="btn btn-outline-danger btn-sm" type="button" id="clearBackgroundImage"
+                                                title="Bild entfernen" style="display: none;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">
+                                        Ohne Bild: schwarzer Hintergrund
+                                    </small>
+                                    <!-- Vorschau -->
+                                    <div id="backgroundImagePreview" class="mt-2" style="display: none;">
+                                        <img id="backgroundImageThumb" src="" alt="Vorschau"
+                                             style="max-width: 100%; max-height: 80px; border-radius: 4px; border: 1px solid #dee2e6;">
+                                    </div>
+                                </div>
+
                                 <div class="mt-2">
                                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#backgroundAdvancedSettings" aria-expanded="false" aria-controls="backgroundAdvancedSettings">
                                         <i class="fas fa-sliders-h me-1"></i>Feinjustierung
@@ -1812,6 +1836,14 @@ class StreamRecorderOptimized {
         // Green Screen Toggle
         document.getElementById('greenScreenToggle')?.addEventListener('change', (e) => {
             this.toggleGreenScreen(e.target.checked);
+        });
+
+        // Hintergrundbild Upload und Clear
+        document.getElementById('backgroundImageUpload')?.addEventListener('change', (e) => {
+            this.handleBackgroundImageUpload(e);
+        });
+        document.getElementById('clearBackgroundImage')?.addEventListener('click', () => {
+            this.clearBackgroundImage();
         });
 
         // Screen controls
@@ -4236,38 +4268,64 @@ class StreamRecorderOptimized {
     handleBackgroundImageUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         // Check file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
             alert('Datei zu groß. Maximal 5MB erlaubt.');
             return;
         }
-        
+
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
                 this.backgroundEffects.backgroundImage = img;
-                
+
                 // Show preview
                 const preview = document.getElementById('backgroundImagePreview');
+                const thumb = document.getElementById('backgroundImageThumb');
+                const clearBtn = document.getElementById('clearBackgroundImage');
+
                 if (preview) {
                     preview.style.display = 'block';
-                    const previewImg = preview.querySelector('img');
-                    if (previewImg) {
-                        previewImg.src = e.target.result;
-                    }
                 }
-                
-                // If image mode is active, reapply the effect
-                if (this.backgroundEffects.mode === 'image' && this.backgroundEffects.enabled) {
-                    this.applySimpleEffect('image');
-                    this.logDebug('🖼️ Updated background image effect');
+                if (thumb) {
+                    thumb.src = e.target.result;
+                }
+                if (clearBtn) {
+                    clearBtn.style.display = 'block';
+                }
+
+                // Wenn Green Screen aktiv ist, setze Modus auf 'image'
+                if (this.backgroundEffects.enabled || this.backgroundEffects.greenScreenActive) {
+                    this.backgroundEffects.mode = 'image';
+                    console.log('🖼️ Hintergrundbild gesetzt - Modus: image');
                 }
             };
             img.src = e.target.result;
         };
         reader.readAsDataURL(file);
+    }
+
+    clearBackgroundImage() {
+        this.backgroundEffects.backgroundImage = null;
+
+        // Verstecke Vorschau und Clear-Button
+        const preview = document.getElementById('backgroundImagePreview');
+        const thumb = document.getElementById('backgroundImageThumb');
+        const clearBtn = document.getElementById('clearBackgroundImage');
+        const fileInput = document.getElementById('backgroundImageUpload');
+
+        if (preview) preview.style.display = 'none';
+        if (thumb) thumb.src = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (fileInput) fileInput.value = '';
+
+        // Zurück zu 'remove' Modus (schwarzer Hintergrund)
+        if (this.backgroundEffects.enabled || this.backgroundEffects.greenScreenActive) {
+            this.backgroundEffects.mode = 'remove';
+            console.log('🗑️ Hintergrundbild entfernt - Modus: remove (schwarz)');
+        }
     }
     
     applyEffectToCompositionCanvas(mode, segmentationResults = null) {
@@ -4705,8 +4763,11 @@ class StreamRecorderOptimized {
 
         const statusBadge = document.getElementById('greenScreenStatus');
         const toggle = document.getElementById('greenScreenToggle');
+        const bgImageSection = document.getElementById('backgroundImageSection');
 
         if (enabled) {
+            // Zeige Hintergrundbild-Auswahl
+            if (bgImageSection) bgImageSection.style.display = 'block';
             // Check if camera is active
             if (!this.streams.has('camera')) {
                 console.warn('⚠️ Keine Kamera aktiv - bitte zuerst Kamera starten');
@@ -4778,9 +4839,12 @@ class StreamRecorderOptimized {
 
             this.disableBackgroundEffects();
 
-            // Hide status badge
+            // Hide status badge und Hintergrundbild-Sektion
             if (statusBadge) {
                 statusBadge.style.display = 'none';
+            }
+            if (bgImageSection) {
+                bgImageSection.style.display = 'none';
             }
 
             console.log('✅ Green Screen deaktiviert - normale Kamera wieder sichtbar');
