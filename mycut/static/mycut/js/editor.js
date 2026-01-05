@@ -233,6 +233,21 @@ class MyCutEditor {
                 this.project.textOverlays = result.text_overlays || [];
                 this.project.suggestions = result.ai_suggestions || [];
 
+                // WICHTIG: Duration ZUERST setzen, bevor Clips gesetzt werden!
+                if (result.source_video && result.source_video.duration) {
+                    this.videoDuration = result.source_video.duration * 1000; // Convert to ms
+                    this.timeline.setDuration(this.videoDuration);
+                    console.log('Timeline duration set from API:', this.videoDuration, 'ms');
+                } else {
+                    // Fallback: Duration aus erstem Clip berechnen
+                    const firstClip = this.project.clips.find(c => c.clip_type === 'video');
+                    if (firstClip && firstClip.duration > 0) {
+                        this.videoDuration = firstClip.source_end || firstClip.duration;
+                        this.timeline.setDuration(this.videoDuration);
+                        console.log('Timeline duration set from clip:', this.videoDuration, 'ms');
+                    }
+                }
+
                 // Convert subtitles to timeline clips
                 const subtitleClips = this.project.subtitles.map(sub => ({
                     id: 'sub_' + sub.id,
@@ -260,14 +275,13 @@ class MyCutEditor {
                     ...overlayClips
                 ];
 
+                console.log('Loading clips:', allClips.length, 'total');
+                console.log('Video clips:', this.project.clips.length);
+                console.log('Subtitle clips:', subtitleClips.length);
+
                 this.timeline.setClips(allClips);
                 this.renderSubtitlesList();
                 this.renderSuggestionsList();
-
-                // Store video duration
-                if (result.source_video && result.source_video.duration) {
-                    this.videoDuration = result.source_video.duration * 1000; // Convert to ms
-                }
 
                 // Initialize Undo/Redo with initial state
                 this.history = [];
