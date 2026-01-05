@@ -555,3 +555,59 @@ class ExportJob(models.Model):
         self.completed_at = timezone.now()
         self.error_message = error_message
         self.save(update_fields=['status', 'completed_at', 'error_message'])
+
+    def delete(self, *args, **kwargs):
+        """Loescht auch die zugehoerige Export-Datei."""
+        if self.output_file:
+            try:
+                self.output_file.delete(save=False)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)
+
+
+# =============================================================================
+# SIGNALS - Automatische Bereinigung
+# =============================================================================
+
+from django.db.models.signals import post_delete, pre_delete
+from django.dispatch import receiver
+import os
+import shutil
+
+
+@receiver(pre_delete, sender=ExportJob)
+def cleanup_export_job_files(sender, instance, **kwargs):
+    """Loescht Export-Datei und Temp-Ordner wenn ExportJob geloescht wird."""
+    # Output-Datei loeschen
+    if instance.output_file:
+        try:
+            instance.output_file.delete(save=False)
+        except Exception:
+            pass
+
+    # Temp-Ordner loeschen falls noch vorhanden
+    temp_dir = f"/tmp/mycut_export_{instance.id}"
+    if os.path.exists(temp_dir):
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception:
+            pass
+
+
+@receiver(pre_delete, sender=EditProject)
+def cleanup_project_files(sender, instance, **kwargs):
+    """Loescht alle zugehoerigen Export-Dateien wenn Projekt geloescht wird."""
+    for job in instance.export_jobs.all():
+        if job.output_file:
+            try:
+                job.output_file.delete(save=False)
+            except Exception:
+                pass
+        # Temp-Ordner
+        temp_dir = f"/tmp/mycut_export_{job.id}"
+        if os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception:
+                pass
