@@ -558,7 +558,8 @@ def api_get_waveform(request, project_id):
 @require_http_methods(["POST"])
 def api_start_export(request, project_id):
     """
-    Startet den Video-Export.
+    Startet den Video-Export mit Chunked Processing.
+    Der Client muss wiederholt /export/step/ aufrufen bis fertig.
     """
     project = get_object_or_404(EditProject, id=project_id, user=request.user)
 
@@ -576,59 +577,80 @@ def api_start_export(request, project_id):
         project.status = 'exporting'
         project.save(update_fields=['export_quality', 'export_format', 'status'])
 
-        # Export-Job erstellen
+        # Export-Job erstellen mit chunked state
         export_job = ExportJob.objects.create(
             project=project,
             export_settings={
                 'quality': quality,
                 'format': export_format,
                 'burn_subtitles': burn_subtitles,
+                'current_step': 'init',  # Chunked export startet mit init
             }
         )
+        export_job.start_processing()
 
-        # Celery Task starten
-        try:
-            from .tasks import export_video
-            task = export_video.delay(project.id, export_job.id)
-            export_job.celery_task_id = task.id
-            export_job.save(update_fields=['celery_task_id'])
-            export_job.start_processing()
+        # Ersten Schritt direkt ausfuehren
+        from .tasks import export_step
+        result = export_step(project.id, export_job.id)
 
-            return JsonResponse({
-                'success': True,
-                'job_id': export_job.id,
-                'task_id': task.id,
-                'message': 'Export gestartet (Celery)'
-            })
-
-        except Exception as celery_error:
-            # Fallback: Background-Thread wenn Celery nicht verfuegbar
-            logger.warning(f"Celery nicht verfuegbar, starte Background-Thread: {celery_error}")
-            export_job.start_processing()
-
-            # Export in Background-Thread starten (nicht blockierend)
-            import threading
-            from .tasks import export_video as sync_export
-
-            def run_export():
-                try:
-                    sync_export(project.id, export_job.id)
-                except Exception as e:
-                    logger.error(f"Background export error: {e}")
-
-            thread = threading.Thread(target=run_export, daemon=True)
-            thread.start()
-
-            return JsonResponse({
-                'success': True,
-                'job_id': export_job.id,
-                'message': 'Export gestartet (Background-Thread)',
-                'async': True  # Client soll Status pollen
-            })
+        return JsonResponse({
+            'success': True,
+            'job_id': export_job.id,
+            'chunked': True,  # Client weiss: muss step-Endpoint aufrufen
+            **result
+        })
 
     except Exception as e:
         logger.error(f"Export start error: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_export_step(request, project_id, job_id):
+    """
+    Fuehrt den naechsten Export-Schritt aus.
+    Client ruft wiederholt auf bis status == 'completed'.
+    """
+    project = get_object_or_404(EditProject, id=project_id, user=request.user)
+    export_job = get_object_or_404(ExportJob, id=job_id, project=project)
+
+    # Bereits abgeschlossen?
+    if export_job.status == 'completed':
+        return JsonResponse({
+            'success': True,
+            'status': 'completed',
+            'progress': 100,
+            'output_url': export_job.output_file.url if export_job.output_file else None,
+            'file_size': export_job.file_size,
+        })
+
+    # Fehlgeschlagen?
+    if export_job.status == 'failed':
+        return JsonResponse({
+            'success': False,
+            'status': 'failed',
+            'error': export_job.error_message,
+            'progress': export_job.progress,
+        })
+
+    try:
+        from .tasks import export_step
+        result = export_step(project.id, export_job.id)
+
+        return JsonResponse({
+            'success': result['status'] != 'failed',
+            **result
+        })
+
+    except Exception as e:
+        logger.error(f"Export step error: {e}")
+        return JsonResponse({
+            'success': False,
+            'status': 'failed',
+            'error': str(e),
+            'progress': export_job.progress
+        }, status=500)
 
 
 @login_required

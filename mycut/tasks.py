@@ -563,3 +563,366 @@ def cleanup_old_exports(days: int = 7):
 
     logger.info(f"Cleaned up {deleted_count} old export jobs")
     return {'deleted': deleted_count}
+
+
+# =============================================================================
+# CHUNKED EXPORT - Verarbeitet einen Schritt pro API-Aufruf
+# =============================================================================
+
+def export_step(project_id: int, export_job_id: int) -> dict:
+    """
+    Verarbeitet EINEN Schritt des Exports.
+    Wird vom Client wiederholt aufgerufen bis fertig.
+
+    Schritte:
+    1. init - Vorbereitung, Clips laden
+    2. segment_N - Jedes Segment einzeln extrahieren
+    3. concat - Segmente zusammenfuegen
+    4. overlays - Text-Overlays anwenden
+    5. subtitles - Untertitel einbrennen
+    6. compress - Finale Komprimierung
+    7. save - Datei speichern
+
+    Returns:
+        dict mit:
+        - status: 'processing', 'completed', 'failed'
+        - progress: 0-100
+        - next_step: Naechster Schritt (oder None wenn fertig)
+        - message: Status-Nachricht
+    """
+    from .models import EditProject, ExportJob
+    from .services.ffmpeg_service import FFmpegService, has_ffmpeg
+    import shutil
+
+    try:
+        export_job = ExportJob.objects.get(id=export_job_id)
+        project = EditProject.objects.get(id=project_id)
+    except (ExportJob.DoesNotExist, EditProject.DoesNotExist) as e:
+        logger.error(f"Export job or project not found: {e}")
+        return {'status': 'failed', 'error': str(e), 'progress': 0}
+
+    # State aus export_settings laden
+    state = export_job.export_settings.copy()
+    current_step = state.get('current_step', 'init')
+
+    # Persistenter Temp-Ordner (ueberlebt Request-Grenzen)
+    temp_dir = f"/tmp/mycut_export_{export_job_id}"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    def update_state(new_state: dict):
+        """Speichert State in DB."""
+        export_job.export_settings.update(new_state)
+        export_job.save(update_fields=['export_settings'])
+
+    def update_progress(percent: int, message: str = ''):
+        """Aktualisiert Fortschritt."""
+        export_job.progress = percent
+        export_job.save(update_fields=['progress'])
+        project.processing_progress = percent
+        project.processing_message = message
+        project.save(update_fields=['processing_progress', 'processing_message'])
+
+    try:
+        # =====================================================
+        # STEP: INIT
+        # =====================================================
+        if current_step == 'init':
+            if not has_ffmpeg():
+                export_job.fail("FFmpeg ist nicht installiert")
+                return {'status': 'failed', 'error': 'FFmpeg not available', 'progress': 0}
+
+            # Source-Video pruefen
+            source_path = project.source_video.video_file.path
+            if not os.path.exists(source_path):
+                export_job.fail(f"Quell-Video nicht gefunden: {source_path}")
+                return {'status': 'failed', 'error': 'Source video not found', 'progress': 0}
+
+            # Video-Info holen
+            video_info = FFmpegService.get_video_info(source_path)
+            total_duration = video_info.get('duration', 0) * 1000
+
+            # Clips laden
+            clips_data = []
+            db_clips = list(project.clips.filter(
+                clip_type='video',
+                is_hidden=False
+            ).order_by('start_time'))
+
+            if not db_clips:
+                # Komplettes Video als ein Clip
+                clips_data.append({
+                    'source_start': 0,
+                    'source_end': total_duration,
+                    'speed': 1.0,
+                    'is_muted': False,
+                    'volume': 1.0,
+                })
+            else:
+                for c in db_clips:
+                    source_start = c.source_start or 0
+                    source_end = c.source_end if c.source_end > 0 else c.duration
+                    if source_end <= source_start:
+                        source_end = source_start + (c.duration or total_duration)
+                    clips_data.append({
+                        'source_start': source_start,
+                        'source_end': source_end,
+                        'speed': c.speed or 1.0,
+                        'is_muted': c.is_muted,
+                        'volume': c.volume or 1.0,
+                    })
+
+            # State speichern
+            update_state({
+                'current_step': 'segment_0',
+                'clips': clips_data,
+                'total_clips': len(clips_data),
+                'segment_paths': [],
+                'source_path': source_path,
+                'temp_dir': temp_dir,
+            })
+            update_progress(5, 'Export vorbereitet...')
+
+            return {
+                'status': 'processing',
+                'progress': 5,
+                'next_step': 'segment_0',
+                'message': f'{len(clips_data)} Clip(s) werden verarbeitet...',
+                'total_steps': len(clips_data) + 5,  # segments + concat + overlays + subtitles + compress + save
+            }
+
+        # =====================================================
+        # STEP: SEGMENT_N - Einzelnes Segment extrahieren
+        # =====================================================
+        if current_step.startswith('segment_'):
+            segment_idx = int(current_step.split('_')[1])
+            clips = state.get('clips', [])
+            source_path = state.get('source_path')
+            segment_paths = state.get('segment_paths', [])
+
+            if segment_idx >= len(clips):
+                # Alle Segmente fertig -> weiter zu concat
+                update_state({'current_step': 'concat'})
+                return {
+                    'status': 'processing',
+                    'progress': 55,
+                    'next_step': 'concat',
+                    'message': 'Segmente werden zusammengefuegt...',
+                }
+
+            clip = clips[segment_idx]
+            segment_path = os.path.join(temp_dir, f'segment_{segment_idx:04d}.mp4')
+
+            # Segment extrahieren
+            success = _extract_segment(
+                source_path,
+                segment_path,
+                clip['source_start'],
+                clip['source_end'],
+                clip['speed'],
+                clip['is_muted'],
+                clip['volume']
+            )
+
+            if success and os.path.exists(segment_path):
+                segment_paths.append(segment_path)
+
+            # Progress berechnen (Segmente = 5-55%)
+            progress = 5 + int((segment_idx + 1) / len(clips) * 50)
+            next_step = f'segment_{segment_idx + 1}'
+
+            update_state({
+                'current_step': next_step,
+                'segment_paths': segment_paths,
+            })
+            update_progress(progress, f'Segment {segment_idx + 1}/{len(clips)} verarbeitet...')
+
+            return {
+                'status': 'processing',
+                'progress': progress,
+                'next_step': next_step,
+                'message': f'Segment {segment_idx + 1}/{len(clips)} verarbeitet',
+            }
+
+        # =====================================================
+        # STEP: CONCAT - Segmente zusammenfuegen
+        # =====================================================
+        if current_step == 'concat':
+            segment_paths = state.get('segment_paths', [])
+
+            if not segment_paths:
+                export_job.fail("Keine Segmente konnten extrahiert werden")
+                return {'status': 'failed', 'error': 'No segments', 'progress': 55}
+
+            if len(segment_paths) == 1:
+                merged_path = segment_paths[0]
+            else:
+                merged_path = os.path.join(temp_dir, 'merged.mp4')
+                _concat_segments(segment_paths, merged_path)
+
+            update_state({
+                'current_step': 'overlays',
+                'merged_path': merged_path,
+            })
+            update_progress(65, 'Overlays werden angewendet...')
+
+            return {
+                'status': 'processing',
+                'progress': 65,
+                'next_step': 'overlays',
+                'message': 'Segmente zusammengefuegt',
+            }
+
+        # =====================================================
+        # STEP: OVERLAYS - Text-Overlays anwenden
+        # =====================================================
+        if current_step == 'overlays':
+            merged_path = state.get('merged_path')
+            text_overlays = list(project.text_overlays.all())
+
+            if text_overlays:
+                overlay_path = os.path.join(temp_dir, 'with_overlays.mp4')
+                _apply_text_overlays(merged_path, overlay_path, text_overlays)
+                if os.path.exists(overlay_path):
+                    merged_path = overlay_path
+
+            update_state({
+                'current_step': 'subtitles',
+                'overlay_path': merged_path,
+            })
+            update_progress(75, 'Untertitel werden verarbeitet...')
+
+            return {
+                'status': 'processing',
+                'progress': 75,
+                'next_step': 'subtitles',
+                'message': 'Overlays angewendet',
+            }
+
+        # =====================================================
+        # STEP: SUBTITLES - Untertitel einbrennen
+        # =====================================================
+        if current_step == 'subtitles':
+            overlay_path = state.get('overlay_path')
+            burn_subtitles = state.get('burn_subtitles', False)
+
+            subtitle_path = overlay_path
+            if burn_subtitles:
+                subtitles = list(project.subtitles.all())
+                if subtitles:
+                    srt_path = os.path.join(temp_dir, 'subtitles.srt')
+                    _create_srt_file(subtitles, srt_path)
+
+                    subtitle_path = os.path.join(temp_dir, 'with_subtitles.mp4')
+                    FFmpegService.burn_subtitles(overlay_path, subtitle_path, srt_path)
+
+            update_state({
+                'current_step': 'compress',
+                'subtitle_path': subtitle_path,
+            })
+            update_progress(85, 'Video wird komprimiert...')
+
+            return {
+                'status': 'processing',
+                'progress': 85,
+                'next_step': 'compress',
+                'message': 'Untertitel verarbeitet',
+            }
+
+        # =====================================================
+        # STEP: COMPRESS - Finale Komprimierung
+        # =====================================================
+        if current_step == 'compress':
+            subtitle_path = state.get('subtitle_path')
+            quality = state.get('quality', project.export_quality)
+            output_format = state.get('format', project.export_format)
+
+            output_filename = f"{project.unique_id}_{quality}.{output_format}"
+            final_path = os.path.join(temp_dir, output_filename)
+
+            FFmpegService.compress_video(subtitle_path, final_path, quality)
+
+            if not os.path.exists(final_path):
+                export_job.fail("Finale Datei konnte nicht erstellt werden")
+                return {'status': 'failed', 'error': 'Compression failed', 'progress': 85}
+
+            update_state({
+                'current_step': 'save',
+                'final_path': final_path,
+                'output_filename': output_filename,
+            })
+            update_progress(95, 'Export wird gespeichert...')
+
+            return {
+                'status': 'processing',
+                'progress': 95,
+                'next_step': 'save',
+                'message': 'Video komprimiert',
+            }
+
+        # =====================================================
+        # STEP: SAVE - Datei speichern und aufraumen
+        # =====================================================
+        if current_step == 'save':
+            final_path = state.get('final_path')
+            output_filename = state.get('output_filename')
+
+            # Dateigroesse ermitteln
+            file_size = os.path.getsize(final_path)
+
+            # Datei in Django FileField speichern
+            from django.core.files.base import ContentFile
+            with open(final_path, 'rb') as f:
+                export_job.output_file.save(
+                    output_filename,
+                    ContentFile(f.read()),
+                    save=False
+                )
+
+            # Job als abgeschlossen markieren
+            export_job.status = 'completed'
+            export_job.completed_at = timezone.now()
+            export_job.file_size = file_size
+            export_job.progress = 100
+            export_job.save()
+
+            # Projekt-Status aktualisieren
+            project.status = 'completed'
+            project.processing_progress = 100
+            project.processing_message = 'Export abgeschlossen!'
+            project.save(update_fields=['status', 'processing_progress', 'processing_message'])
+
+            # Temp-Ordner aufraumen
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.warning(f"Could not cleanup temp dir: {e}")
+
+            logger.info(f"Chunked export completed: {export_job.output_file.url}")
+
+            return {
+                'status': 'completed',
+                'progress': 100,
+                'next_step': None,
+                'message': 'Export abgeschlossen!',
+                'output_url': export_job.output_file.url,
+                'file_size': file_size,
+            }
+
+        # Unbekannter Step
+        return {'status': 'failed', 'error': f'Unknown step: {current_step}', 'progress': 0}
+
+    except Exception as e:
+        logger.error(f"Export step failed: {e}", exc_info=True)
+        export_job.fail(str(e))
+        project.status = 'error'
+        project.processing_message = f'Fehler: {str(e)}'
+        project.save(update_fields=['status', 'processing_message'])
+
+        # Temp-Ordner aufraumen bei Fehler
+        try:
+            import shutil
+            shutil.rmtree(temp_dir)
+        except:
+            pass
+
+        return {'status': 'failed', 'error': str(e), 'progress': export_job.progress}

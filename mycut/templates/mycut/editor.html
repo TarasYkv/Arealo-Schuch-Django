@@ -418,7 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
         videoUrl: '{% if video.video_file %}{{ video.video_file.url }}{% endif %}'
     });
 
-    // startExport Override (bis JS-Cache aktualisiert ist)
+    // Chunked Export - verarbeitet einen Schritt pro API-Call
     window.editor.startExport = async function() {
         const quality = document.getElementById('modal-export-quality')?.value || '1080p';
         const format = document.getElementById('modal-export-format')?.value || 'mp4';
@@ -434,16 +434,23 @@ document.addEventListener('DOMContentLoaded', function() {
         this.updateExportProgress(0, 'Export wird vorbereitet...');
 
         try {
+            // Start Export (erster Schritt)
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/`, 'POST', {
                 quality, format, burn_subtitles: burnSubtitles
             });
 
             if (result.success) {
                 this.currentExportJobId = result.job_id;
-                if (result.output_url) {
+
+                if (result.status === 'completed') {
+                    // Sofort fertig (sehr kurzes Video)
                     this.handleExportComplete(result);
+                } else if (result.chunked) {
+                    // Chunked Export - weitere Schritte ausfuehren
+                    this.updateExportProgress(result.progress || 5, result.message || 'Export gestartet...');
+                    this.runChunkedExport(result.job_id);
                 } else {
-                    this.showNotification('info', 'Export gestartet', `${quality} ${format.toUpperCase()} wird erstellt...`);
+                    // Fallback: Polling
                     this.pollExportStatus(result.job_id);
                 }
             } else {
@@ -453,6 +460,86 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Export error:', error);
             this.handleExportError('Netzwerkfehler: ' + error.message);
         }
+    };
+
+    // Chunked Export Loop - ruft step-Endpoint wiederholt auf
+    window.editor.runChunkedExport = async function(jobId) {
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (true) {
+            try {
+                const result = await this.apiCall(
+                    `/mycut/api/project/${this.projectId}/export/${jobId}/step/`,
+                    'POST'
+                );
+
+                // Progress anzeigen
+                this.updateExportProgress(result.progress || 0, result.message || 'Verarbeite...');
+
+                if (result.status === 'completed') {
+                    // Fertig!
+                    this.handleExportComplete(result);
+                    return;
+                }
+
+                if (result.status === 'failed') {
+                    this.handleExportError(result.error || 'Export fehlgeschlagen');
+                    return;
+                }
+
+                // Naechster Schritt - kurze Pause um Server nicht zu ueberlasten
+                retryCount = 0;  // Reset bei Erfolg
+                await new Promise(r => setTimeout(r, 100));
+
+            } catch (error) {
+                console.error('Export step error:', error);
+                retryCount++;
+
+                if (retryCount >= maxRetries) {
+                    this.handleExportError('Export abgebrochen nach mehreren Fehlern: ' + error.message);
+                    return;
+                }
+
+                // Bei Netzwerkfehler: kurz warten und retry
+                await new Promise(r => setTimeout(r, 2000));
+            }
+        }
+    };
+
+    // Export abgeschlossen - Download-Button anzeigen
+    window.editor.handleExportComplete = function(result) {
+        const exportBtn = document.getElementById('start-export-btn');
+        if (exportBtn) {
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = '<i class="fas fa-file-export me-1"></i> Erneut exportieren';
+        }
+
+        this.updateExportProgress(100, 'Export abgeschlossen!');
+
+        // Download-Button anzeigen
+        const progressDiv = document.getElementById('export-progress');
+        if (progressDiv && result.output_url) {
+            progressDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-check-circle me-2"></i>Export abgeschlossen!</h5>
+                    <p class="mb-2">Dateigröße: ${this.formatFileSize(result.file_size || 0)}</p>
+                    <a href="${result.output_url}" class="btn btn-success" download>
+                        <i class="fas fa-download me-2"></i>Video herunterladen
+                    </a>
+                </div>
+            `;
+        }
+
+        this.showNotification('success', 'Export fertig!', 'Das Video kann jetzt heruntergeladen werden.');
+    };
+
+    // Hilfsfunktion: Dateigroesse formatieren
+    window.editor.formatFileSize = function(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
     };
 });
 </script>
