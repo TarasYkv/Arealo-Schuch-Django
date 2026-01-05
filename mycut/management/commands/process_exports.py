@@ -72,17 +72,39 @@ class Command(BaseCommand):
     def _run_daemon(self, export_step, max_jobs, interval):
         """Laeuft als Daemon und prueft regelmaessig auf neue Jobs."""
         from mycut.models import ExportJob
+        from django.db import connection
+
+        error_count = 0
+        max_errors = 10  # Nach 10 Fehlern in Folge beenden
 
         while True:
             try:
-                pending_jobs = ExportJob.objects.filter(
+                # Datenbankverbindung pruefen/erneuern
+                connection.ensure_connection()
+
+                pending_jobs = list(ExportJob.objects.filter(
                     status__in=['pending', 'processing']
-                ).order_by('created_at')[:max_jobs]
+                ).order_by('created_at')[:max_jobs])
 
                 if pending_jobs:
                     self.stdout.write(f'\n[{timezone.now().strftime("%H:%M:%S")}] {len(pending_jobs)} Job(s) gefunden')
                     for job in pending_jobs:
-                        self._process_job(job, export_step)
+                        try:
+                            # Job neu laden um aktuelle Daten zu haben
+                            job.refresh_from_db()
+                            self._process_job(job, export_step)
+                            error_count = 0  # Reset bei Erfolg
+                        except Exception as job_error:
+                            self.stderr.write(f'Fehler bei Job {job.id}: {job_error}')
+                            logger.exception(f'Job {job.id} failed')
+                            # Job als fehlgeschlagen markieren
+                            try:
+                                job.status = 'failed'
+                                job.error_message = str(job_error)[:500]
+                                job.save(update_fields=['status', 'error_message'])
+                            except Exception:
+                                pass
+                            error_count += 1
 
                 # Warten bis zum naechsten Check
                 time.sleep(interval)
@@ -91,8 +113,20 @@ class Command(BaseCommand):
                 self.stdout.write('\nWorker beendet.')
                 break
             except Exception as e:
-                self.stderr.write(f'Fehler im Daemon: {e}')
+                error_count += 1
+                self.stderr.write(f'Fehler im Daemon ({error_count}/{max_errors}): {e}')
                 logger.exception('Daemon error')
+
+                if error_count >= max_errors:
+                    self.stderr.write('Zu viele Fehler - Worker beendet sich.')
+                    break
+
+                # Bei DB-Fehler: Verbindung schliessen
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+
                 time.sleep(30)  # Bei Fehler laenger warten
 
     def _process_pending_jobs(self, export_step, max_jobs):
