@@ -458,9 +458,26 @@ class MyCutEditor {
     }
 
     splitClip() {
+        // Pruefen ob ein Clip ausgewaehlt ist
+        if (!this.timeline.selectedClip) {
+            this.showNotification('warning', 'Kein Clip ausgewählt',
+                'Bitte klicke zuerst auf einen Clip in der Timeline, dann positioniere den Playhead und klicke erneut auf Teilen.');
+            return;
+        }
+
+        // Pruefen ob Playhead innerhalb des Clips liegt
+        const clip = this.timeline.selectedClip;
+        const playhead = this.timeline.currentTime;
+
+        if (playhead <= clip.start_time || playhead >= clip.start_time + clip.duration) {
+            this.showNotification('warning', 'Playhead außerhalb',
+                'Der Playhead muss innerhalb des ausgewählten Clips liegen.');
+            return;
+        }
+
         const newClip = this.timeline.splitClipAtPlayhead();
         if (newClip) {
-            this.showSuccess('Clip geteilt');
+            this.showNotification('success', 'Clip geteilt', 'Der Clip wurde erfolgreich geteilt.');
         }
     }
 
@@ -574,6 +591,49 @@ class MyCutEditor {
 
     async applySuggestion(id) {
         try {
+            // Vorschlag finden
+            const suggestion = this.project.suggestions.find(s => s.id === id);
+            if (!suggestion) {
+                this.showError('Vorschlag nicht gefunden');
+                return;
+            }
+
+            // Clip finden, der den Zeitbereich enthaelt
+            const affectedClip = this.project.clips.find(clip =>
+                clip.clip_type === 'video' &&
+                clip.start_time <= suggestion.start_time &&
+                (clip.start_time + clip.duration) >= suggestion.end_time
+            );
+
+            if (!affectedClip) {
+                this.showNotification('warning', 'Kein passender Clip',
+                    'Der Zeitbereich liegt nicht in einem Video-Clip.');
+                return;
+            }
+
+            this.saveState('Vorschlag angewendet: ' + suggestion.suggestion_type);
+
+            // Je nach Typ die Bearbeitung durchfuehren
+            switch (suggestion.suggestion_type) {
+                case 'filler_word':
+                case 'silence':
+                    // Bereich ausschneiden: Clip teilen und mittleren Teil loeschen
+                    await this.cutOutRange(affectedClip, suggestion.start_time, suggestion.end_time);
+                    this.showNotification('success', 'Bereich entfernt',
+                        `"${suggestion.text || 'Stille'}" wurde aus dem Video entfernt.`);
+                    break;
+
+                case 'speed_up':
+                    // Geschwindigkeit erhoehen (Info anzeigen)
+                    this.showNotification('info', 'Speed-Vorschlag',
+                        'Wähle den Clip aus und ändere die Geschwindigkeit im Eigenschaften-Panel.');
+                    break;
+
+                default:
+                    this.showNotification('info', 'Vorschlag angewendet', suggestion.suggestion_type);
+            }
+
+            // Vorschlag auf Server als angewendet markieren
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/apply-suggestion/${id}/`, 'POST');
             if (result.success) {
                 document.querySelector(`.ai-suggestion[data-id="${id}"]`)?.remove();
@@ -581,8 +641,91 @@ class MyCutEditor {
                 this.hasUnsavedChanges = true;
             }
         } catch (error) {
-            this.showError('Fehler beim Anwenden');
+            this.showError('Fehler beim Anwenden: ' + error.message);
         }
+    }
+
+    async cutOutRange(clip, startMs, endMs) {
+        // Diese Funktion schneidet einen Bereich aus einem Clip aus
+        // Ergebnis: Der Clip wird in bis zu 2 Teile geteilt (vor und nach dem ausgeschnittenen Bereich)
+
+        const cutStart = startMs;
+        const cutEnd = endMs;
+        const clipStart = clip.start_time;
+        const clipEnd = clip.start_time + clip.duration;
+
+        // Berechne relative Positionen im Quellmaterial
+        const sourceOffsetStart = clip.source_start || 0;
+        const cutDuration = cutEnd - cutStart;
+
+        // Teil 1: Vor dem Schnitt (falls vorhanden)
+        if (cutStart > clipStart) {
+            const part1Duration = cutStart - clipStart;
+            // Original-Clip wird zum ersten Teil
+            clip.duration = part1Duration;
+            clip.source_end = sourceOffsetStart + part1Duration;
+        }
+
+        // Teil 2: Nach dem Schnitt (falls vorhanden)
+        if (cutEnd < clipEnd) {
+            const part2Start = cutEnd;
+            const part2Duration = clipEnd - cutEnd;
+            const part2SourceStart = sourceOffsetStart + (cutEnd - clipStart);
+
+            // Neuen Clip fuer den Teil nach dem Schnitt erstellen
+            const newClip = {
+                id: Date.now(),
+                clip_type: 'video',
+                track_index: clip.track_index || 0,
+                start_time: cutStart, // Rueckt an die Stelle des Schnitts
+                duration: part2Duration,
+                source_start: part2SourceStart,
+                source_end: part2SourceStart + part2Duration,
+                speed: clip.speed || 1.0,
+                volume: clip.volume || 1.0,
+                is_muted: clip.is_muted || false,
+                clip_data: clip.clip_data || {}
+            };
+
+            this.project.clips.push(newClip);
+        }
+
+        // Falls der Schnitt am Anfang ist, Clip anpassen
+        if (cutStart <= clipStart && cutEnd < clipEnd) {
+            const newSourceStart = sourceOffsetStart + (cutEnd - clipStart);
+            clip.start_time = clipStart; // Bleibt am gleichen Ort
+            clip.duration = clipEnd - cutEnd;
+            clip.source_start = newSourceStart;
+            clip.source_end = clip.source_start + clip.duration;
+        }
+
+        // Falls der komplette Clip ausgeschnitten wird
+        if (cutStart <= clipStart && cutEnd >= clipEnd) {
+            // Clip loeschen
+            this.project.clips = this.project.clips.filter(c => c.id !== clip.id);
+        }
+
+        // Timeline aktualisieren
+        this.timeline.setClips([
+            ...this.project.clips,
+            ...this.project.subtitles.map(sub => ({
+                id: 'sub_' + sub.id,
+                clip_type: 'subtitle',
+                start_time: sub.start_time,
+                duration: sub.end_time - sub.start_time,
+                text: sub.text
+            })),
+            ...this.project.textOverlays.map(overlay => ({
+                id: 'overlay_' + overlay.id,
+                clip_type: 'text_overlay',
+                start_time: overlay.start_time,
+                duration: overlay.end_time - overlay.start_time,
+                text: overlay.text
+            }))
+        ]);
+
+        // Speichern
+        await this.saveClips();
     }
 
     async rejectSuggestion(id) {
