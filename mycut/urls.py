@@ -16,6 +16,10 @@ urlpatterns = [
     path('api/project/<int:project_id>/', views.api_project_detail, name='api_project'),
     path('api/project/<int:project_id>/save/', views.api_save_project, name='api_save'),
 
+    # API - Clips
+    path('api/project/<int:project_id>/clips/', views.api_clips, name='api_clips'),
+    path('api/project/<int:project_id>/clip/<int:clip_id>/', views.api_clip_detail, name='api_clip_detail'),
+
     # API - AI-Funktionen
     path('api/project/<int:project_id>/transcribe/', views.api_transcribe, name='api_transcribe'),
     path('api/project/<int:project_id>/analyze/', views.api_analyze, name='api_analyze'),

@@ -88,22 +88,26 @@ class MyCutEditor {
         };
 
         this.timeline.onClipMoved = (clip) => {
+            this.saveState('Clip verschoben');
             this.hasUnsavedChanges = true;
             this.updateClip(clip);
         };
 
         this.timeline.onClipTrimmed = (clip) => {
+            this.saveState('Clip getrimmt');
             this.hasUnsavedChanges = true;
             this.updateClip(clip);
         };
 
         this.timeline.onClipSplit = (original, newClip) => {
+            this.saveState('Clip geteilt');
             this.hasUnsavedChanges = true;
             this.project.clips.push(newClip);
             this.saveClips();
         };
 
         this.timeline.onClipDeleted = (clip) => {
+            this.saveState('Clip geloescht');
             this.hasUnsavedChanges = true;
             this.deleteClip(clip.id);
         };
@@ -264,6 +268,12 @@ class MyCutEditor {
                 if (result.source_video && result.source_video.duration) {
                     this.videoDuration = result.source_video.duration * 1000; // Convert to ms
                 }
+
+                // Initialize Undo/Redo with initial state
+                this.history = [];
+                this.historyIndex = -1;
+                this.saveState('Projekt geladen');
+                this.updateUndoRedoButtons();
             }
         } catch (error) {
             console.error('Error loading project:', error);

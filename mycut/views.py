@@ -840,3 +840,121 @@ def api_text_overlay_detail(request, project_id, overlay_id):
     except Exception as e:
         logger.error(f"Update text overlay error: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# =============================================================================
+# API - CLIP-OPERATIONEN
+# =============================================================================
+
+@login_required
+@require_http_methods(["GET", "PUT", "DELETE"])
+def api_clip_detail(request, project_id, clip_id):
+    """
+    Einzelner Clip: Abrufen, Aktualisieren, Loeschen.
+    """
+    project = get_object_or_404(EditProject, id=project_id, user=request.user)
+    clip = get_object_or_404(TimelineClip, id=clip_id, project=project)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'success': True,
+            'clip': {
+                'id': clip.id,
+                'clip_type': clip.clip_type,
+                'track_index': clip.track_index,
+                'start_time': clip.start_time,
+                'duration': clip.duration,
+                'source_start': clip.source_start,
+                'source_end': clip.source_end,
+                'speed': clip.speed,
+                'volume': clip.volume,
+                'is_muted': clip.is_muted,
+                'clip_data': clip.clip_data,
+            }
+        })
+
+    if request.method == 'DELETE':
+        clip.delete()
+        return JsonResponse({'success': True, 'message': 'Clip geloescht'})
+
+    # PUT: Update
+    try:
+        data = json.loads(request.body) if request.body else {}
+
+        if 'start_time' in data:
+            clip.start_time = data['start_time']
+        if 'duration' in data:
+            clip.duration = data['duration']
+        if 'source_start' in data:
+            clip.source_start = data['source_start']
+        if 'source_end' in data:
+            clip.source_end = data['source_end']
+        if 'speed' in data:
+            clip.speed = data['speed']
+        if 'volume' in data:
+            clip.volume = data['volume']
+        if 'is_muted' in data:
+            clip.is_muted = data['is_muted']
+        if 'clip_data' in data:
+            clip.clip_data = data['clip_data']
+
+        clip.save()
+
+        return JsonResponse({
+            'success': True,
+            'clip': {
+                'id': clip.id,
+                'speed': clip.speed,
+                'volume': clip.volume,
+                'is_muted': clip.is_muted,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Update clip error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_clips(request, project_id):
+    """
+    Alle Clips: Auflisten oder Bulk-Update.
+    """
+    project = get_object_or_404(EditProject, id=project_id, user=request.user)
+
+    if request.method == 'GET':
+        clips = list(project.clips.values())
+        return JsonResponse({'success': True, 'clips': clips})
+
+    # POST: Bulk-Update aller Clips
+    try:
+        data = json.loads(request.body) if request.body else {}
+        clips_data = data.get('clips', [])
+
+        # Alte Clips loeschen und neue erstellen
+        project.clips.all().delete()
+
+        for clip_data in clips_data:
+            TimelineClip.objects.create(
+                project=project,
+                clip_type=clip_data.get('clip_type', 'video'),
+                track_index=clip_data.get('track_index', 0),
+                start_time=clip_data.get('start_time', 0),
+                duration=clip_data.get('duration', 0),
+                source_start=clip_data.get('source_start', 0),
+                source_end=clip_data.get('source_end', 0),
+                speed=clip_data.get('speed', 1.0),
+                volume=clip_data.get('volume', 1.0),
+                is_muted=clip_data.get('is_muted', False),
+                clip_data=clip_data.get('clip_data', {}),
+            )
+
+        return JsonResponse({
+            'success': True,
+            'message': f'{len(clips_data)} Clips gespeichert'
+        })
+
+    except Exception as e:
+        logger.error(f"Save clips error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
