@@ -418,7 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
         videoUrl: '{% if video.video_file %}{{ video.video_file.url }}{% endif %}'
     });
 
-    // Chunked Export - verarbeitet einen Schritt pro API-Call
+    // Export starten - Job wird im Hintergrund verarbeitet
     window.editor.startExport = async function() {
         const quality = document.getElementById('modal-export-quality')?.value || '1080p';
         const format = document.getElementById('modal-export-format')?.value || 'mp4';
@@ -431,28 +431,19 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         this.showExportProgress(true);
-        this.updateExportProgress(0, 'Export wird vorbereitet...');
+        this.updateExportProgress(0, 'Export wird gestartet...');
 
         try {
-            // Start Export (erster Schritt)
+            // Export-Job erstellen
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/`, 'POST', {
                 quality, format, burn_subtitles: burnSubtitles
             });
 
             if (result.success) {
                 this.currentExportJobId = result.job_id;
-
-                if (result.status === 'completed') {
-                    // Sofort fertig (sehr kurzes Video)
-                    this.handleExportComplete(result);
-                } else if (result.chunked) {
-                    // Chunked Export - weitere Schritte ausfuehren
-                    this.updateExportProgress(result.progress || 5, result.message || 'Export gestartet...');
-                    this.runChunkedExport(result.job_id);
-                } else {
-                    // Fallback: Polling
-                    this.pollExportStatus(result.job_id);
-                }
+                this.updateExportProgress(5, 'Export in Warteschlange - wird verarbeitet...');
+                // Status polling starten
+                this.pollExportStatus(result.job_id);
             } else {
                 this.handleExportError(result.error || 'Unbekannter Fehler');
             }
@@ -462,49 +453,69 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // Chunked Export Loop - ruft step-Endpoint wiederholt auf
-    window.editor.runChunkedExport = async function(jobId) {
-        let retryCount = 0;
-        const maxRetries = 3;
+    // Export-Status polling - prueft alle 3 Sekunden den Fortschritt
+    window.editor.pollExportStatus = async function(jobId) {
+        let pollCount = 0;
+        const maxPolls = 200;  // Max 10 Minuten (200 * 3s)
 
-        while (true) {
+        while (pollCount < maxPolls) {
+            pollCount++;
+
             try {
                 const result = await this.apiCall(
-                    `/mycut/api/project/${this.projectId}/export/${jobId}/step/`,
-                    'POST'
+                    `/mycut/api/project/${this.projectId}/export/status/`,
+                    'GET'
                 );
 
+                if (!result.success) {
+                    this.handleExportError(result.error || 'Status-Abfrage fehlgeschlagen');
+                    return;
+                }
+
                 // Progress anzeigen
-                this.updateExportProgress(result.progress || 0, result.message || 'Verarbeite...');
+                const progress = result.progress || 0;
+                let message = 'Verarbeite...';
+
+                if (result.status === 'pending') {
+                    message = 'In Warteschlange - wird bald verarbeitet...';
+                } else if (progress < 30) {
+                    message = 'Video-Segmente werden extrahiert...';
+                } else if (progress < 60) {
+                    message = 'Segmente werden zusammengefuegt...';
+                } else if (progress < 80) {
+                    message = 'Untertitel werden verarbeitet...';
+                } else if (progress < 95) {
+                    message = 'Video wird komprimiert...';
+                } else {
+                    message = 'Fast fertig...';
+                }
+
+                this.updateExportProgress(progress, message);
 
                 if (result.status === 'completed') {
-                    // Fertig!
-                    this.handleExportComplete(result);
+                    this.handleExportComplete({
+                        output_url: result.download_url,
+                        file_size: result.file_size
+                    });
                     return;
                 }
 
                 if (result.status === 'failed') {
-                    this.handleExportError(result.error || 'Export fehlgeschlagen');
+                    this.handleExportError(result.error_message || 'Export fehlgeschlagen');
                     return;
                 }
 
-                // Naechster Schritt - kurze Pause um Server nicht zu ueberlasten
-                retryCount = 0;  // Reset bei Erfolg
-                await new Promise(r => setTimeout(r, 100));
+                // 3 Sekunden warten bis zum naechsten Poll
+                await new Promise(r => setTimeout(r, 3000));
 
             } catch (error) {
-                console.error('Export step error:', error);
-                retryCount++;
-
-                if (retryCount >= maxRetries) {
-                    this.handleExportError('Export abgebrochen nach mehreren Fehlern: ' + error.message);
-                    return;
-                }
-
-                // Bei Netzwerkfehler: kurz warten und retry
-                await new Promise(r => setTimeout(r, 2000));
+                console.error('Status poll error:', error);
+                // Bei Netzwerkfehler: weitermachen
+                await new Promise(r => setTimeout(r, 5000));
             }
         }
+
+        this.handleExportError('Export-Timeout - bitte später erneut versuchen');
     };
 
     // Export abgeschlossen - Download-Button anzeigen

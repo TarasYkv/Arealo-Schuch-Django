@@ -558,8 +558,10 @@ def api_get_waveform(request, project_id):
 @require_http_methods(["POST"])
 def api_start_export(request, project_id):
     """
-    Startet den Video-Export mit Chunked Processing.
-    Der Client muss wiederholt /export/step/ aufrufen bis fertig.
+    Startet den Video-Export.
+
+    Der Export wird im Hintergrund verarbeitet (via Scheduled Task).
+    Frontend pollt /export/status/ fuer Updates.
     """
     project = get_object_or_404(EditProject, id=project_id, user=request.user)
 
@@ -577,27 +579,28 @@ def api_start_export(request, project_id):
         project.status = 'exporting'
         project.save(update_fields=['export_quality', 'export_format', 'status'])
 
-        # Export-Job erstellen mit chunked state
+        # Export-Job erstellen - wird vom Scheduled Task verarbeitet
         export_job = ExportJob.objects.create(
             project=project,
             export_settings={
                 'quality': quality,
                 'format': export_format,
                 'burn_subtitles': burn_subtitles,
-                'current_step': 'init',  # Chunked export startet mit init
+                'current_step': 'init',
             }
         )
-        export_job.start_processing()
-
-        # Ersten Schritt direkt ausfuehren
-        from .tasks import export_step
-        result = export_step(project.id, export_job.id)
+        # Status 'pending' - wartet auf Background Processing
+        export_job.status = 'pending'
+        export_job.progress = 0
+        export_job.error_message = ''
+        export_job.save()
 
         return JsonResponse({
             'success': True,
             'job_id': export_job.id,
-            'chunked': True,  # Client weiss: muss step-Endpoint aufrufen
-            **result
+            'status': 'pending',
+            'progress': 0,
+            'message': 'Export gestartet - wird im Hintergrund verarbeitet',
         })
 
     except Exception as e:
