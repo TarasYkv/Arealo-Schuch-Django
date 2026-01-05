@@ -446,7 +446,7 @@ class FFmpegService:
                 '-vf', f"scale={preset['scale']}:force_original_aspect_ratio=decrease,pad={preset['scale']}:(ow-iw)/2:(oh-ih)/2",
                 '-c:v', 'libx264',
                 '-crf', preset['crf'],
-                '-preset', 'medium',
+                '-preset', 'ultrafast',  # Schnell für PythonAnywhere Timeouts
                 '-c:a', 'aac', '-b:a', '128k',
                 output_path
             ]
