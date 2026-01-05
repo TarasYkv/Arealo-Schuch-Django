@@ -333,6 +333,7 @@ def _extract_segment(
             cmd = ['ffmpeg', '-y', '-ss', str(start_sec), '-i', source_path, '-t', str(duration_sec)]
 
             if video_filters or audio_filters:
+                # Filter anwenden - muss re-encoden
                 filter_complex = []
                 if video_filters:
                     filter_complex.append(f"[0:v]{','.join(video_filters)}[v]")
@@ -351,7 +352,11 @@ def _extract_segment(
                 else:
                     cmd.extend(['-map', '0:a'])
 
-            cmd.extend(['-c:v', 'libx264', '-preset', 'fast', '-c:a', 'aac', output_path])
+                # Re-Encoding nur wenn Filter aktiv
+                cmd.extend(['-c:v', 'libx264', '-preset', 'fast', '-c:a', 'aac', output_path])
+            else:
+                # SCHNELL: Keine Filter -> Stream Copy (10x schneller!)
+                cmd.extend(['-c', 'copy', output_path])
 
         # Timeout: 5 Minuten pro Segment
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)

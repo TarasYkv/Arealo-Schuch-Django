@@ -28,7 +28,6 @@
             <button class="btn btn-sm btn-ai" data-bs-toggle="modal" data-bs-target="#exportModal">
                 <i class="fas fa-file-export me-1"></i> Exportieren
             </button>
-            <button class="btn btn-sm btn-warning" onclick="testModal()">TEST Modal</button>
         </div>
     </div>
 
@@ -408,57 +407,22 @@
 <!-- MyCut JavaScript Modules -->
 <script src="{% static 'mycut/js/waveform.js' %}?v=20260105c"></script>
 <script src="{% static 'mycut/js/timeline.js' %}?v=20260105c"></script>
-<script src="{% static 'mycut/js/editor.js' %}?v=FORCE_RELOAD_12345"></script>
+<script src="{% static 'mycut/js/editor.js' %}?v=20260106"></script>
 
 <script>
-// Debug: Test Modal function
-function testModal() {
-    console.log('testModal() called');
-    console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
-
-    const modalEl = document.getElementById('exportModal');
-    console.log('Modal element found:', modalEl);
-
-    if (modalEl) {
-        console.log('Modal parent:', modalEl.parentElement?.tagName);
-        console.log('Modal in DOM:', document.body.contains(modalEl));
-
-        if (typeof bootstrap !== 'undefined') {
-            try {
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
-                console.log('Modal.show() called');
-            } catch (e) {
-                console.error('Error creating modal:', e);
-            }
-        } else {
-            alert('Bootstrap nicht geladen!');
-        }
-    } else {
-        alert('Modal Element nicht gefunden!');
-    }
-}
-
 // Initialize MyCut Editor - window.editor fuer inline onclick Handler
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOMContentLoaded - Bootstrap check:', typeof bootstrap);
-
     window.editor = new MyCutEditor({
         projectId: {{ project.id }},
         csrfToken: '{{ csrf_token }}',
         videoUrl: '{% if video.video_file %}{{ video.video_file.url }}{% endif %}'
     });
 
-    // OVERRIDE startExport to bypass cache - INLINE VERSION
+    // startExport Override (bis JS-Cache aktualisiert ist)
     window.editor.startExport = async function() {
-        console.log('=== INLINE startExport() CALLED ===');
-        alert('Export startet! (Inline Version)');
-
         const quality = document.getElementById('modal-export-quality')?.value || '1080p';
         const format = document.getElementById('modal-export-format')?.value || 'mp4';
         const burnSubtitles = document.getElementById('burn-subtitles')?.checked || false;
-
-        console.log('Export settings:', { quality, format, burnSubtitles, projectId: this.projectId });
 
         const exportBtn = document.getElementById('start-export-btn');
         if (exportBtn) {
@@ -470,13 +434,9 @@ document.addEventListener('DOMContentLoaded', function() {
         this.updateExportProgress(0, 'Export wird vorbereitet...');
 
         try {
-            console.log('=== Sending export request... ===');
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/`, 'POST', {
                 quality, format, burn_subtitles: burnSubtitles
             });
-
-            console.log('=== Export API response ===', result);
-            alert('API Response: ' + JSON.stringify(result).substring(0, 300));
 
             if (result.success) {
                 this.currentExportJobId = result.job_id;
@@ -491,11 +451,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Export error:', error);
-            alert('Export Fehler: ' + error.message);
             this.handleExportError('Netzwerkfehler: ' + error.message);
         }
     };
-    console.log('startExport OVERRIDDEN with inline version');
 });
 </script>
 {% endblock %}
