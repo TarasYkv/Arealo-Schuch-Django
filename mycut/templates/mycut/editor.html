@@ -193,6 +193,9 @@
                         <span id="current-time">00:00:00</span> / <span id="total-duration">00:00:00</span>
                     </div>
                     <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-success" onclick="editor.openTextOverlayModal()" title="Text-Overlay hinzufuegen">
+                            <i class="fas fa-font"></i> Text
+                        </button>
                         <button class="btn btn-outline-light" onclick="editor.splitClip()" title="An Playhead teilen">
                             <i class="fas fa-cut"></i> Teilen
                         </button>
@@ -248,6 +251,107 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                 <button type="button" class="btn btn-ai" onclick="editor.startExport()">
                     <i class="fas fa-rocket me-1"></i> Export starten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Text-Overlay Modal -->
+<div class="modal fade" id="textOverlayModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fas fa-font me-2"></i>Text-Overlay</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Text</label>
+                            <textarea class="form-control bg-dark text-light border-secondary" id="overlay-text" rows="3" placeholder="Text eingeben..."></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label small">Start (ms)</label>
+                                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="overlay-start" value="0">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label small">Ende (ms)</label>
+                                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="overlay-end" value="3000">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label small">X-Position (%)</label>
+                                <input type="range" class="form-range" id="overlay-x" min="0" max="100" value="50">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label small">Y-Position (%)</label>
+                                <input type="range" class="form-range" id="overlay-y" min="0" max="100" value="50">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label small">Schriftgroesse</label>
+                            <input type="range" class="form-range" id="overlay-size" min="12" max="120" value="48">
+                            <small class="text-muted"><span id="overlay-size-val">48</span>px</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small">Farbe</label>
+                            <input type="color" class="form-control form-control-color" id="overlay-color" value="#FFFFFF">
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label small">Eingangs-Animation</label>
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="overlay-anim-in">
+                                    <option value="none">Keine</option>
+                                    <option value="fade_in" selected>Einblenden</option>
+                                    <option value="slide_left">Von links</option>
+                                    <option value="slide_right">Von rechts</option>
+                                    <option value="slide_up">Von unten</option>
+                                    <option value="zoom_in">Zoom</option>
+                                    <option value="typewriter">Schreibmaschine</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label small">Ausgangs-Animation</label>
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="overlay-anim-out">
+                                    <option value="none">Keine</option>
+                                    <option value="fade_out" selected>Ausblenden</option>
+                                    <option value="slide_left">Nach links</option>
+                                    <option value="slide_right">Nach rechts</option>
+                                    <option value="slide_down">Nach unten</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input type="checkbox" class="form-check-input" id="overlay-bold" checked>
+                            <label class="form-check-label" for="overlay-bold">Fett</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input type="checkbox" class="form-check-input" id="overlay-shadow" checked>
+                            <label class="form-check-label" for="overlay-shadow">Schatten</label>
+                        </div>
+                    </div>
+                </div>
+                <!-- Preview -->
+                <div class="mt-3 p-3 bg-secondary rounded position-relative" style="height: 150px; overflow: hidden;">
+                    <div id="overlay-preview" style="position: absolute; font-size: 48px; color: #fff; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); left: 50%; top: 50%; transform: translate(-50%, -50%);">
+                        Vorschau
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <input type="hidden" id="overlay-edit-id">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger d-none" id="overlay-delete-btn" onclick="editor.deleteTextOverlay()">
+                    <i class="fas fa-trash me-1"></i> Loeschen
+                </button>
+                <button type="button" class="btn btn-ai" onclick="editor.saveTextOverlay()">
+                    <i class="fas fa-save me-1"></i> Speichern
                 </button>
             </div>
         </div>

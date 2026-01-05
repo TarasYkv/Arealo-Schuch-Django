@@ -26,6 +26,10 @@ urlpatterns = [
     path('api/project/<int:project_id>/subtitles/', views.api_subtitles, name='api_subtitles'),
     path('api/project/<int:project_id>/subtitles/export/', views.api_export_subtitles, name='api_export_subtitles'),
 
+    # API - Text-Overlays
+    path('api/project/<int:project_id>/text-overlays/', views.api_text_overlays, name='api_text_overlays'),
+    path('api/project/<int:project_id>/text-overlays/<int:overlay_id>/', views.api_text_overlay_detail, name='api_text_overlay_detail'),
+
     # API - Waveform
     path('api/project/<int:project_id>/waveform/', views.api_get_waveform, name='api_waveform'),
 

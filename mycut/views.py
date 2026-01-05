@@ -616,3 +616,140 @@ def api_export_status(request, project_id):
         'error_message': job.error_message,
         'completed_at': job.completed_at.isoformat() if job.completed_at else None,
     })
+
+
+# =============================================================================
+# API - TEXT-OVERLAYS
+# =============================================================================
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_text_overlays(request, project_id):
+    """
+    GET: Liste aller Text-Overlays
+    POST: Neues Text-Overlay erstellen
+    """
+    project = get_object_or_404(EditProject, id=project_id, user=request.user)
+
+    if request.method == 'GET':
+        overlays = project.text_overlays.all().values()
+        return JsonResponse({
+            'success': True,
+            'overlays': list(overlays)
+        })
+
+    # POST: Neues Overlay erstellen
+    try:
+        data = json.loads(request.body) if request.body else {}
+
+        overlay = TextOverlay.objects.create(
+            project=project,
+            text=data.get('text', 'Text'),
+            start_time=data.get('start_time', 0),
+            end_time=data.get('end_time', 3000),
+            position_x=data.get('position_x', 50),
+            position_y=data.get('position_y', 50),
+            style=data.get('style', {
+                'font': 'Arial',
+                'size': 48,
+                'color': '#FFFFFF',
+                'bold': True,
+                'shadow': True,
+            }),
+            animation_in=data.get('animation_in', 'fade_in'),
+            animation_out=data.get('animation_out', 'fade_out'),
+            animation_duration=data.get('animation_duration', 500),
+        )
+
+        return JsonResponse({
+            'success': True,
+            'overlay': {
+                'id': overlay.id,
+                'text': overlay.text,
+                'start_time': overlay.start_time,
+                'end_time': overlay.end_time,
+                'position_x': overlay.position_x,
+                'position_y': overlay.position_y,
+                'style': overlay.style,
+                'animation_in': overlay.animation_in,
+                'animation_out': overlay.animation_out,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Create text overlay error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET", "PUT", "DELETE"])
+def api_text_overlay_detail(request, project_id, overlay_id):
+    """
+    GET: Einzelnes Text-Overlay
+    PUT: Text-Overlay aktualisieren
+    DELETE: Text-Overlay löschen
+    """
+    project = get_object_or_404(EditProject, id=project_id, user=request.user)
+    overlay = get_object_or_404(TextOverlay, id=overlay_id, project=project)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'success': True,
+            'overlay': {
+                'id': overlay.id,
+                'text': overlay.text,
+                'start_time': overlay.start_time,
+                'end_time': overlay.end_time,
+                'position_x': overlay.position_x,
+                'position_y': overlay.position_y,
+                'style': overlay.style,
+                'animation_in': overlay.animation_in,
+                'animation_out': overlay.animation_out,
+            }
+        })
+
+    if request.method == 'DELETE':
+        overlay.delete()
+        return JsonResponse({'success': True, 'message': 'Text-Overlay gelöscht'})
+
+    # PUT: Update
+    try:
+        data = json.loads(request.body) if request.body else {}
+
+        if 'text' in data:
+            overlay.text = data['text']
+        if 'start_time' in data:
+            overlay.start_time = data['start_time']
+        if 'end_time' in data:
+            overlay.end_time = data['end_time']
+        if 'position_x' in data:
+            overlay.position_x = data['position_x']
+        if 'position_y' in data:
+            overlay.position_y = data['position_y']
+        if 'style' in data:
+            overlay.style = data['style']
+        if 'animation_in' in data:
+            overlay.animation_in = data['animation_in']
+        if 'animation_out' in data:
+            overlay.animation_out = data['animation_out']
+        if 'animation_duration' in data:
+            overlay.animation_duration = data['animation_duration']
+
+        overlay.save()
+
+        return JsonResponse({
+            'success': True,
+            'overlay': {
+                'id': overlay.id,
+                'text': overlay.text,
+                'start_time': overlay.start_time,
+                'end_time': overlay.end_time,
+                'position_x': overlay.position_x,
+                'position_y': overlay.position_y,
+                'style': overlay.style,
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Update text overlay error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -728,6 +728,154 @@ class MyCutEditor {
         console.log('Undo not implemented yet');
     }
 
+    // ===========================================
+    // Text-Overlay Functions
+    // ===========================================
+
+    openTextOverlayModal(overlayId = null) {
+        const modal = document.getElementById('textOverlayModal');
+        const deleteBtn = document.getElementById('overlay-delete-btn');
+
+        // Reset form
+        document.getElementById('overlay-text').value = '';
+        document.getElementById('overlay-start').value = Math.round(this.video.currentTime * 1000);
+        document.getElementById('overlay-end').value = Math.round(this.video.currentTime * 1000) + 3000;
+        document.getElementById('overlay-x').value = 50;
+        document.getElementById('overlay-y').value = 50;
+        document.getElementById('overlay-size').value = 48;
+        document.getElementById('overlay-size-val').textContent = '48';
+        document.getElementById('overlay-color').value = '#FFFFFF';
+        document.getElementById('overlay-anim-in').value = 'fade_in';
+        document.getElementById('overlay-anim-out').value = 'fade_out';
+        document.getElementById('overlay-bold').checked = true;
+        document.getElementById('overlay-shadow').checked = true;
+        document.getElementById('overlay-edit-id').value = '';
+
+        if (overlayId) {
+            // Load existing overlay for editing
+            const overlay = this.project.textOverlays.find(o => o.id === overlayId);
+            if (overlay) {
+                document.getElementById('overlay-text').value = overlay.text;
+                document.getElementById('overlay-start').value = overlay.start_time;
+                document.getElementById('overlay-end').value = overlay.end_time;
+                document.getElementById('overlay-x').value = overlay.position_x;
+                document.getElementById('overlay-y').value = overlay.position_y;
+                if (overlay.style) {
+                    document.getElementById('overlay-size').value = overlay.style.size || 48;
+                    document.getElementById('overlay-size-val').textContent = overlay.style.size || 48;
+                    document.getElementById('overlay-color').value = overlay.style.color || '#FFFFFF';
+                    document.getElementById('overlay-bold').checked = overlay.style.bold !== false;
+                    document.getElementById('overlay-shadow').checked = overlay.style.shadow !== false;
+                }
+                document.getElementById('overlay-anim-in').value = overlay.animation_in || 'fade_in';
+                document.getElementById('overlay-anim-out').value = overlay.animation_out || 'fade_out';
+                document.getElementById('overlay-edit-id').value = overlayId;
+                deleteBtn.classList.remove('d-none');
+            }
+        } else {
+            deleteBtn.classList.add('d-none');
+        }
+
+        this.updateOverlayPreview();
+        this.setupOverlayModalListeners();
+
+        new bootstrap.Modal(modal).show();
+    }
+
+    setupOverlayModalListeners() {
+        const updatePreview = () => this.updateOverlayPreview();
+
+        document.getElementById('overlay-text').addEventListener('input', updatePreview);
+        document.getElementById('overlay-size').addEventListener('input', (e) => {
+            document.getElementById('overlay-size-val').textContent = e.target.value;
+            updatePreview();
+        });
+        document.getElementById('overlay-color').addEventListener('input', updatePreview);
+        document.getElementById('overlay-bold').addEventListener('change', updatePreview);
+        document.getElementById('overlay-shadow').addEventListener('change', updatePreview);
+        document.getElementById('overlay-x').addEventListener('input', updatePreview);
+        document.getElementById('overlay-y').addEventListener('input', updatePreview);
+    }
+
+    updateOverlayPreview() {
+        const preview = document.getElementById('overlay-preview');
+        const text = document.getElementById('overlay-text').value || 'Vorschau';
+        const size = document.getElementById('overlay-size').value;
+        const color = document.getElementById('overlay-color').value;
+        const bold = document.getElementById('overlay-bold').checked;
+        const shadow = document.getElementById('overlay-shadow').checked;
+        const x = document.getElementById('overlay-x').value;
+        const y = document.getElementById('overlay-y').value;
+
+        preview.textContent = text;
+        preview.style.fontSize = size + 'px';
+        preview.style.color = color;
+        preview.style.fontWeight = bold ? 'bold' : 'normal';
+        preview.style.textShadow = shadow ? '2px 2px 4px rgba(0,0,0,0.8)' : 'none';
+        preview.style.left = x + '%';
+        preview.style.top = y + '%';
+    }
+
+    async saveTextOverlay() {
+        const editId = document.getElementById('overlay-edit-id').value;
+        const data = {
+            text: document.getElementById('overlay-text').value,
+            start_time: parseInt(document.getElementById('overlay-start').value),
+            end_time: parseInt(document.getElementById('overlay-end').value),
+            position_x: parseFloat(document.getElementById('overlay-x').value),
+            position_y: parseFloat(document.getElementById('overlay-y').value),
+            style: {
+                font: 'Arial',
+                size: parseInt(document.getElementById('overlay-size').value),
+                color: document.getElementById('overlay-color').value,
+                bold: document.getElementById('overlay-bold').checked,
+                shadow: document.getElementById('overlay-shadow').checked,
+            },
+            animation_in: document.getElementById('overlay-anim-in').value,
+            animation_out: document.getElementById('overlay-anim-out').value,
+        };
+
+        try {
+            let result;
+            if (editId) {
+                result = await this.apiCall(`/mycut/api/project/${this.projectId}/text-overlays/${editId}/`, 'PUT', data);
+            } else {
+                result = await this.apiCall(`/mycut/api/project/${this.projectId}/text-overlays/`, 'POST', data);
+            }
+
+            if (result.success) {
+                this.showNotification('success', 'Text-Overlay gespeichert', result.overlay.text);
+                bootstrap.Modal.getInstance(document.getElementById('textOverlayModal')).hide();
+                await this.loadProject();
+            } else {
+                this.showError('Fehler: ' + result.error);
+            }
+        } catch (error) {
+            this.showError('Fehler beim Speichern: ' + error.message);
+        }
+    }
+
+    async deleteTextOverlay() {
+        const editId = document.getElementById('overlay-edit-id').value;
+        if (!editId) return;
+
+        if (!confirm('Text-Overlay wirklich loeschen?')) return;
+
+        try {
+            const result = await this.apiCall(`/mycut/api/project/${this.projectId}/text-overlays/${editId}/`, 'DELETE');
+
+            if (result.success) {
+                this.showNotification('success', 'Text-Overlay geloescht', '');
+                bootstrap.Modal.getInstance(document.getElementById('textOverlayModal')).hide();
+                await this.loadProject();
+            } else {
+                this.showError('Fehler: ' + result.error);
+            }
+        } catch (error) {
+            this.showError('Fehler beim Loeschen: ' + error.message);
+        }
+    }
+
     // API helper
     async apiCall(endpoint, method = 'GET', data = null) {
         const options = {
