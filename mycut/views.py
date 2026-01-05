@@ -565,30 +565,57 @@ def api_start_export(request, project_id):
     try:
         data = json.loads(request.body) if request.body else {}
 
+        # Export-Einstellungen
+        quality = data.get('quality', project.export_quality)
+        export_format = data.get('format', project.export_format)
+        burn_subtitles = data.get('burn_subtitles', False)
+
+        # Projekt-Einstellungen aktualisieren
+        project.export_quality = quality
+        project.export_format = export_format
+        project.status = 'exporting'
+        project.save(update_fields=['export_quality', 'export_format', 'status'])
+
         # Export-Job erstellen
         export_job = ExportJob.objects.create(
             project=project,
             export_settings={
-                'quality': data.get('quality', project.export_quality),
-                'format': data.get('format', project.export_format),
-                'burn_subtitles': data.get('burn_subtitles', False),
+                'quality': quality,
+                'format': export_format,
+                'burn_subtitles': burn_subtitles,
             }
         )
 
-        # TODO: Celery Task starten
-        # from .tasks import export_video
-        # task = export_video.delay(project.id, export_job.id)
-        # export_job.celery_task_id = task.id
-        # export_job.save()
+        # Celery Task starten
+        try:
+            from .tasks import export_video
+            task = export_video.delay(project.id, export_job.id)
+            export_job.celery_task_id = task.id
+            export_job.save(update_fields=['celery_task_id'])
+            export_job.start_processing()
 
-        # Für jetzt: Direkt als "processing" markieren
-        export_job.start_processing()
+            return JsonResponse({
+                'success': True,
+                'job_id': export_job.id,
+                'task_id': task.id,
+                'message': 'Export gestartet (Celery)'
+            })
 
-        return JsonResponse({
-            'success': True,
-            'job_id': export_job.id,
-            'message': 'Export gestartet'
-        })
+        except Exception as celery_error:
+            # Fallback: Synchroner Export wenn Celery nicht verfuegbar
+            logger.warning(f"Celery nicht verfuegbar, starte synchronen Export: {celery_error}")
+            export_job.start_processing()
+
+            # Synchron exportieren (blockiert)
+            from .tasks import export_video as sync_export
+            result = sync_export(project.id, export_job.id)
+
+            return JsonResponse({
+                'success': result.get('status') == 'completed',
+                'job_id': export_job.id,
+                'message': 'Export abgeschlossen (synchron)',
+                'output_url': result.get('output_url', ''),
+            })
 
     except Exception as e:
         logger.error(f"Export start error: {e}")
@@ -608,14 +635,74 @@ def api_export_status(request, project_id):
     if not job:
         return JsonResponse({'success': False, 'error': 'Kein Export-Job gefunden'}, status=404)
 
-    return JsonResponse({
+    response_data = {
         'success': True,
         'job_id': job.id,
         'status': job.status,
         'progress': job.progress,
         'error_message': job.error_message,
         'completed_at': job.completed_at.isoformat() if job.completed_at else None,
-    })
+        'started_at': job.started_at.isoformat() if job.started_at else None,
+    }
+
+    # Download-URL hinzufuegen wenn fertig
+    if job.status == 'completed' and job.output_file:
+        response_data['download_url'] = job.output_file.url
+        response_data['file_size'] = job.file_size
+        response_data['file_size_readable'] = _format_file_size(job.file_size)
+
+    return JsonResponse(response_data)
+
+
+def _format_file_size(size_bytes: int) -> str:
+    """Formatiert Bytes in lesbare Groesse."""
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_download_export(request, project_id, job_id):
+    """
+    Download-Handler fuer exportiertes Video.
+    """
+    from django.http import FileResponse
+
+    project = get_object_or_404(EditProject, id=project_id, user=request.user)
+    job = get_object_or_404(ExportJob, id=job_id, project=project)
+
+    if job.status != 'completed' or not job.output_file:
+        return JsonResponse({
+            'success': False,
+            'error': 'Export noch nicht abgeschlossen oder Datei nicht gefunden'
+        }, status=404)
+
+    try:
+        # Dateiname aus Projekt-Name generieren
+        safe_name = "".join(c for c in project.name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_name = safe_name.replace(' ', '_')[:50]
+        quality = job.export_settings.get('quality', '1080p')
+        output_format = job.export_settings.get('format', 'mp4')
+        filename = f"{safe_name}_{quality}.{output_format}"
+
+        response = FileResponse(
+            job.output_file.open('rb'),
+            as_attachment=True,
+            filename=filename
+        )
+        response['Content-Length'] = job.file_size
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Download error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 # =============================================================================

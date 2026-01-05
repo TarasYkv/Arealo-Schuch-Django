@@ -517,34 +517,50 @@ class MyCutEditor {
         const format = document.getElementById('modal-export-format')?.value || 'mp4';
         const burnSubtitles = document.getElementById('burn-subtitles')?.checked || false;
 
+        // Export-Button deaktivieren
+        const exportBtn = document.getElementById('start-export-btn');
+        if (exportBtn) {
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Export wird gestartet...';
+        }
+
+        // Progress anzeigen
+        this.showExportProgress(true);
+        this.updateExportProgress(0, 'Export wird vorbereitet...');
+
         try {
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/`, 'POST', {
                 quality, format, burn_subtitles: burnSubtitles
             });
 
             if (result.success) {
-                this.showSuccess('Export gestartet! Du wirst benachrichtigt, wenn er fertig ist.');
-                bootstrap.Modal.getInstance(document.getElementById('exportModal'))?.hide();
-                this.pollExportStatus(result.job_id);
+                this.currentExportJobId = result.job_id;
+
+                // Falls synchroner Export (Celery nicht verfuegbar)
+                if (result.output_url) {
+                    this.handleExportComplete(result);
+                } else {
+                    // Async Export - starte Polling
+                    this.showNotification('info', 'Export gestartet', `${quality} ${format.toUpperCase()} wird erstellt...`);
+                    this.pollExportStatus(result.job_id);
+                }
             } else {
-                this.showError('Fehler: ' + result.error);
+                this.handleExportError(result.error);
             }
         } catch (error) {
-            this.showError('Fehler beim Starten des Exports');
+            this.handleExportError('Netzwerkfehler: ' + error.message);
         }
     }
 
     async pollExportStatus(jobId) {
         const poll = async () => {
             try {
-                const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/status/?job_id=${jobId}`);
+                const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/status/`);
+
                 if (result.status === 'completed') {
-                    this.showSuccess('Export abgeschlossen!');
-                    if (result.download_url) {
-                        window.open(result.download_url, '_blank');
-                    }
+                    this.handleExportComplete(result);
                 } else if (result.status === 'failed') {
-                    this.showError('Export fehlgeschlagen: ' + result.error);
+                    this.handleExportError(result.error_message || 'Unbekannter Fehler');
                 } else {
                     // Still processing
                     this.updateExportProgress(result.progress);
@@ -552,18 +568,121 @@ class MyCutEditor {
                 }
             } catch (error) {
                 console.error('Error polling export status:', error);
+                // Retry nach Netzwerkfehler
+                setTimeout(poll, 5000);
             }
         };
 
         poll();
     }
 
-    updateExportProgress(progress) {
+    handleExportComplete(result) {
+        // Progress-UI aktualisieren
+        this.updateExportProgress(100, 'Export abgeschlossen!');
+
+        // Erfolgs-Benachrichtigung
+        const sizeInfo = result.file_size_readable || '';
+        this.showNotification('success', 'Export abgeschlossen!', `Video bereit (${sizeInfo})`);
+
+        // Download-Button anzeigen
+        const progressArea = document.getElementById('export-progress');
+        if (progressArea) {
+            progressArea.innerHTML = `
+                <div class="alert alert-success mb-0">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Export abgeschlossen!</strong>
+                            ${sizeInfo ? `<span class="text-muted ms-2">(${sizeInfo})</span>` : ''}
+                        </div>
+                        <div>
+                            <a href="${result.download_url}" class="btn btn-success btn-sm" download>
+                                <i class="fas fa-download me-1"></i> Herunterladen
+                            </a>
+                            <button onclick="editor.closeExportModal()" class="btn btn-outline-secondary btn-sm ms-2">
+                                Schliessen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Export-Button reaktivieren
+        this.resetExportButton();
+    }
+
+    handleExportError(errorMessage) {
+        this.updateExportProgress(0, 'Fehler!');
+
+        // Fehler-Benachrichtigung
+        this.showNotification('danger', 'Export fehlgeschlagen', errorMessage);
+
+        // Fehler in Progress-Area anzeigen
+        const progressArea = document.getElementById('export-progress');
+        if (progressArea) {
+            progressArea.innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Fehler:</strong> ${errorMessage}
+                    <button onclick="editor.resetExportUI()" class="btn btn-outline-danger btn-sm ms-3">
+                        Nochmal versuchen
+                    </button>
+                </div>
+            `;
+        }
+
+        this.resetExportButton();
+    }
+
+    showExportProgress(show) {
+        const progressArea = document.getElementById('export-progress');
+        if (progressArea) {
+            if (show) {
+                progressArea.innerHTML = `
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%;">0%</div>
+                    </div>
+                    <small id="export-status" class="text-muted mt-1 d-block">Vorbereitung...</small>
+                `;
+                progressArea.classList.remove('d-none');
+            } else {
+                progressArea.classList.add('d-none');
+            }
+        }
+    }
+
+    updateExportProgress(progress, statusText = null) {
         const progressBar = document.querySelector('#export-progress .progress-bar');
+        const statusEl = document.getElementById('export-status');
+
         if (progressBar) {
             progressBar.style.width = progress + '%';
             progressBar.textContent = progress + '%';
         }
+        if (statusEl && statusText) {
+            statusEl.textContent = statusText;
+        }
+    }
+
+    resetExportButton() {
+        const exportBtn = document.getElementById('start-export-btn');
+        if (exportBtn) {
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = '<i class="fas fa-download me-1"></i> Export starten';
+        }
+    }
+
+    resetExportUI() {
+        this.showExportProgress(true);
+        this.updateExportProgress(0, 'Bereit zum Export');
+        this.resetExportButton();
+    }
+
+    closeExportModal() {
+        bootstrap.Modal.getInstance(document.getElementById('exportModal'))?.hide();
+        this.resetExportUI();
     }
 
     // UI helpers

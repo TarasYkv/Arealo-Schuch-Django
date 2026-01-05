@@ -36,4 +36,5 @@ urlpatterns = [
     # API - Export
     path('api/project/<int:project_id>/export/', views.api_start_export, name='api_export'),
     path('api/project/<int:project_id>/export/status/', views.api_export_status, name='api_export_status'),
+    path('api/project/<int:project_id>/export/<int:job_id>/download/', views.api_download_export, name='api_export_download'),
 ]
