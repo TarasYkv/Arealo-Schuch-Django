@@ -4108,19 +4108,17 @@ class StreamRecorderOptimized {
         const thresholdShift = (threshold - 0.6) * 1.4; // tighten (>0) or loosen (<0) mask
         const featherGamma = Math.max(0.1, 1.0 + (0.25 - feather) * 3.5);
 
-        if (this.debugLogging) {
-            const now = performance.now();
-            if (!this.backgroundEffects._lastMaskLog || now - this.backgroundEffects._lastMaskLog > 5000) {
-                console.log('🧮 Mask params', {
-                    smoothing: smoothing.toFixed(2),
-                    threshold: threshold.toFixed(2),
-                    feather: feather.toFixed(2),
-                    blurRadius,
-                    thresholdShift: thresholdShift.toFixed(2),
-                    featherGamma: featherGamma.toFixed(2)
-                });
-                this.backgroundEffects._lastMaskLog = now;
-            }
+        // Immer loggen (alle 3 Sekunden) um Slider-Änderungen zu verifizieren
+        const now = performance.now();
+        if (!this.backgroundEffects._lastMaskLog || now - this.backgroundEffects._lastMaskLog > 3000) {
+            console.log('🧮 Aktive Mask-Parameter:', {
+                smoothing: smoothing.toFixed(2),
+                threshold: threshold.toFixed(2),
+                feather: feather.toFixed(2),
+                blurRadius,
+                forceFresh: forceFresh
+            });
+            this.backgroundEffects._lastMaskLog = now;
         }
 
         const normalizeDenominator = Math.max(0.0001, 1 - thresholdShift);
