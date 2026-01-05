@@ -4698,7 +4698,10 @@ class StreamRecorderOptimized {
 
         const setupRangeControl = (id, valueId, propertyKey, parser = parseFloat, formatter = (v) => Number(v).toFixed(2)) => {
             const input = document.getElementById(id);
-            if (!input) return;
+            if (!input) {
+                console.warn(`⚠️ Slider nicht gefunden: ${id}`);
+                return;
+            }
 
             const label = valueId ? document.getElementById(valueId) : null;
             const updateValueLabel = (val) => {
@@ -4709,6 +4712,7 @@ class StreamRecorderOptimized {
 
             if (!input.hasListener) {
                 input.hasListener = true;
+                console.log(`✅ Event-Listener für Slider ${id} registriert`);
                 input.addEventListener('input', (e) => {
                     const raw = parser(e.target.value);
                     if (!Number.isFinite(raw)) {
@@ -4718,7 +4722,7 @@ class StreamRecorderOptimized {
                     input.value = `${raw}`;
                     this.resetMaskCache(`slider:${propertyKey}`);
                     updateValueLabel(raw);
-                    this.logDebug(`🎚️ Updated ${propertyKey} to`, raw);
+                    console.log(`🎚️ ${propertyKey} geändert:`, raw);
                     if (this.backgroundEffects.enabled && this.segmentationReady && !this.backgroundEffects.segmentationActive) {
                         this.startBackgroundProcessing();
                     }
