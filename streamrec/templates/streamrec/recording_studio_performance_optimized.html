@@ -772,41 +772,6 @@
                                     </div>
                                 </div>
 
-                                <div class="mt-2">
-                                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#backgroundAdvancedSettings" aria-expanded="false" aria-controls="backgroundAdvancedSettings">
-                                        <i class="fas fa-sliders-h me-1"></i>Feinjustierung
-                                    </button>
-                                </div>
-                                <div class="collapse mt-2" id="backgroundAdvancedSettings">
-                                    <div class="bg-light border rounded p-2">
-                                        <label for="maskSmoothing" class="form-label" style="font-size: 0.75rem;">
-                                            Masken-Glättung
-                                            <span class="ms-1 text-muted" id="maskSmoothingValue">0.65</span>
-                                        </label>
-                                        <input type="range" class="form-range" id="maskSmoothing" min="0" max="0.95" step="0.05">
-
-                                        <label for="maskConfidence" class="form-label mt-2" style="font-size: 0.75rem;">
-                                            Erkennungsgrenze
-                                            <span class="ms-1 text-muted" id="maskConfidenceValue">0.60</span>
-                                        </label>
-                                        <input type="range" class="form-range" id="maskConfidence" min="0.30" max="0.95" step="0.01">
-
-                                        <label for="maskFeather" class="form-label mt-2" style="font-size: 0.75rem;">
-                                            Randweichheit
-                                            <span class="ms-1 text-muted" id="maskFeatherValue">0.12</span>
-                                        </label>
-                                        <input type="range" class="form-range" id="maskFeather" min="0" max="0.30" step="0.01">
-
-                                        <label for="maskBlurRadius" class="form-label mt-2" style="font-size: 0.75rem;">
-                                            Masken-Blur
-                                            <span class="ms-1 text-muted" id="maskBlurRadiusValue">4</span>
-                                        </label>
-                                        <input type="range" class="form-range" id="maskBlurRadius" min="0" max="10" step="1">
-                                        <small class="text-muted d-block mt-2" style="font-size: 0.7rem;">
-                                            Änderungen wirken ab dem nächsten Frame. Aktuelle Werte werden in der Konsole protokolliert.
-                                        </small>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -1435,10 +1400,11 @@ class StreamRecorderOptimized {
             processedStream: null,
             previousMaskData: null,
             maskInitialized: false,
-            maskSmoothing: 0.65,
-            confidenceThreshold: 0.6,
-            edgeFeather: 0.12,
-            maskBlurRadius: 4,
+            // Optimale feste Werte (nicht mehr über Slider änderbar)
+            maskSmoothing: 0.7,       // Glättere Masken-Übergänge
+            confidenceThreshold: 0.5, // Inklusivere Personenerkennung
+            edgeFeather: 0.15,        // Weichere Kanten
+            maskBlurRadius: 3,        // Leichter Blur für natürlichen Look
             lastSegmentationResults: null
         };
         
@@ -3763,30 +3729,8 @@ class StreamRecorderOptimized {
             opt.cachedMaskCanvas.height = canvas.height;
             opt.cachedMaskCtx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 🎚️ Slider-Parameter anwenden: Masken-Blur + Kontrast via CSS Filter
-            const blurRadius = Math.max(0, this.backgroundEffects.maskBlurRadius || 0);
-            const threshold = this.backgroundEffects.confidenceThreshold ?? 0.6;
-            const feather = this.backgroundEffects.edgeFeather ?? 0.12;
-
-            // Kontrast und Helligkeit basierend auf Threshold/Feather berechnen
-            // Threshold > 0.6 = mehr Kontrast (strengere Erkennung)
-            // Feather < 0.12 = schärfere Kanten
-            const contrastBoost = 1 + (threshold - 0.6) * 2;  // 0.6 -> 1.0, 0.95 -> 1.7
-            const brightness = 1 - (threshold - 0.6) * 0.5;   // 0.6 -> 1.0, 0.95 -> 0.825
-
-            // Filter-String bauen
-            let filterStr = '';
-            if (blurRadius > 0) {
-                filterStr += `blur(${blurRadius}px) `;
-            }
-            if (Math.abs(contrastBoost - 1) > 0.05) {
-                filterStr += `contrast(${contrastBoost.toFixed(2)}) `;
-            }
-            if (Math.abs(brightness - 1) > 0.05) {
-                filterStr += `brightness(${brightness.toFixed(2)}) `;
-            }
-
-            opt.cachedMaskCtx.filter = filterStr.trim() || 'none';
+            // Optimale feste Werte für Masken-Qualität (blur für weiche Kanten)
+            opt.cachedMaskCtx.filter = 'blur(3px) contrast(1.1)';
             opt.cachedMaskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
             opt.cachedMaskCtx.filter = 'none';
 
@@ -4135,18 +4079,6 @@ class StreamRecorderOptimized {
         const thresholdShift = (threshold - 0.6) * 1.4; // tighten (>0) or loosen (<0) mask
         const featherGamma = Math.max(0.1, 1.0 + (0.25 - feather) * 3.5);
 
-        // Immer loggen (alle 3 Sekunden) um Slider-Änderungen zu verifizieren
-        const now = performance.now();
-        if (!this.backgroundEffects._lastMaskLog || now - this.backgroundEffects._lastMaskLog > 3000) {
-            console.log('🧮 Aktive Mask-Parameter:', {
-                smoothing: smoothing.toFixed(2),
-                threshold: threshold.toFixed(2),
-                feather: feather.toFixed(2),
-                blurRadius,
-                forceFresh: forceFresh
-            });
-            this.backgroundEffects._lastMaskLog = now;
-        }
 
         const normalizeDenominator = Math.max(0.0001, 1 - thresholdShift);
 
@@ -4722,54 +4654,6 @@ class StreamRecorderOptimized {
             });
         }
 
-        const setupRangeControl = (id, valueId, propertyKey, parser = parseFloat, formatter = (v) => Number(v).toFixed(2)) => {
-            const input = document.getElementById(id);
-            if (!input) {
-                console.warn(`⚠️ Slider nicht gefunden: ${id}`);
-                return;
-            }
-
-            const label = valueId ? document.getElementById(valueId) : null;
-            const updateValueLabel = (val) => {
-                if (label) {
-                    label.textContent = formatter(val);
-                }
-            };
-
-            if (!input.hasListener) {
-                input.hasListener = true;
-                console.log(`✅ Event-Listener für Slider ${id} registriert`);
-                input.addEventListener('input', (e) => {
-                    const raw = parser(e.target.value);
-                    if (!Number.isFinite(raw)) {
-                        return;
-                    }
-                    this.backgroundEffects[propertyKey] = raw;
-                    input.value = `${raw}`;
-                    this.resetMaskCache(`slider:${propertyKey}`);
-                    updateValueLabel(raw);
-                    console.log(`🎚️ ${propertyKey} geändert:`, raw);
-                    if (this.backgroundEffects.enabled && this.segmentationReady && !this.backgroundEffects.segmentationActive) {
-                        this.startBackgroundProcessing();
-                    }
-                    if (this.backgroundEffects.enabled && this.backgroundEffects.lastSegmentationResults) {
-                        this.onSegmentationResults(this.backgroundEffects.lastSegmentationResults);
-                    }
-                    this.updateSegmentationStatus(`Feinjustierung: ${propertyKey} = ${formatter(raw)}`);
-                });
-            }
-
-            const currentValue = this.backgroundEffects[propertyKey];
-            if (Number.isFinite(currentValue)) {
-                input.value = currentValue;
-                updateValueLabel(currentValue);
-            }
-        };
-
-        setupRangeControl('maskSmoothing', 'maskSmoothingValue', 'maskSmoothing');
-        setupRangeControl('maskConfidence', 'maskConfidenceValue', 'confidenceThreshold', parseFloat, (v) => Number(v).toFixed(2));
-        setupRangeControl('maskFeather', 'maskFeatherValue', 'edgeFeather', parseFloat, (v) => Number(v).toFixed(2));
-        setupRangeControl('maskBlurRadius', 'maskBlurRadiusValue', 'maskBlurRadius', (v) => parseInt(v, 10), (v) => parseInt(v, 10));
     }
     
     updateEffectControls(mode) {
