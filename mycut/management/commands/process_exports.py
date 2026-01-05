@@ -1,11 +1,10 @@
 """
 Management Command: Verarbeitet ausstehende MyCut Exports.
 
-Kann als Scheduled Task auf PythonAnywhere laufen (z.B. alle 5 Minuten).
-
 Usage:
-    python manage.py process_exports
-    python manage.py process_exports --job-id=24
+    python manage.py process_exports              # Einmalig ausfuehren
+    python manage.py process_exports --daemon     # Als Always-on Task (Loop)
+    python manage.py process_exports --job-id=24  # Spezifischen Job
 """
 
 import os
@@ -32,6 +31,17 @@ class Command(BaseCommand):
             default=5,
             help='Maximale Anzahl Jobs pro Durchlauf (default: 5)',
         )
+        parser.add_argument(
+            '--daemon',
+            action='store_true',
+            help='Als Daemon laufen (fuer Always-on Task)',
+        )
+        parser.add_argument(
+            '--interval',
+            type=int,
+            default=10,
+            help='Sekunden zwischen Checks im Daemon-Modus (default: 10)',
+        )
 
     def handle(self, *args, **options):
         from mycut.models import ExportJob
@@ -39,8 +49,15 @@ class Command(BaseCommand):
 
         job_id = options.get('job_id')
         max_jobs = options.get('max_jobs', 5)
+        daemon_mode = options.get('daemon', False)
+        interval = options.get('interval', 10)
 
-        if job_id:
+        if daemon_mode:
+            self.stdout.write(self.style.SUCCESS(
+                f'Export Worker gestartet (prueft alle {interval}s)'
+            ))
+            self._run_daemon(export_step, max_jobs, interval)
+        elif job_id:
             # Spezifischen Job verarbeiten
             try:
                 job = ExportJob.objects.get(id=job_id)
@@ -50,18 +67,50 @@ class Command(BaseCommand):
                 return
         else:
             # Alle ausstehenden Jobs verarbeiten
-            pending_jobs = ExportJob.objects.filter(
-                status__in=['pending', 'processing']
-            ).order_by('created_at')[:max_jobs]
+            self._process_pending_jobs(export_step, max_jobs)
 
-            if not pending_jobs:
-                self.stdout.write('Keine ausstehenden Export Jobs')
-                return
+    def _run_daemon(self, export_step, max_jobs, interval):
+        """Laeuft als Daemon und prueft regelmaessig auf neue Jobs."""
+        from mycut.models import ExportJob
 
-            self.stdout.write(f'{len(pending_jobs)} ausstehende Jobs gefunden')
+        while True:
+            try:
+                pending_jobs = ExportJob.objects.filter(
+                    status__in=['pending', 'processing']
+                ).order_by('created_at')[:max_jobs]
 
-            for job in pending_jobs:
-                self._process_job(job, export_step)
+                if pending_jobs:
+                    self.stdout.write(f'\n[{timezone.now().strftime("%H:%M:%S")}] {len(pending_jobs)} Job(s) gefunden')
+                    for job in pending_jobs:
+                        self._process_job(job, export_step)
+
+                # Warten bis zum naechsten Check
+                time.sleep(interval)
+
+            except KeyboardInterrupt:
+                self.stdout.write('\nWorker beendet.')
+                break
+            except Exception as e:
+                self.stderr.write(f'Fehler im Daemon: {e}')
+                logger.exception('Daemon error')
+                time.sleep(30)  # Bei Fehler laenger warten
+
+    def _process_pending_jobs(self, export_step, max_jobs):
+        """Verarbeitet alle ausstehenden Jobs einmalig."""
+        from mycut.models import ExportJob
+
+        pending_jobs = ExportJob.objects.filter(
+            status__in=['pending', 'processing']
+        ).order_by('created_at')[:max_jobs]
+
+        if not pending_jobs:
+            self.stdout.write('Keine ausstehenden Export Jobs')
+            return
+
+        self.stdout.write(f'{len(pending_jobs)} ausstehende Jobs gefunden')
+
+        for job in pending_jobs:
+            self._process_job(job, export_step)
 
     def _process_job(self, job, export_step):
         """Verarbeitet einen einzelnen Export Job bis zum Ende."""
