@@ -61,6 +61,7 @@ urlpatterns = [
     # Chat namespace redirect for backward compatibility
     path('chat/', include('organization.urls', namespace='chat')),
     path('videos/', include('videos.urls', namespace='videos')),
+    path('mycut/', include('mycut.urls', namespace='mycut')),
     path('promptpro/', include('promptpro.urls', namespace='promptpro')),
     # Public video access shortcut
     path('v/<uuid:unique_id>/', video_views.video_view, name='public_video_view'),

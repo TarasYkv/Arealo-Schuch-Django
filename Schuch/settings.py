@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'image_editor',
     'bug_report',
     'videos',
+    'mycut',
     'encrypted_model_fields',
     'organization',
     'payments',

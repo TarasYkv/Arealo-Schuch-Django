@@ -1,0 +1,646 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mycut-editor {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 60px);
+        background: #1a1a2e;
+        color: #eee;
+    }
+
+    .editor-header {
+        background: #16213e;
+        padding: 10px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #0f3460;
+    }
+
+    .editor-main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .editor-sidebar {
+        width: 300px;
+        background: #16213e;
+        border-right: 1px solid #0f3460;
+        overflow-y: auto;
+    }
+
+    .editor-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .video-preview {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        min-height: 300px;
+    }
+
+    .video-preview video {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    .timeline-container {
+        background: #0f3460;
+        border-top: 1px solid #16213e;
+        padding: 10px;
+        min-height: 200px;
+    }
+
+    .timeline-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .timeline-tracks {
+        background: #1a1a2e;
+        border-radius: 4px;
+        min-height: 120px;
+        position: relative;
+    }
+
+    .timeline-track {
+        height: 40px;
+        background: #16213e;
+        margin-bottom: 2px;
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+    }
+
+    .timeline-track-label {
+        width: 80px;
+        font-size: 12px;
+        color: #888;
+    }
+
+    .timeline-track-content {
+        flex: 1;
+        height: 30px;
+        background: #0f3460;
+        border-radius: 4px;
+        position: relative;
+    }
+
+    .timeline-clip {
+        position: absolute;
+        height: 100%;
+        background: linear-gradient(135deg, #e94560 0%, #533483 100%);
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .timeline-clip:hover {
+        filter: brightness(1.1);
+    }
+
+    .playhead {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e94560;
+        z-index: 10;
+        pointer-events: none;
+    }
+
+    .playhead::before {
+        content: '';
+        position: absolute;
+        top: -5px;
+        left: -5px;
+        width: 12px;
+        height: 12px;
+        background: #e94560;
+        border-radius: 50%;
+    }
+
+    .sidebar-section {
+        border-bottom: 1px solid #0f3460;
+        padding: 15px;
+    }
+
+    .sidebar-section h6 {
+        color: #e94560;
+        margin-bottom: 10px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .ai-suggestion {
+        background: #1a1a2e;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 8px;
+        border-left: 3px solid #e94560;
+    }
+
+    .ai-suggestion .badge {
+        font-size: 10px;
+    }
+
+    .ai-suggestion-actions {
+        margin-top: 8px;
+    }
+
+    .btn-ai {
+        background: linear-gradient(135deg, #e94560 0%, #533483 100%);
+        border: none;
+        color: white;
+    }
+
+    .btn-ai:hover {
+        filter: brightness(1.1);
+        color: white;
+    }
+
+    .waveform-canvas {
+        width: 100%;
+        height: 40px;
+        background: #0f3460;
+        border-radius: 4px;
+    }
+
+    .subtitle-item {
+        background: #1a1a2e;
+        border-radius: 4px;
+        padding: 8px;
+        margin-bottom: 5px;
+        font-size: 12px;
+    }
+
+    .subtitle-item .time {
+        color: #888;
+        font-size: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mycut-editor">
+    <!-- Header -->
+    <div class="editor-header">
+        <div class="d-flex align-items-center">
+            <a href="{% url 'mycut:list' %}" class="btn btn-sm btn-outline-light me-3">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h5 class="mb-0">
+                <i class="fas fa-cut text-warning me-2"></i>
+                {{ project.name }}
+            </h5>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-sm btn-outline-light" id="btn-save" onclick="saveProject()">
+                <i class="fas fa-save me-1"></i> Speichern
+            </button>
+            <button class="btn btn-sm btn-ai" data-bs-toggle="modal" data-bs-target="#exportModal">
+                <i class="fas fa-file-export me-1"></i> Exportieren
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="editor-main">
+        <!-- Sidebar -->
+        <div class="editor-sidebar">
+            <!-- AI Tools -->
+            <div class="sidebar-section">
+                <h6><i class="fas fa-robot me-1"></i> KI-Werkzeuge</h6>
+
+                {% if not has_transcription %}
+                <button class="btn btn-ai btn-sm w-100 mb-2" onclick="startTranscription()">
+                    <i class="fas fa-microphone me-1"></i> Transkribieren
+                </button>
+                {% else %}
+                <button class="btn btn-outline-light btn-sm w-100 mb-2" onclick="startAnalysis()">
+                    <i class="fas fa-magic me-1"></i> Auto-Edit analysieren
+                </button>
+                {% endif %}
+
+                <div id="ai-progress" class="d-none">
+                    <div class="progress" style="height: 4px;">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted" id="ai-status">Verarbeite...</small>
+                </div>
+            </div>
+
+            <!-- AI Suggestions -->
+            {% if ai_suggestions %}
+            <div class="sidebar-section">
+                <h6><i class="fas fa-lightbulb me-1"></i> Vorschlaege ({{ ai_suggestions.count }})</h6>
+                <div id="suggestions-list" style="max-height: 200px; overflow-y: auto;">
+                    {% for suggestion in ai_suggestions %}
+                    <div class="ai-suggestion" data-id="{{ suggestion.id }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="badge
+                                {% if suggestion.suggestion_type == 'filler_word' %}bg-warning text-dark
+                                {% elif suggestion.suggestion_type == 'silence' %}bg-info
+                                {% else %}bg-primary{% endif %}">
+                                {{ suggestion.get_suggestion_type_display }}
+                            </span>
+                            <small class="text-muted">{{ suggestion.confidence|floatformat:0 }}%</small>
+                        </div>
+                        <div class="mt-1 small">{{ suggestion.text|truncatechars:40 }}</div>
+                        <div class="ai-suggestion-actions">
+                            <button class="btn btn-xs btn-success" onclick="applySuggestion({{ suggestion.id }})">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-xs btn-danger" onclick="rejectSuggestion({{ suggestion.id }})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Subtitles -->
+            <div class="sidebar-section">
+                <h6><i class="fas fa-closed-captioning me-1"></i> Untertitel ({{ subtitles.count }})</h6>
+                {% if subtitles %}
+                <div id="subtitles-list" style="max-height: 200px; overflow-y: auto;">
+                    {% for sub in subtitles %}
+                    <div class="subtitle-item" onclick="seekTo({{ sub.start_time }})">
+                        <div class="time">{{ sub.start_time|floatformat:0 }}ms - {{ sub.end_time|floatformat:0 }}ms</div>
+                        <div>{{ sub.text|truncatechars:50 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-2">
+                    <a href="{% url 'mycut:api_export_subtitles' project.id %}?format=srt" class="btn btn-xs btn-outline-light me-1">
+                        <i class="fas fa-download"></i> SRT
+                    </a>
+                    <a href="{% url 'mycut:api_export_subtitles' project.id %}?format=vtt" class="btn btn-xs btn-outline-light">
+                        <i class="fas fa-download"></i> VTT
+                    </a>
+                </div>
+                {% else %}
+                <p class="text-muted small">Keine Untertitel. Transkribiere zuerst das Video.</p>
+                {% endif %}
+            </div>
+
+            <!-- Export Settings -->
+            <div class="sidebar-section">
+                <h6><i class="fas fa-cog me-1"></i> Export-Einstellungen</h6>
+                <div class="mb-2">
+                    <label class="form-label small">Qualitaet</label>
+                    <select class="form-select form-select-sm bg-dark text-light border-secondary" id="export-quality">
+                        <option value="720p" {% if project.export_quality == '720p' %}selected{% endif %}>720p HD</option>
+                        <option value="1080p" {% if project.export_quality == '1080p' %}selected{% endif %}>1080p Full HD</option>
+                        <option value="4k" {% if project.export_quality == '4k' %}selected{% endif %}>4K Ultra HD</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Format</label>
+                    <select class="form-select form-select-sm bg-dark text-light border-secondary" id="export-format">
+                        <option value="mp4" {% if project.export_format == 'mp4' %}selected{% endif %}>MP4 (H.264)</option>
+                        <option value="webm" {% if project.export_format == 'webm' %}selected{% endif %}>WebM (VP9)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Content -->
+        <div class="editor-content">
+            <!-- Video Preview -->
+            <div class="video-preview">
+                <video id="video-player" controls>
+                    {% if video.video_file %}
+                    <source src="{{ video.video_file.url }}" type="video/mp4">
+                    {% endif %}
+                    Dein Browser unterstuetzt keine Video-Wiedergabe.
+                </video>
+            </div>
+
+            <!-- Timeline -->
+            <div class="timeline-container">
+                <div class="timeline-header">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-light" onclick="zoomIn()">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                        <button class="btn btn-outline-light" onclick="zoomOut()">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                    </div>
+                    <div class="text-muted small">
+                        <span id="current-time">00:00:00</span> / <span id="total-duration">00:00:00</span>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-light" onclick="splitClip()">
+                            <i class="fas fa-cut"></i> Teilen
+                        </button>
+                        <button class="btn btn-outline-light" onclick="deleteClip()">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="timeline-tracks">
+                    <div class="playhead" id="playhead" style="left: 0;"></div>
+
+                    <!-- Video Track -->
+                    <div class="timeline-track">
+                        <div class="timeline-track-label">
+                            <i class="fas fa-video me-1"></i> Video
+                        </div>
+                        <div class="timeline-track-content" id="video-track">
+                            {% for clip in clips %}
+                            {% if clip.clip_type == 'video' %}
+                            <div class="timeline-clip" style="left: 0; width: 100%;" data-id="{{ clip.id }}"></div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Audio Track -->
+                    <div class="timeline-track">
+                        <div class="timeline-track-label">
+                            <i class="fas fa-volume-up me-1"></i> Audio
+                        </div>
+                        <div class="timeline-track-content" id="audio-track">
+                            <canvas class="waveform-canvas" id="waveform"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Subtitle Track -->
+                    <div class="timeline-track">
+                        <div class="timeline-track-label">
+                            <i class="fas fa-closed-captioning me-1"></i> Untertitel
+                        </div>
+                        <div class="timeline-track-content" id="subtitle-track">
+                            <!-- Subtitle clips will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fas fa-file-export me-2"></i>Video exportieren</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Qualitaet</label>
+                    <select class="form-select bg-dark text-light border-secondary" id="modal-export-quality">
+                        <option value="720p">720p HD</option>
+                        <option value="1080p" selected>1080p Full HD</option>
+                        <option value="4k">4K Ultra HD</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Format</label>
+                    <select class="form-select bg-dark text-light border-secondary" id="modal-export-format">
+                        <option value="mp4" selected>MP4 (H.264)</option>
+                        <option value="webm">WebM (VP9)</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="burn-subtitles">
+                    <label class="form-check-label" for="burn-subtitles">Untertitel einbrennen</label>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-ai" onclick="startExport()">
+                    <i class="fas fa-rocket me-1"></i> Export starten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const projectId = {{ project.id }};
+const csrfToken = '{{ csrf_token }}';
+
+// Video Player
+const videoPlayer = document.getElementById('video-player');
+const playhead = document.getElementById('playhead');
+
+videoPlayer.addEventListener('timeupdate', function() {
+    const progress = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+    playhead.style.left = progress + '%';
+
+    // Update time display
+    document.getElementById('current-time').textContent = formatTime(videoPlayer.currentTime * 1000);
+});
+
+videoPlayer.addEventListener('loadedmetadata', function() {
+    document.getElementById('total-duration').textContent = formatTime(videoPlayer.duration * 1000);
+});
+
+function formatTime(ms) {
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function seekTo(ms) {
+    videoPlayer.currentTime = ms / 1000;
+    videoPlayer.play();
+}
+
+// API Functions
+async function apiCall(endpoint, method = 'GET', data = null) {
+    const options = {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    };
+    if (data) {
+        options.body = JSON.stringify(data);
+    }
+    const response = await fetch(endpoint, options);
+    return response.json();
+}
+
+async function saveProject() {
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Speichern...';
+
+    try {
+        const result = await apiCall(`/mycut/api/project/${projectId}/save/`, 'POST', {
+            export_quality: document.getElementById('export-quality').value,
+            export_format: document.getElementById('export-format').value
+        });
+
+        if (result.success) {
+            btn.innerHTML = '<i class="fas fa-check me-1"></i> Gespeichert!';
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fas fa-save me-1"></i> Speichern';
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            alert('Fehler: ' + result.error);
+            btn.innerHTML = '<i class="fas fa-save me-1"></i> Speichern';
+            btn.disabled = false;
+        }
+    } catch (e) {
+        alert('Fehler beim Speichern');
+        btn.innerHTML = '<i class="fas fa-save me-1"></i> Speichern';
+        btn.disabled = false;
+    }
+}
+
+async function startTranscription() {
+    if (!confirm('Transkription starten? Dies kann einige Minuten dauern und benoetigt einen OpenAI API-Key.')) return;
+
+    const progress = document.getElementById('ai-progress');
+    const status = document.getElementById('ai-status');
+    progress.classList.remove('d-none');
+    status.textContent = 'Transkribiere Audio...';
+
+    try {
+        const result = await apiCall(`/mycut/api/project/${projectId}/transcribe/`, 'POST');
+
+        if (result.success) {
+            status.textContent = `Fertig! ${result.segments} Segmente erkannt.`;
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            status.textContent = 'Fehler: ' + result.error;
+        }
+    } catch (e) {
+        status.textContent = 'Fehler bei der Transkription';
+    }
+}
+
+async function startAnalysis() {
+    const progress = document.getElementById('ai-progress');
+    const status = document.getElementById('ai-status');
+    progress.classList.remove('d-none');
+    status.textContent = 'Analysiere fuer Auto-Edit...';
+
+    try {
+        const result = await apiCall(`/mycut/api/project/${projectId}/analyze/`, 'POST');
+
+        if (result.success) {
+            status.textContent = `${result.filler_words} Fuellwoerter, ${result.silences} Pausen, ${result.speed_changes} Speed-Aenderungen gefunden.`;
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            status.textContent = 'Fehler: ' + result.error;
+        }
+    } catch (e) {
+        status.textContent = 'Fehler bei der Analyse';
+    }
+}
+
+async function applySuggestion(id) {
+    try {
+        const result = await apiCall(`/mycut/api/project/${projectId}/apply-suggestion/${id}/`, 'POST');
+        if (result.success) {
+            document.querySelector(`.ai-suggestion[data-id="${id}"]`).remove();
+        }
+    } catch (e) {
+        alert('Fehler beim Anwenden');
+    }
+}
+
+async function rejectSuggestion(id) {
+    try {
+        const result = await apiCall(`/mycut/api/project/${projectId}/reject-suggestion/${id}/`, 'POST');
+        if (result.success) {
+            document.querySelector(`.ai-suggestion[data-id="${id}"]`).remove();
+        }
+    } catch (e) {
+        alert('Fehler beim Ablehnen');
+    }
+}
+
+async function startExport() {
+    const quality = document.getElementById('modal-export-quality').value;
+    const format = document.getElementById('modal-export-format').value;
+    const burnSubtitles = document.getElementById('burn-subtitles').checked;
+
+    try {
+        const result = await apiCall(`/mycut/api/project/${projectId}/export/`, 'POST', {
+            quality, format, burn_subtitles: burnSubtitles
+        });
+
+        if (result.success) {
+            alert('Export gestartet! Du wirst benachrichtigt, wenn er fertig ist.');
+            bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+        } else {
+            alert('Fehler: ' + result.error);
+        }
+    } catch (e) {
+        alert('Fehler beim Starten des Exports');
+    }
+}
+
+// Timeline functions (placeholder)
+function zoomIn() { console.log('Zoom in'); }
+function zoomOut() { console.log('Zoom out'); }
+function splitClip() { console.log('Split clip'); }
+function deleteClip() { console.log('Delete clip'); }
+
+// Load waveform
+async function loadWaveform() {
+    try {
+        const result = await apiCall(`/mycut/api/project/${projectId}/waveform/`);
+        if (result.success && result.waveform) {
+            drawWaveform(result.waveform);
+        }
+    } catch (e) {
+        console.log('Waveform could not be loaded');
+    }
+}
+
+function drawWaveform(data) {
+    const canvas = document.getElementById('waveform');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.fillStyle = '#0f3460';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = '#e94560';
+    const barWidth = width / data.length;
+
+    data.forEach((value, i) => {
+        const barHeight = value * height;
+        ctx.fillRect(i * barWidth, (height - barHeight) / 2, barWidth - 1, barHeight);
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    loadWaveform();
+});
+</script>
+{% endblock %}
