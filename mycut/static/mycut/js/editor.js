@@ -784,9 +784,13 @@ class MyCutEditor {
 
     // Export
     async startExport() {
+        console.log('startExport() called');
+
         const quality = document.getElementById('modal-export-quality')?.value || '1080p';
         const format = document.getElementById('modal-export-format')?.value || 'mp4';
         const burnSubtitles = document.getElementById('burn-subtitles')?.checked || false;
+
+        console.log('Export settings:', { quality, format, burnSubtitles, projectId: this.projectId });
 
         // Export-Button deaktivieren
         const exportBtn = document.getElementById('start-export-btn');
@@ -800,9 +804,12 @@ class MyCutEditor {
         this.updateExportProgress(0, 'Export wird vorbereitet...');
 
         try {
+            console.log('Sending export request to API...');
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/export/`, 'POST', {
                 quality, format, burn_subtitles: burnSubtitles
             });
+
+            console.log('Export API response:', result);
 
             if (result.success) {
                 this.currentExportJobId = result.job_id;
