@@ -584,3 +584,187 @@ class FFmpegService:
             if 'concat_file' in locals():
                 os.unlink(concat_file)
             raise
+
+    @staticmethod
+    def apply_zoom_effect(
+        input_path: str,
+        output_path: str,
+        zoom_type: str = 'zoom_in',
+        start_zoom: float = 1.0,
+        end_zoom: float = 1.3,
+        center_x: float = 0.5,
+        center_y: float = 0.5
+    ) -> bool:
+        """
+        Wendet Ken-Burns-Zoom-Effekt auf Video an.
+
+        Args:
+            input_path: Eingabe-Video
+            output_path: Ausgabe-Video
+            zoom_type: 'zoom_in', 'zoom_out', 'pan_left', 'pan_right'
+            start_zoom: Start-Zoom-Faktor (1.0 = normal)
+            end_zoom: End-Zoom-Faktor
+            center_x: Horizontales Zentrum (0.0-1.0)
+            center_y: Vertikales Zentrum (0.0-1.0)
+        """
+        if not has_ffmpeg():
+            raise RuntimeError("FFmpeg nicht verfügbar")
+
+        try:
+            # Video-Info holen
+            info = FFmpegService.get_video_info(input_path)
+            width = info.get('width', 1920)
+            height = info.get('height', 1080)
+            duration = info.get('duration', 1)
+
+            # Zoom-Filter je nach Typ
+            if zoom_type == 'zoom_in':
+                # Langsam reinzoomen
+                zoom_expr = f"zoom+({end_zoom - start_zoom})/(fps*{duration})"
+                x_expr = f"(iw-iw/zoom)/2+((iw/zoom)*{center_x - 0.5})"
+                y_expr = f"(ih-ih/zoom)/2+((ih/zoom)*{center_y - 0.5})"
+            elif zoom_type == 'zoom_out':
+                # Von nah nach fern
+                zoom_expr = f"{end_zoom}-(zoom-{start_zoom})/({duration}*fps)"
+                x_expr = f"(iw-iw/zoom)/2"
+                y_expr = f"(ih-ih/zoom)/2"
+            elif zoom_type == 'pan_left':
+                # Von rechts nach links schwenken
+                zoom_expr = f"{start_zoom}"
+                x_expr = f"(iw-iw/zoom)*(1-on/({duration}*fps))"
+                y_expr = f"(ih-ih/zoom)/2"
+            elif zoom_type == 'pan_right':
+                # Von links nach rechts schwenken
+                zoom_expr = f"{start_zoom}"
+                x_expr = f"(iw-iw/zoom)*on/({duration}*fps)"
+                y_expr = f"(ih-ih/zoom)/2"
+            else:
+                # Default: leichter Zoom-In
+                zoom_expr = f"min(zoom+0.0015,{end_zoom})"
+                x_expr = f"(iw-iw/zoom)/2"
+                y_expr = f"(ih-ih/zoom)/2"
+
+            # Zoompan-Filter
+            filter_str = (
+                f"zoompan=z='{zoom_expr}':"
+                f"x='{x_expr}':"
+                f"y='{y_expr}':"
+                f"d={int(duration * 25)}:"  # Frames
+                f"s={width}x{height}:"
+                f"fps=25"
+            )
+
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', input_path,
+                '-vf', filter_str,
+                '-c:v', 'libx264', '-preset', 'fast',
+                '-c:a', 'copy',
+                output_path
+            ]
+
+            subprocess.run(cmd, capture_output=True, check=True)
+            logger.info(f"Zoom effect applied ({zoom_type}): {output_path}")
+            return True
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Zoom effect failed: {e.stderr.decode() if e.stderr else str(e)}")
+            raise
+
+    @staticmethod
+    def apply_fade(
+        input_path: str,
+        output_path: str,
+        fade_in_ms: float = 0,
+        fade_out_ms: float = 0
+    ) -> bool:
+        """
+        Wendet Fade-In/Fade-Out auf Video an.
+
+        Args:
+            fade_in_ms: Dauer des Fade-In in ms
+            fade_out_ms: Dauer des Fade-Out in ms
+        """
+        if not has_ffmpeg():
+            raise RuntimeError("FFmpeg nicht verfügbar")
+
+        try:
+            info = FFmpegService.get_video_info(input_path)
+            duration = info.get('duration', 0)
+
+            filters = []
+
+            if fade_in_ms > 0:
+                fade_in_sec = fade_in_ms / 1000
+                filters.append(f"fade=t=in:st=0:d={fade_in_sec}")
+
+            if fade_out_ms > 0 and duration > 0:
+                fade_out_sec = fade_out_ms / 1000
+                start_time = duration - fade_out_sec
+                if start_time > 0:
+                    filters.append(f"fade=t=out:st={start_time}:d={fade_out_sec}")
+
+            if not filters:
+                # Kein Fade, einfach kopieren
+                import shutil
+                shutil.copy(input_path, output_path)
+                return True
+
+            filter_str = ','.join(filters)
+
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', input_path,
+                '-vf', filter_str,
+                '-af', filter_str.replace('fade=t=', 'afade=t='),
+                '-c:v', 'libx264', '-preset', 'fast',
+                '-c:a', 'aac',
+                output_path
+            ]
+
+            subprocess.run(cmd, capture_output=True, check=True)
+            logger.info(f"Fade applied: in={fade_in_ms}ms, out={fade_out_ms}ms")
+            return True
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Fade failed: {e.stderr.decode() if e.stderr else str(e)}")
+            raise
+
+    @staticmethod
+    def apply_color_correction(
+        input_path: str,
+        output_path: str,
+        brightness: float = 0,
+        contrast: float = 1.0,
+        saturation: float = 1.0
+    ) -> bool:
+        """
+        Wendet Farb-Korrektur an.
+
+        Args:
+            brightness: -1.0 bis 1.0 (0 = keine Aenderung)
+            contrast: 0.0 bis 2.0 (1.0 = normal)
+            saturation: 0.0 bis 2.0 (1.0 = normal)
+        """
+        if not has_ffmpeg():
+            raise RuntimeError("FFmpeg nicht verfügbar")
+
+        try:
+            filter_str = f"eq=brightness={brightness}:contrast={contrast}:saturation={saturation}"
+
+            cmd = [
+                'ffmpeg', '-y',
+                '-i', input_path,
+                '-vf', filter_str,
+                '-c:v', 'libx264', '-preset', 'fast',
+                '-c:a', 'copy',
+                output_path
+            ]
+
+            subprocess.run(cmd, capture_output=True, check=True)
+            logger.info(f"Color correction applied: b={brightness}, c={contrast}, s={saturation}")
+            return True
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Color correction failed: {e.stderr.decode() if e.stderr else str(e)}")
+            raise

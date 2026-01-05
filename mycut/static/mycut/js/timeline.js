@@ -390,6 +390,7 @@ class MyCutTimeline {
         const clip = this.getClipAt(x, y);
         if (clip) {
             this.selectedClip = clip;
+            this.onClipSelected && this.onClipSelected(clip);
 
             // Check for trim handles
             const clipX = this.timeToPixel(clip.start_time);
@@ -408,6 +409,7 @@ class MyCutTimeline {
         }
 
         this.selectedClip = null;
+        this.onClipSelected && this.onClipSelected(null);
         this.render();
     }
 

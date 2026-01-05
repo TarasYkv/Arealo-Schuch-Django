@@ -22,6 +22,15 @@ class MyCutEditor {
         this.isSaving = false;
         this.hasUnsavedChanges = false;
 
+        // Undo/Redo History
+        this.history = [];
+        this.historyIndex = -1;
+        this.maxHistoryLength = 50;
+        this.isUndoing = false;
+
+        // Currently selected clip for properties panel
+        this.selectedClip = null;
+
         this.init();
     }
 
@@ -102,6 +111,14 @@ class MyCutEditor {
         this.timeline.onClipDoubleClick = (clip) => {
             this.editClip(clip);
         };
+
+        this.timeline.onClipSelected = (clip) => {
+            if (clip && clip.clip_type === 'video') {
+                this.selectClip(clip);
+            } else {
+                this.hideClipProperties();
+            }
+        };
     }
 
     setupKeyboardShortcuts() {
@@ -143,7 +160,17 @@ class MyCutEditor {
                 case 'z':
                     if (e.ctrlKey || e.metaKey) {
                         e.preventDefault();
-                        this.undo();
+                        if (e.shiftKey) {
+                            this.redo();
+                        } else {
+                            this.undo();
+                        }
+                    }
+                    break;
+                case 'y':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        this.redo();
                     }
                     break;
                 case '+':
@@ -842,9 +869,176 @@ class MyCutEditor {
         return container;
     }
 
+    // ===========================================
+    // Undo/Redo System
+    // ===========================================
+
+    saveState(actionName = 'Aenderung') {
+        if (this.isUndoing) return;
+
+        // Aktuellen Zustand speichern
+        const state = {
+            action: actionName,
+            timestamp: Date.now(),
+            clips: JSON.parse(JSON.stringify(this.project.clips)),
+            textOverlays: JSON.parse(JSON.stringify(this.project.textOverlays)),
+        };
+
+        // Alles nach aktuellem Index loeschen (bei neuer Aktion nach Undo)
+        if (this.historyIndex < this.history.length - 1) {
+            this.history = this.history.slice(0, this.historyIndex + 1);
+        }
+
+        this.history.push(state);
+        this.historyIndex = this.history.length - 1;
+
+        // Maximale Laenge einhalten
+        if (this.history.length > this.maxHistoryLength) {
+            this.history.shift();
+            this.historyIndex--;
+        }
+
+        this.updateUndoRedoButtons();
+    }
+
     undo() {
-        // Placeholder for undo functionality
-        console.log('Undo not implemented yet');
+        if (this.historyIndex <= 0) {
+            this.showNotification('info', 'Undo', 'Nichts mehr zum Rueckgaengig machen');
+            return;
+        }
+
+        this.isUndoing = true;
+        this.historyIndex--;
+
+        const state = this.history[this.historyIndex];
+        this.restoreState(state);
+
+        this.isUndoing = false;
+        this.updateUndoRedoButtons();
+        this.showNotification('info', 'Rueckgaengig', state.action);
+    }
+
+    redo() {
+        if (this.historyIndex >= this.history.length - 1) {
+            this.showNotification('info', 'Redo', 'Nichts mehr zum Wiederherstellen');
+            return;
+        }
+
+        this.isUndoing = true;
+        this.historyIndex++;
+
+        const state = this.history[this.historyIndex];
+        this.restoreState(state);
+
+        this.isUndoing = false;
+        this.updateUndoRedoButtons();
+        this.showNotification('info', 'Wiederherstellt', state.action);
+    }
+
+    restoreState(state) {
+        this.project.clips = JSON.parse(JSON.stringify(state.clips));
+        this.project.textOverlays = JSON.parse(JSON.stringify(state.textOverlays));
+
+        // Timeline aktualisieren
+        this.timeline.setClips([
+            ...this.project.clips,
+            ...this.project.subtitles.map(sub => ({
+                id: 'sub_' + sub.id,
+                clip_type: 'subtitle',
+                start_time: sub.start_time,
+                duration: sub.end_time - sub.start_time,
+                text: sub.text
+            })),
+            ...this.project.textOverlays.map(overlay => ({
+                id: 'overlay_' + overlay.id,
+                clip_type: 'text_overlay',
+                start_time: overlay.start_time,
+                duration: overlay.end_time - overlay.start_time,
+                text: overlay.text
+            }))
+        ]);
+
+        this.hasUnsavedChanges = true;
+    }
+
+    updateUndoRedoButtons() {
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+
+        if (undoBtn) {
+            undoBtn.disabled = this.historyIndex <= 0;
+        }
+        if (redoBtn) {
+            redoBtn.disabled = this.historyIndex >= this.history.length - 1;
+        }
+    }
+
+    // ===========================================
+    // Clip Properties Panel
+    // ===========================================
+
+    selectClip(clip) {
+        this.selectedClip = clip;
+        this.showClipProperties(clip);
+    }
+
+    showClipProperties(clip) {
+        const panel = document.getElementById('clip-properties-panel');
+        if (!panel) return;
+
+        panel.classList.remove('d-none');
+
+        // Felder fuellen
+        document.getElementById('clip-speed').value = clip.speed || 1.0;
+        document.getElementById('clip-speed-val').textContent = (clip.speed || 1.0).toFixed(2) + 'x';
+        document.getElementById('clip-volume').value = (clip.volume || 1.0) * 100;
+        document.getElementById('clip-volume-val').textContent = Math.round((clip.volume || 1.0) * 100) + '%';
+        document.getElementById('clip-muted').checked = clip.is_muted || false;
+
+        // Start/Ende anzeigen
+        document.getElementById('clip-start').textContent = this.formatTime(clip.source_start);
+        document.getElementById('clip-end').textContent = this.formatTime(clip.source_end);
+        document.getElementById('clip-duration').textContent = this.formatTime(clip.duration);
+    }
+
+    hideClipProperties() {
+        const panel = document.getElementById('clip-properties-panel');
+        if (panel) {
+            panel.classList.add('d-none');
+        }
+        this.selectedClip = null;
+    }
+
+    updateClipSpeed(speed) {
+        if (!this.selectedClip) return;
+
+        this.saveState('Geschwindigkeit geaendert');
+        this.selectedClip.speed = parseFloat(speed);
+        document.getElementById('clip-speed-val').textContent = speed + 'x';
+
+        this.hasUnsavedChanges = true;
+        this.updateClip(this.selectedClip);
+    }
+
+    updateClipVolume(volume) {
+        if (!this.selectedClip) return;
+
+        this.saveState('Lautstaerke geaendert');
+        this.selectedClip.volume = volume / 100;
+        document.getElementById('clip-volume-val').textContent = volume + '%';
+
+        this.hasUnsavedChanges = true;
+        this.updateClip(this.selectedClip);
+    }
+
+    toggleClipMute() {
+        if (!this.selectedClip) return;
+
+        this.saveState('Stummschaltung geaendert');
+        this.selectedClip.is_muted = document.getElementById('clip-muted').checked;
+
+        this.hasUnsavedChanges = true;
+        this.updateClip(this.selectedClip);
     }
 
     // ===========================================

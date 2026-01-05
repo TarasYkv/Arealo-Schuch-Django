@@ -179,6 +179,12 @@
             <div class="timeline-container">
                 <div class="timeline-header">
                     <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-light" id="undo-btn" onclick="editor.undo()" title="Rueckgaengig (Strg+Z)" disabled>
+                            <i class="fas fa-undo"></i>
+                        </button>
+                        <button class="btn btn-outline-light" id="redo-btn" onclick="editor.redo()" title="Wiederherstellen (Strg+Y)" disabled>
+                            <i class="fas fa-redo"></i>
+                        </button>
                         <button class="btn btn-outline-light" onclick="editor.zoomIn()" title="Zoom +">
                             <i class="fas fa-search-plus"></i>
                         </button>
@@ -202,6 +208,42 @@
                         <button class="btn btn-outline-light" onclick="editor.deleteSelectedClip()" title="Ausgewaehlten Clip loeschen">
                             <i class="fas fa-trash"></i>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Clip Properties Panel -->
+                <div id="clip-properties-panel" class="d-none bg-dark border border-secondary rounded p-2 mb-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-auto">
+                            <small class="text-muted">Clip:</small>
+                            <span id="clip-start" class="small">00:00</span> - <span id="clip-end" class="small">00:00</span>
+                            <span class="text-muted small ms-2">(<span id="clip-duration">0s</span>)</span>
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label small text-muted mb-0 me-1">Speed:</label>
+                            <input type="range" class="form-range" id="clip-speed" min="0.25" max="4" step="0.25" value="1"
+                                   style="width: 80px; display: inline-block; vertical-align: middle;"
+                                   oninput="editor.updateClipSpeed(this.value)">
+                            <span id="clip-speed-val" class="small ms-1">1.00x</span>
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label small text-muted mb-0 me-1">Volume:</label>
+                            <input type="range" class="form-range" id="clip-volume" min="0" max="200" step="5" value="100"
+                                   style="width: 80px; display: inline-block; vertical-align: middle;"
+                                   oninput="editor.updateClipVolume(this.value)">
+                            <span id="clip-volume-val" class="small ms-1">100%</span>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="clip-muted" onchange="editor.toggleClipMute()">
+                                <label class="form-check-label small" for="clip-muted">Stumm</label>
+                            </div>
+                        </div>
+                        <div class="col-auto ms-auto">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="editor.hideClipProperties()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
