@@ -602,19 +602,28 @@ def api_start_export(request, project_id):
             })
 
         except Exception as celery_error:
-            # Fallback: Synchroner Export wenn Celery nicht verfuegbar
-            logger.warning(f"Celery nicht verfuegbar, starte synchronen Export: {celery_error}")
+            # Fallback: Background-Thread wenn Celery nicht verfuegbar
+            logger.warning(f"Celery nicht verfuegbar, starte Background-Thread: {celery_error}")
             export_job.start_processing()
 
-            # Synchron exportieren (blockiert)
+            # Export in Background-Thread starten (nicht blockierend)
+            import threading
             from .tasks import export_video as sync_export
-            result = sync_export(project.id, export_job.id)
+
+            def run_export():
+                try:
+                    sync_export(project.id, export_job.id)
+                except Exception as e:
+                    logger.error(f"Background export error: {e}")
+
+            thread = threading.Thread(target=run_export, daemon=True)
+            thread.start()
 
             return JsonResponse({
-                'success': result.get('status') == 'completed',
+                'success': True,
                 'job_id': export_job.id,
-                'message': 'Export abgeschlossen (synchron)',
-                'output_url': result.get('output_url', ''),
+                'message': 'Export gestartet (Background-Thread)',
+                'async': True  # Client soll Status pollen
             })
 
     except Exception as e:
