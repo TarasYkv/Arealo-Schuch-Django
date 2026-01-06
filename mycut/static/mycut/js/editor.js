@@ -59,10 +59,13 @@ class MyCutEditor {
      * @returns {Promise<boolean>} - true wenn bestaetigt, false wenn abgebrochen
      */
     showConfirm(options) {
+        console.log('showConfirm called with:', options);
         return new Promise((resolve) => {
             const modal = document.getElementById('confirmModal');
+            console.log('confirmModal element:', modal);
             if (!modal) {
                 // Fallback auf Browser-confirm wenn Modal nicht existiert
+                console.warn('confirmModal not found, using browser confirm');
                 resolve(confirm(options.message || 'Sind Sie sicher?'));
                 return;
             }
@@ -576,6 +579,7 @@ class MyCutEditor {
 
     // AI operations
     async startTranscription() {
+        console.log('startTranscription called');
         const confirmed = await this.showConfirm({
             title: 'Transkription starten',
             message: 'Das Video wird mit KI transkribiert. Dies kann je nach Videolänge 1-5 Minuten dauern.',
