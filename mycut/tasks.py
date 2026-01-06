@@ -256,9 +256,9 @@ def export_video(self_or_project_id, project_id_or_job_id: int = None, export_jo
 
     except Exception as e:
         logger.error(f"Export failed: {e}", exc_info=True)
-        export_job.fail(str(e))
+        export_job.fail(str(e)[:500])
         project.status = 'error'
-        project.processing_message = f'Fehler: {str(e)}'
+        project.processing_message = f'Fehler: {str(e)}'[:250]  # CharField(255)
         project.save(update_fields=['status', 'processing_message'])
 
         # Retry bei bestimmten Fehlern
@@ -323,10 +323,14 @@ def _extract_segment(
                 '-i', source_path,
                 '-t', str(duration_sec),
                 '-an',  # Kein Audio
-                '-c:v', 'libx264', '-preset', 'fast',
             ]
             if video_filters:
+                # Re-encoding nötig wenn Video-Filter aktiv
+                cmd.extend(['-c:v', 'libx264', '-preset', 'fast'])
                 cmd.extend(['-vf', ','.join(video_filters)])
+            else:
+                # SCHNELL: Stream Copy wenn keine Filter
+                cmd.extend(['-c:v', 'copy'])
             cmd.append(output_path)
         else:
             # Video und Audio
@@ -736,6 +740,16 @@ def export_step(project_id: int, export_job_id: int) -> dict:
                         'volume': c.volume or 1.0,
                     })
 
+            # Pruefen ob Re-Encoding noetig ist (fuer spaetere Optimierung)
+            # Re-Encoding noetig wenn: Speed != 1.0, Volume != 1.0, oder is_muted
+            needs_reencoding = any(
+                abs(c['speed'] - 1.0) > 0.01 or
+                abs(c['volume'] - 1.0) > 0.01 or
+                c['is_muted']
+                for c in clips_data
+            )
+            logger.info(f"Export needs_reencoding (from clips): {needs_reencoding}")
+
             # State speichern
             update_state({
                 'current_step': 'segment_0',
@@ -744,6 +758,7 @@ def export_step(project_id: int, export_job_id: int) -> dict:
                 'segment_paths': [],
                 'source_path': source_path,
                 'temp_dir': temp_dir,
+                'needs_reencoding': needs_reencoding,  # Track fuer Compress-Optimierung
             })
             update_progress(5, 'Export vorbereitet...')
 
@@ -842,17 +857,27 @@ def export_step(project_id: int, export_job_id: int) -> dict:
         # =====================================================
         if current_step == 'overlays':
             merged_path = state.get('merged_path')
+            needs_reencoding = state.get('needs_reencoding', False)
             text_overlays = list(project.text_overlays.all())
 
+            overlay_msg = 'Keine Overlays'
             if text_overlays:
+                # Overlays vorhanden -> Re-Encoding noetig
                 overlay_path = os.path.join(temp_dir, 'with_overlays.mp4')
                 _apply_text_overlays(merged_path, overlay_path, text_overlays)
                 if os.path.exists(overlay_path):
                     merged_path = overlay_path
+                    needs_reencoding = True  # Overlays erfordern Re-Encoding
+                    overlay_msg = f'{len(text_overlays)} Overlay(s) angewendet'
+                    logger.info(f"Overlays applied, needs_reencoding=True")
+            else:
+                # OPTIMIERUNG: Keine Overlays -> Step ueberspringen
+                logger.info("No overlays, skipping overlay step (stream copy preserved)")
 
             update_state({
                 'current_step': 'subtitles',
                 'overlay_path': merged_path,
+                'needs_reencoding': needs_reencoding,
             })
             update_progress(75, 'Untertitel werden verarbeitet...')
 
@@ -860,7 +885,7 @@ def export_step(project_id: int, export_job_id: int) -> dict:
                 'status': 'processing',
                 'progress': 75,
                 'next_step': 'subtitles',
-                'message': 'Overlays angewendet',
+                'message': overlay_msg,
             }
 
         # =====================================================
@@ -869,20 +894,35 @@ def export_step(project_id: int, export_job_id: int) -> dict:
         if current_step == 'subtitles':
             overlay_path = state.get('overlay_path')
             burn_subtitles = state.get('burn_subtitles', False)
+            needs_reencoding = state.get('needs_reencoding', False)
 
             subtitle_path = overlay_path
+            subtitle_msg = 'Keine Untertitel'
+
             if burn_subtitles:
                 subtitles = list(project.subtitles.all())
                 if subtitles:
+                    # Untertitel vorhanden und sollen eingebrannt werden
                     srt_path = os.path.join(temp_dir, 'subtitles.srt')
                     _create_srt_file(subtitles, srt_path)
 
                     subtitle_path = os.path.join(temp_dir, 'with_subtitles.mp4')
                     FFmpegService.burn_subtitles(overlay_path, subtitle_path, srt_path)
+                    needs_reencoding = True  # Untertitel erfordern Re-Encoding
+                    subtitle_msg = f'{len(subtitles)} Untertitel eingebrannt'
+                    logger.info(f"Subtitles burned, needs_reencoding=True")
+                else:
+                    # burn_subtitles=True aber keine Untertitel vorhanden
+                    logger.info("burn_subtitles=True but no subtitles, skipping")
+                    subtitle_msg = 'Keine Untertitel vorhanden'
+            else:
+                # OPTIMIERUNG: Untertitel nicht einbrennen -> Step ueberspringen
+                logger.info("burn_subtitles=False, skipping subtitle step (stream copy preserved)")
 
             update_state({
                 'current_step': 'compress',
                 'subtitle_path': subtitle_path,
+                'needs_reencoding': needs_reencoding,
             })
             update_progress(85, 'Video wird komprimiert...')
 
@@ -890,7 +930,7 @@ def export_step(project_id: int, export_job_id: int) -> dict:
                 'status': 'processing',
                 'progress': 85,
                 'next_step': 'compress',
-                'message': 'Untertitel verarbeitet',
+                'message': subtitle_msg,
             }
 
         # =====================================================
@@ -900,6 +940,7 @@ def export_step(project_id: int, export_job_id: int) -> dict:
             subtitle_path = state.get('subtitle_path')
             quality = state.get('quality', project.export_quality)
             output_format = state.get('format', project.export_format)
+            needs_reencoding = state.get('needs_reencoding', False)
 
             # Pruefen ob Input-Datei existiert (wichtig nach Daemon-Neustart)
             if not subtitle_path or not os.path.exists(subtitle_path):
@@ -911,8 +952,27 @@ def export_step(project_id: int, export_job_id: int) -> dict:
             output_filename = f"{project.unique_id}_{quality}.{output_format}"
             final_path = os.path.join(temp_dir, output_filename)
 
-            logger.info(f"Komprimiere: {subtitle_path} -> {final_path}")
-            FFmpegService.compress_video(subtitle_path, final_path, quality)
+            # OPTIMIERUNG: Bei Original-Qualitaet und keinem Re-Encoding -> Stream Copy
+            if quality == 'original' and not needs_reencoding:
+                logger.info(f"FAST PATH: Stream Copy (no re-encoding needed)")
+                # Stream Copy - 10x schneller!
+                cmd = ['ffmpeg', '-y', '-i', subtitle_path, '-c', 'copy', final_path]
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                    if result.returncode != 0:
+                        logger.warning(f"Stream copy failed, fallback to compress: {result.stderr}")
+                        # Fallback zu normaler Komprimierung
+                        FFmpegService.compress_video(subtitle_path, final_path, quality)
+                    compress_msg = 'Stream Copy (schnell)'
+                except Exception as e:
+                    logger.warning(f"Stream copy exception, fallback: {e}")
+                    FFmpegService.compress_video(subtitle_path, final_path, quality)
+                    compress_msg = 'Video komprimiert'
+            else:
+                # Normale Komprimierung (Re-Encoding noetig)
+                logger.info(f"Komprimiere: {subtitle_path} -> {final_path} (quality={quality})")
+                FFmpegService.compress_video(subtitle_path, final_path, quality)
+                compress_msg = 'Video komprimiert'
 
             if not os.path.exists(final_path):
                 error_msg = f"FFmpeg Output nicht erstellt. Input: {subtitle_path}, Output: {final_path}"
@@ -931,7 +991,7 @@ def export_step(project_id: int, export_job_id: int) -> dict:
                 'status': 'processing',
                 'progress': 95,
                 'next_step': 'save',
-                'message': 'Video komprimiert',
+                'message': compress_msg,
             }
 
         # =====================================================
@@ -994,9 +1054,9 @@ def export_step(project_id: int, export_job_id: int) -> dict:
 
     except Exception as e:
         logger.error(f"Export step failed: {e}", exc_info=True)
-        export_job.fail(str(e))
+        export_job.fail(str(e)[:500])
         project.status = 'error'
-        project.processing_message = f'Fehler: {str(e)}'
+        project.processing_message = f'Fehler: {str(e)}'[:250]  # CharField(255)
         project.save(update_fields=['status', 'processing_message'])
 
         # Temp-Ordner aufraumen bei Fehler
