@@ -633,6 +633,47 @@ def export_step(project_id: int, export_job_id: int) -> dict:
     temp_dir = f"/tmp/mycut_export_{export_job_id}"
     os.makedirs(temp_dir, exist_ok=True)
 
+    # WICHTIG: Pruefen ob temp-Dateien nach Daemon-Neustart noch existieren
+    # Wenn nicht, muss der Export von vorne gestartet werden
+    if current_step != 'init':
+        files_missing = False
+        segment_paths = state.get('segment_paths', [])
+        concat_path = state.get('concat_path')
+        overlay_path = state.get('overlay_path')
+        subtitle_path = state.get('subtitle_path')
+        final_path = state.get('final_path')
+
+        # Segment-Steps: Pruefen ob bisherige Segmente noch da sind
+        if current_step.startswith('segment_') and segment_paths:
+            if not all(os.path.exists(p) for p in segment_paths):
+                files_missing = True
+
+        # Spaetere Steps brauchen ihre Input-Dateien
+        elif current_step == 'concat' and segment_paths:
+            if not all(os.path.exists(p) for p in segment_paths):
+                files_missing = True
+        elif current_step == 'overlays' and concat_path:
+            if not os.path.exists(concat_path):
+                files_missing = True
+        elif current_step == 'subtitles' and overlay_path:
+            if not os.path.exists(overlay_path):
+                files_missing = True
+        elif current_step == 'compress' and subtitle_path:
+            if not os.path.exists(subtitle_path):
+                files_missing = True
+        elif current_step == 'save' and final_path:
+            if not os.path.exists(final_path):
+                files_missing = True
+
+        if files_missing:
+            logger.warning(f"Job {export_job_id}: Temp-Dateien fehlen (step={current_step}), starte von vorne")
+            # State komplett zuruecksetzen, aber quality/format behalten
+            state = {'quality': state.get('quality'), 'format': state.get('format')}
+            current_step = 'init'
+            export_job.export_settings = state
+            export_job.progress = 0
+            export_job.save(update_fields=['export_settings', 'progress'])
+
     def update_state(new_state: dict):
         """Speichert State in DB."""
         export_job.export_settings.update(new_state)
