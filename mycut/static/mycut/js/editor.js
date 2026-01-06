@@ -47,6 +47,81 @@ class MyCutEditor {
         console.log('MyCut Editor initialized');
     }
 
+    /**
+     * Zeigt einen schoenen Bestaetigungsdialog statt des haesslichen Browser-confirms
+     * @param {Object} options - Konfiguration
+     * @param {string} options.title - Titel des Dialogs
+     * @param {string} options.message - Hauptnachricht
+     * @param {string} options.hint - Optionaler Hinweistext (klein, grau)
+     * @param {string} options.confirmText - Text des Bestaetigen-Buttons
+     * @param {string} options.confirmClass - CSS-Klasse fuer Button (default: btn-ai)
+     * @param {string} options.icon - FontAwesome Icon-Klasse (default: fa-question-circle)
+     * @returns {Promise<boolean>} - true wenn bestaetigt, false wenn abgebrochen
+     */
+    showConfirm(options) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirmModal');
+            if (!modal) {
+                // Fallback auf Browser-confirm wenn Modal nicht existiert
+                resolve(confirm(options.message || 'Sind Sie sicher?'));
+                return;
+            }
+
+            // Modal-Inhalt setzen
+            const titleText = document.getElementById('confirmModalTitleText');
+            const message = document.getElementById('confirmModalMessage');
+            const hint = document.getElementById('confirmModalHint');
+            const btnText = document.getElementById('confirmModalBtnText');
+            const btn = document.getElementById('confirmModalBtn');
+            const titleIcon = modal.querySelector('.modal-title i');
+
+            if (titleText) titleText.textContent = options.title || 'Bestaetigung';
+            if (message) message.textContent = options.message || 'Sind Sie sicher?';
+            if (hint) {
+                if (options.hint) {
+                    hint.textContent = options.hint;
+                    hint.classList.remove('d-none');
+                } else {
+                    hint.classList.add('d-none');
+                }
+            }
+            if (btnText) btnText.textContent = options.confirmText || 'Bestaetigen';
+            if (btn) {
+                btn.className = `btn btn-sm ${options.confirmClass || 'btn-ai'}`;
+            }
+            if (titleIcon && options.icon) {
+                titleIcon.className = `fas ${options.icon} text-warning me-2`;
+            }
+
+            // Event-Handler
+            const bsModal = new bootstrap.Modal(modal);
+            let resolved = false;
+
+            const handleConfirm = () => {
+                if (!resolved) {
+                    resolved = true;
+                    bsModal.hide();
+                    resolve(true);
+                }
+            };
+
+            const handleCancel = () => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(false);
+                }
+            };
+
+            // Button-Click
+            btn.onclick = handleConfirm;
+
+            // Modal-Close (X-Button oder Escape)
+            modal.addEventListener('hidden.bs.modal', handleCancel, { once: true });
+
+            bsModal.show();
+        });
+    }
+
     setupVideoEvents() {
         this.video.addEventListener('loadedmetadata', () => {
             const durationMs = this.video.duration * 1000;
@@ -501,7 +576,14 @@ class MyCutEditor {
 
     // AI operations
     async startTranscription() {
-        if (!confirm('Transkription starten? Dies kann je nach Videolänge 1-5 Minuten dauern.\n\nVoraussetzung: OpenAI API-Key in den Einstellungen konfiguriert.')) return;
+        const confirmed = await this.showConfirm({
+            title: 'Transkription starten',
+            message: 'Das Video wird mit KI transkribiert. Dies kann je nach Videolänge 1-5 Minuten dauern.',
+            hint: 'Voraussetzung: OpenAI API-Key in den Einstellungen konfiguriert.',
+            confirmText: 'Transkribieren',
+            icon: 'fa-microphone'
+        });
+        if (!confirmed) return;
 
         const btn = document.querySelector('[onclick="editor.startTranscription()"]');
         if (btn) {
@@ -759,7 +841,13 @@ class MyCutEditor {
     }
 
     async applyAllSuggestions() {
-        if (!confirm('Alle Vorschlaege anwenden?')) return;
+        const confirmed = await this.showConfirm({
+            title: 'Alle Vorschlaege anwenden',
+            message: 'Alle KI-Vorschlaege werden auf die Timeline angewendet.',
+            confirmText: 'Alle anwenden',
+            icon: 'fa-magic'
+        });
+        if (!confirmed) return;
 
         // Kopie der Vorschläge machen (da wir sie während der Iteration entfernen)
         const suggestionsToApply = [...this.project.suggestions];
@@ -785,7 +873,6 @@ class MyCutEditor {
     // Export
     async startExport() {
         console.log('=== startExport() CALLED ===');
-        alert('Export startet - check Console!');
 
         const quality = document.getElementById('modal-export-quality')?.value || '1080p';
         const format = document.getElementById('modal-export-format')?.value || 'mp4';
@@ -811,7 +898,6 @@ class MyCutEditor {
             });
 
             console.log('=== Export API response ===', result);
-            alert('API Response: ' + JSON.stringify(result).substring(0, 200));
 
             if (result.success) {
                 this.currentExportJobId = result.job_id;
@@ -1425,7 +1511,14 @@ class MyCutEditor {
         const editId = document.getElementById('overlay-edit-id').value;
         if (!editId) return;
 
-        if (!confirm('Text-Overlay wirklich loeschen?')) return;
+        const confirmed = await this.showConfirm({
+            title: 'Text-Overlay loeschen',
+            message: 'Soll dieses Text-Overlay wirklich geloescht werden?',
+            confirmText: 'Loeschen',
+            confirmClass: 'btn-danger',
+            icon: 'fa-trash'
+        });
+        if (!confirmed) return;
 
         try {
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/text-overlays/${editId}/`, 'DELETE');
