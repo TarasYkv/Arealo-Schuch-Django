@@ -426,10 +426,27 @@ class FFmpegService:
         Komprimiert Video auf angegebene Qualität.
 
         Args:
-            quality: '720p', '1080p', '4k'
+            quality: '720p', '1080p', '4k', 'original'
         """
         if not has_ffmpeg():
             raise RuntimeError("FFmpeg nicht verfügbar")
+
+        # Original = Stream Copy (keine Re-Encoding, 10x schneller)
+        if quality == 'original':
+            try:
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-i', input_path,
+                    '-c', 'copy',
+                    '-movflags', '+faststart',
+                    output_path
+                ]
+                subprocess.run(cmd, capture_output=True, check=True, timeout=600)
+                logger.info(f"Video copied (original quality): {output_path}")
+                return True
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Stream copy failed: {e.stderr.decode() if e.stderr else str(e)}")
+                raise
 
         presets = {
             '720p': {'scale': '1280:720', 'crf': '28', 'bitrate': '2M'},
@@ -448,10 +465,11 @@ class FFmpegService:
                 '-crf', preset['crf'],
                 '-preset', 'ultrafast',  # Schnell für PythonAnywhere Timeouts
                 '-c:a', 'aac', '-b:a', '128k',
+                '-movflags', '+faststart',
                 output_path
             ]
 
-            subprocess.run(cmd, capture_output=True, check=True)
+            subprocess.run(cmd, capture_output=True, check=True, timeout=1800)
             logger.info(f"Video compressed to {quality}: {output_path}")
             return True
 
