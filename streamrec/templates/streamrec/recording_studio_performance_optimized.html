@@ -4290,9 +4290,9 @@ class StreamRecorderOptimized {
     }
 
     /**
-     * Zeichnet das Hintergrundbild mit object-fit: cover Verhalten
-     * Das Bild wird so skaliert, dass es das Canvas vollständig ausfüllt,
-     * ohne zu verzerren. Überstehende Teile werden abgeschnitten.
+     * Zeichnet das Hintergrundbild mit object-fit: contain Verhalten
+     * Das Bild wird in der Höhe angepasst und zentriert,
+     * ohne zu verzerren oder abzuschneiden.
      */
     drawBackgroundImageCover(ctx, img, canvasWidth, canvasHeight) {
         if (!img) return;
@@ -4300,16 +4300,17 @@ class StreamRecorderOptimized {
         const imgWidth = img.naturalWidth || img.width;
         const imgHeight = img.naturalHeight || img.height;
 
-        // Berechne Skalierung für "cover" - das größere Verhältnis gewinnt
+        // Berechne Skalierung für "contain" - das kleinere Verhältnis gewinnt
+        // So passt das komplette Bild in den Canvas ohne Beschneidung
         const scaleX = canvasWidth / imgWidth;
         const scaleY = canvasHeight / imgHeight;
-        const scale = Math.max(scaleX, scaleY);
+        const scale = Math.min(scaleX, scaleY);
 
         // Neue Größe des skalierten Bildes
         const scaledWidth = imgWidth * scale;
         const scaledHeight = imgHeight * scale;
 
-        // Zentriere das Bild (negative Werte = Offset für Clipping)
+        // Zentriere das Bild horizontal und vertikal
         const offsetX = (canvasWidth - scaledWidth) / 2;
         const offsetY = (canvasHeight - scaledHeight) / 2;
 
