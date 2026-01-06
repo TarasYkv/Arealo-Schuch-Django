@@ -79,8 +79,9 @@ class Command(BaseCommand):
 
         while True:
             try:
-                # Datenbankverbindung pruefen/erneuern
-                connection.ensure_connection()
+                # WICHTIG: Verbindung VOR jeder DB-Abfrage schliessen und neu oeffnen
+                # PythonAnywhere MySQL trennt inaktive Verbindungen nach ~5 Min
+                connection.close()
 
                 pending_jobs = list(ExportJob.objects.filter(
                     status__in=['pending', 'processing']
@@ -90,15 +91,18 @@ class Command(BaseCommand):
                     self.stdout.write(f'\n[{timezone.now().strftime("%H:%M:%S")}] {len(pending_jobs)} Job(s) gefunden')
                     for job in pending_jobs:
                         try:
-                            # Job neu laden um aktuelle Daten zu haben
+                            # Frische DB-Verbindung vor jedem Job
+                            connection.close()
                             job.refresh_from_db()
                             self._process_job(job, export_step)
                             error_count = 0  # Reset bei Erfolg
                         except Exception as job_error:
                             self.stderr.write(f'Fehler bei Job {job.id}: {job_error}')
                             logger.exception(f'Job {job.id} failed')
-                            # Job als fehlgeschlagen markieren
+                            # Frische Verbindung fuer Fehler-Update
                             try:
+                                connection.close()
+                                job.refresh_from_db()
                                 job.status = 'failed'
                                 job.error_message = str(job_error)[:500]
                                 job.save(update_fields=['status', 'error_message'])
@@ -121,7 +125,7 @@ class Command(BaseCommand):
                     self.stderr.write('Zu viele Fehler - Worker beendet sich.')
                     break
 
-                # Bei DB-Fehler: Verbindung schliessen
+                # Bei Fehler: Verbindung schliessen
                 try:
                     connection.close()
                 except Exception:
