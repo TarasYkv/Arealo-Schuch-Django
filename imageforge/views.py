@@ -763,3 +763,56 @@ Antworte NUR mit einer nummerierten Liste (1. bis 10.), ohne zusätzlichen Text.
     except Exception as e:
         logger.exception(f"Error generating funny sayings: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# =============================================================================
+# CLEANUP - Alte Dateien löschen
+# =============================================================================
+
+@login_required
+def cleanup(request):
+    """Cleanup-Seite für alte Generierungen"""
+    from django.utils import timezone
+    from datetime import timedelta
+
+    days = int(request.GET.get('days', 30))
+    only_non_favorites = request.GET.get('favorites', '') != 'include'
+
+    cutoff_date = timezone.now() - timedelta(days=days)
+
+    # Zu löschende Objekte filtern
+    queryset = ImageGeneration.objects.filter(
+        user=request.user,
+        created_at__lt=cutoff_date
+    )
+    if only_non_favorites:
+        queryset = queryset.filter(is_favorite=False)
+
+    # Größe berechnen
+    total_size = 0
+    for gen in queryset:
+        try:
+            if gen.product_image and gen.product_image.name:
+                total_size += gen.product_image.size
+        except:
+            pass
+        try:
+            if gen.generated_image and gen.generated_image.name:
+                total_size += gen.generated_image.size
+        except:
+            pass
+
+    if request.method == 'POST' and request.POST.get('confirm') == 'true':
+        count = queryset.count()
+        queryset.delete()
+        messages.success(request, f'{count} Generierungen gelöscht.')
+        return redirect('imageforge:cleanup')
+
+    context = {
+        'days': days,
+        'only_non_favorites': only_non_favorites,
+        'count': queryset.count(),
+        'total_size_mb': round(total_size / (1024 * 1024), 1),
+        'day_options': [7, 30, 60, 90],
+    }
+    return render(request, 'imageforge/cleanup.html', context)

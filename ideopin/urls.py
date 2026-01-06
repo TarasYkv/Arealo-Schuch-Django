@@ -64,4 +64,7 @@ urlpatterns = [
     path('api/post-pin/<int:project_id>/<int:position>/', views.api_post_single_pin, name='api_post_single_pin'),
     path('api/publish-batch/<int:project_id>/', views.api_publish_batch, name='api_publish_batch'),
     path('download-pin/<int:project_id>/<int:position>/', views.download_pin_image, name='download_pin_image'),
+
+    # Cleanup
+    path('cleanup/', views.cleanup, name='cleanup'),
 ]

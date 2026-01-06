@@ -3882,3 +3882,53 @@ def download_pin_image(request, project_id, position):
     )
     response['Content-Disposition'] = f'attachment; filename="pin_{project_id}_{position}.png"'
     return response
+
+
+# =============================================================================
+# CLEANUP - Alte Projekte löschen
+# =============================================================================
+
+@login_required
+def cleanup(request):
+    """Cleanup-Seite für alte Pin-Projekte"""
+    from datetime import timedelta
+
+    days = int(request.GET.get('days', 30))
+    cutoff_date = timezone.now() - timedelta(days=days)
+
+    # Zu löschende Projekte filtern
+    queryset = PinProject.objects.filter(
+        user=request.user,
+        created_at__lt=cutoff_date
+    )
+
+    # Größe berechnen (inkl. Pins)
+    total_size = 0
+    for project in queryset:
+        for field in [project.product_image, project.generated_image, project.final_image]:
+            if field and field.name:
+                try:
+                    total_size += field.size
+                except:
+                    pass
+        for pin in project.pins.all():
+            for field in [pin.generated_image, pin.final_image]:
+                if field and field.name:
+                    try:
+                        total_size += field.size
+                    except:
+                        pass
+
+    if request.method == 'POST' and request.POST.get('confirm') == 'true':
+        count = queryset.count()
+        queryset.delete()
+        messages.success(request, f'{count} Projekte gelöscht.')
+        return redirect('ideopin:cleanup')
+
+    context = {
+        'days': days,
+        'count': queryset.count(),
+        'total_size_mb': round(total_size / (1024 * 1024), 1),
+        'day_options': [7, 30, 60, 90],
+    }
+    return render(request, 'ideopin/cleanup.html', context)
