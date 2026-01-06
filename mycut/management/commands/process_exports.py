@@ -179,7 +179,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('Bereits fehlgeschlagen'))
             return
 
-        max_iterations = 200  # Sicherheitslimit (genug für große Projekte)
+        max_iterations = 500  # Sicherheitslimit (genug für sehr große Projekte)
         iteration = 0
 
         while iteration < max_iterations:
