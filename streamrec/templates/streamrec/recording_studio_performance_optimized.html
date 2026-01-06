@@ -2930,7 +2930,7 @@ class StreamRecorderOptimized {
                 case 'image':
                     // Draw background image if available, otherwise solid color
                     if (this.backgroundEffects.backgroundImage) {
-                        ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, canvas.width, canvas.height);
+                        this.drawBackgroundImageCover(ctx, this.backgroundEffects.backgroundImage, canvas.width, canvas.height);
                     } else {
                         ctx.fillStyle = '#4CAF50';
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -3851,7 +3851,7 @@ class StreamRecorderOptimized {
                 case 'image':
                     // Hintergrundbild
                     if (this.backgroundEffects.backgroundImage) {
-                        ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, w, h);
+                        this.drawBackgroundImageCover(ctx, this.backgroundEffects.backgroundImage, w, h);
                     } else {
                         ctx.fillStyle = this.backgroundEffects.color || '#00ff00';
                         ctx.fillRect(0, 0, w, h);
@@ -3991,7 +3991,7 @@ class StreamRecorderOptimized {
         const personMaskCanvas = this.createMaskCanvasFromWeights(weights, dimensions);
 
         if (this.backgroundEffects.backgroundImage) {
-            ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, canvas.width, canvas.height);
+            this.drawBackgroundImageCover(ctx, this.backgroundEffects.backgroundImage, canvas.width, canvas.height);
         } else {
             ctx.fillStyle = '#00FF00';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -4288,7 +4288,34 @@ class StreamRecorderOptimized {
             console.log('🗑️ Hintergrundbild entfernt - Modus: remove (schwarz)');
         }
     }
-    
+
+    /**
+     * Zeichnet das Hintergrundbild mit object-fit: cover Verhalten
+     * Das Bild wird so skaliert, dass es das Canvas vollständig ausfüllt,
+     * ohne zu verzerren. Überstehende Teile werden abgeschnitten.
+     */
+    drawBackgroundImageCover(ctx, img, canvasWidth, canvasHeight) {
+        if (!img) return;
+
+        const imgWidth = img.naturalWidth || img.width;
+        const imgHeight = img.naturalHeight || img.height;
+
+        // Berechne Skalierung für "cover" - das größere Verhältnis gewinnt
+        const scaleX = canvasWidth / imgWidth;
+        const scaleY = canvasHeight / imgHeight;
+        const scale = Math.max(scaleX, scaleY);
+
+        // Neue Größe des skalierten Bildes
+        const scaledWidth = imgWidth * scale;
+        const scaledHeight = imgHeight * scale;
+
+        // Zentriere das Bild (negative Werte = Offset für Clipping)
+        const offsetX = (canvasWidth - scaledWidth) / 2;
+        const offsetY = (canvasHeight - scaledHeight) / 2;
+
+        ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+    }
+
     applyEffectToCompositionCanvas(mode, segmentationResults = null) {
         this.logDebug('🎨 Applying effect to composition canvas:', mode, segmentationResults ? 'with segmentation' : 'without segmentation');
         
@@ -4476,7 +4503,7 @@ class StreamRecorderOptimized {
         const canvas = ctx.canvas;
 
         if (this.backgroundEffects.backgroundImage) {
-            ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, canvas.width, canvas.height);
+            this.drawBackgroundImageCover(ctx, this.backgroundEffects.backgroundImage, canvas.width, canvas.height);
         } else {
             ctx.fillStyle = '#00ff00';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
