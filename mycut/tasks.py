@@ -390,6 +390,7 @@ def _extract_segment(
 def _concat_segments(segment_paths: list, output_path: str) -> bool:
     """
     Fuegt mehrere Video-Segmente zusammen.
+    Bei vielen Segmenten (>50) wird Re-Encoding verwendet für Stabilität.
     """
     try:
         # Concat-Datei erstellen
@@ -398,41 +399,69 @@ def _concat_segments(segment_paths: list, output_path: str) -> bool:
             for path in segment_paths:
                 f.write(f"file '{path}'\n")
 
-        cmd = [
-            'ffmpeg', '-y',
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', concat_file,
-            '-c', 'copy',
-            output_path
-        ]
+        # Bei vielen Segmenten direkt Re-Encoding (stabiler)
+        use_reencode = len(segment_paths) > 50
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # Concat-Datei loeschen
-        if os.path.exists(concat_file):
-            os.unlink(concat_file)
-
-        if result.returncode != 0:
-            logger.error(f"Concat error: {result.stderr}")
-            # Fallback: Re-encode
-            cmd_reencode = [
+        if use_reencode:
+            logger.info(f"Using re-encode for {len(segment_paths)} segments (more stable)")
+            cmd = [
                 'ffmpeg', '-y',
                 '-f', 'concat',
                 '-safe', '0',
-                '-i', concat_file.replace('.txt', '_list.txt'),
-                '-c:v', 'libx264', '-preset', 'fast',
-                '-c:a', 'aac',
+                '-i', concat_file,
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
+                '-c:a', 'aac', '-b:a', '192k',
+                '-movflags', '+faststart',
                 output_path
             ]
-            # Neue Concat-Datei erstellen
-            with open(concat_file.replace('.txt', '_list.txt'), 'w') as f:
-                for path in segment_paths:
-                    f.write(f"file '{path}'\n")
-            subprocess.run(cmd_reencode, capture_output=True, check=True)
+        else:
+            cmd = [
+                'ffmpeg', '-y',
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', concat_file,
+                '-c', 'copy',
+                '-movflags', '+faststart',
+                output_path
+            ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)  # 30 min timeout
+
+        if result.returncode != 0:
+            logger.error(f"Concat error: {result.stderr}")
+
+            # Fallback: Re-encode wenn stream copy fehlschlägt
+            if not use_reencode:
+                logger.info("Fallback to re-encode after stream copy failed")
+                cmd_reencode = [
+                    'ffmpeg', '-y',
+                    '-f', 'concat',
+                    '-safe', '0',
+                    '-i', concat_file,
+                    '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
+                    '-c:a', 'aac', '-b:a', '192k',
+                    '-movflags', '+faststart',
+                    output_path
+                ]
+                result = subprocess.run(cmd_reencode, capture_output=True, text=True, timeout=1800)
+                if result.returncode != 0:
+                    logger.error(f"Re-encode fallback also failed: {result.stderr}")
+                    return False
+
+        # Concat-Datei erst NACH Erfolg löschen
+        if os.path.exists(concat_file):
+            os.unlink(concat_file)
+
+        # Prüfen ob Output existiert und valide ist
+        if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
+            logger.error(f"Concat output missing or too small: {output_path}")
+            return False
 
         return True
 
+    except subprocess.TimeoutExpired:
+        logger.error("Concat timed out after 30 minutes")
+        return False
     except Exception as e:
         logger.error(f"Concat failed: {e}")
         return False
