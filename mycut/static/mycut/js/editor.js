@@ -689,7 +689,7 @@ class MyCutEditor {
         }
     }
 
-    async applySuggestion(id) {
+    async applySuggestion(id, silent = false) {
         try {
             // ID als Zahl konvertieren (DOM-Attribute sind Strings)
             const numericId = parseInt(id, 10);
@@ -698,8 +698,8 @@ class MyCutEditor {
             const suggestion = this.project.suggestions.find(s => s.id === numericId || s.id === id);
             if (!suggestion) {
                 console.error('Vorschlag nicht gefunden:', id, 'Verfügbare:', this.project.suggestions.map(s => s.id));
-                this.showError('Vorschlag nicht gefunden');
-                return;
+                if (!silent) this.showError('Vorschlag nicht gefunden');
+                return false;
             }
 
             // Clip finden, der den Zeitbereich enthaelt
@@ -710,9 +710,11 @@ class MyCutEditor {
             );
 
             if (!affectedClip) {
-                this.showNotification('warning', 'Kein passender Clip',
-                    'Der Zeitbereich liegt nicht in einem Video-Clip.');
-                return;
+                if (!silent) {
+                    this.showNotification('warning', 'Kein passender Clip',
+                        'Der Zeitbereich liegt nicht in einem Video-Clip.');
+                }
+                return false; // Nicht anwendbar
             }
 
             this.saveState('Vorschlag angewendet: ' + suggestion.suggestion_type);
@@ -744,8 +746,10 @@ class MyCutEditor {
                 this.project.suggestions = this.project.suggestions.filter(s => s.id !== id);
                 this.hasUnsavedChanges = true;
             }
+            return true; // Erfolgreich angewendet
         } catch (error) {
-            this.showError('Fehler beim Anwenden: ' + error.message);
+            if (!silent) this.showError('Fehler beim Anwenden: ' + error.message);
+            return false;
         }
     }
 
@@ -832,7 +836,7 @@ class MyCutEditor {
         await this.saveClips();
     }
 
-    async rejectSuggestion(id) {
+    async rejectSuggestion(id, silent = false) {
         try {
             const result = await this.apiCall(`/mycut/api/project/${this.projectId}/reject-suggestion/${id}/`, 'POST');
             if (result.success) {
@@ -840,7 +844,7 @@ class MyCutEditor {
                 this.project.suggestions = this.project.suggestions.filter(s => s.id !== id);
             }
         } catch (error) {
-            this.showError('Fehler beim Ablehnen');
+            if (!silent) this.showError('Fehler beim Ablehnen');
         }
     }
 
@@ -862,16 +866,31 @@ class MyCutEditor {
         }
 
         let applied = 0;
+        let skipped = 0;
+
         for (const suggestion of suggestionsToApply) {
             try {
-                await this.applySuggestion(suggestion.id);
-                applied++;
+                const success = await this.applySuggestion(suggestion.id, true); // silent mode
+                if (success) {
+                    applied++;
+                } else {
+                    // Vorschlag konnte nicht angewendet werden - automatisch entfernen
+                    skipped++;
+                    await this.rejectSuggestion(suggestion.id, true); // silent mode
+                }
             } catch (error) {
                 console.error('Fehler beim Anwenden von Vorschlag', suggestion.id, error);
+                skipped++;
             }
         }
 
-        this.showNotification('success', 'Vorschläge angewendet', `${applied} von ${suggestionsToApply.length} Vorschlägen wurden angewendet.`);
+        if (skipped > 0) {
+            this.showNotification('success', 'Vorschläge verarbeitet',
+                `${applied} angewendet, ${skipped} nicht mehr anwendbar (entfernt).`);
+        } else {
+            this.showNotification('success', 'Alle Vorschläge angewendet',
+                `${applied} Vorschläge wurden angewendet.`);
+        }
     }
 
     // Export
