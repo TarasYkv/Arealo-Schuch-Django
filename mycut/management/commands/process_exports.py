@@ -8,12 +8,16 @@ Usage:
 """
 
 import os
+import sys
 import time
 import logging
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
+
+# Unbuffered output fuer Always-on Task Logs
+sys.stdout = sys.stderr = open(sys.stdout.fileno(), 'w', buffering=1)
 
 
 class Command(BaseCommand):
@@ -44,13 +48,19 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        print(f"[{timezone.now().strftime('%H:%M:%S')}] process_exports handle() gestartet", flush=True)
+
         from mycut.models import ExportJob
         from mycut.tasks import export_step
+
+        print(f"[{timezone.now().strftime('%H:%M:%S')}] Imports geladen", flush=True)
 
         job_id = options.get('job_id')
         max_jobs = options.get('max_jobs', 5)
         daemon_mode = options.get('daemon', False)
         interval = options.get('interval', 10)
+
+        print(f"[{timezone.now().strftime('%H:%M:%S')}] Options: daemon={daemon_mode}, max_jobs={max_jobs}", flush=True)
 
         if daemon_mode:
             self.stdout.write(self.style.SUCCESS(
@@ -74,10 +84,16 @@ class Command(BaseCommand):
         from mycut.models import ExportJob
         from django.db import connection
 
+        print(f"[{timezone.now().strftime('%H:%M:%S')}] Daemon Loop startet...", flush=True)
+
         error_count = 0
         max_errors = 10  # Nach 10 Fehlern in Folge beenden
+        loop_count = 0
 
         while True:
+            loop_count += 1
+            if loop_count <= 3 or loop_count % 30 == 0:  # Erste 3 und dann alle 5 Min
+                print(f"[{timezone.now().strftime('%H:%M:%S')}] Loop #{loop_count}", flush=True)
             try:
                 # WICHTIG: Verbindung VOR jeder DB-Abfrage schliessen und neu oeffnen
                 # PythonAnywhere MySQL trennt inaktive Verbindungen nach ~5 Min
