@@ -860,12 +860,22 @@ def export_step(project_id: int, export_job_id: int) -> dict:
             quality = state.get('quality', project.export_quality)
             output_format = state.get('format', project.export_format)
 
+            # Pruefen ob Input-Datei existiert (wichtig nach Daemon-Neustart)
+            if not subtitle_path or not os.path.exists(subtitle_path):
+                error_msg = f"Input-Datei fuer Komprimierung nicht gefunden: {subtitle_path}"
+                logger.error(error_msg)
+                export_job.fail(error_msg)
+                return {'status': 'failed', 'error': 'Input file missing - restart export', 'progress': 85}
+
             output_filename = f"{project.unique_id}_{quality}.{output_format}"
             final_path = os.path.join(temp_dir, output_filename)
 
+            logger.info(f"Komprimiere: {subtitle_path} -> {final_path}")
             FFmpegService.compress_video(subtitle_path, final_path, quality)
 
             if not os.path.exists(final_path):
+                error_msg = f"FFmpeg Output nicht erstellt. Input: {subtitle_path}, Output: {final_path}"
+                logger.error(error_msg)
                 export_job.fail("Finale Datei konnte nicht erstellt werden")
                 return {'status': 'failed', 'error': 'Compression failed', 'progress': 85}
 
