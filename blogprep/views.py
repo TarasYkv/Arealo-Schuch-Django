@@ -1751,6 +1751,69 @@ def api_update_section_image_alt(request, project_id):
 
 
 # ============================================================================
+# Auto Create APIs
+# ============================================================================
+
+@login_required
+@require_POST
+def api_auto_create_init(request):
+    """
+    Erstellt ein neues Projekt für Auto Create und gibt die project_id zurück.
+    Der Client orchestriert dann die weiteren API-Aufrufe.
+    """
+    main_keyword = request.POST.get('main_keyword', '').strip()
+    secondary_keywords_text = request.POST.get('secondary_keywords', '')
+
+    if not main_keyword:
+        return JsonResponse({'success': False, 'error': 'Kein Hauptkeyword angegeben'})
+
+    # Parse sekundäre Keywords
+    secondary_keywords = [
+        kw.strip() for kw in secondary_keywords_text.replace('\n', ',').split(',')
+        if kw.strip()
+    ]
+
+    # Projekt erstellen
+    project = BlogPrepProject.objects.create(
+        user=request.user,
+        main_keyword=main_keyword,
+        secondary_keywords=secondary_keywords,
+        title=f"Blog: {main_keyword}",
+        status='step1'
+    )
+
+    return JsonResponse({
+        'success': True,
+        'project_id': str(project.id)
+    })
+
+
+@login_required
+@require_POST
+def api_auto_create_finalize(request, project_id):
+    """
+    Finalisiert den Auto Create Prozess:
+    - Setzt skip_video auf True
+    - Setzt Status auf step6
+    - Generiert HTML-Preview
+    """
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    project.skip_video = True
+    project.status = 'step6'
+    project.save()
+
+    # HTML generieren für Vorschau in Step 7
+    project.generate_full_html()
+    project.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Auto Create abgeschlossen'
+    })
+
+
+# ============================================================================
 # Ergebnis-Ansicht
 # ============================================================================
 

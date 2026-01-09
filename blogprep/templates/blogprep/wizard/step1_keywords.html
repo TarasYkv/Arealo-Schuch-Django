@@ -25,6 +25,29 @@
     </div>
 </div>
 
+<!-- Auto Create Progress Modal -->
+<div id="autoCreateModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content auto-create-modal">
+        <div class="modal-header">
+            <i class="bi bi-gear-wide-connected spinning" id="autoCreateIcon"></i>
+            <h3 id="autoCreateTitle">Auto Create wird gestartet...</h3>
+        </div>
+        <div class="modal-body">
+            <div class="auto-create-progress">
+                <div class="auto-create-progress-fill" id="autoCreateProgressBar"></div>
+            </div>
+            <div class="auto-create-steps" id="autoCreateSteps">
+                <!-- Dynamisch generiert -->
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="autoCreateCancelBtn" onclick="cancelAutoCreate()">
+                <i class="bi bi-x-lg"></i> Abbrechen
+            </button>
+        </div>
+    </div>
+</div>
+
 <style>
     .modal-overlay {
         position: fixed;
@@ -94,6 +117,116 @@
     .text-warning {
         color: #f59e0b;
     }
+
+    /* Auto Create Modal */
+    .auto-create-modal {
+        max-width: 600px;
+        width: 95%;
+    }
+    .auto-create-modal .modal-header {
+        margin-bottom: 1.5rem;
+    }
+    .auto-create-modal .modal-header i {
+        font-size: 2.5rem;
+        color: #6366f1;
+    }
+    .auto-create-modal .modal-header h3 {
+        margin-top: 0.75rem;
+        color: #1e293b;
+    }
+    .auto-create-progress {
+        background: #e2e8f0;
+        border-radius: 1rem;
+        height: 12px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    .auto-create-progress-fill {
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        height: 100%;
+        border-radius: 1rem;
+        transition: width 0.3s ease;
+        width: 0%;
+    }
+    .auto-create-steps {
+        max-height: 350px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+    .auto-create-step {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.5rem;
+        margin-bottom: 0.25rem;
+        transition: background 0.2s;
+    }
+    .auto-create-step.pending {
+        color: #94a3b8;
+    }
+    .auto-create-step.running {
+        background: #f0f9ff;
+        color: #0369a1;
+    }
+    .auto-create-step.completed {
+        color: #059669;
+    }
+    .auto-create-step.error {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+    .auto-create-step .step-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+    }
+    .auto-create-step.pending .step-icon {
+        background: #e2e8f0;
+        color: #64748b;
+    }
+    .auto-create-step.running .step-icon {
+        background: #dbeafe;
+        color: #2563eb;
+    }
+    .auto-create-step.completed .step-icon {
+        background: #d1fae5;
+        color: #059669;
+    }
+    .auto-create-step.error .step-icon {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    .auto-create-step .step-name {
+        flex: 1;
+        font-size: 0.9rem;
+    }
+    .auto-create-step .step-time {
+        font-size: 0.8rem;
+        color: #94a3b8;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .spinning {
+        animation: spin 2s linear infinite;
+    }
+    .btn-auto-create {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        border: none;
+    }
+    .btn-auto-create:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
 </style>
 
 <form method="post" id="keywordsForm">
@@ -139,9 +272,14 @@
         <a href="{% url 'blogprep:project_list' %}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Abbrechen
         </a>
-        <button type="submit" class="btn btn-primary">
-            Weiter zu Recherche <i class="bi bi-arrow-right"></i>
-        </button>
+        <div style="display: flex; gap: 0.75rem;">
+            <button type="button" class="btn btn-auto-create" onclick="startAutoCreate()">
+                <i class="bi bi-magic"></i> Auto Create
+            </button>
+            <button type="submit" class="btn btn-primary">
+                Weiter zu Recherche <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
     </div>
 </form>
 {% endblock %}
@@ -248,6 +386,344 @@
         } finally {
             hideLoading();
         }
+    }
+
+    // ========================================================================
+    // Auto Create Functionality
+    // ========================================================================
+
+    // Schritte für Auto Create (Diagramm JA, Video NEIN)
+    const AUTO_CREATE_STEPS = [
+        { id: 'project', name: 'Projekt erstellen' },
+        { id: 'research', name: 'Web-Recherche durchführen' },
+        { id: 'outline', name: 'Gliederung generieren' },
+        { id: 'internal', name: 'Interne Artikel analysieren' },
+        { id: 'intro', name: 'Content: Einleitung' },
+        { id: 'main', name: 'Content: Hauptteil' },
+        { id: 'tips', name: 'Content: Tipps & Tricks' },
+        { id: 'faqs', name: 'FAQs generieren' },
+        { id: 'seo', name: 'SEO-Meta generieren' },
+        { id: 'title_image', name: 'Titelbild generieren' },
+        { id: 'section_intro', name: 'Bild: Einleitung' },
+        { id: 'section_main', name: 'Bild: Hauptteil' },
+        { id: 'section_tips', name: 'Bild: Tipps' },
+        { id: 'diagram_analyze', name: 'Diagramm analysieren' },
+        { id: 'diagram_image', name: 'Diagramm generieren' },
+        { id: 'finalize', name: 'Abschließen' }
+    ];
+
+    let autoCreateCancelled = false;
+    let currentProjectId = null;
+
+    function showAutoCreateModal() {
+        const stepsHtml = AUTO_CREATE_STEPS.map(step => `
+            <div class="auto-create-step pending" id="step-${step.id}">
+                <div class="step-icon"><i class="bi bi-circle"></i></div>
+                <span class="step-name">${step.name}</span>
+                <span class="step-time" id="time-${step.id}"></span>
+            </div>
+        `).join('');
+
+        document.getElementById('autoCreateSteps').innerHTML = stepsHtml;
+        document.getElementById('autoCreateProgressBar').style.width = '0%';
+        document.getElementById('autoCreateTitle').textContent = 'Auto Create wird gestartet...';
+        document.getElementById('autoCreateIcon').className = 'bi bi-gear-wide-connected spinning';
+        document.getElementById('autoCreateCancelBtn').style.display = 'inline-flex';
+        document.getElementById('autoCreateModal').style.display = 'flex';
+    }
+
+    function updateStepStatus(stepId, status, duration = null) {
+        const stepEl = document.getElementById(`step-${stepId}`);
+        if (!stepEl) return;
+
+        stepEl.className = `auto-create-step ${status}`;
+
+        const iconEl = stepEl.querySelector('.step-icon i');
+        if (status === 'running') {
+            iconEl.className = 'bi bi-arrow-repeat spinning';
+        } else if (status === 'completed') {
+            iconEl.className = 'bi bi-check-lg';
+        } else if (status === 'error') {
+            iconEl.className = 'bi bi-x-lg';
+        }
+
+        if (duration !== null) {
+            document.getElementById(`time-${stepId}`).textContent = `${duration.toFixed(1)}s`;
+        }
+
+        // Scroll to current step
+        stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function updateProgress(currentStep, totalSteps) {
+        const percentage = Math.round((currentStep / totalSteps) * 100);
+        document.getElementById('autoCreateProgressBar').style.width = `${percentage}%`;
+    }
+
+    async function startAutoCreate() {
+        const mainKeyword = document.getElementById('main_keyword').value.trim();
+        if (!mainKeyword) {
+            alert('Bitte gib ein Hauptkeyword ein.');
+            return;
+        }
+
+        const secondaryKeywords = document.getElementById('secondary_keywords').value;
+
+        autoCreateCancelled = false;
+        currentProjectId = null;
+        showAutoCreateModal();
+
+        let completedSteps = 0;
+        const totalSteps = AUTO_CREATE_STEPS.length;
+
+        try {
+            // ================================================================
+            // Step 1: Projekt erstellen
+            // ================================================================
+            updateStepStatus('project', 'running');
+            let startTime = Date.now();
+
+            const initResult = await apiCall('{% url "blogprep:api_auto_create_init" %}', {
+                main_keyword: mainKeyword,
+                secondary_keywords: secondaryKeywords
+            });
+
+            if (!initResult.success) {
+                throw new Error(initResult.error || 'Projekt konnte nicht erstellt werden');
+            }
+
+            currentProjectId = initResult.project_id;
+            updateStepStatus('project', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 2: Web-Recherche
+            // ================================================================
+            updateStepStatus('research', 'running');
+            document.getElementById('autoCreateTitle').textContent = 'Recherche läuft...';
+            startTime = Date.now();
+
+            const researchResult = await apiCall(`/blogprep/api/research/${currentProjectId}/`, {});
+            if (!researchResult.success) {
+                console.warn('Research warning:', researchResult.error);
+            }
+            updateStepStatus('research', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 3: Gliederung
+            // ================================================================
+            updateStepStatus('outline', 'running');
+            startTime = Date.now();
+
+            const outlineResult = await apiCall(`/blogprep/api/outline/${currentProjectId}/`, {});
+            if (!outlineResult.success) {
+                console.warn('Outline warning:', outlineResult.error);
+            }
+            updateStepStatus('outline', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 4: Interne Artikel
+            // ================================================================
+            updateStepStatus('internal', 'running');
+            startTime = Date.now();
+
+            const internalResult = await apiCall(`/blogprep/api/internal-articles/${currentProjectId}/`, {});
+            if (!internalResult.success) {
+                console.warn('Internal articles warning:', internalResult.error);
+            }
+            updateStepStatus('internal', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 5-7: Content generieren (intro, main, tips)
+            // ================================================================
+            document.getElementById('autoCreateTitle').textContent = 'Content wird generiert...';
+
+            for (const section of ['intro', 'main', 'tips']) {
+                updateStepStatus(section, 'running');
+                startTime = Date.now();
+
+                const contentResult = await apiCall(`/blogprep/api/content/${currentProjectId}/`, {
+                    section_type: section
+                });
+                if (!contentResult.success) {
+                    console.warn(`Content ${section} warning:`, contentResult.error);
+                }
+                updateStepStatus(section, 'completed', (Date.now() - startTime) / 1000);
+                completedSteps++;
+                updateProgress(completedSteps, totalSteps);
+
+                if (autoCreateCancelled) throw new Error('Abgebrochen');
+            }
+
+            // ================================================================
+            // Step 8: FAQs
+            // ================================================================
+            updateStepStatus('faqs', 'running');
+            startTime = Date.now();
+
+            const faqsResult = await apiCall(`/blogprep/api/faqs/${currentProjectId}/`, {});
+            if (!faqsResult.success) {
+                console.warn('FAQs warning:', faqsResult.error);
+            }
+            updateStepStatus('faqs', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 9: SEO Meta
+            // ================================================================
+            updateStepStatus('seo', 'running');
+            startTime = Date.now();
+
+            const seoResult = await apiCall(`/blogprep/api/seo-meta/${currentProjectId}/`, {});
+            if (!seoResult.success) {
+                console.warn('SEO warning:', seoResult.error);
+            }
+            updateStepStatus('seo', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 10: Titelbild
+            // ================================================================
+            document.getElementById('autoCreateTitle').textContent = 'Bilder werden generiert...';
+            updateStepStatus('title_image', 'running');
+            startTime = Date.now();
+
+            const titleImageResult = await apiCall(`/blogprep/api/title-image/${currentProjectId}/`, {});
+            if (!titleImageResult.success) {
+                console.warn('Title image warning:', titleImageResult.error);
+            }
+            updateStepStatus('title_image', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 11-13: Abschnittsbilder (intro, main, tips)
+            // ================================================================
+            // Zuerst Bildvorschläge generieren
+            const suggestResult = await apiCall(`/blogprep/api/suggest-section-images/${currentProjectId}/`, {});
+            const suggestions = suggestResult.success ? suggestResult.suggestions : {};
+
+            for (const section of ['intro', 'main', 'tips']) {
+                updateStepStatus(`section_${section}`, 'running');
+                startTime = Date.now();
+
+                const sectionText = suggestions[section] || `Illustration für ${section} Abschnitt`;
+                const sectionImageResult = await apiCall(`/blogprep/api/section-image/${currentProjectId}/`, {
+                    section_text: sectionText,
+                    section_name: section
+                });
+                if (!sectionImageResult.success) {
+                    console.warn(`Section image ${section} warning:`, sectionImageResult.error);
+                }
+                updateStepStatus(`section_${section}`, 'completed', (Date.now() - startTime) / 1000);
+                completedSteps++;
+                updateProgress(completedSteps, totalSteps);
+
+                if (autoCreateCancelled) throw new Error('Abgebrochen');
+            }
+
+            // ================================================================
+            // Step 14: Diagramm analysieren
+            // ================================================================
+            document.getElementById('autoCreateTitle').textContent = 'Diagramm wird erstellt...';
+            updateStepStatus('diagram_analyze', 'running');
+            startTime = Date.now();
+
+            const diagramAnalyzeResult = await apiCall(`/blogprep/api/diagram-analyze/${currentProjectId}/`, {});
+            if (!diagramAnalyzeResult.success) {
+                console.warn('Diagram analyze warning:', diagramAnalyzeResult.error);
+            }
+            updateStepStatus('diagram_analyze', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 15: Diagramm generieren
+            // ================================================================
+            updateStepStatus('diagram_image', 'running');
+            startTime = Date.now();
+
+            const diagramImageResult = await apiCall(`/blogprep/api/diagram-image/${currentProjectId}/`, {});
+            if (!diagramImageResult.success) {
+                console.warn('Diagram image warning:', diagramImageResult.error);
+            }
+            updateStepStatus('diagram_image', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            if (autoCreateCancelled) throw new Error('Abgebrochen');
+
+            // ================================================================
+            // Step 16: Finalisieren
+            // ================================================================
+            document.getElementById('autoCreateTitle').textContent = 'Wird abgeschlossen...';
+            updateStepStatus('finalize', 'running');
+            startTime = Date.now();
+
+            const finalizeResult = await apiCall(`/blogprep/api/auto-create/finalize/${currentProjectId}/`, {});
+            if (!finalizeResult.success) {
+                throw new Error(finalizeResult.error || 'Finalisierung fehlgeschlagen');
+            }
+            updateStepStatus('finalize', 'completed', (Date.now() - startTime) / 1000);
+            completedSteps++;
+            updateProgress(completedSteps, totalSteps);
+
+            // ================================================================
+            // Erfolg! Weiterleitung zu Step 7
+            // ================================================================
+            document.getElementById('autoCreateTitle').textContent = 'Auto Create abgeschlossen!';
+            document.getElementById('autoCreateIcon').className = 'bi bi-check-circle-fill';
+            document.getElementById('autoCreateIcon').style.color = '#059669';
+            document.getElementById('autoCreateCancelBtn').style.display = 'none';
+
+            // Kurze Pause, dann Weiterleitung
+            setTimeout(() => {
+                window.location.href = `/blogprep/wizard/step7/${currentProjectId}/`;
+            }, 1500);
+
+        } catch (error) {
+            if (error.message === 'Abgebrochen') {
+                document.getElementById('autoCreateTitle').textContent = 'Auto Create abgebrochen';
+                document.getElementById('autoCreateIcon').className = 'bi bi-x-circle-fill';
+                document.getElementById('autoCreateIcon').style.color = '#dc2626';
+            } else {
+                document.getElementById('autoCreateTitle').textContent = 'Fehler aufgetreten';
+                document.getElementById('autoCreateIcon').className = 'bi bi-exclamation-circle-fill';
+                document.getElementById('autoCreateIcon').style.color = '#dc2626';
+                console.error('Auto Create error:', error);
+                alert('Fehler: ' + error.message);
+            }
+        }
+    }
+
+    function cancelAutoCreate() {
+        autoCreateCancelled = true;
+        document.getElementById('autoCreateModal').style.display = 'none';
     }
 </script>
 {% endblock %}
