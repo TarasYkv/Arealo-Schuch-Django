@@ -23,7 +23,10 @@ def dashboard(request):
     characters = Character.objects.filter(user=request.user)
     presets = StylePreset.objects.filter(user=request.user)
     recent_generations = ImageGeneration.objects.filter(user=request.user)[:6]
-    mockups = ProductMockup.objects.filter(user=request.user, mockup_image__isnull=False)[:10]
+    mockups = ProductMockup.objects.filter(
+        user=request.user,
+        mockup_image__isnull=False
+    ).exclude(mockup_image='')[:10]
 
     # Bild-Verlauf für Mockup-Wizard (unique Bilder aus bisherigen Mockups)
     product_images_history = ProductMockup.objects.filter(
@@ -397,7 +400,7 @@ def delete_preset(request, preset_id):
 @login_required
 def mockup_list(request):
     """Liste aller Mockups des Users"""
-    mockups = ProductMockup.objects.filter(user=request.user)
+    mockups = ProductMockup.objects.filter(user=request.user).exclude(mockup_image='')
     return render(request, 'imageforge/mockup_list.html', {'mockups': mockups})
 
 
