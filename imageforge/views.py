@@ -719,7 +719,7 @@ def api_background_prompt_history(request):
     # Hole alle unique background_prompts aus mockup_text Generierungen
     prompts = ImageGeneration.objects.filter(
         user=request.user,
-        mode='mockup_text',
+        generation_mode='mockup_text',
         background_prompt__isnull=False
     ).exclude(
         background_prompt=''

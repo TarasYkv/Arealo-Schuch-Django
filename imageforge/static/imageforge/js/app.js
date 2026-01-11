@@ -661,6 +661,9 @@ function initMockupWizard() {
     function activateStep2(mockupId, imageUrl) {
         if (currentMockupIdInput) currentMockupIdInput.value = mockupId;
         if (previewImage) previewImage.src = imageUrl;
+        // Download-Button URL setzen
+        const downloadBtn = document.getElementById('mockup-download-btn');
+        if (downloadBtn) downloadBtn.href = imageUrl;
         if (previewCard) previewCard.classList.remove('d-none');
         if (step2Card) {
             step2Card.style.opacity = '1';
