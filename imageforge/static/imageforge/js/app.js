@@ -419,24 +419,30 @@ function initMockupWizard() {
     const resultModal = document.getElementById('result-modal');
 
     // Content Type Toggle (Text vs Motif)
-    const contentTypeText = document.getElementById('content-type-text');
-    const contentTypeMotif = document.getElementById('content-type-motif');
     const textInputSection = document.getElementById('text-input-section');
     const motifInputSection = document.getElementById('motif-input-section');
+    const contentTypeToggle = document.getElementById('content-type-toggle');
 
-    // Toggle Handler: Text/Motiv wechseln
-    if (contentTypeText && contentTypeMotif && textInputSection && motifInputSection) {
-        contentTypeText.addEventListener('change', function() {
-            if (this.checked) {
-                textInputSection.classList.remove('d-none');
-                motifInputSection.classList.add('d-none');
+    // Toggle Handler: Text/Motiv wechseln - mit Event Delegation
+    if (contentTypeToggle && textInputSection && motifInputSection) {
+        contentTypeToggle.addEventListener('change', function(e) {
+            if (e.target.name === 'content_type') {
+                const selectedType = e.target.value;
+                console.log('Content type changed to:', selectedType);
+                if (selectedType === 'text') {
+                    textInputSection.classList.remove('d-none');
+                    motifInputSection.classList.add('d-none');
+                } else if (selectedType === 'motif') {
+                    textInputSection.classList.add('d-none');
+                    motifInputSection.classList.remove('d-none');
+                }
             }
         });
-        contentTypeMotif.addEventListener('change', function() {
-            if (this.checked) {
-                textInputSection.classList.add('d-none');
-                motifInputSection.classList.remove('d-none');
-            }
+    } else {
+        console.warn('Mockup toggle elements not found:', {
+            contentTypeToggle: !!contentTypeToggle,
+            textInputSection: !!textInputSection,
+            motifInputSection: !!motifInputSection
         });
     }
 
