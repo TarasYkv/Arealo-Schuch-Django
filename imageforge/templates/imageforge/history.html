@@ -105,6 +105,66 @@
         {% endif %}
         {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    {% if generations.has_other_pages %}
+    <nav aria-label="Seiten-Navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if generations.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1" aria-label="Erste">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ generations.previous_page_number }}" aria-label="Zurück">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-angle-double-left"></i></span>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-angle-left"></i></span>
+            </li>
+            {% endif %}
+
+            {% for num in generations.paginator.page_range %}
+                {% if generations.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > generations.number|add:'-3' and num < generations.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if generations.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ generations.next_page_number }}" aria-label="Weiter">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ generations.paginator.num_pages }}" aria-label="Letzte">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-angle-right"></i></span>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-angle-double-right"></i></span>
+            </li>
+            {% endif %}
+        </ul>
+        <p class="text-center text-muted small">
+            Seite {{ generations.number }} von {{ generations.paginator.num_pages }}
+            ({{ generations.paginator.count }} Generierungen)
+        </p>
+    </nav>
+    {% endif %}
+
     {% else %}
     <div class="row">
         <div class="col-12">

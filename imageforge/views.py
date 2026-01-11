@@ -214,8 +214,15 @@ def generate_image(request):
 
 @login_required
 def history(request):
-    """Verlauf aller Generierungen"""
-    generations = ImageGeneration.objects.filter(user=request.user)
+    """Verlauf aller Generierungen mit Pagination"""
+    from django.core.paginator import Paginator
+
+    generations_list = ImageGeneration.objects.filter(user=request.user)
+    paginator = Paginator(generations_list, 25)  # 25 pro Seite
+
+    page_number = request.GET.get('page')
+    generations = paginator.get_page(page_number)
+
     return render(request, 'imageforge/history.html', {'generations': generations})
 
 
