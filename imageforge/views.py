@@ -441,23 +441,33 @@ def mockup_json(request, mockup_id):
 
 @login_required
 def generate_mockup(request):
-    """AJAX: Step 1 - Generiert Produkt-Mockup mit Text"""
+    """AJAX: Step 1 - Generiert Produkt-Mockup mit Text oder Motiv"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
 
     start_time = time.time()
 
     try:
-        # Daten extrahieren (vereinfacht - Stil wird aus Referenzbild extrahiert)
+        # Content-Type: text oder motif
+        content_type = request.POST.get('content_type', 'text')
         text_content = request.POST.get('text_content', '').strip()
         product_description = request.POST.get('product_description', '')
         mockup_name = request.POST.get('mockup_name', '')
 
         product_image = request.FILES.get('product_image')
         style_reference_image = request.FILES.get('style_reference_image')
+        motif_image = request.FILES.get('motif_image')
 
-        if not text_content:
-            return JsonResponse({'error': 'Text ist erforderlich'}, status=400)
+        # Validierung je nach Content-Type
+        if content_type == 'text':
+            if not text_content:
+                return JsonResponse({'error': 'Text ist erforderlich'}, status=400)
+        elif content_type == 'motif':
+            if not motif_image:
+                return JsonResponse({'error': 'Motiv-Bild ist erforderlich'}, status=400)
+        else:
+            return JsonResponse({'error': 'Ungültiger Content-Type'}, status=400)
+
         if not product_image:
             return JsonResponse({'error': 'Produktbild ist erforderlich'}, status=400)
         if not style_reference_image:
@@ -466,27 +476,36 @@ def generate_mockup(request):
         # Nano Banana Pro für Text-Rendering erzwingen
         ai_model = 'gemini-3-pro-image-preview'
 
-        # API-Key prüfen (Gemini erforderlich für beste Text-Qualität)
+        # API-Key prüfen (Gemini erforderlich für beste Qualität)
         api_key = getattr(request.user, 'gemini_api_key', None)
         if not api_key:
             return JsonResponse({
-                'error': 'Gemini API-Key erforderlich. Text-Rendering funktioniert am besten mit Gemini/Nano Banana Pro.'
+                'error': 'Gemini API-Key erforderlich.'
             }, status=400)
 
         generator = GeminiGenerator(api_key)
         prompt_builder = PromptBuilder()
 
-        # Prompt bauen (vereinfacht - Stil aus Referenzbild)
-        prompt = prompt_builder.build_mockup_text_prompt(
-            text_content=text_content,
-            product_description=product_description
-        )
-
-        # Referenzbilder: Produktbild + Stil-Referenzbild
-        reference_images = [product_image, style_reference_image]
+        # Prompt bauen je nach Content-Type
+        if content_type == 'text':
+            prompt = prompt_builder.build_mockup_text_prompt(
+                text_content=text_content,
+                product_description=product_description
+            )
+            # Referenzbilder: Produktbild + Stil-Referenzbild
+            reference_images = [product_image, style_reference_image]
+            log_content = f"text='{text_content}'"
+        else:
+            # Motiv-Modus
+            prompt = prompt_builder.build_mockup_motif_prompt(
+                product_description=product_description
+            )
+            # Referenzbilder: Produktbild + Stil-Referenzbild + Motiv-Bild
+            reference_images = [product_image, style_reference_image, motif_image]
+            log_content = "motif_image"
 
         # Generieren
-        logger.info(f"Generating mockup: text='{text_content}', model={ai_model}")
+        logger.info(f"Generating mockup: {log_content}, model={ai_model}")
         result = generator.generate(
             prompt=prompt,
             reference_images=reference_images,
@@ -495,17 +514,27 @@ def generate_mockup(request):
 
         generation_time = time.time() - start_time
 
-        # Mockup speichern (vereinfacht - Stil aus Referenzbild)
+        # Mockup-Name generieren
+        if not mockup_name:
+            if content_type == 'text':
+                mockup_name = f"Mockup: {text_content[:30]}"
+            else:
+                mockup_name = f"Mockup: Motiv ({time.strftime('%d.%m.%Y')})"
+
+        # Mockup speichern
         mockup = ProductMockup(
             user=request.user,
-            name=mockup_name or f"Mockup: {text_content[:30]}",
-            text_content=text_content,
+            name=mockup_name,
+            content_type=content_type,
+            text_content=text_content if content_type == 'text' else '',
             ai_model=ai_model,
             generation_prompt=prompt,
             generation_time=generation_time
         )
         mockup.product_image = product_image
         mockup.style_reference_image = style_reference_image
+        if content_type == 'motif' and motif_image:
+            mockup.motif_image = motif_image
 
         if result.get('success'):
             image_data = base64.b64decode(result['image_data'])

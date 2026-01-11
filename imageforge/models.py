@@ -43,6 +43,12 @@ TEXT_SIZES = [
     ('large', 'Groß'),
 ]
 
+# Mockup Content Types - Text oder Motiv
+MOCKUP_CONTENT_TYPES = [
+    ('text', 'Text/Beschriftung'),
+    ('motif', 'Motiv/Bild'),
+]
+
 ASPECT_RATIOS = [
     ('1:1', 'Square (1:1)'),
     ('4:3', 'Standard (4:3)'),
@@ -372,10 +378,29 @@ class ProductMockup(models.Model):
         help_text='Beispielbild das zeigt wie die Beschriftung aussehen soll'
     )
 
-    # Text-Einstellungen
+    # Content Type: Text oder Motiv
+    content_type = models.CharField(
+        max_length=10,
+        choices=MOCKUP_CONTENT_TYPES,
+        default='text',
+        verbose_name='Inhalt-Typ',
+        help_text='Text/Beschriftung oder Motiv/Bild'
+    )
+
+    # Text-Einstellungen (nur bei content_type='text')
     text_content = models.CharField(
         max_length=200,
+        blank=True,
         verbose_name='Text/Beschriftung'
+    )
+
+    # Motiv-Bild (nur bei content_type='motif')
+    motif_image = models.ImageField(
+        upload_to='imageforge/mockups/motifs/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name='Motiv-Bild',
+        help_text='Das Motiv/Bild das auf das Produkt soll'
     )
     text_application_type = models.CharField(
         max_length=20,
@@ -451,7 +476,11 @@ class ProductMockup(models.Model):
         ordering = ['-updated_at']
 
     def __str__(self):
-        return self.name or f"Mockup: {self.text_content[:30]}..."
+        if self.name:
+            return self.name
+        if self.content_type == 'motif':
+            return f"Mockup: Motiv ({self.created_at.strftime('%d.%m.%Y') if self.created_at else 'neu'})"
+        return f"Mockup: {self.text_content[:30]}..." if self.text_content else "Mockup (leer)"
 
     @property
     def is_successful(self):

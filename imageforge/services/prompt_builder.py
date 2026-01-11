@@ -433,6 +433,64 @@ class PromptBuilder:
         logger.info(f"Built mockup-text prompt: {prompt[:200]}...")
         return prompt
 
+    def build_mockup_motif_prompt(
+        self,
+        product_description: str = ''
+    ) -> str:
+        """
+        Baut Prompt für Step 1: Motiv auf Produkt (Mockup-Erstellung).
+        Das Motiv wird aus dem DRITTEN Bild extrahiert und auf das Produkt platziert.
+
+        Args:
+            product_description: Optionale Produktbeschreibung
+
+        Returns:
+            Vollständiger Prompt für Mockup-Generierung mit Motiv
+        """
+        parts = []
+
+        # Bildanordnung erklären
+        parts.append(
+            "CRITICAL INSTRUCTION - IMAGE REFERENCE: "
+            "You have 3 reference images: "
+            "Image 1 = The PRODUCT to place the motif on. "
+            "Image 2 = The STYLE GUIDE showing how the motif should look (printed, engraved, embossed, etc.). "
+            "Image 3 = The MOTIF/DESIGN/LOGO to place on the product."
+        )
+
+        # Stil-Referenz Wichtigkeit
+        parts.append(
+            "STYLE REPLICATION: Study Image 2 carefully! "
+            "You MUST replicate the EXACT visual appearance shown: "
+            "- If it shows printed design → make the motif look printed "
+            "- If it shows embossed/raised design → make it 3D and raised "
+            "- If it shows engraved design → make it look carved into the surface "
+            "- Copy the texture, shine, shadows, and material look PRECISELY."
+        )
+
+        # Hauptaufgabe
+        parts.append(
+            "YOUR TASK: Take the motif/design from Image 3 and place it onto the product from Image 1, "
+            "using the style shown in Image 2. "
+            "The motif must be integrated naturally onto the product surface. "
+            "Keep the product unchanged - only add the motif in the style from the reference."
+        )
+
+        # Produktbeschreibung falls vorhanden
+        if product_description:
+            parts.append(f"Product context: {product_description.strip()}")
+
+        # Qualitätsanweisungen
+        parts.append(
+            "High quality product mockup. "
+            "The motif must look like it belongs on the product - realistic integration with proper lighting and shadows. "
+            "Maintain the original colors and details of the motif where possible, adapted to the style."
+        )
+
+        prompt = " ".join(parts)
+        logger.info(f"Built mockup-motif prompt: {prompt[:200]}...")
+        return prompt
+
     def build_mockup_scene_prompt(
         self,
         scene_description: str,

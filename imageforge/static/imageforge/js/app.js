@@ -407,6 +407,8 @@ function initMockupWizard() {
     const mockupProductInput = document.getElementById('mockup-product-image');
     const styleRefZone = document.getElementById('mockup-style-ref-zone');
     const styleRefInput = document.getElementById('style-reference-image');
+    const motifZone = document.getElementById('mockup-motif-upload-zone');
+    const motifInput = document.getElementById('motif-image');
     const generateMockupBtn = document.getElementById('generate-mockup-btn');
     const savedMockupSelect = document.getElementById('saved-mockup-select');
     const step2Card = document.getElementById('mockup-step2-card');
@@ -416,6 +418,28 @@ function initMockupWizard() {
     const loadingOverlay = document.getElementById('loading-overlay');
     const resultModal = document.getElementById('result-modal');
 
+    // Content Type Toggle (Text vs Motif)
+    const contentTypeText = document.getElementById('content-type-text');
+    const contentTypeMotif = document.getElementById('content-type-motif');
+    const textInputSection = document.getElementById('text-input-section');
+    const motifInputSection = document.getElementById('motif-input-section');
+
+    // Toggle Handler: Text/Motiv wechseln
+    if (contentTypeText && contentTypeMotif && textInputSection && motifInputSection) {
+        contentTypeText.addEventListener('change', function() {
+            if (this.checked) {
+                textInputSection.classList.remove('d-none');
+                motifInputSection.classList.add('d-none');
+            }
+        });
+        contentTypeMotif.addEventListener('change', function() {
+            if (this.checked) {
+                textInputSection.classList.add('d-none');
+                motifInputSection.classList.remove('d-none');
+            }
+        });
+    }
+
     // Initialize mockup product upload zone
     if (mockupProductZone && mockupProductInput) {
         initUploadZone(mockupProductZone, mockupProductInput);
@@ -424,6 +448,11 @@ function initMockupWizard() {
     // Initialize style reference upload zone
     if (styleRefZone && styleRefInput) {
         initUploadZone(styleRefZone, styleRefInput);
+    }
+
+    // Initialize motif upload zone
+    if (motifZone && motifInput) {
+        initUploadZone(motifZone, motifInput);
     }
 
     // History Image Selection
@@ -518,14 +547,26 @@ function initMockupWizard() {
     // Generate Mockup Button (Step 1)
     if (generateMockupBtn) {
         generateMockupBtn.addEventListener('click', async function() {
+            // Welcher Content-Type ist aktiv?
+            const contentType = document.querySelector('input[name="content_type"]:checked')?.value || 'text';
             const textContent = document.getElementById('mockup-text-content')?.value?.trim();
+            const motifFile = motifInput?.files?.[0];
             const productFile = mockupProductInput?.files?.[0];
             const styleRefFile = styleRefInput?.files?.[0];
 
-            if (!textContent) {
-                alert('Bitte gib einen Text ein.');
-                return;
+            // Validierung je nach Content-Type
+            if (contentType === 'text') {
+                if (!textContent) {
+                    alert('Bitte gib einen Text ein.');
+                    return;
+                }
+            } else if (contentType === 'motif') {
+                if (!motifFile) {
+                    alert('Bitte lade ein Motiv-Bild hoch.');
+                    return;
+                }
             }
+
             if (!productFile) {
                 alert('Bitte lade ein Produktbild hoch.');
                 return;
@@ -542,9 +583,16 @@ function initMockupWizard() {
 
             try {
                 const formData = new FormData();
-                formData.append('text_content', textContent);
+                formData.append('content_type', contentType);
                 formData.append('product_image', productFile);
                 formData.append('style_reference_image', styleRefFile);
+
+                // Je nach Content-Type: Text oder Motiv-Bild
+                if (contentType === 'text') {
+                    formData.append('text_content', textContent);
+                } else if (contentType === 'motif') {
+                    formData.append('motif_image', motifFile);
+                }
 
                 // CSRF Token
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
@@ -571,7 +619,14 @@ function initMockupWizard() {
                         const option = document.createElement('option');
                         option.value = data.mockup_id;
                         option.dataset.image = data.mockup_image_url;
-                        option.textContent = data.mockup_name || `Mockup: ${textContent.substring(0, 40)}`;
+                        // Name vom Server oder Fallback basierend auf Content-Type
+                        let optionText = data.mockup_name;
+                        if (!optionText) {
+                            optionText = contentType === 'text'
+                                ? `Mockup: ${textContent.substring(0, 40)}`
+                                : `Mockup: Motiv (${new Date().toLocaleDateString('de-DE')})`;
+                        }
+                        option.textContent = optionText;
                         // Nach der leeren "-- Mockup wählen --" Option einfügen
                         if (savedMockupSelect.options.length > 1) {
                             savedMockupSelect.insertBefore(option, savedMockupSelect.options[1]);
