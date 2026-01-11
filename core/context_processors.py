@@ -285,25 +285,65 @@ MENU_STRUCTURE = {
 }
 
 
+# Cache für App-Permissions (wird pro Request befüllt)
+_permissions_cache = {}
+_individual_permissions_cache = {}
+_selected_users_cache = {}
+
+
+def _load_permissions_cache(user):
+    """
+    Lädt alle AppPermissions in einem Query und cached sie.
+    Reduziert N+1 Queries auf 2-3 Queries total.
+    """
+    global _permissions_cache, _individual_permissions_cache, _selected_users_cache
+    from accounts.models import AppPermission, UserAppPermission
+
+    # Alle globalen Permissions in einem Query laden
+    permissions = AppPermission.objects.filter(is_active=True).prefetch_related('selected_users')
+    _permissions_cache = {p.app_name: p for p in permissions}
+
+    # Individuelle Permissions laden (falls User eingeloggt)
+    _individual_permissions_cache = {}
+    if user and user.is_authenticated:
+        individual_perms = UserAppPermission.objects.filter(user=user)
+        for perm in individual_perms:
+            _individual_permissions_cache[perm.app_name] = perm.override_type == 'allow'
+
+    # Selected Users Cache vorbereiten
+    _selected_users_cache = {}
+    if user and user.is_authenticated:
+        for app_name, permission in _permissions_cache.items():
+            if permission.access_level == 'selected':
+                # Prüfe ob User in selected_users ist (aus prefetched Daten)
+                _selected_users_cache[app_name] = user.id in [u.id for u in permission.selected_users.all()]
+
+
+def _clear_permissions_cache():
+    """Cache leeren nach Request"""
+    global _permissions_cache, _individual_permissions_cache, _selected_users_cache
+    _permissions_cache = {}
+    _individual_permissions_cache = {}
+    _selected_users_cache = {}
+
+
 def _get_app_visibility(app_name, user):
     """
     Prüft ob eine App für einen User im Menü sichtbar sein soll.
+    Nutzt gecachte Permissions für bessere Performance.
 
     Returns:
         tuple: (is_visible, has_access) - is_visible für Menü-Anzeige, has_access für direkten Zugriff
     """
-    from accounts.models import AppPermission, UserAppPermission
-
     try:
-        # Prüfe individuelle Berechtigung zuerst
-        individual = UserAppPermission.user_has_individual_permission(app_name, user)
-        if individual is not None:
-            return individual, individual
+        # Prüfe individuelle Berechtigung aus Cache
+        if app_name in _individual_permissions_cache:
+            result = _individual_permissions_cache[app_name]
+            return result, result
 
-        # Prüfe globale AppPermission
-        try:
-            permission = AppPermission.objects.get(app_name=app_name, is_active=True)
-        except AppPermission.DoesNotExist:
+        # Prüfe globale AppPermission aus Cache
+        permission = _permissions_cache.get(app_name)
+        if not permission:
             # Keine Einstellung = für Superuser sichtbar, sonst nicht
             if user and user.is_authenticated and user.is_superuser:
                 return True, True
@@ -341,11 +381,10 @@ def _get_app_visibility(app_name, user):
             has_access = user and user.is_authenticated
             return True, has_access  # Im Menü immer sichtbar!
 
-        # Ausgewählte Nutzer
+        # Ausgewählte Nutzer - aus Cache
         if access_level == 'selected':
             if user and user.is_authenticated:
-                has_access = permission.selected_users.filter(id=user.id).exists()
-                # Auch im Menü nur für ausgewählte sichtbar
+                has_access = _selected_users_cache.get(app_name, False)
                 return has_access, has_access
             return False, False
 
@@ -381,6 +420,9 @@ def dynamic_menu(request):
     """
     user = getattr(request, 'user', None)
     is_authenticated = user and user.is_authenticated
+
+    # Cache laden für diesen Request (reduziert ~60 Queries auf 2-3)
+    _load_permissions_cache(user)
 
     menu_result = {}
 
@@ -460,6 +502,9 @@ def dynamic_menu(request):
 
     # Nach Order sortieren
     sorted_menu = dict(sorted(menu_result.items(), key=lambda x: x[1].get('order', 99)))
+
+    # Cache leeren nach Verarbeitung
+    _clear_permissions_cache()
 
     return {
         'dynamic_menu': sorted_menu,
