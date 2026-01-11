@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib import messages
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.db.models import Prefetch, Count, Q
 from PIL import Image
 
 from .models import PinProject, PinSettings, Pin
@@ -1455,25 +1456,37 @@ def project_list(request):
     # Filter-Parameter auslesen
     filter_by = request.GET.get('filter', 'all')
 
-    # Basis-Queryset
-    all_projects = PinProject.objects.filter(user=request.user)
-
-    # Statistiken berechnen (immer auf alle Projekte)
-    total_count = all_projects.count()
-    posted_count = all_projects.filter(pinterest_posted=True).count()
-    completed_count = all_projects.filter(status='completed').count()
+    # Basis-Queryset mit optimierten Statistiken (1 Query statt 4)
+    base_queryset = PinProject.objects.filter(user=request.user)
+    stats = base_queryset.aggregate(
+        total_count=Count('id'),
+        posted_count=Count('id', filter=Q(pinterest_posted=True)),
+        completed_count=Count('id', filter=Q(status='completed'))
+    )
+    total_count = stats['total_count']
+    posted_count = stats['posted_count']
+    completed_count = stats['completed_count']
     to_post_count = completed_count - posted_count  # Fertig aber noch nicht gepostet
     drafts_count = total_count - completed_count  # Nicht fertige Pins
 
-    # Filter anwenden
+    # Prefetch für Pins (verhindert N+1 Query)
+    pins_prefetch = Prefetch(
+        'pins',
+        queryset=Pin.objects.order_by('position')
+    )
+
+    # Filter anwenden mit Prefetch
     if filter_by == 'posted':
-        projects = all_projects.filter(pinterest_posted=True).order_by('-pinterest_posted_at')
+        projects = base_queryset.filter(pinterest_posted=True).order_by('-pinterest_posted_at')
     elif filter_by == 'not_posted':
-        projects = all_projects.filter(pinterest_posted=False, status='completed').order_by('-updated_at')
+        projects = base_queryset.filter(pinterest_posted=False, status='completed').order_by('-updated_at')
     elif filter_by == 'drafts':
-        projects = all_projects.exclude(status='completed').order_by('-updated_at')
+        projects = base_queryset.exclude(status='completed').order_by('-updated_at')
     else:  # 'all'
-        projects = all_projects.order_by('pinterest_posted', '-updated_at')
+        projects = base_queryset.order_by('pinterest_posted', '-updated_at')
+
+    # Prefetch hinzufügen
+    projects = projects.prefetch_related(pins_prefetch)
 
     # Pagination: 20 Pins pro Seite
     paginator = Paginator(projects, 20)
