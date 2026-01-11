@@ -5,7 +5,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
@@ -31,20 +31,26 @@ def dashboard(request):
     """
     MakeAds Dashboard - Übersicht aller Kampagnen
     """
-    campaigns = Campaign.objects.filter(user=request.user).order_by('-created_at')
-    
-    # Statistiken
-    total_campaigns = campaigns.count()
-    total_creatives = Creative.objects.filter(campaign__user=request.user).count()
-    active_jobs = GenerationJob.objects.filter(
-        campaign__user=request.user,
-        status__in=['queued', 'processing']
-    ).count()
-    
-    # Neueste Kampagnen für Dashboard mit Favoriten-Zählung
+    # Basis-Queryset mit annotierter Favoriten-Anzahl (verhindert N+1)
+    campaigns = Campaign.objects.filter(user=request.user).annotate(
+        favorite_count=Count('creatives', filter=Q(creatives__is_favorite=True))
+    ).order_by('-created_at')
+
+    # Statistiken in einem Query
+    stats = Campaign.objects.filter(user=request.user).aggregate(
+        total_campaigns=Count('id'),
+        total_creatives=Count('creatives'),
+        active_jobs=Count(
+            'generation_jobs',
+            filter=Q(generation_jobs__status__in=['queued', 'processing'])
+        )
+    )
+    total_campaigns = stats['total_campaigns']
+    total_creatives = stats['total_creatives']
+    active_jobs = stats['active_jobs']
+
+    # Neueste Kampagnen für Dashboard (favorite_count bereits annotiert)
     recent_campaigns = campaigns[:5]
-    for campaign in recent_campaigns:
-        campaign.favorite_count = campaign.creatives.filter(is_favorite=True).count()
     
     # API-Key Status prüfen
     api_client = CentralAPIClient(request.user)
@@ -67,8 +73,11 @@ def campaign_list(request):
     """
     Liste aller Kampagnen des Benutzers
     """
-    campaigns = Campaign.objects.filter(user=request.user).order_by('-created_at')
-    
+    # Basis-Queryset mit annotierter Favoriten-Anzahl (verhindert N+1)
+    campaigns = Campaign.objects.filter(user=request.user).annotate(
+        favorite_count=Count('creatives', filter=Q(creatives__is_favorite=True))
+    ).order_by('-created_at')
+
     # Suche
     search_query = request.GET.get('search', '')
     if search_query:
@@ -77,11 +86,7 @@ def campaign_list(request):
             Q(basic_idea__icontains=search_query) |
             Q(description__icontains=search_query)
         )
-    
-    # Favoriten-Anzahl für jede Kampagne berechnen (vor Paginierung)
-    for campaign in campaigns:
-        campaign.favorite_count = campaign.creatives.filter(is_favorite=True).count()
-    
+
     # Paginierung
     paginator = Paginator(campaigns, 12)
     page_number = request.GET.get('page')

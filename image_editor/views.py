@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.conf import settings
@@ -32,22 +32,29 @@ from naturmacher.utils.api_helpers import get_user_api_key
 @require_subscription_access('image_editor')
 def dashboard_view(request):
     """Hauptseite der Bildbearbeitung"""
-    # Benutzerstatistiken
+    # Benutzerstatistiken (optimiert: 2 Queries statt 6)
     user_projects = ImageProject.objects.filter(user=request.user)
     user_ai_generations = AIGenerationHistory.objects.filter(user=request.user)
-    
-    stats = {
-        'total_projects': user_projects.count(),
-        'ai_generated': user_projects.filter(source_type='ai_generated').count(),
-        'uploaded': user_projects.filter(source_type='upload').count(),
-        'completed': user_projects.filter(status='completed').count(),
-        'ai_generations': user_ai_generations.count(),
-        'successful_generations': user_ai_generations.filter(success=True).count(),
-    }
-    
+
+    # Projekt-Stats in einem Query
+    project_stats = user_projects.aggregate(
+        total_projects=Count('id'),
+        ai_generated=Count('id', filter=Q(source_type='ai_generated')),
+        uploaded=Count('id', filter=Q(source_type='upload')),
+        completed=Count('id', filter=Q(status='completed')),
+    )
+
+    # AI-Generation Stats in einem Query
+    ai_stats = user_ai_generations.aggregate(
+        ai_generations=Count('id'),
+        successful_generations=Count('id', filter=Q(success=True)),
+    )
+
+    stats = {**project_stats, **ai_stats}
+
     # Letzte Projekte
     recent_projects = user_projects.order_by('-updated_at')[:6]
-    
+
     # Letzte AI-Generierungen
     recent_ai = user_ai_generations.order_by('-created_at')[:5]
     
