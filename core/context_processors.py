@@ -312,7 +312,11 @@ def _get_app_visibility(app_name, user):
         # Prüfe access_level
         access_level = permission.access_level
 
-        # Gesperrt = nie anzeigen
+        # Superuser-Bypass: Wenn aktiviert, haben Superuser IMMER Zugriff (auch bei blocked)
+        if user and user.is_authenticated and user.is_superuser and permission.superuser_bypass:
+            return True, True
+
+        # Gesperrt = nicht anzeigen (außer Superuser mit Bypass, s.o.)
         if access_level == 'blocked':
             return False, False
 
