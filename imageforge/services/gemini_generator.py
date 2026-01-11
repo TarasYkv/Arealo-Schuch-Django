@@ -9,11 +9,17 @@ Unterstützt:
 
 import logging
 import requests
+import time
 from typing import Dict, List, Optional, Any
 
 from .base_generator import BaseImageGenerator
 
 logger = logging.getLogger(__name__)
+
+# Retry-Konfiguration
+MAX_RETRIES = 3
+RETRY_DELAY_BASE = 2  # Sekunden (exponential: 2, 4, 8)
+RETRYABLE_ERRORS = ['overloaded', 'rate limit', 'temporarily unavailable', '503', '429']
 
 
 class GeminiGenerator(BaseImageGenerator):
@@ -112,6 +118,11 @@ class GeminiGenerator(BaseImageGenerator):
                 'model_used': selected_model
             }
 
+    def _is_retryable_error(self, error_msg: str) -> bool:
+        """Prüft ob ein Fehler retry-fähig ist"""
+        error_lower = error_msg.lower()
+        return any(err in error_lower for err in RETRYABLE_ERRORS)
+
     def _generate_with_gemini(
         self,
         prompt: str,
@@ -119,7 +130,7 @@ class GeminiGenerator(BaseImageGenerator):
         aspect_ratio: str,
         model: str
     ) -> Dict[str, Any]:
-        """Generiert Bild mit Gemini (generateContent API)"""
+        """Generiert Bild mit Gemini (generateContent API) mit automatischem Retry"""
         url = f"{self.BASE_URL}/models/{model}:generateContent"
 
         # Baue Request Parts
@@ -150,28 +161,61 @@ class GeminiGenerator(BaseImageGenerator):
             }
         }
 
-        logger.info(f"Calling Gemini API: {model}, Aspect Ratio: {aspect_ratio}")
-        logger.info(f"Prompt: {prompt[:100]}...")
+        last_error = None
 
-        response = requests.post(
-            url,
-            json=payload,
-            headers=self.headers,
-            timeout=180
-        )
+        for attempt in range(MAX_RETRIES):
+            if attempt > 0:
+                delay = RETRY_DELAY_BASE ** attempt
+                logger.info(f"Retry {attempt}/{MAX_RETRIES} nach {delay}s Pause...")
+                time.sleep(delay)
 
-        if response.status_code == 200:
-            return self._parse_gemini_response(response.json())
-        else:
-            error_msg = f"API Fehler: {response.status_code}"
+            logger.info(f"Calling Gemini API: {model}, Aspect Ratio: {aspect_ratio} (Versuch {attempt + 1}/{MAX_RETRIES})")
+            logger.info(f"Prompt: {prompt[:100]}...")
+
             try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_msg = error_data['error'].get('message', error_msg)
-            except:
-                pass
-            logger.error(f"Gemini API error: {error_msg}")
-            return {'success': False, 'error': error_msg}
+                response = requests.post(
+                    url,
+                    json=payload,
+                    headers=self.headers,
+                    timeout=180
+                )
+
+                if response.status_code == 200:
+                    result = self._parse_gemini_response(response.json())
+                    if result.get('success'):
+                        if attempt > 0:
+                            logger.info(f"Erfolgreich nach {attempt + 1} Versuchen!")
+                        return result
+                    # Parse-Fehler - nicht retry-fähig
+                    return result
+
+                # API-Fehler auswerten
+                error_msg = f"API Fehler: {response.status_code}"
+                try:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_msg = error_data['error'].get('message', error_msg)
+                except:
+                    pass
+
+                logger.warning(f"Gemini API error (Versuch {attempt + 1}): {error_msg}")
+                last_error = error_msg
+
+                # Nur bei bestimmten Fehlern retry
+                if not self._is_retryable_error(error_msg):
+                    logger.error(f"Nicht-retryable Fehler: {error_msg}")
+                    return {'success': False, 'error': error_msg}
+
+            except requests.exceptions.Timeout:
+                last_error = "Timeout bei der API-Anfrage"
+                logger.warning(f"Timeout (Versuch {attempt + 1})")
+            except requests.exceptions.RequestException as e:
+                last_error = str(e)
+                logger.warning(f"Request-Fehler (Versuch {attempt + 1}): {e}")
+
+        # Alle Versuche fehlgeschlagen
+        logger.error(f"Alle {MAX_RETRIES} Versuche fehlgeschlagen. Letzter Fehler: {last_error}")
+        return {'success': False, 'error': f"Nach {MAX_RETRIES} Versuchen fehlgeschlagen: {last_error}"}
 
     def _generate_with_imagen(
         self,
@@ -179,7 +223,7 @@ class GeminiGenerator(BaseImageGenerator):
         aspect_ratio: str,
         model: str
     ) -> Dict[str, Any]:
-        """Generiert Bild mit Imagen (predict API)"""
+        """Generiert Bild mit Imagen (predict API) mit automatischem Retry"""
         url = f"{self.BASE_URL}/models/{model}:predict"
 
         payload = {
@@ -192,28 +236,58 @@ class GeminiGenerator(BaseImageGenerator):
             }
         }
 
-        logger.info(f"Calling Imagen API: {model}")
-        logger.info(f"Prompt: {prompt[:100]}...")
+        last_error = None
 
-        response = requests.post(
-            url,
-            json=payload,
-            headers=self.headers,
-            timeout=180
-        )
+        for attempt in range(MAX_RETRIES):
+            if attempt > 0:
+                delay = RETRY_DELAY_BASE ** attempt
+                logger.info(f"Retry {attempt}/{MAX_RETRIES} nach {delay}s Pause...")
+                time.sleep(delay)
 
-        if response.status_code == 200:
-            return self._parse_imagen_response(response.json())
-        else:
-            error_msg = f"API Fehler: {response.status_code}"
+            logger.info(f"Calling Imagen API: {model} (Versuch {attempt + 1}/{MAX_RETRIES})")
+            logger.info(f"Prompt: {prompt[:100]}...")
+
             try:
-                error_data = response.json()
-                if 'error' in error_data:
-                    error_msg = error_data['error'].get('message', error_msg)
-            except:
-                pass
-            logger.error(f"Imagen API error: {error_msg}")
-            return {'success': False, 'error': error_msg}
+                response = requests.post(
+                    url,
+                    json=payload,
+                    headers=self.headers,
+                    timeout=180
+                )
+
+                if response.status_code == 200:
+                    result = self._parse_imagen_response(response.json())
+                    if result.get('success'):
+                        if attempt > 0:
+                            logger.info(f"Erfolgreich nach {attempt + 1} Versuchen!")
+                        return result
+                    return result
+
+                # API-Fehler auswerten
+                error_msg = f"API Fehler: {response.status_code}"
+                try:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_msg = error_data['error'].get('message', error_msg)
+                except:
+                    pass
+
+                logger.warning(f"Imagen API error (Versuch {attempt + 1}): {error_msg}")
+                last_error = error_msg
+
+                if not self._is_retryable_error(error_msg):
+                    logger.error(f"Nicht-retryable Fehler: {error_msg}")
+                    return {'success': False, 'error': error_msg}
+
+            except requests.exceptions.Timeout:
+                last_error = "Timeout bei der API-Anfrage"
+                logger.warning(f"Timeout (Versuch {attempt + 1})")
+            except requests.exceptions.RequestException as e:
+                last_error = str(e)
+                logger.warning(f"Request-Fehler (Versuch {attempt + 1}): {e}")
+
+        logger.error(f"Alle {MAX_RETRIES} Versuche fehlgeschlagen. Letzter Fehler: {last_error}")
+        return {'success': False, 'error': f"Nach {MAX_RETRIES} Versuchen fehlgeschlagen: {last_error}"}
 
     def _parse_gemini_response(self, data: dict) -> Dict[str, Any]:
         """Parst Gemini API Response"""
