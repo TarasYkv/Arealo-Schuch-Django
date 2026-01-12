@@ -1313,7 +1313,9 @@ def pdf_suche(request):
                 return render(request, "pdf_sucher/suche.html", context)
                 
             except Exception as e:
+                import traceback
                 print(f"FEHLER bei Ampel-Analyse: {e}")
+                print(f"TRACEBACK: {traceback.format_exc()}")
                 return render(request, "pdf_sucher/suche.html",
                               {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
         
@@ -1348,9 +1350,12 @@ def pdf_suche(request):
                 end_page = int(seite_bis_str) if seite_bis_str and seite_bis_str.isdigit() else len(doc)
                 doc.close()
             except Exception as e:
+                import traceback
+                print(f"FEHLER bei fitz.open (AI-Suche): {e}")
+                print(f"TRACEBACK: {traceback.format_exc()}")
                 return render(request, "pdf_sucher/suche.html",
                               {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
-            
+
             # Generiere erweiterte Suchbegriffe
             expanded_terms = expand_search_terms_with_ai(suchanfrage, search_perspective, request.user)
             
@@ -1398,6 +1403,9 @@ def pdf_suche(request):
                 page_range = (max(0, start_page), min(len(doc), end_page))
                 doc.close()
             except Exception as e:
+                import traceback
+                print(f"FEHLER bei fitz.open (einfache Suche): {e}")
+                print(f"TRACEBACK: {traceback.format_exc()}")
                 return render(request, "pdf_sucher/suche.html",
                               {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
 
@@ -1455,6 +1463,9 @@ def pdf_suche(request):
                 page_range = (max(0, start_page), min(len(doc), end_page))
                 doc.close()
             except Exception as e:
+                import traceback
+                print(f"FEHLER bei fitz.open (Suche Schritt 2): {e}")
+                print(f"TRACEBACK: {traceback.format_exc()}")
                 return render(request, "pdf_sucher/suche.html",
                               {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
 
