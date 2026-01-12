@@ -444,6 +444,191 @@ HINWEIS: Dieses Format ist für Videos ab 7 Minuten gedacht."""
 - Zeige den aktuellen Stand
 - Gib Tipps für andere auf dem gleichen Weg
 HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
+        },
+
+        # ═══════════════════════════════════════════════════════════════
+        # NEUE TREND-FORMATE (2025)
+        # ═══════════════════════════════════════════════════════════════
+
+        'storytime_short': {
+            'name': 'Mini Storytime',
+            'instructions': """Erzähle eine kurze, packende persönliche Geschichte.
+- Starte direkt mitten in der Action ("Also, da war ich...")
+- Halte es kurz aber fesselnd (30-90 Sekunden)
+- Eine klare Pointe oder Überraschung am Ende
+- Persönlich und relatable
+- Emotionen zeigen - Aufregung, Schock, Freude"""
+        },
+        'get_ready_with_me': {
+            'name': 'GRWM (Get Ready With Me)',
+            'instructions': """Erstelle ein "Get Ready With Me" Format mit Themen-Fokus.
+- Starte mit "Komm, mach dich mit mir fertig für..." oder "GRWM während ich dir erzähle..."
+- Verbinde Routine-Beschreibung mit interessantem Content
+- Teile Gedanken, Tipps oder eine Geschichte nebenbei
+- Halte es locker und gesprächig
+- Schaffe eine intime, persönliche Atmosphäre"""
+        },
+        'explain_like_5': {
+            'name': 'Erkläre wie für 5-Jährige',
+            'instructions': """Erkläre ein komplexes Thema super einfach.
+- Starte mit "Stell dir vor..." oder "Okay, also..."
+- Verwende einfache Analogien und Vergleiche
+- Keine Fachbegriffe - nur Alltagssprache
+- Mache es bildhaft und vorstellbar
+- Am Ende: "Siehst du? So einfach ist das!" """
+        },
+        'red_flags': {
+            'name': 'Red Flags / Warnsignale',
+            'instructions': """Zeige Warnsignale und Red Flags auf.
+- Starte mit "Red Flags bei..." oder "Wenn das passiert, RENN!"
+- Liste klare, konkrete Warnsignale auf
+- Erkläre kurz warum es ein Problem ist
+- Gib praktische Tipps zum Erkennen
+- Schließe mit dem wichtigsten Red Flag"""
+        },
+        'green_flags': {
+            'name': 'Green Flags / Positive Zeichen',
+            'instructions': """Zeige positive Zeichen und Green Flags.
+- Starte mit "Green Flags die du nicht ignorieren solltest..."
+- Liste positive Signale und gute Zeichen auf
+- Erkläre warum diese Dinge gut sind
+- Mache es ermutigend und positiv
+- Schließe mit dem besten Green Flag"""
+        },
+        'things_i_learned': {
+            'name': 'X Dinge die ich gelernt habe',
+            'instructions': """Teile wichtige Lektionen die du gelernt hast.
+- Starte mit "X Dinge die ich gelernt habe über/bei..."
+- Nummeriere jede Lektion klar durch
+- Teile persönliche Erfahrungen dazu
+- Mache es praktisch und umsetzbar
+- Die wichtigste Lektion kommt am Ende"""
+        },
+        'hack': {
+            'name': 'Life Hack / Cleverer Trick',
+            'instructions': """Präsentiere einen cleveren Hack oder Trick.
+- Starte mit "Dieser Hack wird alles verändern..." oder "Warum weiß das nicht jeder?"
+- Erkläre das Problem kurz
+- Zeige die clevere Lösung
+- Betone wie einfach es ist
+- "Du kannst mir später danken!" """
+        },
+        'ranking': {
+            'name': 'Bewertungs-Ranking',
+            'instructions': """Ranke und bewerte verschiedene Optionen.
+- Starte mit "Ich ranke heute..." oder "Von schlecht bis genial..."
+- Gehe durch jede Option mit Bewertung
+- Begründe deine Einschätzung kurz
+- Sei ehrlich und unterhaltsam
+- Die beste/schlechteste Option dramatisch präsentieren"""
+        },
+        'nostalgia': {
+            'name': 'Nostalgie-Trip',
+            'instructions': """Nimm die Zuschauer auf eine Nostalgie-Reise mit.
+- Starte mit "Erinnert sich noch jemand an..." oder "Nur echte OGs kennen..."
+- Wecke Erinnerungen an früher
+- Beschreibe Details die Emotionen auslösen
+- Verbinde Vergangenheit mit Gegenwart
+- Schaffe ein Gefühl von "die guten alten Zeiten" """
+        },
+        'recap': {
+            'name': 'Schnelles Recap',
+            'instructions': """Fasse etwas schnell und unterhaltsam zusammen.
+- Starte mit "Hier ist alles was du wissen musst über..."
+- Halte es extrem kompakt
+- Nur die wichtigsten Punkte
+- Schnelles Tempo, keine Umschweife
+- "Das war's - jetzt weißt du Bescheid!" """
+        },
+        'things_nobody_tells': {
+            'name': 'Dinge die dir niemand sagt',
+            'instructions': """Enthülle Wahrheiten die normalerweise verschwiegen werden.
+- Starte mit "Was dir niemand über X sagt..." oder "Die unbequeme Wahrheit..."
+- Teile ehrliche, ungeschönte Einsichten
+- Erkläre warum das normalerweise verschwiegen wird
+- Sei authentisch und direkt
+- Schließe mit der wichtigsten Erkenntnis"""
+        },
+        'motivation_quote': {
+            'name': 'Motivations-Zitat',
+            'instructions': """Präsentiere ein kraftvolles Zitat mit Geschichte.
+- Starte mit dem Zitat oder der Kernaussage
+- Erzähle die Geschichte dahinter
+- Erkläre was es für dich bedeutet
+- Verbinde es mit dem Leben der Zuschauer
+- Schließe mit einem Call-to-Action"""
+        },
+        'trend_check': {
+            'name': 'Trend-Check',
+            'instructions': """Analysiere und erkläre einen aktuellen Trend.
+- Starte mit "Alle reden gerade über..." oder "Dieser Trend ist überall..."
+- Erkläre was der Trend ist
+- Zeige woher er kommt
+- Gib deine Meinung dazu
+- "Ist der Hype berechtigt?" - Fazit geben"""
+        },
+        'asmr_style': {
+            'name': 'ASMR-Style (Ruhig & Entspannt)',
+            'instructions': """Erstelle einen ruhigen, entspannenden Text.
+- Sprich langsam und sanft
+- Verwende beruhigende, weiche Sprache
+- Mache Pausen (im Text angedeutet mit "...")
+- Schaffe eine meditative Atmosphäre
+- Der Content soll entspannen und beruhigen"""
+        },
+        'celebrity_bio': {
+            'name': 'Promi-/Personen-Biografie',
+            'instructions': """Erzähle die Geschichte einer bekannten Person.
+- Starte mit einem überraschenden Fakt über die Person
+- Erzähle den Werdegang kompakt aber fesselnd
+- Hebe Wendepunkte und Besonderheiten hervor
+- Zeige was die Person besonders macht
+- Schließe mit ihrem Vermächtnis oder aktuellen Status"""
+        },
+        'science_explained': {
+            'name': 'Wissenschaft einfach erklärt',
+            'instructions': """Erkläre ein wissenschaftliches Thema verständlich.
+- Starte mit einer faszinierenden Frage
+- Erkläre die Wissenschaft dahinter einfach
+- Verwende Analogien und Beispiele
+- Mache es spannend, nicht trocken
+- "Mind = Blown" Momente einbauen"""
+        },
+        'money_tip': {
+            'name': 'Finanz-/Geld-Tipp',
+            'instructions': """Teile einen wertvollen Finanztipp.
+- Starte mit dem Nutzen: "So sparst du..." oder "Dieser Trick hat mir X€ gespart..."
+- Erkläre den Tipp klar und praktisch
+- Zeige konkrete Zahlen oder Beispiele
+- Warne vor häufigen Fehlern
+- Mache es sofort umsetzbar"""
+        },
+        'satisfying': {
+            'name': 'Satisfying Content',
+            'instructions': """Erstelle einen befriedigenden, entspannenden Text.
+- Beschreibe befriedigende Prozesse oder Ergebnisse
+- Verwende beschreibende, sensorische Sprache
+- Schaffe ein Gefühl von Ordnung und Perfektion
+- Baue auf zum befriedigenden Moment
+- "Ahh, das ist so gut!" - Momente erzeugen"""
+        },
+        'tutorial_quick': {
+            'name': 'Schnelles Mini-Tutorial',
+            'instructions': """Erkläre etwas schnell und praktisch.
+- Starte direkt: "So machst du..." oder "In 60 Sekunden lernst du..."
+- Halte jeden Schritt ultra-kurz
+- Fokus auf das Wesentliche
+- Keine Abschweifungen
+- "Fertig! So einfach ist das." """
+        },
+        'conspiracy_debunk': {
+            'name': 'Verschwörungstheorie hinterfragen',
+            'instructions': """Hinterfrage eine Verschwörungstheorie kritisch.
+- Starte mit der Theorie: "Viele glauben, dass..."
+- Erkläre warum Menschen das glauben
+- Zeige die Fakten und Gegenbeweise
+- Bleibe respektvoll aber klar
+- Schließe mit der wahrscheinlichsten Erklärung"""
         }
     }
 

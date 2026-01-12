@@ -8,6 +8,7 @@ User = get_user_model()
 # === CHOICES ===
 
 SCRIPT_TYPE_CHOICES = [
+    # === BASIS-FORMATE ===
     ('fun_facts', 'Witzige Fakten'),
     ('interesting_facts', 'Interessante Fakten'),
     ('how_to', 'Schritt-für-Schritt Anleitung'),
@@ -23,6 +24,57 @@ SCRIPT_TYPE_CHOICES = [
     ('behind_scenes', 'Hinter den Kulissen'),
     ('challenge', 'Challenge-Format'),
     ('controversial', 'Kontroverse Meinung'),
+
+    # === KURZ-FORMATE (TikTok/Reels optimiert) ===
+    ('pov', 'POV (Point of View)'),
+    ('unpopular_opinion', 'Unpopuläre Meinung'),
+    ('mistakes', 'Häufige Fehler'),
+    ('secrets', 'Geheimtipps & Insider'),
+    ('reaction', 'Reaktions-Format'),
+    ('what_if', 'Was wäre wenn...'),
+    ('before_after', 'Vorher/Nachher'),
+    ('review', 'Ehrliche Bewertung'),
+    ('prediction', 'Zukunfts-Prognose'),
+    ('rant', 'Meinungs-Rant'),
+    ('hot_take', 'Hot Take'),
+    ('this_or_that', 'Dies oder Das'),
+    ('day_in_life', 'Ein Tag als...'),
+
+    # === NEUE TREND-FORMATE ===
+    ('storytime_short', 'Mini Storytime'),
+    ('get_ready_with_me', 'GRWM (Get Ready With Me)'),
+    ('explain_like_5', 'Erkläre wie für 5-Jährige'),
+    ('red_flags', 'Red Flags / Warnsignale'),
+    ('green_flags', 'Green Flags / Positive Zeichen'),
+    ('things_i_learned', 'X Dinge die ich gelernt habe'),
+    ('hack', 'Life Hack / Cleverer Trick'),
+    ('ranking', 'Bewertungs-Ranking'),
+    ('nostalgia', 'Nostalgie-Trip'),
+    ('recap', 'Schnelles Recap'),
+    ('things_nobody_tells', 'Dinge die dir niemand sagt'),
+    ('motivation_quote', 'Motivations-Zitat'),
+    ('trend_check', 'Trend-Check'),
+    ('asmr_style', 'ASMR-Style (Ruhig & Entspannt)'),
+    ('celebrity_bio', 'Promi-/Personen-Biografie'),
+    ('science_explained', 'Wissenschaft einfach erklärt'),
+    ('money_tip', 'Finanz-/Geld-Tipp'),
+    ('satisfying', 'Satisfying Content'),
+    ('tutorial_quick', 'Schnelles Mini-Tutorial'),
+    ('conspiracy_debunk', 'Verschwörungstheorie hinterfragen'),
+
+    # === LÄNGERE FORMATE (5+ Min) ===
+    ('deep_dive', '🕐 Deep Dive (5+ Min)'),
+    ('documentary', '🕐 Mini-Dokumentation (5+ Min)'),
+    ('storytime_long', '🕐 Ausführliche Storytime (5+ Min)'),
+    ('case_study', '🕐 Fallstudie (5+ Min)'),
+    ('complete_guide', '🕐 Kompletter Guide (7+ Min)'),
+    ('history', '🕐 Geschichte & Ursprung (5+ Min)'),
+    ('interview_style', '🕐 Interview-Format (5+ Min)'),
+    ('debate', '🕐 Pro & Contra Debatte (5+ Min)'),
+    ('masterclass', '🕐 Masterclass (10+ Min)'),
+    ('analysis', '🕐 Tiefgehende Analyse (7+ Min)'),
+    ('ultimate_list', '🕐 Ultimate Liste (7+ Min)'),
+    ('journey', '🕐 Meine Reise/Entwicklung (5+ Min)'),
 ]
 
 TONE_CHOICES = [
