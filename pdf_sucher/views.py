@@ -1292,6 +1292,8 @@ def pdf_suche(request):
                 fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
                 filename = secure_filename(pdf_file.name)
                 base, extension = os.path.splitext(filename)
+                # Dateinamen kürzen um Errno 90 (Message too long) zu vermeiden
+                base = base[:100] if len(base) > 100 else base
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 unique_filename = f"{base}_{timestamp}{extension}"
                 pdf_filename = fs.save(unique_filename, pdf_file)
@@ -1333,10 +1335,12 @@ def pdf_suche(request):
                 fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
                 filename = secure_filename(pdf_file.name)
                 base, extension = os.path.splitext(filename)
+                # Dateinamen kürzen um Errno 90 (Message too long) zu vermeiden
+                base = base[:100] if len(base) > 100 else base
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 unique_filename = f"{base}_{timestamp}{extension}"
                 pdf_filename = fs.save(unique_filename, pdf_file)
-            
+
             # Validiere Seitenbereich
             try:
                 doc = fitz.open(fs.path(pdf_filename))
@@ -1378,10 +1382,12 @@ def pdf_suche(request):
                 fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
                 filename = secure_filename(pdf_file.name)
                 base, extension = os.path.splitext(filename)
+                # Dateinamen kürzen um Errno 90 (Message too long) zu vermeiden
+                base = base[:100] if len(base) > 100 else base
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 unique_filename = f"{base}_{timestamp}{extension}"
                 pdf_filename = fs.save(unique_filename, pdf_file)
-            
+
             # Führe einfache Suche direkt aus
             pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", pdf_filename)
             
@@ -1434,10 +1440,12 @@ def pdf_suche(request):
                 fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
                 filename = secure_filename(pdf_file.name)
                 base, extension = os.path.splitext(filename)
+                # Dateinamen kürzen um Errno 90 (Message too long) zu vermeiden
+                base = base[:100] if len(base) > 100 else base
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 unique_filename = f"{base}_{timestamp}{extension}"
                 pdf_filename = fs.save(unique_filename, pdf_file)
-            
+
             pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", pdf_filename)
 
             try:
