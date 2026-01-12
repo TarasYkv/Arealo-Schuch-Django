@@ -661,9 +661,38 @@ function initMockupWizard() {
     function activateStep2(mockupId, imageUrl) {
         if (currentMockupIdInput) currentMockupIdInput.value = mockupId;
         if (previewImage) previewImage.src = imageUrl;
-        // Download-Button URL setzen
+
+        // Download-Button konfigurieren
         const downloadBtn = document.getElementById('mockup-download-btn');
-        if (downloadBtn) downloadBtn.href = imageUrl;
+        if (downloadBtn) {
+            downloadBtn.href = imageUrl;
+            // Extrahiere Dateinamen aus URL für download Attribut
+            const filename = imageUrl.split('/').pop() || 'mockup.png';
+            downloadBtn.download = filename;
+
+            // Click-Handler für bessere Browser-Kompatibilität
+            downloadBtn.onclick = function(e) {
+                e.preventDefault();
+                fetch(imageUrl)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    })
+                    .catch(err => {
+                        console.error('Download fehlgeschlagen:', err);
+                        // Fallback: Öffne in neuem Tab
+                        window.open(imageUrl, '_blank');
+                    });
+            };
+        }
         if (previewCard) previewCard.classList.remove('d-none');
         if (step2Card) {
             step2Card.style.opacity = '1';
