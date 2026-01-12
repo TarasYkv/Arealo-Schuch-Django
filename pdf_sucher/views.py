@@ -1309,7 +1309,8 @@ def pdf_suche(request):
                     'pdf_original_name': pdf_file.name,
                     'results_pdf_filename': request.session.get('results_pdf_filename')
                 }
-                print(f"DEBUG: Context für Template: {context}")
+                # DEBUG-Ausgabe gekürzt um Errno 90 (Message too long) zu vermeiden
+                print(f"DEBUG: Ampel-Analyse abgeschlossen, {len(ampel_results)} Kategorien")
                 return render(request, "pdf_sucher/suche.html", context)
                 
             except Exception as e:
