@@ -280,6 +280,13 @@ MENU_STRUCTURE = {
                 'icon': 'fas fa-link',
                 'auth_url_name': 'linkloom:dashboard',
             },
+            {'divider': True, 'label': 'Apps'},
+            {
+                'app_name': 'android_apk_manager',
+                'label': 'APK Manager',
+                'icon': 'bi bi-phone',
+                'auth_url_name': 'android_apk_manager:dashboard',
+            },
         ],
     },
 }
