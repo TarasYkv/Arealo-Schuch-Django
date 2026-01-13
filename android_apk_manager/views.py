@@ -10,6 +10,7 @@ from django.db.models import Sum, Q
 from django.contrib import messages
 
 from .models import AndroidApp, AppVersion, DownloadLog
+from .forms import AndroidAppForm, AppVersionForm
 
 
 def download_apk(request, version_id):
@@ -281,3 +282,153 @@ def delete_app(request, app_id):
     messages.success(request, f'App "{app_name}" wurde erfolgreich gelöscht.')
 
     return redirect('android_apk_manager:dashboard')
+
+
+@login_required
+def create_app(request):
+    """
+    Erstelle neue App über Web-Interface
+    """
+    if request.method == 'POST':
+        form = AndroidAppForm(request.POST, request.FILES)
+        if form.is_valid():
+            app = form.save(commit=False)
+            app.created_by = request.user
+            app.save()
+
+            messages.success(request, f'App "{app.name}" wurde erfolgreich erstellt!')
+            return redirect('android_apk_manager:app_detail', app_id=app.id)
+    else:
+        form = AndroidAppForm()
+
+    context = {
+        'form': form,
+    }
+
+    return render(request, 'android_apk_manager/create_app.html', context)
+
+
+@login_required
+def upload_version(request, app_id=None):
+    """
+    Upload neue Version über Web-Interface
+    """
+    if request.method == 'POST':
+        form = AppVersionForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            version = form.save()
+
+            # Wenn "Als aktuell markieren" aktiviert, entferne Flag von anderen
+            if version.is_current_for_channel:
+                AppVersion.objects.filter(
+                    app=version.app,
+                    channel=version.channel
+                ).exclude(id=version.id).update(is_current_for_channel=False)
+
+            messages.success(
+                request,
+                f'Version {version.version_name} wurde erfolgreich hochgeladen!'
+            )
+            return redirect('android_apk_manager:app_detail', app_id=version.app.id)
+    else:
+        initial = {}
+        if app_id:
+            app = get_object_or_404(AndroidApp, id=app_id, created_by=request.user)
+            initial['app'] = app
+
+        form = AppVersionForm(initial=initial, user=request.user)
+
+    context = {
+        'form': form,
+        'app_id': app_id,
+    }
+
+    return render(request, 'android_apk_manager/upload_version.html', context)
+
+
+@login_required
+def edit_app(request, app_id):
+    """
+    Bearbeite App über Web-Interface
+    """
+    app = get_object_or_404(
+        AndroidApp,
+        id=app_id,
+        created_by=request.user
+    )
+
+    if request.method == 'POST':
+        form = AndroidAppForm(request.POST, request.FILES, instance=app)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'App "{app.name}" wurde aktualisiert!')
+            return redirect('android_apk_manager:app_detail', app_id=app.id)
+    else:
+        form = AndroidAppForm(instance=app)
+
+    context = {
+        'form': form,
+        'app': app,
+    }
+
+    return render(request, 'android_apk_manager/edit_app.html', context)
+
+
+@login_required
+def edit_version(request, version_id):
+    """
+    Bearbeite Version über Web-Interface
+    """
+    version = get_object_or_404(
+        AppVersion,
+        id=version_id,
+        app__created_by=request.user
+    )
+
+    if request.method == 'POST':
+        form = AppVersionForm(request.POST, request.FILES, instance=version, user=request.user)
+        if form.is_valid():
+            version = form.save()
+
+            # Update "current" flag
+            if version.is_current_for_channel:
+                AppVersion.objects.filter(
+                    app=version.app,
+                    channel=version.channel
+                ).exclude(id=version.id).update(is_current_for_channel=False)
+
+            messages.success(request, f'Version {version.version_name} wurde aktualisiert!')
+            return redirect('android_apk_manager:app_detail', app_id=version.app.id)
+    else:
+        form = AppVersionForm(instance=version, user=request.user)
+
+    context = {
+        'form': form,
+        'version': version,
+    }
+
+    return render(request, 'android_apk_manager/edit_version.html', context)
+
+
+@login_required
+def delete_version(request, version_id):
+    """
+    Lösche Version
+    POST-only view
+    """
+    if request.method != 'POST':
+        return redirect('android_apk_manager:dashboard')
+
+    version = get_object_or_404(
+        AppVersion,
+        id=version_id,
+        app__created_by=request.user
+    )
+
+    app_id = version.app.id
+    version_name = version.version_name
+    version.delete()
+
+    messages.success(request, f'Version {version_name} wurde gelöscht.')
+
+    return redirect('android_apk_manager:app_detail', app_id=app_id)

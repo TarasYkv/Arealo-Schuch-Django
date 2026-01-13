@@ -33,9 +33,15 @@ urlpatterns = [
 
     # ===== Web Interface (Owner) =====
     path('', views.dashboard, name='dashboard'),
+    path('create-app/', views.create_app, name='create_app'),
+    path('upload-version/', views.upload_version, name='upload_version'),
+    path('upload-version/<uuid:app_id>/', views.upload_version, name='upload_version_for_app'),
     path('app/<uuid:app_id>/', views.app_detail, name='app_detail'),
+    path('app/<uuid:app_id>/edit/', views.edit_app, name='edit_app'),
     path('app/<uuid:app_id>/toggle-public/', views.toggle_app_public, name='toggle_app_public'),
     path('app/<uuid:app_id>/delete/', views.delete_app, name='delete_app'),
+    path('version/<uuid:version_id>/edit/', views.edit_version, name='edit_version'),
+    path('version/<uuid:version_id>/delete/', views.delete_version, name='delete_version'),
 
     # ===== Public Pages =====
     path('public/', views.public_app_list, name='public_app_list'),

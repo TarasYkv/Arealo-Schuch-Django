@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Version hochladen - APK Manager{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Header -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'android_apk_manager:dashboard' %}">APK Manager</a></li>
+                    <li class="breadcrumb-item active">Version hochladen</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-upload me-2"></i> Neue Version hochladen
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="versionForm">
+                        {% csrf_token %}
+
+                        <!-- App auswählen -->
+                        <div class="mb-3">
+                            <label for="{{ form.app.id_for_label }}" class="form-label">
+                                {{ form.app.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.app }}
+                            {% if form.app.errors %}
+                            <div class="invalid-feedback d-block">{{ form.app.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Version Name -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.version_name.id_for_label }}" class="form-label">
+                                    {{ form.version_name.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.version_name }}
+                                {% if form.version_name.errors %}
+                                <div class="invalid-feedback d-block">{{ form.version_name.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Version Code -->
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.version_code.id_for_label }}" class="form-label">
+                                    {{ form.version_code.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.version_code }}
+                                {% if form.version_code.errors %}
+                                <div class="invalid-feedback d-block">{{ form.version_code.errors }}</div>
+                                {% endif %}
+                                {% if form.version_code.help_text %}
+                                <small class="form-text text-muted">{{ form.version_code.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- APK-Datei -->
+                        <div class="mb-3">
+                            <label for="{{ form.apk_file.id_for_label }}" class="form-label">
+                                {{ form.apk_file.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.apk_file }}
+                            {% if form.apk_file.errors %}
+                            <div class="invalid-feedback d-block">{{ form.apk_file.errors }}</div>
+                            {% endif %}
+                            <div class="progress mt-2" id="uploadProgress" style="display: none;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                     role="progressbar"
+                                     style="width: 0%">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Release Notes -->
+                        <div class="mb-3">
+                            <label for="{{ form.release_notes.id_for_label }}" class="form-label">
+                                {{ form.release_notes.label }}
+                            </label>
+                            {{ form.release_notes }}
+                            {% if form.release_notes.errors %}
+                            <div class="invalid-feedback d-block">{{ form.release_notes.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Channel & Android Version -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.channel.id_for_label }}" class="form-label">
+                                    {{ form.channel.label }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                {{ form.channel }}
+                                {% if form.channel.help_text %}
+                                <small class="form-text text-muted">{{ form.channel.help_text }}</small>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.min_android_version.id_for_label }}" class="form-label">
+                                    {{ form.min_android_version.label }}
+                                </label>
+                                {{ form.min_android_version }}
+                                {% if form.min_android_version.errors %}
+                                <div class="invalid-feedback d-block">{{ form.min_android_version.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Checkboxes -->
+                        <div class="mb-3">
+                            <div class="form-check mb-2">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    {{ form.is_active.label }}
+                                </label>
+                                {% if form.is_active.help_text %}
+                                <br><small class="form-text text-muted">{{ form.is_active.help_text }}</small>
+                                {% endif %}
+                            </div>
+
+                            <div class="form-check">
+                                {{ form.is_current_for_channel }}
+                                <label class="form-check-label" for="{{ form.is_current_for_channel.id_for_label }}">
+                                    {{ form.is_current_for_channel.label }}
+                                </label>
+                                {% if form.is_current_for_channel.help_text %}
+                                <br><small class="form-text text-muted">{{ form.is_current_for_channel.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'android_apk_manager:dashboard' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="bi bi-upload"></i> Version hochladen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Hilfe -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i> Hinweise</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="small mb-0">
+                        <li><strong>Version Code:</strong> Muss höher sein als alle vorherigen Versionen (Integer: 1, 2, 3...)</li>
+                        <li><strong>Channel:</strong> Production = Stabil, Beta = Test, Alpha = Experimental</li>
+                        <li><strong>Als aktuell markieren:</strong> Diese Version wird bei Update-Checks zurückgegeben</li>
+                        <li><strong>Aktiv:</strong> Nur aktive Versionen können heruntergeladen werden</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Upload Progress (optional)
+document.getElementById('versionForm').addEventListener('submit', function(e) {
+    const submitBtn = document.getElementById('submitBtn');
+    const progressBar = document.getElementById('uploadProgress');
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird hochgeladen...';
+
+    // Zeige Progress-Bar
+    progressBar.style.display = 'block';
+    progressBar.querySelector('.progress-bar').style.width = '100%';
+});
+</script>
+{% endblock %}
