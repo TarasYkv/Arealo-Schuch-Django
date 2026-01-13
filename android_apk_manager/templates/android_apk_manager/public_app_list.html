@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Apps - Workloom{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto text-center">
+            <h1 class="display-4 mb-3">
+                <i class="bi bi-phone text-primary"></i>
+                Android Apps
+            </h1>
+            <p class="lead text-muted">
+                Lade kostenlose Android Apps herunter
+            </p>
+        </div>
+    </div>
+
+    {% if apps %}
+    <div class="row">
+        {% for app_data in apps %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                {% if app_data.app.icon %}
+                <img src="{{ app_data.app.icon.url }}" class="card-img-top" alt="{{ app_data.app.name }}" style="height: 200px; object-fit: cover;">
+                {% else %}
+                <div class="card-img-top bg-primary d-flex align-items-center justify-content-center" style="height: 200px;">
+                    <i class="bi bi-phone" style="font-size: 4rem; color: white;"></i>
+                </div>
+                {% endif %}
+
+                <div class="card-body">
+                    <h5 class="card-title">{{ app_data.app.name }}</h5>
+                    <p class="text-muted small">
+                        <code>{{ app_data.app.package_name }}</code>
+                    </p>
+
+                    {% if app_data.app.description %}
+                    <p class="card-text">{{ app_data.app.description|truncatewords:20 }}</p>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div>
+                            {% if app_data.latest_version %}
+                            <span class="badge bg-primary">
+                                v{{ app_data.latest_version.version_name }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="text-muted small">
+                            <i class="bi bi-download"></i> {{ app_data.total_downloads }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'android_apk_manager:public_app_detail' app_data.app.id %}"
+                       class="btn btn-primary w-100">
+                        <i class="bi bi-info-circle me-2"></i>Details & Download
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-lg-6 mx-auto text-center py-5">
+            <i class="bi bi-phone" style="font-size: 5rem; color: #ddd;"></i>
+            <h3 class="mt-4">Noch keine Apps verfügbar</h3>
+            <p class="text-muted">Schau bald wieder vorbei!</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

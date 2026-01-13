@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ app.name }} - APK Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'android_apk_manager:dashboard' %}">APK Manager</a></li>
+                    <li class="breadcrumb-item active">{{ app.name }}</li>
+                </ol>
+            </nav>
+            <h1>
+                <i class="bi bi-phone me-2"></i> {{ app.name }}
+                {% if app.is_public %}
+                <span class="badge bg-success">Öffentlich</span>
+                {% else %}
+                <span class="badge bg-warning">Privat</span>
+                {% endif %}
+            </h1>
+            <p class="text-muted"><code>{{ app.package_name }}</code></p>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'admin:android_apk_manager_androidapp_change' app.id %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Bearbeiten
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3>{{ stats.total_versions }}</h3>
+                    <small class="text-muted">Versionen</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3>{{ stats.active_versions }}</h3>
+                    <small class="text-muted">Aktive Versionen</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3>{{ stats.total_downloads }}</h3>
+                    <small class="text-muted">Downloads</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3>{{ versions|length }}</h3>
+                    <small class="text-muted">Alle Versionen</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Versionen -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-code-square me-2"></i> Versionen</h5>
+                    <a href="{% url 'admin:android_apk_manager_appversion_add' %}?app={{ app.id }}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Version hochladen
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if versions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Channel</th>
+                                    <th>Größe</th>
+                                    <th>Downloads</th>
+                                    <th>Status</th>
+                                    <th>Hochgeladen</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for version in versions %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ version.version_name }}</strong> ({{ version.version_code }})
+                                        {% if version.is_current_for_channel %}
+                                        <span class="badge bg-primary">Aktuell</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if version.channel == 'production' %}
+                                        <span class="badge bg-success">Production</span>
+                                        {% elif version.channel == 'beta' %}
+                                        <span class="badge bg-warning">Beta</span>
+                                        {% else %}
+                                        <span class="badge bg-info">Alpha</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ version.file_size_mb|floatformat:1 }} MB</td>
+                                    <td><i class="bi bi-download me-1"></i>{{ version.download_count }}</td>
+                                    <td>
+                                        {% if version.is_active %}
+                                        <span class="badge bg-success">Aktiv</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inaktiv</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ version.uploaded_at|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'admin:android_apk_manager_appversion_change' version.id %}"
+                                           class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-code-square" style="font-size: 3rem; color: #ccc;"></i>
+                        <h5 class="mt-3">Keine Versionen vorhanden</h5>
+                        <p class="text-muted">Lade deine erste APK-Datei hoch</p>
+                        <a href="{% url 'admin:android_apk_manager_appversion_add' %}?app={{ app.id }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Version hochladen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Downloads nach Channel -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Downloads nach Channel</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Production</span>
+                            <strong>{{ stats.downloads_by_channel.production }}</strong>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" style="width: {% widthratio stats.downloads_by_channel.production stats.total_downloads 100 %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Beta</span>
+                            <strong>{{ stats.downloads_by_channel.beta }}</strong>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-warning" style="width: {% widthratio stats.downloads_by_channel.beta stats.total_downloads 100 %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-0">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Alpha</span>
+                            <strong>{{ stats.downloads_by_channel.alpha }}</strong>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-info" style="width: {% widthratio stats.downloads_by_channel.alpha stats.total_downloads 100 %}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Letzte Downloads -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Letzte Downloads</h6>
+                </div>
+                <div class="card-body">
+                    {% if stats.recent_downloads %}
+                    <div class="list-group list-group-flush">
+                        {% for log in stats.recent_downloads %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ log.app_version.version_name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ log.ip_address }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <small>{{ log.downloaded_at|date:"d.m.Y" }}</small><br>
+                                    <small>{{ log.downloaded_at|date:"H:i" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">Keine Downloads</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
