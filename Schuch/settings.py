@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     'imageforge',
     'blogprep',
     'vskript',
+    'android_apk_manager',
     'linkloom',
 ]
 
