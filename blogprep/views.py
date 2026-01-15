@@ -1777,11 +1777,12 @@ def api_update_section_image_alt(request, project_id):
 @require_POST
 def api_auto_create_init(request):
     """
-    Erstellt ein neues Projekt für Auto Create und gibt die project_id zurück.
+    Erstellt ein neues Projekt für Auto Create ODER nutzt ein bestehendes Projekt.
     Der Client orchestriert dann die weiteren API-Aufrufe.
     """
     main_keyword = request.POST.get('main_keyword', '').strip()
     secondary_keywords_text = request.POST.get('secondary_keywords', '')
+    existing_project_id = request.POST.get('project_id', '').strip()  # Falls von bestehendem Projekt aufgerufen
 
     if not main_keyword:
         return JsonResponse({'success': False, 'error': 'Kein Hauptkeyword angegeben'})
@@ -1792,14 +1793,38 @@ def api_auto_create_init(request):
         if kw.strip()
     ]
 
-    # Projekt erstellen
-    project = BlogPrepProject.objects.create(
-        user=request.user,
-        main_keyword=main_keyword,
-        secondary_keywords=secondary_keywords,
-        title=f"Blog: {main_keyword}",
-        status='step1'
-    )
+    # Verwende bestehendes Projekt ODER erstelle neues
+    if existing_project_id:
+        try:
+            # Nutze bestehendes Projekt
+            project = BlogPrepProject.objects.get(id=existing_project_id, user=request.user)
+            # Update mit neuen Keywords falls geändert
+            project.main_keyword = main_keyword
+            project.secondary_keywords = secondary_keywords
+            if not project.title or project.title.startswith('Blog:'):
+                project.title = f"Blog: {main_keyword}"
+            project.save()
+            logger.info(f"Auto-Create: Nutze bestehendes Projekt {project.id}")
+        except BlogPrepProject.DoesNotExist:
+            # Projekt nicht gefunden, erstelle neues
+            project = BlogPrepProject.objects.create(
+                user=request.user,
+                main_keyword=main_keyword,
+                secondary_keywords=secondary_keywords,
+                title=f"Blog: {main_keyword}",
+                status='step1'
+            )
+            logger.info(f"Auto-Create: Bestehendes Projekt nicht gefunden, neues erstellt: {project.id}")
+    else:
+        # Kein existing_project_id übergeben, erstelle neues Projekt
+        project = BlogPrepProject.objects.create(
+            user=request.user,
+            main_keyword=main_keyword,
+            secondary_keywords=secondary_keywords,
+            title=f"Blog: {main_keyword}",
+            status='step1'
+        )
+        logger.info(f"Auto-Create: Neues Projekt erstellt: {project.id}")
 
     return JsonResponse({
         'success': True,

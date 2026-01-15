@@ -483,10 +483,15 @@
             updateStepStatus('project', 'running');
             let startTime = Date.now();
 
-            const initResult = await apiCall('{% url "blogprep:api_auto_create_init" %}', {
+            const initParams = {
                 main_keyword: mainKeyword,
                 secondary_keywords: secondaryKeywords
-            });
+            };
+            {% if project %}
+            // Wenn wir in einem bestehenden Projekt sind, verwende dieses statt ein neues zu erstellen
+            initParams.project_id = '{{ project.id }}';
+            {% endif %}
+            const initResult = await apiCall('{% url "blogprep:api_auto_create_init" %}', initParams);
 
             if (!initResult.success) {
                 throw new Error(initResult.error || 'Projekt konnte nicht erstellt werden');
