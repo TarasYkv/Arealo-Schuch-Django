@@ -394,21 +394,40 @@ def api_check_duplicate_keyword(request):
     if current_project_id:
         existing_projects = existing_projects.exclude(id=current_project_id)
 
-    existing_projects = existing_projects.values('id', 'main_keyword', 'created_at', 'title')
+    # Trenne offene und exportierte Projekte
+    open_projects = existing_projects.exclude(status__in=['completed', 'published'])
+    exported_projects = existing_projects.filter(status__in=['completed', 'published'])
 
-    duplicates = list(existing_projects)
+    has_open = open_projects.exists()
+    has_exported = exported_projects.exists()
 
-    if duplicates:
+    if has_open or has_exported:
+        duplicates = list(existing_projects.values('id', 'main_keyword', 'created_at', 'title', 'status'))
+
         # Formatiere die Daten für die Anzeige
         for dup in duplicates:
             dup['created_at'] = dup['created_at'].strftime('%d.%m.%Y')
             dup['id'] = str(dup['id'])
+            dup['status_display'] = dict(BlogPrepProject.STATUS_CHOICES).get(dup['status'], dup['status'])
+
+        # Spezielle Warnung wenn es offene Projekte gibt
+        if has_open:
+            message = f'⚠️ Es gibt bereits {open_projects.count()} offene(s) Projekt(e) mit diesem Keyword! Möchtest du das bestehende Projekt fortsetzen oder ein neues erstellen?'
+            warning_type = 'open_project'
+        else:
+            message = f'ℹ️ Dieses Keyword wurde bereits {exported_projects.count()}x exportiert. Ein weiteres Projekt wird als Duplikat erstellt.'
+            warning_type = 'exported_project'
 
         return JsonResponse({
             'success': True,
             'is_duplicate': True,
+            'has_open_projects': has_open,
+            'has_exported_projects': has_exported,
+            'warning_type': warning_type,
+            'open_count': open_projects.count(),
+            'exported_count': exported_projects.count(),
             'duplicates': duplicates,
-            'message': f'Dieses Keyword wurde bereits {len(duplicates)}x verwendet.'
+            'message': message
         })
 
     return JsonResponse({
