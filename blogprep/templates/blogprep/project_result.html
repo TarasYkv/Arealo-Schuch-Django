@@ -148,6 +148,11 @@
                             <i class="bi bi-cloud-upload"></i> Zu Shopify exportieren
                         </a>
                         {% endif %}
+                        {% if project.status not in 'published,completed' and not project.shopify_article_id %}
+                        <button type="button" class="btn btn-outline-success" onclick="markAsPublished()">
+                            <i class="bi bi-check2-circle"></i> Als veröffentlicht markieren
+                        </button>
+                        {% endif %}
                         <a href="{% url 'blogprep:project_list' %}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left"></i> Zurück zur Liste
                         </a>
@@ -249,4 +254,35 @@
         font-size: 1.1rem;
     }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function markAsPublished() {
+        if (!confirm('Möchtest du dieses Projekt als veröffentlicht markieren?\n\nDadurch wird es aus der "Offen"-Liste entfernt und als abgeschlossen markiert.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('{% url "blogprep:api_mark_published" project_id=project.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(result.message || 'Projekt wurde als veröffentlicht markiert!');
+                location.reload();
+            } else {
+                alert(result.error || 'Fehler beim Markieren');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        }
+    }
+</script>
 {% endblock %}

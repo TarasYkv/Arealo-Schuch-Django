@@ -143,6 +143,11 @@
                 <i class="bi bi-check-circle"></i> Bereits exportiert
             </span>
             {% endif %}
+            {% if not project.shopify_article_id and project.status != 'published' and project.status != 'completed' %}
+            <button type="button" class="btn btn-outline-success me-2" onclick="markAsPublished()">
+                <i class="bi bi-check2-circle"></i> Ohne Export abschließen
+            </button>
+            {% endif %}
             <button type="button" class="btn btn-success" onclick="exportToShopify()" {% if not stores %}disabled{% endif %}>
                 <i class="bi bi-cloud-upload"></i> Als Entwurf exportieren
             </button>
@@ -210,6 +215,30 @@
                 window.location.href = '{% url "blogprep:project_result" project_id=project.id %}';
             } else {
                 alert(result.error || 'Fehler beim Export');
+            }
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function markAsPublished() {
+        if (!confirm('Möchtest du dieses Projekt als veröffentlicht markieren?\n\nDadurch wird es aus der "Offen"-Liste entfernt und als abgeschlossen markiert.')) {
+            return;
+        }
+
+        showLoading('Markiere als veröffentlicht...');
+
+        try {
+            const result = await apiCall('{% url "blogprep:api_mark_published" project_id=project.id %}');
+
+            if (result.success) {
+                alert(result.message || 'Projekt wurde als veröffentlicht markiert!');
+                // Redirect to result page
+                window.location.href = '{% url "blogprep:project_result" project_id=project.id %}';
+            } else {
+                alert(result.error || 'Fehler beim Markieren');
             }
         } catch (error) {
             alert('Fehler: ' + error.message);

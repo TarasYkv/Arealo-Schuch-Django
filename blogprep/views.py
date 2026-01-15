@@ -1842,3 +1842,19 @@ def project_result(request, project_id):
         'word_count': project.get_word_count()
     }
     return render(request, 'blogprep/project_result.html', context)
+
+
+@login_required
+@require_POST
+def api_mark_as_published(request, project_id):
+    """API: Markiert ein Projekt manuell als veröffentlicht"""
+    project = get_object_or_404(BlogPrepProject, id=project_id, user=request.user)
+
+    # Setze Status auf 'published'
+    project.status = 'published'
+    project.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Projekt wurde als veröffentlicht markiert.'
+    })

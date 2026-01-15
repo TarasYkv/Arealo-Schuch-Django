@@ -14,6 +14,7 @@ urlpatterns = [
     path('', views.project_list, name='project_list'),
     path('project/<uuid:project_id>/delete/', views.project_delete, name='project_delete'),
     path('project/<uuid:project_id>/result/', views.project_result, name='project_result'),
+    path('api/mark-published/<uuid:project_id>/', views.api_mark_as_published, name='api_mark_published'),
 
     # Settings
     path('settings/', views.settings_view, name='settings'),
