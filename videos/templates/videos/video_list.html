@@ -155,7 +155,7 @@
             </div>
             
             <!-- Action Buttons -->
-            <div class="mb-3">
+            <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
                 {% if can_upload %}
                 <a href="{% url 'videos:upload' %}" class="btn btn-success">
                     <i class="fas fa-upload"></i> Video hochladen
@@ -173,6 +173,25 @@
                     <i class="fas fa-rocket"></i> Plan erweitern
                 </a>
                 {% endif %}
+
+                <!-- Auswahl-Modus Buttons -->
+                <div class="ms-auto d-flex gap-2 align-items-center">
+                    <button type="button" class="btn btn-outline-secondary" id="toggleSelectMode" onclick="toggleSelectMode()">
+                        <i class="fas fa-check-square"></i> Auswählen
+                    </button>
+                    <div id="selectionToolbar" style="display: none;" class="d-flex gap-2 align-items-center">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllVideos()">
+                            <i class="fas fa-check-double"></i> Alle
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deselectAllVideos()">
+                            <i class="fas fa-times"></i> Keine
+                        </button>
+                        <span id="selectedCount" class="badge bg-primary">0 ausgewählt</span>
+                        <button type="button" class="btn btn-danger btn-sm" id="deleteSelectedBtn" onclick="deleteSelectedVideos()" disabled>
+                            <i class="fas fa-trash"></i> Löschen
+                        </button>
+                    </div>
+                </div>
             </div>
             
             <!-- Videos Grid -->
@@ -181,11 +200,18 @@
                     <div class="row">
                         {% for video in videos %}
                         <div class="col-md-4 mb-4">
-                            <div class="card h-100">
+                            <div class="card h-100 video-card" data-video-id="{{ video.id }}">
+                                <!-- Checkbox für Auswahl -->
+                                <div class="video-checkbox-wrapper" style="display: none;">
+                                    <input type="checkbox" class="video-checkbox form-check-input"
+                                           id="video-check-{{ video.id }}"
+                                           data-video-id="{{ video.id }}"
+                                           onchange="updateSelectedCount()">
+                                </div>
                                 {% if video.thumbnail %}
-                                    <img src="{{ video.thumbnail.url }}" class="card-img-top" alt="{{ video.title }}" style="height: 200px; object-fit: cover;">
+                                    <img src="{{ video.thumbnail.url }}" class="card-img-top video-thumbnail" alt="{{ video.title }}" style="height: 200px; object-fit: cover;" onclick="toggleVideoSelection({{ video.id }})">
                                 {% else %}
-                                    <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 200px;">
+                                    <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center video-thumbnail" style="height: 200px;" onclick="toggleVideoSelection({{ video.id }})">
                                         <i class="fas fa-video fa-3x text-white"></i>
                                     </div>
                                 {% endif %}
@@ -767,11 +793,203 @@
     font-size: 1.2rem;
     margin-right: 5px;
 }
+
+/* Video Selection Styles */
+.video-card {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.video-card.select-mode {
+    cursor: pointer;
+}
+
+.video-card.select-mode:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.video-card.selected {
+    border: 3px solid #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+.video-checkbox-wrapper {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.video-checkbox {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.video-thumbnail {
+    cursor: default;
+}
+
+.select-mode .video-thumbnail {
+    cursor: pointer;
+}
+
+#selectionToolbar {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
 </style>
 
 <script>
 let currentVideoId = null;
 const csrfToken = '{{ csrf_token }}';
+
+// ========================================================================
+// Video Selection & Deletion
+// ========================================================================
+
+let selectModeActive = false;
+
+function toggleSelectMode() {
+    selectModeActive = !selectModeActive;
+    const toggleBtn = document.getElementById('toggleSelectMode');
+    const toolbar = document.getElementById('selectionToolbar');
+    const cards = document.querySelectorAll('.video-card');
+    const checkboxWrappers = document.querySelectorAll('.video-checkbox-wrapper');
+
+    if (selectModeActive) {
+        toggleBtn.innerHTML = '<i class="fas fa-times"></i> Abbrechen';
+        toggleBtn.classList.remove('btn-outline-secondary');
+        toggleBtn.classList.add('btn-secondary');
+        toolbar.style.display = 'flex';
+
+        // Checkboxen anzeigen und Karten in Select-Modus versetzen
+        checkboxWrappers.forEach(w => w.style.display = 'block');
+        cards.forEach(c => c.classList.add('select-mode'));
+    } else {
+        toggleBtn.innerHTML = '<i class="fas fa-check-square"></i> Auswählen';
+        toggleBtn.classList.remove('btn-secondary');
+        toggleBtn.classList.add('btn-outline-secondary');
+        toolbar.style.display = 'none';
+
+        // Checkboxen verstecken und Auswahl zurücksetzen
+        checkboxWrappers.forEach(w => w.style.display = 'none');
+        cards.forEach(c => {
+            c.classList.remove('select-mode', 'selected');
+        });
+        document.querySelectorAll('.video-checkbox').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    }
+}
+
+function toggleVideoSelection(videoId) {
+    if (!selectModeActive) return;
+
+    const checkbox = document.getElementById(`video-check-${videoId}`);
+    const card = document.querySelector(`.video-card[data-video-id="${videoId}"]`);
+
+    if (checkbox && card) {
+        checkbox.checked = !checkbox.checked;
+        card.classList.toggle('selected', checkbox.checked);
+        updateSelectedCount();
+    }
+}
+
+function selectAllVideos() {
+    document.querySelectorAll('.video-checkbox').forEach(cb => {
+        cb.checked = true;
+        const card = document.querySelector(`.video-card[data-video-id="${cb.dataset.videoId}"]`);
+        if (card) card.classList.add('selected');
+    });
+    updateSelectedCount();
+}
+
+function deselectAllVideos() {
+    document.querySelectorAll('.video-checkbox').forEach(cb => {
+        cb.checked = false;
+        const card = document.querySelector(`.video-card[data-video-id="${cb.dataset.videoId}"]`);
+        if (card) card.classList.remove('selected');
+    });
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.video-checkbox:checked');
+    const count = checked.length;
+    const countBadge = document.getElementById('selectedCount');
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+
+    countBadge.textContent = `${count} ausgewählt`;
+    deleteBtn.disabled = count === 0;
+
+    // Badge-Farbe je nach Anzahl
+    if (count > 0) {
+        countBadge.classList.remove('bg-primary');
+        countBadge.classList.add('bg-danger');
+    } else {
+        countBadge.classList.remove('bg-danger');
+        countBadge.classList.add('bg-primary');
+    }
+}
+
+async function deleteSelectedVideos() {
+    const checked = document.querySelectorAll('.video-checkbox:checked');
+    const videoIds = Array.from(checked).map(cb => parseInt(cb.dataset.videoId));
+
+    if (videoIds.length === 0) {
+        showToast('Keine Videos ausgewählt.', 'error');
+        return;
+    }
+
+    const confirmMsg = `Möchtest du wirklich ${videoIds.length} Video(s) unwiderruflich löschen?\n\nDieser Vorgang kann nicht rückgängig gemacht werden!`;
+    if (!confirm(confirmMsg)) {
+        return;
+    }
+
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lösche...';
+
+    try {
+        const response = await fetch('{% url "videos:api_delete_videos" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ video_ids: videoIds })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`${data.deleted_count} Video(s) gelöscht! ${data.freed_mb} MB freigegeben.`, 'success');
+
+            // Seite neu laden um Änderungen anzuzeigen
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(data.error || 'Fehler beim Löschen', 'error');
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Löschen';
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler: ' + error.message, 'error');
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Löschen';
+    }
+}
+
+// ========================================================================
+// Existing Functions
+// ========================================================================
 
 function copyLink(link) {
     navigator.clipboard.writeText(link).then(function() {

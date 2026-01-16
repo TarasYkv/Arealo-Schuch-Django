@@ -1511,3 +1511,70 @@ def api_chunked_upload_status(request, upload_id):
             'success': False,
             'error': 'Upload nicht gefunden.'
         }, status=404)
+
+
+@login_required
+@require_POST
+def api_delete_videos(request):
+    """API: Löscht mehrere Videos auf einmal"""
+    try:
+        data = json.loads(request.body)
+        video_ids = data.get('video_ids', [])
+
+        if not video_ids:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Videos ausgewählt.'
+            })
+
+        # Hole UserStorage für Speicherplatz-Update
+        user_storage = UserStorage.objects.get(user=request.user)
+
+        deleted_count = 0
+        total_freed = 0
+        errors = []
+
+        for video_id in video_ids:
+            try:
+                video = Video.objects.get(id=video_id, user=request.user)
+
+                # Speicherplatz zurückgeben
+                total_freed += video.file_size
+
+                # Dateien löschen
+                if video.video_file:
+                    video.video_file.delete()
+                if video.thumbnail:
+                    video.thumbnail.delete()
+
+                video.delete()
+                deleted_count += 1
+
+            except Video.DoesNotExist:
+                errors.append(f'Video {video_id} nicht gefunden')
+            except Exception as e:
+                errors.append(f'Fehler bei Video {video_id}: {str(e)}')
+
+        # Speicherplatz aktualisieren
+        user_storage.used_storage -= total_freed
+        if user_storage.used_storage < 0:
+            user_storage.used_storage = 0
+        user_storage.save()
+
+        return JsonResponse({
+            'success': True,
+            'deleted_count': deleted_count,
+            'freed_mb': round(total_freed / (1024 * 1024), 2),
+            'errors': errors if errors else None
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige Anfrage.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

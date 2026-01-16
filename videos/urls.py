@@ -38,4 +38,7 @@ urlpatterns = [
     path('api/chunked/chunk/', views.api_chunked_upload_chunk, name='api_chunked_chunk'),
     path('api/chunked/complete/', views.api_chunked_upload_complete, name='api_chunked_complete'),
     path('api/chunked/status/<uuid:upload_id>/', views.api_chunked_upload_status, name='api_chunked_status'),
+
+    # Video Management API
+    path('api/delete-videos/', views.api_delete_videos, name='api_delete_videos'),
 ]
