@@ -412,11 +412,15 @@ def api_check_duplicate_keyword(request):
 
         # Spezielle Warnung wenn es offene Projekte gibt
         if has_open:
-            message = f'⚠️ Es gibt bereits {open_projects.count()} offene(s) Projekt(e) mit diesem Keyword! Möchtest du das bestehende Projekt fortsetzen oder ein neues erstellen?'
+            # Hole das neueste offene Projekt für direkte Weiterleitung
+            latest_open = open_projects.order_by('-created_at').first()
+            message = f'⚠️ Es gibt bereits ein offenes Projekt mit diesem Keyword! Möchtest du das bestehende Projekt fortsetzen?'
             warning_type = 'open_project'
+            open_project_id = str(latest_open.id) if latest_open else None
         else:
             message = f'ℹ️ Dieses Keyword wurde bereits {exported_projects.count()}x exportiert. Ein weiteres Projekt wird als Duplikat erstellt.'
             warning_type = 'exported_project'
+            open_project_id = None
 
         return JsonResponse({
             'success': True,
@@ -426,6 +430,7 @@ def api_check_duplicate_keyword(request):
             'warning_type': warning_type,
             'open_count': open_projects.count(),
             'exported_count': exported_projects.count(),
+            'open_project_id': open_project_id,  # ID für direkte Weiterleitung
             'duplicates': duplicates,
             'message': message
         })

@@ -14,13 +14,8 @@
             <p id="duplicateMessage"></p>
             <div id="duplicateList" class="duplicate-list"></div>
         </div>
-        <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" onclick="closeDuplicateModal()">
-                <i class="bi bi-x-lg"></i> Abbrechen
-            </button>
-            <button type="button" class="btn btn-primary" onclick="proceedAnyway()">
-                <i class="bi bi-check-lg"></i> Trotzdem erstellen
-            </button>
+        <div class="modal-actions" id="duplicateModalActions">
+            <!-- Buttons werden dynamisch eingefügt -->
         </div>
     </div>
 </div>
@@ -315,8 +310,8 @@
             hideLoading();
 
             if (result.success && result.is_duplicate) {
-                // Zeige Warnung
-                showDuplicateModal(result.duplicates, result.message);
+                // Zeige Warnung mit passenden Optionen
+                showDuplicateModal(result.duplicates, result.message, result.has_open_projects, result.open_project_id);
             } else {
                 // Kein Duplikat - direkt absenden
                 skipDuplicateCheck = true;
@@ -330,28 +325,69 @@
         }
     });
 
-    function showDuplicateModal(duplicates, message) {
+    // Speichert die ID des offenen Projekts für Weiterleitung
+    let currentOpenProjectId = null;
+
+    function showDuplicateModal(duplicates, message, hasOpenProjects, openProjectId) {
         document.getElementById('duplicateMessage').textContent = message;
+        currentOpenProjectId = openProjectId;
 
         const listContainer = document.getElementById('duplicateList');
         listContainer.innerHTML = duplicates.map(dup => `
             <div class="duplicate-item">
                 <span class="keyword">${dup.title || dup.main_keyword}</span>
-                <span class="date">${dup.created_at}</span>
+                <span class="date">${dup.created_at} - ${dup.status_display || dup.status}</span>
             </div>
         `).join('');
+
+        // Generiere Buttons basierend auf Situation
+        const actionsContainer = document.getElementById('duplicateModalActions');
+
+        if (hasOpenProjects && openProjectId) {
+            // Es gibt ein offenes Projekt → Primär: Zum bestehenden Projekt
+            actionsContainer.innerHTML = `
+                <button type="button" class="btn btn-secondary" onclick="closeDuplicateModal()">
+                    <i class="bi bi-x-lg"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-outline-warning" onclick="proceedAnyway()">
+                    <i class="bi bi-plus-lg"></i> Neues erstellen
+                </button>
+                <button type="button" class="btn btn-primary" onclick="goToExistingProject()">
+                    <i class="bi bi-arrow-right"></i> Zum bestehenden Projekt
+                </button>
+            `;
+        } else {
+            // Nur exportierte Projekte → Warnung, aber "Trotzdem erstellen" erlauben
+            actionsContainer.innerHTML = `
+                <button type="button" class="btn btn-secondary" onclick="closeDuplicateModal()">
+                    <i class="bi bi-x-lg"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-primary" onclick="proceedAnyway()">
+                    <i class="bi bi-check-lg"></i> Trotzdem erstellen
+                </button>
+            `;
+        }
 
         document.getElementById('duplicateModal').style.display = 'flex';
     }
 
     function closeDuplicateModal() {
         document.getElementById('duplicateModal').style.display = 'none';
+        currentOpenProjectId = null;
     }
 
     function proceedAnyway() {
         closeDuplicateModal();
         skipDuplicateCheck = true;
         document.getElementById('keywordsForm').submit();
+    }
+
+    function goToExistingProject() {
+        if (currentOpenProjectId) {
+            // Weiterleitung zum bestehenden Projekt (Step 1 mit project_id in URL)
+            window.location.href = '/blogprep/wizard/step1/' + currentOpenProjectId + '/';
+        }
+        closeDuplicateModal();
     }
 
     async function suggestKeywords() {
