@@ -100,6 +100,7 @@ INSTALLED_APPS = [
     'vskript',
     'android_apk_manager',
     'linkloom',
+    'backloom',
 ]
 
 

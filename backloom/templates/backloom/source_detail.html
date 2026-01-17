@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ source.domain }} - BackLoom{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'backloom:dashboard' %}">BackLoom</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'backloom:feed' %}">Feed</a></li>
+            <li class="breadcrumb-item active">{{ source.domain }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Hauptinhalt -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <!-- Header -->
+                    <div class="d-flex align-items-start mb-4">
+                        <img src="{{ source.favicon_url }}" width="48" height="48" class="me-3 rounded"
+                             onerror="this.src='https://www.google.com/s2/favicons?domain=example.com&sz=48'">
+                        <div class="flex-grow-1">
+                            <h4 class="mb-1">{{ source.domain }}</h4>
+                            <a href="{{ source.url }}" target="_blank" rel="noopener noreferrer"
+                               class="text-decoration-none text-muted small">
+                                {{ source.url|truncatechars:80 }}
+                                <i class="fas fa-external-link-alt fa-xs ms-1"></i>
+                            </a>
+                        </div>
+                        <div class="text-end">
+                            <div class="position-relative d-inline-block" style="width: 60px; height: 60px;">
+                                <svg viewBox="0 0 36 36" style="transform: rotate(-90deg);">
+                                    <path d="M18 2.0845
+                                        a 15.9155 15.9155 0 0 1 0 31.831
+                                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                                        fill="none"
+                                        stroke="#e9ecef"
+                                        stroke-width="2.5"/>
+                                    <path d="M18 2.0845
+                                        a 15.9155 15.9155 0 0 1 0 31.831
+                                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                                        fill="none"
+                                        stroke="{% if source.quality_score >= 70 %}#28a745{% elif source.quality_score >= 40 %}#ffc107{% else %}#dc3545{% endif %}"
+                                        stroke-width="2.5"
+                                        stroke-dasharray="{{ source.quality_score }}, 100"/>
+                                </svg>
+                                <span class="position-absolute top-50 start-50 translate-middle fw-bold">
+                                    {{ source.quality_score }}
+                                </span>
+                            </div>
+                            <div class="small text-muted">{{ source.quality_label }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Titel -->
+                    {% if source.title %}
+                    <div class="mb-4">
+                        <h6 class="text-muted small mb-1">Seitentitel</h6>
+                        <p class="mb-0">{{ source.title }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Beschreibung -->
+                    {% if source.description %}
+                    <div class="mb-4">
+                        <h6 class="text-muted small mb-1">Beschreibung</h6>
+                        <p class="mb-0">{{ source.description }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- URL öffnen -->
+                    <div class="d-flex gap-2">
+                        <a href="{{ source.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                            <i class="fas fa-external-link-alt me-1"></i>Seite öffnen
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary" onclick="copyToClipboard('{{ source.url }}')">
+                            <i class="fas fa-copy me-1"></i>URL kopieren
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notizen -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-sticky-note text-muted me-2"></i>Notizen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form id="notes-form">
+                        <textarea class="form-control mb-3" id="notes-input" rows="4"
+                                  placeholder="Notizen zur Backlink-Quelle...">{{ source.notes }}</textarea>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-save me-1"></i>Speichern
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Status -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-flag text-muted me-2"></i>Status
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn {% if source.is_processed and not source.is_successful and not source.is_rejected %}btn-info{% else %}btn-outline-info{% endif %} btn-status" data-action="processed">
+                            <i class="fas fa-check me-1"></i>Als bearbeitet markieren
+                        </button>
+                        <button type="button" class="btn {% if source.is_successful %}btn-success{% else %}btn-outline-success{% endif %} btn-status" data-action="successful">
+                            <i class="fas fa-star me-1"></i>Backlink erfolgreich erstellt
+                        </button>
+                        <button type="button" class="btn {% if source.is_rejected %}btn-danger{% else %}btn-outline-danger{% endif %} btn-status" data-action="rejected">
+                            <i class="fas fa-times me-1"></i>Ungeeignet / Abgelehnt
+                        </button>
+                        <hr>
+                        <button type="button" class="btn btn-outline-secondary btn-status" data-action="reset">
+                            <i class="fas fa-undo me-1"></i>Status zurücksetzen
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Details -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle text-muted me-2"></i>Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tr>
+                            <td class="text-muted">Kategorie</td>
+                            <td class="text-end">
+                                <span class="badge bg-primary">{{ source.get_category_display }}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Quelle</td>
+                            <td class="text-end">{{ source.get_source_type_display }}</td>
+                        </tr>
+                        {% if source.search_query %}
+                        <tr>
+                            <td class="text-muted">Suchbegriff</td>
+                            <td class="text-end small">{{ source.search_query.query|truncatechars:25 }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if source.domain_authority %}
+                        <tr>
+                            <td class="text-muted">Domain Authority</td>
+                            <td class="text-end">{{ source.domain_authority }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td class="text-muted">Erstmals gefunden</td>
+                            <td class="text-end">{{ source.first_found|date:"d.m.Y" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Zuletzt gefunden</td>
+                            <td class="text-end">{{ source.last_found|date:"d.m.Y" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Alter</td>
+                            <td class="text-end">{{ source.age_days }} Tage</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="d-grid gap-2">
+                <a href="{% url 'backloom:feed' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-1"></i>Zurück zum Feed
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                      document.querySelector('meta[name="csrf-token"]')?.content;
+    const sourceId = '{{ source.pk }}';
+
+    // Status-Buttons
+    document.querySelectorAll('.btn-status').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const action = this.dataset.action;
+
+            fetch(`/backloom/api/source/${sourceId}/status/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `action=${action}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        });
+    });
+
+    // Notizen speichern
+    document.getElementById('notes-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const notes = document.getElementById('notes-input').value;
+
+        fetch(`/backloom/api/source/${sourceId}/notes/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `notes=${encodeURIComponent(notes)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Notizen gespeichert!');
+            }
+        });
+    });
+});
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('URL kopiert!');
+    });
+}
+</script>
+{% endblock %}

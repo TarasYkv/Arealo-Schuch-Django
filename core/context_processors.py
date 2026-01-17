@@ -110,6 +110,18 @@ MENU_STRUCTURE = {
                     {'label': 'Gespeicherte Fragen', 'icon': 'fas fa-bookmark', 'url_name': 'questionfinder:saved_questions'},
                 ],
             },
+            {'divider': True},
+            {
+                'app_name': 'backloom',
+                'label': 'BackLoom',
+                'icon': 'fas fa-link',
+                'auth_url_name': 'backloom:dashboard',
+                'sub_items': [
+                    {'label': 'Dashboard', 'icon': 'fas fa-tachometer-alt', 'url_name': 'backloom:dashboard'},
+                    {'label': 'Feed', 'icon': 'fas fa-rss', 'url_name': 'backloom:feed'},
+                    {'label': 'Suchhistorie', 'icon': 'fas fa-history', 'url_name': 'backloom:search_history'},
+                ],
+            },
         ],
     },
     'media': {
