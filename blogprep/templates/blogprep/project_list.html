@@ -176,7 +176,7 @@
 
                 <!-- Aktionen Footer -->
                 <div class="card-footer bg-transparent border-top-0">
-                    <div class="btn-group w-100" role="group">
+                    <div class="btn-group w-100 mb-2" role="group">
                         {% if project.status == 'completed' or project.status == 'published' %}
                         <a href="{% url 'blogprep:project_result' project_id=project.id %}"
                            class="btn btn-outline-primary btn-sm">
@@ -194,6 +194,10 @@
                             <i class="bi bi-trash"></i>
                         </a>
                     </div>
+                    <button class="btn btn-outline-secondary btn-sm w-100"
+                            onclick="copyKeywords(this, '{{ project.main_keyword }}', '{{ project.secondary_keywords|join:", " }}')">
+                        <i class="bi bi-clipboard me-1"></i> Keywords kopieren
+                    </button>
                 </div>
             </div>
         </div>
@@ -230,4 +234,29 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+function copyKeywords(button, mainKeyword, secondaryKeywords) {
+    let keywords = [mainKeyword];
+    if (secondaryKeywords) {
+        keywords = keywords.concat(secondaryKeywords.split(','));
+    }
+    const keywordString = keywords.map(kw => kw.trim()).filter(kw => kw).join(', ');
+
+    navigator.clipboard.writeText(keywordString).then(function() {
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check-lg me-1"></i>Kopiert!';
+        button.classList.add('btn-success');
+        button.classList.remove('btn-outline-secondary');
+        setTimeout(function() {
+            button.innerHTML = originalText;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-secondary');
+        }, 2000);
+    }, function(err) {
+        console.error('Async: Could not copy text: ', err);
+        alert('Fehler beim Kopieren der Keywords.');
+    });
+}
+</script>
 {% endblock %}
