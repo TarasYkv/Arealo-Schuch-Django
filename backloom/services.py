@@ -45,6 +45,144 @@ EXCLUDED_DOMAINS = [
 ]
 
 
+class SourceHealthCheck:
+    """Health-Check für Suchmaschinen-Quellen"""
+
+    SOURCES = {
+        'google': {
+            'name': 'Google',
+            'test_url': 'https://www.google.de/search?q=test&hl=de',
+            'check_text': 'google',
+        },
+        'bing': {
+            'name': 'Bing',
+            'test_url': 'https://www.bing.com/search?q=test',
+            'check_text': 'bing',
+        },
+        'duckduckgo': {
+            'name': 'DuckDuckGo',
+            'test_url': 'https://html.duckduckgo.com/html/?q=test',
+            'check_text': 'duckduckgo',
+        },
+        'ecosia': {
+            'name': 'Ecosia',
+            'test_url': 'https://www.ecosia.org/search?q=test',
+            'check_text': 'ecosia',
+        },
+        'reddit': {
+            'name': 'Reddit',
+            'test_url': 'https://old.reddit.com/search?q=test',
+            'check_text': 'reddit',
+        },
+        'youtube': {
+            'name': 'YouTube API',
+            'test_url': 'https://www.googleapis.com/youtube/v3/search',
+            'check_text': None,  # API check
+            'is_api': True,
+        },
+    }
+
+    @classmethod
+    def check_source(cls, source_key: str, user=None) -> Dict:
+        """Prüft eine einzelne Quelle"""
+        source = cls.SOURCES.get(source_key)
+        if not source:
+            return {'status': 'error', 'message': 'Unbekannte Quelle'}
+
+        result = {
+            'key': source_key,
+            'name': source['name'],
+            'status': 'unknown',
+            'message': '',
+            'response_time': 0,
+        }
+
+        try:
+            start_time = time.time()
+
+            # YouTube API spezielle Behandlung
+            if source.get('is_api') and source_key == 'youtube':
+                api_key = None
+                if user:
+                    api_key = getattr(user, 'youtube_api_key', None)
+                if not api_key:
+                    result['status'] = 'warning'
+                    result['message'] = 'API-Key nicht konfiguriert'
+                    return result
+
+                response = requests.get(
+                    source['test_url'],
+                    params={'part': 'snippet', 'q': 'test', 'type': 'video', 'maxResults': 1, 'key': api_key},
+                    timeout=10
+                )
+                result['response_time'] = round((time.time() - start_time) * 1000)
+
+                if response.status_code == 200:
+                    result['status'] = 'ok'
+                    result['message'] = 'API funktioniert'
+                elif response.status_code == 403:
+                    result['status'] = 'error'
+                    result['message'] = 'API-Key ungültig oder Quota überschritten'
+                else:
+                    result['status'] = 'error'
+                    result['message'] = f'HTTP {response.status_code}'
+                return result
+
+            # Standard Scraping-Check
+            headers = {
+                'User-Agent': random.choice(USER_AGENTS),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+            }
+
+            response = requests.get(
+                source['test_url'],
+                headers=headers,
+                timeout=15,
+                allow_redirects=True
+            )
+            result['response_time'] = round((time.time() - start_time) * 1000)
+
+            if response.status_code == 200:
+                # Prüfen ob erwarteter Content vorhanden
+                content_lower = response.text.lower()
+                if source['check_text'] and source['check_text'] in content_lower:
+                    result['status'] = 'ok'
+                    result['message'] = f'Erreichbar ({result["response_time"]}ms)'
+                else:
+                    result['status'] = 'warning'
+                    result['message'] = 'Erreichbar, aber Content ungewöhnlich'
+            elif response.status_code == 429:
+                result['status'] = 'warning'
+                result['message'] = 'Rate-Limit erreicht'
+            elif response.status_code == 403:
+                result['status'] = 'error'
+                result['message'] = 'Zugriff blockiert (403)'
+            else:
+                result['status'] = 'error'
+                result['message'] = f'HTTP {response.status_code}'
+
+        except requests.Timeout:
+            result['status'] = 'error'
+            result['message'] = 'Timeout'
+        except requests.ConnectionError:
+            result['status'] = 'error'
+            result['message'] = 'Verbindungsfehler'
+        except Exception as e:
+            result['status'] = 'error'
+            result['message'] = str(e)[:50]
+
+        return result
+
+    @classmethod
+    def check_all_sources(cls, user=None) -> List[Dict]:
+        """Prüft alle Quellen"""
+        results = []
+        for source_key in cls.SOURCES.keys():
+            results.append(cls.check_source(source_key, user))
+        return results
+
+
 class BacklinkScraper:
     """Haupt-Scraper-Klasse für Backlink-Recherche"""
 
@@ -57,6 +195,14 @@ class BacklinkScraper:
             'new': 0,
             'updated': 0,
             'errors': 0
+        }
+        self.source_stats = {
+            'google': {'found': 0, 'status': 'pending'},
+            'bing': {'found': 0, 'status': 'pending'},
+            'duckduckgo': {'found': 0, 'status': 'pending'},
+            'ecosia': {'found': 0, 'status': 'pending'},
+            'reddit': {'found': 0, 'status': 'pending'},
+            'youtube': {'found': 0, 'status': 'pending'},
         }
 
     def _get_headers(self) -> Dict[str, str]:

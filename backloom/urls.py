@@ -24,4 +24,6 @@ urlpatterns = [
     path('api/init-queries/', views.api_init_queries, name='api_init_queries'),
     path('api/cleanup/', views.api_cleanup_old, name='api_cleanup'),
     path('api/stats/', views.api_stats, name='api_stats'),
+    path('api/health-check/', views.api_health_check, name='api_health_check'),
+    path('api/search-progress/', views.api_search_progress, name='api_search_progress'),
 ]

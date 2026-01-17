@@ -18,7 +18,7 @@ from .models import (
     SourceType,
     BacklinkSearchStatus,
 )
-from .services import run_backlink_search, initialize_default_queries, cleanup_old_sources
+from .services import run_backlink_search, initialize_default_queries, cleanup_old_sources, SourceHealthCheck
 
 logger = logging.getLogger(__name__)
 
@@ -367,3 +367,65 @@ def api_stats(request):
     }
 
     return JsonResponse(stats)
+
+
+@login_required
+@require_GET
+def api_health_check(request):
+    """
+    API: Prüft alle Suchmaschinen-Quellen (Ampelsystem)
+    """
+    source = request.GET.get('source')
+
+    if source:
+        # Einzelne Quelle prüfen
+        result = SourceHealthCheck.check_source(source, request.user)
+        return JsonResponse(result)
+    else:
+        # Alle Quellen prüfen
+        results = SourceHealthCheck.check_all_sources(request.user)
+        return JsonResponse({'sources': results})
+
+
+@login_required
+@require_GET
+def api_search_progress(request):
+    """
+    API: Gibt den aktuellen Suchfortschritt zurück (für Live-Updates)
+    """
+    # Aktive oder letzte Suche finden
+    search = BacklinkSearch.objects.filter(
+        status=BacklinkSearchStatus.RUNNING
+    ).first()
+
+    if not search:
+        search = BacklinkSearch.objects.first()
+
+    if not search:
+        return JsonResponse({
+            'has_search': False,
+            'message': 'Keine Suche vorhanden'
+        })
+
+    # Progress-Log in Zeilen aufteilen für bessere Darstellung
+    progress_lines = []
+    if search.progress_log:
+        lines = search.progress_log.strip().split('\n')
+        # Letzte 20 Zeilen
+        progress_lines = lines[-20:]
+
+    return JsonResponse({
+        'has_search': True,
+        'search_id': str(search.id),
+        'status': search.status,
+        'status_display': search.get_status_display(),
+        'is_running': search.status == BacklinkSearchStatus.RUNNING,
+        'sources_found': search.sources_found,
+        'new_sources': search.new_sources,
+        'updated_sources': search.updated_sources,
+        'started_at': search.started_at.isoformat() if search.started_at else None,
+        'completed_at': search.completed_at.isoformat() if search.completed_at else None,
+        'duration': search.duration_formatted,
+        'progress_lines': progress_lines,
+        'error_log': search.error_log[:500] if search.error_log else None,
+    })

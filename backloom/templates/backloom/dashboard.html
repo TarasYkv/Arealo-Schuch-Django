@@ -29,14 +29,44 @@
                             Suche starten
                         {% endif %}
                     </button>
+                    <button type="button" id="btn-health-check" class="btn btn-outline-info">
+                        <i class="fas fa-heartbeat me-1"></i>Quellen prüfen
+                    </button>
                     <button type="button" id="btn-init-queries" class="btn btn-outline-secondary">
-                        <i class="fas fa-database me-1"></i>Suchbegriffe laden
+                        <i class="fas fa-database me-1"></i>Suchbegriffe
                     </button>
                     <button type="button" id="btn-cleanup" class="btn btn-outline-danger">
                         <i class="fas fa-broom me-1"></i>Bereinigen
                     </button>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Ampelsystem - Quellen-Status -->
+    <div class="row mb-4" id="health-check-section" style="display: none;">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-traffic-light text-muted me-2"></i>Quellen-Status (Ampelsystem)
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-refresh-health">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="health-check-results">
+                        <!-- Wird per JavaScript gefüllt -->
+                        <div class="col-12 text-center py-3">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Prüfe Quellen...</span>
+                            </div>
+                            <p class="mt-2 mb-0 text-muted">Prüfe Quellen...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -126,7 +156,7 @@
                     {% if last_search %}
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="badge bg-{{ last_search.status }} fs-6">
+                            <span class="badge bg-{{ last_search.status }} fs-6" id="last-search-status">
                                 {{ last_search.get_status_display }}
                             </span>
                         </div>
@@ -136,15 +166,15 @@
                     </div>
                     <div class="row text-center">
                         <div class="col-4">
-                            <div class="h4 mb-0">{{ last_search.sources_found }}</div>
+                            <div class="h4 mb-0" id="last-search-found">{{ last_search.sources_found }}</div>
                             <small class="text-muted">Gefunden</small>
                         </div>
                         <div class="col-4">
-                            <div class="h4 mb-0 text-success">{{ last_search.new_sources }}</div>
+                            <div class="h4 mb-0 text-success" id="last-search-new">{{ last_search.new_sources }}</div>
                             <small class="text-muted">Neu</small>
                         </div>
                         <div class="col-4">
-                            <div class="h4 mb-0 text-info">{{ last_search.updated_sources }}</div>
+                            <div class="h4 mb-0 text-info" id="last-search-updated">{{ last_search.updated_sources }}</div>
                             <small class="text-muted">Aktualisiert</small>
                         </div>
                     </div>
@@ -267,25 +297,72 @@
     </div>
 </div>
 
-<!-- Search Progress Modal -->
+<!-- Live Search Progress Modal -->
 <div class="modal fade" id="searchProgressModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-search me-2"></i>Backlink-Suche
+                    <span id="search-status-badge" class="badge bg-primary ms-2">Läuft</span>
                 </h5>
             </div>
             <div class="modal-body">
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="visually-hidden">Lädt...</span>
+                <!-- Statistiken -->
+                <div class="row text-center mb-4">
+                    <div class="col-4">
+                        <div class="h3 mb-0 text-primary" id="modal-found">0</div>
+                        <small class="text-muted">Gefunden</small>
                     </div>
-                    <p class="mb-2">Die Suche läuft...</p>
-                    <small class="text-muted">Dies kann einige Minuten dauern.</small>
+                    <div class="col-4">
+                        <div class="h3 mb-0 text-success" id="modal-new">0</div>
+                        <small class="text-muted">Neu</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h3 mb-0 text-info" id="modal-updated">0</div>
+                        <small class="text-muted">Aktualisiert</small>
+                    </div>
                 </div>
-                <div id="search-progress-log" class="mt-3 p-3 bg-light rounded" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; display: none;">
+
+                <!-- Progress-Log -->
+                <div class="bg-dark text-light p-3 rounded" id="progress-log-container"
+                     style="height: 300px; overflow-y: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;">
+                    <div id="progress-log">
+                        Warte auf Suchstart...
+                    </div>
                 </div>
+
+                <!-- Quellen-Status -->
+                <div class="row mt-3" id="source-status-row">
+                    <div class="col-12">
+                        <small class="text-muted">Quellen-Status:</small>
+                        <div class="d-flex flex-wrap gap-2 mt-1" id="source-indicators">
+                            <span class="badge bg-secondary" data-source="google">
+                                <i class="fab fa-google me-1"></i>Google: -
+                            </span>
+                            <span class="badge bg-secondary" data-source="bing">
+                                <i class="fab fa-microsoft me-1"></i>Bing: -
+                            </span>
+                            <span class="badge bg-secondary" data-source="duckduckgo">
+                                <i class="fas fa-duck me-1"></i>DuckDuckGo: -
+                            </span>
+                            <span class="badge bg-secondary" data-source="ecosia">
+                                <i class="fas fa-leaf me-1"></i>Ecosia: -
+                            </span>
+                            <span class="badge bg-secondary" data-source="reddit">
+                                <i class="fab fa-reddit me-1"></i>Reddit: -
+                            </span>
+                            <span class="badge bg-secondary" data-source="youtube">
+                                <i class="fab fa-youtube me-1"></i>YouTube: -
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btn-close-modal" disabled>
+                    Schließen
+                </button>
             </div>
         </div>
     </div>
@@ -298,93 +375,283 @@ document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
                       document.querySelector('meta[name="csrf-token"]')?.content;
 
-    // Suche starten
-    const btnStartSearch = document.getElementById('btn-start-search');
-    if (btnStartSearch) {
-        btnStartSearch.addEventListener('click', function() {
-            if (confirm('Backlink-Suche starten? Dies kann einige Minuten dauern.')) {
-                btnStartSearch.disabled = true;
-                btnStartSearch.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Suche läuft...';
+    let progressInterval = null;
+    let isSearchRunning = false;
 
-                // Modal anzeigen
-                const modal = new bootstrap.Modal(document.getElementById('searchProgressModal'));
-                modal.show();
+    // ========== HEALTH CHECK (Ampelsystem) ==========
+    const healthCheckSection = document.getElementById('health-check-section');
+    const healthCheckResults = document.getElementById('health-check-results');
+    const btnHealthCheck = document.getElementById('btn-health-check');
+    const btnRefreshHealth = document.getElementById('btn-refresh-health');
 
-                fetch('{% url "backloom:api_start_search" %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/x-www-form-urlencoded'
+    function runHealthCheck() {
+        healthCheckSection.style.display = 'block';
+        healthCheckResults.innerHTML = `
+            <div class="col-12 text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Prüfe Quellen...</span>
+                </div>
+                <p class="mt-2 mb-0 text-muted">Prüfe Quellen...</p>
+            </div>
+        `;
+
+        fetch('{% url "backloom:api_health_check" %}')
+            .then(response => response.json())
+            .then(data => {
+                let html = '';
+                data.sources.forEach(source => {
+                    let statusClass = 'secondary';
+                    let statusIcon = 'fas fa-question-circle';
+
+                    if (source.status === 'ok') {
+                        statusClass = 'success';
+                        statusIcon = 'fas fa-check-circle';
+                    } else if (source.status === 'warning') {
+                        statusClass = 'warning';
+                        statusIcon = 'fas fa-exclamation-triangle';
+                    } else if (source.status === 'error') {
+                        statusClass = 'danger';
+                        statusIcon = 'fas fa-times-circle';
                     }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    modal.hide();
-                    if (data.success) {
-                        alert('Suche abgeschlossen! ' + data.new_sources + ' neue Quellen gefunden.');
-                        location.reload();
-                    } else {
-                        alert('Fehler: ' + data.error);
-                        btnStartSearch.disabled = false;
-                        btnStartSearch.innerHTML = '<i class="fas fa-search me-1"></i>Suche starten';
-                    }
-                })
-                .catch(error => {
-                    modal.hide();
-                    alert('Fehler: ' + error);
-                    btnStartSearch.disabled = false;
-                    btnStartSearch.innerHTML = '<i class="fas fa-search me-1"></i>Suche starten';
+
+                    html += `
+                        <div class="col-md-4 col-sm-6 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <i class="${statusIcon} text-${statusClass} fa-2x me-3"></i>
+                                <div>
+                                    <strong>${source.name}</strong><br>
+                                    <small class="text-${statusClass}">${source.message}</small>
+                                    ${source.response_time ? `<br><small class="text-muted">${source.response_time}ms</small>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 });
+                healthCheckResults.innerHTML = html;
+            })
+            .catch(error => {
+                healthCheckResults.innerHTML = `
+                    <div class="col-12 text-center py-3 text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <p>Fehler beim Prüfen der Quellen: ${error}</p>
+                    </div>
+                `;
+            });
+    }
+
+    if (btnHealthCheck) {
+        btnHealthCheck.addEventListener('click', runHealthCheck);
+    }
+    if (btnRefreshHealth) {
+        btnRefreshHealth.addEventListener('click', runHealthCheck);
+    }
+
+    // ========== LIVE PROGRESS ==========
+    const progressModal = new bootstrap.Modal(document.getElementById('searchProgressModal'));
+    const progressLog = document.getElementById('progress-log');
+    const progressLogContainer = document.getElementById('progress-log-container');
+    const btnCloseModal = document.getElementById('btn-close-modal');
+
+    function updateProgress() {
+        fetch('{% url "backloom:api_search_progress" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.has_search) return;
+
+                // Statistiken aktualisieren
+                document.getElementById('modal-found').textContent = data.sources_found || 0;
+                document.getElementById('modal-new').textContent = data.new_sources || 0;
+                document.getElementById('modal-updated').textContent = data.updated_sources || 0;
+
+                // Progress-Log aktualisieren
+                if (data.progress_lines && data.progress_lines.length > 0) {
+                    let logHtml = '';
+                    data.progress_lines.forEach(line => {
+                        // Farbcodierung für verschiedene Log-Typen
+                        let lineClass = '';
+                        if (line.includes('Fehler') || line.includes('Error')) {
+                            lineClass = 'text-danger';
+                        } else if (line.includes('gefunden')) {
+                            lineClass = 'text-success';
+                        } else if (line.includes('---')) {
+                            lineClass = 'text-info';
+                        } else if (line.includes('Suche:')) {
+                            lineClass = 'text-warning';
+                        }
+                        logHtml += `<div class="${lineClass}">${line}</div>`;
+                    });
+                    progressLog.innerHTML = logHtml;
+                    // Auto-scroll nach unten
+                    progressLogContainer.scrollTop = progressLogContainer.scrollHeight;
+                }
+
+                // Status-Badge aktualisieren
+                const statusBadge = document.getElementById('search-status-badge');
+                if (data.is_running) {
+                    statusBadge.className = 'badge bg-primary ms-2';
+                    statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Läuft';
+                    btnCloseModal.disabled = true;
+                } else if (data.status === 'completed') {
+                    statusBadge.className = 'badge bg-success ms-2';
+                    statusBadge.textContent = 'Abgeschlossen';
+                    btnCloseModal.disabled = false;
+                    stopProgressPolling();
+                    // Seite nach kurzer Verzögerung neu laden
+                    setTimeout(() => location.reload(), 2000);
+                } else if (data.status === 'failed') {
+                    statusBadge.className = 'badge bg-danger ms-2';
+                    statusBadge.textContent = 'Fehlgeschlagen';
+                    btnCloseModal.disabled = false;
+                    stopProgressPolling();
+                    if (data.error_log) {
+                        progressLog.innerHTML += `<div class="text-danger mt-2">FEHLER: ${data.error_log}</div>`;
+                    }
+                }
+
+                // Quellen-Indikatoren aus Log parsen
+                updateSourceIndicators(data.progress_lines);
+            })
+            .catch(error => console.error('Progress update error:', error));
+    }
+
+    function updateSourceIndicators(lines) {
+        const sources = ['google', 'bing', 'duckduckgo', 'ecosia', 'reddit', 'youtube'];
+        const counts = {};
+
+        sources.forEach(s => counts[s] = 0);
+
+        if (lines) {
+            lines.forEach(line => {
+                const lower = line.toLowerCase();
+                sources.forEach(source => {
+                    const match = lower.match(new RegExp(`${source}[:\\s]+([0-9]+)\\s+ergebnisse`));
+                    if (match) {
+                        counts[source] = Math.max(counts[source], parseInt(match[1]));
+                    }
+                });
+            });
+        }
+
+        sources.forEach(source => {
+            const indicator = document.querySelector(`[data-source="${source}"]`);
+            if (indicator) {
+                const count = counts[source];
+                if (count > 0) {
+                    indicator.className = 'badge bg-success';
+                } else {
+                    indicator.className = 'badge bg-secondary';
+                }
+                const iconHtml = indicator.innerHTML.split(':')[0] + ': ';
+                indicator.innerHTML = iconHtml + count;
             }
         });
     }
 
-    // Suchbegriffe initialisieren
+    function startProgressPolling() {
+        if (progressInterval) return;
+        updateProgress();
+        progressInterval = setInterval(updateProgress, 2000);
+    }
+
+    function stopProgressPolling() {
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+        }
+    }
+
+    // ========== SUCHE STARTEN ==========
+    const btnStartSearch = document.getElementById('btn-start-search');
+    if (btnStartSearch) {
+        btnStartSearch.addEventListener('click', function() {
+            if (!confirm('Backlink-Suche starten? Dies kann einige Minuten dauern.')) return;
+
+            btnStartSearch.disabled = true;
+            btnStartSearch.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Startet...';
+
+            // Modal öffnen
+            progressLog.innerHTML = '<div class="text-muted">Starte Suche...</div>';
+            document.getElementById('modal-found').textContent = '0';
+            document.getElementById('modal-new').textContent = '0';
+            document.getElementById('modal-updated').textContent = '0';
+            document.getElementById('search-status-badge').className = 'badge bg-primary ms-2';
+            document.getElementById('search-status-badge').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Startet';
+            btnCloseModal.disabled = true;
+            progressModal.show();
+
+            // Suche starten
+            fetch('{% url "backloom:api_start_search" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Progress-Polling starten
+                    startProgressPolling();
+                } else {
+                    alert('Fehler: ' + data.error);
+                    progressModal.hide();
+                    btnStartSearch.disabled = false;
+                    btnStartSearch.innerHTML = '<i class="fas fa-search me-1"></i>Suche starten';
+                }
+            })
+            .catch(error => {
+                alert('Fehler: ' + error);
+                progressModal.hide();
+                btnStartSearch.disabled = false;
+                btnStartSearch.innerHTML = '<i class="fas fa-search me-1"></i>Suche starten';
+            });
+        });
+    }
+
+    // Modal schließen -> Polling stoppen
+    document.getElementById('searchProgressModal').addEventListener('hidden.bs.modal', function() {
+        stopProgressPolling();
+    });
+
+    // ========== SUCHBEGRIFFE LADEN ==========
     const btnInitQueries = document.getElementById('btn-init-queries');
     if (btnInitQueries) {
         btnInitQueries.addEventListener('click', function() {
             if (confirm('Vordefinierte Suchbegriffe laden?')) {
                 fetch('{% url "backloom:api_init_queries" %}', {
                     method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken
-                    }
+                    headers: { 'X-CSRFToken': csrfToken }
                 })
                 .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                    } else {
-                        alert('Fehler: ' + data.error);
-                    }
-                });
+                .then(data => alert(data.success ? data.message : 'Fehler: ' + data.error));
             }
         });
     }
 
-    // Bereinigen
+    // ========== BEREINIGEN ==========
     const btnCleanup = document.getElementById('btn-cleanup');
     if (btnCleanup) {
         btnCleanup.addEventListener('click', function() {
             if (confirm('Alle Einträge älter als 12 Monate löschen?')) {
                 fetch('{% url "backloom:api_cleanup" %}', {
                     method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken
-                    }
+                    headers: { 'X-CSRFToken': csrfToken }
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        location.reload();
-                    } else {
-                        alert('Fehler: ' + data.error);
-                    }
+                    alert(data.success ? data.message : 'Fehler: ' + data.error);
+                    if (data.success) location.reload();
                 });
             }
         });
     }
+
+    // ========== AUTO-CHECK bei laufender Suche ==========
+    {% if running_search %}
+    // Es läuft bereits eine Suche -> Modal öffnen und Polling starten
+    progressModal.show();
+    startProgressPolling();
+    {% endif %}
 });
 </script>
 {% endblock %}
