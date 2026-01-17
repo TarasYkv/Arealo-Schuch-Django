@@ -64,6 +64,7 @@ urlpatterns = [
     path('wizard/step7/<uuid:project_id>/', views.wizard_step7, name='wizard_step7'),
     path('api/export/<uuid:project_id>/', views.api_export_to_shopify, name='api_export_to_shopify'),
     path('api/blogs/<int:store_id>/', views.api_get_blogs_for_store, name='api_get_blogs'),
+    path('api/get-all-keywords/', views.api_get_all_keywords, name='api_get_all_keywords'),
 
     # Auto Create
     path('api/auto-create/init/', views.api_auto_create_init, name='api_auto_create_init'),

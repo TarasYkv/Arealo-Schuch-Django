@@ -1555,6 +1555,15 @@ def api_get_blogs_for_store(request, store_id):
 
 
 @login_required
+def api_get_all_keywords(request):
+    """API: Gibt alle Hauptkeywords des Users zurück"""
+    keywords = BlogPrepProject.objects.filter(
+        user=request.user
+    ).values_list('main_keyword', flat=True).distinct()
+    return JsonResponse({'keywords': list(keywords)})
+
+
+@login_required
 def api_get_server_images(request, project_id):
     """API: Gibt verfügbare Server-Bilder aus imageforge zurück"""
     from imageforge.models import ImageGeneration, ProductMockup

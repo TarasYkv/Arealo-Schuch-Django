@@ -284,6 +284,17 @@
 
             <!-- Sidebar -->
             <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-tools me-2"></i>Werkzeuge</h6>
+                    </div>
+                    <div class="card-body">
+                        <button type="button" class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#keywordsModal">
+                            <i class="bi bi-key me-2"></i>Alle Keywords anzeigen
+                        </button>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header">
                         <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Tipps</h6>
@@ -321,9 +332,83 @@
         </div>
     </form>
 </div>
+
+<!-- Keywords Modal -->
+<div class="modal fade" id="keywordsModal" tabindex="-1" aria-labelledby="keywordsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="keywordsModalLabel">Alle Hauptkeywords</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Hier ist eine Liste aller Hauptkeywords aus deinen BlogPrep-Projekten.</p>
+                <textarea id="keywordsTextarea" class="form-control" rows="10" readonly></textarea>
+                <div id="keywords-loader" class="text-center my-3" style="display: none;">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" id="copyKeywordsBtn">
+                    <i class="bi bi-clipboard me-1"></i> In die Zwischenablage kopieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const keywordsModal = document.getElementById('keywordsModal');
+    const keywordsTextarea = document.getElementById('keywordsTextarea');
+    const copyKeywordsBtn = document.getElementById('copyKeywordsBtn');
+    const keywordsLoader = document.getElementById('keywords-loader');
+
+    keywordsModal.addEventListener('show.bs.modal', function () {
+        keywordsTextarea.value = '';
+        keywordsLoader.style.display = 'block';
+
+        fetch("{% url 'blogprep:api_get_all_keywords' %}")
+            .then(response => response.json())
+            .then(data => {
+                if (data.keywords && data.keywords.length > 0) {
+                    keywordsTextarea.value = data.keywords.join('\n');
+                } else {
+                    keywordsTextarea.value = 'Keine Keywords gefunden.';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching keywords:', error);
+                keywordsTextarea.value = 'Fehler beim Laden der Keywords.';
+            })
+            .finally(() => {
+                keywordsLoader.style.display = 'none';
+            });
+    });
+
+    copyKeywordsBtn.addEventListener('click', function () {
+        keywordsTextarea.select();
+        document.execCommand('copy');
+
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="bi bi-check-lg me-1"></i>Kopiert!';
+        this.classList.add('btn-success');
+        this.classList.remove('btn-primary');
+
+        setTimeout(() => {
+            this.innerHTML = originalText;
+            this.classList.remove('btn-success');
+            this.classList.add('btn-primary');
+        }, 2000);
+    });
+});
+</script>
+
 <script>
     // Modell-Beschreibungen (Stand: Dezember 2025)
     const modelDescriptions = {
