@@ -271,44 +271,96 @@ class BacklinkScraper:
             )
 
             if response.status_code != 200:
-                logger.warning(f"Google returned status {response.status_code}")
+                self.search.log_progress(f"Google: HTTP {response.status_code}")
+                self.source_stats['google']['status'] = 'error'
                 return results
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Suchergebnisse parsen
-            for result in soup.select('div.g'):
-                try:
-                    link_elem = result.select_one('a[href]')
-                    if not link_elem:
+            # Mehrere Selektoren versuchen (Google ändert HTML häufig)
+            selectors = [
+                'div.g',  # Standard
+                'div[data-sokoban-container]',  # Neueres Format
+                'div.tF2Cxc',  # Alternatives Format
+                'div.yuRUbf',  # Link-Container
+            ]
+
+            found_containers = []
+            for selector in selectors:
+                containers = soup.select(selector)
+                if containers:
+                    found_containers = containers
+                    self.search.log_progress(f"Google: Verwende Selector '{selector}' ({len(containers)} Container)")
+                    break
+
+            if not found_containers:
+                # Fallback: Alle Links mit bestimmten Eigenschaften
+                self.search.log_progress("Google: Kein Standard-Selector gefunden, versuche Fallback")
+                for link in soup.find_all('a', href=True):
+                    href = link.get('href', '')
+                    if href.startswith('/url?q='):
+                        # Google-Weiterleitungs-Link
+                        actual_url = href.split('/url?q=')[1].split('&')[0]
+                        if self._is_valid_url(actual_url):
+                            title = self._clean_text(link.get_text()) or actual_url
+                            results.append({
+                                'url': actual_url,
+                                'title': title,
+                                'description': '',
+                                'source_type': SourceType.GOOGLE
+                            })
+                            if len(results) >= num_results:
+                                break
+            else:
+                # Suchergebnisse parsen
+                for result in found_containers:
+                    try:
+                        # Link finden (verschiedene Möglichkeiten)
+                        link_elem = result.select_one('a[href^="http"]') or result.select_one('a[href]')
+                        if not link_elem:
+                            continue
+
+                        url = link_elem.get('href', '')
+
+                        # Google-Weiterleitungs-Links bereinigen
+                        if url.startswith('/url?q='):
+                            url = url.split('/url?q=')[1].split('&')[0]
+
+                        if not self._is_valid_url(url):
+                            continue
+
+                        # Titel finden
+                        title_elem = result.select_one('h3') or result.select_one('h2')
+                        title = self._clean_text(title_elem.get_text()) if title_elem else ''
+
+                        # Beschreibung finden
+                        desc_selectors = ['div[data-sncf]', 'div.VwiC3b', 'span.aCOpRe', 'div.IsZvec']
+                        description = ''
+                        for desc_sel in desc_selectors:
+                            desc_elem = result.select_one(desc_sel)
+                            if desc_elem:
+                                description = self._clean_text(desc_elem.get_text())
+                                break
+
+                        results.append({
+                            'url': url,
+                            'title': title,
+                            'description': description,
+                            'source_type': SourceType.GOOGLE
+                        })
+
+                    except Exception as e:
+                        logger.debug(f"Error parsing Google result: {e}")
                         continue
 
-                    url = link_elem.get('href', '')
-                    if not self._is_valid_url(url):
-                        continue
-
-                    title_elem = result.select_one('h3')
-                    title = self._clean_text(title_elem.get_text()) if title_elem else ''
-
-                    desc_elem = result.select_one('div[data-sncf], div.VwiC3b')
-                    description = self._clean_text(desc_elem.get_text()) if desc_elem else ''
-
-                    results.append({
-                        'url': url,
-                        'title': title,
-                        'description': description,
-                        'source_type': SourceType.GOOGLE
-                    })
-
-                except Exception as e:
-                    logger.debug(f"Error parsing Google result: {e}")
-                    continue
-
+            self.source_stats['google']['found'] = len(results)
+            self.source_stats['google']['status'] = 'ok' if results else 'warning'
             self.search.log_progress(f"Google: {len(results)} Ergebnisse gefunden")
 
         except requests.RequestException as e:
             logger.error(f"Google search error: {e}")
             self.search.log_progress(f"Google-Fehler: {e}")
+            self.source_stats['google']['status'] = 'error'
 
         return results
 
@@ -333,15 +385,31 @@ class BacklinkScraper:
             )
 
             if response.status_code != 200:
-                logger.warning(f"Bing returned status {response.status_code}")
+                self.search.log_progress(f"Bing: HTTP {response.status_code}")
+                self.source_stats['bing']['status'] = 'error'
                 return results
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Suchergebnisse parsen
-            for result in soup.select('li.b_algo'):
+            # Mehrere Selektoren versuchen
+            selectors = [
+                'li.b_algo',  # Standard
+                'div.b_algo',  # Alternatives Format
+                'ol#b_results li',  # Container-Format
+            ]
+
+            found_containers = []
+            for selector in selectors:
+                containers = soup.select(selector)
+                if containers:
+                    found_containers = containers
+                    self.search.log_progress(f"Bing: Verwende Selector '{selector}' ({len(containers)} Container)")
+                    break
+
+            for result in found_containers:
                 try:
-                    link_elem = result.select_one('h2 a')
+                    # Link finden
+                    link_elem = result.select_one('h2 a') or result.select_one('a[href^="http"]')
                     if not link_elem:
                         continue
 
@@ -351,7 +419,8 @@ class BacklinkScraper:
 
                     title = self._clean_text(link_elem.get_text())
 
-                    desc_elem = result.select_one('div.b_caption p')
+                    # Beschreibung finden
+                    desc_elem = result.select_one('div.b_caption p') or result.select_one('p')
                     description = self._clean_text(desc_elem.get_text()) if desc_elem else ''
 
                     results.append({
@@ -365,11 +434,14 @@ class BacklinkScraper:
                     logger.debug(f"Error parsing Bing result: {e}")
                     continue
 
+            self.source_stats['bing']['found'] = len(results)
+            self.source_stats['bing']['status'] = 'ok' if results else 'warning'
             self.search.log_progress(f"Bing: {len(results)} Ergebnisse gefunden")
 
         except requests.RequestException as e:
             logger.error(f"Bing search error: {e}")
             self.search.log_progress(f"Bing-Fehler: {e}")
+            self.source_stats['bing']['status'] = 'error'
 
         return results
 
@@ -379,13 +451,13 @@ class BacklinkScraper:
     def search_duckduckgo(self, query: str, num_results: int = 30) -> List[Dict]:
         """
         Durchsucht DuckDuckGo nach dem Suchbegriff
-        Verwendet DuckDuckGo HTML-Version
+        Verwendet DuckDuckGo HTML-Version (stabiler als JS-Version)
         """
         results = []
         self.search.log_progress(f"DuckDuckGo-Suche: '{query}'")
 
         try:
-            # DuckDuckGo HTML-Suche
+            # DuckDuckGo HTML-Suche (Lite-Version, kein JavaScript)
             url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=de-de"
 
             response = self.session.get(
@@ -395,25 +467,52 @@ class BacklinkScraper:
             )
 
             if response.status_code != 200:
-                logger.warning(f"DuckDuckGo returned status {response.status_code}")
+                self.search.log_progress(f"DuckDuckGo: HTTP {response.status_code}")
+                self.source_stats['duckduckgo']['status'] = 'error'
                 return results
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Suchergebnisse parsen
-            for result in soup.select('div.result'):
+            # Mehrere Selektoren versuchen
+            selectors = [
+                'div.result',  # Standard HTML-Version
+                'div.results_links',  # Alternatives Format
+                'div.web-result',  # Neueres Format
+            ]
+
+            found_containers = []
+            for selector in selectors:
+                containers = soup.select(selector)
+                if containers:
+                    found_containers = containers
+                    self.search.log_progress(f"DuckDuckGo: Verwende Selector '{selector}' ({len(containers)} Container)")
+                    break
+
+            for result in found_containers:
                 try:
-                    link_elem = result.select_one('a.result__a')
+                    # Link finden
+                    link_elem = result.select_one('a.result__a') or result.select_one('a[href^="http"]')
                     if not link_elem:
                         continue
 
                     url = link_elem.get('href', '')
+
+                    # DuckDuckGo-Weiterleitungs-Links bereinigen
+                    if '//duckduckgo.com/l/' in url:
+                        # URL aus Parameter extrahieren
+                        import urllib.parse as urlparse
+                        parsed = urlparse.urlparse(url)
+                        params = urlparse.parse_qs(parsed.query)
+                        if 'uddg' in params:
+                            url = urlparse.unquote(params['uddg'][0])
+
                     if not self._is_valid_url(url):
                         continue
 
                     title = self._clean_text(link_elem.get_text())
 
-                    desc_elem = result.select_one('a.result__snippet')
+                    # Beschreibung finden
+                    desc_elem = result.select_one('a.result__snippet') or result.select_one('.result__snippet')
                     description = self._clean_text(desc_elem.get_text()) if desc_elem else ''
 
                     results.append({
@@ -430,11 +529,14 @@ class BacklinkScraper:
                     logger.debug(f"Error parsing DuckDuckGo result: {e}")
                     continue
 
+            self.source_stats['duckduckgo']['found'] = len(results)
+            self.source_stats['duckduckgo']['status'] = 'ok' if results else 'warning'
             self.search.log_progress(f"DuckDuckGo: {len(results)} Ergebnisse gefunden")
 
         except requests.RequestException as e:
             logger.error(f"DuckDuckGo search error: {e}")
             self.search.log_progress(f"DuckDuckGo-Fehler: {e}")
+            self.source_stats['duckduckgo']['status'] = 'error'
 
         return results
 
@@ -458,15 +560,32 @@ class BacklinkScraper:
             )
 
             if response.status_code != 200:
-                logger.warning(f"Ecosia returned status {response.status_code}")
+                self.search.log_progress(f"Ecosia: HTTP {response.status_code}")
+                self.source_stats['ecosia']['status'] = 'error'
                 return results
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Suchergebnisse parsen
-            for result in soup.select('article.result'):
+            # Mehrere Selektoren versuchen (Ecosia ändert HTML manchmal)
+            selectors = [
+                'article.result',  # Standard
+                'div.result',  # Alternatives Format
+                'section.mainline__result',  # Neueres Format
+                'div[data-test="web-result"]',  # Test-Attribut
+            ]
+
+            found_containers = []
+            for selector in selectors:
+                containers = soup.select(selector)
+                if containers:
+                    found_containers = containers
+                    self.search.log_progress(f"Ecosia: Verwende Selector '{selector}' ({len(containers)} Container)")
+                    break
+
+            for result in found_containers:
                 try:
-                    link_elem = result.select_one('a.result__link')
+                    # Link finden
+                    link_elem = result.select_one('a.result__link') or result.select_one('a[href^="http"]')
                     if not link_elem:
                         continue
 
@@ -474,10 +593,12 @@ class BacklinkScraper:
                     if not self._is_valid_url(url):
                         continue
 
-                    title_elem = result.select_one('h2.result__title')
+                    # Titel finden
+                    title_elem = result.select_one('h2.result__title') or result.select_one('h2') or result.select_one('a')
                     title = self._clean_text(title_elem.get_text()) if title_elem else ''
 
-                    desc_elem = result.select_one('p.result__body')
+                    # Beschreibung finden
+                    desc_elem = result.select_one('p.result__body') or result.select_one('p')
                     description = self._clean_text(desc_elem.get_text()) if desc_elem else ''
 
                     results.append({
@@ -494,11 +615,14 @@ class BacklinkScraper:
                     logger.debug(f"Error parsing Ecosia result: {e}")
                     continue
 
+            self.source_stats['ecosia']['found'] = len(results)
+            self.source_stats['ecosia']['status'] = 'ok' if results else 'warning'
             self.search.log_progress(f"Ecosia: {len(results)} Ergebnisse gefunden")
 
         except requests.RequestException as e:
             logger.error(f"Ecosia search error: {e}")
             self.search.log_progress(f"Ecosia-Fehler: {e}")
+            self.source_stats['ecosia']['status'] = 'error'
 
         return results
 
@@ -514,7 +638,7 @@ class BacklinkScraper:
         self.search.log_progress(f"Reddit-Suche: '{query}'")
 
         try:
-            # Reddit-Suche (alte Version)
+            # Reddit-Suche (alte Version - stabiler für Scraping)
             url = f"https://old.reddit.com/search?q={quote_plus(query)}&sort=new&t=year"
 
             response = self.session.get(
@@ -524,21 +648,39 @@ class BacklinkScraper:
             )
 
             if response.status_code != 200:
-                logger.warning(f"Reddit returned status {response.status_code}")
+                self.search.log_progress(f"Reddit: HTTP {response.status_code}")
+                self.source_stats['reddit']['status'] = 'error'
                 return results
 
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Suchergebnisse parsen
-            for result in soup.select('div.search-result'):
+            # Mehrere Selektoren versuchen
+            selectors = [
+                'div.search-result',  # Standard old.reddit Format
+                'div.thing',  # Alternatives old.reddit Format
+                'div.search-result-link',  # Link-Container
+            ]
+
+            found_containers = []
+            for selector in selectors:
+                containers = soup.select(selector)
+                if containers:
+                    found_containers = containers
+                    self.search.log_progress(f"Reddit: Verwende Selector '{selector}' ({len(containers)} Container)")
+                    break
+
+            for result in found_containers:
                 try:
-                    link_elem = result.select_one('a.search-title')
+                    # Link finden
+                    link_elem = result.select_one('a.search-title') or result.select_one('a.title') or result.select_one('a[data-click-id="body"]')
                     if not link_elem:
                         continue
 
                     href = link_elem.get('href', '')
                     if href.startswith('/'):
                         href = f"https://www.reddit.com{href}"
+                    elif href.startswith('//'):
+                        href = f"https:{href}"
 
                     if not href.startswith('https://'):
                         continue
@@ -546,7 +688,7 @@ class BacklinkScraper:
                     title = self._clean_text(link_elem.get_text())
 
                     # Subreddit als Beschreibung
-                    subreddit_elem = result.select_one('a.search-subreddit-link')
+                    subreddit_elem = result.select_one('a.search-subreddit-link') or result.select_one('a.subreddit')
                     subreddit = subreddit_elem.get_text() if subreddit_elem else ''
                     description = f"Subreddit: {subreddit}" if subreddit else ''
 
@@ -564,11 +706,14 @@ class BacklinkScraper:
                     logger.debug(f"Error parsing Reddit result: {e}")
                     continue
 
+            self.source_stats['reddit']['found'] = len(results)
+            self.source_stats['reddit']['status'] = 'ok' if results else 'warning'
             self.search.log_progress(f"Reddit: {len(results)} Ergebnisse gefunden")
 
         except requests.RequestException as e:
             logger.error(f"Reddit search error: {e}")
             self.search.log_progress(f"Reddit-Fehler: {e}")
+            self.source_stats['reddit']['status'] = 'error'
 
         return results
 
@@ -589,7 +734,8 @@ class BacklinkScraper:
             api_key = getattr(self.search.triggered_by, 'youtube_api_key', None)
 
         if not api_key:
-            self.search.log_progress("YouTube-API-Key nicht konfiguriert (in Profil-Einstellungen hinterlegen)")
+            self.search.log_progress("YouTube: API-Key nicht konfiguriert")
+            self.source_stats['youtube']['status'] = 'warning'
             return results
 
         try:
@@ -607,8 +753,13 @@ class BacklinkScraper:
 
             response = self.session.get(url, params=params, timeout=15)
 
-            if response.status_code != 200:
-                logger.warning(f"YouTube API returned status {response.status_code}")
+            if response.status_code == 403:
+                self.search.log_progress("YouTube: API-Key ungültig oder Quota überschritten")
+                self.source_stats['youtube']['status'] = 'error'
+                return results
+            elif response.status_code != 200:
+                self.search.log_progress(f"YouTube: HTTP {response.status_code}")
+                self.source_stats['youtube']['status'] = 'error'
                 return results
 
             data = response.json()
@@ -634,11 +785,14 @@ class BacklinkScraper:
                     logger.debug(f"Error parsing YouTube result: {e}")
                     continue
 
+            self.source_stats['youtube']['found'] = len(results)
+            self.source_stats['youtube']['status'] = 'ok' if results else 'warning'
             self.search.log_progress(f"YouTube: {len(results)} Videos gefunden")
 
         except requests.RequestException as e:
             logger.error(f"YouTube API error: {e}")
             self.search.log_progress(f"YouTube-Fehler: {e}")
+            self.source_stats['youtube']['status'] = 'error'
 
         return results
 
