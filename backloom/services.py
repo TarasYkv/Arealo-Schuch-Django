@@ -15,6 +15,14 @@ from bs4 import BeautifulSoup
 from django.conf import settings
 from django.utils import timezone
 
+# YouTube Untertitel
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+    from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+    YOUTUBE_TRANSCRIPT_AVAILABLE = True
+except ImportError:
+    YOUTUBE_TRANSCRIPT_AVAILABLE = False
+
 from .models import (
     BacklinkCategory,
     BacklinkSearch,
@@ -307,6 +315,86 @@ class BacklinkScraper:
             valid_urls.append(url)
 
         return list(set(valid_urls))  # Duplikate entfernen
+
+    def _extract_domains_from_text(self, text: str) -> List[str]:
+        """
+        Extrahiert Domain-Erwähnungen aus Text (z.B. Untertitel).
+        Findet Patterns wie "example.com", "website.de", "forum.org"
+        auch wenn kein http:// davor steht.
+        """
+        if not text:
+            return []
+
+        # Domain-Pattern: word.tld (gängige TLDs)
+        tlds = r'(?:com|de|org|net|eu|at|ch|io|co|info|biz)'
+        domain_pattern = rf'\b([a-zA-Z0-9][-a-zA-Z0-9]*\.{tlds})\b'
+
+        found_domains = re.findall(domain_pattern, text.lower())
+
+        # Filtern
+        valid_domains = []
+        skip_domains = [
+            'youtube.com', 'youtu.be', 'reddit.com', 'twitter.com', 'x.com',
+            'facebook.com', 'instagram.com', 'tiktok.com', 'linkedin.com',
+            'google.com', 'google.de', 'bit.ly', 'goo.gl', 't.co',
+            'amazon.com', 'amazon.de', 'ebay.de', 'ebay.com',
+            'paypal.com', 'patreon.com', 'ko-fi.com',  # Bezahl-Plattformen
+        ]
+
+        for domain in found_domains:
+            domain = domain.lower().strip()
+            if len(domain) < 5:  # Zu kurz
+                continue
+            if any(skip in domain for skip in skip_domains):
+                continue
+            valid_domains.append(domain)
+
+        return list(set(valid_domains))
+
+    def _get_youtube_transcript(self, video_id: str) -> Optional[str]:
+        """
+        Holt Untertitel eines YouTube-Videos.
+        Versucht: Deutsch manuell → Deutsch auto → Englisch → Erste verfügbare
+        """
+        if not YOUTUBE_TRANSCRIPT_AVAILABLE:
+            return None
+
+        try:
+            # Verfügbare Transkripte holen
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+
+            transcript = None
+
+            # Priorität: Deutsch manuell → Deutsch auto → Englisch → Erste
+            try:
+                transcript = transcript_list.find_transcript(['de'])
+            except:
+                try:
+                    transcript = transcript_list.find_generated_transcript(['de'])
+                except:
+                    try:
+                        transcript = transcript_list.find_transcript(['en'])
+                    except:
+                        try:
+                            # Erste verfügbare
+                            for t in transcript_list:
+                                transcript = t
+                                break
+                        except:
+                            pass
+
+            if transcript:
+                # Text zusammenfügen
+                data = transcript.fetch()
+                full_text = ' '.join([entry['text'] for entry in data])
+                return full_text
+
+        except (TranscriptsDisabled, NoTranscriptFound):
+            pass
+        except Exception as e:
+            logger.debug(f"Transcript error for {video_id}: {e}")
+
+        return None
 
     # ==================
     # GOOGLE SCRAPING
@@ -844,6 +932,7 @@ class BacklinkScraper:
 
             videos_data = videos_response.json()
             urls_found = 0
+            domains_found = 0
 
             for item in videos_data.get('items', []):
                 try:
@@ -853,14 +942,41 @@ class BacklinkScraper:
                     channel = snippet.get('channelTitle', '')
                     video_id = item['id']
 
-                    # URLs aus Beschreibung extrahieren
-                    extracted_urls = self._extract_urls_from_text(full_description)
+                    all_urls = set()
+                    all_domains = set()
 
-                    if extracted_urls:
-                        self.search.log_progress(f"  Video '{video_title[:40]}...' → {len(extracted_urls)} URLs gefunden")
+                    # 1. URLs aus Beschreibung extrahieren
+                    desc_urls = self._extract_urls_from_text(full_description)
+                    all_urls.update(desc_urls)
 
-                        for url in extracted_urls:
-                            domain = self._extract_domain(url)
+                    # 2. Untertitel abrufen und Domains extrahieren
+                    transcript_text = self._get_youtube_transcript(video_id)
+                    if transcript_text:
+                        # URLs aus Untertitel
+                        transcript_urls = self._extract_urls_from_text(transcript_text)
+                        all_urls.update(transcript_urls)
+
+                        # Domain-Erwähnungen aus Untertitel (z.B. "besucht example.de")
+                        transcript_domains = self._extract_domains_from_text(transcript_text)
+                        all_domains.update(transcript_domains)
+
+                    # Domains auch aus Beschreibung
+                    desc_domains = self._extract_domains_from_text(full_description)
+                    all_domains.update(desc_domains)
+
+                    # Domains die bereits als URLs gefunden wurden, entfernen
+                    for url in all_urls:
+                        domain = self._extract_domain(url).lower()
+                        all_domains.discard(domain)
+
+                    found_count = len(all_urls) + len(all_domains)
+                    if found_count > 0:
+                        self.search.log_progress(
+                            f"  Video '{video_title[:35]}...' → {len(all_urls)} URLs, {len(all_domains)} Domains"
+                        )
+
+                        # Vollständige URLs speichern
+                        for url in all_urls:
                             results.append({
                                 'url': url,
                                 'title': f"Gefunden in: {video_title[:100]}",
@@ -869,13 +985,26 @@ class BacklinkScraper:
                             })
                             urls_found += 1
 
+                        # Domains als https:// URLs speichern
+                        for domain in all_domains:
+                            results.append({
+                                'url': f"https://{domain}",
+                                'title': f"Erwähnt in: {video_title[:100]}",
+                                'description': f"Domain im Video erwähnt\nQuelle: YouTube von {channel}\nhttps://youtube.com/watch?v={video_id}",
+                                'source_type': SourceType.YOUTUBE
+                            })
+                            domains_found += 1
+
                 except Exception as e:
                     logger.debug(f"Error parsing YouTube video: {e}")
                     continue
 
-            self.source_stats['youtube']['found'] = urls_found
-            self.source_stats['youtube']['status'] = 'ok' if urls_found > 0 else 'warning'
-            self.search.log_progress(f"YouTube: {urls_found} Backlink-URLs aus {len(video_ids)} Videos extrahiert")
+            total_found = urls_found + domains_found
+            self.source_stats['youtube']['found'] = total_found
+            self.source_stats['youtube']['status'] = 'ok' if total_found > 0 else 'warning'
+            self.search.log_progress(
+                f"YouTube: {urls_found} URLs + {domains_found} Domains aus {len(video_ids)} Videos"
+            )
 
         except requests.RequestException as e:
             logger.error(f"YouTube API error: {e}")
