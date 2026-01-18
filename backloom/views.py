@@ -184,7 +184,7 @@ class BackloomSearchHistoryView(LoginRequiredMixin, ListView):
 def api_start_search(request):
     """
     API: Startet eine neue Backlink-Suche (nur Superuser)
-    Akzeptiert 'sources' Parameter: comma-separated Liste (duckduckgo,reddit,youtube)
+    Akzeptiert 'sources' Parameter: comma-separated Liste (duckduckgo,youtube)
     """
     if not request.user.is_superuser:
         return JsonResponse({
@@ -204,11 +204,11 @@ def api_start_search(request):
     sources_param = request.POST.get('sources', '')
     selected_sources = [s.strip() for s in sources_param.split(',') if s.strip()]
 
-    # Validiere Quellen
-    valid_sources = ['duckduckgo', 'reddit', 'youtube']
+    # Validiere Quellen (nur funktionierende)
+    valid_sources = ['duckduckgo', 'youtube']
     selected_sources = [s for s in selected_sources if s in valid_sources]
 
-    # Fallback: alle Quellen wenn keine angegeben
+    # Fallback: alle aktiven Quellen wenn keine angegeben
     if not selected_sources:
         selected_sources = valid_sources
 

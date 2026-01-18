@@ -18,21 +18,16 @@
 
                 {% if is_superuser %}
                 <div class="d-flex gap-2 flex-wrap align-items-center">
-                    <!-- Quellen-Auswahl -->
+                    <!-- Quellen-Auswahl (nur funktionierende Quellen) -->
                     <div class="btn-group me-2" role="group" aria-label="Quellen auswählen">
                         <input type="checkbox" class="btn-check" id="source-duckduckgo" checked>
-                        <label class="btn btn-outline-success btn-sm" for="source-duckduckgo" title="DuckDuckGo">
-                            <i class="fas fa-search"></i> DDG
-                        </label>
-
-                        <input type="checkbox" class="btn-check" id="source-reddit" checked>
-                        <label class="btn btn-outline-warning btn-sm" for="source-reddit" title="Reddit (oft blockiert)">
-                            <i class="fab fa-reddit"></i> Reddit
+                        <label class="btn btn-outline-success btn-sm" for="source-duckduckgo" title="DuckDuckGo (HTML)">
+                            <i class="fas fa-search"></i> DuckDuckGo
                         </label>
 
                         <input type="checkbox" class="btn-check" id="source-youtube" checked>
                         <label class="btn btn-outline-danger btn-sm" for="source-youtube" title="YouTube (API)">
-                            <i class="fab fa-youtube"></i> YT
+                            <i class="fab fa-youtube"></i> YouTube
                         </label>
                     </div>
 
@@ -358,9 +353,6 @@
                             <span class="badge bg-secondary" data-source="duckduckgo">
                                 <i class="fas fa-search me-1"></i>DuckDuckGo: -
                             </span>
-                            <span class="badge bg-secondary" data-source="reddit">
-                                <i class="fab fa-reddit me-1"></i>Reddit: -
-                            </span>
                             <span class="badge bg-secondary" data-source="youtube">
                                 <i class="fab fa-youtube me-1"></i>YouTube: -
                             </span>
@@ -534,8 +526,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateSourceIndicators(lines) {
-        // Nur aktive Quellen (Google/Bing/Ecosia sind deaktiviert)
-        const sources = ['duckduckgo', 'reddit', 'youtube'];
+        // Nur aktive Quellen (Google/Bing/Ecosia/Reddit sind deaktiviert)
+        const sources = ['duckduckgo', 'youtube'];
         const counts = {};
 
         sources.forEach(s => counts[s] = 0);
@@ -585,10 +577,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnStartSearch = document.getElementById('btn-start-search');
     if (btnStartSearch) {
         btnStartSearch.addEventListener('click', function() {
-            // Ausgewählte Quellen sammeln
+            // Ausgewählte Quellen sammeln (nur funktionierende)
             const selectedSources = [];
             if (document.getElementById('source-duckduckgo')?.checked) selectedSources.push('duckduckgo');
-            if (document.getElementById('source-reddit')?.checked) selectedSources.push('reddit');
             if (document.getElementById('source-youtube')?.checked) selectedSources.push('youtube');
 
             if (selectedSources.length === 0) {
@@ -598,7 +589,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const sourceNames = selectedSources.map(s => {
                 if (s === 'duckduckgo') return 'DuckDuckGo';
-                if (s === 'reddit') return 'Reddit';
                 if (s === 'youtube') return 'YouTube';
                 return s;
             }).join(', ');

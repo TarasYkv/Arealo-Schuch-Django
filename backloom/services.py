@@ -48,18 +48,12 @@ EXCLUDED_DOMAINS = [
 class SourceHealthCheck:
     """Health-Check für Suchmaschinen-Quellen"""
 
-    # Aktive Quellen (funktionieren ohne JavaScript)
+    # Aktive Quellen (funktionieren zuverlässig)
     SOURCES = {
         'duckduckgo': {
             'name': 'DuckDuckGo',
             'test_url': 'https://html.duckduckgo.com/html/?q=test',
             'check_text': 'duckduckgo',
-            'enabled': True,
-        },
-        'reddit': {
-            'name': 'Reddit',
-            'test_url': 'https://old.reddit.com/search?q=test',
-            'check_text': 'reddit',
             'enabled': True,
         },
         'youtube': {
@@ -71,7 +65,7 @@ class SourceHealthCheck:
         },
     }
 
-    # Deaktivierte Quellen (benötigen JavaScript/Headless-Browser)
+    # Deaktivierte Quellen (blockiert oder benötigen JavaScript)
     DISABLED_SOURCES = {
         'google': {
             'name': 'Google',
@@ -86,6 +80,11 @@ class SourceHealthCheck:
         'ecosia': {
             'name': 'Ecosia',
             'reason': 'Benötigt JavaScript',
+            'enabled': False,
+        },
+        'reddit': {
+            'name': 'Reddit',
+            'reason': 'Blockiert (403)',
             'enabled': False,
         },
     }
@@ -941,9 +940,9 @@ class BacklinkScraper:
             sources: Liste der zu verwendenden Quellen (duckduckgo, reddit, youtube)
                      Wenn None, werden alle aktiven Quellen verwendet
         """
-        # Standard-Quellen wenn nicht angegeben
+        # Standard-Quellen wenn nicht angegeben (nur funktionierende)
         if sources is None:
-            sources = ['duckduckgo', 'reddit', 'youtube']
+            sources = ['duckduckgo', 'youtube']
 
         self.search.start()
         self.search.log_progress("Starte Backlink-Suche...")
