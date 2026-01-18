@@ -961,6 +961,85 @@ body.bg-dark .password-toggle:hover {
         </div>
         {% endif %}
 
+        <!-- TikTok/Supadata API - Nur für Superuser -->
+        {% if user.is_superuser %}
+        <div class="col-lg-6">
+            <div class="card api-provider-card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #000000, #ff0050);">
+                    <div class="d-flex align-items-center">
+                        <i class="fab fa-tiktok fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-0">TikTok / Supadata</h5>
+                            <small class="opacity-75">Video-Untertitel Extraktion</small>
+                        </div>
+                    </div>
+                    <div class="api-status-indicator">
+                        <div class="status-light {% if supadata_configured %}connected{% else %}disconnected{% endif %}"></div>
+                        <small class="fw-bold">
+                            {% if supadata_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_supadata">
+
+                        <div class="mb-3">
+                            <label for="supadata_api_key" class="form-label">API-Schlüssel:</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password"
+                                       class="form-control"
+                                       id="supadata_api_key"
+                                       name="supadata_api_key"
+                                       placeholder="Ihr Supadata API Key..."
+                                       value="{% if supadata_configured %}{{ supadata_key_masked }}{% endif %}">
+                                <button class="password-toggle" type="button"
+                                        onclick="togglePasswordVisibility('supadata_api_key', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Status: <span class="{% if supadata_configured %}text-success{% else %}text-warning{% endif %}">
+                                    {% if supadata_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-sm" style="background: linear-gradient(135deg, #000000, #ff0050); color: white;">
+                                <i class="fas fa-save me-1"></i>Speichern
+                            </button>
+                            {% if supadata_configured %}
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="testApiKey('supadata')">
+                                    <i class="fas fa-vial me-1"></i>Testen
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+
+                    <div class="alert alert-info small mb-3">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>Supadata</strong> ermöglicht das Extrahieren von TikTok Video-Untertiteln für BackLoom-Backlink-Suche.
+                    </div>
+
+                    <div class="mt-auto" id="supadata-links-container">
+                        <a href="https://supadata.ai/"
+                           target="_blank"
+                           class="btn btn-outline-primary btn-sm"
+                           onclick="trackAffiliateClick('supadata')"
+                           title="Werbung / Affiliate-Link">
+                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten *
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Ad Card 2 -->
         <div class="col-lg-6">
             <div class="card api-provider-card h-100">
@@ -1095,6 +1174,17 @@ body.bg-dark .password-toggle:hover {
                             </div>
                         </div>
                         {% endif %}
+                        {% if user.is_superuser %}
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-3 {% if supadata_configured %}border-success bg-light{% else %}border-warning{% endif %}">
+                                <i class="fab fa-tiktok fa-2x {% if supadata_configured %}text-success{% else %}text-warning{% endif %} mb-2"></i>
+                                <h6>TikTok</h6>
+                                <span class="badge {% if supadata_configured %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if supadata_configured %}Bereit{% else %}Ausstehend{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1167,7 +1257,7 @@ function showDirectLinkButton(provider) {
 
 function initDirectLinkButtons() {
     const clicks = getAffiliateClicks();
-    const providers = ['openai', 'youtube', 'zoho', 'ideogram', 'gemini', 'shopify', 'pinterest', 'upload_post'];
+    const providers = ['openai', 'youtube', 'zoho', 'ideogram', 'gemini', 'shopify', 'pinterest', 'upload_post', 'supadata'];
 
     providers.forEach(provider => {
         if (clicks[provider]) {

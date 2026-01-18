@@ -29,6 +29,11 @@
                         <label class="btn btn-outline-danger btn-sm" for="source-youtube" title="YouTube (API)">
                             <i class="fab fa-youtube"></i> YouTube
                         </label>
+
+                        <input type="checkbox" class="btn-check" id="source-tiktok">
+                        <label class="btn btn-outline-dark btn-sm" for="source-tiktok" title="TikTok (Supadata API)">
+                            <i class="fab fa-tiktok"></i> TikTok
+                        </label>
                     </div>
 
                     <button type="button"
@@ -356,6 +361,9 @@
                             <span class="badge bg-secondary" data-source="youtube">
                                 <i class="fab fa-youtube me-1"></i>YouTube: -
                             </span>
+                            <span class="badge bg-secondary" data-source="tiktok">
+                                <i class="fab fa-tiktok me-1"></i>TikTok: -
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -527,7 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateSourceIndicators(lines) {
         // Nur aktive Quellen (Google/Bing/Ecosia/Reddit sind deaktiviert)
-        const sources = ['duckduckgo', 'youtube'];
+        const sources = ['duckduckgo', 'youtube', 'tiktok'];
         const counts = {};
 
         sources.forEach(s => counts[s] = 0);
@@ -536,8 +544,8 @@ document.addEventListener('DOMContentLoaded', function() {
             lines.forEach(line => {
                 const lower = line.toLowerCase();
                 sources.forEach(source => {
-                    // Match patterns like "DuckDuckGo: 10 Ergebnisse" or "YouTube: 5 Videos"
-                    const match = lower.match(new RegExp(`${source}[:\\s]+([0-9]+)\\s+(ergebnisse|videos)`));
+                    // Match patterns like "DuckDuckGo: 10 Ergebnisse" or "YouTube: 5 Videos" or "TikTok: 3 URLs"
+                    const match = lower.match(new RegExp(`${source}[:\\s]+([0-9]+)\\s+(ergebnisse|videos|urls)`));
                     if (match) {
                         counts[source] = Math.max(counts[source], parseInt(match[1]));
                     }
@@ -581,6 +589,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const selectedSources = [];
             if (document.getElementById('source-duckduckgo')?.checked) selectedSources.push('duckduckgo');
             if (document.getElementById('source-youtube')?.checked) selectedSources.push('youtube');
+            if (document.getElementById('source-tiktok')?.checked) selectedSources.push('tiktok');
 
             if (selectedSources.length === 0) {
                 alert('Bitte wählen Sie mindestens eine Quelle aus!');
@@ -590,6 +599,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const sourceNames = selectedSources.map(s => {
                 if (s === 'duckduckgo') return 'DuckDuckGo';
                 if (s === 'youtube') return 'YouTube';
+                if (s === 'tiktok') return 'TikTok';
                 return s;
             }).join(', ');
 

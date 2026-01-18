@@ -35,6 +35,7 @@ class SourceType(models.TextChoices):
     YAHOO = 'yahoo', 'Yahoo'
     REDDIT = 'reddit', 'Reddit'
     YOUTUBE = 'youtube', 'YouTube'
+    TIKTOK = 'tiktok', 'TikTok'
     QUORA = 'quora', 'Quora'
     MANUAL = 'manual', 'Manuell'
 

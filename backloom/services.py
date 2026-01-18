@@ -71,6 +71,13 @@ class SourceHealthCheck:
             'is_api': True,
             'enabled': True,
         },
+        'tiktok': {
+            'name': 'TikTok (Supadata)',
+            'test_url': 'https://api.supadata.ai/v1/tiktok/transcript',
+            'check_text': None,  # API check
+            'is_api': True,
+            'enabled': True,
+        },
     }
 
     # Deaktivierte Quellen (blockiert oder benötigen JavaScript)
@@ -148,6 +155,40 @@ class SourceHealthCheck:
                 if response.status_code == 200:
                     result['status'] = 'ok'
                     result['message'] = 'API funktioniert'
+                elif response.status_code == 403:
+                    result['status'] = 'error'
+                    result['message'] = 'API-Key ungültig oder Quota überschritten'
+                else:
+                    result['status'] = 'error'
+                    result['message'] = f'HTTP {response.status_code}'
+                return result
+
+            # TikTok/Supadata API spezielle Behandlung
+            if source.get('is_api') and source_key == 'tiktok':
+                api_key = None
+                if user:
+                    api_key = getattr(user, 'supadata_api_key', None)
+                if not api_key:
+                    result['status'] = 'warning'
+                    result['message'] = 'API-Key nicht konfiguriert'
+                    return result
+
+                # Test mit einer bekannten TikTok-URL
+                response = requests.get(
+                    'https://api.supadata.ai/v1/tiktok/transcript',
+                    params={'url': 'https://www.tiktok.com/@test/video/123'},
+                    headers={'x-api-key': api_key},
+                    timeout=10
+                )
+                result['response_time'] = round((time.time() - start_time) * 1000)
+
+                # 400/404 ist okay - bedeutet API funktioniert, Video existiert nur nicht
+                if response.status_code in [200, 400, 404]:
+                    result['status'] = 'ok'
+                    result['message'] = 'API funktioniert'
+                elif response.status_code == 401:
+                    result['status'] = 'error'
+                    result['message'] = 'API-Key ungültig'
                 elif response.status_code == 403:
                     result['status'] = 'error'
                     result['message'] = 'API-Key ungültig oder Quota überschritten'
@@ -235,6 +276,7 @@ class BacklinkScraper:
             'ecosia': {'found': 0, 'status': 'pending'},
             'reddit': {'found': 0, 'status': 'pending'},
             'youtube': {'found': 0, 'status': 'pending'},
+            'tiktok': {'found': 0, 'status': 'pending'},
         }
 
     def _get_headers(self) -> Dict[str, str]:
@@ -393,6 +435,45 @@ class BacklinkScraper:
             pass
         except Exception as e:
             logger.debug(f"Transcript error for {video_id}: {e}")
+
+        return None
+
+    def _get_tiktok_transcript(self, video_url: str) -> Optional[str]:
+        """
+        Holt Untertitel eines TikTok-Videos über die Supadata API.
+        Benötigt einen gültigen Supadata API-Key.
+        """
+        # API Key vom User holen
+        api_key = None
+        if self.search.triggered_by:
+            api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+
+        if not api_key:
+            return None
+
+        try:
+            response = self.session.get(
+                'https://api.supadata.ai/v1/tiktok/transcript',
+                params={'url': video_url},
+                headers={'x-api-key': api_key},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                # Supadata gibt 'content' als Array mit {text, offset, duration}
+                content = data.get('content', [])
+                if content:
+                    # Text zusammenfügen
+                    full_text = ' '.join([seg.get('text', '') for seg in content])
+                    return full_text
+            elif response.status_code == 404:
+                logger.debug(f"TikTok transcript not found for {video_url}")
+            else:
+                logger.debug(f"TikTok API error {response.status_code} for {video_url}")
+
+        except Exception as e:
+            logger.debug(f"TikTok transcript error for {video_url}: {e}")
 
         return None
 
@@ -1014,6 +1095,158 @@ class BacklinkScraper:
         return results
 
     # ==================
+    # TIKTOK SUCHE (via DuckDuckGo + Supadata)
+    # ==================
+    def search_tiktok(self, query: str, num_results: int = 10) -> List[Dict]:
+        """
+        Durchsucht TikTok-Videos nach relevanten Inhalten.
+        1. Findet TikTok-Videos via DuckDuckGo (site:tiktok.com)
+        2. Extrahiert Untertitel via Supadata API
+        3. Sucht in Untertiteln nach URLs und Domain-Erwähnungen
+        """
+        results = []
+        self.search.log_progress(f"TikTok-Suche: '{query}'")
+
+        # Supadata API Key prüfen
+        api_key = None
+        if self.search.triggered_by:
+            api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+
+        if not api_key:
+            self.search.log_progress("TikTok: Supadata API-Key nicht konfiguriert")
+            self.source_stats['tiktok']['status'] = 'warning'
+            return results
+
+        try:
+            # Schritt 1: TikTok-Videos via DuckDuckGo finden
+            search_query = f"site:tiktok.com {query}"
+            url = f"https://html.duckduckgo.com/html/?q={quote_plus(search_query)}&kl=de-de"
+
+            response = self.session.get(
+                url,
+                headers=self._get_headers(),
+                timeout=15
+            )
+
+            if response.status_code != 200:
+                self.search.log_progress(f"TikTok: DuckDuckGo HTTP {response.status_code}")
+                self.source_stats['tiktok']['status'] = 'error'
+                return results
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # TikTok-Video-URLs extrahieren
+            tiktok_urls = []
+            for result in soup.select('div.result'):
+                try:
+                    link_elem = result.select_one('a.result__a') or result.select_one('a[href^="http"]')
+                    if not link_elem:
+                        continue
+
+                    href = link_elem.get('href', '')
+
+                    # DuckDuckGo-Weiterleitungs-Links bereinigen
+                    if '//duckduckgo.com/l/' in href:
+                        import urllib.parse as urlparse
+                        parsed = urlparse.urlparse(href)
+                        params = urlparse.parse_qs(parsed.query)
+                        if 'uddg' in params:
+                            href = urlparse.unquote(params['uddg'][0])
+
+                    # Nur TikTok-Video-URLs (/@user/video/ID Format)
+                    if 'tiktok.com' in href and '/video/' in href:
+                        tiktok_urls.append(href)
+
+                    if len(tiktok_urls) >= num_results:
+                        break
+                except:
+                    continue
+
+            if not tiktok_urls:
+                self.search.log_progress("TikTok: Keine Videos gefunden")
+                self.source_stats['tiktok']['status'] = 'warning'
+                return results
+
+            self.search.log_progress(f"TikTok: {len(tiktok_urls)} Videos gefunden, extrahiere Untertitel...")
+
+            # Schritt 2: Untertitel für jedes Video abrufen
+            urls_found = 0
+            domains_found = 0
+
+            for video_url in tiktok_urls:
+                try:
+                    # Untertitel abrufen
+                    transcript_text = self._get_tiktok_transcript(video_url)
+
+                    if not transcript_text:
+                        continue
+
+                    all_urls = set()
+                    all_domains = set()
+
+                    # URLs aus Untertitel extrahieren
+                    transcript_urls = self._extract_urls_from_text(transcript_text)
+                    all_urls.update(transcript_urls)
+
+                    # Domain-Erwähnungen aus Untertitel (z.B. "besucht example.de")
+                    transcript_domains = self._extract_domains_from_text(transcript_text)
+                    all_domains.update(transcript_domains)
+
+                    # Domains die bereits als URLs gefunden wurden, entfernen
+                    for url_item in all_urls:
+                        domain = self._extract_domain(url_item).lower()
+                        all_domains.discard(domain)
+
+                    found_count = len(all_urls) + len(all_domains)
+                    if found_count > 0:
+                        # Video-ID für Anzeige extrahieren
+                        video_id = video_url.split('/video/')[-1].split('?')[0] if '/video/' in video_url else video_url
+                        self.search.log_progress(
+                            f"  TikTok {video_id[:12]}... → {len(all_urls)} URLs, {len(all_domains)} Domains"
+                        )
+
+                        # Vollständige URLs speichern
+                        for url_item in all_urls:
+                            results.append({
+                                'url': url_item,
+                                'title': f"Gefunden in TikTok-Video",
+                                'description': f"Quelle: TikTok-Video\n{video_url}",
+                                'source_type': SourceType.TIKTOK
+                            })
+                            urls_found += 1
+
+                        # Domains als https:// URLs speichern
+                        for domain in all_domains:
+                            results.append({
+                                'url': f"https://{domain}",
+                                'title': f"Erwähnt in TikTok-Video",
+                                'description': f"Domain im Video erwähnt\nQuelle: TikTok\n{video_url}",
+                                'source_type': SourceType.TIKTOK
+                            })
+                            domains_found += 1
+
+                    # Kurze Pause zwischen API-Aufrufen
+                    self._delay(0.5, 1.0)
+
+                except Exception as e:
+                    logger.debug(f"Error processing TikTok video {video_url}: {e}")
+                    continue
+
+            total_found = urls_found + domains_found
+            self.source_stats['tiktok']['found'] = total_found
+            self.source_stats['tiktok']['status'] = 'ok' if total_found > 0 else 'warning'
+            self.search.log_progress(
+                f"TikTok: {urls_found} URLs + {domains_found} Domains aus {len(tiktok_urls)} Videos"
+            )
+
+        except requests.RequestException as e:
+            logger.error(f"TikTok search error: {e}")
+            self.search.log_progress(f"TikTok-Fehler: {e}")
+            self.source_stats['tiktok']['status'] = 'error'
+
+        return results
+
+    # ==================
     # QUALITY SCORE
     # ==================
     def calculate_quality_score(self, result: Dict, category: str) -> int:
@@ -1130,7 +1363,7 @@ class BacklinkScraper:
         Führt die komplette Backlink-Suche durch
 
         Args:
-            sources: Liste der zu verwendenden Quellen (duckduckgo, reddit, youtube)
+            sources: Liste der zu verwendenden Quellen (duckduckgo, reddit, youtube, tiktok)
                      Wenn None, werden alle aktiven Quellen verwendet
         """
         # Standard-Quellen wenn nicht angegeben (nur funktionierende)
@@ -1148,6 +1381,8 @@ class BacklinkScraper:
             source_names.append('Reddit')
         if 'youtube' in sources:
             source_names.append('YouTube')
+        if 'tiktok' in sources:
+            source_names.append('TikTok')
 
         self.search.log_progress(f"Ausgewählte Quellen: {', '.join(source_names)}")
 
@@ -1182,6 +1417,11 @@ class BacklinkScraper:
                 if 'youtube' in sources:
                     self._delay(1, 2)
                     all_results.extend(self.search_youtube(query.query))
+
+                # TikTok (nur wenn ausgewählt)
+                if 'tiktok' in sources:
+                    self._delay(1, 2)
+                    all_results.extend(self.search_tiktok(query.query))
 
                 # Ergebnisse speichern
                 for result in all_results:

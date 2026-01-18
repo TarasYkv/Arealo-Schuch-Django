@@ -979,12 +979,23 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Upload-Post API-Key ein.')
 
+        elif action == 'update_supadata' and user.is_superuser:
+            supadata_key = request.POST.get('supadata_api_key', '').strip()
+            if supadata_key:
+                user.supadata_api_key = supadata_key
+                user.save()
+                messages.success(request, 'Supadata API-Key (TikTok) erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Supadata API-Key ein.')
+
         elif action == 'clear_keys':
             user.openai_api_key = ''
             user.youtube_api_key = ''
             user.ideogram_api_key = ''
             user.gemini_api_key = ''
             user.upload_post_api_key = ''
+            if user.is_superuser:
+                user.supadata_api_key = ''
             user.save()
             messages.success(request, 'Alle API-Keys wurden gelöscht.')
         
@@ -1030,6 +1041,9 @@ def neue_api_einstellungen_view(request):
         'ideogram_configured': bool(user.ideogram_api_key),
         'gemini_configured': bool(user.gemini_api_key),
         'upload_post_configured': bool(user.upload_post_api_key),
+        # Supadata (TikTok) - nur für Superuser
+        'supadata_key_masked': '••••••••' + user.supadata_api_key[-4:] if user.supadata_api_key and len(user.supadata_api_key) > 4 else '',
+        'supadata_configured': bool(user.supadata_api_key),
         'zoho_configured': bool(zoho_settings and zoho_settings.is_configured),
         'shopify_configured': len(shopify_stores) > 0,
         'zoho_settings': zoho_settings,

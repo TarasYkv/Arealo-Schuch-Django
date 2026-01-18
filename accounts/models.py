@@ -13,6 +13,7 @@ class CustomUser(AbstractUser):
     anthropic_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Anthropic API Key")
     google_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Google API Key")
     youtube_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="YouTube API Key")
+    supadata_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Supadata API Key (TikTok)")
     ideogram_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Ideogram API Key")
     gemini_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Gemini API Key")
     upload_post_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Upload-Post API Key")
