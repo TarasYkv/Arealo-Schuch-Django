@@ -145,6 +145,20 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
                 Q(description__icontains=search)
             )
 
+        # Duplikate entfernen: Pro Domain nur einen Eintrag anzeigen
+        # Verwendet distinct auf domain (PostgreSQL) oder Python-basierte Deduplizierung
+        seen_domains = set()
+        unique_ids = []
+
+        # Sortiere nach Qualität um den besten pro Domain zu behalten
+        for source in queryset.order_by('-quality_score', '-last_found').values('id', 'domain'):
+            if source['domain'] not in seen_domains:
+                seen_domains.add(source['domain'])
+                unique_ids.append(source['id'])
+
+        # Filtere auf unique IDs (behält Sortierung nicht, wird unten neu sortiert)
+        queryset = BacklinkSource.objects.filter(id__in=unique_ids)
+
         # Sortierung
         sort = self.request.GET.get('sort', '-last_found')
         valid_sorts = ['-last_found', 'last_found', '-quality_score', 'quality_score', 'domain', '-domain']

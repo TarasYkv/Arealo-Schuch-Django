@@ -273,6 +273,41 @@ class BacklinkScraper:
         text = re.sub(r'\s+', ' ', text)
         return text.strip()[:500]  # Maximal 500 Zeichen
 
+    def _extract_urls_from_text(self, text: str) -> List[str]:
+        """
+        Extrahiert URLs aus Text (z.B. YouTube-Beschreibungen)
+        Filtert Plattform-URLs (YouTube, Reddit, Social Media) aus
+        """
+        if not text:
+            return []
+
+        # URL-Pattern
+        url_pattern = r'https?://[^\s<>"\')\]]+[^\s<>"\')\].,;:!?]'
+        found_urls = re.findall(url_pattern, text)
+
+        # Bereinigen und filtern
+        valid_urls = []
+        for url in found_urls:
+            # Trailing-Zeichen entfernen
+            url = url.rstrip('.,;:!?)')
+
+            if not self._is_valid_url(url):
+                continue
+
+            # Zusätzliche Plattform-Filter für extrahierte URLs
+            domain = self._extract_domain(url).lower()
+            skip_domains = [
+                'youtube.com', 'youtu.be', 'reddit.com', 'twitter.com', 'x.com',
+                'facebook.com', 'instagram.com', 'tiktok.com', 'linkedin.com',
+                'bit.ly', 'goo.gl', 't.co', 'amzn.to',  # Shortlinks
+            ]
+            if any(skip in domain for skip in skip_domains):
+                continue
+
+            valid_urls.append(url)
+
+        return list(set(valid_urls))  # Duplikate entfernen
+
     # ==================
     # GOOGLE SCRAPING
     # ==================
@@ -746,13 +781,13 @@ class BacklinkScraper:
     # ==================
     def search_youtube(self, query: str, num_results: int = 10) -> List[Dict]:
         """
-        Durchsucht YouTube nach relevanten Videos
-        Verwendet YouTube Data API v3
+        Durchsucht YouTube nach relevanten Videos und extrahiert URLs aus Beschreibungen.
+        Speichert NICHT das YouTube-Video, sondern die in der Beschreibung verlinkten Seiten.
         """
         results = []
         self.search.log_progress(f"YouTube-Suche: '{query}'")
 
-        # API Key vom User holen (aus Profil-Einstellungen)
+        # API Key vom User holen
         api_key = None
         if self.search.triggered_by:
             api_key = getattr(self.search.triggered_by, 'youtube_api_key', None)
@@ -763,19 +798,20 @@ class BacklinkScraper:
             return results
 
         try:
-            url = "https://www.googleapis.com/youtube/v3/search"
+            # Schritt 1: Videos suchen
+            search_url = "https://www.googleapis.com/youtube/v3/search"
             params = {
                 'part': 'snippet',
                 'q': query,
                 'type': 'video',
                 'maxResults': num_results,
-                'order': 'date',
+                'order': 'relevance',
                 'relevanceLanguage': 'de',
                 'regionCode': 'DE',
                 'key': api_key
             }
 
-            response = self.session.get(url, params=params, timeout=15)
+            response = self.session.get(search_url, params=params, timeout=15)
 
             if response.status_code == 403:
                 self.search.log_progress("YouTube: API-Key ungültig oder Quota überschritten")
@@ -786,32 +822,60 @@ class BacklinkScraper:
                 self.source_stats['youtube']['status'] = 'error'
                 return results
 
-            data = response.json()
+            search_data = response.json()
+            video_ids = [item['id']['videoId'] for item in search_data.get('items', [])]
 
-            for item in data.get('items', []):
+            if not video_ids:
+                self.search.log_progress("YouTube: Keine Videos gefunden")
+                return results
+
+            # Schritt 2: Volle Video-Details holen (inkl. kompletter Beschreibung)
+            videos_url = "https://www.googleapis.com/youtube/v3/videos"
+            videos_params = {
+                'part': 'snippet',
+                'id': ','.join(video_ids),
+                'key': api_key
+            }
+
+            videos_response = self.session.get(videos_url, params=videos_params, timeout=15)
+            if videos_response.status_code != 200:
+                self.search.log_progress(f"YouTube Videos API: HTTP {videos_response.status_code}")
+                return results
+
+            videos_data = videos_response.json()
+            urls_found = 0
+
+            for item in videos_data.get('items', []):
                 try:
-                    video_id = item['id']['videoId']
                     snippet = item['snippet']
-
-                    video_url = f"https://www.youtube.com/watch?v={video_id}"
-                    title = snippet.get('title', '')
-                    description = snippet.get('description', '')[:300]
+                    video_title = snippet.get('title', '')
+                    full_description = snippet.get('description', '')
                     channel = snippet.get('channelTitle', '')
+                    video_id = item['id']
 
-                    results.append({
-                        'url': video_url,
-                        'title': title,
-                        'description': f"Kanal: {channel}\n{description}",
-                        'source_type': SourceType.YOUTUBE
-                    })
+                    # URLs aus Beschreibung extrahieren
+                    extracted_urls = self._extract_urls_from_text(full_description)
+
+                    if extracted_urls:
+                        self.search.log_progress(f"  Video '{video_title[:40]}...' → {len(extracted_urls)} URLs gefunden")
+
+                        for url in extracted_urls:
+                            domain = self._extract_domain(url)
+                            results.append({
+                                'url': url,
+                                'title': f"Gefunden in: {video_title[:100]}",
+                                'description': f"Quelle: YouTube-Video von {channel}\nhttps://youtube.com/watch?v={video_id}",
+                                'source_type': SourceType.YOUTUBE
+                            })
+                            urls_found += 1
 
                 except Exception as e:
-                    logger.debug(f"Error parsing YouTube result: {e}")
+                    logger.debug(f"Error parsing YouTube video: {e}")
                     continue
 
-            self.source_stats['youtube']['found'] = len(results)
-            self.source_stats['youtube']['status'] = 'ok' if results else 'warning'
-            self.search.log_progress(f"YouTube: {len(results)} Videos gefunden")
+            self.source_stats['youtube']['found'] = urls_found
+            self.source_stats['youtube']['status'] = 'ok' if urls_found > 0 else 'warning'
+            self.search.log_progress(f"YouTube: {urls_found} Backlink-URLs aus {len(video_ids)} Videos extrahiert")
 
         except requests.RequestException as e:
             logger.error(f"YouTube API error: {e}")
