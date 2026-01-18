@@ -933,18 +933,31 @@ class BacklinkScraper:
     # ==================
     # HAUPTMETHODE
     # ==================
-    def run(self) -> Dict:
+    def run(self, sources: List[str] = None) -> Dict:
         """
         Führt die komplette Backlink-Suche durch
 
-        HINWEIS: Google, Bing und Ecosia sind deaktiviert da sie
-        JavaScript erfordern und ohne Headless-Browser nicht funktionieren.
-        Aktive Quellen: DuckDuckGo (HTML), Reddit, YouTube (API)
+        Args:
+            sources: Liste der zu verwendenden Quellen (duckduckgo, reddit, youtube)
+                     Wenn None, werden alle aktiven Quellen verwendet
         """
+        # Standard-Quellen wenn nicht angegeben
+        if sources is None:
+            sources = ['duckduckgo', 'reddit', 'youtube']
+
         self.search.start()
         self.search.log_progress("Starte Backlink-Suche...")
-        self.search.log_progress("Aktive Quellen: DuckDuckGo, Reddit, YouTube")
-        self.search.log_progress("(Google/Bing/Ecosia benötigen JavaScript - deaktiviert)")
+
+        # Quellen-Namen für Anzeige
+        source_names = []
+        if 'duckduckgo' in sources:
+            source_names.append('DuckDuckGo')
+        if 'reddit' in sources:
+            source_names.append('Reddit')
+        if 'youtube' in sources:
+            source_names.append('YouTube')
+
+        self.search.log_progress(f"Ausgewählte Quellen: {', '.join(source_names)}")
 
         try:
             # Alle aktiven Suchbegriffe laden
@@ -963,17 +976,20 @@ class BacklinkScraper:
 
                 all_results = []
 
-                # DuckDuckGo (HTML-Version funktioniert ohne JS)
-                self._delay(2, 4)
-                all_results.extend(self.search_duckduckgo(query.query))
+                # DuckDuckGo (nur wenn ausgewählt)
+                if 'duckduckgo' in sources:
+                    self._delay(2, 4)
+                    all_results.extend(self.search_duckduckgo(query.query))
 
-                # Reddit (alte Version funktioniert)
-                self._delay(2, 4)
-                all_results.extend(self.search_reddit(query.query))
+                # Reddit (nur wenn ausgewählt)
+                if 'reddit' in sources:
+                    self._delay(2, 4)
+                    all_results.extend(self.search_reddit(query.query))
 
-                # YouTube (API - immer für alle Kategorien, wenn API-Key vorhanden)
-                self._delay(1, 2)
-                all_results.extend(self.search_youtube(query.query))
+                # YouTube (nur wenn ausgewählt)
+                if 'youtube' in sources:
+                    self._delay(1, 2)
+                    all_results.extend(self.search_youtube(query.query))
 
                 # Ergebnisse speichern
                 for result in all_results:
@@ -1019,16 +1035,21 @@ class BacklinkScraper:
         return self.stats
 
 
-def run_backlink_search(user) -> BacklinkSearch:
+def run_backlink_search(user, sources: List[str] = None) -> BacklinkSearch:
     """
     Startet eine neue Backlink-Suche
+
+    Args:
+        user: Der User der die Suche startet
+        sources: Liste der zu verwendenden Quellen (duckduckgo, reddit, youtube)
+                 Wenn None, werden alle aktiven Quellen verwendet
     """
     # Neue Suche erstellen
     search = BacklinkSearch.objects.create(triggered_by=user)
 
-    # Scraper starten
+    # Scraper starten mit ausgewählten Quellen
     scraper = BacklinkScraper(search)
-    scraper.run()
+    scraper.run(sources=sources)
 
     return search
 

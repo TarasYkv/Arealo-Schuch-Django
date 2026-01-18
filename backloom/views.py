@@ -184,6 +184,7 @@ class BackloomSearchHistoryView(LoginRequiredMixin, ListView):
 def api_start_search(request):
     """
     API: Startet eine neue Backlink-Suche (nur Superuser)
+    Akzeptiert 'sources' Parameter: comma-separated Liste (duckduckgo,reddit,youtube)
     """
     if not request.user.is_superuser:
         return JsonResponse({
@@ -199,16 +200,27 @@ def api_start_search(request):
             'error': 'Es läuft bereits eine Suche'
         }, status=400)
 
+    # Ausgewählte Quellen aus Request
+    sources_param = request.POST.get('sources', '')
+    selected_sources = [s.strip() for s in sources_param.split(',') if s.strip()]
+
+    # Validiere Quellen
+    valid_sources = ['duckduckgo', 'reddit', 'youtube']
+    selected_sources = [s for s in selected_sources if s in valid_sources]
+
+    # Fallback: alle Quellen wenn keine angegeben
+    if not selected_sources:
+        selected_sources = valid_sources
+
     try:
-        # Suche im Hintergrund starten (oder synchron für kleinere Suchen)
-        search = run_backlink_search(request.user)
+        # Suche starten mit ausgewählten Quellen
+        search = run_backlink_search(request.user, sources=selected_sources)
 
         return JsonResponse({
             'success': True,
-            'message': f'Suche gestartet. {search.new_sources} neue Quellen gefunden.',
+            'message': f'Suche gestartet mit: {", ".join(selected_sources)}',
             'search_id': str(search.id),
-            'new_sources': search.new_sources,
-            'updated_sources': search.updated_sources
+            'sources': selected_sources
         })
 
     except Exception as e:

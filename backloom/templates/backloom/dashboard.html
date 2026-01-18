@@ -17,7 +17,25 @@
                 </div>
 
                 {% if is_superuser %}
-                <div class="d-flex gap-2 flex-wrap">
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <!-- Quellen-Auswahl -->
+                    <div class="btn-group me-2" role="group" aria-label="Quellen auswählen">
+                        <input type="checkbox" class="btn-check" id="source-duckduckgo" checked>
+                        <label class="btn btn-outline-success btn-sm" for="source-duckduckgo" title="DuckDuckGo">
+                            <i class="fas fa-search"></i> DDG
+                        </label>
+
+                        <input type="checkbox" class="btn-check" id="source-reddit" checked>
+                        <label class="btn btn-outline-warning btn-sm" for="source-reddit" title="Reddit (oft blockiert)">
+                            <i class="fab fa-reddit"></i> Reddit
+                        </label>
+
+                        <input type="checkbox" class="btn-check" id="source-youtube" checked>
+                        <label class="btn btn-outline-danger btn-sm" for="source-youtube" title="YouTube (API)">
+                            <i class="fab fa-youtube"></i> YT
+                        </label>
+                    </div>
+
                     <button type="button"
                             id="btn-start-search"
                             class="btn btn-primary"
@@ -29,13 +47,13 @@
                             Suche starten
                         {% endif %}
                     </button>
-                    <button type="button" id="btn-health-check" class="btn btn-outline-info">
-                        <i class="fas fa-heartbeat me-1"></i>Quellen prüfen
+                    <button type="button" id="btn-health-check" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-heartbeat me-1"></i>Prüfen
                     </button>
-                    <button type="button" id="btn-init-queries" class="btn btn-outline-secondary">
+                    <button type="button" id="btn-init-queries" class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-database me-1"></i>Suchbegriffe
                     </button>
-                    <button type="button" id="btn-cleanup" class="btn btn-outline-danger">
+                    <button type="button" id="btn-cleanup" class="btn btn-outline-danger btn-sm">
                         <i class="fas fa-broom me-1"></i>Bereinigen
                     </button>
                 </div>
@@ -567,13 +585,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnStartSearch = document.getElementById('btn-start-search');
     if (btnStartSearch) {
         btnStartSearch.addEventListener('click', function() {
-            if (!confirm('Backlink-Suche starten? Dies kann einige Minuten dauern.')) return;
+            // Ausgewählte Quellen sammeln
+            const selectedSources = [];
+            if (document.getElementById('source-duckduckgo')?.checked) selectedSources.push('duckduckgo');
+            if (document.getElementById('source-reddit')?.checked) selectedSources.push('reddit');
+            if (document.getElementById('source-youtube')?.checked) selectedSources.push('youtube');
+
+            if (selectedSources.length === 0) {
+                alert('Bitte wählen Sie mindestens eine Quelle aus!');
+                return;
+            }
+
+            const sourceNames = selectedSources.map(s => {
+                if (s === 'duckduckgo') return 'DuckDuckGo';
+                if (s === 'reddit') return 'Reddit';
+                if (s === 'youtube') return 'YouTube';
+                return s;
+            }).join(', ');
+
+            if (!confirm(`Backlink-Suche starten mit: ${sourceNames}?\n\nDies kann einige Minuten dauern.`)) return;
 
             btnStartSearch.disabled = true;
             btnStartSearch.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Startet...';
 
             // Modal öffnen
-            progressLog.innerHTML = '<div class="text-muted">Starte Suche...</div>';
+            progressLog.innerHTML = '<div class="text-muted">Starte Suche mit: ' + sourceNames + '</div>';
             document.getElementById('modal-found').textContent = '0';
             document.getElementById('modal-new').textContent = '0';
             document.getElementById('modal-updated').textContent = '0';
@@ -582,13 +618,17 @@ document.addEventListener('DOMContentLoaded', function() {
             btnCloseModal.disabled = true;
             progressModal.show();
 
-            // Suche starten
+            // Suche starten mit ausgewählten Quellen
+            const formData = new URLSearchParams();
+            formData.append('sources', selectedSources.join(','));
+
             fetch('{% url "backloom:api_start_search" %}', {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/x-www-form-urlencoded'
-                }
+                },
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
