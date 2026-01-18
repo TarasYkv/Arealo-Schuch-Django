@@ -393,6 +393,8 @@ def api_search_progress(request):
     """
     API: Gibt den aktuellen Suchfortschritt zurück (für Live-Updates)
     """
+    import re
+
     # Aktive oder letzte Suche finden
     search = BacklinkSearch.objects.filter(
         status=BacklinkSearchStatus.RUNNING
@@ -409,10 +411,23 @@ def api_search_progress(request):
 
     # Progress-Log in Zeilen aufteilen für bessere Darstellung
     progress_lines = []
+    new_sources = search.new_sources
+    updated_sources = search.updated_sources
+
     if search.progress_log:
         lines = search.progress_log.strip().split('\n')
         # Letzte 20 Zeilen
         progress_lines = lines[-20:]
+
+        # Bei laufender Suche: Zähler aus Log parsen (da sie erst am Ende gespeichert werden)
+        if search.status == BacklinkSearchStatus.RUNNING:
+            # Suche nach "Zwischenstand: X neue, Y aktualisiert" Zeilen
+            for line in reversed(lines):
+                match = re.search(r'Zwischenstand:\s*(\d+)\s*neue,\s*(\d+)\s*aktualisiert', line)
+                if match:
+                    new_sources = int(match.group(1))
+                    updated_sources = int(match.group(2))
+                    break
 
     return JsonResponse({
         'has_search': True,
@@ -420,9 +435,9 @@ def api_search_progress(request):
         'status': search.status,
         'status_display': search.get_status_display(),
         'is_running': search.status == BacklinkSearchStatus.RUNNING,
-        'sources_found': search.sources_found,
-        'new_sources': search.new_sources,
-        'updated_sources': search.updated_sources,
+        'sources_found': new_sources + updated_sources,
+        'new_sources': new_sources,
+        'updated_sources': updated_sources,
         'started_at': search.started_at.isoformat() if search.started_at else None,
         'completed_at': search.completed_at.isoformat() if search.completed_at else None,
         'duration': search.duration_formatted,
