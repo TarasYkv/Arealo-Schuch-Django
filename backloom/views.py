@@ -82,14 +82,29 @@ class BackloomDashboardView(LoginRequiredMixin, ListView):
 class BackloomFeedView(LoginRequiredMixin, ListView):
     """
     BackLoom Feed - Liste aller Backlink-Quellen mit Filtern
+    Zeigt nur echte Backlink-Möglichkeiten (externe Seiten)
     """
     model = BacklinkSource
     template_name = 'backloom/feed.html'
     context_object_name = 'sources'
     paginate_by = 25
 
+    # Domains die keine echten Backlink-Quellen sind (nur Plattformen)
+    EXCLUDED_DOMAINS = [
+        'youtube.com', 'youtu.be',  # YouTube-Videos sind keine Backlink-Seiten
+        'reddit.com',  # Reddit-Posts sind keine Backlink-Seiten
+    ]
+
     def get_queryset(self):
         queryset = BacklinkSource.objects.all()
+
+        # Standard: Nur echte Backlink-Quellen (keine Plattform-Links)
+        # Kann mit ?show_all=1 deaktiviert werden
+        show_all = self.request.GET.get('show_all') == '1'
+        if not show_all:
+            # YouTube und Reddit-Links ausschließen (keine echten Backlink-Seiten)
+            for domain in self.EXCLUDED_DOMAINS:
+                queryset = queryset.exclude(domain__icontains=domain)
 
         # Filter: Kategorie
         category = self.request.GET.get('category')
@@ -116,7 +131,7 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
         elif quality == 'low':
             queryset = queryset.filter(quality_score__lt=40)
 
-        # Filter: Quelle
+        # Filter: Gefunden über (Suchquelle) - umbenannt für Klarheit
         source = self.request.GET.get('source')
         if source and source in dict(SourceType.choices):
             queryset = queryset.filter(source_type=source)
@@ -151,6 +166,7 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
             'current_source': self.request.GET.get('source', ''),
             'current_sort': self.request.GET.get('sort', '-last_found'),
             'search_query': self.request.GET.get('q', ''),
+            'show_all': self.request.GET.get('show_all') == '1',
         })
 
         return context
