@@ -111,6 +111,32 @@
         </div>
     </div>
 
+    <!-- Auswahl-Toolbar (nur für Superuser) -->
+    {% if user.is_superuser %}
+    <div class="row mb-3" id="selection-toolbar" style="display: none;">
+        <div class="col-12">
+            <div class="card border-0 shadow bg-danger text-white">
+                <div class="card-body py-2 d-flex align-items-center justify-content-between">
+                    <div>
+                        <input type="checkbox" class="form-check-input me-2" id="select-all-checkbox">
+                        <label class="form-check-label" for="select-all-checkbox">
+                            <span id="selected-count">0</span> ausgewählt
+                        </label>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-light btn-sm me-2" id="btn-deselect-all">
+                            <i class="fas fa-times me-1"></i>Auswahl aufheben
+                        </button>
+                        <button type="button" class="btn btn-dark btn-sm" id="btn-delete-selected">
+                            <i class="fas fa-trash me-1"></i>Ausgewählte löschen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Feed-Liste -->
     <div class="row">
         <div class="col-12">
@@ -118,8 +144,15 @@
             <div class="card border-0 shadow-sm mb-3 source-card" data-source-id="{{ source.pk }}">
                 <div class="card-body">
                     <div class="row align-items-center">
+                        {% if user.is_superuser %}
+                        <!-- Checkbox für Auswahl -->
+                        <div class="col-auto pe-0">
+                            <input type="checkbox" class="form-check-input source-checkbox"
+                                   data-source-id="{{ source.pk }}" style="transform: scale(1.3);">
+                        </div>
+                        {% endif %}
                         <!-- URL/Link (PROMINENT) -->
-                        <div class="col-lg-6">
+                        <div class="{% if user.is_superuser %}col-lg-5{% else %}col-lg-6{% endif %}">
                             <div class="d-flex align-items-start">
                                 <img src="{{ source.favicon_url }}" width="40" height="40" class="me-3 rounded shadow-sm"
                                      onerror="this.src='https://www.google.com/s2/favicons?domain=example.com&sz=64'">
@@ -279,7 +312,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
                       document.querySelector('meta[name="csrf-token"]')?.content;
 
-    // Status-Buttons
+    // ==================
+    // STATUS-BUTTONS
+    // ==================
     document.querySelectorAll('.btn-status').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const card = this.closest('.source-card');
@@ -297,38 +332,154 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Button-Styles aktualisieren
                     const btnGroup = this.closest('.btn-group');
-
-                    // Alle Buttons zurücksetzen
                     btnGroup.querySelectorAll('.btn-status').forEach(b => {
                         b.classList.remove('btn-info', 'btn-success', 'btn-danger');
-                        if (b.dataset.action === 'processed') {
-                            b.classList.add('btn-outline-info');
-                        } else if (b.dataset.action === 'successful') {
-                            b.classList.add('btn-outline-success');
-                        } else if (b.dataset.action === 'rejected') {
-                            b.classList.add('btn-outline-danger');
-                        }
+                        if (b.dataset.action === 'processed') b.classList.add('btn-outline-info');
+                        else if (b.dataset.action === 'successful') b.classList.add('btn-outline-success');
+                        else if (b.dataset.action === 'rejected') b.classList.add('btn-outline-danger');
                     });
 
-                    // Aktiven Button markieren
                     if (data.is_processed && !data.is_successful && !data.is_rejected) {
-                        btnGroup.querySelector('[data-action="processed"]').classList.remove('btn-outline-info');
-                        btnGroup.querySelector('[data-action="processed"]').classList.add('btn-info');
+                        btnGroup.querySelector('[data-action="processed"]').classList.replace('btn-outline-info', 'btn-info');
                     }
                     if (data.is_successful) {
-                        btnGroup.querySelector('[data-action="successful"]').classList.remove('btn-outline-success');
-                        btnGroup.querySelector('[data-action="successful"]').classList.add('btn-success');
+                        btnGroup.querySelector('[data-action="successful"]').classList.replace('btn-outline-success', 'btn-success');
                     }
                     if (data.is_rejected) {
-                        btnGroup.querySelector('[data-action="rejected"]').classList.remove('btn-outline-danger');
-                        btnGroup.querySelector('[data-action="rejected"]').classList.add('btn-danger');
+                        btnGroup.querySelector('[data-action="rejected"]').classList.replace('btn-outline-danger', 'btn-danger');
                     }
                 }
             });
         });
     });
+
+    // ==================
+    // AUSWAHL & LÖSCHEN (nur für Superuser)
+    // ==================
+    const selectionToolbar = document.getElementById('selection-toolbar');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const btnDeselectAll = document.getElementById('btn-deselect-all');
+    const btnDeleteSelected = document.getElementById('btn-delete-selected');
+    const sourceCheckboxes = document.querySelectorAll('.source-checkbox');
+
+    if (selectionToolbar && sourceCheckboxes.length > 0) {
+        // Auswahl aktualisieren
+        function updateSelection() {
+            const checked = document.querySelectorAll('.source-checkbox:checked');
+            const count = checked.length;
+
+            selectedCountSpan.textContent = count;
+
+            if (count > 0) {
+                selectionToolbar.style.display = 'block';
+            } else {
+                selectionToolbar.style.display = 'none';
+            }
+
+            // "Alle auswählen" Checkbox Status
+            selectAllCheckbox.checked = count === sourceCheckboxes.length && count > 0;
+            selectAllCheckbox.indeterminate = count > 0 && count < sourceCheckboxes.length;
+        }
+
+        // Checkbox-Klick
+        sourceCheckboxes.forEach(cb => {
+            cb.addEventListener('change', updateSelection);
+
+            // Karte hervorheben wenn ausgewählt
+            cb.addEventListener('change', function() {
+                const card = this.closest('.source-card');
+                if (this.checked) {
+                    card.classList.add('border-danger', 'border-2');
+                } else {
+                    card.classList.remove('border-danger', 'border-2');
+                }
+            });
+        });
+
+        // Alle auswählen
+        selectAllCheckbox.addEventListener('change', function() {
+            sourceCheckboxes.forEach(cb => {
+                cb.checked = this.checked;
+                const card = cb.closest('.source-card');
+                if (this.checked) {
+                    card.classList.add('border-danger', 'border-2');
+                } else {
+                    card.classList.remove('border-danger', 'border-2');
+                }
+            });
+            updateSelection();
+        });
+
+        // Auswahl aufheben
+        btnDeselectAll.addEventListener('click', function() {
+            sourceCheckboxes.forEach(cb => {
+                cb.checked = false;
+                cb.closest('.source-card').classList.remove('border-danger', 'border-2');
+            });
+            updateSelection();
+        });
+
+        // Ausgewählte löschen
+        btnDeleteSelected.addEventListener('click', function() {
+            const checked = document.querySelectorAll('.source-checkbox:checked');
+            const ids = Array.from(checked).map(cb => cb.dataset.sourceId);
+
+            if (ids.length === 0) return;
+
+            if (!confirm(`${ids.length} Einträge wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) {
+                return;
+            }
+
+            // Löschen Button deaktivieren
+            btnDeleteSelected.disabled = true;
+            btnDeleteSelected.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Lösche...';
+
+            // FormData mit IDs
+            const formData = new FormData();
+            ids.forEach(id => formData.append('ids[]', id));
+
+            fetch('{% url "backloom:api_delete_sources" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Gelöschte Karten ausblenden
+                    checked.forEach(cb => {
+                        const card = cb.closest('.source-card');
+                        card.style.transition = 'opacity 0.3s, transform 0.3s';
+                        card.style.opacity = '0';
+                        card.style.transform = 'translateX(-20px)';
+                        setTimeout(() => card.remove(), 300);
+                    });
+
+                    // Toolbar verstecken
+                    setTimeout(() => {
+                        selectionToolbar.style.display = 'none';
+                        selectedCountSpan.textContent = '0';
+                    }, 350);
+
+                    // Erfolgs-Meldung
+                    alert(data.message);
+                } else {
+                    alert('Fehler: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Fehler beim Löschen: ' + error);
+            })
+            .finally(() => {
+                btnDeleteSelected.disabled = false;
+                btnDeleteSelected.innerHTML = '<i class="fas fa-trash me-1"></i>Ausgewählte löschen';
+            });
+        });
+    }
 });
 </script>
 {% endblock %}

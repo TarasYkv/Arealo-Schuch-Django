@@ -21,6 +21,7 @@ urlpatterns = [
     path('api/search/<uuid:pk>/status/', views.api_search_status, name='api_search_status'),
     path('api/source/<uuid:pk>/status/', views.api_update_source_status, name='api_update_source_status'),
     path('api/source/<uuid:pk>/notes/', views.api_update_source_notes, name='api_update_source_notes'),
+    path('api/sources/delete/', views.api_delete_sources, name='api_delete_sources'),
     path('api/init-queries/', views.api_init_queries, name='api_init_queries'),
     path('api/cleanup/', views.api_cleanup_old, name='api_cleanup'),
     path('api/stats/', views.api_stats, name='api_stats'),

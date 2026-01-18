@@ -326,6 +326,46 @@ def api_update_source_notes(request, pk):
 
 
 @login_required
+@require_POST
+def api_delete_sources(request):
+    """
+    API: Löscht ausgewählte Backlink-Quellen (nur Superuser)
+    Erwartet: ids[] - Liste von UUIDs
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Nur Superuser können Einträge löschen'
+        }, status=403)
+
+    # IDs aus Request holen
+    ids = request.POST.getlist('ids[]') or request.POST.getlist('ids')
+
+    if not ids:
+        return JsonResponse({
+            'success': False,
+            'error': 'Keine Einträge ausgewählt'
+        }, status=400)
+
+    try:
+        # Einträge löschen
+        deleted_count, _ = BacklinkSource.objects.filter(id__in=ids).delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'{deleted_count} Einträge gelöscht',
+            'deleted_count': deleted_count
+        })
+
+    except Exception as e:
+        logger.exception("Error deleting sources")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
 @require_GET
 def api_search_status(request, pk):
     """
