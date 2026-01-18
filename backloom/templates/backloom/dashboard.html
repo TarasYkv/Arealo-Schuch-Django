@@ -332,22 +332,13 @@
                     </div>
                 </div>
 
-                <!-- Quellen-Status -->
+                <!-- Quellen-Status (nur aktive Quellen) -->
                 <div class="row mt-3" id="source-status-row">
                     <div class="col-12">
-                        <small class="text-muted">Quellen-Status:</small>
+                        <small class="text-muted">Aktive Quellen:</small>
                         <div class="d-flex flex-wrap gap-2 mt-1" id="source-indicators">
-                            <span class="badge bg-secondary" data-source="google">
-                                <i class="fab fa-google me-1"></i>Google: -
-                            </span>
-                            <span class="badge bg-secondary" data-source="bing">
-                                <i class="fab fa-microsoft me-1"></i>Bing: -
-                            </span>
                             <span class="badge bg-secondary" data-source="duckduckgo">
-                                <i class="fas fa-duck me-1"></i>DuckDuckGo: -
-                            </span>
-                            <span class="badge bg-secondary" data-source="ecosia">
-                                <i class="fas fa-leaf me-1"></i>Ecosia: -
+                                <i class="fas fa-search me-1"></i>DuckDuckGo: -
                             </span>
                             <span class="badge bg-secondary" data-source="reddit">
                                 <i class="fab fa-reddit me-1"></i>Reddit: -
@@ -402,24 +393,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.sources.forEach(source => {
                     let statusClass = 'secondary';
                     let statusIcon = 'fas fa-question-circle';
+                    let borderClass = 'border';
 
                     if (source.status === 'ok') {
                         statusClass = 'success';
                         statusIcon = 'fas fa-check-circle';
+                        borderClass = 'border border-success';
                     } else if (source.status === 'warning') {
                         statusClass = 'warning';
                         statusIcon = 'fas fa-exclamation-triangle';
+                        borderClass = 'border border-warning';
                     } else if (source.status === 'error') {
                         statusClass = 'danger';
                         statusIcon = 'fas fa-times-circle';
+                        borderClass = 'border border-danger';
+                    } else if (source.status === 'disabled') {
+                        statusClass = 'secondary';
+                        statusIcon = 'fas fa-ban';
+                        borderClass = 'border opacity-50';
                     }
+
+                    const enabledLabel = source.enabled === false ? '<span class="badge bg-secondary ms-2">Deaktiviert</span>' : '';
 
                     html += `
                         <div class="col-md-4 col-sm-6 mb-3">
-                            <div class="d-flex align-items-center p-3 border rounded">
+                            <div class="d-flex align-items-center p-3 ${borderClass} rounded">
                                 <i class="${statusIcon} text-${statusClass} fa-2x me-3"></i>
                                 <div>
-                                    <strong>${source.name}</strong><br>
+                                    <strong>${source.name}</strong>${enabledLabel}<br>
                                     <small class="text-${statusClass}">${source.message}</small>
                                     ${source.response_time ? `<br><small class="text-muted">${source.response_time}ms</small>` : ''}
                                 </div>
@@ -515,7 +516,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateSourceIndicators(lines) {
-        const sources = ['google', 'bing', 'duckduckgo', 'ecosia', 'reddit', 'youtube'];
+        // Nur aktive Quellen (Google/Bing/Ecosia sind deaktiviert)
+        const sources = ['duckduckgo', 'reddit', 'youtube'];
         const counts = {};
 
         sources.forEach(s => counts[s] = 0);
@@ -524,7 +526,8 @@ document.addEventListener('DOMContentLoaded', function() {
             lines.forEach(line => {
                 const lower = line.toLowerCase();
                 sources.forEach(source => {
-                    const match = lower.match(new RegExp(`${source}[:\\s]+([0-9]+)\\s+ergebnisse`));
+                    // Match patterns like "DuckDuckGo: 10 Ergebnisse" or "YouTube: 5 Videos"
+                    const match = lower.match(new RegExp(`${source}[:\\s]+([0-9]+)\\s+(ergebnisse|videos)`));
                     if (match) {
                         counts[source] = Math.max(counts[source], parseInt(match[1]));
                     }

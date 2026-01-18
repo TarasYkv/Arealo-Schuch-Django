@@ -48,43 +48,63 @@ EXCLUDED_DOMAINS = [
 class SourceHealthCheck:
     """Health-Check für Suchmaschinen-Quellen"""
 
+    # Aktive Quellen (funktionieren ohne JavaScript)
     SOURCES = {
-        'google': {
-            'name': 'Google',
-            'test_url': 'https://www.google.de/search?q=test&hl=de',
-            'check_text': 'google',
-        },
-        'bing': {
-            'name': 'Bing',
-            'test_url': 'https://www.bing.com/search?q=test',
-            'check_text': 'bing',
-        },
         'duckduckgo': {
             'name': 'DuckDuckGo',
             'test_url': 'https://html.duckduckgo.com/html/?q=test',
             'check_text': 'duckduckgo',
-        },
-        'ecosia': {
-            'name': 'Ecosia',
-            'test_url': 'https://www.ecosia.org/search?q=test',
-            'check_text': 'ecosia',
+            'enabled': True,
         },
         'reddit': {
             'name': 'Reddit',
             'test_url': 'https://old.reddit.com/search?q=test',
             'check_text': 'reddit',
+            'enabled': True,
         },
         'youtube': {
             'name': 'YouTube API',
             'test_url': 'https://www.googleapis.com/youtube/v3/search',
             'check_text': None,  # API check
             'is_api': True,
+            'enabled': True,
+        },
+    }
+
+    # Deaktivierte Quellen (benötigen JavaScript/Headless-Browser)
+    DISABLED_SOURCES = {
+        'google': {
+            'name': 'Google',
+            'reason': 'Benötigt JavaScript',
+            'enabled': False,
+        },
+        'bing': {
+            'name': 'Bing',
+            'reason': 'Benötigt JavaScript',
+            'enabled': False,
+        },
+        'ecosia': {
+            'name': 'Ecosia',
+            'reason': 'Benötigt JavaScript',
+            'enabled': False,
         },
     }
 
     @classmethod
     def check_source(cls, source_key: str, user=None) -> Dict:
         """Prüft eine einzelne Quelle"""
+        # Prüfen ob deaktivierte Quelle
+        if source_key in cls.DISABLED_SOURCES:
+            disabled = cls.DISABLED_SOURCES[source_key]
+            return {
+                'key': source_key,
+                'name': disabled['name'],
+                'status': 'disabled',
+                'message': disabled['reason'],
+                'response_time': 0,
+                'enabled': False,
+            }
+
         source = cls.SOURCES.get(source_key)
         if not source:
             return {'status': 'error', 'message': 'Unbekannte Quelle'}
@@ -95,6 +115,7 @@ class SourceHealthCheck:
             'status': 'unknown',
             'message': '',
             'response_time': 0,
+            'enabled': True,
         }
 
         try:
@@ -176,9 +197,13 @@ class SourceHealthCheck:
 
     @classmethod
     def check_all_sources(cls, user=None) -> List[Dict]:
-        """Prüft alle Quellen"""
+        """Prüft alle Quellen (aktive + deaktivierte)"""
         results = []
+        # Aktive Quellen zuerst
         for source_key in cls.SOURCES.keys():
+            results.append(cls.check_source(source_key, user))
+        # Dann deaktivierte Quellen
+        for source_key in cls.DISABLED_SOURCES.keys():
             results.append(cls.check_source(source_key, user))
         return results
 
@@ -911,9 +936,15 @@ class BacklinkScraper:
     def run(self) -> Dict:
         """
         Führt die komplette Backlink-Suche durch
+
+        HINWEIS: Google, Bing und Ecosia sind deaktiviert da sie
+        JavaScript erfordern und ohne Headless-Browser nicht funktionieren.
+        Aktive Quellen: DuckDuckGo (HTML), Reddit, YouTube (API)
         """
         self.search.start()
         self.search.log_progress("Starte Backlink-Suche...")
+        self.search.log_progress("Aktive Quellen: DuckDuckGo, Reddit, YouTube")
+        self.search.log_progress("(Google/Bing/Ecosia benötigen JavaScript - deaktiviert)")
 
         try:
             # Alle aktiven Suchbegriffe laden
@@ -932,31 +963,17 @@ class BacklinkScraper:
 
                 all_results = []
 
-                # Suchmaschinen durchsuchen
-                # Google
-                self._delay(1, 3)
-                all_results.extend(self.search_google(query.query))
-
-                # Bing
-                self._delay(2, 4)
-                all_results.extend(self.search_bing(query.query))
-
-                # DuckDuckGo
+                # DuckDuckGo (HTML-Version funktioniert ohne JS)
                 self._delay(2, 4)
                 all_results.extend(self.search_duckduckgo(query.query))
 
-                # Ecosia
-                self._delay(2, 4)
-                all_results.extend(self.search_ecosia(query.query))
-
-                # Reddit (für alle Kategorien relevant)
+                # Reddit (alte Version funktioniert)
                 self._delay(2, 4)
                 all_results.extend(self.search_reddit(query.query))
 
-                # YouTube (nur für Video-Kategorie)
-                if query.category == BacklinkCategory.VIDEO:
-                    self._delay(1, 2)
-                    all_results.extend(self.search_youtube(query.query))
+                # YouTube (API - immer für alle Kategorien, wenn API-Key vorhanden)
+                self._delay(1, 2)
+                all_results.extend(self.search_youtube(query.query))
 
                 # Ergebnisse speichern
                 for result in all_results:
@@ -976,8 +993,8 @@ class BacklinkScraper:
                     f"{self.stats['updated']} aktualisiert"
                 )
 
-                # Längere Pause zwischen Suchbegriffen
-                self._delay(5, 10)
+                # Kürzere Pause zwischen Suchbegriffen (weniger Quellen)
+                self._delay(3, 5)
 
             # Suche abschließen
             self.search.complete(
