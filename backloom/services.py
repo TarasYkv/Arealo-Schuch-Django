@@ -1108,7 +1108,7 @@ class BacklinkScraper:
     # ==================
     # TIKTOK SUCHE (via DuckDuckGo + Supadata)
     # ==================
-    def search_tiktok(self, query: str, num_results: int = 3) -> List[Dict]:
+    def search_tiktok(self, query: str, num_results: int = 1) -> List[Dict]:
         """
         Durchsucht TikTok-Videos nach relevanten Inhalten.
         1. Findet TikTok-Videos via DuckDuckGo (site:tiktok.com)
@@ -1186,6 +1186,9 @@ class BacklinkScraper:
 
             for video_url in tiktok_urls:
                 try:
+                    # Rate-Limit: 1 request/second (Supadata free tier)
+                    time.sleep(1.5)
+
                     # Untertitel abrufen
                     transcript_text = self._get_tiktok_transcript(video_url)
 
