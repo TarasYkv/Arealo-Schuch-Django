@@ -13,6 +13,7 @@ from urllib.parse import quote_plus, urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 from django.conf import settings
+from django.db import connection
 from django.utils import timezone
 
 # YouTube Untertitel
@@ -1107,7 +1108,7 @@ class BacklinkScraper:
     # ==================
     # TIKTOK SUCHE (via DuckDuckGo + Supadata)
     # ==================
-    def search_tiktok(self, query: str, num_results: int = 10) -> List[Dict]:
+    def search_tiktok(self, query: str, num_results: int = 3) -> List[Dict]:
         """
         Durchsucht TikTok-Videos nach relevanten Inhalten.
         1. Findet TikTok-Videos via DuckDuckGo (site:tiktok.com)
@@ -1450,6 +1451,10 @@ class BacklinkScraper:
                     f"Zwischenstand: {self.stats['new']} neue, "
                     f"{self.stats['updated']} aktualisiert"
                 )
+
+                # MySQL-Verbindung alle 3 Keywords erneuern (verhindert Timeout)
+                if (i + 1) % 3 == 0:
+                    connection.close()
 
                 # Kürzere Pause zwischen Suchbegriffen (weniger Quellen)
                 self._delay(3, 5)
