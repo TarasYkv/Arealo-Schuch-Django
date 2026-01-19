@@ -177,7 +177,7 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
 
         # Aktive Keywords für Filter-Dropdown (nur die mit gefundenen Quellen)
         keywords = SearchQuery.objects.filter(
-            backlinksource__isnull=False
+            found_sources__isnull=False
         ).distinct().order_by('query')
 
         # Filter-Optionen
