@@ -315,6 +315,138 @@
     </div>
 </div>
 
+<!-- Bereinigen Modal -->
+<div class="modal fade" id="cleanupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-broom text-danger me-2"></i>Daten bereinigen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Welche Einträge sollen gelöscht werden?</p>
+
+                <div class="list-group">
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-months="1">
+                        <span><i class="fas fa-calendar-day me-2"></i>Älter als 1 Monat</span>
+                        <span class="badge bg-secondary" id="cleanup-count-1">-</span>
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-months="3">
+                        <span><i class="fas fa-calendar-week me-2"></i>Älter als 3 Monate</span>
+                        <span class="badge bg-secondary" id="cleanup-count-3">-</span>
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-months="6">
+                        <span><i class="fas fa-calendar-alt me-2"></i>Älter als 6 Monate</span>
+                        <span class="badge bg-secondary" id="cleanup-count-6">-</span>
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-months="12">
+                        <span><i class="fas fa-calendar me-2"></i>Älter als 12 Monate</span>
+                        <span class="badge bg-secondary" id="cleanup-count-12">-</span>
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action list-group-item-danger d-flex justify-content-between align-items-center" data-months="all">
+                        <span><i class="fas fa-trash-alt me-2"></i>Alle Einträge löschen</span>
+                        <span class="badge bg-danger" id="cleanup-count-all">-</span>
+                    </button>
+                </div>
+
+                <div class="alert alert-warning mt-3 mb-0 small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Achtung:</strong> Gelöschte Einträge können nicht wiederhergestellt werden!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Suchbegriffe Modal -->
+<div class="modal fade" id="queriesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-database text-primary me-2"></i>Suchbegriffe verwalten
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Neuen Suchbegriff hinzufügen -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <i class="fas fa-plus me-1"></i>Neuen Suchbegriff hinzufügen
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control form-control-sm" id="new-query-text" placeholder="Suchbegriff...">
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select form-select-sm" id="new-query-category">
+                                    <option value="other">Sonstiges</option>
+                                    <option value="guest_post">Gastbeitrag</option>
+                                    <option value="directory">Verzeichnis</option>
+                                    <option value="forum">Forum</option>
+                                    <option value="comment">Kommentar</option>
+                                    <option value="profile">Profil</option>
+                                    <option value="qa">Q&A</option>
+                                    <option value="news">News</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control form-control-sm" id="new-query-priority" value="5" min="1" max="10" title="Priorität (1-10)">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary btn-sm w-100" id="btn-add-query">
+                                    <i class="fas fa-plus"></i> Hinzufügen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vorhandene Suchbegriffe -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small">
+                        <span id="queries-count">0</span> Suchbegriffe
+                    </span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-load-defaults">
+                        <i class="fas fa-download me-1"></i>Vordefinierte laden
+                    </button>
+                </div>
+
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th style="width: 40px;">Aktiv</th>
+                                <th>Suchbegriff</th>
+                                <th style="width: 120px;">Kategorie</th>
+                                <th style="width: 60px;">Prio</th>
+                                <th style="width: 80px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="queries-table-body">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                                    Lade Suchbegriffe...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Live Search Progress Modal -->
 <div class="modal fade" id="searchProgressModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
@@ -656,36 +788,319 @@ document.addEventListener('DOMContentLoaded', function() {
         stopProgressPolling();
     });
 
-    // ========== SUCHBEGRIFFE LADEN ==========
-    const btnInitQueries = document.getElementById('btn-init-queries');
-    if (btnInitQueries) {
-        btnInitQueries.addEventListener('click', function() {
-            if (confirm('Vordefinierte Suchbegriffe laden?')) {
-                fetch('{% url "backloom:api_init_queries" %}', {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken }
-                })
-                .then(response => response.json())
-                .then(data => alert(data.success ? data.message : 'Fehler: ' + data.error));
-            }
-        });
+    // ========== SUCHBEGRIFFE MODAL ==========
+    const queriesModal = new bootstrap.Modal(document.getElementById('queriesModal'));
+    const queriesTableBody = document.getElementById('queries-table-body');
+    const queriesCount = document.getElementById('queries-count');
+
+    const categoryLabels = {
+        'other': 'Sonstiges',
+        'guest_post': 'Gastbeitrag',
+        'directory': 'Verzeichnis',
+        'forum': 'Forum',
+        'comment': 'Kommentar',
+        'profile': 'Profil',
+        'qa': 'Q&A',
+        'news': 'News'
+    };
+
+    function loadQueries() {
+        queriesTableBody.innerHTML = `
+            <tr><td colspan="5" class="text-center text-muted py-4">
+                <div class="spinner-border spinner-border-sm" role="status"></div> Lade...
+            </td></tr>
+        `;
+
+        fetch('{% url "backloom:api_get_queries" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    queriesCount.textContent = data.queries.length;
+                    if (data.queries.length === 0) {
+                        queriesTableBody.innerHTML = `
+                            <tr><td colspan="5" class="text-center text-muted py-4">
+                                Keine Suchbegriffe vorhanden. Fügen Sie welche hinzu oder laden Sie die vordefinierten.
+                            </td></tr>
+                        `;
+                        return;
+                    }
+
+                    let html = '';
+                    data.queries.forEach(q => {
+                        html += `
+                            <tr data-id="${q.id}">
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input query-toggle" ${q.is_active ? 'checked' : ''}>
+                                </td>
+                                <td>
+                                    <span class="query-text">${q.query}</span>
+                                    <input type="text" class="form-control form-control-sm query-edit-input d-none" value="${q.query}">
+                                </td>
+                                <td>
+                                    <span class="query-category-text">${categoryLabels[q.category] || q.category}</span>
+                                    <select class="form-select form-select-sm query-edit-category d-none">
+                                        ${Object.entries(categoryLabels).map(([k, v]) =>
+                                            `<option value="${k}" ${q.category === k ? 'selected' : ''}>${v}</option>`
+                                        ).join('')}
+                                    </select>
+                                </td>
+                                <td>
+                                    <span class="query-priority-text">${q.priority}</span>
+                                    <input type="number" class="form-control form-control-sm query-edit-priority d-none" value="${q.priority}" min="1" max="10" style="width: 60px;">
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm query-actions">
+                                        <button type="button" class="btn btn-outline-primary btn-edit" title="Bearbeiten">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-delete" title="Löschen">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                    <div class="btn-group btn-group-sm query-edit-actions d-none">
+                                        <button type="button" class="btn btn-success btn-save" title="Speichern">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-cancel" title="Abbrechen">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    queriesTableBody.innerHTML = html;
+                    attachQueryEventListeners();
+                }
+            })
+            .catch(error => {
+                queriesTableBody.innerHTML = `
+                    <tr><td colspan="5" class="text-center text-danger py-4">
+                        Fehler beim Laden: ${error}
+                    </td></tr>
+                `;
+            });
     }
 
-    // ========== BEREINIGEN ==========
-    const btnCleanup = document.getElementById('btn-cleanup');
-    if (btnCleanup) {
-        btnCleanup.addEventListener('click', function() {
-            if (confirm('Alle Einträge älter als 12 Monate löschen?')) {
-                fetch('{% url "backloom:api_cleanup" %}', {
+    function attachQueryEventListeners() {
+        // Toggle aktiv/inaktiv
+        queriesTableBody.querySelectorAll('.query-toggle').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const row = this.closest('tr');
+                const id = row.dataset.id;
+                fetch('{% url "backloom:api_toggle_query" %}', {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken }
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `id=${id}`
+                });
+            });
+        });
+
+        // Bearbeiten-Modus starten
+        queriesTableBody.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('tr');
+                row.querySelector('.query-text').classList.add('d-none');
+                row.querySelector('.query-edit-input').classList.remove('d-none');
+                row.querySelector('.query-category-text').classList.add('d-none');
+                row.querySelector('.query-edit-category').classList.remove('d-none');
+                row.querySelector('.query-priority-text').classList.add('d-none');
+                row.querySelector('.query-edit-priority').classList.remove('d-none');
+                row.querySelector('.query-actions').classList.add('d-none');
+                row.querySelector('.query-edit-actions').classList.remove('d-none');
+                row.querySelector('.query-edit-input').focus();
+            });
+        });
+
+        // Bearbeiten abbrechen
+        queriesTableBody.querySelectorAll('.btn-cancel').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('tr');
+                row.querySelector('.query-text').classList.remove('d-none');
+                row.querySelector('.query-edit-input').classList.add('d-none');
+                row.querySelector('.query-category-text').classList.remove('d-none');
+                row.querySelector('.query-edit-category').classList.add('d-none');
+                row.querySelector('.query-priority-text').classList.remove('d-none');
+                row.querySelector('.query-edit-priority').classList.add('d-none');
+                row.querySelector('.query-actions').classList.remove('d-none');
+                row.querySelector('.query-edit-actions').classList.add('d-none');
+            });
+        });
+
+        // Speichern
+        queriesTableBody.querySelectorAll('.btn-save').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('tr');
+                const id = row.dataset.id;
+                const query = row.querySelector('.query-edit-input').value.trim();
+                const category = row.querySelector('.query-edit-category').value;
+                const priority = row.querySelector('.query-edit-priority').value;
+
+                if (!query) {
+                    alert('Suchbegriff darf nicht leer sein!');
+                    return;
+                }
+
+                fetch('{% url "backloom:api_update_query" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `id=${id}&query=${encodeURIComponent(query)}&category=${category}&priority=${priority}`
                 })
                 .then(response => response.json())
                 .then(data => {
-                    alert(data.success ? data.message : 'Fehler: ' + data.error);
-                    if (data.success) location.reload();
+                    if (data.success) {
+                        loadQueries();
+                    } else {
+                        alert('Fehler: ' + data.error);
+                    }
                 });
+            });
+        });
+
+        // Löschen
+        queriesTableBody.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (!confirm('Suchbegriff wirklich löschen?')) return;
+                const row = this.closest('tr');
+                const id = row.dataset.id;
+
+                fetch('{% url "backloom:api_delete_query" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `id=${id}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        row.remove();
+                        queriesCount.textContent = parseInt(queriesCount.textContent) - 1;
+                    } else {
+                        alert('Fehler: ' + data.error);
+                    }
+                });
+            });
+        });
+    }
+
+    // Neuen Suchbegriff hinzufügen
+    document.getElementById('btn-add-query')?.addEventListener('click', function() {
+        const query = document.getElementById('new-query-text').value.trim();
+        const category = document.getElementById('new-query-category').value;
+        const priority = document.getElementById('new-query-priority').value;
+
+        if (!query) {
+            alert('Bitte einen Suchbegriff eingeben!');
+            return;
+        }
+
+        fetch('{% url "backloom:api_add_query" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `query=${encodeURIComponent(query)}&category=${category}&priority=${priority}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('new-query-text').value = '';
+                loadQueries();
+            } else {
+                alert('Fehler: ' + data.error);
             }
+        });
+    });
+
+    // Vordefinierte Suchbegriffe laden
+    document.getElementById('btn-load-defaults')?.addEventListener('click', function() {
+        if (!confirm('Vordefinierte Suchbegriffe laden? Vorhandene bleiben erhalten.')) return;
+
+        fetch('{% url "backloom:api_init_queries" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                loadQueries();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        });
+    });
+
+    // Suchbegriffe-Button öffnet Modal
+    const btnInitQueries = document.getElementById('btn-init-queries');
+    if (btnInitQueries) {
+        btnInitQueries.addEventListener('click', function() {
+            queriesModal.show();
+            loadQueries();
+        });
+    }
+
+    // ========== BEREINIGEN MODAL ==========
+    const cleanupModal = new bootstrap.Modal(document.getElementById('cleanupModal'));
+
+    function loadCleanupStats() {
+        fetch('{% url "backloom:api_cleanup_stats" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('cleanup-count-1').textContent = data.counts['1'] || 0;
+                    document.getElementById('cleanup-count-3').textContent = data.counts['3'] || 0;
+                    document.getElementById('cleanup-count-6').textContent = data.counts['6'] || 0;
+                    document.getElementById('cleanup-count-12').textContent = data.counts['12'] || 0;
+                    document.getElementById('cleanup-count-all').textContent = data.counts['all'] || 0;
+                }
+            });
+    }
+
+    // Cleanup-Button Event-Listeners
+    document.querySelectorAll('#cleanupModal [data-months]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const months = this.dataset.months;
+            const label = months === 'all' ? 'ALLE Einträge' : `Einträge älter als ${months} Monat(e)`;
+
+            if (!confirm(`${label} wirklich löschen?\n\nDies kann nicht rückgängig gemacht werden!`)) return;
+
+            fetch('{% url "backloom:api_cleanup" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `months=${months}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    cleanupModal.hide();
+                    location.reload();
+                } else {
+                    alert('Fehler: ' + data.error);
+                }
+            });
+        });
+    });
+
+    // Bereinigen-Button öffnet Modal
+    const btnCleanup = document.getElementById('btn-cleanup');
+    if (btnCleanup) {
+        btnCleanup.addEventListener('click', function() {
+            cleanupModal.show();
+            loadCleanupStats();
         });
     }
 

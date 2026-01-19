@@ -414,6 +414,7 @@ def api_init_queries(request):
 def api_cleanup_old(request):
     """
     API: Löscht alte Backlink-Quellen (nur Superuser)
+    Akzeptiert 'months' Parameter (1, 3, 6, 12) oder 'all' für alle
     """
     if not request.user.is_superuser:
         return JsonResponse({
@@ -422,16 +423,242 @@ def api_cleanup_old(request):
         }, status=403)
 
     try:
-        deleted = cleanup_old_sources(months=12)
-        return JsonResponse({
-            'success': True,
-            'message': f'{deleted} alte Einträge gelöscht'
-        })
+        from datetime import timedelta
+
+        months_param = request.POST.get('months', '12')
+
+        if months_param == 'all':
+            # Alle Einträge löschen
+            deleted_count, _ = BacklinkSource.objects.all().delete()
+            return JsonResponse({
+                'success': True,
+                'message': f'{deleted_count} Einträge gelöscht (alle)'
+            })
+        else:
+            try:
+                months = int(months_param)
+            except ValueError:
+                months = 12
+
+            cutoff_date = timezone.now() - timedelta(days=months * 30)
+            deleted_count, _ = BacklinkSource.objects.filter(
+                last_found__lt=cutoff_date
+            ).delete()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'{deleted_count} Einträge älter als {months} Monate gelöscht'
+            })
     except Exception as e:
         return JsonResponse({
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required
+@require_GET
+def api_cleanup_stats(request):
+    """
+    API: Gibt Statistiken für Bereinigung zurück (wie viele Einträge pro Zeitraum)
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Nur Superuser'
+        }, status=403)
+
+    from datetime import timedelta
+
+    now = timezone.now()
+    counts = {
+        '1': BacklinkSource.objects.filter(last_found__lt=now - timedelta(days=30)).count(),
+        '3': BacklinkSource.objects.filter(last_found__lt=now - timedelta(days=90)).count(),
+        '6': BacklinkSource.objects.filter(last_found__lt=now - timedelta(days=180)).count(),
+        '12': BacklinkSource.objects.filter(last_found__lt=now - timedelta(days=365)).count(),
+        'all': BacklinkSource.objects.count(),
+    }
+
+    return JsonResponse({
+        'success': True,
+        'counts': counts
+    })
+
+
+@login_required
+@require_GET
+def api_get_queries(request):
+    """
+    API: Gibt alle Suchbegriffe zurück
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Nur Superuser'
+        }, status=403)
+
+    queries = SearchQuery.objects.all().order_by('-priority', 'query')
+    data = [{
+        'id': str(q.id),
+        'query': q.query,
+        'category': q.category,
+        'priority': q.priority,
+        'is_active': q.is_active,
+        'description': q.description,
+    } for q in queries]
+
+    return JsonResponse({
+        'success': True,
+        'queries': data
+    })
+
+
+@login_required
+@require_POST
+def api_add_query(request):
+    """
+    API: Fügt einen neuen Suchbegriff hinzu
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Nur Superuser'
+        }, status=403)
+
+    query_text = request.POST.get('query', '').strip()
+    category = request.POST.get('category', 'other')
+    priority = request.POST.get('priority', 5)
+
+    if not query_text:
+        return JsonResponse({
+            'success': False,
+            'error': 'Suchbegriff darf nicht leer sein'
+        }, status=400)
+
+    try:
+        priority = int(priority)
+        priority = max(1, min(10, priority))
+    except ValueError:
+        priority = 5
+
+    # Prüfen ob bereits vorhanden
+    if SearchQuery.objects.filter(query__iexact=query_text).exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Dieser Suchbegriff existiert bereits'
+        }, status=400)
+
+    SearchQuery.objects.create(
+        query=query_text,
+        category=category,
+        priority=priority,
+        is_active=True
+    )
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Suchbegriff hinzugefügt'
+    })
+
+
+@login_required
+@require_POST
+def api_update_query(request):
+    """
+    API: Aktualisiert einen Suchbegriff
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Nur Superuser'
+        }, status=403)
+
+    query_id = request.POST.get('id')
+    query_text = request.POST.get('query', '').strip()
+    category = request.POST.get('category')
+    priority = request.POST.get('priority')
+
+    try:
+        query = SearchQuery.objects.get(id=query_id)
+    except SearchQuery.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Suchbegriff nicht gefunden'
+        }, status=404)
+
+    if query_text:
+        query.query = query_text
+    if category:
+        query.category = category
+    if priority:
+        try:
+            query.priority = max(1, min(10, int(priority)))
+        except ValueError:
+            pass
+
+    query.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Suchbegriff aktualisiert'
+    })
+
+
+@login_required
+@require_POST
+def api_delete_query(request):
+    """
+    API: Löscht einen Suchbegriff
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Nur Superuser'
+        }, status=403)
+
+    query_id = request.POST.get('id')
+
+    try:
+        query = SearchQuery.objects.get(id=query_id)
+        query.delete()
+        return JsonResponse({
+            'success': True,
+            'message': 'Suchbegriff gelöscht'
+        })
+    except SearchQuery.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Suchbegriff nicht gefunden'
+        }, status=404)
+
+
+@login_required
+@require_POST
+def api_toggle_query(request):
+    """
+    API: Aktiviert/Deaktiviert einen Suchbegriff
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({
+            'success': False,
+            'error': 'Nur Superuser'
+        }, status=403)
+
+    query_id = request.POST.get('id')
+
+    try:
+        query = SearchQuery.objects.get(id=query_id)
+        query.is_active = not query.is_active
+        query.save(update_fields=['is_active', 'updated_at'])
+        return JsonResponse({
+            'success': True,
+            'is_active': query.is_active
+        })
+    except SearchQuery.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Suchbegriff nicht gefunden'
+        }, status=404)
 
 
 @login_required
