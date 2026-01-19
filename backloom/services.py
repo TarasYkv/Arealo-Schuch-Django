@@ -1344,12 +1344,27 @@ class BacklinkScraper:
 
         has_indicator = any(indicator in text for indicator in backlink_indicators)
 
-        # Ausschlusskriterien
+        # Ausschlusskriterien (Agenturen, Tools, Kaufangebote)
         exclude_indicators = [
-            'backlink kaufen', 'links kaufen', 'seo agentur',
+            # Kaufangebote
+            'backlink kaufen', 'links kaufen', 'backlinks kaufen',
+            'linkbuilding kaufen', 'seo kaufen', 'backlink bestellen',
+            'backlink paket', 'linkpaket', 'ab € ', 'ab eur', 'preis',
+            # Agenturen & Dienstleister
+            'seo agentur', 'marketing agentur', 'online marketing',
+            'linkbuilding agentur', 'linkbuilding service', 'seo service',
+            'wir bieten', 'unsere leistung', 'unsere dienstleistung',
+            'jetzt anfragen', 'angebot anfordern', 'kostenlose beratung',
+            'full service', 'agentur für', 'ihre seo', 'ihr partner',
+            # Tools & Analysen
             'backlink checker', 'backlink analyse', 'backlink tool',
-            'was ist ein backlink', 'backlink definition',
-            'nur für kunden', 'premium mitglied'
+            'backlink prüfen', 'backlinks analysieren', 'seo tool',
+            # Erklärungen/Definitionen
+            'was ist ein backlink', 'backlink definition', 'backlink erklärt',
+            'backlink guide', 'backlink tutorial', 'wie funktioniert',
+            # Bezahlschranken
+            'nur für kunden', 'premium mitglied', 'kostenpflichtig',
+            'pro monat', 'pro jahr', 'abo', 'subscription'
         ]
 
         is_excluded = any(indicator in text for indicator in exclude_indicators)
