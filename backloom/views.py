@@ -136,6 +136,11 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
         if source and source in dict(SourceType.choices):
             queryset = queryset.filter(source_type=source)
 
+        # Filter: Keyword (Suchbegriff)
+        keyword = self.request.GET.get('keyword')
+        if keyword:
+            queryset = queryset.filter(search_query__id=keyword)
+
         # Suche
         search = self.request.GET.get('q')
         if search:
@@ -170,14 +175,21 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        # Aktive Keywords für Filter-Dropdown (nur die mit gefundenen Quellen)
+        keywords = SearchQuery.objects.filter(
+            backlinksource__isnull=False
+        ).distinct().order_by('query')
+
         # Filter-Optionen
         context.update({
             'categories': BacklinkCategory.choices,
             'source_types': SourceType.choices,
+            'keywords': keywords,
             'current_category': self.request.GET.get('category', ''),
             'current_status': self.request.GET.get('status', ''),
             'current_quality': self.request.GET.get('quality', ''),
             'current_source': self.request.GET.get('source', ''),
+            'current_keyword': self.request.GET.get('keyword', ''),
             'current_sort': self.request.GET.get('sort', '-last_found'),
             'search_query': self.request.GET.get('q', ''),
             'show_all': self.request.GET.get('show_all') == '1',

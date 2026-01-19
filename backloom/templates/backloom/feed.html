@@ -25,7 +25,7 @@
                         <i class="fas fa-filter me-1"></i>Nur Backlinks
                     </a>
                     {% else %}
-                    <a href="?show_all=1{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}"
+                    <a href="?show_all=1{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}"
                        class="btn btn-outline-secondary btn-sm" title="Auch YouTube/Reddit anzeigen">
                         <i class="fas fa-expand me-1"></i>Alle anzeigen
                     </a>
@@ -84,6 +84,19 @@
                                 <option value="high" {% if current_quality == 'high' %}selected{% endif %}>Hoch (70+)</option>
                                 <option value="medium" {% if current_quality == 'medium' %}selected{% endif %}>Mittel (40-69)</option>
                                 <option value="low" {% if current_quality == 'low' %}selected{% endif %}>Niedrig (&lt;40)</option>
+                            </select>
+                        </div>
+
+                        <!-- Keyword -->
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted">Keyword</label>
+                            <select name="keyword" class="form-select">
+                                <option value="">Alle</option>
+                                {% for kw in keywords %}
+                                <option value="{{ kw.id }}" {% if current_keyword == kw.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ kw.query|truncatewords:3 }}
+                                </option>
+                                {% endfor %}
                             </select>
                         </div>
 
@@ -167,12 +180,17 @@
                                     <p class="text-dark mb-1" title="{{ source.title }}">
                                         {{ source.title|truncatewords:15|default:"" }}
                                     </p>
-                                    <!-- Kategorie & Quelle (dezent) -->
-                                    <div class="d-flex align-items-center gap-2">
+                                    <!-- Kategorie, Quelle & Keyword -->
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
                                         <span class="badge bg-primary bg-opacity-75">{{ source.get_category_display }}</span>
                                         <small class="text-muted" title="Gefunden über {{ source.get_source_type_display }}">
                                             via {{ source.get_source_type_display }}
                                         </small>
+                                        {% if source.search_query %}
+                                        <span class="badge bg-secondary bg-opacity-50" title="Suchbegriff: {{ source.search_query.query }}">
+                                            <i class="fas fa-search fa-xs me-1"></i>{{ source.search_query.query|truncatewords:3 }}
+                                        </span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -275,7 +293,7 @@
                 <ul class="pagination justify-content-center">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
                             <i class="fas fa-chevron-left"></i>
                         </a>
                     </li>
@@ -286,14 +304,14 @@
                         <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                         {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ num }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{ num }}</a>
+                            <a class="page-link" href="?page={{ num }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{ num }}</a>
                         </li>
                         {% endif %}
                     {% endfor %}
 
                     {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
                             <i class="fas fa-chevron-right"></i>
                         </a>
                     </li>
