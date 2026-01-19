@@ -1323,6 +1323,76 @@ class BacklinkScraper:
         # Score auf 0-100 begrenzen
         return max(0, min(100, score))
 
+    def is_real_backlink_opportunity(self, result: Dict) -> bool:
+        """
+        Prüft ob das Ergebnis eine echte Backlink-Möglichkeit ist.
+        Filtert Seiten raus, die keine Backlinks anbieten.
+        """
+        title = result.get('title', '').lower()
+        description = result.get('description', '').lower()
+        text = title + ' ' + description
+
+        # Muss mindestens eines dieser Wörter enthalten
+        backlink_indicators = [
+            'backlink', 'dofollow', 'eintragen', 'registrieren',
+            'firma hinzufügen', 'unternehmen eintragen', 'kostenlos anmelden',
+            'gastbeitrag', 'gastautor', 'artikel einreichen',
+            'webkatalog', 'branchenbuch', 'firmenverzeichnis',
+            'link eintragen', 'webseite eintragen', 'url eintragen',
+            'gratis eintrag', 'kostenloser eintrag', 'free listing'
+        ]
+
+        has_indicator = any(indicator in text for indicator in backlink_indicators)
+
+        # Ausschlusskriterien
+        exclude_indicators = [
+            'backlink kaufen', 'links kaufen', 'seo agentur',
+            'backlink checker', 'backlink analyse', 'backlink tool',
+            'was ist ein backlink', 'backlink definition',
+            'nur für kunden', 'premium mitglied'
+        ]
+
+        is_excluded = any(indicator in text for indicator in exclude_indicators)
+
+        return has_indicator and not is_excluded
+
+    def extract_backlink_instructions(self, result: Dict) -> str:
+        """
+        Extrahiert Anweisungen wie/wo man den Backlink bekommt.
+        """
+        description = result.get('description', '')
+        title = result.get('title', '')
+        text = (title + ' ' + description).lower()
+
+        instructions = []
+
+        # Erkenne Verzeichnis-Einträge
+        if any(word in text for word in ['firmenverzeichnis', 'branchenbuch', 'webkatalog']):
+            instructions.append("Firma/Webseite kostenlos eintragen")
+            if 'registrieren' in text or 'anmelden' in text:
+                instructions.append("Registrierung erforderlich")
+
+        # Erkenne Gastbeiträge
+        if any(word in text for word in ['gastbeitrag', 'gastautor', 'artikel einreichen']):
+            instructions.append("Gastbeitrag mit Autorenbox/Bio-Link einreichen")
+
+        # Erkenne Foren/Kommentare
+        if 'forum' in text or 'community' in text:
+            instructions.append("Profil mit Webseiten-Link erstellen")
+
+        # Erkenne Pressemitteilungen
+        if 'presse' in text or 'news' in text:
+            instructions.append("Pressemitteilung mit Links veröffentlichen")
+
+        # Fallback
+        if not instructions:
+            if 'kostenlos' in text:
+                instructions.append("Kostenlose Eintragung möglich")
+            if 'dofollow' in text:
+                instructions.append("DoFollow-Link verfügbar")
+
+        return ' | '.join(instructions) if instructions else ''
+
     # ==================
     # SPEICHERN
     # ==================
@@ -1334,6 +1404,17 @@ class BacklinkScraper:
         url = result.get('url', '')
         if not url:
             return False, False
+
+        # Qualitätsfilter: Nur echte Backlink-Möglichkeiten speichern
+        if not self.is_real_backlink_opportunity(result):
+            return False, False
+
+        # Backlink-Anweisungen extrahieren
+        instructions = self.extract_backlink_instructions(result)
+        if instructions:
+            # Füge Anweisungen zur Beschreibung hinzu
+            original_desc = result.get('description', '')
+            result['description'] = f"[BACKLINK-TIPP] {instructions}\n\n{original_desc}"
 
         domain = self._extract_domain(url)
         category = search_query.category if search_query else BacklinkCategory.OTHER
