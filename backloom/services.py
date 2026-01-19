@@ -33,6 +33,16 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
+def sanitize_for_mysql(text: str) -> str:
+    """Entfernt Emojis und andere 4-Byte UTF-8 Zeichen für MySQL utf8 Kompatibilität."""
+    if not text:
+        return text
+    # Entferne alle Zeichen außerhalb des BMP (Basic Multilingual Plane)
+    # Das sind alle Zeichen mit Codepoint > 0xFFFF (4-Byte UTF-8)
+    return ''.join(c for c in text if ord(c) <= 0xFFFF)
+
+
 # User-Agents für Rotation
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -1018,9 +1028,9 @@ class BacklinkScraper:
             for item in videos_data.get('items', []):
                 try:
                     snippet = item['snippet']
-                    video_title = snippet.get('title', '')
+                    video_title = sanitize_for_mysql(snippet.get('title', ''))
                     full_description = snippet.get('description', '')
-                    channel = snippet.get('channelTitle', '')
+                    channel = sanitize_for_mysql(snippet.get('channelTitle', ''))
                     video_id = item['id']
 
                     all_urls = set()
@@ -1343,8 +1353,8 @@ class BacklinkScraper:
             url=url,
             url_hash=url_hash,
             domain=domain,
-            title=result.get('title', '')[:500],
-            description=result.get('description', '')[:1000],
+            title=sanitize_for_mysql(result.get('title', ''))[:500],
+            description=sanitize_for_mysql(result.get('description', ''))[:1000],
             category=category,
             source_type=result.get('source_type', SourceType.MANUAL),
             search_query=search_query,
