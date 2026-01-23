@@ -59,26 +59,6 @@ def dashboard(request):
         mockup_image__isnull=False
     ).exclude(mockup_image='')[:10]
 
-    # Bild-Verlauf für Mockup-Wizard (unique Bilder aus bisherigen Mockups)
-    product_images_history = ProductMockup.objects.filter(
-        user=request.user,
-        product_image__isnull=False
-    ).exclude(product_image='').values_list('product_image', flat=True).distinct()[:20]
-
-    style_ref_images_history = ProductMockup.objects.filter(
-        user=request.user,
-        style_reference_image__isnull=False
-    ).exclude(style_reference_image='').values_list('style_reference_image', flat=True).distinct()[:20]
-
-    # URLs für Template erstellen
-    from django.conf import settings
-    product_images_history = [
-        {'url': settings.MEDIA_URL + img} for img in product_images_history if img
-    ]
-    style_ref_images_history = [
-        {'url': settings.MEDIA_URL + img} for img in style_ref_images_history if img
-    ]
-
     # API-Key Verfuegbarkeit pruefen
     has_google_key = bool(getattr(request.user, 'gemini_api_key', None))
     has_openai_key = bool(getattr(request.user, 'openai_api_key', None))
@@ -89,8 +69,6 @@ def dashboard(request):
         'presets': presets,
         'recent_generations': recent_generations,
         'mockups': mockups,
-        'product_images_history': product_images_history,
-        'style_ref_images_history': style_ref_images_history,
         'has_google_key': has_google_key,
         'has_openai_key': has_openai_key,
         'has_any_key': has_any_key,
@@ -746,22 +724,117 @@ def toggle_mockup_favorite(request, mockup_id):
 
 @login_required
 def api_background_prompt_history(request):
-    """API: Gibt unique Hintergrund-Beschreibungen aus vergangenen Mockup-Generierungen zurück"""
+    """API: Gibt unique Hintergrund-Beschreibungen aus vergangenen Mockup-Generierungen zurück (mit Pagination)"""
+    page = int(request.GET.get('page', 1))
+    per_page = 12
+
     # Hole alle unique background_prompts aus mockup_text Generierungen
-    prompts = ImageGeneration.objects.filter(
+    all_prompts = ImageGeneration.objects.filter(
         user=request.user,
         generation_mode='mockup_text',
         background_prompt__isnull=False
     ).exclude(
         background_prompt=''
-    ).values_list('background_prompt', flat=True).distinct()[:30]
+    ).order_by('-created_at').values_list('background_prompt', flat=True)
 
-    # Dedupliziere und formatiere
-    unique_prompts = list(dict.fromkeys(prompts))  # Reihenfolge beibehalten, Duplikate entfernen
+    # Dedupliziere (Reihenfolge beibehalten)
+    unique_prompts = list(dict.fromkeys(all_prompts))
+
+    # Pagination
+    total = len(unique_prompts)
+    total_pages = (total + per_page - 1) // per_page
+    start = (page - 1) * per_page
+    end = start + per_page
+    prompts_page = unique_prompts[start:end]
 
     return JsonResponse({
         'success': True,
-        'prompts': unique_prompts
+        'prompts': prompts_page,
+        'page': page,
+        'total_pages': total_pages,
+        'total': total,
+        'has_next': page < total_pages,
+        'has_prev': page > 1
+    })
+
+
+@login_required
+def api_product_images_history(request):
+    """API: Gibt unique Produktbilder aus vergangenen Mockups zurück (mit Pagination)"""
+    from django.conf import settings
+
+    page = int(request.GET.get('page', 1))
+    per_page = 12
+
+    # Hole alle Produktbilder aus Mockups
+    all_images = ProductMockup.objects.filter(
+        user=request.user,
+        product_image__isnull=False
+    ).exclude(product_image='').order_by('-created_at').values_list('product_image', flat=True)
+
+    # Dedupliziere (Reihenfolge beibehalten)
+    unique_images = list(dict.fromkeys(all_images))
+
+    # Pagination
+    total = len(unique_images)
+    total_pages = (total + per_page - 1) // per_page
+    start = (page - 1) * per_page
+    end = start + per_page
+    images_page = unique_images[start:end]
+
+    # URLs für Template erstellen
+    images_with_urls = [
+        {'url': settings.MEDIA_URL + img} for img in images_page if img
+    ]
+
+    return JsonResponse({
+        'success': True,
+        'images': images_with_urls,
+        'page': page,
+        'total_pages': total_pages,
+        'total': total,
+        'has_next': page < total_pages,
+        'has_prev': page > 1
+    })
+
+
+@login_required
+def api_style_ref_images_history(request):
+    """API: Gibt unique Stil-Referenzbilder aus vergangenen Mockups zurück (mit Pagination)"""
+    from django.conf import settings
+
+    page = int(request.GET.get('page', 1))
+    per_page = 12
+
+    # Hole alle Stil-Referenzbilder aus Mockups
+    all_images = ProductMockup.objects.filter(
+        user=request.user,
+        style_reference_image__isnull=False
+    ).exclude(style_reference_image='').order_by('-created_at').values_list('style_reference_image', flat=True)
+
+    # Dedupliziere (Reihenfolge beibehalten)
+    unique_images = list(dict.fromkeys(all_images))
+
+    # Pagination
+    total = len(unique_images)
+    total_pages = (total + per_page - 1) // per_page
+    start = (page - 1) * per_page
+    end = start + per_page
+    images_page = unique_images[start:end]
+
+    # URLs für Template erstellen
+    images_with_urls = [
+        {'url': settings.MEDIA_URL + img} for img in images_page if img
+    ]
+
+    return JsonResponse({
+        'success': True,
+        'images': images_with_urls,
+        'page': page,
+        'total_pages': total_pages,
+        'total': total,
+        'has_next': page < total_pages,
+        'has_prev': page > 1
     })
 
 

@@ -461,44 +461,6 @@ function initMockupWizard() {
         initUploadZone(motifZone, motifInput);
     }
 
-    // History Image Selection
-    document.querySelectorAll('.history-image-item').forEach(item => {
-        item.addEventListener('click', async function() {
-            const imageUrl = this.dataset.imageUrl;
-            const target = this.dataset.target;
-
-            // Bild von URL laden und in File Input setzen
-            try {
-                const response = await fetch(imageUrl);
-                const blob = await response.blob();
-                const filename = imageUrl.split('/').pop();
-                const file = new File([blob], filename, { type: blob.type });
-
-                // DataTransfer für File Input
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-
-                if (target === 'product' && mockupProductInput) {
-                    mockupProductInput.files = dataTransfer.files;
-                    // Preview anzeigen
-                    showUploadPreview(mockupProductZone, imageUrl);
-                } else if (target === 'style-ref' && styleRefInput) {
-                    styleRefInput.files = dataTransfer.files;
-                    // Preview anzeigen
-                    showUploadPreview(styleRefZone, imageUrl);
-                }
-
-                // Modal schließen
-                const modal = bootstrap.Modal.getInstance(this.closest('.modal'));
-                if (modal) modal.hide();
-
-            } catch (error) {
-                console.error('Fehler beim Laden des Bildes:', error);
-                alert('Bild konnte nicht geladen werden');
-            }
-        });
-    });
-
     // Helper: Preview in Upload Zone anzeigen
     function showUploadPreview(zone, imageUrl) {
         if (!zone) return;
@@ -510,6 +472,33 @@ function initMockupWizard() {
         if (preview) preview.classList.remove('d-none');
         if (previewImg) previewImg.src = imageUrl;
     }
+
+    // Helper: Bild aus Verlauf auswählen
+    async function selectHistoryImage(imageUrl, target) {
+        try {
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const filename = imageUrl.split('/').pop();
+            const file = new File([blob], filename, { type: blob.type });
+
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+
+            if (target === 'product' && mockupProductInput) {
+                mockupProductInput.files = dataTransfer.files;
+                showUploadPreview(mockupProductZone, imageUrl);
+            } else if (target === 'style-ref' && styleRefInput) {
+                styleRefInput.files = dataTransfer.files;
+                showUploadPreview(styleRefZone, imageUrl);
+            }
+        } catch (error) {
+            console.error('Fehler beim Laden des Bildes:', error);
+            alert('Bild konnte nicht geladen werden');
+        }
+    }
+
+    // Expose für die dynamisch geladenen Modals
+    window.selectHistoryImage = selectHistoryImage;
 
     // Show/Hide Mockup Creation Form
     const showCreateMockupBtn = document.getElementById('show-create-mockup-btn');
@@ -1005,68 +994,238 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // =============================================================================
-// HINTERGRUND-BESCHREIBUNG VERLAUF
+// VERLAUF-MODALS MIT PAGINATION
 // =============================================================================
 document.addEventListener('DOMContentLoaded', function() {
-    const backgroundHistoryModal = document.getElementById('backgroundHistoryModal');
-    const backgroundHistoryLoading = document.getElementById('background-history-loading');
-    const backgroundHistoryResults = document.getElementById('background-history-results');
-    const backgroundHistoryEmpty = document.getElementById('background-history-empty');
-    const backgroundHistoryList = document.getElementById('background-history-list');
 
-    if (backgroundHistoryModal) {
-        backgroundHistoryModal.addEventListener('show.bs.modal', async function() {
+    // Generische Funktion für Bild-Verlauf-Modals
+    function initImageHistoryModal(config) {
+        const modal = document.getElementById(config.modalId);
+        if (!modal) return;
+
+        let currentPage = 1;
+
+        const loading = document.getElementById(config.loadingId);
+        const results = document.getElementById(config.resultsId);
+        const empty = document.getElementById(config.emptyId);
+        const list = document.getElementById(config.listId);
+        const pagination = document.getElementById(config.paginationId);
+        const prevBtn = document.getElementById(config.prevId);
+        const nextBtn = document.getElementById(config.nextId);
+        const pageInfo = document.getElementById(config.pageInfoId);
+
+        async function loadPage(page) {
+            currentPage = page;
+
             // Show loading
-            if (backgroundHistoryLoading) backgroundHistoryLoading.classList.remove('d-none');
-            if (backgroundHistoryResults) backgroundHistoryResults.classList.add('d-none');
-            if (backgroundHistoryEmpty) backgroundHistoryEmpty.classList.add('d-none');
+            if (loading) loading.classList.remove('d-none');
+            if (results) results.classList.add('d-none');
+            if (empty) empty.classList.add('d-none');
 
             try {
-                const response = await fetch('/imageforge/api/background-history/', {
+                const response = await fetch(`${config.apiUrl}?page=${page}`, {
                     method: 'GET',
-                    headers: {
-                        'X-CSRFToken': getCsrfToken()
+                    headers: { 'X-CSRFToken': getCsrfToken() }
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.images && data.images.length > 0) {
+                    // Render images
+                    list.innerHTML = data.images.map(img => `
+                        <div class="col-4 col-md-3">
+                            <div class="history-image-item" data-image-url="${escapeHtml(img.url)}" data-target="${config.target}">
+                                <img src="${escapeHtml(img.url)}" alt="Verlauf" class="img-fluid rounded" loading="lazy">
+                            </div>
+                        </div>
+                    `).join('');
+
+                    // Add click handlers
+                    list.querySelectorAll('.history-image-item').forEach(item => {
+                        item.addEventListener('click', async function() {
+                            const imageUrl = this.dataset.imageUrl;
+                            const target = this.dataset.target;
+                            await window.selectHistoryImage(imageUrl, target);
+                            const modalInstance = bootstrap.Modal.getInstance(modal);
+                            if (modalInstance) modalInstance.hide();
+                        });
+                    });
+
+                    // Update pagination
+                    if (data.total_pages > 1) {
+                        pagination.classList.remove('d-none');
+                        pageInfo.textContent = `Seite ${data.page} von ${data.total_pages}`;
+
+                        if (data.has_prev) {
+                            prevBtn.classList.remove('disabled');
+                        } else {
+                            prevBtn.classList.add('disabled');
+                        }
+
+                        if (data.has_next) {
+                            nextBtn.classList.remove('disabled');
+                        } else {
+                            nextBtn.classList.add('disabled');
+                        }
+                    } else {
+                        pagination.classList.add('d-none');
                     }
+
+                    results.classList.remove('d-none');
+                } else {
+                    empty.classList.remove('d-none');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                empty.classList.remove('d-none');
+            } finally {
+                loading.classList.add('d-none');
+            }
+        }
+
+        // Modal open event
+        modal.addEventListener('show.bs.modal', () => loadPage(1));
+
+        // Pagination click handlers
+        if (prevBtn) {
+            prevBtn.querySelector('a').addEventListener('click', (e) => {
+                e.preventDefault();
+                if (currentPage > 1) loadPage(currentPage - 1);
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.querySelector('a').addEventListener('click', (e) => {
+                e.preventDefault();
+                loadPage(currentPage + 1);
+            });
+        }
+    }
+
+    // Produktbild-Verlauf Modal
+    initImageHistoryModal({
+        modalId: 'productHistoryModal',
+        loadingId: 'product-history-loading',
+        resultsId: 'product-history-results',
+        emptyId: 'product-history-empty',
+        listId: 'product-history-list',
+        paginationId: 'product-history-pagination',
+        prevId: 'product-history-prev',
+        nextId: 'product-history-next',
+        pageInfoId: 'product-history-page-info',
+        apiUrl: '/imageforge/api/product-images-history/',
+        target: 'product'
+    });
+
+    // Stil-Referenzbild-Verlauf Modal
+    initImageHistoryModal({
+        modalId: 'styleRefHistoryModal',
+        loadingId: 'style-ref-history-loading',
+        resultsId: 'style-ref-history-results',
+        emptyId: 'style-ref-history-empty',
+        listId: 'style-ref-history-list',
+        paginationId: 'style-ref-history-pagination',
+        prevId: 'style-ref-history-prev',
+        nextId: 'style-ref-history-next',
+        pageInfoId: 'style-ref-history-page-info',
+        apiUrl: '/imageforge/api/style-ref-images-history/',
+        target: 'style-ref'
+    });
+
+    // Hintergrund-Beschreibungen Verlauf Modal (Text, nicht Bilder)
+    const backgroundHistoryModal = document.getElementById('backgroundHistoryModal');
+    if (backgroundHistoryModal) {
+        let bgCurrentPage = 1;
+
+        const bgLoading = document.getElementById('background-history-loading');
+        const bgResults = document.getElementById('background-history-results');
+        const bgEmpty = document.getElementById('background-history-empty');
+        const bgList = document.getElementById('background-history-list');
+        const bgPagination = document.getElementById('background-history-pagination');
+        const bgPrevBtn = document.getElementById('background-history-prev');
+        const bgNextBtn = document.getElementById('background-history-next');
+        const bgPageInfo = document.getElementById('background-history-page-info');
+
+        async function loadBackgroundPage(page) {
+            bgCurrentPage = page;
+
+            if (bgLoading) bgLoading.classList.remove('d-none');
+            if (bgResults) bgResults.classList.add('d-none');
+            if (bgEmpty) bgEmpty.classList.add('d-none');
+
+            try {
+                const response = await fetch(`/imageforge/api/background-history/?page=${page}`, {
+                    method: 'GET',
+                    headers: { 'X-CSRFToken': getCsrfToken() }
                 });
 
                 const data = await response.json();
 
                 if (data.success && data.prompts && data.prompts.length > 0) {
-                    // Show results
-                    if (backgroundHistoryList) {
-                        backgroundHistoryList.innerHTML = data.prompts.map(prompt => `
-                            <button type="button" class="list-group-item list-group-item-action bg-history-item" data-prompt="${escapeHtml(prompt)}">
-                                <i class="fas fa-image text-info me-2"></i>
-                                ${escapeHtml(prompt)}
-                            </button>
-                        `).join('');
+                    bgList.innerHTML = data.prompts.map(prompt => `
+                        <button type="button" class="list-group-item list-group-item-action bg-history-item" data-prompt="${escapeHtml(prompt)}">
+                            <i class="fas fa-image text-info me-2"></i>
+                            ${escapeHtml(prompt)}
+                        </button>
+                    `).join('');
 
-                        // Add click handlers
-                        backgroundHistoryList.querySelectorAll('.bg-history-item').forEach(item => {
-                            item.addEventListener('click', function() {
-                                const prompt = this.getAttribute('data-prompt');
-                                const scenePrompt = document.getElementById('mockup-scene-prompt');
-                                if (scenePrompt) {
-                                    scenePrompt.value = prompt;
-                                }
-                                // Close modal
-                                const modal = bootstrap.Modal.getInstance(backgroundHistoryModal);
-                                if (modal) modal.hide();
-                            });
+                    bgList.querySelectorAll('.bg-history-item').forEach(item => {
+                        item.addEventListener('click', function() {
+                            const prompt = this.getAttribute('data-prompt');
+                            const scenePrompt = document.getElementById('mockup-scene-prompt');
+                            if (scenePrompt) scenePrompt.value = prompt;
+                            const modalInstance = bootstrap.Modal.getInstance(backgroundHistoryModal);
+                            if (modalInstance) modalInstance.hide();
                         });
+                    });
+
+                    // Update pagination
+                    if (data.total_pages > 1) {
+                        bgPagination.classList.remove('d-none');
+                        bgPageInfo.textContent = `Seite ${data.page} von ${data.total_pages}`;
+
+                        if (data.has_prev) {
+                            bgPrevBtn.classList.remove('disabled');
+                        } else {
+                            bgPrevBtn.classList.add('disabled');
+                        }
+
+                        if (data.has_next) {
+                            bgNextBtn.classList.remove('disabled');
+                        } else {
+                            bgNextBtn.classList.add('disabled');
+                        }
+                    } else {
+                        bgPagination.classList.add('d-none');
                     }
-                    if (backgroundHistoryResults) backgroundHistoryResults.classList.remove('d-none');
+
+                    bgResults.classList.remove('d-none');
                 } else {
-                    // No history
-                    if (backgroundHistoryEmpty) backgroundHistoryEmpty.classList.remove('d-none');
+                    bgEmpty.classList.remove('d-none');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                if (backgroundHistoryEmpty) backgroundHistoryEmpty.classList.remove('d-none');
+                bgEmpty.classList.remove('d-none');
             } finally {
-                if (backgroundHistoryLoading) backgroundHistoryLoading.classList.add('d-none');
+                bgLoading.classList.add('d-none');
             }
-        });
+        }
+
+        backgroundHistoryModal.addEventListener('show.bs.modal', () => loadBackgroundPage(1));
+
+        if (bgPrevBtn) {
+            bgPrevBtn.querySelector('a').addEventListener('click', (e) => {
+                e.preventDefault();
+                if (bgCurrentPage > 1) loadBackgroundPage(bgCurrentPage - 1);
+            });
+        }
+
+        if (bgNextBtn) {
+            bgNextBtn.querySelector('a').addEventListener('click', (e) => {
+                e.preventDefault();
+                loadBackgroundPage(bgCurrentPage + 1);
+            });
+        }
     }
 });
 

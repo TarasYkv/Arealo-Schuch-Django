@@ -39,6 +39,8 @@ urlpatterns = [
 
     # Mockup-Helfer APIs
     path('api/background-history/', views.api_background_prompt_history, name='api_background_history'),
+    path('api/product-images-history/', views.api_product_images_history, name='api_product_images_history'),
+    path('api/style-ref-images-history/', views.api_style_ref_images_history, name='api_style_ref_images_history'),
     path('api/generate-funny-sayings/', views.api_generate_funny_sayings, name='api_generate_funny_sayings'),
 
     # Cleanup
