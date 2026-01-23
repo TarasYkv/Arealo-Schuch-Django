@@ -451,6 +451,62 @@ class BlogPrepProject(models.Model):
                 total += len(field.split())
         return total
 
+    def get_faq_schema_json(self, pretty=True):
+        """
+        Generiert FAQ JSON-LD Schema für strukturierte Daten (SEO Rich Snippets).
+
+        Args:
+            pretty: Wenn True, wird das JSON formatiert ausgegeben
+
+        Returns:
+            JSON-LD Schema als String oder None wenn keine FAQs vorhanden
+        """
+        import json
+
+        if not self.faqs or len(self.faqs) == 0:
+            return None
+
+        # FAQPage Schema nach Schema.org
+        schema = {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": []
+        }
+
+        for faq in self.faqs:
+            question = faq.get("question", "").strip()
+            answer = faq.get("answer", "").strip()
+
+            if question and answer:
+                schema["mainEntity"].append({
+                    "@type": "Question",
+                    "name": question,
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": answer
+                    }
+                })
+
+        if not schema["mainEntity"]:
+            return None
+
+        if pretty:
+            return json.dumps(schema, indent=2, ensure_ascii=False)
+        return json.dumps(schema, ensure_ascii=False)
+
+    def get_faq_schema_script_tag(self):
+        """
+        Generiert das vollständige <script> Tag mit FAQ JSON-LD Schema.
+
+        Returns:
+            Vollständiges Script-Tag oder leerer String wenn keine FAQs
+        """
+        schema_json = self.get_faq_schema_json(pretty=True)
+        if not schema_json:
+            return ""
+
+        return f'<script type="application/ld+json">\n{schema_json}\n</script>'
+
     def generate_full_html(self, base_url=None, include_title_image=False, include_section_images=True):
         """
         Generiert den vollständigen HTML-Content für den Blog.
