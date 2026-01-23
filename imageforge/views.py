@@ -6,11 +6,42 @@ from django.core.files.base import ContentFile
 import base64
 import time
 import logging
+import re
 
 from .models import ImageGeneration, Character, CharacterImage, StylePreset, ProductMockup
 from .services import PromptBuilder, GeminiGenerator, DalleGenerator
 
 logger = logging.getLogger(__name__)
+
+
+def remove_emojis(text: str) -> str:
+    """
+    Entfernt Emojis aus einem Text.
+    Die Gemini API kann Emojis in Prompts nicht verarbeiten.
+    """
+    if not text:
+        return text
+
+    # Emoji-Pattern: Entfernt alle Unicode-Emoji-Zeichen
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+        "\U00002702-\U000027B0"  # dingbats
+        "\U000024C2-\U0001F251"  # enclosed characters
+        "\U0001F900-\U0001F9FF"  # supplemental symbols
+        "\U0001FA00-\U0001FA6F"  # chess symbols
+        "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-A
+        "\U00002600-\U000026FF"  # misc symbols
+        "\U00002700-\U000027BF"  # dingbats
+        "\U0001F000-\U0001F02F"  # mahjong tiles
+        "\U0001F0A0-\U0001F0FF"  # playing cards
+        "]+",
+        flags=re.UNICODE
+    )
+    return emoji_pattern.sub('', text).strip()
 
 
 # =============================================================================
@@ -78,7 +109,7 @@ def generate_image(request):
     try:
         # Formulardaten extrahieren
         mode = request.POST.get('generation_mode', 'background')
-        background_prompt = request.POST.get('background_prompt', '').strip()
+        background_prompt = remove_emojis(request.POST.get('background_prompt', '').strip())
         aspect_ratio = request.POST.get('aspect_ratio', '1:1')
         lighting_style = request.POST.get('lighting_style', 'natural')
         perspective = request.POST.get('perspective', 'frontal')
@@ -460,8 +491,8 @@ def generate_mockup(request):
     try:
         # Content-Type: text oder motif
         content_type = request.POST.get('content_type', 'text')
-        text_content = request.POST.get('text_content', '').strip()
-        product_description = request.POST.get('product_description', '')
+        text_content = remove_emojis(request.POST.get('text_content', '').strip())
+        product_description = remove_emojis(request.POST.get('product_description', ''))
         mockup_name = request.POST.get('mockup_name', '')
 
         product_image = request.FILES.get('product_image')
@@ -587,7 +618,7 @@ def generate_mockup_scene(request):
 
     try:
         mockup_id = request.POST.get('mockup_id')
-        background_prompt = request.POST.get('background_prompt', '').strip()
+        background_prompt = remove_emojis(request.POST.get('background_prompt', '').strip())
         aspect_ratio = request.POST.get('aspect_ratio', '1:1')
         lighting_style = request.POST.get('lighting_style', 'natural')
         perspective = request.POST.get('perspective', 'frontal')
