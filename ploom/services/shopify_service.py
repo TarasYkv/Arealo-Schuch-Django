@@ -354,12 +354,16 @@ class PLoomShopifyService:
             if response.status_code == 200:
                 data = response.json()
                 publications = []
+                seen_ids = set()  # Duplikate vermeiden
                 for pub in data.get('publications', []):
-                    publications.append({
-                        'id': str(pub.get('id')),
-                        'name': pub.get('name', 'Unbekannt'),
-                        'handle': pub.get('handle', ''),
-                    })
+                    pub_id = str(pub.get('id'))
+                    if pub_id not in seen_ids:
+                        seen_ids.add(pub_id)
+                        publications.append({
+                            'id': pub_id,
+                            'name': pub.get('name', 'Unbekannt'),
+                            'handle': pub.get('handle', ''),
+                        })
                 return True, publications, ""
             else:
                 return False, [], f"HTTP {response.status_code}: {response.text}"
