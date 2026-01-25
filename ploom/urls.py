@@ -51,6 +51,7 @@ urlpatterns = [
 
     # Shopify
     path('api/shopify/collections/', views.api_shopify_collections, name='api_shopify_collections'),
+    path('api/shopify/templates/', views.api_shopify_templates, name='api_shopify_templates'),
     path('api/shopify/upload/<uuid:product_id>/', views.api_shopify_upload, name='api_shopify_upload'),
 
     # Tests (nur Superuser)

@@ -121,7 +121,7 @@ class PLoomProductForm(forms.ModelForm):
                 'class': 'form-control',
                 'readonly': True
             }),
-            'template_suffix': forms.Select(attrs={'class': 'form-select'}),
+            'template_suffix': forms.TextInput(attrs={'class': 'form-control'}),
             'theme': forms.Select(attrs={'class': 'form-select'}),
             'shopify_store': forms.Select(attrs={'class': 'form-select'}),
         }
@@ -135,20 +135,9 @@ class PLoomProductForm(forms.ModelForm):
             self.fields['shopify_store'].queryset = ShopifyStore.objects.filter(user=user)
             self.fields['theme'].queryset = ProductTheme.objects.filter(user=user)
 
-        # Shopify Template Suffix Optionen
-        self.fields['template_suffix'] = forms.ChoiceField(
-            required=False,
-            choices=[
-                ('', '— Standard-Template —'),
-                ('featured', 'Featured'),
-                ('special', 'Special'),
-                ('sale', 'Sale'),
-                ('new', 'New'),
-                ('custom', 'Custom'),
-            ],
-            widget=forms.Select(attrs={'class': 'form-select'}),
-            label='Shopify Template'
-        )
+        # Template Suffix wird dynamisch via JavaScript geladen
+        # Hier nur als CharField definieren, damit es validiert wird
+        self.fields['template_suffix'].required = False
 
 
 class PLoomProductVariantForm(forms.ModelForm):

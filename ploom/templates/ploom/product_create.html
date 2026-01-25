@@ -239,7 +239,14 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Shopify Template</label>
-                            {{ form.template_suffix }}
+                            <div class="input-group">
+                                <select class="form-select" id="id_template_suffix" name="template_suffix">
+                                    <option value="">— Templates laden... —</option>
+                                </select>
+                                <button type="button" class="btn btn-outline-secondary" id="refreshTemplatesBtn" title="Templates neu laden">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                            </div>
                             <small class="text-muted">Bestimmt das Layout der Produktseite in Shopify</small>
                         </div>
                         <div class="mb-3">
@@ -534,5 +541,68 @@ document.getElementById('applyThemeBtn')?.addEventListener('click', async functi
         this.innerHTML = '<i class="bi bi-arrow-down-circle"></i> Anwenden';
     }
 });
+
+// Shopify Templates laden
+async function loadShopifyTemplates() {
+    const templateSelect = document.getElementById('id_template_suffix');
+    const storeSelect = document.getElementById('id_shopify_store');
+    const refreshBtn = document.getElementById('refreshTemplatesBtn');
+    const currentValue = templateSelect?.value || '{% if product %}{{ product.template_suffix }}{% endif %}';
+
+    if (!templateSelect) return;
+
+    // Loading-State
+    templateSelect.innerHTML = '<option value="">— Lade Templates... —</option>';
+    if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    }
+
+    try {
+        const storeId = storeSelect?.value || '';
+        const url = storeId ? `/ploom/api/shopify/templates/?store_id=${storeId}` : '/ploom/api/shopify/templates/';
+        const response = await fetch(url);
+        const data = await response.json();
+
+        templateSelect.innerHTML = '';
+
+        if (data.success && data.templates) {
+            data.templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.suffix;
+                option.textContent = template.name;
+                if (template.suffix === currentValue) {
+                    option.selected = true;
+                }
+                templateSelect.appendChild(option);
+            });
+        } else {
+            // Fallback bei Fehler
+            templateSelect.innerHTML = `
+                <option value="">— Standard —</option>
+                <option value="featured">Featured</option>
+                <option value="special">Special</option>
+            `;
+            console.warn('Templates konnten nicht geladen werden:', data.error);
+        }
+    } catch (error) {
+        console.error('Error loading templates:', error);
+        templateSelect.innerHTML = '<option value="">— Fehler beim Laden —</option>';
+    } finally {
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+        }
+    }
+}
+
+// Templates beim Laden der Seite abrufen
+document.addEventListener('DOMContentLoaded', loadShopifyTemplates);
+
+// Templates neu laden bei Store-Wechsel
+document.getElementById('id_shopify_store')?.addEventListener('change', loadShopifyTemplates);
+
+// Refresh-Button
+document.getElementById('refreshTemplatesBtn')?.addEventListener('click', loadShopifyTemplates);
 </script>
 {% endblock %}

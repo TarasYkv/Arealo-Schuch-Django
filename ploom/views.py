@@ -918,6 +918,37 @@ def api_shopify_collections(request):
 
 
 @login_required
+def api_shopify_templates(request):
+    """Shopify Product Templates abrufen"""
+    store_id = request.GET.get('store_id')
+
+    if not store_id:
+        # Standard-Store aus Einstellungen
+        settings_obj = PLoomSettings.objects.filter(user=request.user).first()
+        if settings_obj and settings_obj.default_store:
+            store_id = settings_obj.default_store.id
+        else:
+            return JsonResponse({'success': False, 'error': 'Kein Store ausgewählt'})
+
+    try:
+        from shopify_manager.models import ShopifyStore
+        from shopify_manager.shopify_api import ShopifyAPIClient
+
+        store = get_object_or_404(ShopifyStore, pk=store_id, user=request.user)
+        client = ShopifyAPIClient(store)
+
+        success, templates, error = client.fetch_product_templates()
+
+        if not success:
+            return JsonResponse({'success': False, 'error': error})
+
+        return JsonResponse({'success': True, 'templates': templates})
+    except Exception as e:
+        logger.error(f"Error fetching templates: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
 @require_POST
 def api_shopify_upload(request, product_id):
     """Produkt zu Shopify hochladen"""

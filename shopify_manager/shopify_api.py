@@ -169,10 +169,71 @@ class ShopifyAPIClient:
                 return False, [], f"Fehler bei smart_collections: HTTP {response.status_code}: {response.text}"
             
             return True, all_collections, f"{len(all_collections)} Collections abgerufen"
-                
+
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen der Collections: {str(e)}"
-    
+
+    def fetch_product_templates(self) -> Tuple[bool, List[Dict], str]:
+        """Holt verfügbare Product Templates vom aktiven Shopify Theme"""
+        try:
+            # 1. Aktives Theme finden
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/themes.json",
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                return False, [], f"Fehler beim Abrufen der Themes: HTTP {response.status_code}"
+
+            themes = response.json().get('themes', [])
+            active_theme = next((t for t in themes if t.get('role') == 'main'), None)
+
+            if not active_theme:
+                return False, [], "Kein aktives Theme gefunden"
+
+            theme_id = active_theme['id']
+
+            # 2. Assets des Themes abrufen
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/themes/{theme_id}/assets.json",
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                return False, [], f"Fehler beim Abrufen der Assets: HTTP {response.status_code}"
+
+            assets = response.json().get('assets', [])
+
+            # 3. Product Templates filtern
+            templates = []
+            for asset in assets:
+                key = asset.get('key', '')
+                # Suche nach templates/product.*.json oder templates/product.*.liquid
+                if key.startswith('templates/product.') and (key.endswith('.json') or key.endswith('.liquid')):
+                    # Template-Suffix extrahieren
+                    # z.B. "templates/product.featured.json" -> "featured"
+                    parts = key.replace('templates/product.', '').replace('.json', '').replace('.liquid', '')
+                    if parts and parts != 'json':  # "product.json" hat kein Suffix
+                        templates.append({
+                            'suffix': parts,
+                            'key': key,
+                            'name': parts.replace('-', ' ').replace('_', ' ').title()
+                        })
+
+            # Standard-Template hinzufügen
+            templates.insert(0, {
+                'suffix': '',
+                'key': 'templates/product.json',
+                'name': 'Standard'
+            })
+
+            return True, templates, f"{len(templates)} Templates gefunden"
+
+        except requests.exceptions.RequestException as e:
+            return False, [], f"Fehler beim Abrufen der Templates: {str(e)}"
+
     def search_products(self, search_term: str, limit: int = 50) -> Tuple[bool, List[Dict], str]:
         """Sucht Produkte nach Name/Titel"""
         try:
