@@ -27,12 +27,23 @@ class PLoomSettingsForm(forms.ModelForm):
         self.fields['ai_model'].widget = forms.Select(
             attrs={'class': 'form-select'},
             choices=[
+                # OpenAI Modelle
                 ('gpt-4o', 'GPT-4o'),
                 ('gpt-4o-mini', 'GPT-4o Mini'),
+                ('gpt-4-turbo', 'GPT-4 Turbo'),
+                ('o1', 'O1 (Reasoning)'),
+                ('o1-mini', 'O1 Mini'),
+                ('o3-mini', 'O3 Mini'),
+                # Anthropic Modelle
                 ('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet'),
                 ('claude-3-5-haiku-20241022', 'Claude 3.5 Haiku'),
-                ('gemini-1.5-flash', 'Gemini 1.5 Flash'),
+                ('claude-3-opus-20240229', 'Claude 3 Opus'),
+                # Google Gemini Modelle
+                ('gemini-2.0-flash-exp', 'Gemini 2.0 Flash (Neu)'),
+                ('gemini-2.0-flash-thinking-exp', 'Gemini 2.0 Flash Thinking'),
                 ('gemini-1.5-pro', 'Gemini 1.5 Pro'),
+                ('gemini-1.5-flash', 'Gemini 1.5 Flash'),
+                ('gemini-1.5-flash-8b', 'Gemini 1.5 Flash 8B'),
             ]
         )
 
