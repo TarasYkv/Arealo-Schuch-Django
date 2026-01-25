@@ -75,6 +75,7 @@ class PLoomProductForm(forms.ModelForm):
             'price', 'compare_at_price',
             'product_metafields', 'category_metafields',
             'collection_id', 'collection_name',
+            'template_suffix',
             'theme', 'shopify_store'
         ]
         widgets = {
@@ -120,6 +121,7 @@ class PLoomProductForm(forms.ModelForm):
                 'class': 'form-control',
                 'readonly': True
             }),
+            'template_suffix': forms.Select(attrs={'class': 'form-select'}),
             'theme': forms.Select(attrs={'class': 'form-select'}),
             'shopify_store': forms.Select(attrs={'class': 'form-select'}),
         }
@@ -132,6 +134,21 @@ class PLoomProductForm(forms.ModelForm):
             from shopify_manager.models import ShopifyStore
             self.fields['shopify_store'].queryset = ShopifyStore.objects.filter(user=user)
             self.fields['theme'].queryset = ProductTheme.objects.filter(user=user)
+
+        # Shopify Template Suffix Optionen
+        self.fields['template_suffix'] = forms.ChoiceField(
+            required=False,
+            choices=[
+                ('', '— Standard-Template —'),
+                ('featured', 'Featured'),
+                ('special', 'Special'),
+                ('sale', 'Sale'),
+                ('new', 'New'),
+                ('custom', 'Custom'),
+            ],
+            widget=forms.Select(attrs={'class': 'form-select'}),
+            label='Shopify Template'
+        )
 
 
 class PLoomProductVariantForm(forms.ModelForm):

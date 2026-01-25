@@ -236,6 +236,14 @@ class PLoomProduct(models.Model):
         verbose_name="Collection Name"
     )
 
+    # Shopify Template
+    template_suffix = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Shopify Template",
+        help_text="z.B. 'featured' für product.featured.liquid"
+    )
+
     # Status
     status = models.CharField(
         max_length=20,
