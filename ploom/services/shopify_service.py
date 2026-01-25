@@ -165,6 +165,13 @@ class PLoomShopifyService:
                     product_data["product"]["variants"][0]["weight"] = float(ploom_product.weight)
                     product_data["product"]["variants"][0]["weight_unit"] = ploom_product.weight_unit
 
+                # Inventar-Verfolgung
+                if ploom_product.track_inventory:
+                    product_data["product"]["variants"][0]["inventory_management"] = "shopify"
+                    product_data["product"]["variants"][0]["inventory_quantity"] = ploom_product.inventory_quantity
+                else:
+                    product_data["product"]["variants"][0]["inventory_management"] = None
+
             # Produkt erstellen
             response = self._make_request(
                 'POST',

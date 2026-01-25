@@ -412,6 +412,27 @@
                     </div>
                 </div>
 
+                <!-- Inventar -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-box-seam me-2 text-muted"></i>Inventar</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check form-switch mb-3">
+                            {{ form.track_inventory }}
+                            <label class="form-check-label" for="id_track_inventory">
+                                Inventar verfolgen
+                            </label>
+                            <br><small class="text-muted">Bestand in Shopify verwalten</small>
+                        </div>
+                        <div class="mb-0" id="inventory-quantity-row">
+                            <label class="form-label">Bestand</label>
+                            {{ form.inventory_quantity }}
+                            <small class="text-muted">Anzahl verfügbarer Einheiten</small>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Produktdetails -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-header bg-white">
@@ -1000,5 +1021,32 @@ document.getElementById('id_shopify_store')?.addEventListener('change', function
 
 // Refresh-Button für Publications
 document.getElementById('refreshPublicationsBtn')?.addEventListener('click', loadPublications);
+
+// ============================================================================
+// Inventar-Verfolgung Toggle
+// ============================================================================
+
+function initInventoryToggle() {
+    const trackInventoryCheckbox = document.getElementById('id_track_inventory');
+    const inventoryQuantityRow = document.getElementById('inventory-quantity-row');
+
+    if (!trackInventoryCheckbox || !inventoryQuantityRow) return;
+
+    function updateInventoryVisibility() {
+        if (trackInventoryCheckbox.checked) {
+            inventoryQuantityRow.style.display = 'block';
+        } else {
+            inventoryQuantityRow.style.display = 'none';
+        }
+    }
+
+    // Initial state
+    updateInventoryVisibility();
+
+    // On change
+    trackInventoryCheckbox.addEventListener('change', updateInventoryVisibility);
+}
+
+document.addEventListener('DOMContentLoaded', initInventoryToggle);
 </script>
 {% endblock %}

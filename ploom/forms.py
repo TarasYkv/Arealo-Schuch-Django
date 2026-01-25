@@ -90,6 +90,7 @@ class PLoomProductForm(forms.ModelForm):
             'title', 'description', 'vendor', 'product_type', 'tags',
             'seo_title', 'seo_description',
             'price', 'compare_at_price', 'weight', 'weight_unit',
+            'track_inventory', 'inventory_quantity',
             'product_metafields', 'category_metafields',
             'collection_id', 'collection_name',
             'template_suffix', 'sales_channels',
@@ -139,6 +140,11 @@ class PLoomProductForm(forms.ModelForm):
                 'placeholder': '0.00'
             }),
             'weight_unit': forms.Select(attrs={'class': 'form-select'}),
+            'track_inventory': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'inventory_quantity': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0'
+            }),
             'collection_id': forms.HiddenInput(),
             'collection_name': forms.TextInput(attrs={
                 'class': 'form-control',

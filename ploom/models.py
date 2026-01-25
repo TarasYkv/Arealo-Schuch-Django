@@ -227,6 +227,17 @@ class PLoomProduct(models.Model):
         verbose_name="Gewichtseinheit"
     )
 
+    # Inventar
+    track_inventory = models.BooleanField(
+        default=True,
+        verbose_name="Inventar verfolgen",
+        help_text="Wenn aktiviert, wird der Bestand in Shopify verfolgt"
+    )
+    inventory_quantity = models.IntegerField(
+        default=0,
+        verbose_name="Bestand"
+    )
+
     # Metafelder
     product_metafields = models.JSONField(
         default=dict,
