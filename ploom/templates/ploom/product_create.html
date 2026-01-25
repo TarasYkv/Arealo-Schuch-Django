@@ -40,6 +40,54 @@
         </div>
     </div>
 
+    <!-- SEO Keyword Generator -->
+    {% if is_new %}
+    <div class="card border-0 shadow-sm mb-4 border-primary" style="border-left: 4px solid #0d6efd !important;">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-search me-2"></i>SEO Produkt-Generator</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">
+                Gib ein Haupt-Keyword ein und generiere automatisch alle SEO-optimierten Texte.
+            </p>
+            <div class="row align-items-end">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <label class="form-label fw-bold">Haupt-Keyword / Produktname</label>
+                    <input type="text" class="form-control form-control-lg" id="seo-keyword"
+                           placeholder="z.B. Bluetooth Kopfhörer, Yoga Matte, LED Schreibtischlampe">
+                </div>
+                <div class="col-md-3 mb-3 mb-md-0">
+                    <label class="form-label">Sprache</label>
+                    <select class="form-select" id="seo-language">
+                        <option value="de" selected>Deutsch</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-primary btn-lg w-100" id="btn-generate-all">
+                        <i class="bi bi-magic me-2"></i>Alles generieren
+                    </button>
+                </div>
+            </div>
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Generiert: Titel, Beschreibung, SEO-Titel, SEO-Beschreibung, Tags
+                </small>
+            </div>
+            <!-- Progress -->
+            <div id="generate-progress" class="mt-3 d-none">
+                <div class="progress" style="height: 25px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar" style="width: 0%" id="generate-progress-bar">
+                        <span id="generate-progress-text">Starte...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <form id="product-form" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="row">
@@ -472,6 +520,100 @@
 const PRODUCT_ID = '{% if product %}{{ product.id }}{% endif %}';
 const CSRF_TOKEN = '{{ csrf_token }}';
 const IS_NEW = {{ is_new|yesno:"true,false" }};
+
+// SEO Komplett-Generator
+document.getElementById('btn-generate-all')?.addEventListener('click', async function() {
+    const keyword = document.getElementById('seo-keyword')?.value.trim();
+    const language = document.getElementById('seo-language')?.value || 'de';
+
+    if (!keyword) {
+        alert('Bitte gib ein Keyword oder Produktnamen ein');
+        document.getElementById('seo-keyword')?.focus();
+        return;
+    }
+
+    const btn = this;
+    const progress = document.getElementById('generate-progress');
+    const progressBar = document.getElementById('generate-progress-bar');
+    const progressText = document.getElementById('generate-progress-text');
+
+    // UI aktualisieren
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generiere...';
+    progress?.classList.remove('d-none');
+
+    const updateProgress = (percent, text) => {
+        if (progressBar) progressBar.style.width = percent + '%';
+        if (progressText) progressText.textContent = text;
+    };
+
+    updateProgress(10, 'Starte KI-Generierung...');
+
+    try {
+        const response = await fetch('/ploom/api/generate/all/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({ keyword, language })
+        });
+
+        updateProgress(50, 'Verarbeite Antwort...');
+
+        const data = await response.json();
+
+        if (data.success && data.content) {
+            const content = data.content;
+
+            updateProgress(70, 'Fülle Formularfelder...');
+
+            // Felder ausfüllen
+            if (content.title) {
+                document.getElementById('id_title').value = content.title;
+            }
+            if (content.description) {
+                document.getElementById('id_description').value = content.description;
+            }
+            if (content.seo_title) {
+                document.getElementById('id_seo_title').value = content.seo_title;
+            }
+            if (content.seo_description) {
+                document.getElementById('id_seo_description').value = content.seo_description;
+            }
+            if (content.tags) {
+                document.getElementById('id_tags').value = content.tags;
+            }
+
+            updateProgress(100, 'Fertig!');
+
+            // Erfolg anzeigen
+            setTimeout(() => {
+                progress?.classList.add('d-none');
+                progressBar.style.width = '0%';
+
+                // Zum Titel scrollen
+                document.getElementById('id_title')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Zeichen-Zähler aktualisieren (falls vorhanden)
+                document.getElementById('id_title')?.dispatchEvent(new Event('input'));
+                document.getElementById('id_seo_title')?.dispatchEvent(new Event('input'));
+                document.getElementById('id_seo_description')?.dispatchEvent(new Event('input'));
+            }, 500);
+
+        } else {
+            throw new Error(data.error || 'Generierung fehlgeschlagen');
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Fehler bei der Generierung: ' + error.message);
+        progress?.classList.add('d-none');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-magic me-2"></i>Alles generieren';
+    }
+});
 
 // Theme anwenden
 document.getElementById('applyThemeBtn')?.addEventListener('click', async function() {

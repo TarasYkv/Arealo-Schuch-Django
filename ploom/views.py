@@ -738,6 +738,49 @@ def api_generate_tags(request):
 
 
 # ============================================================================
+# SEO Komplett-Generator
+# ============================================================================
+
+@login_required
+@require_POST
+def api_generate_all(request):
+    """Alle SEO-Felder auf einmal generieren"""
+    from .services.ai_service import PLoomAIService
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+
+    keyword = data.get('keyword', '').strip()
+    language = data.get('language', 'de')
+
+    if not keyword:
+        return JsonResponse({'success': False, 'error': 'Keyword erforderlich'})
+
+    try:
+        service = PLoomAIService(request.user)
+        result = service.generate_all_seo_content(keyword, language)
+
+        if result:
+            # Alle generierten Inhalte in History speichern
+            for field_type, content in result.items():
+                if content and field_type in ['title', 'description', 'seo_title', 'seo_description', 'tags']:
+                    PLoomHistory.objects.create(
+                        user=request.user,
+                        field_type=field_type,
+                        content=content,
+                        prompt_used=f"SEO-Generator: {keyword}",
+                        ai_model_used=service.model
+                    )
+
+        return JsonResponse({'success': True, 'content': result})
+    except Exception as e:
+        logger.error(f"Error generating all SEO content: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ============================================================================
 # Verlauf API
 # ============================================================================
 

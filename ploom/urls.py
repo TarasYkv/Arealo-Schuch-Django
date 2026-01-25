@@ -39,6 +39,7 @@ urlpatterns = [
     path('api/imageforge/mockups/', views.api_imageforge_mockups, name='api_imageforge_mockups'),
 
     # KI-Generierung
+    path('api/generate/all/', views.api_generate_all, name='api_generate_all'),
     path('api/generate/title/', views.api_generate_title, name='api_generate_title'),
     path('api/generate/description/', views.api_generate_description, name='api_generate_description'),
     path('api/generate/seo/', views.api_generate_seo, name='api_generate_seo'),

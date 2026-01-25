@@ -335,3 +335,83 @@ Antworte NUR mit den Tags, komma-getrennt, ohne Erklärungen."""
             tags = [tag.strip().lower() for tag in result.split(',') if tag.strip()]
             result = ", ".join(tags[:10])  # Max 10 Tags
         return result
+
+    def generate_all_seo_content(self, keyword: str, language: str = "de") -> Optional[Dict[str, str]]:
+        """Generiert alle SEO-optimierten Inhalte auf einmal"""
+        style_instruction = self._get_style_instruction()
+
+        lang_instruction = "Schreibe auf Deutsch." if language == "de" else "Write in English."
+
+        system_prompt = f"""Du bist ein SEO-Experte und E-Commerce Copywriter.
+{style_instruction}
+{lang_instruction}
+
+Erstelle SEO-optimierte Produkttexte basierend auf einem Haupt-Keyword.
+
+Fokus auf:
+- Suchmaschinenoptimierung (SEO)
+- Conversion-Optimierung
+- Natürliche Keyword-Integration
+- Professioneller Verkaufston
+
+Antworte NUR im JSON-Format mit folgender Struktur:
+{{
+    "title": "Verkaufsstarker Produkttitel (max 70 Zeichen, Keyword am Anfang)",
+    "description": "HTML-formatierte Produktbeschreibung (150-250 Wörter, mit <p>, <ul>, <li>, <strong>)",
+    "seo_title": "SEO Meta-Titel (max 60 Zeichen, Keyword am Anfang)",
+    "seo_description": "SEO Meta-Beschreibung (max 155 Zeichen, mit Call-to-Action)",
+    "tags": "keyword1, keyword2, keyword3 (5-8 relevante Tags, komma-getrennt)"
+}}"""
+
+        user_prompt = f"""Haupt-Keyword: {keyword}
+
+Erstelle jetzt alle SEO-optimierten Texte für dieses Produkt.
+Achte besonders auf:
+1. Das Keyword soll natürlich in allen Texten vorkommen
+2. Der Titel soll zum Klicken animieren
+3. Die Beschreibung soll Vorteile und Features hervorheben
+4. Die Meta-Texte sollen in Suchergebnissen gut performen
+5. Die Tags sollen für interne Suche und SEO relevant sein"""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        result = self._call_ai(messages)
+        if result:
+            try:
+                # JSON extrahieren
+                result = result.strip()
+                if "```json" in result:
+                    result = result.split("```json")[1].split("```")[0]
+                elif "```" in result:
+                    result = result.split("```")[1].split("```")[0]
+                result = result.strip()
+
+                data = json.loads(result)
+
+                # Längen prüfen und ggf. kürzen
+                if data.get('title') and len(data['title']) > 70:
+                    data['title'] = data['title'][:67] + "..."
+                if data.get('seo_title') and len(data['seo_title']) > 60:
+                    data['seo_title'] = data['seo_title'][:57] + "..."
+                if data.get('seo_description') and len(data['seo_description']) > 155:
+                    data['seo_description'] = data['seo_description'][:152] + "..."
+
+                # HTML bereinigen
+                if data.get('description'):
+                    desc = data['description']
+                    if desc.startswith("```html"):
+                        desc = desc[7:]
+                    if desc.startswith("```"):
+                        desc = desc[3:]
+                    if desc.endswith("```"):
+                        desc = desc[:-3]
+                    data['description'] = desc.strip()
+
+                return data
+            except json.JSONDecodeError:
+                logger.error(f"Could not parse all SEO JSON: {result}")
+                return None
+        return None
