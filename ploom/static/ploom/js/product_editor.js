@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // SEO Preview
     initSEOPreview();
+
+    // Metafelder
+    initMetafields();
 });
 
 // ============================================================================
@@ -1289,6 +1292,75 @@ function updateSEOPreview() {
 
     document.getElementById('seo-preview-title').textContent = title;
     document.getElementById('seo-preview-desc').textContent = desc;
+}
+
+// ============================================================================
+// Metafelder
+// ============================================================================
+
+function initMetafields() {
+    const container = document.getElementById('metafields-container');
+    const addBtn = document.getElementById('btn-add-metafield');
+    const form = document.getElementById('product-form');
+
+    if (!container) return;
+
+    // Add metafield button
+    addBtn?.addEventListener('click', addMetafieldRow);
+
+    // Remove metafield buttons (event delegation)
+    container.addEventListener('click', function(e) {
+        if (e.target.closest('.btn-remove-metafield')) {
+            e.target.closest('.metafield-row').remove();
+        }
+    });
+
+    // Serialize metafields before form submit
+    form?.addEventListener('submit', function() {
+        serializeMetafields();
+    });
+}
+
+function addMetafieldRow() {
+    const container = document.getElementById('metafields-container');
+    const row = document.createElement('div');
+    row.className = 'metafield-row mb-2';
+    row.innerHTML = `
+        <div class="row g-2">
+            <div class="col-5">
+                <input type="text" class="form-control form-control-sm metafield-key"
+                       placeholder="namespace.key">
+            </div>
+            <div class="col-6">
+                <input type="text" class="form-control form-control-sm metafield-value"
+                       placeholder="Wert">
+            </div>
+            <div class="col-1">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-metafield">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.appendChild(row);
+}
+
+function serializeMetafields() {
+    const container = document.getElementById('metafields-container');
+    const hiddenField = document.getElementById('product_metafields_json');
+
+    if (!container || !hiddenField) return;
+
+    const metafields = {};
+    container.querySelectorAll('.metafield-row').forEach(row => {
+        const key = row.querySelector('.metafield-key')?.value.trim();
+        const value = row.querySelector('.metafield-value')?.value.trim();
+        if (key && value) {
+            metafields[key] = value;
+        }
+    });
+
+    hiddenField.value = JSON.stringify(metafields);
 }
 
 // ============================================================================

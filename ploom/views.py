@@ -209,7 +209,16 @@ def product_edit(request, product_id):
     if request.method == 'POST':
         form = PLoomProductForm(request.POST, instance=product, user=request.user)
         if form.is_valid():
-            product = form.save()
+            product = form.save(commit=False)
+
+            # Metafelder verarbeiten
+            metafields_json = request.POST.get('product_metafields_json', '{}')
+            try:
+                product.product_metafields = json.loads(metafields_json) if metafields_json else {}
+            except json.JSONDecodeError:
+                product.product_metafields = {}
+
+            product.save()
 
             # Preis zum Verlauf hinzufügen wenn geändert
             if product.price:
