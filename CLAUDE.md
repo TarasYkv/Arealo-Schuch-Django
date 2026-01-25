@@ -140,6 +140,11 @@ docs/
 - **Geschwindigkeit:** 30 Sekunden (10-30x schneller als API)
 - **Verwendung:** Für alle Server-Deployments
 - **Hinweis:** API als Fallback verfügbar, aber SSH bevorzugt
+- **SSH-Key:** `~/.ssh/pythonanywhere_key`
+- **SSH-Befehl:**
+  ```bash
+  ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com
+  ```
 
 #### GitHub Token (✅ Konfiguriert)
 - **Token:** In `.env` als `GH_TOKEN` gespeichert
@@ -210,7 +215,8 @@ docs/
 
 ### SSH-Verbindung (✅ Aktiv & Schnell):
 ```bash
-ssh TarasYuzkiv@ssh.pythonanywhere.com
+# SSH-Key verwenden (WICHTIG!)
+ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com
 ```
 
 ### Standard-Deployment (Empfohlen):
@@ -233,7 +239,7 @@ git push origin master
 
 **2. Server: Via SSH deployen (⚡ 30 Sekunden)**
 ```bash
-ssh TarasYuzkiv@ssh.pythonanywhere.com << 'EOF'
+ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com << 'EOF'
 cd ~/Arealo-Schuch-Django
 
 # Code aktualisieren
@@ -255,7 +261,7 @@ EOF
 **3. Verifizierung**
 ```bash
 # Optional: Django Check ausführen
-ssh TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && python manage.py check --deploy"
+ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && python manage.py check --deploy"
 
 # Website testen
 # https://www.workloom.de
@@ -264,7 +270,7 @@ ssh TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && python mana
 ### Schnell-Deployment (One-Liner):
 ```bash
 # Nur Code-Änderungen (keine DB/Static)
-ssh TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && git pull && touch /var/www/www_workloom_de_wsgi.py"
+ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && git pull && touch /var/www/www_workloom_de_wsgi.py"
 ```
 
 ### Deployment mit TodoWrite-Tracking:
@@ -285,13 +291,13 @@ Für komplexe Deployments immer Todo-Liste verwenden:
 ### Troubleshooting:
 ```bash
 # Fehlende Dependencies installieren
-ssh TarasYuzkiv@ssh.pythonanywhere.com "pip install <package> --user"
+ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com "pip install <package> --user"
 
 # Django Shell auf Server
-ssh TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && python manage.py shell"
+ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && python manage.py shell"
 
 # Logs prüfen
-ssh TarasYuzkiv@ssh.pythonanywhere.com "tail -50 /var/log/www.workloom.de.error.log"
+ssh -i ~/.ssh/pythonanywhere_key TarasYuzkiv@ssh.pythonanywhere.com "tail -50 /var/log/www.workloom.de.error.log"
 ```
 
 ### Server-Umgebung:
