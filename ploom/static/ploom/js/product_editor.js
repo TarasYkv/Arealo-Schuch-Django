@@ -388,35 +388,184 @@ function onAddImageModalOpen() {
     // Load ImageForge images for selection
     loadImageForgeForSelection();
 
+    // Load ImageForge mockups
+    loadImageForgeMockups();
+
     // Load URL history
     loadUrlHistory();
 }
 
-async function loadImageForgeForSelection() {
+let currentImageForgePage = 1;
+
+async function loadImageForgeForSelection(page = 1) {
     const container = document.getElementById('imageforge-select-list');
     if (!container) return;
 
     container.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border" role="status"></div></div>';
 
     try {
-        const response = await fetch('/ploom/api/imageforge/generations/');
+        const response = await fetch(`/ploom/api/imageforge/generations/?page=${page}`);
         const data = await response.json();
 
         if (data.success && data.items.length > 0) {
             container.innerHTML = data.items.map(item => `
                 <div class="col-3 mb-2">
                     <div class="imageforge-select-item" data-id="${item.id}" data-url="${item.url}" onclick="selectImageForgeItem(this)">
-                        <img src="${item.url}" class="img-fluid rounded" alt="${item.prompt || ''}">
+                        <img src="${item.url}" class="img-fluid rounded" alt="${item.prompt || ''}" title="${item.prompt || ''}">
                     </div>
                 </div>
             `).join('');
+
+            // Update pagination
+            currentImageForgePage = data.page;
+            updateImageForgePagination(data);
         } else {
             container.innerHTML = '<div class="col-12 text-center py-4 text-muted">Keine ImageForge Bilder vorhanden</div>';
+            document.getElementById('imageforge-pagination')?.classList.add('d-none');
         }
     } catch (error) {
         container.innerHTML = '<div class="col-12 text-center py-4 text-danger">Fehler beim Laden</div>';
     }
 }
+
+function updateImageForgePagination(data) {
+    const pagination = document.getElementById('imageforge-pagination');
+    const prevBtn = document.getElementById('imageforge-prev');
+    const nextBtn = document.getElementById('imageforge-next');
+    const pageInfo = document.getElementById('imageforge-page-info');
+
+    if (!pagination) return;
+
+    if (data.total_pages > 1) {
+        pagination.classList.remove('d-none');
+        pageInfo.textContent = `Seite ${data.page} von ${data.total_pages} (${data.total_count} Bilder)`;
+
+        prevBtn.disabled = !data.has_prev;
+        nextBtn.disabled = !data.has_next;
+    } else {
+        pagination.classList.add('d-none');
+    }
+}
+
+// Initialize pagination buttons for generations
+document.getElementById('imageforge-prev')?.addEventListener('click', function() {
+    if (currentImageForgePage > 1) {
+        loadImageForgeForSelection(currentImageForgePage - 1);
+    }
+});
+
+document.getElementById('imageforge-next')?.addEventListener('click', function() {
+    loadImageForgeForSelection(currentImageForgePage + 1);
+});
+
+// ============================================================================
+// ImageForge Mockups
+// ============================================================================
+
+let currentMockupsPage = 1;
+
+async function loadImageForgeMockups(page = 1) {
+    const container = document.getElementById('imageforge-mockups-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border" role="status"></div></div>';
+
+    try {
+        const response = await fetch(`/ploom/api/imageforge/mockups/?page=${page}`);
+        const data = await response.json();
+
+        if (data.success && data.items.length > 0) {
+            container.innerHTML = data.items.map(item => `
+                <div class="col-3 mb-2">
+                    <div class="imageforge-select-item" data-id="${item.id}" data-type="mockup" data-url="${item.url}" onclick="selectImageForgeMockup(this)">
+                        <img src="${item.url}" class="img-fluid rounded" alt="${item.name || ''}" title="${item.name || ''}">
+                    </div>
+                </div>
+            `).join('');
+
+            // Update pagination
+            currentMockupsPage = data.page;
+            updateMockupsPagination(data);
+        } else {
+            container.innerHTML = '<div class="col-12 text-center py-4 text-muted">Keine Mockups vorhanden</div>';
+            document.getElementById('mockups-pagination')?.classList.add('d-none');
+        }
+    } catch (error) {
+        container.innerHTML = '<div class="col-12 text-center py-4 text-danger">Fehler beim Laden</div>';
+    }
+}
+
+function updateMockupsPagination(data) {
+    const pagination = document.getElementById('mockups-pagination');
+    const prevBtn = document.getElementById('mockups-prev');
+    const nextBtn = document.getElementById('mockups-next');
+    const pageInfo = document.getElementById('mockups-page-info');
+
+    if (!pagination) return;
+
+    if (data.total_pages > 1) {
+        pagination.classList.remove('d-none');
+        pageInfo.textContent = `Seite ${data.page} von ${data.total_pages} (${data.total_count} Mockups)`;
+
+        prevBtn.disabled = !data.has_prev;
+        nextBtn.disabled = !data.has_next;
+    } else {
+        pagination.classList.add('d-none');
+    }
+}
+
+async function selectImageForgeMockup(element) {
+    if (!PRODUCT_ID) {
+        alert('Bitte speichere das Produkt zuerst');
+        return;
+    }
+
+    const sourceId = element.dataset.id;
+    const filename = document.getElementById('imageforge-filename')?.value.trim() || '';
+    const altText = document.getElementById('imageforge-alt-text')?.value.trim() || '';
+
+    // Visual feedback
+    element.classList.add('selected');
+
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/images/from-imageforge/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                source_type: 'mockup',
+                source_id: sourceId,
+                filename: filename,
+                alt_text: altText
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addImageModal')).hide();
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Hinzufügen');
+            element.classList.remove('selected');
+        }
+    } catch (error) {
+        alert('Fehler beim Hinzufügen');
+        element.classList.remove('selected');
+    }
+}
+
+// Initialize pagination buttons for mockups
+document.getElementById('mockups-prev')?.addEventListener('click', function() {
+    if (currentMockupsPage > 1) {
+        loadImageForgeMockups(currentMockupsPage - 1);
+    }
+});
+
+document.getElementById('mockups-next')?.addEventListener('click', function() {
+    loadImageForgeMockups(currentMockupsPage + 1);
+});
 
 async function selectImageForgeItem(element) {
     if (!PRODUCT_ID) {
@@ -426,6 +575,7 @@ async function selectImageForgeItem(element) {
 
     const sourceId = element.dataset.id;
     const filename = document.getElementById('imageforge-filename')?.value.trim() || '';
+    const altText = document.getElementById('imageforge-alt-text')?.value.trim() || '';
 
     // Visual feedback
     element.classList.add('selected');
@@ -440,7 +590,8 @@ async function selectImageForgeItem(element) {
             body: JSON.stringify({
                 source_type: 'generation',
                 source_id: sourceId,
-                filename: filename
+                filename: filename,
+                alt_text: altText
             })
         });
 

@@ -541,13 +541,24 @@ def api_image_set_featured(request, product_id, image_id):
 
 @login_required
 def api_imageforge_generations(request):
-    """ImageForge Generierungen abrufen"""
+    """ImageForge Generierungen abrufen mit Paginierung"""
     try:
         from imageforge.models import ImageGeneration
+
+        page = int(request.GET.get('page', 1))
+        per_page = 12
+
         generations = ImageGeneration.objects.filter(
             user=request.user,
             generated_image__isnull=False
-        ).order_by('-created_at')[:50]
+        ).order_by('-created_at')
+
+        total_count = generations.count()
+        total_pages = (total_count + per_page - 1) // per_page
+
+        start = (page - 1) * per_page
+        end = start + per_page
+        generations = generations[start:end]
 
         items = [{
             'id': gen.id,
@@ -556,20 +567,39 @@ def api_imageforge_generations(request):
             'created_at': gen.created_at.isoformat(),
         } for gen in generations if gen.generated_image]
 
-        return JsonResponse({'success': True, 'items': items})
+        return JsonResponse({
+            'success': True,
+            'items': items,
+            'page': page,
+            'total_pages': total_pages,
+            'total_count': total_count,
+            'has_prev': page > 1,
+            'has_next': page < total_pages,
+        })
     except ImportError:
         return JsonResponse({'success': False, 'error': 'ImageForge nicht installiert'})
 
 
 @login_required
 def api_imageforge_mockups(request):
-    """ImageForge Mockups abrufen"""
+    """ImageForge Mockups abrufen mit Paginierung"""
     try:
         from imageforge.models import ProductMockup
+
+        page = int(request.GET.get('page', 1))
+        per_page = 12
+
         mockups = ProductMockup.objects.filter(
             user=request.user,
             mockup_image__isnull=False
-        ).order_by('-created_at')[:50]
+        ).order_by('-created_at')
+
+        total_count = mockups.count()
+        total_pages = (total_count + per_page - 1) // per_page
+
+        start = (page - 1) * per_page
+        end = start + per_page
+        mockups = mockups[start:end]
 
         items = [{
             'id': mockup.id,
@@ -578,7 +608,15 @@ def api_imageforge_mockups(request):
             'created_at': mockup.created_at.isoformat(),
         } for mockup in mockups if mockup.mockup_image]
 
-        return JsonResponse({'success': True, 'items': items})
+        return JsonResponse({
+            'success': True,
+            'items': items,
+            'page': page,
+            'total_pages': total_pages,
+            'total_count': total_count,
+            'has_prev': page > 1,
+            'has_next': page < total_pages,
+        })
     except ImportError:
         return JsonResponse({'success': False, 'error': 'ImageForge nicht installiert'})
 
