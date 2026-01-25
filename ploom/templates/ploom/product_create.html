@@ -238,8 +238,14 @@
                             {{ form.shopify_store }}
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Theme</label>
-                            {{ form.theme }}
+                            <label class="form-label">Theme-Vorlage</label>
+                            <div class="input-group">
+                                {{ form.theme }}
+                                <button type="button" class="btn btn-outline-primary" id="applyThemeBtn" title="Theme-Werte übernehmen">
+                                    <i class="bi bi-arrow-down-circle"></i> Anwenden
+                                </button>
+                            </div>
+                            <small class="text-muted">Wähle ein Theme und klicke "Anwenden" um die Vorlagen-Werte zu übernehmen</small>
                         </div>
                         {% if not is_new %}
                         <div class="mb-0">
@@ -454,5 +460,74 @@
 const PRODUCT_ID = '{% if product %}{{ product.id }}{% endif %}';
 const CSRF_TOKEN = '{{ csrf_token }}';
 const IS_NEW = {{ is_new|yesno:"true,false" }};
+
+// Theme anwenden
+document.getElementById('applyThemeBtn')?.addEventListener('click', async function() {
+    const themeSelect = document.getElementById('id_theme');
+    const themeId = themeSelect?.value;
+
+    if (!themeId) {
+        alert('Bitte wähle zuerst ein Theme aus');
+        return;
+    }
+
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const response = await fetch(`/ploom/api/themes/${themeId}/`);
+        const data = await response.json();
+
+        if (data.success) {
+            const theme = data.theme;
+
+            // Felder übernehmen (nur wenn leer oder nach Bestätigung)
+            const fieldsToApply = [];
+
+            if (theme.default_price) fieldsToApply.push(['id_price', theme.default_price, 'Preis']);
+            if (theme.default_compare_at_price) fieldsToApply.push(['id_compare_at_price', theme.default_compare_at_price, 'Vergleichspreis']);
+            if (theme.default_vendor) fieldsToApply.push(['id_vendor', theme.default_vendor, 'Anbieter']);
+            if (theme.default_product_type) fieldsToApply.push(['id_product_type', theme.default_product_type, 'Produkttyp']);
+            if (theme.default_tags) fieldsToApply.push(['id_tags', theme.default_tags, 'Tags']);
+            if (theme.description_template) fieldsToApply.push(['id_description', theme.description_template, 'Beschreibung']);
+            if (theme.seo_title_template) fieldsToApply.push(['id_seo_title', theme.seo_title_template, 'SEO-Titel']);
+            if (theme.seo_description_template) fieldsToApply.push(['id_seo_description', theme.seo_description_template, 'SEO-Beschreibung']);
+
+            let appliedCount = 0;
+            fieldsToApply.forEach(([fieldId, value, label]) => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    // Nur überschreiben wenn leer oder User bestätigt
+                    if (!field.value || field.value.trim() === '') {
+                        field.value = value;
+                        appliedCount++;
+                    }
+                }
+            });
+
+            // Visuelles Feedback
+            const themeName = themeSelect.options[themeSelect.selectedIndex].text;
+            if (appliedCount > 0) {
+                alert(`Theme "${themeName}" angewendet!\n${appliedCount} Felder wurden ausgefüllt.`);
+            } else {
+                if (confirm(`Alle Felder sind bereits ausgefüllt.\nMöchtest du sie mit den Theme-Werten überschreiben?`)) {
+                    fieldsToApply.forEach(([fieldId, value]) => {
+                        const field = document.getElementById(fieldId);
+                        if (field) field.value = value;
+                    });
+                    alert(`Theme "${themeName}" angewendet!`);
+                }
+            }
+        } else {
+            alert('Fehler: ' + (data.error || 'Theme konnte nicht geladen werden'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Fehler beim Laden des Themes');
+    } finally {
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-arrow-down-circle"></i> Anwenden';
+    }
+});
 </script>
 {% endblock %}

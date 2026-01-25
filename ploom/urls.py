@@ -13,6 +13,7 @@ urlpatterns = [
     path('themes/create/', views.theme_create, name='theme_create'),
     path('themes/<int:theme_id>/edit/', views.theme_edit, name='theme_edit'),
     path('themes/<int:theme_id>/delete/', views.theme_delete, name='theme_delete'),
+    path('api/themes/<int:theme_id>/', views.api_theme_details, name='api_theme_details'),
 
     # Produkte
     path('products/', views.product_list, name='product_list'),

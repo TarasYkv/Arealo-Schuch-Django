@@ -853,6 +853,35 @@ def api_favorite_price_add(request):
 
 
 # ============================================================================
+# Theme API
+# ============================================================================
+
+@login_required
+def api_theme_details(request, theme_id):
+    """Theme-Details für Formular-Übernahme abrufen"""
+    try:
+        theme = get_object_or_404(ProductTheme, pk=theme_id, user=request.user)
+        return JsonResponse({
+            'success': True,
+            'theme': {
+                'id': theme.id,
+                'name': theme.name,
+                'title_template': theme.title_template,
+                'description_template': theme.description_template,
+                'seo_title_template': theme.seo_title_template,
+                'seo_description_template': theme.seo_description_template,
+                'default_price': str(theme.default_price) if theme.default_price else '',
+                'default_compare_at_price': str(theme.default_compare_at_price) if theme.default_compare_at_price else '',
+                'default_vendor': theme.default_vendor,
+                'default_product_type': theme.default_product_type,
+                'default_tags': theme.default_tags,
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ============================================================================
 # Shopify API
 # ============================================================================
 
