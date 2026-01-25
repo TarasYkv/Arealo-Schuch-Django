@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Themes - P-Loom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'ploom/css/style.css' %}?v={% now 'U' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-palette me-2 text-primary"></i>Themes
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 small">
+                            <li class="breadcrumb-item"><a href="{% url 'ploom:dashboard' %}">P-Loom</a></li>
+                            <li class="breadcrumb-item active">Themes</li>
+                        </ol>
+                    </nav>
+                </div>
+                <a href="{% url 'ploom:theme_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-2"></i>Neues Theme
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme-Liste -->
+    <div class="row">
+        {% if themes %}
+            {% for theme in themes %}
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            {% if theme.is_default %}
+                            <i class="bi bi-star-fill text-warning me-1"></i>
+                            {% endif %}
+                            {{ theme.name }}
+                        </h5>
+                        {% if theme.is_default %}
+                        <span class="badge bg-warning text-dark">Standard</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        {% if theme.title_template %}
+                        <div class="mb-2">
+                            <small class="text-muted d-block">Titel-Vorlage:</small>
+                            <code class="small">{{ theme.title_template|truncatechars:50 }}</code>
+                        </div>
+                        {% endif %}
+
+                        {% if theme.default_price %}
+                        <div class="mb-2">
+                            <small class="text-muted d-block">Standard-Preis:</small>
+                            <span class="text-primary">{{ theme.default_price }} EUR</span>
+                        </div>
+                        {% endif %}
+
+                        {% if theme.default_vendor %}
+                        <div class="mb-2">
+                            <small class="text-muted d-block">Hersteller:</small>
+                            <span>{{ theme.default_vendor }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if theme.default_tags %}
+                        <div class="mb-0">
+                            <small class="text-muted d-block">Tags:</small>
+                            <span class="small">{{ theme.default_tags|truncatechars:50 }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-white border-0">
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'ploom:theme_edit' theme.id %}"
+                               class="btn btn-sm btn-outline-primary flex-grow-1">
+                                <i class="bi bi-pencil me-1"></i>Bearbeiten
+                            </a>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger btn-delete-theme"
+                                    data-id="{{ theme.id }}"
+                                    title="Löschen">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="bi bi-palette text-muted display-1"></i>
+                    <h4 class="mt-4">Keine Themes vorhanden</h4>
+                    <p class="text-muted">
+                        Themes speichern Vorlagen für neue Produkte
+                    </p>
+                    <a href="{% url 'ploom:theme_create' %}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus-lg me-2"></i>Erstes Theme erstellen
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.btn-delete-theme').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        if (confirm('Theme wirklich löschen?')) {
+            fetch(`/ploom/themes/${id}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Fehler beim Löschen');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

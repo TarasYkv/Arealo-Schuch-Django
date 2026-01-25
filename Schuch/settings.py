@@ -101,6 +101,7 @@ INSTALLED_APPS = [
     'android_apk_manager',
     'linkloom',
     'backloom',
+    'ploom',
 ]
 
 

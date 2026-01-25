@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}P-Loom - Shopify Produkt-Erstellung{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'ploom/css/style.css' %}?v={% now 'U' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-box-seam-fill text-primary me-2"></i>P-Loom
+                </h1>
+                <div class="btn-group">
+                    <a href="{% url 'ploom:product_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-2"></i>Neues Produkt
+                    </a>
+                    <a href="{% url 'ploom:product_list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-box-seam me-2"></i>Produkte
+                    </a>
+                    <a href="{% url 'ploom:theme_list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-palette me-2"></i>Themes
+                    </a>
+                    <a href="{% url 'ploom:settings' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-gear me-2"></i>
+                    </a>
+                </div>
+            </div>
+            <p class="text-muted mt-2">
+                Erstelle Shopify-Produkte mit KI-generierten Texten und ImageForge-Bildern
+            </p>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 text-primary mb-2">{{ stats.total_products }}</div>
+                    <div class="text-muted small">Gesamt</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 text-warning mb-2">{{ stats.draft_products }}</div>
+                    <div class="text-muted small">Entwürfe</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 text-info mb-2">{{ stats.ready_products }}</div>
+                    <div class="text-muted small">Bereit</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 text-success mb-2">{{ stats.uploaded_products }}</div>
+                    <div class="text-muted small">Hochgeladen</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Letzte Produkte -->
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2 text-muted"></i>Letzte Produkte
+                    </h5>
+                    <a href="{% url 'ploom:product_list' %}" class="btn btn-sm btn-outline-primary">
+                        Alle anzeigen
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_products %}
+                    <div class="list-group list-group-flush">
+                        {% for product in recent_products %}
+                        <a href="{% url 'ploom:product_edit' product.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    {% if product.featured_image and product.featured_image.image_url %}
+                                    <img src="{{ product.featured_image.image_url }}"
+                                         class="rounded me-3"
+                                         style="width: 50px; height: 50px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center"
+                                         style="width: 50px; height: 50px;">
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="fw-medium">{{ product.title|truncatechars:50 }}</div>
+                                        <small class="text-muted">
+                                            {{ product.created_at|date:"d.m.Y H:i" }}
+                                            {% if product.price %} &bull; {{ product.price }} EUR{% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <span class="badge
+                                    {% if product.status == 'draft' %}bg-warning text-dark
+                                    {% elif product.status == 'ready' %}bg-info
+                                    {% elif product.status == 'uploaded' %}bg-success
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ product.get_status_display }}
+                                </span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-box text-muted display-4"></i>
+                        <p class="text-muted mt-3">Noch keine Produkte erstellt</p>
+                        <a href="{% url 'ploom:product_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-2"></i>Erstes Produkt erstellen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Schnellstart & Themes -->
+        <div class="col-lg-4 mb-4">
+            <!-- Schnellstart -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning-charge me-2 text-warning"></i>Schnellstart
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'ploom:product_create' %}" class="btn btn-primary w-100 mb-3">
+                        <i class="bi bi-plus-lg me-2"></i>Neues Produkt
+                    </a>
+                    <a href="{% url 'ploom:theme_create' %}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-palette me-2"></i>Neues Theme
+                    </a>
+                </div>
+            </div>
+
+            <!-- Themes -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-palette me-2 text-muted"></i>Themes
+                    </h5>
+                    <a href="{% url 'ploom:theme_list' %}" class="btn btn-sm btn-outline-primary">
+                        Alle
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if themes %}
+                    <div class="list-group list-group-flush">
+                        {% for theme in themes|slice:":5" %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                {% if theme.is_default %}
+                                <i class="bi bi-star-fill text-warning me-1"></i>
+                                {% endif %}
+                                {{ theme.name }}
+                            </span>
+                            <a href="{% url 'ploom:theme_edit' theme.id %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <p class="text-muted small mb-2">Noch keine Themes</p>
+                        <a href="{% url 'ploom:theme_create' %}" class="btn btn-sm btn-outline-primary">
+                            Theme erstellen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

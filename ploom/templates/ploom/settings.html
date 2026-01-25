@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Einstellungen - P-Loom{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-gear me-2 text-primary"></i>Einstellungen
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 small">
+                            <li class="breadcrumb-item"><a href="{% url 'ploom:dashboard' %}">P-Loom</a></li>
+                            <li class="breadcrumb-item active">Einstellungen</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <form id="settings-form" method="post">
+                {% csrf_token %}
+
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-shop me-2 text-muted"></i>Shopify</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-0">
+                            <label class="form-label">Standard-Store</label>
+                            {{ form.default_store }}
+                            <small class="text-muted">Wird bei neuen Produkten vorausgewählt</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-robot me-2 text-muted"></i>KI-Einstellungen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">KI-Anbieter</label>
+                            {{ form.ai_provider }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">KI-Modell</label>
+                            {{ form.ai_model }}
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Schreibstil</label>
+                            {{ form.writing_style }}
+                            <small class="text-muted">Bestimmt die Anrede in generierten Texten</small>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-2"></i>Speichern
+                </button>
+            </form>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2 text-muted"></i>Hinweise</h5>
+                </div>
+                <div class="card-body">
+                    <h6>KI-Anbieter</h6>
+                    <p class="small text-muted">
+                        Für die KI-Textgenerierung wird ein API-Key benötigt.
+                        Konfiguriere deinen API-Key in den
+                        <a href="{% url 'accounts:neue_api_einstellungen' %}">Account-Einstellungen</a>.
+                    </p>
+
+                    <h6>Schreibstil</h6>
+                    <ul class="small text-muted">
+                        <li><strong>Du-Anrede:</strong> Locker, freundlich, modern</li>
+                        <li><strong>Sie-Anrede:</strong> Professionell, höflich, seriös</li>
+                        <li><strong>Neutral:</strong> Ohne direkte Anrede</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('settings-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = this;
+    const formData = new FormData(form);
+
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Einstellungen gespeichert!');
+        } else {
+            alert('Fehler beim Speichern');
+        }
+    });
+});
+</script>
+{% endblock %}

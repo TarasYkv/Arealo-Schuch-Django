@@ -201,6 +201,17 @@ MENU_STRUCTURE = {
                 'icon': 'bi bi-pencil-square',
                 'auth_url_name': 'blogprep:project_list',
             },
+            {
+                'app_name': 'ploom',
+                'label': 'P-Loom',
+                'icon': 'bi bi-box-seam-fill',
+                'auth_url_name': 'ploom:dashboard',
+                'sub_items': [
+                    {'label': 'Dashboard', 'icon': 'bi bi-speedometer2', 'url_name': 'ploom:dashboard'},
+                    {'label': 'Produkte', 'icon': 'bi bi-box-seam', 'url_name': 'ploom:product_list'},
+                    {'label': 'Themes', 'icon': 'bi bi-palette', 'url_name': 'ploom:theme_list'},
+                ],
+            },
         ],
     },
     'kreativ': {

@@ -206,6 +206,7 @@ class AppPermission(models.Model):
         ('imageforge', 'ImageForge - KI Bildgenerierung'),
         ('vskript', 'VSkript - Video-Skript Generator'),
         ('questionfinder', 'QuestionFinder'),
+        ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
 
         # SEO Tools
         ('seo_dashboard', 'SEO Dashboard'),

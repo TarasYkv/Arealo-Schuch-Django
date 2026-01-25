@@ -1,0 +1,219 @@
+{% extends "ploom/base_ploom.html" %}
+{% load static %}
+
+{% block title %}P-Loom Tests{% endblock %}
+
+{% block ploom_content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bug me-2"></i>P-Loom Test Suite
+                    </h5>
+                    <button id="rerunTests" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Tests erneut ausführen
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0" id="totalCount">{{ results.total }}</h2>
+                                    <small class="text-muted">Tests gesamt</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white border-0">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0" id="passedCount">{{ results.passed }}</h2>
+                                    <small>Bestanden</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card {% if results.failed > 0 %}bg-danger{% else %}bg-secondary{% endif %} text-white border-0">
+                                <div class="card-body text-center">
+                                    <h2 class="mb-0" id="failedCount">{{ results.failed }}</h2>
+                                    <small>Fehlgeschlagen</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    {% if results.total > 0 %}
+                    <div class="progress mb-4" style="height: 25px;">
+                        {% with pass_percent=results.passed|divisibleby:1 %}
+                        <div class="progress-bar bg-success" role="progressbar"
+                             style="width: {% widthratio results.passed results.total 100 %}%"
+                             id="progressPassed">
+                            {{ results.passed }} bestanden
+                        </div>
+                        <div class="progress-bar bg-danger" role="progressbar"
+                             style="width: {% widthratio results.failed results.total 100 %}%"
+                             id="progressFailed">
+                            {% if results.failed > 0 %}{{ results.failed }} fehlgeschlagen{% endif %}
+                        </div>
+                        {% endwith %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Test Results Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="resultsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 30px;">#</th>
+                                    <th>Test</th>
+                                    <th style="width: 100px;">Status</th>
+                                    <th style="width: 100px;">Dauer</th>
+                                    <th>Fehler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for test in results.results %}
+                                <tr class="{% if test.status == 'passed' %}table-success{% elif test.status == 'failed' %}table-danger{% else %}table-warning{% endif %}">
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <strong>{{ test.name }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if test.status == 'passed' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>OK
+                                        </span>
+                                        {% elif test.status == 'failed' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle me-1"></i>FAIL
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>ERROR
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ test.duration }}</small>
+                                    </td>
+                                    <td>
+                                        {% if test.error %}
+                                        <code class="text-danger">{{ test.error }}</code>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">
+                                        Keine Tests ausgeführt
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Summary Message -->
+                    <div class="alert {% if results.failed == 0 %}alert-success{% else %}alert-danger{% endif %} mt-3">
+                        {% if results.failed == 0 %}
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <strong>Alle {{ results.total }} Tests bestanden!</strong>
+                        {% else %}
+                        <i class="bi bi-x-circle-fill me-2"></i>
+                        <strong>{{ results.failed }} von {{ results.total }} Tests fehlgeschlagen.</strong>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.table td, .table th {
+    vertical-align: middle;
+}
+code {
+    font-size: 0.85em;
+    word-break: break-word;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const rerunBtn = document.getElementById('rerunTests');
+
+    rerunBtn.addEventListener('click', function() {
+        rerunBtn.disabled = true;
+        rerunBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Tests laufen...';
+
+        fetch('{% url "ploom:run_tests" %}', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update counts
+            document.getElementById('totalCount').textContent = data.total;
+            document.getElementById('passedCount').textContent = data.passed;
+            document.getElementById('failedCount').textContent = data.failed;
+
+            // Update progress bar
+            const passedPercent = (data.passed / data.total * 100).toFixed(0);
+            const failedPercent = (data.failed / data.total * 100).toFixed(0);
+            document.getElementById('progressPassed').style.width = passedPercent + '%';
+            document.getElementById('progressPassed').textContent = data.passed + ' bestanden';
+            document.getElementById('progressFailed').style.width = failedPercent + '%';
+            document.getElementById('progressFailed').textContent = data.failed > 0 ? data.failed + ' fehlgeschlagen' : '';
+
+            // Update table
+            const tbody = document.querySelector('#resultsTable tbody');
+            tbody.innerHTML = '';
+
+            data.results.forEach((test, index) => {
+                const row = document.createElement('tr');
+                let rowClass = '';
+                let statusBadge = '';
+
+                if (test.status === 'passed') {
+                    rowClass = 'table-success';
+                    statusBadge = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>OK</span>';
+                } else if (test.status === 'failed') {
+                    rowClass = 'table-danger';
+                    statusBadge = '<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>FAIL</span>';
+                } else {
+                    rowClass = 'table-warning';
+                    statusBadge = '<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>ERROR</span>';
+                }
+
+                row.className = rowClass;
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td><strong>${test.name}</strong></td>
+                    <td>${statusBadge}</td>
+                    <td><small class="text-muted">${test.duration}</small></td>
+                    <td>${test.error ? '<code class="text-danger">' + test.error + '</code>' : '<span class="text-muted">-</span>'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            rerunBtn.disabled = false;
+            rerunBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Tests erneut ausführen';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            rerunBtn.disabled = false;
+            rerunBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Tests erneut ausführen';
+            alert('Fehler beim Ausführen der Tests');
+        });
+    });
+});
+</script>
+{% endblock %}

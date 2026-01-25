@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if is_new %}Neues Theme{% else %}{{ theme.name }} bearbeiten{% endif %} - P-Loom{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-palette me-2 text-primary"></i>
+                        {% if is_new %}Neues Theme{% else %}Theme bearbeiten{% endif %}
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 small">
+                            <li class="breadcrumb-item"><a href="{% url 'ploom:dashboard' %}">P-Loom</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'ploom:theme_list' %}">Themes</a></li>
+                            <li class="breadcrumb-item active">{% if is_new %}Neu{% else %}Bearbeiten{% endif %}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <button type="submit" form="theme-form" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-2"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <form id="theme-form" method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Basis -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-card-text me-2 text-muted"></i>Grundeinstellungen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Name *</label>
+                            {{ form.name }}
+                        </div>
+                        <div class="form-check mb-3">
+                            {{ form.is_default }}
+                            <label class="form-check-label" for="id_is_default">
+                                Als Standard-Theme verwenden
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vorlagen -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-file-text me-2 text-muted"></i>Textvorlagen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info small">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Verfügbare Platzhalter: <code>{product_name}</code>, <code>{brand}</code>, <code>{category}</code>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Titel-Vorlage</label>
+                            {{ form.title_template }}
+                            <small class="text-muted">z.B. "{product_name} - {brand} | Qualität aus Deutschland"</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Beschreibungs-Vorlage</label>
+                            {{ form.description_template }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEO Vorlagen -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-search me-2 text-muted"></i>SEO-Vorlagen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">SEO-Titel-Vorlage</label>
+                            {{ form.seo_title_template }}
+                            <small class="text-muted">Max. 60 Zeichen empfohlen</small>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">SEO-Beschreibungs-Vorlage</label>
+                            {{ form.seo_description_template }}
+                            <small class="text-muted">Max. 155 Zeichen empfohlen</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <!-- Standard-Werte -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-sliders me-2 text-muted"></i>Standard-Werte</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Standard-Preis (EUR)</label>
+                            {{ form.default_price }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Standard-Vergleichspreis (EUR)</label>
+                            {{ form.default_compare_at_price }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Standard-Hersteller</label>
+                            {{ form.default_vendor }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Standard-Produkttyp</label>
+                            {{ form.default_product_type }}
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Standard-Tags</label>
+                            {{ form.default_tags }}
+                            <small class="text-muted">Komma-getrennt</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
