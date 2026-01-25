@@ -362,7 +362,7 @@ class PLoomProductImage(models.Model):
         if self.source == 'upload' and self.image:
             return self.image.url
         elif self.source == 'imageforge_generation' and self.imageforge_generation:
-            return self.imageforge_generation.image.url if self.imageforge_generation.image else None
+            return self.imageforge_generation.generated_image.url if self.imageforge_generation.generated_image else None
         elif self.source == 'imageforge_mockup' and self.imageforge_mockup:
             return self.imageforge_mockup.mockup_image.url if self.imageforge_mockup.mockup_image else None
         return None
