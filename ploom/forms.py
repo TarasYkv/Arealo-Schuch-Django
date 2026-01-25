@@ -89,7 +89,7 @@ class PLoomProductForm(forms.ModelForm):
         fields = [
             'title', 'description', 'vendor', 'product_type', 'tags',
             'seo_title', 'seo_description',
-            'price', 'compare_at_price',
+            'price', 'compare_at_price', 'weight', 'weight_unit',
             'product_metafields', 'category_metafields',
             'collection_id', 'collection_name',
             'template_suffix', 'sales_channels',
@@ -133,6 +133,12 @@ class PLoomProductForm(forms.ModelForm):
                 'step': '0.01',
                 'placeholder': '0.00'
             }),
+            'weight': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'placeholder': '0.00'
+            }),
+            'weight_unit': forms.Select(attrs={'class': 'form-select'}),
             'collection_id': forms.HiddenInput(),
             'collection_name': forms.TextInput(attrs={
                 'class': 'form-control',

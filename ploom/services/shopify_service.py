@@ -92,6 +92,10 @@ class PLoomShopifyService:
                 }
             }
 
+            # Template Suffix (Theme-Vorlage)
+            if ploom_product.template_suffix:
+                product_data["product"]["template_suffix"] = ploom_product.template_suffix
+
             # SEO-Daten
             if ploom_product.seo_title or ploom_product.seo_description:
                 product_data["product"]["metafields_global_title_tag"] = ploom_product.seo_title or ""
@@ -155,6 +159,11 @@ class PLoomShopifyService:
 
                 if ploom_product.compare_at_price:
                     product_data["product"]["variants"][0]["compare_at_price"] = str(ploom_product.compare_at_price)
+
+                # Gewicht hinzufügen
+                if ploom_product.weight:
+                    product_data["product"]["variants"][0]["weight"] = float(ploom_product.weight)
+                    product_data["product"]["variants"][0]["weight_unit"] = ploom_product.weight_unit
 
             # Produkt erstellen
             response = self._make_request(

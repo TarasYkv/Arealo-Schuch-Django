@@ -212,6 +212,21 @@ class PLoomProduct(models.Model):
         verbose_name="Vergleichspreis"
     )
 
+    # Gewicht
+    weight = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Gewicht"
+    )
+    weight_unit = models.CharField(
+        max_length=5,
+        choices=[('kg', 'kg'), ('g', 'g'), ('lb', 'lb'), ('oz', 'oz')],
+        default='kg',
+        verbose_name="Gewichtseinheit"
+    )
+
     # Metafelder
     product_metafields = models.JSONField(
         default=dict,
