@@ -181,6 +181,10 @@ class PLoomShopifyService:
                 if ploom_product.collection_id:
                     self._add_product_to_collection(shopify_product_id, ploom_product.collection_id)
 
+                # Vertriebskanäle zuweisen
+                if ploom_product.sales_channels:
+                    self.publish_to_channels(shopify_product_id, ploom_product.sales_channels)
+
                 return True, shopify_product_id, ""
             else:
                 error_msg = f"HTTP {response.status_code}: {response.text}"
@@ -308,6 +312,64 @@ class PLoomShopifyService:
 
         except Exception as e:
             logger.warning(f"Error adding product to collection: {e}")
+
+    def get_publications(self) -> Tuple[bool, List[Dict], str]:
+        """Holt alle Sales Channels / Veröffentlichungskanäle"""
+        try:
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/publications.json",
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                publications = []
+                for pub in data.get('publications', []):
+                    publications.append({
+                        'id': str(pub.get('id')),
+                        'name': pub.get('name', 'Unbekannt'),
+                        'handle': pub.get('handle', ''),
+                    })
+                return True, publications, ""
+            else:
+                return False, [], f"HTTP {response.status_code}: {response.text}"
+
+        except Exception as e:
+            logger.error(f"Error fetching publications: {e}")
+            return False, [], str(e)
+
+    def publish_to_channels(self, product_id: str, publication_ids: List[str]) -> None:
+        """Veröffentlicht ein Produkt auf ausgewählten Kanälen"""
+        for pub_id in publication_ids:
+            try:
+                publish_data = {
+                    "product_publication": {
+                        "publication_id": int(pub_id)
+                    }
+                }
+
+                response = self._make_request(
+                    'PUT',
+                    f"{self.base_url}/products/{product_id}/publish.json",
+                    json=publish_data,
+                    timeout=10
+                )
+
+                if response.status_code not in [200, 201]:
+                    # Fallback: ProductPublication API verwenden
+                    response = self._make_request(
+                        'POST',
+                        f"{self.base_url}/products/{product_id}/product_publications.json",
+                        json={"product_publication": {"publication_id": int(pub_id)}},
+                        timeout=10
+                    )
+
+                    if response.status_code not in [200, 201]:
+                        logger.warning(f"Failed to publish to channel {pub_id}: {response.text}")
+
+            except Exception as e:
+                logger.warning(f"Error publishing to channel {pub_id}: {e}")
 
     def get_collections(self) -> Tuple[bool, List[Dict], str]:
         """Holt alle Collections"""

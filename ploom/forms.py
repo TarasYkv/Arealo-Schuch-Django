@@ -78,6 +78,12 @@ class ProductThemeForm(forms.ModelForm):
 class PLoomProductForm(forms.ModelForm):
     """Formular für P-Loom Produkte"""
 
+    # Vertriebskanäle als CharField (wird als JSON verarbeitet)
+    sales_channels = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput()
+    )
+
     class Meta:
         model = PLoomProduct
         fields = [
@@ -86,7 +92,7 @@ class PLoomProductForm(forms.ModelForm):
             'price', 'compare_at_price',
             'product_metafields', 'category_metafields',
             'collection_id', 'collection_name',
-            'template_suffix',
+            'template_suffix', 'sales_channels',
             'theme', 'shopify_store'
         ]
         widgets = {
@@ -149,6 +155,20 @@ class PLoomProductForm(forms.ModelForm):
         # Template Suffix wird dynamisch via JavaScript geladen
         # Hier nur als CharField definieren, damit es validiert wird
         self.fields['template_suffix'].required = False
+
+    def clean_sales_channels(self):
+        """Konvertiert den JSON-String zu einer Python-Liste"""
+        import json
+        value = self.cleaned_data.get('sales_channels', '[]')
+        if not value or value == '':
+            return []
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return parsed
+            return []
+        except (json.JSONDecodeError, TypeError):
+            return []
 
 
 class PLoomProductVariantForm(forms.ModelForm):

@@ -351,6 +351,29 @@
                     </div>
                 </div>
 
+                <!-- Vertriebskanäle -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-broadcast me-2 text-muted"></i>Vertriebskanäle</h5>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshPublicationsBtn" title="Kanäle neu laden">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="publications-container">
+                            <div class="text-center py-3 text-muted">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <span class="ms-2">Lade Kanäle...</span>
+                            </div>
+                        </div>
+                        <input type="hidden" name="sales_channels" id="id_sales_channels" value="{% if product.sales_channels %}{{ product.sales_channels|safe }}{% else %}[]{% endif %}">
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Wähle aus, wo das Produkt veröffentlicht werden soll
+                        </small>
+                    </div>
+                </div>
+
                 <!-- Preise -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
@@ -768,5 +791,133 @@ document.getElementById('id_shopify_store')?.addEventListener('change', loadShop
 
 // Refresh-Button
 document.getElementById('refreshTemplatesBtn')?.addEventListener('click', loadShopifyTemplates);
+
+// ============================================================================
+// Vertriebskanäle (Sales Channels / Publications)
+// ============================================================================
+
+let selectedPublications = [];
+
+// Initiale Auswahl aus Hidden Field laden
+try {
+    const initialValue = document.getElementById('id_sales_channels')?.value;
+    if (initialValue && initialValue !== '[]') {
+        selectedPublications = JSON.parse(initialValue);
+    }
+} catch (e) {
+    console.warn('Could not parse initial sales channels:', e);
+}
+
+async function loadPublications() {
+    const container = document.getElementById('publications-container');
+    const storeSelect = document.getElementById('id_shopify_store');
+
+    if (!container) return;
+
+    // Loading-State
+    container.innerHTML = `
+        <div class="text-center py-3 text-muted">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <span class="ms-2">Lade Kanäle...</span>
+        </div>
+    `;
+
+    try {
+        const storeId = storeSelect?.value || '';
+        const url = storeId ? `/ploom/api/shopify/publications/?store_id=${storeId}` : '/ploom/api/shopify/publications/';
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success && data.publications && data.publications.length > 0) {
+            renderPublications(data.publications, container);
+        } else if (data.success && (!data.publications || data.publications.length === 0)) {
+            container.innerHTML = '<p class="text-muted mb-0 small">Keine Vertriebskanäle verfügbar</p>';
+        } else {
+            container.innerHTML = `<p class="text-danger mb-0 small">${data.error || 'Fehler beim Laden'}</p>`;
+        }
+    } catch (error) {
+        console.error('Error loading publications:', error);
+        container.innerHTML = '<p class="text-danger mb-0 small">Fehler beim Laden der Kanäle</p>';
+    }
+}
+
+function renderPublications(publications, container) {
+    container.innerHTML = publications.map(pub => {
+        const isChecked = selectedPublications.includes(pub.id);
+        const iconClass = getPublicationIcon(pub.name, pub.handle);
+        return `
+            <div class="form-check mb-2">
+                <input class="form-check-input publication-checkbox" type="checkbox"
+                       value="${pub.id}" id="pub-${pub.id}" ${isChecked ? 'checked' : ''}>
+                <label class="form-check-label" for="pub-${pub.id}">
+                    <i class="bi ${iconClass} me-1 text-muted"></i>
+                    ${escapeHtml(pub.name)}
+                </label>
+            </div>
+        `;
+    }).join('');
+
+    // Event-Listener für Checkboxen
+    container.querySelectorAll('.publication-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateSelectedPublications();
+        });
+    });
+}
+
+function getPublicationIcon(name, handle) {
+    const lowerName = (name + ' ' + handle).toLowerCase();
+    if (lowerName.includes('online') || lowerName.includes('store') || lowerName.includes('shop')) {
+        return 'bi-globe';
+    } else if (lowerName.includes('pos') || lowerName.includes('point')) {
+        return 'bi-shop';
+    } else if (lowerName.includes('facebook') || lowerName.includes('fb')) {
+        return 'bi-facebook';
+    } else if (lowerName.includes('instagram') || lowerName.includes('insta')) {
+        return 'bi-instagram';
+    } else if (lowerName.includes('google')) {
+        return 'bi-google';
+    } else if (lowerName.includes('amazon')) {
+        return 'bi-box-seam';
+    } else if (lowerName.includes('ebay')) {
+        return 'bi-cart3';
+    } else if (lowerName.includes('tiktok')) {
+        return 'bi-tiktok';
+    } else if (lowerName.includes('pinterest')) {
+        return 'bi-pinterest';
+    }
+    return 'bi-broadcast';
+}
+
+function updateSelectedPublications() {
+    selectedPublications = [];
+    document.querySelectorAll('.publication-checkbox:checked').forEach(checkbox => {
+        selectedPublications.push(checkbox.value);
+    });
+
+    // Hidden Field aktualisieren
+    const hiddenField = document.getElementById('id_sales_channels');
+    if (hiddenField) {
+        hiddenField.value = JSON.stringify(selectedPublications);
+    }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// Publications beim Laden der Seite abrufen
+document.addEventListener('DOMContentLoaded', loadPublications);
+
+// Publications neu laden bei Store-Wechsel
+document.getElementById('id_shopify_store')?.addEventListener('change', function() {
+    selectedPublications = []; // Reset bei Store-Wechsel
+    loadPublications();
+});
+
+// Refresh-Button für Publications
+document.getElementById('refreshPublicationsBtn')?.addEventListener('click', loadPublications);
 </script>
 {% endblock %}

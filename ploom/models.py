@@ -244,6 +244,14 @@ class PLoomProduct(models.Model):
         help_text="z.B. 'featured' für product.featured.liquid"
     )
 
+    # Sales Channels / Veröffentlichungskanäle
+    sales_channels = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Vertriebskanäle",
+        help_text="Liste der Publication IDs für Shopify Sales Channels"
+    )
+
     # Status
     status = models.CharField(
         max_length=20,

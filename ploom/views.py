@@ -992,6 +992,37 @@ def api_shopify_templates(request):
 
 
 @login_required
+def api_shopify_publications(request):
+    """Shopify Sales Channels / Veröffentlichungskanäle abrufen"""
+    store_id = request.GET.get('store_id')
+
+    if not store_id:
+        # Standard-Store aus Einstellungen
+        settings_obj = PLoomSettings.objects.filter(user=request.user).first()
+        if settings_obj and settings_obj.default_store:
+            store_id = settings_obj.default_store.id
+        else:
+            return JsonResponse({'success': False, 'error': 'Kein Store ausgewählt'})
+
+    try:
+        from shopify_manager.models import ShopifyStore
+        from .services.shopify_service import PLoomShopifyService
+
+        store = get_object_or_404(ShopifyStore, pk=store_id, user=request.user)
+        service = PLoomShopifyService(store)
+
+        success, publications, error = service.get_publications()
+
+        if not success:
+            return JsonResponse({'success': False, 'error': error})
+
+        return JsonResponse({'success': True, 'publications': publications})
+    except Exception as e:
+        logger.error(f"Error fetching publications: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
 @require_POST
 def api_shopify_upload(request, product_id):
     """Produkt zu Shopify hochladen"""
