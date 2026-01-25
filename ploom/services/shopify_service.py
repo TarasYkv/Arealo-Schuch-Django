@@ -455,3 +455,50 @@ class PLoomShopifyService:
         except Exception as e:
             logger.error(f"Error fetching collections: {e}")
             return False, [], str(e)
+
+    def get_metafield_definitions(self) -> Tuple[bool, List[Dict], str]:
+        """Holt alle Metafeld-Definitionen für Produkte"""
+        try:
+            # Metafield Definitions API (REST)
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/metafield_definitions.json",
+                params={
+                    'owner_resource': 'product',
+                    'limit': 250
+                },
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                definitions = []
+                for definition in data.get('metafield_definitions', []):
+                    definitions.append({
+                        'id': str(definition.get('id')),
+                        'name': definition.get('name', ''),
+                        'namespace': definition.get('namespace', ''),
+                        'key': definition.get('key', ''),
+                        'full_key': f"{definition.get('namespace', '')}.{definition.get('key', '')}",
+                        'type': definition.get('type', {}).get('name', 'single_line_text_field'),
+                        'description': definition.get('description', ''),
+                    })
+                return True, definitions, ""
+            else:
+                # Fallback: Standard-Metafelder zurückgeben
+                return True, self._get_default_metafield_definitions(), ""
+
+        except Exception as e:
+            logger.error(f"Error fetching metafield definitions: {e}")
+            return True, self._get_default_metafield_definitions(), str(e)
+
+    def _get_default_metafield_definitions(self) -> List[Dict]:
+        """Gibt Standard-Metafeld-Definitionen zurück"""
+        return [
+            {'full_key': 'custom.material', 'name': 'Material', 'namespace': 'custom', 'key': 'material', 'type': 'single_line_text_field'},
+            {'full_key': 'custom.care_instructions', 'name': 'Pflegehinweise', 'namespace': 'custom', 'key': 'care_instructions', 'type': 'multi_line_text_field'},
+            {'full_key': 'custom.country_of_origin', 'name': 'Herkunftsland', 'namespace': 'custom', 'key': 'country_of_origin', 'type': 'single_line_text_field'},
+            {'full_key': 'custom.warranty', 'name': 'Garantie', 'namespace': 'custom', 'key': 'warranty', 'type': 'single_line_text_field'},
+            {'full_key': 'descriptors.subtitle', 'name': 'Untertitel', 'namespace': 'descriptors', 'key': 'subtitle', 'type': 'single_line_text_field'},
+            {'full_key': 'seo.hidden', 'name': 'SEO verstecken', 'namespace': 'seo', 'key': 'hidden', 'type': 'boolean'},
+        ]

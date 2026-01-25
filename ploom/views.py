@@ -1222,6 +1222,37 @@ def api_shopify_collections(request):
 
 
 @login_required
+def api_shopify_metafields(request):
+    """Shopify Metafeld-Definitionen abrufen"""
+    store_id = request.GET.get('store_id')
+
+    if not store_id:
+        # Standard-Store aus Einstellungen
+        settings_obj = PLoomSettings.objects.filter(user=request.user).first()
+        if settings_obj and settings_obj.default_store:
+            store_id = settings_obj.default_store.id
+        else:
+            return JsonResponse({'success': False, 'error': 'Kein Store ausgewählt'})
+
+    try:
+        from shopify_manager.models import ShopifyStore
+        store = get_object_or_404(ShopifyStore, pk=store_id, user=request.user)
+
+        from .services.shopify_service import PLoomShopifyService
+        service = PLoomShopifyService(store)
+        success, definitions, error = service.get_metafield_definitions()
+
+        return JsonResponse({
+            'success': True,
+            'definitions': definitions,
+            'error': error if error else None
+        })
+    except Exception as e:
+        logger.error(f"Error fetching metafield definitions: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
 def api_shopify_templates(request):
     """Shopify Product Templates abrufen"""
     store_id = request.GET.get('store_id')

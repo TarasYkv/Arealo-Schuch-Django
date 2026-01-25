@@ -1298,20 +1298,31 @@ function updateSEOPreview() {
 // Metafelder
 // ============================================================================
 
+let metafieldDefinitions = [];
+
 function initMetafields() {
     const container = document.getElementById('metafields-container');
-    const addBtn = document.getElementById('btn-add-metafield');
     const form = document.getElementById('product-form');
 
     if (!container) return;
 
-    // Add metafield button
-    addBtn?.addEventListener('click', addMetafieldRow);
+    // Load metafield definitions
+    loadMetafieldDefinitions();
+
+    // Add selected metafield button
+    document.getElementById('btn-add-selected-metafield')?.addEventListener('click', addSelectedMetafield);
+
+    // Add custom metafield button
+    document.getElementById('btn-add-custom-metafield')?.addEventListener('click', addCustomMetafieldRow);
+
+    // Refresh metafields button
+    document.getElementById('btn-refresh-metafields')?.addEventListener('click', loadMetafieldDefinitions);
 
     // Remove metafield buttons (event delegation)
     container.addEventListener('click', function(e) {
         if (e.target.closest('.btn-remove-metafield')) {
             e.target.closest('.metafield-row').remove();
+            updateMetafieldSelect();
         }
     });
 
@@ -1321,19 +1332,98 @@ function initMetafields() {
     });
 }
 
-function addMetafieldRow() {
+async function loadMetafieldDefinitions() {
+    const select = document.getElementById('metafield-definitions-select');
+    const refreshBtn = document.getElementById('btn-refresh-metafields');
+    const storeSelect = document.getElementById('id_shopify_store');
+    const storeId = storeSelect?.value || '';
+
+    if (!select) return;
+
+    // Loading state
+    if (refreshBtn) {
+        refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        refreshBtn.disabled = true;
+    }
+
+    try {
+        const response = await fetch(`/ploom/api/shopify/metafields/?store_id=${storeId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            metafieldDefinitions = data.definitions || [];
+            updateMetafieldSelect();
+        }
+    } catch (error) {
+        console.error('Error loading metafield definitions:', error);
+    } finally {
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+            refreshBtn.disabled = false;
+        }
+    }
+}
+
+function updateMetafieldSelect() {
+    const select = document.getElementById('metafield-definitions-select');
+    if (!select) return;
+
+    // Get currently used keys
+    const usedKeys = new Set();
+    document.querySelectorAll('.metafield-key').forEach(input => {
+        if (input.value.trim()) {
+            usedKeys.add(input.value.trim());
+        }
+    });
+
+    // Build options
+    select.innerHTML = '<option value="">-- Metafeld auswählen --</option>';
+    metafieldDefinitions.forEach(def => {
+        if (!usedKeys.has(def.full_key)) {
+            const option = document.createElement('option');
+            option.value = def.full_key;
+            option.textContent = `${def.name} (${def.full_key})`;
+            option.dataset.name = def.name;
+            select.appendChild(option);
+        }
+    });
+}
+
+function addSelectedMetafield() {
+    const select = document.getElementById('metafield-definitions-select');
+    const key = select?.value;
+
+    if (!key) {
+        alert('Bitte wähle ein Metafeld aus');
+        return;
+    }
+
+    const def = metafieldDefinitions.find(d => d.full_key === key);
+    addMetafieldRow(key, '', def?.name || key);
+
+    // Reset select and update options
+    select.value = '';
+    updateMetafieldSelect();
+}
+
+function addCustomMetafieldRow() {
+    addMetafieldRow('', '', '', true);
+}
+
+function addMetafieldRow(key = '', value = '', label = '', editable = false) {
     const container = document.getElementById('metafields-container');
     const row = document.createElement('div');
     row.className = 'metafield-row mb-2';
     row.innerHTML = `
-        <div class="row g-2">
+        <div class="row g-2 align-items-center">
             <div class="col-5">
                 <input type="text" class="form-control form-control-sm metafield-key"
-                       placeholder="namespace.key">
+                       placeholder="namespace.key" value="${escapeHtml(key)}" ${editable ? '' : 'readonly'}
+                       title="${escapeHtml(label || key)}">
             </div>
             <div class="col-6">
                 <input type="text" class="form-control form-control-sm metafield-value"
-                       placeholder="Wert">
+                       placeholder="Wert" value="${escapeHtml(value)}">
             </div>
             <div class="col-1">
                 <button type="button" class="btn btn-sm btn-outline-danger btn-remove-metafield">
@@ -1343,6 +1433,13 @@ function addMetafieldRow() {
         </div>
     `;
     container.appendChild(row);
+
+    // Focus on value field (or key if editable)
+    if (editable) {
+        row.querySelector('.metafield-key')?.focus();
+    } else {
+        row.querySelector('.metafield-value')?.focus();
+    }
 }
 
 function serializeMetafields() {
@@ -1355,13 +1452,16 @@ function serializeMetafields() {
     container.querySelectorAll('.metafield-row').forEach(row => {
         const key = row.querySelector('.metafield-key')?.value.trim();
         const value = row.querySelector('.metafield-value')?.value.trim();
-        if (key && value) {
+        if (key) {
             metafields[key] = value;
         }
     });
 
     hiddenField.value = JSON.stringify(metafields);
 }
+
+// Reload metafield definitions when store changes
+document.getElementById('id_shopify_store')?.addEventListener('change', loadMetafieldDefinitions);
 
 // ============================================================================
 // Utilities
