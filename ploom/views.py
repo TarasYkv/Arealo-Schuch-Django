@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods, require_POST
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.utils import timezone
 
 from .models import (
@@ -488,15 +488,15 @@ def api_imageforge_generations(request):
         from imageforge.models import ImageGeneration
         generations = ImageGeneration.objects.filter(
             user=request.user,
-            image__isnull=False
+            generated_image__isnull=False
         ).order_by('-created_at')[:50]
 
         items = [{
             'id': gen.id,
-            'url': gen.image.url if gen.image else None,
-            'prompt': gen.prompt[:50] if gen.prompt else '',
+            'url': gen.generated_image.url if gen.generated_image else None,
+            'prompt': gen.generation_prompt[:50] if gen.generation_prompt else '',
             'created_at': gen.created_at.isoformat(),
-        } for gen in generations if gen.image]
+        } for gen in generations if gen.generated_image]
 
         return JsonResponse({'success': True, 'items': items})
     except ImportError:
@@ -755,7 +755,7 @@ def api_history(request, field_type):
         user=request.user,
         field_type=field_type
     ).values('content').annotate(
-        latest=models.Max('created_at')
+        latest=Max('created_at')
     ).order_by('-latest')
 
     paginator = Paginator(list(history), per_page)
