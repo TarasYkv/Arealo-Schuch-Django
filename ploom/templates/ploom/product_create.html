@@ -890,7 +890,19 @@ async function loadPublications() {
 }
 
 function renderPublications(publications, container) {
-    container.innerHTML = publications.map(pub => {
+    const allChecked = publications.every(pub => selectedPublications.includes(pub.id));
+
+    // "Alle auswählen" Checkbox + alle Kanäle
+    let html = `
+        <div class="form-check mb-2 pb-2 border-bottom">
+            <input class="form-check-input" type="checkbox" id="pub-select-all" ${allChecked ? 'checked' : ''}>
+            <label class="form-check-label fw-bold" for="pub-select-all">
+                <i class="bi bi-check2-all me-1"></i>Alle auswählen
+            </label>
+        </div>
+    `;
+
+    html += publications.map(pub => {
         const isChecked = selectedPublications.includes(pub.id);
         const iconClass = getPublicationIcon(pub.name, pub.handle);
         return `
@@ -905,12 +917,33 @@ function renderPublications(publications, container) {
         `;
     }).join('');
 
-    // Event-Listener für Checkboxen
+    container.innerHTML = html;
+
+    // Event-Listener für einzelne Checkboxen
     container.querySelectorAll('.publication-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             updateSelectedPublications();
+            updateSelectAllCheckbox();
         });
     });
+
+    // Event-Listener für "Alle auswählen"
+    document.getElementById('pub-select-all')?.addEventListener('change', function() {
+        const checkAll = this.checked;
+        container.querySelectorAll('.publication-checkbox').forEach(checkbox => {
+            checkbox.checked = checkAll;
+        });
+        updateSelectedPublications();
+    });
+}
+
+function updateSelectAllCheckbox() {
+    const allCheckboxes = document.querySelectorAll('.publication-checkbox');
+    const checkedCheckboxes = document.querySelectorAll('.publication-checkbox:checked');
+    const selectAllCheckbox = document.getElementById('pub-select-all');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && allCheckboxes.length === checkedCheckboxes.length;
+    }
 }
 
 function getPublicationIcon(name, handle) {
