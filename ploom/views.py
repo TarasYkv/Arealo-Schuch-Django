@@ -877,7 +877,7 @@ def api_shopify_collections(request):
         client = ShopifyAPIClient(store)
 
         # Collections abrufen (Custom + Smart)
-        success, collections, error = client.get_collections()
+        success, collections, error = client.fetch_collections()
 
         if not success:
             return JsonResponse({'success': False, 'error': error})
