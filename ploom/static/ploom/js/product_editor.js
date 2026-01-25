@@ -334,6 +334,9 @@ function initImageHandling() {
         modal.addEventListener('shown.bs.modal', loadImageForgeContent);
     }
 
+    // Drag and Drop für Bilder-Sortierung
+    initImageDragAndDrop();
+
     // Delete image buttons
     document.querySelectorAll('.btn-delete-image').forEach(btn => {
         btn.addEventListener('click', function(e) {
@@ -539,6 +542,105 @@ async function setFeaturedImage(imageId) {
         }
     } catch (error) {
         console.error('Error setting featured image:', error);
+    }
+}
+
+// ============================================================================
+// Image Drag and Drop
+// ============================================================================
+
+let draggedElement = null;
+
+function initImageDragAndDrop() {
+    const container = document.getElementById('images-container');
+    if (!container) return;
+
+    const draggables = container.querySelectorAll('.draggable-image');
+
+    draggables.forEach(draggable => {
+        draggable.addEventListener('dragstart', handleDragStart);
+        draggable.addEventListener('dragend', handleDragEnd);
+        draggable.addEventListener('dragover', handleDragOver);
+        draggable.addEventListener('dragenter', handleDragEnter);
+        draggable.addEventListener('dragleave', handleDragLeave);
+        draggable.addEventListener('drop', handleDrop);
+    });
+}
+
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.id);
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.draggable-image').forEach(el => {
+        el.classList.remove('drag-over');
+    });
+    draggedElement = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    if (this !== draggedElement) {
+        this.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+
+    if (draggedElement && this !== draggedElement) {
+        const container = document.getElementById('images-container');
+        const allImages = Array.from(container.querySelectorAll('.draggable-image'));
+
+        const draggedIndex = allImages.indexOf(draggedElement);
+        const dropIndex = allImages.indexOf(this);
+
+        if (draggedIndex < dropIndex) {
+            this.parentNode.insertBefore(draggedElement, this.nextSibling);
+        } else {
+            this.parentNode.insertBefore(draggedElement, this);
+        }
+
+        // Neue Reihenfolge speichern
+        saveImageOrder();
+    }
+}
+
+async function saveImageOrder() {
+    const container = document.getElementById('images-container');
+    const order = Array.from(container.querySelectorAll('.draggable-image'))
+        .map(el => parseInt(el.dataset.id));
+
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/images/reorder/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({ order })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            console.error('Error saving order:', data.error);
+        }
+    } catch (error) {
+        console.error('Error saving image order:', error);
     }
 }
 
