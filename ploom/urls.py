@@ -54,6 +54,7 @@ urlpatterns = [
     # Verlauf
     path('api/history/<str:field_type>/', views.api_history, name='api_history'),
     path('api/history/prices/', views.api_history_prices, name='api_history_prices'),
+    path('api/history/metafield/<str:metafield_key>/', views.api_metafield_history, name='api_metafield_history'),
     path('api/favorite-price/add/', views.api_favorite_price_add, name='api_favorite_price_add'),
 
     # Shopify

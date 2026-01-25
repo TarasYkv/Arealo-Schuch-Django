@@ -1324,6 +1324,20 @@ function initMetafields() {
             e.target.closest('.metafield-row').remove();
             updateMetafieldSelect();
         }
+        // History button click
+        if (e.target.closest('.btn-metafield-history')) {
+            const btn = e.target.closest('.btn-metafield-history');
+            const row = btn.closest('.metafield-row');
+            const keyInput = row.querySelector('.metafield-key');
+            const valueInput = row.querySelector('.metafield-value');
+            const key = keyInput?.value.trim();
+
+            if (key) {
+                openMetafieldHistoryModal(key, valueInput);
+            } else {
+                alert('Bitte erst einen Metafeld-Key eingeben');
+            }
+        }
     });
 
     // Serialize metafields before form submit
@@ -1416,16 +1430,22 @@ function addMetafieldRow(key = '', value = '', label = '', editable = false) {
     row.className = 'metafield-row mb-2';
     row.innerHTML = `
         <div class="row g-2 align-items-center">
-            <div class="col-5">
+            <div class="col-4">
                 <input type="text" class="form-control form-control-sm metafield-key"
                        placeholder="namespace.key" value="${escapeHtml(key)}" ${editable ? '' : 'readonly'}
                        title="${escapeHtml(label || key)}">
             </div>
             <div class="col-6">
-                <input type="text" class="form-control form-control-sm metafield-value"
-                       placeholder="Wert" value="${escapeHtml(value)}">
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control metafield-value"
+                           placeholder="Wert" value="${escapeHtml(value)}">
+                    <button type="button" class="btn btn-outline-secondary btn-metafield-history"
+                            data-key="${escapeHtml(key)}" title="Verlauf">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
+                </div>
             </div>
-            <div class="col-1">
+            <div class="col-2 text-end">
                 <button type="button" class="btn btn-sm btn-outline-danger btn-remove-metafield">
                     <i class="bi bi-x"></i>
                 </button>
@@ -1440,6 +1460,87 @@ function addMetafieldRow(key = '', value = '', label = '', editable = false) {
     } else {
         row.querySelector('.metafield-value')?.focus();
     }
+}
+
+// Metafield history
+let currentMetafieldValueInput = null;
+let currentMetafieldKey = null;
+
+function openMetafieldHistoryModal(key, valueInput) {
+    currentMetafieldKey = key;
+    currentMetafieldValueInput = valueInput;
+
+    // Use the existing history modal
+    const modalTitle = document.querySelector('#historyModal .modal-title');
+    if (modalTitle) {
+        modalTitle.textContent = `Verlauf: ${key}`;
+    }
+
+    loadMetafieldHistory(key);
+    new bootstrap.Modal(document.getElementById('historyModal')).show();
+}
+
+async function loadMetafieldHistory(key, page = 1) {
+    const container = document.getElementById('history-items');
+    container.innerHTML = '<div class="text-center py-3"><div class="spinner-border"></div></div>';
+
+    try {
+        const response = await fetch(`/ploom/api/history/metafield/${encodeURIComponent(key)}/?page=${page}`);
+        const data = await response.json();
+
+        if (data.success) {
+            renderMetafieldHistory(data.items, container);
+            renderMetafieldPagination(data, key);
+        } else {
+            container.innerHTML = '<p class="text-muted text-center">Fehler beim Laden</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p class="text-muted text-center">Fehler beim Laden</p>';
+    }
+}
+
+function renderMetafieldHistory(items, container) {
+    if (items.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">Kein Verlauf vorhanden</p>';
+        return;
+    }
+
+    container.innerHTML = items.map(item => `
+        <div class="history-item" data-content="${escapeHtml(item.content)}">
+            ${escapeHtml(item.content).substring(0, 150)}${item.content.length > 150 ? '...' : ''}
+        </div>
+    `).join('');
+
+    container.querySelectorAll('.history-item').forEach(el => {
+        el.addEventListener('click', function() {
+            const content = this.dataset.content;
+            if (currentMetafieldValueInput) {
+                currentMetafieldValueInput.value = content;
+                currentMetafieldValueInput.dispatchEvent(new Event('input'));
+            }
+            bootstrap.Modal.getInstance(document.getElementById('historyModal')).hide();
+        });
+    });
+}
+
+function renderMetafieldPagination(data, key) {
+    const container = document.getElementById('history-pagination');
+    if (!data.has_prev && !data.has_next) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+        <button class="btn btn-sm btn-outline-secondary" ${!data.has_prev ? 'disabled' : ''}
+                onclick="loadMetafieldHistory('${escapeHtml(key)}', ${data.page - 1})">
+            <i class="bi bi-chevron-left"></i> Zurück
+        </button>
+        <span class="text-muted">Seite ${data.page}</span>
+        <button class="btn btn-sm btn-outline-secondary" ${!data.has_next ? 'disabled' : ''}
+                onclick="loadMetafieldHistory('${escapeHtml(key)}', ${data.page + 1})">
+            Weiter <i class="bi bi-chevron-right"></i>
+        </button>
+    `;
 }
 
 function serializeMetafields() {

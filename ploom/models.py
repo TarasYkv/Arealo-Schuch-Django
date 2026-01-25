@@ -598,6 +598,7 @@ class PLoomHistory(models.Model):
         ('seo_title', 'SEO-Titel'),
         ('seo_description', 'SEO-Beschreibung'),
         ('tags', 'Tags'),
+        ('metafield', 'Metafeld'),
     ]
 
     user = models.ForeignKey(
@@ -616,6 +617,12 @@ class PLoomHistory(models.Model):
         max_length=20,
         choices=FIELD_TYPE_CHOICES,
         verbose_name="Feldtyp"
+    )
+    metafield_key = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Metafeld-Key",
+        help_text="z.B. custom.material"
     )
     content = models.TextField(verbose_name="Inhalt")
     prompt_used = models.TextField(blank=True, verbose_name="Verwendeter Prompt")

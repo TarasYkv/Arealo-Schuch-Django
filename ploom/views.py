@@ -224,6 +224,10 @@ def product_edit(request, product_id):
             if product.price:
                 _save_price_to_history(request.user, product.price)
 
+            # Metafeld-Werte zum Verlauf hinzufügen
+            if product.product_metafields:
+                _save_metafields_to_history(request.user, product.product_metafields)
+
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True, 'message': 'Produkt gespeichert'})
             # Auf der gleichen Seite bleiben mit Erfolgsmeldung
@@ -1129,6 +1133,36 @@ def api_history_prices(request):
 
 
 @login_required
+def api_metafield_history(request, metafield_key):
+    """Verlauf für ein Metafeld abrufen"""
+    page = int(request.GET.get('page', 1))
+    per_page = 10
+
+    # Deduplizierte Einträge (neueste zuerst)
+    history = PLoomHistory.objects.filter(
+        user=request.user,
+        field_type='metafield',
+        metafield_key=metafield_key
+    ).values('content').annotate(
+        latest=Max('created_at')
+    ).order_by('-latest')
+
+    paginator = Paginator(list(history), per_page)
+    page_obj = paginator.get_page(page)
+
+    items = [{'content': item['content']} for item in page_obj]
+
+    return JsonResponse({
+        'success': True,
+        'items': items,
+        'has_next': page_obj.has_next(),
+        'has_prev': page_obj.has_previous(),
+        'page': page,
+        'total_pages': paginator.num_pages,
+    })
+
+
+@login_required
 @require_POST
 def api_favorite_price_add(request):
     """Preis zu Favoriten hinzufügen"""
@@ -1367,6 +1401,27 @@ def _save_price_to_history(user, price):
         PLoomFavoritePrice.objects.filter(user=user, price=price).update(
             usage_count=models.F('usage_count') + 1
         )
+
+
+def _save_metafields_to_history(user, metafields):
+    """Speichert Metafeld-Werte im Verlauf"""
+    for key, value in metafields.items():
+        if value:  # Nur nicht-leere Werte speichern
+            # Prüfen ob dieser Wert für dieses Metafeld schon existiert
+            exists = PLoomHistory.objects.filter(
+                user=user,
+                field_type='metafield',
+                metafield_key=key,
+                content=value
+            ).exists()
+
+            if not exists:
+                PLoomHistory.objects.create(
+                    user=user,
+                    field_type='metafield',
+                    metafield_key=key,
+                    content=value
+                )
 
 
 # Import für models.F
