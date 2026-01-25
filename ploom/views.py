@@ -389,6 +389,34 @@ def api_variant_delete(request, product_id, variant_id):
     return JsonResponse({'success': True})
 
 
+@login_required
+def api_variant_get(request, product_id, variant_id):
+    """Variante abrufen"""
+    product = get_object_or_404(PLoomProduct, pk=product_id, user=request.user)
+    variant = get_object_or_404(PLoomProductVariant, pk=variant_id, product=product)
+
+    return JsonResponse({
+        'success': True,
+        'variant': {
+            'id': variant.id,
+            'title': variant.title or '',
+            'sku': variant.sku or '',
+            'price': str(variant.price) if variant.price else '',
+            'compare_at_price': str(variant.compare_at_price) if variant.compare_at_price else '',
+            'option1_name': variant.option1_name or '',
+            'option1_value': variant.option1_value or '',
+            'option2_name': variant.option2_name or '',
+            'option2_value': variant.option2_value or '',
+            'option3_name': variant.option3_name or '',
+            'option3_value': variant.option3_value or '',
+            'barcode': variant.barcode or '',
+            'inventory_quantity': variant.inventory_quantity,
+            'weight': str(variant.weight) if variant.weight else '',
+            'weight_unit': variant.weight_unit or 'kg',
+        }
+    })
+
+
 # ============================================================================
 # Bilder API
 # ============================================================================

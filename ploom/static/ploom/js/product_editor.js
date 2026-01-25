@@ -553,10 +553,10 @@ function initVariants() {
     }
 
     document.querySelectorAll('.btn-edit-variant').forEach(btn => {
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', async function(e) {
             e.stopPropagation();
-            // TODO: Load variant data and open modal
-            alert('Varianten-Bearbeitung wird implementiert');
+            const variantId = this.dataset.id;
+            await loadAndEditVariant(variantId);
         });
     });
 
@@ -586,6 +586,33 @@ function openVariantModal(variantId = null) {
     document.getElementById('variant-barcode').value = '';
 
     new bootstrap.Modal(document.getElementById('variantModal')).show();
+}
+
+async function loadAndEditVariant(variantId) {
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/variants/${variantId}/`);
+        const data = await response.json();
+
+        if (data.success && data.variant) {
+            const v = data.variant;
+            document.getElementById('variant-id').value = v.id;
+            document.getElementById('variant-option1-name').value = v.option1_name || '';
+            document.getElementById('variant-option1-value').value = v.option1_value || '';
+            document.getElementById('variant-option2-name').value = v.option2_name || '';
+            document.getElementById('variant-option2-value').value = v.option2_value || '';
+            document.getElementById('variant-sku').value = v.sku || '';
+            document.getElementById('variant-price').value = v.price || '';
+            document.getElementById('variant-quantity').value = v.inventory_quantity || 0;
+            document.getElementById('variant-barcode').value = v.barcode || '';
+
+            new bootstrap.Modal(document.getElementById('variantModal')).show();
+        } else {
+            alert(data.error || 'Fehler beim Laden der Variante');
+        }
+    } catch (error) {
+        console.error('Error loading variant:', error);
+        alert('Fehler beim Laden der Variante');
+    }
 }
 
 async function saveVariant() {
