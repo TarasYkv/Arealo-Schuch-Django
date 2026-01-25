@@ -21,6 +21,7 @@ urlpatterns = [
     path('products/<uuid:product_id>/edit/', views.product_edit, name='product_edit'),
     path('products/<uuid:product_id>/delete/', views.product_delete, name='product_delete'),
     path('products/<uuid:product_id>/duplicate/', views.product_duplicate, name='product_duplicate'),
+    path('api/products/bulk-delete/', views.api_products_bulk_delete, name='api_products_bulk_delete'),
 
     # Varianten API
     path('api/products/<uuid:product_id>/variants/add/', views.api_variant_add, name='api_variant_add'),

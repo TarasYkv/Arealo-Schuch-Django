@@ -250,6 +250,33 @@ def product_delete(request, product_id):
 
 
 @login_required
+@require_POST
+def api_products_bulk_delete(request):
+    """Mehrere Produkte gleichzeitig löschen"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+
+    product_ids = data.get('product_ids', [])
+
+    if not product_ids:
+        return JsonResponse({'success': False, 'error': 'Keine Produkte ausgewählt'})
+
+    # Nur Produkte des aktuellen Benutzers löschen
+    deleted_count, _ = PLoomProduct.objects.filter(
+        pk__in=product_ids,
+        user=request.user
+    ).delete()
+
+    return JsonResponse({
+        'success': True,
+        'deleted_count': deleted_count,
+        'message': f'{deleted_count} Produkt(e) gelöscht'
+    })
+
+
+@login_required
 def product_duplicate(request, product_id):
     """Produkt duplizieren"""
     product = get_object_or_404(PLoomProduct, pk=product_id, user=request.user)

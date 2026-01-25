@@ -24,9 +24,11 @@
                         </ol>
                     </nav>
                 </div>
-                <a href="{% url 'ploom:product_create' %}" class="btn btn-primary">
-                    <i class="bi bi-plus-lg me-2"></i>Neues Produkt
-                </a>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'ploom:product_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-2"></i>Neues Produkt
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -75,14 +77,43 @@
         </div>
     </div>
 
+    <!-- Bulk Actions Bar -->
+    <div id="bulk-actions-bar" class="row mb-3 d-none">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body py-2 d-flex justify-content-between align-items-center">
+                    <div>
+                        <input type="checkbox" class="form-check-input me-2" id="select-all-checkbox">
+                        <span id="selected-count">0</span> Produkte ausgewählt
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-light btn-sm" id="btn-deselect-all">
+                            <i class="bi bi-x-lg me-1"></i>Auswahl aufheben
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm" id="btn-bulk-delete">
+                            <i class="bi bi-trash me-1"></i>Ausgewählte löschen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Produkt-Liste -->
-    <div class="row">
+    <div class="row" id="products-container">
         {% if products %}
             {% for product in products %}
-            <div class="col-lg-4 col-md-6 mb-4">
+            <div class="col-lg-4 col-md-6 mb-4 product-item" data-product-id="{{ product.id }}">
                 <div class="card border-0 shadow-sm h-100 ploom-product-card">
                     <!-- Bild -->
                     <div class="position-relative">
+                        <!-- Selection Checkbox -->
+                        <div class="position-absolute top-0 start-0 m-2 z-1">
+                            <input type="checkbox" class="form-check-input product-checkbox"
+                                   data-id="{{ product.id }}"
+                                   style="width: 20px; height: 20px; cursor: pointer;">
+                        </div>
+
                         {% if product.featured_image and product.featured_image.image_url %}
                         <img src="{{ product.featured_image.image_url }}"
                              class="card-img-top"
@@ -214,6 +245,12 @@
 
 {% block extra_js %}
 <script>
+const CSRF_TOKEN = '{{ csrf_token }}';
+
+// ============================================================================
+// Einzelnes Produkt löschen
+// ============================================================================
+
 document.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', function() {
         const id = this.dataset.id;
@@ -221,7 +258,7 @@ document.querySelectorAll('.btn-delete').forEach(btn => {
             fetch(`/ploom/products/${id}/delete/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-CSRFToken': CSRF_TOKEN,
                     'Content-Type': 'application/json'
                 }
             })
@@ -235,6 +272,131 @@ document.querySelectorAll('.btn-delete').forEach(btn => {
             });
         }
     });
+});
+
+// ============================================================================
+// Mehrfachauswahl und Bulk-Aktionen
+// ============================================================================
+
+let selectedProducts = new Set();
+
+function updateBulkActionsBar() {
+    const bar = document.getElementById('bulk-actions-bar');
+    const countSpan = document.getElementById('selected-count');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const allCheckboxes = document.querySelectorAll('.product-checkbox');
+
+    countSpan.textContent = selectedProducts.size;
+
+    if (selectedProducts.size > 0) {
+        bar.classList.remove('d-none');
+    } else {
+        bar.classList.add('d-none');
+    }
+
+    // Update "select all" checkbox state
+    if (allCheckboxes.length > 0 && selectedProducts.size === allCheckboxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else if (selectedProducts.size > 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+}
+
+function updateProductCardStyle(productId, isSelected) {
+    const card = document.querySelector(`.product-item[data-product-id="${productId}"] .ploom-product-card`);
+    if (card) {
+        if (isSelected) {
+            card.classList.add('border-primary', 'border-2');
+        } else {
+            card.classList.remove('border-primary', 'border-2');
+        }
+    }
+}
+
+// Event listener für einzelne Checkboxen
+document.querySelectorAll('.product-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const productId = this.dataset.id;
+        if (this.checked) {
+            selectedProducts.add(productId);
+        } else {
+            selectedProducts.delete(productId);
+        }
+        updateProductCardStyle(productId, this.checked);
+        updateBulkActionsBar();
+    });
+});
+
+// "Alle auswählen" Checkbox
+document.getElementById('select-all-checkbox')?.addEventListener('change', function() {
+    const allCheckboxes = document.querySelectorAll('.product-checkbox');
+    allCheckboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+        const productId = checkbox.dataset.id;
+        if (this.checked) {
+            selectedProducts.add(productId);
+        } else {
+            selectedProducts.delete(productId);
+        }
+        updateProductCardStyle(productId, this.checked);
+    });
+    updateBulkActionsBar();
+});
+
+// "Auswahl aufheben" Button
+document.getElementById('btn-deselect-all')?.addEventListener('click', function() {
+    document.querySelectorAll('.product-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+        updateProductCardStyle(checkbox.dataset.id, false);
+    });
+    selectedProducts.clear();
+    updateBulkActionsBar();
+});
+
+// "Ausgewählte löschen" Button
+document.getElementById('btn-bulk-delete')?.addEventListener('click', async function() {
+    const count = selectedProducts.size;
+    if (count === 0) return;
+
+    if (!confirm(`${count} Produkt${count > 1 ? 'e' : ''} wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) {
+        return;
+    }
+
+    const btn = this;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Lösche...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/ploom/api/products/bulk-delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                product_ids: Array.from(selectedProducts)
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Löschen');
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    } catch (error) {
+        alert('Fehler beim Löschen');
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
 });
 </script>
 {% endblock %}
