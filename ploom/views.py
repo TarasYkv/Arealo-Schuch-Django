@@ -2,6 +2,7 @@ import json
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods, require_POST
 from django.core.paginator import Paginator
@@ -216,7 +217,9 @@ def product_edit(request, product_id):
 
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'success': True, 'message': 'Produkt gespeichert'})
-            return redirect('ploom:product_list')
+            # Auf der gleichen Seite bleiben mit Erfolgsmeldung
+            messages.success(request, 'Produkt erfolgreich gespeichert!')
+            return redirect('ploom:product_edit', product_id=product.id)
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'errors': form.errors})
