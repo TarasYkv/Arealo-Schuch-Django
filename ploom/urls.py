@@ -35,6 +35,9 @@ urlpatterns = [
     path('api/products/<uuid:product_id>/images/<int:image_id>/set-featured/', views.api_image_set_featured, name='api_image_set_featured'),
     path('api/products/<uuid:product_id>/images/<int:image_id>/set-variant/', views.api_image_set_variant, name='api_image_set_variant'),
     path('api/products/<uuid:product_id>/images/from-imageforge/', views.api_image_from_imageforge, name='api_image_from_imageforge'),
+    path('api/products/<uuid:product_id>/images/from-url/', views.api_image_from_url, name='api_image_from_url'),
+    path('api/products/<uuid:product_id>/images/from-history/', views.api_image_from_history, name='api_image_from_history'),
+    path('api/images/history/', views.api_image_history, name='api_image_history'),
 
     # ImageForge Integration
     path('api/imageforge/generations/', views.api_imageforge_generations, name='api_imageforge_generations'),

@@ -331,6 +331,7 @@ class PLoomProductImage(models.Model):
         ('imageforge_generation', 'ImageForge Generierung'),
         ('imageforge_mockup', 'ImageForge Mockup'),
         ('upload', 'Eigener Upload'),
+        ('external_url', 'Externe URL (Shopify/CDN)'),
     ]
 
     product = models.ForeignKey(
@@ -369,6 +370,22 @@ class PLoomProductImage(models.Model):
         verbose_name="Bild"
     )
 
+    # Externe URL (Shopify CDN, Videos, etc.)
+    external_url = models.URLField(
+        max_length=500,
+        blank=True,
+        verbose_name="Externe URL",
+        help_text="URL zu Shopify CDN, Video oder externem Bild"
+    )
+
+    # Benutzerdefinierter Dateiname
+    filename = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Dateiname",
+        help_text="Benutzerdefinierter Dateiname für Shopify"
+    )
+
     # Meta
     alt_text = models.CharField(max_length=255, blank=True, verbose_name="Alt-Text")
     position = models.PositiveIntegerField(default=0, verbose_name="Position")
@@ -399,7 +416,15 @@ class PLoomProductImage(models.Model):
             return self.imageforge_generation.generated_image.url if self.imageforge_generation.generated_image else None
         elif self.source == 'imageforge_mockup' and self.imageforge_mockup:
             return self.imageforge_mockup.mockup_image.url if self.imageforge_mockup.mockup_image else None
+        elif self.source == 'external_url' and self.external_url:
+            return self.external_url
         return None
+
+    @property
+    def is_video(self):
+        """Prüft ob es sich um ein Video handelt"""
+        url = self.image_url or ''
+        return any(ext in url.lower() for ext in ['.mp4', '.webm', '.mov', '.avi', '/videos/'])
 
     def save(self, *args, **kwargs):
         # Wenn dieses Bild als Hauptbild gesetzt wird, andere zurücksetzen
@@ -409,6 +434,43 @@ class PLoomProductImage(models.Model):
                 is_featured=True
             ).exclude(pk=self.pk).update(is_featured=False)
         super().save(*args, **kwargs)
+
+
+class PLoomImageHistory(models.Model):
+    """Verlauf der verwendeten Bilder für schnellen Zugriff"""
+
+    SOURCE_CHOICES = [
+        ('upload', 'Upload'),
+        ('imageforge', 'ImageForge'),
+        ('external_url', 'Externe URL'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ploom_image_history'
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default='upload'
+    )
+    url = models.URLField(max_length=500, verbose_name="Bild-URL")
+    thumbnail_url = models.URLField(max_length=500, blank=True, verbose_name="Thumbnail-URL")
+    filename = models.CharField(max_length=255, blank=True, verbose_name="Dateiname")
+    alt_text = models.CharField(max_length=255, blank=True, verbose_name="Alt-Text")
+    usage_count = models.PositiveIntegerField(default=1, verbose_name="Verwendungen")
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Bild-Verlauf"
+        verbose_name_plural = "Bild-Verlauf"
+        ordering = ['-last_used']
+        unique_together = ['user', 'url']
+
+    def __str__(self):
+        return self.filename or self.url[:50]
 
 
 class PLoomProductVariant(models.Model):

@@ -191,15 +191,11 @@
                 {% else %}
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-images me-2 text-muted"></i>Bilder</h5>
+                        <h5 class="mb-0"><i class="bi bi-images me-2 text-muted"></i>Bilder & Medien</h5>
                         <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#imageforgeModal">
-                                <i class="bi bi-magic me-1"></i>Aus ImageForge
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addImageModal">
+                                <i class="bi bi-plus-lg me-1"></i>Hinzufügen
                             </button>
-                            <label class="btn btn-sm btn-outline-secondary mb-0">
-                                <i class="bi bi-upload me-1"></i>Hochladen
-                                <input type="file" accept="image/*" multiple class="d-none" id="image-upload">
-                            </label>
                         </div>
                     </div>
                     <div class="card-body">
@@ -468,7 +464,113 @@
 </div>
 
 {% if not is_new %}
-<!-- ImageForge Modal -->
+<!-- Bild hinzufügen Modal -->
+<div class="modal fade" id="addImageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-image me-2"></i>Bild / Medium hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-upload">
+                            <i class="bi bi-upload me-1"></i>Hochladen
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-imageforge-select">
+                            <i class="bi bi-magic me-1"></i>ImageForge
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-shopify-url">
+                            <i class="bi bi-link-45deg me-1"></i>Shopify URL
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-url-history">
+                            <i class="bi bi-clock-history me-1"></i>Verlauf
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <!-- Upload Tab -->
+                    <div class="tab-pane fade show active" id="tab-upload">
+                        <div class="mb-3">
+                            <label class="form-label">Datei auswählen</label>
+                            <input type="file" accept="image/*,video/*" class="form-control" id="modal-image-upload">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Dateiname (optional)</label>
+                            <input type="text" class="form-control" id="upload-filename" placeholder="z.B. produkt-front.jpg">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Alt-Text (optional)</label>
+                            <input type="text" class="form-control" id="upload-alt-text" placeholder="Beschreibung des Bildes">
+                        </div>
+                        <button type="button" class="btn btn-primary" id="btn-upload-image">
+                            <i class="bi bi-upload me-1"></i>Hochladen
+                        </button>
+                    </div>
+
+                    <!-- ImageForge Tab -->
+                    <div class="tab-pane fade" id="tab-imageforge-select">
+                        <div class="mb-3">
+                            <label class="form-label">Dateiname (optional)</label>
+                            <input type="text" class="form-control" id="imageforge-filename" placeholder="z.B. ai-generated.jpg">
+                        </div>
+                        <div class="row g-2" id="imageforge-select-list">
+                            <div class="text-center py-4">
+                                <div class="spinner-border" role="status"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shopify URL Tab -->
+                    <div class="tab-pane fade" id="tab-shopify-url">
+                        <div class="mb-3">
+                            <label class="form-label">Shopify CDN URL oder Video-URL</label>
+                            <input type="url" class="form-control" id="shopify-url"
+                                   placeholder="https://cdn.shopify.com/s/files/...">
+                            <small class="text-muted">
+                                Unterstützt Bilder und Videos von Shopify CDN
+                            </small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Dateiname</label>
+                            <input type="text" class="form-control" id="url-filename" placeholder="z.B. shopify-bild.jpg">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Alt-Text (optional)</label>
+                            <input type="text" class="form-control" id="url-alt-text" placeholder="Beschreibung">
+                        </div>
+                        <button type="button" class="btn btn-primary" id="btn-add-url">
+                            <i class="bi bi-plus-lg me-1"></i>Hinzufügen
+                        </button>
+                    </div>
+
+                    <!-- URL History Tab -->
+                    <div class="tab-pane fade" id="tab-url-history">
+                        <div class="mb-3">
+                            <label class="form-label">Dateiname (optional)</label>
+                            <input type="text" class="form-control" id="history-filename" placeholder="Neuer Dateiname">
+                        </div>
+                        <div class="row g-2" id="url-history-list">
+                            <div class="text-center py-4 text-muted">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <span class="ms-2">Lade Verlauf...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ImageForge Modal (alt - für Kompatibilität) -->
 <div class="modal fade" id="imageforgeModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">

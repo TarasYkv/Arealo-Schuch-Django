@@ -322,13 +322,25 @@ function renderPagination(data, field) {
 // ============================================================================
 
 function initImageHandling() {
-    // File upload
+    // File upload (legacy)
     const uploadInput = document.getElementById('image-upload');
     if (uploadInput) {
         uploadInput.addEventListener('change', handleImageUpload);
     }
 
-    // ImageForge modal
+    // New Add Image Modal
+    const addImageModal = document.getElementById('addImageModal');
+    if (addImageModal) {
+        addImageModal.addEventListener('shown.bs.modal', onAddImageModalOpen);
+
+        // Upload button
+        document.getElementById('btn-upload-image')?.addEventListener('click', handleModalImageUpload);
+
+        // Shopify URL button
+        document.getElementById('btn-add-url')?.addEventListener('click', handleAddFromUrl);
+    }
+
+    // ImageForge modal (legacy)
     const modal = document.getElementById('imageforgeModal');
     if (modal) {
         modal.addEventListener('shown.bs.modal', loadImageForgeContent);
@@ -365,6 +377,242 @@ function initImageHandling() {
     const saveVariantImageBtn = document.getElementById('btn-save-variant-image');
     if (saveVariantImageBtn) {
         saveVariantImageBtn.addEventListener('click', saveVariantImageAssignment);
+    }
+}
+
+// ============================================================================
+// Add Image Modal Handlers
+// ============================================================================
+
+function onAddImageModalOpen() {
+    // Load ImageForge images for selection
+    loadImageForgeForSelection();
+
+    // Load URL history
+    loadUrlHistory();
+}
+
+async function loadImageForgeForSelection() {
+    const container = document.getElementById('imageforge-select-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border" role="status"></div></div>';
+
+    try {
+        const response = await fetch('/ploom/api/imageforge/generations/');
+        const data = await response.json();
+
+        if (data.success && data.items.length > 0) {
+            container.innerHTML = data.items.map(item => `
+                <div class="col-3 mb-2">
+                    <div class="imageforge-select-item" data-id="${item.id}" data-url="${item.url}" onclick="selectImageForgeItem(this)">
+                        <img src="${item.url}" class="img-fluid rounded" alt="${item.prompt || ''}">
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div class="col-12 text-center py-4 text-muted">Keine ImageForge Bilder vorhanden</div>';
+        }
+    } catch (error) {
+        container.innerHTML = '<div class="col-12 text-center py-4 text-danger">Fehler beim Laden</div>';
+    }
+}
+
+async function selectImageForgeItem(element) {
+    if (!PRODUCT_ID) {
+        alert('Bitte speichere das Produkt zuerst');
+        return;
+    }
+
+    const sourceId = element.dataset.id;
+    const filename = document.getElementById('imageforge-filename')?.value.trim() || '';
+
+    // Visual feedback
+    element.classList.add('selected');
+
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/images/from-imageforge/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                source_type: 'generation',
+                source_id: sourceId,
+                filename: filename
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addImageModal')).hide();
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Hinzufügen');
+            element.classList.remove('selected');
+        }
+    } catch (error) {
+        alert('Fehler beim Hinzufügen');
+        element.classList.remove('selected');
+    }
+}
+
+async function handleModalImageUpload() {
+    if (!PRODUCT_ID) {
+        alert('Bitte speichere das Produkt zuerst');
+        return;
+    }
+
+    const fileInput = document.getElementById('modal-image-upload');
+    const filename = document.getElementById('upload-filename')?.value.trim() || '';
+    const altText = document.getElementById('upload-alt-text')?.value.trim() || '';
+
+    if (!fileInput?.files?.length) {
+        alert('Bitte wähle eine Datei aus');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('filename', filename);
+    formData.append('alt_text', altText);
+
+    const btn = document.getElementById('btn-upload-image');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Hochladen...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/images/upload/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF_TOKEN },
+            body: formData
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addImageModal')).hide();
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Upload');
+        }
+    } catch (error) {
+        alert('Fehler beim Upload');
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+async function handleAddFromUrl() {
+    if (!PRODUCT_ID) {
+        alert('Bitte speichere das Produkt zuerst');
+        return;
+    }
+
+    const url = document.getElementById('shopify-url')?.value.trim();
+    const filename = document.getElementById('url-filename')?.value.trim() || '';
+    const altText = document.getElementById('url-alt-text')?.value.trim() || '';
+
+    if (!url) {
+        alert('Bitte gib eine URL ein');
+        return;
+    }
+
+    const btn = document.getElementById('btn-add-url');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Hinzufügen...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/images/from-url/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({ url, filename, alt_text: altText })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addImageModal')).hide();
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Hinzufügen');
+        }
+    } catch (error) {
+        alert('Fehler beim Hinzufügen');
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+async function loadUrlHistory() {
+    const container = document.getElementById('url-history-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="col-12 text-center py-4"><div class="spinner-border spinner-border-sm" role="status"></div><span class="ms-2">Lade Verlauf...</span></div>';
+
+    try {
+        const response = await fetch('/ploom/api/images/history/');
+        const data = await response.json();
+
+        if (data.success && data.items.length > 0) {
+            container.innerHTML = data.items.map(item => `
+                <div class="col-3 mb-2">
+                    <div class="url-history-item" data-id="${item.id}" data-url="${item.url}"
+                         data-filename="${escapeHtml(item.filename || '')}" onclick="selectHistoryItem(this)">
+                        <img src="${item.thumbnail_url || item.url}" class="img-fluid rounded"
+                             alt="${item.alt_text || ''}" onerror="this.src='/static/ploom/img/placeholder.png'">
+                        <small class="d-block text-truncate mt-1">${escapeHtml(item.filename || 'Kein Name')}</small>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div class="col-12 text-center py-4 text-muted">Kein Verlauf vorhanden</div>';
+        }
+    } catch (error) {
+        container.innerHTML = '<div class="col-12 text-center py-4 text-danger">Fehler beim Laden</div>';
+    }
+}
+
+async function selectHistoryItem(element) {
+    if (!PRODUCT_ID) {
+        alert('Bitte speichere das Produkt zuerst');
+        return;
+    }
+
+    const historyId = element.dataset.id;
+    const filename = document.getElementById('history-filename')?.value.trim() || '';
+
+    // Visual feedback
+    element.classList.add('selected');
+
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/images/from-history/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({ history_id: historyId, filename })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addImageModal')).hide();
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Hinzufügen');
+            element.classList.remove('selected');
+        }
+    } catch (error) {
+        alert('Fehler beim Hinzufügen');
+        element.classList.remove('selected');
     }
 }
 

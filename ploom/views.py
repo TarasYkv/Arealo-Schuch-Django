@@ -432,12 +432,14 @@ def api_image_upload(request, product_id):
 
     image_file = request.FILES['image']
     alt_text = request.POST.get('alt_text', '')
+    filename = request.POST.get('filename', '')
 
     image = PLoomProductImage.objects.create(
         product=product,
         source='upload',
         image=image_file,
         alt_text=alt_text,
+        filename=filename,
         position=product.images.count(),
         is_featured=not product.images.exists(),  # Erstes Bild ist Hauptbild
     )
@@ -447,6 +449,7 @@ def api_image_upload(request, product_id):
         'image': {
             'id': image.pk,
             'url': image.image_url,
+            'filename': image.filename,
             'alt_text': image.alt_text,
             'is_featured': image.is_featured,
         }
@@ -566,6 +569,7 @@ def api_image_from_imageforge(request, product_id):
 
     source_type = data.get('source_type')  # 'generation' oder 'mockup'
     source_id = data.get('source_id')
+    filename = data.get('filename', '').strip()
 
     if source_type == 'generation':
         from imageforge.models import ImageGeneration
@@ -574,6 +578,7 @@ def api_image_from_imageforge(request, product_id):
             product=product,
             source='imageforge_generation',
             imageforge_generation=source,
+            filename=filename,
             alt_text=data.get('alt_text', ''),
             position=product.images.count(),
             is_featured=not product.images.exists(),
@@ -585,6 +590,7 @@ def api_image_from_imageforge(request, product_id):
             product=product,
             source='imageforge_mockup',
             imageforge_mockup=source,
+            filename=filename,
             alt_text=data.get('alt_text', ''),
             position=product.images.count(),
             is_featured=not product.images.exists(),
@@ -597,6 +603,7 @@ def api_image_from_imageforge(request, product_id):
         'image': {
             'id': image.pk,
             'url': image.image_url,
+            'filename': image.filename,
             'alt_text': image.alt_text,
             'is_featured': image.is_featured,
         }
@@ -630,6 +637,125 @@ def api_image_set_variant(request, product_id, image_id):
         'success': True,
         'image_id': image.pk,
         'variant_id': image.variant_id
+    })
+
+
+@login_required
+@require_POST
+def api_image_from_url(request, product_id):
+    """Bild von externer URL hinzufügen (Shopify CDN, Videos, etc.)"""
+    product = get_object_or_404(PLoomProduct, pk=product_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+
+    url = data.get('url', '').strip()
+    filename = data.get('filename', '').strip()
+    alt_text = data.get('alt_text', '').strip()
+
+    if not url:
+        return JsonResponse({'success': False, 'error': 'URL erforderlich'})
+
+    # Bild erstellen
+    image = PLoomProductImage.objects.create(
+        product=product,
+        source='external_url',
+        external_url=url,
+        filename=filename,
+        alt_text=alt_text or filename,
+        position=product.images.count(),
+        is_featured=not product.images.exists(),
+    )
+
+    # Im Verlauf speichern
+    from .models import PLoomImageHistory
+    PLoomImageHistory.objects.update_or_create(
+        user=request.user,
+        url=url,
+        defaults={
+            'source': 'external_url',
+            'filename': filename,
+            'alt_text': alt_text,
+            'thumbnail_url': url,
+        }
+    )
+
+    return JsonResponse({
+        'success': True,
+        'image': {
+            'id': image.pk,
+            'url': image.image_url,
+            'filename': image.filename,
+            'alt_text': image.alt_text,
+            'is_featured': image.is_featured,
+        }
+    })
+
+
+@login_required
+def api_image_history(request):
+    """Bild-Verlauf abrufen"""
+    from .models import PLoomImageHistory
+
+    history = PLoomImageHistory.objects.filter(user=request.user)[:30]
+
+    items = [{
+        'id': item.id,
+        'url': item.url,
+        'thumbnail_url': item.thumbnail_url or item.url,
+        'filename': item.filename,
+        'alt_text': item.alt_text,
+        'source': item.source,
+        'usage_count': item.usage_count,
+    } for item in history]
+
+    return JsonResponse({'success': True, 'items': items})
+
+
+@login_required
+@require_POST
+def api_image_from_history(request, product_id):
+    """Bild aus Verlauf hinzufügen"""
+    product = get_object_or_404(PLoomProduct, pk=product_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+
+    history_id = data.get('history_id')
+    filename = data.get('filename', '').strip()
+    alt_text = data.get('alt_text', '').strip()
+
+    from .models import PLoomImageHistory
+    history_item = get_object_or_404(PLoomImageHistory, pk=history_id, user=request.user)
+
+    # Verwendung erhöhen
+    history_item.usage_count += 1
+    history_item.save()
+
+    # Bild erstellen
+    image = PLoomProductImage.objects.create(
+        product=product,
+        source='external_url',
+        external_url=history_item.url,
+        filename=filename or history_item.filename,
+        alt_text=alt_text or history_item.alt_text,
+        position=product.images.count(),
+        is_featured=not product.images.exists(),
+    )
+
+    return JsonResponse({
+        'success': True,
+        'image': {
+            'id': image.pk,
+            'url': image.image_url,
+            'filename': image.filename,
+            'alt_text': image.alt_text,
+            'is_featured': image.is_featured,
+        }
     })
 
 
