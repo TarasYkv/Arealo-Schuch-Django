@@ -1217,6 +1217,7 @@ async function loadCollections() {
                 container.querySelectorAll('.collection-item').forEach(el => {
                     el.addEventListener('click', function() {
                         document.getElementById('id_collection_id').value = this.dataset.id;
+                        document.getElementById('id_collection_name').value = this.dataset.title;
                         document.getElementById('collection-display').value = this.dataset.title;
                         modal.hide();
                     });

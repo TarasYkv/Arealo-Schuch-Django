@@ -146,10 +146,7 @@ class PLoomProductForm(forms.ModelForm):
                 'placeholder': '0'
             }),
             'collection_id': forms.HiddenInput(),
-            'collection_name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'readonly': True
-            }),
+            'collection_name': forms.HiddenInput(),
             'template_suffix': forms.TextInput(attrs={'class': 'form-control'}),
             'theme': forms.Select(attrs={'class': 'form-select'}),
             'shopify_store': forms.Select(attrs={'class': 'form-select'}),
