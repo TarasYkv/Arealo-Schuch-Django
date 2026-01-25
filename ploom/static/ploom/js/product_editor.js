@@ -349,6 +349,52 @@ function initImageHandling() {
             setFeaturedImage(this.dataset.id);
         });
     });
+
+    // Assign variant buttons
+    document.querySelectorAll('.btn-assign-variant').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            openVariantImageModal(this.dataset.id, this.dataset.variant || '');
+        });
+    });
+
+    // Save variant assignment button
+    const saveVariantImageBtn = document.getElementById('btn-save-variant-image');
+    if (saveVariantImageBtn) {
+        saveVariantImageBtn.addEventListener('click', saveVariantImageAssignment);
+    }
+}
+
+function openVariantImageModal(imageId, currentVariantId) {
+    document.getElementById('variant-image-id').value = imageId;
+    document.getElementById('variant-image-select').value = currentVariantId;
+    new bootstrap.Modal(document.getElementById('variantImageModal')).show();
+}
+
+async function saveVariantImageAssignment() {
+    const imageId = document.getElementById('variant-image-id').value;
+    const variantId = document.getElementById('variant-image-select').value;
+
+    try {
+        const response = await fetch(`/ploom/api/products/${PRODUCT_ID}/images/${imageId}/set-variant/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({ variant_id: variantId })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('variantImageModal')).hide();
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Zuweisen');
+        }
+    } catch (error) {
+        alert('Fehler beim Zuweisen');
+    }
 }
 
 async function handleImageUpload(e) {

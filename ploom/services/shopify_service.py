@@ -175,12 +175,24 @@ class PLoomShopifyService:
 
             if response.status_code in [200, 201]:
                 data = response.json()
-                shopify_product_id = str(data.get('product', {}).get('id', ''))
+                shopify_product = data.get('product', {})
+                shopify_product_id = str(shopify_product.get('id', ''))
 
-                # Bilder hochladen
+                # Varianten-Mapping erstellen (lokale ID -> Shopify ID)
+                variant_id_map = {}
+                shopify_variants = shopify_product.get('variants', [])
+                local_variants = list(ploom_product.variants.all())
+
+                # Mapping nach Position (Reihenfolge)
+                for i, shopify_variant in enumerate(shopify_variants):
+                    if i < len(local_variants):
+                        local_variant = local_variants[i]
+                        variant_id_map[str(local_variant.id)] = str(shopify_variant.get('id'))
+
+                # Bilder hochladen mit Varianten-Zuordnung
                 images = list(ploom_product.images.all())
                 if images:
-                    self._upload_product_images(shopify_product_id, images)
+                    self._upload_product_images(shopify_product_id, images, variant_id_map)
 
                 # Metafelder setzen
                 if ploom_product.product_metafields:
@@ -204,8 +216,11 @@ class PLoomShopifyService:
             logger.error(f"Error creating product: {e}")
             return False, "", str(e)
 
-    def _upload_product_images(self, product_id: str, images: list) -> None:
+    def _upload_product_images(self, product_id: str, images: list, variant_id_map: dict = None) -> None:
         """Lädt Bilder zu einem Produkt hoch"""
+        if variant_id_map is None:
+            variant_id_map = {}
+
         for i, image in enumerate(images):
             try:
                 image_url = image.image_url
@@ -219,6 +234,11 @@ class PLoomShopifyService:
                         "alt": image.alt_text or "",
                     }
                 }
+
+                # Varianten-Zuordnung hinzufügen
+                if image.variant_id and image.variant_id in variant_id_map:
+                    shopify_variant_id = variant_id_map[image.variant_id]
+                    image_data["image"]["variant_ids"] = [int(shopify_variant_id)]
 
                 # Wenn es eine URL ist, können wir sie direkt verwenden
                 if image_url.startswith('http'):

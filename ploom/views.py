@@ -575,6 +575,36 @@ def api_image_from_imageforge(request, product_id):
     })
 
 
+@login_required
+@require_POST
+def api_image_set_variant(request, product_id, image_id):
+    """Bild einer Variante zuweisen"""
+    product = get_object_or_404(PLoomProduct, pk=product_id, user=request.user)
+    image = get_object_or_404(PLoomProductImage, pk=image_id, product=product)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+
+    variant_id = data.get('variant_id', '')
+
+    # Validieren wenn Variante angegeben
+    if variant_id:
+        variant = product.variants.filter(pk=variant_id).first()
+        if not variant:
+            return JsonResponse({'success': False, 'error': 'Variante nicht gefunden'})
+
+    image.variant_id = str(variant_id) if variant_id else ''
+    image.save()
+
+    return JsonResponse({
+        'success': True,
+        'image_id': image.pk,
+        'variant_id': image.variant_id
+    })
+
+
 # ============================================================================
 # KI-Generierung API
 # ============================================================================

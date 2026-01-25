@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/products/<uuid:product_id>/images/reorder/', views.api_image_reorder, name='api_image_reorder'),
     path('api/products/<uuid:product_id>/images/<int:image_id>/delete/', views.api_image_delete, name='api_image_delete'),
     path('api/products/<uuid:product_id>/images/<int:image_id>/set-featured/', views.api_image_set_featured, name='api_image_set_featured'),
+    path('api/products/<uuid:product_id>/images/<int:image_id>/set-variant/', views.api_image_set_variant, name='api_image_set_variant'),
     path('api/products/<uuid:product_id>/images/from-imageforge/', views.api_image_from_imageforge, name='api_image_from_imageforge'),
 
     # ImageForge Integration

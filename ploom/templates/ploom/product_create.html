@@ -212,11 +212,19 @@
                                         {% if image.is_featured %}
                                         <span class="badge bg-primary position-absolute top-0 start-0 m-1">Hauptbild</span>
                                         {% endif %}
+                                        {% if image.variant_id %}
+                                        <span class="badge bg-info position-absolute top-0 end-0 m-1 variant-badge" data-variant-id="{{ image.variant_id }}">
+                                            <i class="bi bi-link-45deg"></i>
+                                        </span>
+                                        {% endif %}
                                         <div class="ploom-image-actions">
-                                            <button type="button" class="btn btn-sm btn-light btn-set-featured" data-id="{{ image.id }}">
+                                            <button type="button" class="btn btn-sm btn-light btn-set-featured" data-id="{{ image.id }}" title="Als Hauptbild">
                                                 <i class="bi bi-star{% if image.is_featured %}-fill{% endif %}"></i>
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-danger btn-delete-image" data-id="{{ image.id }}">
+                                            <button type="button" class="btn btn-sm btn-info btn-assign-variant" data-id="{{ image.id }}" data-variant="{{ image.variant_id }}" title="Variante zuweisen">
+                                                <i class="bi bi-link-45deg"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger btn-delete-image" data-id="{{ image.id }}" title="Löschen">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </div>
@@ -545,6 +553,38 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                 <button type="button" class="btn btn-primary" id="btn-save-variant">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Varianten-Bild-Zuordnung Modal -->
+<div class="modal fade" id="variantImageModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-link-45deg me-2"></i>Variante zuweisen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="variant-image-id">
+                <div class="mb-3">
+                    <label class="form-label">Bild zuweisen an:</label>
+                    <select class="form-select" id="variant-image-select">
+                        <option value="">— Keine Variante (Hauptprodukt) —</option>
+                        {% for variant in variants %}
+                        <option value="{{ variant.id }}">{{ variant }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Das Bild wird in Shopify der gewählten Variante zugeordnet.
+                </small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="btn-save-variant-image">Zuweisen</button>
             </div>
         </div>
     </div>
