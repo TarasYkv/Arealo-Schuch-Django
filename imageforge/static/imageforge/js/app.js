@@ -98,10 +98,24 @@ function initModeSelector() {
             section.style.display = (mode === 'mockup_text' || mode === 'design') ? 'none' : '';
         });
 
-        // Explizit den "Bild generieren" Button verstecken bei mockup_text und design
+        // Generate Button: bei mockup_text verstecken, bei design anpassen
         const standardGenBtn = document.getElementById('standard-generate-btn-wrapper');
+        const generateBtnIcon = document.getElementById('generate-btn-icon');
+        const generateBtnText = document.getElementById('generate-btn-text');
         if (standardGenBtn) {
-            standardGenBtn.style.display = (mode === 'mockup_text' || mode === 'design') ? 'none' : '';
+            // Bei mockup_text komplett verstecken
+            standardGenBtn.style.display = (mode === 'mockup_text') ? 'none' : '';
+
+            // Bei design: Icon und Text anpassen
+            if (generateBtnIcon && generateBtnText) {
+                if (mode === 'design') {
+                    generateBtnIcon.className = 'fas fa-palette me-2';
+                    generateBtnText.textContent = 'Design generieren';
+                } else {
+                    generateBtnIcon.className = 'fas fa-magic me-2';
+                    generateBtnText.textContent = 'Bild generieren';
+                }
+            }
         }
 
         // Required-Attribute für Mockup-spezifische Felder nur bei mockup_text setzen
