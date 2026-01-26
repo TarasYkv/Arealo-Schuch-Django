@@ -1414,9 +1414,14 @@ async function loadMetafieldDefinitions() {
         const response = await fetch(`/ploom/api/shopify/metafields/?store_id=${storeId}`);
         const data = await response.json();
 
+        console.log('Metafield definitions response:', data);
+
         if (data.success) {
             metafieldDefinitions = data.definitions || [];
+            console.log('Loaded metafield definitions:', metafieldDefinitions.length, metafieldDefinitions);
             updateMetafieldSelect();
+        } else {
+            console.warn('Failed to load metafield definitions:', data.error);
         }
     } catch (error) {
         console.error('Error loading metafield definitions:', error);
@@ -1430,7 +1435,13 @@ async function loadMetafieldDefinitions() {
 
 function updateMetafieldSelect() {
     const select = document.getElementById('metafield-definitions-select');
-    if (!select) return;
+    console.log('updateMetafieldSelect called, select element:', select);
+    console.log('metafieldDefinitions:', metafieldDefinitions);
+
+    if (!select) {
+        console.warn('metafield-definitions-select element not found!');
+        return;
+    }
 
     // Get currently used keys
     const usedKeys = new Set();
@@ -1439,9 +1450,11 @@ function updateMetafieldSelect() {
             usedKeys.add(input.value.trim());
         }
     });
+    console.log('Used keys:', Array.from(usedKeys));
 
     // Build options
     select.innerHTML = '<option value="">-- Metafeld auswählen --</option>';
+    let addedCount = 0;
     metafieldDefinitions.forEach(def => {
         if (!usedKeys.has(def.full_key)) {
             const option = document.createElement('option');
@@ -1449,8 +1462,10 @@ function updateMetafieldSelect() {
             option.textContent = `${def.name} (${def.full_key})`;
             option.dataset.name = def.name;
             select.appendChild(option);
+            addedCount++;
         }
     });
+    console.log('Added', addedCount, 'options to metafield select');
 }
 
 function addSelectedMetafield() {
