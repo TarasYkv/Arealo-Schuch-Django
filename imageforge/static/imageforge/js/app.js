@@ -121,6 +121,16 @@ function initModeSelector() {
                 styleReferenceImage.removeAttribute('required');
             }
         }
+
+        // Standard background_prompt Feld deaktivieren bei Design-Modus (verhindert Konflikt mit design-theme)
+        const standardBackgroundPrompt = document.getElementById('background-prompt');
+        const designTheme = document.getElementById('design-theme');
+        if (standardBackgroundPrompt) {
+            standardBackgroundPrompt.disabled = (mode === 'design');
+        }
+        if (designTheme) {
+            designTheme.disabled = (mode !== 'design');
+        }
     }
 
     // Click-Handler für Mode-Buttons
