@@ -1091,75 +1091,105 @@ document.getElementById('applyThemeBtn')?.addEventListener('click', async functi
 
             console.log('Fields to apply:', fieldsToApply);
 
-            // Prüfen ob Felder überschrieben werden müssen
-            const fieldsWithValues = fieldsToApply.filter(([fieldId]) => {
-                const field = document.getElementById(fieldId);
-                return field && field.value && field.value.trim() !== '';
-            });
-
             const themeName = themeSelect.options[themeSelect.selectedIndex].text;
 
-            // Funktion zum Anwenden der Theme-Werte
-            const applyThemeValues = () => {
+            // Checkboxen für jedes Feld erstellen
+            const checkboxesHtml = fieldsToApply.map(([fieldId, value, label]) => {
+                const field = document.getElementById(fieldId);
+                const hasValue = field && field.value && field.value.trim() !== '';
+                const currentValue = field?.value || '';
+                const previewValue = value.length > 60 ? value.substring(0, 60) + '...' : value;
+                const currentPreview = currentValue.length > 40 ? currentValue.substring(0, 40) + '...' : currentValue;
+
+                return `
+                    <div class="form-check mb-2">
+                        <input class="form-check-input theme-field-checkbox" type="checkbox"
+                               value="${fieldId}" id="theme-check-${fieldId}"
+                               data-value="${encodeURIComponent(value)}"
+                               ${!hasValue ? 'checked' : ''}>
+                        <label class="form-check-label w-100" for="theme-check-${fieldId}">
+                            <strong>${label}</strong>
+                            ${hasValue ? '<span class="badge bg-warning text-dark ms-2">hat Wert</span>' : '<span class="badge bg-success ms-2">leer</span>'}
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-arrow-right"></i> ${previewValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                            ${hasValue ? `<div class="small text-secondary"><i class="bi bi-dash"></i> Aktuell: ${currentPreview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+                        </label>
+                    </div>
+                `;
+            }).join('');
+
+            // Bootstrap Modal mit Checkboxen
+            const modalHtml = `
+                <div class="modal fade" id="themeOverwriteModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-palette me-2"></i>Theme "${themeName}" anwenden
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-3">Wähle aus, welche Felder übernommen werden sollen:</p>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="selectAllThemeFields">
+                                        <i class="bi bi-check-all"></i> Alle auswählen
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="selectNoneThemeFields">
+                                        <i class="bi bi-x-lg"></i> Keine auswählen
+                                    </button>
+                                </div>
+                                <div class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                                    ${checkboxesHtml}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                                <button type="button" class="btn btn-primary" id="confirmThemeOverwrite">
+                                    <i class="bi bi-check-lg"></i> Ausgewählte anwenden
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Altes Modal entfernen falls vorhanden
+            document.getElementById('themeOverwriteModal')?.remove();
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            const modal = new bootstrap.Modal(document.getElementById('themeOverwriteModal'));
+
+            // Alle auswählen / Keine auswählen
+            document.getElementById('selectAllThemeFields').addEventListener('click', () => {
+                document.querySelectorAll('.theme-field-checkbox').forEach(cb => cb.checked = true);
+            });
+            document.getElementById('selectNoneThemeFields').addEventListener('click', () => {
+                document.querySelectorAll('.theme-field-checkbox').forEach(cb => cb.checked = false);
+            });
+
+            // Anwenden-Button
+            document.getElementById('confirmThemeOverwrite').addEventListener('click', () => {
                 let appliedCount = 0;
-                fieldsToApply.forEach(([fieldId, value, label]) => {
+                document.querySelectorAll('.theme-field-checkbox:checked').forEach(cb => {
+                    const fieldId = cb.value;
+                    const value = decodeURIComponent(cb.dataset.value);
                     const field = document.getElementById(fieldId);
                     if (field) {
                         field.value = value;
                         appliedCount++;
-                        console.log(`Applied ${label} to ${fieldId}`);
                     }
                 });
-                return appliedCount;
-            };
+                modal.hide();
+                if (appliedCount > 0) {
+                    alert(`Theme "${themeName}" angewendet! ${appliedCount} Felder wurden aktualisiert.`);
+                } else {
+                    alert('Keine Felder ausgewählt.');
+                }
+            });
 
-            // Wenn Felder bereits Werte haben, Modal anzeigen
-            if (fieldsWithValues.length > 0) {
-                const fieldNames = fieldsWithValues.map(([, , label]) => label).join(', ');
-
-                // Bootstrap Modal für Überschreiben-Abfrage
-                const modalHtml = `
-                    <div class="modal fade" id="themeOverwriteModal" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Theme "${themeName}" anwenden?</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>Folgende Felder haben bereits Werte:</p>
-                                    <p class="text-muted"><strong>${fieldNames}</strong></p>
-                                    <p>Möchtest du diese mit den Theme-Werten überschreiben?</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                                    <button type="button" class="btn btn-primary" id="confirmThemeOverwrite">
-                                        <i class="bi bi-check-lg"></i> Ja, überschreiben
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                // Altes Modal entfernen falls vorhanden
-                document.getElementById('themeOverwriteModal')?.remove();
-                document.body.insertAdjacentHTML('beforeend', modalHtml);
-
-                const modal = new bootstrap.Modal(document.getElementById('themeOverwriteModal'));
-
-                document.getElementById('confirmThemeOverwrite').addEventListener('click', () => {
-                    const count = applyThemeValues();
-                    modal.hide();
-                    alert(`Theme "${themeName}" angewendet! ${count} Felder wurden aktualisiert.`);
-                });
-
-                modal.show();
-            } else {
-                // Keine Konflikte - direkt anwenden
-                const count = applyThemeValues();
-                alert(`Theme "${themeName}" angewendet! ${count} Felder wurden ausgefüllt.`);
-            }
+            modal.show();
         } else {
             alert('Fehler: ' + (data.error || 'Theme konnte nicht geladen werden'));
         }
