@@ -153,6 +153,7 @@ class PLoomProductForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        import json
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
@@ -164,6 +165,16 @@ class PLoomProductForm(forms.ModelForm):
         # Template Suffix wird dynamisch via JavaScript geladen
         # Hier nur als CharField definieren, damit es validiert wird
         self.fields['template_suffix'].required = False
+
+        # Sales Channels: Konvertiere Python-Liste zu JSON-String für das Hidden-Feld
+        if self.instance and self.instance.pk:
+            sales_channels_value = self.instance.sales_channels
+            if isinstance(sales_channels_value, list):
+                self.initial['sales_channels'] = json.dumps(sales_channels_value)
+            elif sales_channels_value:
+                self.initial['sales_channels'] = sales_channels_value
+            else:
+                self.initial['sales_channels'] = '[]'
 
     def clean_sales_channels(self):
         """Konvertiert den JSON-String zu einer Python-Liste"""
