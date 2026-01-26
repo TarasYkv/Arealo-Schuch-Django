@@ -69,8 +69,20 @@
                             <small class="text-muted">z.B. "{product_name} - {brand} | Qualität aus Deutschland"</small>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Beschreibungs-Vorlage</label>
-                            {{ form.description_template }}
+                            <label class="form-label">Beschreibungs-Vorlage (HTML)</label>
+                            <div class="btn-group btn-group-sm mb-2" role="group">
+                                <button type="button" class="btn btn-outline-secondary active" id="desc-code-btn">
+                                    <i class="bi bi-code-slash"></i> Code
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="desc-preview-btn">
+                                    <i class="bi bi-eye"></i> Vorschau
+                                </button>
+                            </div>
+                            <div id="desc-code-view">
+                                {{ form.description_template }}
+                            </div>
+                            <div id="desc-preview-view" class="d-none border rounded p-3 bg-white" style="min-height: 150px; max-height: 300px; overflow-y: auto;"></div>
+                            <small class="text-muted">HTML wird unterstützt. Nutze &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;strong&gt; etc.</small>
                         </div>
                     </div>
                 </div>
@@ -129,4 +141,34 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const codeBtn = document.getElementById('desc-code-btn');
+    const previewBtn = document.getElementById('desc-preview-btn');
+    const codeView = document.getElementById('desc-code-view');
+    const previewView = document.getElementById('desc-preview-view');
+    const textarea = document.getElementById('id_description_template');
+
+    if (codeBtn && previewBtn && codeView && previewView && textarea) {
+        codeBtn.addEventListener('click', function() {
+            codeView.classList.remove('d-none');
+            previewView.classList.add('d-none');
+            codeBtn.classList.add('active');
+            previewBtn.classList.remove('active');
+        });
+
+        previewBtn.addEventListener('click', function() {
+            codeView.classList.add('d-none');
+            previewView.classList.remove('d-none');
+            previewBtn.classList.add('active');
+            codeBtn.classList.remove('active');
+            // HTML-Vorschau aktualisieren
+            previewView.innerHTML = textarea.value || '<span class="text-muted">Keine Beschreibung</span>';
+        });
+    }
+});
+</script>
 {% endblock %}

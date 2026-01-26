@@ -63,7 +63,11 @@ class ProductThemeForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'title_template': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'description_template': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+            'description_template': forms.Textarea(attrs={
+                'class': 'form-control font-monospace',
+                'rows': 10,
+                'placeholder': '<p>Produktbeschreibung hier...</p>\n<ul>\n  <li>Feature 1</li>\n  <li>Feature 2</li>\n</ul>'
+            }),
             'seo_title_template': forms.TextInput(attrs={'class': 'form-control'}),
             'seo_description_template': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'default_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
