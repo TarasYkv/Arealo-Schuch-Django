@@ -310,6 +310,13 @@ class PLoomShopifyService:
 
         logger.info(f"Setting metafields for product {product_id}: {metafields}")
 
+        # Metafeld-Definitionen laden um den korrekten Typ zu bekommen
+        success, definitions, _ = self.get_metafield_definitions()
+        type_map = {}
+        if success:
+            for defn in definitions:
+                type_map[defn['full_key']] = defn.get('type', 'single_line_text_field')
+
         for key, value in metafields.items():
             if not value:  # Leere Werte überspringen
                 continue
@@ -322,16 +329,32 @@ class PLoomShopifyService:
                     namespace = 'custom'
                     metafield_key = key
 
+                # Korrekten Typ aus Definition verwenden
+                field_type = type_map.get(key, 'single_line_text_field')
+
+                # Wert entsprechend dem Typ formatieren
+                if field_type.startswith('list.'):
+                    # Liste: Werte als JSON-Array formatieren
+                    import json
+                    if isinstance(value, list):
+                        formatted_value = json.dumps(value)
+                    else:
+                        # Komma-separierte Werte in Liste umwandeln
+                        items = [v.strip() for v in str(value).split(',') if v.strip()]
+                        formatted_value = json.dumps(items)
+                else:
+                    formatted_value = str(value)
+
                 metafield_data = {
                     "metafield": {
                         "namespace": namespace,
                         "key": metafield_key,
-                        "value": str(value),
-                        "type": "single_line_text_field"
+                        "value": formatted_value,
+                        "type": field_type
                     }
                 }
 
-                logger.info(f"Creating metafield: {namespace}.{metafield_key} = {value}")
+                logger.info(f"Creating metafield: {namespace}.{metafield_key} = {formatted_value} (type: {field_type})")
 
                 response = self._make_request(
                     'POST',
