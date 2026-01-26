@@ -143,8 +143,21 @@
                                         data-field="description" data-target="id_description">
                                     <i class="bi bi-clock-history me-1"></i>Verlauf
                                 </button>
+                                <div class="btn-group ms-auto" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary active" id="btn-desc-code">
+                                        <i class="bi bi-code-slash"></i> Code
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-desc-preview">
+                                        <i class="bi bi-eye"></i> Vorschau
+                                    </button>
+                                </div>
                             </div>
-                            {{ form.description }}
+                            <div id="description-code-view">
+                                {{ form.description }}
+                            </div>
+                            <div id="description-preview-view" class="d-none border rounded p-3 bg-white" style="min-height: 200px; max-height: 400px; overflow-y: auto;">
+                                <!-- HTML-Vorschau wird hier angezeigt -->
+                            </div>
                         </div>
 
                         <!-- Tags -->
@@ -1286,6 +1299,38 @@ function escapeHtml(str) {
     div.textContent = str;
     return div.innerHTML;
 }
+
+// ============================================================================
+// Beschreibung Code/Vorschau Umschalter
+// ============================================================================
+
+function initDescriptionToggle() {
+    const btnCode = document.getElementById('btn-desc-code');
+    const btnPreview = document.getElementById('btn-desc-preview');
+    const codeView = document.getElementById('description-code-view');
+    const previewView = document.getElementById('description-preview-view');
+    const textarea = document.getElementById('id_description');
+
+    if (!btnCode || !btnPreview || !codeView || !previewView || !textarea) return;
+
+    btnCode.addEventListener('click', function() {
+        codeView.classList.remove('d-none');
+        previewView.classList.add('d-none');
+        btnCode.classList.add('active');
+        btnPreview.classList.remove('active');
+    });
+
+    btnPreview.addEventListener('click', function() {
+        codeView.classList.add('d-none');
+        previewView.classList.remove('d-none');
+        btnCode.classList.remove('active');
+        btnPreview.classList.add('active');
+        // HTML-Vorschau aktualisieren
+        previewView.innerHTML = textarea.value || '<p class="text-muted">Keine Beschreibung vorhanden</p>';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initDescriptionToggle);
 
 // Publications beim Laden der Seite abrufen
 document.addEventListener('DOMContentLoaded', loadPublications);
