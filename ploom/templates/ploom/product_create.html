@@ -1091,36 +1091,74 @@ document.getElementById('applyThemeBtn')?.addEventListener('click', async functi
 
             console.log('Fields to apply:', fieldsToApply);
 
-            let appliedCount = 0;
-            fieldsToApply.forEach(([fieldId, value, label]) => {
+            // Prüfen ob Felder überschrieben werden müssen
+            const fieldsWithValues = fieldsToApply.filter(([fieldId]) => {
                 const field = document.getElementById(fieldId);
-                console.log(`Field ${fieldId}:`, field, 'current value:', field?.value, 'new value:', value);
-                if (field) {
-                    // Nur überschreiben wenn leer oder User bestätigt
-                    if (!field.value || field.value.trim() === '') {
+                return field && field.value && field.value.trim() !== '';
+            });
+
+            const themeName = themeSelect.options[themeSelect.selectedIndex].text;
+
+            // Funktion zum Anwenden der Theme-Werte
+            const applyThemeValues = () => {
+                let appliedCount = 0;
+                fieldsToApply.forEach(([fieldId, value, label]) => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
                         field.value = value;
                         appliedCount++;
                         console.log(`Applied ${label} to ${fieldId}`);
-                    } else {
-                        console.log(`Skipped ${fieldId} - already has value`);
                     }
-                } else {
-                    console.warn(`Field ${fieldId} not found!`);
-                }
-            });
+                });
+                return appliedCount;
+            };
 
-            // Visuelles Feedback
-            const themeName = themeSelect.options[themeSelect.selectedIndex].text;
-            if (appliedCount > 0) {
-                alert(`Theme "${themeName}" angewendet!\n${appliedCount} Felder wurden ausgefüllt.`);
+            // Wenn Felder bereits Werte haben, Modal anzeigen
+            if (fieldsWithValues.length > 0) {
+                const fieldNames = fieldsWithValues.map(([, , label]) => label).join(', ');
+
+                // Bootstrap Modal für Überschreiben-Abfrage
+                const modalHtml = `
+                    <div class="modal fade" id="themeOverwriteModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Theme "${themeName}" anwenden?</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Folgende Felder haben bereits Werte:</p>
+                                    <p class="text-muted"><strong>${fieldNames}</strong></p>
+                                    <p>Möchtest du diese mit den Theme-Werten überschreiben?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                                    <button type="button" class="btn btn-primary" id="confirmThemeOverwrite">
+                                        <i class="bi bi-check-lg"></i> Ja, überschreiben
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Altes Modal entfernen falls vorhanden
+                document.getElementById('themeOverwriteModal')?.remove();
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+                const modal = new bootstrap.Modal(document.getElementById('themeOverwriteModal'));
+
+                document.getElementById('confirmThemeOverwrite').addEventListener('click', () => {
+                    const count = applyThemeValues();
+                    modal.hide();
+                    alert(`Theme "${themeName}" angewendet! ${count} Felder wurden aktualisiert.`);
+                });
+
+                modal.show();
             } else {
-                if (confirm(`Alle Felder sind bereits ausgefüllt.\nMöchtest du sie mit den Theme-Werten überschreiben?`)) {
-                    fieldsToApply.forEach(([fieldId, value]) => {
-                        const field = document.getElementById(fieldId);
-                        if (field) field.value = value;
-                    });
-                    alert(`Theme "${themeName}" angewendet!`);
-                }
+                // Keine Konflikte - direkt anwenden
+                const count = applyThemeValues();
+                alert(`Theme "${themeName}" angewendet! ${count} Felder wurden ausgefüllt.`);
             }
         } else {
             alert('Fehler: ' + (data.error || 'Theme konnte nicht geladen werden'));
