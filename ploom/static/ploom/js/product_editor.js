@@ -1252,19 +1252,35 @@ async function loadCollections() {
 function initShopifyUpload() {
     const btn = document.getElementById('btn-upload-shopify');
     if (btn) {
-        btn.addEventListener('click', uploadToShopify);
+        btn.addEventListener('click', showUploadConfirmModal);
     }
+
+    // Bestätigungs-Button im Modal
+    const confirmBtn = document.getElementById('btn-confirm-upload');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', uploadToShopify);
+    }
+}
+
+function showUploadConfirmModal() {
+    if (!PRODUCT_ID) {
+        alert('Bitte speichere das Produkt zuerst');
+        return;
+    }
+    new bootstrap.Modal(document.getElementById('uploadConfirmModal')).show();
 }
 
 async function uploadToShopify() {
     if (!PRODUCT_ID) return;
 
+    // Modal schließen
+    const confirmModal = bootstrap.Modal.getInstance(document.getElementById('uploadConfirmModal'));
+    if (confirmModal) confirmModal.hide();
+
     const btn = document.getElementById('btn-upload-shopify');
     const overlay = document.getElementById('upload-overlay');
     const overlayTitle = document.getElementById('upload-overlay-title');
     const overlayText = document.getElementById('upload-overlay-text');
-
-    if (!confirm('Produkt als Entwurf zu Shopify hochladen?')) return;
 
     // Overlay anzeigen
     if (overlay) {
