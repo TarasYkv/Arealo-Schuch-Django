@@ -208,8 +208,11 @@ class PLoomShopifyService:
                     self._upload_product_images(shopify_product_id, images, variant_id_map)
 
                 # Metafelder setzen
+                logger.info(f"Product metafields value: {ploom_product.product_metafields}")
                 if ploom_product.product_metafields:
                     self._set_product_metafields(shopify_product_id, ploom_product.product_metafields)
+                else:
+                    logger.info("No metafields found on product")
 
                 # Collection zuweisen
                 if ploom_product.collection_id:
@@ -301,8 +304,17 @@ class PLoomShopifyService:
 
     def _set_product_metafields(self, product_id: str, metafields: Dict) -> None:
         """Setzt Metafelder für ein Produkt"""
-        try:
-            for key, value in metafields.items():
+        if not metafields:
+            logger.info(f"No metafields to set for product {product_id}")
+            return
+
+        logger.info(f"Setting metafields for product {product_id}: {metafields}")
+
+        for key, value in metafields.items():
+            if not value:  # Leere Werte überspringen
+                continue
+
+            try:
                 # Namespace und Key aus dem Key extrahieren (Format: namespace.key)
                 if '.' in key:
                     namespace, metafield_key = key.split('.', 1)
@@ -319,6 +331,8 @@ class PLoomShopifyService:
                     }
                 }
 
+                logger.info(f"Creating metafield: {namespace}.{metafield_key} = {value}")
+
                 response = self._make_request(
                     'POST',
                     f"{self.base_url}/products/{product_id}/metafields.json",
@@ -326,11 +340,13 @@ class PLoomShopifyService:
                     timeout=10
                 )
 
-                if response.status_code not in [200, 201]:
-                    logger.warning(f"Failed to set metafield {key}: {response.text}")
+                if response.status_code in [200, 201]:
+                    logger.info(f"Successfully set metafield {key}")
+                else:
+                    logger.warning(f"Failed to set metafield {key}: HTTP {response.status_code} - {response.text}")
 
-        except Exception as e:
-            logger.warning(f"Error setting metafields: {e}")
+            except Exception as e:
+                logger.warning(f"Error setting metafield {key}: {e}")
 
     def _add_product_to_collection(self, product_id: str, collection_id: str) -> None:
         """Fügt ein Produkt einer Collection hinzu"""
@@ -386,49 +402,56 @@ class PLoomShopifyService:
             return False, [], str(e)
 
     def publish_to_channels(self, product_id: str, publication_ids: List[str]) -> None:
-        """Veröffentlicht ein Produkt auf ausgewählten Kanälen"""
+        """Veröffentlicht ein Produkt auf ausgewählten Kanälen via GraphQL"""
         if not publication_ids:
             logger.info(f"No publication IDs provided for product {product_id}")
             return
 
         logger.info(f"Publishing product {product_id} to channels: {publication_ids}")
 
+        # GraphQL ist der zuverlässigste Weg für Publikationen
+        graphql_url = self.base_url.replace('/admin/api/2024-01', '/admin/api/2024-01/graphql.json')
+
         for pub_id in publication_ids:
             try:
-                # Methode 1: Collects-API für Publications
-                # POST /admin/api/2024-01/collects.json
-                collect_data = {
-                    "collect": {
-                        "product_id": int(product_id),
-                        "collection_id": int(pub_id)
+                # GraphQL Mutation für publishablePublish
+                mutation = """
+                mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+                    publishablePublish(id: $id, input: $input) {
+                        publishable {
+                            availablePublicationsCount {
+                                count
+                            }
+                        }
+                        userErrors {
+                            field
+                            message
+                        }
                     }
                 }
+                """
 
-                # Methode 2: Product Listings API (für Sales Channels)
-                # Diese API ist die korrekte für Veröffentlichungen
-                response = self._make_request(
-                    'PUT',
-                    f"{self.base_url}/product_listings/{product_id}.json",
-                    json={"product_listing": {"product_id": int(product_id)}},
-                    timeout=15
-                )
+                variables = {
+                    "id": f"gid://shopify/Product/{product_id}",
+                    "input": [{"publicationId": f"gid://shopify/Publication/{pub_id}"}]
+                }
 
-                if response.status_code in [200, 201]:
-                    logger.info(f"Successfully published product {product_id} via product_listings")
-                    continue
-
-                # Fallback: ResourcePublications GraphQL-ähnliche REST API
                 response = self._make_request(
                     'POST',
-                    f"{self.base_url}/publications/{pub_id}/product_ids.json",
-                    json={"product_ids": [int(product_id)]},
+                    graphql_url,
+                    json={"query": mutation, "variables": variables},
                     timeout=15
                 )
 
-                if response.status_code in [200, 201]:
-                    logger.info(f"Successfully published product {product_id} to publication {pub_id}")
+                if response.status_code == 200:
+                    result = response.json()
+                    errors = result.get('data', {}).get('publishablePublish', {}).get('userErrors', [])
+                    if errors:
+                        logger.warning(f"GraphQL errors for channel {pub_id}: {errors}")
+                    else:
+                        logger.info(f"Successfully published product {product_id} to channel {pub_id}")
                 else:
-                    logger.warning(f"Failed to publish to channel {pub_id}: HTTP {response.status_code} - {response.text}")
+                    logger.warning(f"Failed to publish to channel {pub_id}: HTTP {response.status_code}")
 
             except Exception as e:
                 logger.warning(f"Error publishing to channel {pub_id}: {e}")
