@@ -410,8 +410,10 @@ class PLoomShopifyService:
 
         logger.info(f"Publishing product {product_id} to channels: {publication_ids}")
 
-        # GraphQL ist der zuverlässigste Weg für Publikationen
-        graphql_url = self.base_url.replace('/admin/api/2024-01', '/admin/api/2024-01/graphql.json')
+        # GraphQL URL korrekt konstruieren
+        # base_url ist z.B. https://store.myshopify.com/admin/api/2024-01
+        graphql_url = f"{self.base_url}/graphql.json"
+        logger.info(f"GraphQL URL: {graphql_url}")
 
         for pub_id in publication_ids:
             try:
@@ -444,6 +446,8 @@ class PLoomShopifyService:
                     timeout=15
                 )
 
+                logger.info(f"GraphQL response status: {response.status_code}, body: {response.text[:500] if response.text else 'empty'}")
+
                 if response.status_code == 200:
                     result = response.json()
                     errors = result.get('data', {}).get('publishablePublish', {}).get('userErrors', [])
@@ -452,7 +456,7 @@ class PLoomShopifyService:
                     else:
                         logger.info(f"Successfully published product {product_id} to channel {pub_id}")
                 else:
-                    logger.warning(f"Failed to publish to channel {pub_id}: HTTP {response.status_code}")
+                    logger.warning(f"Failed to publish to channel {pub_id}: HTTP {response.status_code} - {response.text[:200] if response.text else 'empty'}")
 
             except Exception as e:
                 logger.warning(f"Error publishing to channel {pub_id}: {e}")
