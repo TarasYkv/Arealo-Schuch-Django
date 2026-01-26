@@ -372,8 +372,62 @@ class PLoomShopifyService:
             logger.warning(f"Error adding product to collection: {e}")
 
     def get_publications(self) -> Tuple[bool, List[Dict], str]:
-        """Holt alle Sales Channels / Veröffentlichungskanäle"""
+        """Holt alle Sales Channels / Veröffentlichungskanäle via GraphQL"""
         try:
+            # GraphQL für zuverlässigere Publications
+            graphql_url = f"{self.base_url}/graphql.json"
+
+            query = """
+            query {
+                publications(first: 50) {
+                    edges {
+                        node {
+                            id
+                            name
+                            supportsFuturePublishing
+                        }
+                    }
+                }
+            }
+            """
+
+            response = self._make_request(
+                'POST',
+                graphql_url,
+                json={"query": query},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                publications = []
+                seen_names = set()
+
+                edges = data.get('data', {}).get('publications', {}).get('edges', [])
+                logger.info(f"Found {len(edges)} publications via GraphQL")
+
+                for edge in edges:
+                    node = edge.get('node', {})
+                    pub_name = node.get('name', 'Unbekannt')
+
+                    # Nur den ersten Kanal mit diesem Namen behalten
+                    if pub_name not in seen_names:
+                        seen_names.add(pub_name)
+                        # GraphQL ID extrahieren (gid://shopify/Publication/123 -> 123)
+                        gid = node.get('id', '')
+                        pub_id = gid.split('/')[-1] if '/' in gid else gid
+
+                        publications.append({
+                            'id': pub_id,
+                            'name': pub_name,
+                            'handle': '',
+                        })
+
+                if publications:
+                    return True, publications, ""
+
+            # Fallback: REST API
+            logger.info("GraphQL failed, trying REST API for publications")
             response = self._make_request(
                 'GET',
                 f"{self.base_url}/publications.json",
@@ -383,10 +437,9 @@ class PLoomShopifyService:
             if response.status_code == 200:
                 data = response.json()
                 publications = []
-                seen_names = set()  # Duplikate nach Namen vermeiden
+                seen_names = set()
                 for pub in data.get('publications', []):
                     pub_name = pub.get('name', 'Unbekannt')
-                    # Nur den ersten Kanal mit diesem Namen behalten
                     if pub_name not in seen_names:
                         seen_names.add(pub_name)
                         publications.append({
