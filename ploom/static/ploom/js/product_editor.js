@@ -1249,7 +1249,18 @@ async function uploadToShopify() {
     if (!PRODUCT_ID) return;
 
     const btn = document.getElementById('btn-upload-shopify');
+    const overlay = document.getElementById('upload-overlay');
+    const overlayTitle = document.getElementById('upload-overlay-title');
+    const overlayText = document.getElementById('upload-overlay-text');
+
     if (!confirm('Produkt als Entwurf zu Shopify hochladen?')) return;
+
+    // Overlay anzeigen
+    if (overlay) {
+        overlay.classList.remove('d-none');
+        if (overlayTitle) overlayTitle.textContent = 'Hochladen zu Shopify...';
+        if (overlayText) overlayText.textContent = 'Bitte warten, das Fenster nicht schließen';
+    }
 
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<span class="loading-spinner"></span> Hochladen...';
@@ -1262,15 +1273,27 @@ async function uploadToShopify() {
         });
 
         const data = await response.json();
+
         if (data.success) {
-            alert(data.message || 'Produkt erfolgreich hochgeladen!');
-            location.reload();
+            // Erfolg anzeigen
+            if (overlayTitle) overlayTitle.textContent = 'Erfolgreich hochgeladen!';
+            if (overlayText) overlayText.textContent = data.message || 'Produkt wurde zu Shopify übertragen';
+
+            // Kurz warten, dann neu laden
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
         } else {
+            // Fehler - Overlay ausblenden und Alert zeigen
+            if (overlay) overlay.classList.add('d-none');
             alert(data.error || 'Fehler beim Upload');
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
         }
     } catch (error) {
-        alert('Fehler beim Upload');
-    } finally {
+        // Fehler - Overlay ausblenden und Alert zeigen
+        if (overlay) overlay.classList.add('d-none');
+        alert('Fehler beim Upload: ' + error.message);
         btn.innerHTML = originalHtml;
         btn.disabled = false;
     }
