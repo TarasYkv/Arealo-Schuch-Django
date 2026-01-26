@@ -130,6 +130,12 @@ class PLoomShopifyService:
                         "taxable": variant.taxable,
                     }
 
+                    # Inventar-Verfolgung (vom Hauptprodukt)
+                    if ploom_product.track_inventory:
+                        variant_data["inventory_management"] = "shopify"
+                    else:
+                        variant_data["inventory_management"] = None
+
                     if variant.compare_at_price:
                         variant_data["compare_at_price"] = str(variant.compare_at_price)
 
