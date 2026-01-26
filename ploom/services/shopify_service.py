@@ -383,14 +383,15 @@ class PLoomShopifyService:
             if response.status_code == 200:
                 data = response.json()
                 publications = []
-                seen_ids = set()  # Duplikate vermeiden
+                seen_names = set()  # Duplikate nach Namen vermeiden
                 for pub in data.get('publications', []):
-                    pub_id = str(pub.get('id'))
-                    if pub_id not in seen_ids:
-                        seen_ids.add(pub_id)
+                    pub_name = pub.get('name', 'Unbekannt')
+                    # Nur den ersten Kanal mit diesem Namen behalten
+                    if pub_name not in seen_names:
+                        seen_names.add(pub_name)
                         publications.append({
-                            'id': pub_id,
-                            'name': pub.get('name', 'Unbekannt'),
+                            'id': str(pub.get('id')),
+                            'name': pub_name,
                             'handle': pub.get('handle', ''),
                         })
                 return True, publications, ""
