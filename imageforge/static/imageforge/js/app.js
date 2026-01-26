@@ -471,6 +471,13 @@ function initMockupWizard() {
     const loadingOverlay = document.getElementById('loading-overlay');
     const resultModal = document.getElementById('result-modal');
 
+    // Gespeicherte Dateien (um Referenzverlust zu verhindern) - global für selectHistoryImage
+    window.mockupStoredFiles = window.mockupStoredFiles || {
+        product: null,
+        styleRef: null,
+        motif: null
+    };
+
     // Content Type Toggle (Text vs Motif)
     const textInputSection = document.getElementById('text-input-section');
     const motifInputSection = document.getElementById('motif-input-section');
@@ -499,19 +506,28 @@ function initMockupWizard() {
         });
     }
 
-    // Initialize mockup product upload zone
+    // Initialize mockup product upload zone mit Datei-Speicherung
     if (mockupProductZone && mockupProductInput) {
         initUploadZone(mockupProductZone, mockupProductInput);
+        mockupProductInput.addEventListener('change', () => {
+            window.mockupStoredFiles.product = mockupProductInput.files[0] || null;
+        });
     }
 
-    // Initialize style reference upload zone
+    // Initialize style reference upload zone mit Datei-Speicherung
     if (styleRefZone && styleRefInput) {
         initUploadZone(styleRefZone, styleRefInput);
+        styleRefInput.addEventListener('change', () => {
+            window.mockupStoredFiles.styleRef = styleRefInput.files[0] || null;
+        });
     }
 
-    // Initialize motif upload zone
+    // Initialize motif upload zone mit Datei-Speicherung
     if (motifZone && motifInput) {
         initUploadZone(motifZone, motifInput);
+        motifInput.addEventListener('change', () => {
+            window.mockupStoredFiles.motif = motifInput.files[0] || null;
+        });
     }
 
     // Helper: Preview in Upload Zone anzeigen
@@ -539,9 +555,11 @@ function initMockupWizard() {
 
             if (target === 'product' && mockupProductInput) {
                 mockupProductInput.files = dataTransfer.files;
+                window.mockupStoredFiles.product = file;  // Auch in Storage speichern
                 showUploadPreview(mockupProductZone, imageUrl);
             } else if (target === 'style-ref' && styleRefInput) {
                 styleRefInput.files = dataTransfer.files;
+                window.mockupStoredFiles.styleRef = file;  // Auch in Storage speichern
                 showUploadPreview(styleRefZone, imageUrl);
             }
         } catch (error) {
@@ -598,9 +616,11 @@ function initMockupWizard() {
             // Welcher Content-Type ist aktiv?
             const contentType = document.querySelector('input[name="content_type"]:checked')?.value || 'text';
             const textContent = document.getElementById('mockup-text-content')?.value?.trim();
-            const motifFile = motifInput?.files?.[0];
-            const productFile = mockupProductInput?.files?.[0];
-            const styleRefFile = styleRefInput?.files?.[0];
+
+            // Gespeicherte Dateien verwenden (oder aus Input als Fallback)
+            const motifFile = window.mockupStoredFiles.motif || motifInput?.files?.[0];
+            const productFile = window.mockupStoredFiles.product || mockupProductInput?.files?.[0];
+            const styleRefFile = window.mockupStoredFiles.styleRef || styleRefInput?.files?.[0];
 
             // Validierung je nach Content-Type
             if (contentType === 'text') {
