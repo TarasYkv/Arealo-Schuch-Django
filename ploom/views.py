@@ -1261,6 +1261,36 @@ def api_shopify_collections(request):
 
 
 @login_required
+def api_shopify_categories(request):
+    """Shopify Produktkategorien (Taxonomy) abrufen"""
+    store_id = request.GET.get('store_id')
+
+    if not store_id:
+        # Standard-Store aus Einstellungen
+        settings_obj = PLoomSettings.objects.filter(user=request.user).first()
+        if settings_obj and settings_obj.default_store:
+            store_id = settings_obj.default_store.id
+        else:
+            return JsonResponse({'success': False, 'error': 'Kein Store ausgewählt'})
+
+    try:
+        from shopify_manager.models import ShopifyStore
+        store = get_object_or_404(ShopifyStore, pk=store_id, user=request.user)
+
+        from .services.shopify_service import PLoomShopifyService
+        service = PLoomShopifyService(store)
+        success, categories, error = service.get_product_categories()
+
+        if not success:
+            return JsonResponse({'success': False, 'error': error})
+
+        return JsonResponse({'success': True, 'categories': categories})
+    except Exception as e:
+        logger.error(f"Error fetching product categories: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
 def api_shopify_metafields(request):
     """Shopify Metafeld-Definitionen abrufen"""
     store_id = request.GET.get('store_id')

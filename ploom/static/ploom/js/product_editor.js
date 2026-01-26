@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Collections
     initCollections();
 
+    // Categories
+    initCategories();
+
     // Shopify upload
     initShopifyUpload();
 
@@ -1243,6 +1246,121 @@ async function loadCollections() {
     } catch (error) {
         container.innerHTML = '<p class="text-danger text-center">Fehler beim Laden</p>';
     }
+}
+
+// ============================================================================
+// Produktkategorien
+// ============================================================================
+
+let allCategories = [];
+
+function initCategories() {
+    const btn = document.getElementById('btn-select-category');
+    const clearBtn = document.getElementById('btn-clear-category');
+
+    if (btn) {
+        btn.addEventListener('click', loadCategories);
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            document.getElementById('id_product_category').value = '';
+            document.getElementById('id_product_category_name').value = '';
+        });
+    }
+
+    // Suchfeld
+    const searchInput = document.getElementById('category-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', filterCategories);
+    }
+}
+
+async function loadCategories() {
+    const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+    modal.show();
+
+    const container = document.getElementById('categories-list');
+    const searchInput = document.getElementById('category-search');
+
+    // Nur laden wenn noch nicht geladen
+    if (allCategories.length === 0) {
+        container.innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div><p class="mt-2 text-muted">Lade Kategorien...</p></div>';
+
+        const storeSelect = document.getElementById('id_shopify_store');
+        const storeId = storeSelect ? storeSelect.value : '';
+
+        try {
+            const response = await fetch(`/ploom/api/shopify/categories/?store_id=${storeId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                allCategories = data.categories || [];
+                renderCategories(allCategories);
+            } else {
+                container.innerHTML = `<p class="text-danger text-center">${data.error || 'Fehler beim Laden'}</p>`;
+            }
+        } catch (error) {
+            container.innerHTML = '<p class="text-danger text-center">Fehler beim Laden der Kategorien</p>';
+        }
+    } else {
+        renderCategories(allCategories);
+    }
+
+    // Suchfeld fokussieren
+    if (searchInput) {
+        setTimeout(() => searchInput.focus(), 300);
+    }
+}
+
+function filterCategories() {
+    const searchInput = document.getElementById('category-search');
+    const query = searchInput?.value.toLowerCase() || '';
+
+    if (!query) {
+        renderCategories(allCategories);
+        return;
+    }
+
+    const filtered = allCategories.filter(cat =>
+        cat.name.toLowerCase().includes(query) ||
+        cat.full_name.toLowerCase().includes(query)
+    );
+
+    renderCategories(filtered);
+}
+
+function renderCategories(categories) {
+    const container = document.getElementById('categories-list');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('categoryModal'));
+
+    if (categories.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center py-3">Keine Kategorien gefunden</p>';
+        return;
+    }
+
+    container.innerHTML = categories.map(cat => `
+        <div class="category-item p-2 border-bottom" style="cursor: pointer;"
+             data-id="${cat.id}" data-name="${escapeHtml(cat.full_name)}">
+            <div class="fw-medium">${escapeHtml(cat.name)}</div>
+            <small class="text-muted">${escapeHtml(cat.full_name)}</small>
+        </div>
+    `).join('');
+
+    // Hover-Effekt und Click-Handler
+    container.querySelectorAll('.category-item').forEach(el => {
+        el.addEventListener('mouseenter', function() {
+            this.classList.add('bg-light');
+        });
+        el.addEventListener('mouseleave', function() {
+            this.classList.remove('bg-light');
+        });
+        el.addEventListener('click', function() {
+            document.getElementById('id_product_category').value = this.dataset.id;
+            document.getElementById('id_product_category_name').value = this.dataset.name;
+            if (modal) modal.hide();
+        });
+    });
 }
 
 // ============================================================================

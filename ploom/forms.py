@@ -91,7 +91,8 @@ class PLoomProductForm(forms.ModelForm):
     class Meta:
         model = PLoomProduct
         fields = [
-            'title', 'description', 'vendor', 'product_type', 'tags',
+            'title', 'description', 'vendor', 'product_type',
+            'product_category', 'product_category_name', 'tags',
             'seo_title', 'seo_description',
             'price', 'compare_at_price', 'weight', 'weight_unit',
             'track_inventory', 'inventory_quantity',
@@ -112,6 +113,12 @@ class PLoomProductForm(forms.ModelForm):
             }),
             'vendor': forms.TextInput(attrs={'class': 'form-control'}),
             'product_type': forms.TextInput(attrs={'class': 'form-control'}),
+            'product_category': forms.HiddenInput(),
+            'product_category_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'readonly': True,
+                'placeholder': 'Kategorie auswählen...'
+            }),
             'tags': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 2,

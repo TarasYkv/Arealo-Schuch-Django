@@ -218,6 +218,10 @@ class PLoomShopifyService:
                 if ploom_product.collection_id:
                     self._add_product_to_collection(shopify_product_id, ploom_product.collection_id)
 
+                # Produktkategorie setzen (via GraphQL)
+                if ploom_product.product_category:
+                    self._set_product_category(shopify_product_id, ploom_product.product_category)
+
                 # Vertriebskanäle zuweisen
                 if ploom_product.sales_channels:
                     self.publish_to_channels(shopify_product_id, ploom_product.sales_channels)
@@ -393,6 +397,64 @@ class PLoomShopifyService:
 
         except Exception as e:
             logger.warning(f"Error adding product to collection: {e}")
+
+    def _set_product_category(self, product_id: str, category_id: str) -> None:
+        """Setzt die Produktkategorie (Taxonomy) via GraphQL"""
+        try:
+            graphql_url = f"{self.base_url}/graphql.json"
+
+            # GraphQL Mutation für Produktkategorie
+            mutation = """
+            mutation productUpdate($input: ProductInput!) {
+                productUpdate(input: $input) {
+                    product {
+                        id
+                        productCategory {
+                            productTaxonomyNode {
+                                id
+                                name
+                            }
+                        }
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+
+            # Product ID zu GraphQL Global ID konvertieren
+            gid = f"gid://shopify/Product/{product_id}"
+
+            variables = {
+                "input": {
+                    "id": gid,
+                    "productCategory": {
+                        "productTaxonomyNodeId": category_id
+                    }
+                }
+            }
+
+            response = self._make_request(
+                'POST',
+                graphql_url,
+                json={"query": mutation, "variables": variables},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                errors = data.get('data', {}).get('productUpdate', {}).get('userErrors', [])
+                if errors:
+                    logger.warning(f"Failed to set product category: {errors}")
+                else:
+                    logger.info(f"Product category set successfully for product {product_id}")
+            else:
+                logger.warning(f"Failed to set product category: HTTP {response.status_code}")
+
+        except Exception as e:
+            logger.warning(f"Error setting product category: {e}")
 
     def get_publications(self) -> Tuple[bool, List[Dict], str]:
         """Holt alle Sales Channels / Veröffentlichungskanäle via GraphQL"""
@@ -580,6 +642,107 @@ class PLoomShopifyService:
 
         except Exception as e:
             logger.error(f"Error fetching collections: {e}")
+            return False, [], str(e)
+
+    def get_product_categories(self) -> Tuple[bool, List[Dict], str]:
+        """Holt Shopify Produktkategorien (Taxonomy) via GraphQL"""
+        try:
+            graphql_url = f"{self.base_url}/graphql.json"
+
+            # Shopify Taxonomy abfragen
+            query = """
+            query {
+                taxonomy {
+                    categories(first: 250) {
+                        edges {
+                            node {
+                                id
+                                name
+                                fullName
+                                level
+                                isLeaf
+                                isRoot
+                            }
+                        }
+                        pageInfo {
+                            hasNextPage
+                            endCursor
+                        }
+                    }
+                }
+            }
+            """
+
+            all_categories = []
+            has_next = True
+            cursor = None
+
+            while has_next:
+                if cursor:
+                    query_with_cursor = f"""
+                    query {{
+                        taxonomy {{
+                            categories(first: 250, after: "{cursor}") {{
+                                edges {{
+                                    node {{
+                                        id
+                                        name
+                                        fullName
+                                        level
+                                        isLeaf
+                                        isRoot
+                                    }}
+                                }}
+                                pageInfo {{
+                                    hasNextPage
+                                    endCursor
+                                }}
+                            }}
+                        }}
+                    }}
+                    """
+                else:
+                    query_with_cursor = query
+
+                response = self._make_request(
+                    'POST',
+                    graphql_url,
+                    json={"query": query_with_cursor},
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    taxonomy = data.get('data', {}).get('taxonomy', {})
+                    categories_data = taxonomy.get('categories', {})
+                    edges = categories_data.get('edges', [])
+                    page_info = categories_data.get('pageInfo', {})
+
+                    for edge in edges:
+                        node = edge.get('node', {})
+                        all_categories.append({
+                            'id': node.get('id', ''),
+                            'name': node.get('name', ''),
+                            'full_name': node.get('fullName', ''),
+                            'level': node.get('level', 0),
+                            'is_leaf': node.get('isLeaf', False),
+                            'is_root': node.get('isRoot', False),
+                        })
+
+                    has_next = page_info.get('hasNextPage', False)
+                    cursor = page_info.get('endCursor')
+                else:
+                    logger.error(f"GraphQL error: {response.status_code} - {response.text}")
+                    has_next = False
+
+            # Sortieren nach fullName für bessere Übersicht
+            all_categories.sort(key=lambda x: x.get('full_name', ''))
+
+            logger.info(f"Found {len(all_categories)} product categories")
+            return True, all_categories, ""
+
+        except Exception as e:
+            logger.error(f"Error fetching product categories: {e}")
             return False, [], str(e)
 
     def get_metafield_definitions(self) -> Tuple[bool, List[Dict], str]:

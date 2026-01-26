@@ -59,6 +59,7 @@ urlpatterns = [
 
     # Shopify
     path('api/shopify/collections/', views.api_shopify_collections, name='api_shopify_collections'),
+    path('api/shopify/categories/', views.api_shopify_categories, name='api_shopify_categories'),
     path('api/shopify/templates/', views.api_shopify_templates, name='api_shopify_templates'),
     path('api/shopify/publications/', views.api_shopify_publications, name='api_shopify_publications'),
     path('api/shopify/metafields/', views.api_shopify_metafields, name='api_shopify_metafields'),

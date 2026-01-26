@@ -180,6 +180,18 @@ class PLoomProduct(models.Model):
     description = models.TextField(blank=True, verbose_name="Beschreibung")
     vendor = models.CharField(max_length=100, blank=True, verbose_name="Hersteller")
     product_type = models.CharField(max_length=100, blank=True, verbose_name="Produkttyp")
+    product_category = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Produktkategorie ID",
+        help_text="Shopify Taxonomy Category ID"
+    )
+    product_category_name = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Produktkategorie",
+        help_text="z.B. 'Haus & Garten > Pflanztöpfe'"
+    )
     tags = models.TextField(blank=True, verbose_name="Tags", help_text="Komma-getrennte Liste")
 
     # SEO
