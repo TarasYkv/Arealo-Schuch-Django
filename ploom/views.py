@@ -385,6 +385,10 @@ def api_variant_add(request, product_id):
         option3_name=data.get('option3_name', ''),
         option3_value=data.get('option3_value', ''),
         inventory_quantity=data.get('inventory_quantity', 0),
+        barcode=data.get('barcode', ''),
+        weight=data.get('weight'),
+        weight_unit=data.get('weight_unit', 'kg'),
+        cost=data.get('cost'),
         position=product.variants.count(),
     )
 
@@ -414,7 +418,7 @@ def api_variant_update(request, product_id, variant_id):
     for field in ['title', 'sku', 'price', 'compare_at_price',
                   'option1_name', 'option1_value', 'option2_name', 'option2_value',
                   'option3_name', 'option3_value', 'barcode', 'inventory_quantity',
-                  'inventory_policy', 'weight', 'weight_unit', 'requires_shipping', 'taxable']:
+                  'inventory_policy', 'weight', 'weight_unit', 'requires_shipping', 'taxable', 'cost']:
         if field in data:
             setattr(variant, field, data[field])
 
@@ -456,6 +460,7 @@ def api_variant_get(request, product_id, variant_id):
             'inventory_quantity': variant.inventory_quantity,
             'weight': str(variant.weight) if variant.weight else '',
             'weight_unit': variant.weight_unit or 'kg',
+            'cost': str(variant.cost) if variant.cost else '',
         }
     })
 

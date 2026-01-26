@@ -556,6 +556,14 @@ class PLoomProductVariant(models.Model):
         default=True,
         verbose_name="Steuerpflichtig"
     )
+    cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Kosten pro Einheit",
+        help_text="Einkaufspreis für Gewinnberechnung"
+    )
 
     position = models.PositiveIntegerField(default=0, verbose_name="Position")
     created_at = models.DateTimeField(auto_now_add=True)

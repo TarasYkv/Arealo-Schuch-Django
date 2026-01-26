@@ -1088,6 +1088,9 @@ function openVariantModal(variantId = null) {
     document.getElementById('variant-price').value = '';
     document.getElementById('variant-quantity').value = '0';
     document.getElementById('variant-barcode').value = '';
+    document.getElementById('variant-weight').value = '';
+    document.getElementById('variant-weight-unit').value = 'kg';
+    document.getElementById('variant-cost').value = '';
 
     new bootstrap.Modal(document.getElementById('variantModal')).show();
 }
@@ -1108,6 +1111,9 @@ async function loadAndEditVariant(variantId) {
             document.getElementById('variant-price').value = v.price || '';
             document.getElementById('variant-quantity').value = v.inventory_quantity || 0;
             document.getElementById('variant-barcode').value = v.barcode || '';
+            document.getElementById('variant-weight').value = v.weight || '';
+            document.getElementById('variant-weight-unit').value = v.weight_unit || 'kg';
+            document.getElementById('variant-cost').value = v.cost || '';
 
             new bootstrap.Modal(document.getElementById('variantModal')).show();
         } else {
@@ -1126,6 +1132,8 @@ async function saveVariant() {
     }
 
     const variantId = document.getElementById('variant-id').value;
+    const weightValue = document.getElementById('variant-weight').value;
+    const costValue = document.getElementById('variant-cost').value;
     const data = {
         option1_name: document.getElementById('variant-option1-name').value,
         option1_value: document.getElementById('variant-option1-value').value,
@@ -1134,7 +1142,10 @@ async function saveVariant() {
         sku: document.getElementById('variant-sku').value,
         price: document.getElementById('variant-price').value || null,
         inventory_quantity: parseInt(document.getElementById('variant-quantity').value) || 0,
-        barcode: document.getElementById('variant-barcode').value
+        barcode: document.getElementById('variant-barcode').value,
+        weight: weightValue ? parseFloat(weightValue) : null,
+        weight_unit: document.getElementById('variant-weight-unit').value,
+        cost: costValue ? parseFloat(costValue) : null
     };
 
     const endpoint = variantId
