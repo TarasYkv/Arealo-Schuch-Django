@@ -371,9 +371,10 @@ function initGenerateForm() {
                     modal.show();
                 }
 
-                // Reset form
-                form.reset();
-                resetUploads();
+                // Modus und Eingaben beibehalten - KEIN Reset mehr
+                // Nur hochgeladene Bilder zurücksetzen (falls gewünscht)
+                // form.reset();
+                // resetUploads();
 
             } else {
                 alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
@@ -387,7 +388,13 @@ function initGenerateForm() {
             if (loadingOverlay) loadingOverlay.classList.add('d-none');
             if (generateBtn) {
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = '<i class="fas fa-magic me-2"></i>Bild generieren';
+                // Button-Text basierend auf aktuellem Modus wiederherstellen
+                const currentMode = document.getElementById('generation-mode')?.value;
+                if (currentMode === 'design') {
+                    generateBtn.innerHTML = '<i class="fas fa-palette me-2" id="generate-btn-icon"></i><span id="generate-btn-text">Design generieren</span>';
+                } else {
+                    generateBtn.innerHTML = '<i class="fas fa-magic me-2" id="generate-btn-icon"></i><span id="generate-btn-text">Bild generieren</span>';
+                }
             }
         }
     });
