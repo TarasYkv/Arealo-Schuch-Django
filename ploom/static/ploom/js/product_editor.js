@@ -1304,6 +1304,11 @@ function initMetafields() {
     const container = document.getElementById('metafields-container');
     const form = document.getElementById('product-form');
 
+    // WICHTIG: Form submit listener IMMER anhängen, auch wenn container nicht existiert
+    form?.addEventListener('submit', function() {
+        serializeMetafields();
+    });
+
     if (!container) return;
 
     // Load metafield definitions
@@ -1338,11 +1343,6 @@ function initMetafields() {
                 alert('Bitte erst einen Metafeld-Key eingeben');
             }
         }
-    });
-
-    // Serialize metafields before form submit
-    form?.addEventListener('submit', function() {
-        serializeMetafields();
     });
 }
 
@@ -1547,7 +1547,10 @@ function serializeMetafields() {
     const container = document.getElementById('metafields-container');
     const hiddenField = document.getElementById('product_metafields_json');
 
-    if (!container || !hiddenField) return;
+    if (!container || !hiddenField) {
+        console.warn('serializeMetafields: container or hiddenField not found', {container, hiddenField});
+        return;
+    }
 
     const metafields = {};
     container.querySelectorAll('.metafield-row').forEach(row => {
@@ -1557,6 +1560,8 @@ function serializeMetafields() {
             metafields[key] = value;
         }
     });
+
+    console.log('serializeMetafields:', metafields);
 
     hiddenField.value = JSON.stringify(metafields);
 }
