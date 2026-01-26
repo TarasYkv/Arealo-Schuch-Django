@@ -1166,7 +1166,16 @@ async function loadPublications() {
         const data = await response.json();
 
         if (data.success && data.publications && data.publications.length > 0) {
-            renderPublications(data.publications, container);
+            // Duplikate entfernen (nach ID)
+            const uniquePublications = [];
+            const seenIds = new Set();
+            for (const pub of data.publications) {
+                if (!seenIds.has(pub.id)) {
+                    seenIds.add(pub.id);
+                    uniquePublications.push(pub);
+                }
+            }
+            renderPublications(uniquePublications, container);
         } else if (data.success && (!data.publications || data.publications.length === 0)) {
             container.innerHTML = '<p class="text-muted mb-0 small">Keine Vertriebskanäle verfügbar</p>';
         } else {

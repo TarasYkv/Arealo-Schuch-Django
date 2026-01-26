@@ -387,32 +387,48 @@ class PLoomShopifyService:
 
     def publish_to_channels(self, product_id: str, publication_ids: List[str]) -> None:
         """Veröffentlicht ein Produkt auf ausgewählten Kanälen"""
+        if not publication_ids:
+            logger.info(f"No publication IDs provided for product {product_id}")
+            return
+
+        logger.info(f"Publishing product {product_id} to channels: {publication_ids}")
+
         for pub_id in publication_ids:
             try:
-                publish_data = {
-                    "product_publication": {
-                        "publication_id": int(pub_id)
+                # Methode 1: Collects-API für Publications
+                # POST /admin/api/2024-01/collects.json
+                collect_data = {
+                    "collect": {
+                        "product_id": int(product_id),
+                        "collection_id": int(pub_id)
                     }
                 }
 
+                # Methode 2: Product Listings API (für Sales Channels)
+                # Diese API ist die korrekte für Veröffentlichungen
                 response = self._make_request(
                     'PUT',
-                    f"{self.base_url}/products/{product_id}/publish.json",
-                    json=publish_data,
-                    timeout=10
+                    f"{self.base_url}/product_listings/{product_id}.json",
+                    json={"product_listing": {"product_id": int(product_id)}},
+                    timeout=15
                 )
 
-                if response.status_code not in [200, 201]:
-                    # Fallback: ProductPublication API verwenden
-                    response = self._make_request(
-                        'POST',
-                        f"{self.base_url}/products/{product_id}/product_publications.json",
-                        json={"product_publication": {"publication_id": int(pub_id)}},
-                        timeout=10
-                    )
+                if response.status_code in [200, 201]:
+                    logger.info(f"Successfully published product {product_id} via product_listings")
+                    continue
 
-                    if response.status_code not in [200, 201]:
-                        logger.warning(f"Failed to publish to channel {pub_id}: {response.text}")
+                # Fallback: ResourcePublications GraphQL-ähnliche REST API
+                response = self._make_request(
+                    'POST',
+                    f"{self.base_url}/publications/{pub_id}/product_ids.json",
+                    json={"product_ids": [int(product_id)]},
+                    timeout=15
+                )
+
+                if response.status_code in [200, 201]:
+                    logger.info(f"Successfully published product {product_id} to publication {pub_id}")
+                else:
+                    logger.warning(f"Failed to publish to channel {pub_id}: HTTP {response.status_code} - {response.text}")
 
             except Exception as e:
                 logger.warning(f"Error publishing to channel {pub_id}: {e}")
