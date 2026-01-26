@@ -507,9 +507,61 @@ class PLoomShopifyService:
             return False, [], str(e)
 
     def get_metafield_definitions(self) -> Tuple[bool, List[Dict], str]:
-        """Holt alle Metafeld-Definitionen für Produkte"""
+        """Holt alle Metafeld-Definitionen für Produkte via GraphQL"""
         try:
-            # Metafield Definitions API (REST)
+            # GraphQL ist zuverlässiger für Metafield Definitions
+            graphql_url = f"{self.base_url}/graphql.json"
+
+            query = """
+            query {
+                metafieldDefinitions(first: 250, ownerType: PRODUCT) {
+                    edges {
+                        node {
+                            id
+                            name
+                            namespace
+                            key
+                            type {
+                                name
+                            }
+                            description
+                        }
+                    }
+                }
+            }
+            """
+
+            response = self._make_request(
+                'POST',
+                graphql_url,
+                json={"query": query},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                definitions = []
+
+                edges = data.get('data', {}).get('metafieldDefinitions', {}).get('edges', [])
+                logger.info(f"Found {len(edges)} metafield definitions via GraphQL")
+
+                for edge in edges:
+                    node = edge.get('node', {})
+                    definitions.append({
+                        'id': node.get('id', ''),
+                        'name': node.get('name', ''),
+                        'namespace': node.get('namespace', ''),
+                        'key': node.get('key', ''),
+                        'full_key': f"{node.get('namespace', '')}.{node.get('key', '')}",
+                        'type': node.get('type', {}).get('name', 'single_line_text_field'),
+                        'description': node.get('description', ''),
+                    })
+
+                if definitions:
+                    return True, definitions, ""
+
+            # Fallback: REST API versuchen
+            logger.info("GraphQL failed, trying REST API for metafield definitions")
             response = self._make_request(
                 'GET',
                 f"{self.base_url}/metafield_definitions.json",
@@ -533,8 +585,10 @@ class PLoomShopifyService:
                         'type': definition.get('type', {}).get('name', 'single_line_text_field'),
                         'description': definition.get('description', ''),
                     })
+                logger.info(f"Found {len(definitions)} metafield definitions via REST")
                 return True, definitions, ""
             else:
+                logger.warning(f"REST API returned {response.status_code}: {response.text[:200]}")
                 # Fallback: Standard-Metafelder zurückgeben
                 return True, self._get_default_metafield_definitions(), ""
 
