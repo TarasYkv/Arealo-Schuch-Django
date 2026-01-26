@@ -1074,6 +1074,8 @@ document.getElementById('applyThemeBtn')?.addEventListener('click', async functi
 
         if (data.success) {
             const theme = data.theme;
+            console.log('Theme data received:', theme);
+            console.log('description_template:', theme.description_template);
 
             // Felder übernehmen (nur wenn leer oder nach Bestätigung)
             const fieldsToApply = [];
@@ -1087,15 +1089,23 @@ document.getElementById('applyThemeBtn')?.addEventListener('click', async functi
             if (theme.seo_title_template) fieldsToApply.push(['id_seo_title', theme.seo_title_template, 'SEO-Titel']);
             if (theme.seo_description_template) fieldsToApply.push(['id_seo_description', theme.seo_description_template, 'SEO-Beschreibung']);
 
+            console.log('Fields to apply:', fieldsToApply);
+
             let appliedCount = 0;
             fieldsToApply.forEach(([fieldId, value, label]) => {
                 const field = document.getElementById(fieldId);
+                console.log(`Field ${fieldId}:`, field, 'current value:', field?.value, 'new value:', value);
                 if (field) {
                     // Nur überschreiben wenn leer oder User bestätigt
                     if (!field.value || field.value.trim() === '') {
                         field.value = value;
                         appliedCount++;
+                        console.log(`Applied ${label} to ${fieldId}`);
+                    } else {
+                        console.log(`Skipped ${fieldId} - already has value`);
                     }
+                } else {
+                    console.warn(`Field ${fieldId} not found!`);
                 }
             });
 
