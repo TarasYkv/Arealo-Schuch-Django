@@ -97,8 +97,16 @@ def generate_image(request):
         quality = request.POST.get('quality', 'standard')
         ai_model = request.POST.get('ai_model', 'gemini-2.0-flash-preview-image-generation')
 
+        # Design-Modus spezifische Parameter
+        design_type = request.POST.get('design_type', 'illustration')
+        design_color_style = request.POST.get('design_color_style', 'colorful')
+        design_tonality = request.POST.get('design_tonality', 'modern')
+        design_text_enabled = request.POST.get('design_text_enabled') == 'on'
+        design_text_content = remove_emojis(request.POST.get('design_text_content', '').strip())
+        design_reference_image = request.FILES.get('design_reference_image')
+
         if not background_prompt:
-            return JsonResponse({'error': 'Bitte Szenen-Beschreibung eingeben'}, status=400)
+            return JsonResponse({'error': 'Bitte Szenen-Beschreibung eingeben' if mode != 'design' else 'Bitte Thema eingeben'}, status=400)
 
         # Charakter laden (falls angegeben)
         character = None
@@ -137,7 +145,13 @@ def generate_image(request):
             shadow=shadow_type,
             color_mood=color_mood,
             character_description=character_desc,
-            aspect_ratio=aspect_ratio
+            aspect_ratio=aspect_ratio,
+            # Design-Modus Parameter
+            design_type=design_type,
+            design_color_style=design_color_style,
+            design_tonality=design_tonality,
+            design_text_enabled=design_text_enabled,
+            design_text_content=design_text_content
         )
 
         # Referenzbilder sammeln
@@ -147,6 +161,9 @@ def generate_image(request):
         if character:
             for char_img in character.images.all()[:5]:  # Max 5 Bilder
                 reference_images.append(char_img.image)
+        # Design-Modus: Stil-Referenzbild
+        if mode == 'design' and design_reference_image:
+            reference_images.append(design_reference_image)
 
         # Dimensionen aus Aspect Ratio
         width, height = generator.get_dimensions_for_ratio(aspect_ratio)
@@ -179,12 +196,22 @@ def generate_image(request):
             ai_model=ai_model,
             generation_prompt=prompt,
             generation_time=generation_time,
-            character=character
+            character=character,
+            # Design-Modus Felder
+            design_type=design_type if mode == 'design' else '',
+            design_color_style=design_color_style if mode == 'design' else '',
+            design_tonality=design_tonality if mode == 'design' else '',
+            design_text_enabled=design_text_enabled if mode == 'design' else False,
+            design_text_content=design_text_content if mode == 'design' else ''
         )
 
         # Produktbild speichern falls vorhanden
         if product_image:
             generation.product_image = product_image
+
+        # Design-Referenzbild speichern falls vorhanden
+        if mode == 'design' and design_reference_image:
+            generation.design_reference_image = design_reference_image
 
         if result.get('success'):
             # Bild aus Base64 speichern

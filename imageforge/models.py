@@ -12,6 +12,36 @@ GENERATION_MODES = [
     ('character', 'Charakter in Szene'),
     ('character_product', 'Charakter + Produkt'),
     ('mockup_text', 'Produkt-Mockup mit Text'),
+    ('design', 'Kreatives Design'),
+]
+
+# Design-Modus Optionen
+DESIGN_TYPES = [
+    ('illustration', 'Illustration/Grafik'),
+    ('pattern', 'Muster/Textur'),
+]
+
+DESIGN_COLOR_STYLES = [
+    ('colorful', 'Farbig'),
+    ('grayscale', 'Grautöne'),
+    ('bw', 'Schwarz/Weiß'),
+    ('monochrome', 'Monochrom'),
+    ('pastel', 'Pastell'),
+    ('vibrant', 'Kräftig/Lebhaft'),
+    ('neon', 'Neon'),
+    ('earth', 'Erdtöne'),
+]
+
+DESIGN_TONALITIES = [
+    ('humorous', 'Humorvoll'),
+    ('elegant', 'Elegant'),
+    ('playful', 'Verspielt'),
+    ('minimalist', 'Minimalistisch'),
+    ('vintage', 'Vintage/Retro'),
+    ('modern', 'Modern'),
+    ('professional', 'Professionell'),
+    ('artistic', 'Künstlerisch'),
+    ('cute', 'Niedlich/Kawaii'),
 ]
 
 # Mockup-Text Feature - Beschriftungsarten
@@ -290,6 +320,47 @@ class ImageGeneration(models.Model):
         choices=AI_MODELS,
         default='gemini-2.0-flash-preview-image-generation',
         verbose_name='KI-Modell'
+    )
+
+    # =========================================================================
+    # DESIGN-MODUS FELDER
+    # =========================================================================
+    design_type = models.CharField(
+        max_length=20,
+        choices=DESIGN_TYPES,
+        blank=True,
+        default='',
+        verbose_name='Design-Typ'
+    )
+    design_color_style = models.CharField(
+        max_length=20,
+        choices=DESIGN_COLOR_STYLES,
+        blank=True,
+        default='',
+        verbose_name='Farbstil'
+    )
+    design_tonality = models.CharField(
+        max_length=20,
+        choices=DESIGN_TONALITIES,
+        blank=True,
+        default='',
+        verbose_name='Tonalität'
+    )
+    design_text_enabled = models.BooleanField(
+        default=False,
+        verbose_name='Text auf Design'
+    )
+    design_text_content = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        verbose_name='Design-Text'
+    )
+    design_reference_image = models.ImageField(
+        upload_to='imageforge/design_refs/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name='Stil-Referenzbild'
     )
 
     # =========================================================================

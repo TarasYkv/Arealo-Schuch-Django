@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initGenerateForm();
     initModelHints();
     initMockupWizard();
+    initDesignSection();
 });
 
 /**
@@ -52,6 +53,7 @@ function initModeSelector() {
     const productSection = document.querySelector('.product-upload-section');
     const characterSection = document.querySelector('.character-section');
     const mockupWizardSection = document.querySelector('.mockup-wizard-section');
+    const designSection = document.querySelector('.design-section');
     const standardFormSections = document.querySelectorAll('.standard-form-section');
 
     if (!modeOptions.length) return;
@@ -86,15 +88,20 @@ function initModeSelector() {
             mockupWizardSection.style.display = (mode === 'mockup_text') ? 'block' : 'none';
         }
 
-        // Standard-Formular-Elemente bei mockup_text verstecken
+        // Design-Modus: Design-Section anzeigen, Standard-Formular verstecken
+        if (designSection) {
+            designSection.style.display = (mode === 'design') ? 'block' : 'none';
+        }
+
+        // Standard-Formular-Elemente bei mockup_text und design verstecken
         standardFormSections.forEach(section => {
-            section.style.display = (mode === 'mockup_text') ? 'none' : '';
+            section.style.display = (mode === 'mockup_text' || mode === 'design') ? 'none' : '';
         });
 
-        // Explizit den "Bild generieren" Button verstecken bei mockup_text
+        // Explizit den "Bild generieren" Button verstecken bei mockup_text und design
         const standardGenBtn = document.getElementById('standard-generate-btn-wrapper');
         if (standardGenBtn) {
-            standardGenBtn.style.display = (mode === 'mockup_text') ? 'none' : '';
+            standardGenBtn.style.display = (mode === 'mockup_text' || mode === 'design') ? 'none' : '';
         }
 
         // Required-Attribute für Mockup-spezifische Felder nur bei mockup_text setzen
@@ -390,9 +397,24 @@ function resetUploads() {
     const productSection = document.querySelector('.product-upload-section');
     const characterSection = document.querySelector('.character-section');
     const mockupWizardSection = document.querySelector('.mockup-wizard-section');
+    const designSection = document.querySelector('.design-section');
     if (productSection) productSection.style.display = 'none';
     if (characterSection) characterSection.style.display = 'none';
     if (mockupWizardSection) mockupWizardSection.style.display = 'none';
+    if (designSection) designSection.style.display = 'none';
+
+    // Reset design section specifics
+    const designRefZone = document.getElementById('design-reference-upload-zone');
+    if (designRefZone) {
+        const placeholder = designRefZone.querySelector('.upload-placeholder');
+        const preview = designRefZone.querySelector('.upload-preview');
+        if (placeholder) placeholder.classList.remove('d-none');
+        if (preview) preview.classList.add('d-none');
+    }
+    const designTextEnabled = document.getElementById('design-text-enabled');
+    if (designTextEnabled) designTextEnabled.checked = false;
+    const designTextInput = document.querySelector('.design-text-input');
+    if (designTextInput) designTextInput.style.display = 'none';
 
     // Show standard form sections
     const standardFormSections = document.querySelectorAll('.standard-form-section');
@@ -905,6 +927,36 @@ function handleUploadPreview(zone, file) {
         if (preview) preview.classList.remove('d-none');
     };
     reader.readAsDataURL(file);
+}
+
+/**
+ * Design Section - Initialisierung für Kreatives Design Modus
+ */
+function initDesignSection() {
+    // Design-Referenzbild Upload Zone
+    const designRefZone = document.getElementById('design-reference-upload-zone');
+    const designRefInput = document.getElementById('design-reference-image');
+
+    if (designRefZone && designRefInput) {
+        initUploadZone(designRefZone, designRefInput);
+    }
+
+    // Text-Toggle für Design-Modus
+    const designTextEnabled = document.getElementById('design-text-enabled');
+    const designTextInput = document.querySelector('.design-text-input');
+
+    if (designTextEnabled && designTextInput) {
+        designTextEnabled.addEventListener('change', function() {
+            if (this.checked) {
+                designTextInput.style.display = 'block';
+            } else {
+                designTextInput.style.display = 'none';
+                // Text-Feld leeren wenn deaktiviert
+                const textField = document.getElementById('design-text-content');
+                if (textField) textField.value = '';
+            }
+        });
+    }
 }
 
 // =============================================================================

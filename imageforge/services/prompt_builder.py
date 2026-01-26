@@ -87,6 +87,38 @@ TEXT_SIZE_PROMPTS = {
     'large': 'large prominent text size',
 }
 
+# =============================================================================
+# DESIGN-MODUS PROMPTS
+# =============================================================================
+
+DESIGN_COLOR_PROMPTS = {
+    'colorful': 'vibrant multi-colored palette, rich and diverse color scheme',
+    'grayscale': 'grayscale tones, shades of gray, monochromatic gray palette',
+    'bw': 'pure black and white, high contrast, no gray tones',
+    'monochrome': 'single color with various shades and tints, monochromatic scheme',
+    'pastel': 'soft pastel colors, muted tones, gentle and delicate palette',
+    'vibrant': 'bold and saturated colors, eye-catching vivid hues',
+    'neon': 'neon colors, glowing bright fluorescent tones, electric palette',
+    'earth': 'earthy natural tones, browns, greens, terracotta, warm natural palette',
+}
+
+DESIGN_TONALITY_PROMPTS = {
+    'humorous': 'humorous and funny style, playful with witty elements, comedic touch',
+    'elegant': 'elegant and sophisticated, refined luxury aesthetic, graceful design',
+    'playful': 'playful and whimsical, fun lighthearted style, joyful elements',
+    'minimalist': 'minimalist design, clean simple lines, lots of white space, less is more',
+    'vintage': 'vintage retro style, nostalgic aesthetic, classic old-school look',
+    'modern': 'modern contemporary style, sleek current design trends, fresh aesthetic',
+    'professional': 'professional corporate style, clean business aesthetic, polished look',
+    'artistic': 'artistic creative style, expressive abstract elements, unique visual approach',
+    'cute': 'cute kawaii style, adorable charming elements, sweet lovable aesthetic',
+}
+
+DESIGN_TYPE_PROMPTS = {
+    'illustration': 'creative illustration design, graphic artwork, hand-drawn artistic style',
+    'pattern': 'seamless pattern design, repeating texture, tileable surface design',
+}
+
 
 class PromptBuilder:
     """
@@ -111,14 +143,20 @@ class PromptBuilder:
         color_mood: str = 'neutral',
         character_description: str = '',
         product_description: str = '',
-        aspect_ratio: str = '1:1'
+        aspect_ratio: str = '1:1',
+        # Design-Modus Parameter
+        design_type: str = '',
+        design_color_style: str = '',
+        design_tonality: str = '',
+        design_text_enabled: bool = False,
+        design_text_content: str = ''
     ) -> str:
         """
         Baut einen vollständigen Prompt basierend auf Modus und Einstellungen.
 
         Args:
-            mode: Generierungs-Modus (background, product, character, character_product)
-            background_description: Beschreibung der Szene/Hintergrund
+            mode: Generierungs-Modus (background, product, character, character_product, design)
+            background_description: Beschreibung der Szene/Hintergrund (bei design: Thema)
             lighting: Lichtstil
             perspective: Perspektive
             style: Stil-Preset
@@ -127,6 +165,11 @@ class PromptBuilder:
             character_description: Beschreibung des Charakters (für character-Modi)
             product_description: Beschreibung des Produkts
             aspect_ratio: Bildformat
+            design_type: Design-Typ (illustration/pattern)
+            design_color_style: Farbstil für Design
+            design_tonality: Tonalität für Design
+            design_text_enabled: Ob Text auf dem Design sein soll
+            design_text_content: Der Text auf dem Design
 
         Returns:
             Vollständiger, optimierter Prompt
@@ -150,6 +193,16 @@ class PromptBuilder:
             return self._build_character_product_prompt(
                 background_description, character_description, product_description,
                 lighting, perspective, style, color_mood, aspect_ratio
+            )
+        elif mode == 'design':
+            return self._build_design_prompt(
+                theme=background_description,
+                design_type=design_type,
+                color_style=design_color_style,
+                tonality=design_tonality,
+                text_enabled=design_text_enabled,
+                text_content=design_text_content,
+                aspect_ratio=aspect_ratio
             )
         else:
             logger.warning(f"Unknown mode: {mode}, falling back to background")
@@ -335,6 +388,60 @@ class PromptBuilder:
 
         prompt = " ".join(parts)
         logger.info(f"Built character+product prompt: {prompt[:200]}...")
+        return prompt
+
+    def _build_design_prompt(
+        self,
+        theme: str,
+        design_type: str,
+        color_style: str,
+        tonality: str,
+        text_enabled: bool,
+        text_content: str,
+        aspect_ratio: str
+    ) -> str:
+        """Baut Prompt für Kreatives Design-Modus"""
+        parts = []
+
+        # Design-Typ bestimmen
+        type_desc = DESIGN_TYPE_PROMPTS.get(design_type, DESIGN_TYPE_PROMPTS['illustration'])
+
+        # Hauptbeschreibung
+        parts.append(f"Create a {type_desc} about: {theme.strip()}")
+
+        # Farbstil
+        if color_style and color_style in DESIGN_COLOR_PROMPTS:
+            parts.append(f"Color palette: {DESIGN_COLOR_PROMPTS[color_style]}")
+
+        # Tonalität/Stil
+        if tonality and tonality in DESIGN_TONALITY_PROMPTS:
+            parts.append(f"Mood and style: {DESIGN_TONALITY_PROMPTS[tonality]}")
+
+        # Text auf Design (optional)
+        if text_enabled and text_content:
+            parts.append(
+                f"Include the text '{text_content}' prominently integrated into the design. "
+                "The text should be clearly legible and visually harmonize with the overall design."
+            )
+
+        # Bildformat
+        format_instruction = self._get_format_instruction(aspect_ratio)
+        parts.append(format_instruction)
+
+        # Qualitätsanweisungen
+        if design_type == 'pattern':
+            parts.append(
+                "Create a seamless, tileable pattern. The edges should connect smoothly "
+                "when repeated. High resolution, suitable for printing on products."
+            )
+        else:
+            parts.append(
+                "High quality creative design, suitable for merchandise, prints, and digital use. "
+                "Clean composition with visual impact."
+            )
+
+        prompt = " ".join(parts)
+        logger.info(f"Built design prompt: {prompt[:200]}...")
         return prompt
 
     def _get_style_settings(
