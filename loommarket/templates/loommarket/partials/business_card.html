@@ -1,0 +1,49 @@
+{% comment %}
+Business Card Partial
+Usage: {% include 'loommarket/partials/business_card.html' with business=business %}
+{% endcomment %}
+
+<div class="card h-100 shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="badge bg-{% if business.status == 'ready' %}success{% elif business.status == 'pending' %}warning{% else %}secondary{% endif %}">
+            {{ business.get_status_display }}
+        </span>
+        <small class="text-muted">{{ business.created_at|date:"d.m.Y" }}</small>
+    </div>
+    <div class="card-body">
+        <h5 class="card-title">{{ business.name|default:business.instagram_username }}</h5>
+        <p class="card-text">
+            <i class="bi bi-instagram text-danger me-1"></i>
+            <a href="https://instagram.com/{{ business.instagram_username }}" target="_blank" class="text-decoration-none">
+                @{{ business.instagram_username }}
+            </a>
+        </p>
+        {% if business.website %}
+        <p class="card-text">
+            <i class="bi bi-globe me-1"></i>
+            <a href="{{ business.website }}" target="_blank" class="text-decoration-none">
+                {{ business.website|truncatechars:40 }}
+            </a>
+        </p>
+        {% endif %}
+        {% if business.bio %}
+        <p class="card-text text-muted small">{{ business.bio|truncatechars:100 }}</p>
+        {% endif %}
+        <div class="d-flex gap-2 mt-3">
+            <span class="badge bg-light text-dark">
+                <i class="bi bi-images me-1"></i>{{ business.images.count }} Bilder
+            </span>
+            <span class="badge bg-light text-dark">
+                <i class="bi bi-megaphone me-1"></i>{{ business.campaigns.count }} Kampagnen
+            </span>
+        </div>
+    </div>
+    <div class="card-footer bg-transparent d-flex justify-content-between">
+        <a href="{% url 'loommarket:business_detail' business.pk %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-eye me-1"></i>Details
+        </a>
+        <a href="{% url 'loommarket:campaign_create' business.pk %}" class="btn btn-success btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Kampagne
+        </a>
+    </div>
+</div>

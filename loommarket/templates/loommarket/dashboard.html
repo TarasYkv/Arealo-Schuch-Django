@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}LoomMarket - B2B Marketing Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    .business-card-mini {
+        border-left: 4px solid #0d6efd;
+        transition: background-color 0.2s;
+    }
+    .business-card-mini:hover {
+        background-color: #f8f9fa;
+    }
+    .quick-action-btn {
+        padding: 1.5rem;
+        border-radius: 12px;
+        transition: all 0.2s;
+    }
+    .quick-action-btn:hover {
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-shop me-2"></i>LoomMarket
+                    </h1>
+                    <p class="text-muted mb-0">B2B Marketing - Instagram zu Mockup in Sekunden</p>
+                </div>
+                <div class="btn-group">
+                    <a href="{% url 'loommarket:add_business' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-2"></i>Neues Unternehmen
+                    </a>
+                    <a href="{% url 'loommarket:business_list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-building me-2"></i>Alle Unternehmen
+                    </a>
+                    <a href="{% url 'loommarket:template_list' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-images me-2"></i>Vorlagen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-primary text-white me-3">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0">{{ stats.businesses }}</h3>
+                        <small class="text-muted">Unternehmen</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-success text-white me-3">
+                        <i class="bi bi-megaphone"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0">{{ stats.campaigns }}</h3>
+                        <small class="text-muted">Kampagnen</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-info text-white me-3">
+                        <i class="bi bi-image"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0">{{ stats.mockups }}</h3>
+                        <small class="text-muted">Mockups</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card stat-card h-100 border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center">
+                    <div class="stat-icon bg-warning text-dark me-3">
+                        <i class="bi bi-send"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0">{{ stats.posts }}</h3>
+                        <small class="text-muted">Posts</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Letzte Unternehmen -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Letzte Unternehmen</h5>
+                    <a href="{% url 'loommarket:business_list' %}" class="btn btn-sm btn-outline-primary">Alle anzeigen</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_businesses %}
+                    <div class="list-group list-group-flush">
+                        {% for business in recent_businesses %}
+                        <a href="{% url 'loommarket:business_detail' business.pk %}" class="list-group-item list-group-item-action business-card-mini">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ business.name|default:business.instagram_username }}</h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-instagram me-1"></i>@{{ business.instagram_username }}
+                                        {% if business.website %}
+                                        <span class="ms-2"><i class="bi bi-globe me-1"></i>{{ business.website|truncatechars:30 }}</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{% if business.status == 'ready' %}success{% elif business.status == 'pending' %}warning{% else %}secondary{% endif %}">
+                                        {{ business.get_status_display }}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">{{ business.images.count }} Bilder</small>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-building fa-3x mb-3"></i>
+                        <p>Noch keine Unternehmen vorhanden</p>
+                        <a href="{% url 'loommarket:add_business' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-2"></i>Erstes Unternehmen hinzufugen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Letzte Kampagnen -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-megaphone me-2"></i>Letzte Kampagnen</h5>
+                    <a href="{% url 'loommarket:campaign_list' %}" class="btn btn-sm btn-outline-primary">Alle anzeigen</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_campaigns %}
+                    <div class="list-group list-group-flush">
+                        {% for campaign in recent_campaigns %}
+                        <a href="{% url 'loommarket:campaign_detail' campaign.pk %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ campaign.name }}</h6>
+                                    <small class="text-muted">
+                                        <i class="bi bi-building me-1"></i>{{ campaign.business.name|default:campaign.business.instagram_username }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{% if campaign.status == 'completed' %}success{% elif campaign.status == 'mockup_generated' %}info{% elif campaign.status == 'draft' %}secondary{% else %}warning{% endif %}">
+                                        {{ campaign.get_status_display }}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">{{ campaign.created_at|date:"d.m.Y" }}</small>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-megaphone fa-3x mb-3"></i>
+                        <p>Noch keine Kampagnen vorhanden</p>
+                        {% if recent_businesses %}
+                        <a href="{% url 'loommarket:campaign_create' recent_businesses.0.pk %}" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-2"></i>Erste Kampagne erstellen
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schnellaktionen -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3"><i class="bi bi-lightning me-2"></i>Schnellaktionen</h5>
+        </div>
+        <div class="col-md-4 mb-3">
+            <a href="{% url 'loommarket:add_business' %}" class="card quick-action-btn text-decoration-none border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-instagram text-danger" style="font-size: 2.5rem;"></i>
+                    <h6 class="mt-3 text-dark">Instagram durchsuchen</h6>
+                    <p class="text-muted small mb-0">Neues Unternehmen via Instagram-Namen finden</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4 mb-3">
+            <a href="{% url 'loommarket:template_list' %}" class="card quick-action-btn text-decoration-none border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-images text-primary" style="font-size: 2.5rem;"></i>
+                    <h6 class="mt-3 text-dark">Mockup-Vorlagen</h6>
+                    <p class="text-muted small mb-0">Produktvorlagen fur Mockup-Generierung verwalten</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4 mb-3">
+            <a href="{% url 'loommarket:campaign_list' %}" class="card quick-action-btn text-decoration-none border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-graph-up-arrow text-success" style="font-size: 2.5rem;"></i>
+                    <h6 class="mt-3 text-dark">Kampagnen verwalten</h6>
+                    <p class="text-muted small mb-0">Mockups generieren und auf Social Media posten</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Workflow-Erklaerung -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-info-circle me-2"></i>So funktioniert LoomMarket</h5>
+                    <div class="row mt-3">
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">1</span>
+                            </div>
+                            <h6 class="mt-2">Instagram eingeben</h6>
+                            <small class="text-muted">Instagram-Namen des Unternehmens eingeben</small>
+                        </div>
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">2</span>
+                            </div>
+                            <h6 class="mt-2">Bilder finden</h6>
+                            <small class="text-muted">Logos und Produktbilder werden automatisch gesucht</small>
+                        </div>
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">3</span>
+                            </div>
+                            <h6 class="mt-2">Mockup generieren</h6>
+                            <small class="text-muted">KI erstellt personalisiertes Produktbild</small>
+                        </div>
+                        <div class="col-md-3 text-center mb-3">
+                            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                <span class="fw-bold">4</span>
+                            </div>
+                            <h6 class="mt-2">Posten oder Download</h6>
+                            <small class="text-muted">Feed oder Story auf Social Media veroffentlichen</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

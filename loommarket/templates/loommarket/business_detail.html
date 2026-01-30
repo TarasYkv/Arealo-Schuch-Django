@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ business.name|default:business.instagram_username }} - LoomMarket{% endblock %}
+
+{% block extra_css %}
+<style>
+    .image-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+    .gallery-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .gallery-item:hover {
+        transform: scale(1.03);
+    }
+    .gallery-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .gallery-item .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        opacity: 0;
+        transition: opacity 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .gallery-item:hover .overlay {
+        opacity: 1;
+    }
+    .logo-badge {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        background: #0d6efd;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'loommarket:dashboard' %}">LoomMarket</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'loommarket:business_list' %}">Unternehmen</a></li>
+                    <li class="breadcrumb-item active">{{ business.name|default:business.instagram_username }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-1">{{ business.name|default:business.instagram_username }}</h1>
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-instagram text-danger me-1"></i>
+                        <a href="https://instagram.com/{{ business.instagram_username }}" target="_blank">
+                            @{{ business.instagram_username }}
+                        </a>
+                        {% if business.website %}
+                        <span class="ms-3">
+                            <i class="bi bi-globe me-1"></i>
+                            <a href="{{ business.website }}" target="_blank">{{ business.website|truncatechars:50 }}</a>
+                        </span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="btn-group">
+                    <a href="{% url 'loommarket:campaign_create' business.pk %}" class="btn btn-success">
+                        <i class="bi bi-plus-lg me-2"></i>Neue Kampagne
+                    </a>
+                    <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Hauptbereich -->
+        <div class="col-lg-8">
+            <!-- Bio -->
+            {% if business.bio %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Bio</h6>
+                    <p class="card-text">{{ business.bio }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Bilder -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-images me-2"></i>Bilder ({{ images.count }})</h5>
+                    <div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                            <i class="bi bi-upload me-1"></i>Bild hochladen
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="search-more-btn">
+                            <i class="bi bi-search me-1"></i>Weitere suchen
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if images %}
+                    <div class="image-gallery">
+                        {% for img in images %}
+                        <div class="gallery-item" data-id="{{ img.pk }}">
+                            {% if img.is_logo %}
+                            <span class="logo-badge">Logo</span>
+                            {% endif %}
+                            <img src="{{ img.image.url }}" alt="Bild {{ forloop.counter }}" loading="lazy">
+                            <div class="overlay">
+                                <button type="button" class="btn btn-sm btn-light" onclick="setAsLogo({{ img.pk }})" title="Als Logo setzen">
+                                    <i class="bi bi-star{% if img.is_logo %}-fill{% endif %}"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="deleteImage({{ img.pk }})" title="Loeschen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-image" style="font-size: 3rem;"></i>
+                        <p class="mt-2">Noch keine Bilder vorhanden</p>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                            <i class="bi bi-upload me-1"></i>Bild hochladen
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Kampagnen -->
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-megaphone me-2"></i>Kampagnen ({{ campaigns.count }})</h5>
+                    <a href="{% url 'loommarket:campaign_create' business.pk %}" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus-lg me-1"></i>Neue Kampagne
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    {% if campaigns %}
+                    <div class="list-group list-group-flush">
+                        {% for campaign in campaigns %}
+                        <a href="{% url 'loommarket:campaign_detail' campaign.pk %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ campaign.name }}</h6>
+                                    <small class="text-muted">{{ campaign.template.name }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{% if campaign.status == 'completed' %}success{% elif campaign.status == 'mockup_generated' %}info{% else %}secondary{% endif %}">
+                                        {{ campaign.get_status_display }}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">{{ campaign.created_at|date:"d.m.Y" }}</small>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <p>Noch keine Kampagnen</p>
+                        <a href="{% url 'loommarket:campaign_create' business.pk %}" class="btn btn-success btn-sm">
+                            <i class="bi bi-plus-lg me-1"></i>Erste Kampagne erstellen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Details</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge bg-{% if business.status == 'ready' %}success{% elif business.status == 'pending' %}warning{% else %}secondary{% endif %}">
+                                {{ business.get_status_display }}
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-4">Erstellt</dt>
+                        <dd class="col-sm-8">{{ business.created_at|date:"d.m.Y H:i" }}</dd>
+
+                        {% if business.follower_count %}
+                        <dt class="col-sm-4">Follower</dt>
+                        <dd class="col-sm-8">{{ business.follower_count|intcomma }}</dd>
+                        {% endif %}
+
+                        <dt class="col-sm-4">Bilder</dt>
+                        <dd class="col-sm-8">{{ images.count }}</dd>
+
+                        <dt class="col-sm-4">Kampagnen</dt>
+                        <dd class="col-sm-8">{{ campaigns.count }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Logo -->
+            {% if logo %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-star-fill text-warning me-2"></i>Logo</h6>
+                </div>
+                <div class="card-body text-center">
+                    <img src="{{ logo.image.url }}" alt="Logo" class="img-fluid" style="max-height: 150px;">
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Bild hochladen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="upload-form" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Bild auswaehlen</label>
+                        <input type="file" class="form-control" name="image" id="upload-image" accept="image/*" required>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" name="is_logo" id="upload-is-logo">
+                        <label class="form-check-label" for="upload-is-logo">Als Logo markieren</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i>Hochladen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Business Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Unternehmen loeschen</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Moechtest du <strong>{{ business.name|default:business.instagram_username }}</strong> wirklich loeschen?</p>
+                <p class="text-muted small">Alle zugehoerigen Bilder und Kampagnen werden ebenfalls geloescht.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <form action="{% url 'loommarket:business_delete' business.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Loeschen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete() {
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function setAsLogo(imageId) {
+    fetch(`/loommarket/api/set-logo/${imageId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler');
+        }
+    });
+}
+
+function deleteImage(imageId) {
+    if (!confirm('Bild wirklich loeschen?')) return;
+
+    fetch(`/loommarket/api/delete-image/${imageId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelector(`.gallery-item[data-id="${imageId}"]`).remove();
+        } else {
+            alert(data.error || 'Fehler');
+        }
+    });
+}
+
+// Weitere Bilder suchen
+document.getElementById('search-more-btn').addEventListener('click', function() {
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Suche...';
+
+    fetch(`/loommarket/api/search-images/{{ business.pk }}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Keine weiteren Bilder gefunden');
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-search me-1"></i>Weitere suchen';
+        }
+    });
+});
+
+// Upload-Formular
+document.getElementById('upload-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch(`/loommarket/api/upload-image/{{ business.pk }}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Hochladen');
+        }
+    });
+});
+</script>
+{% endblock %}

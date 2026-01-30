@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ campaign.name }} - LoomMarket{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mockup-preview {
+        max-height: 400px;
+        object-fit: contain;
+        border-radius: 8px;
+    }
+    .step-card {
+        position: relative;
+        border-left: 4px solid #dee2e6;
+    }
+    .step-card.completed {
+        border-left-color: #198754;
+    }
+    .step-card.active {
+        border-left-color: #0d6efd;
+    }
+    .step-number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+    }
+    .caption-card {
+        border-left: 4px solid #6c757d;
+    }
+    .caption-card.instagram { border-left-color: #E4405F; }
+    .caption-card.facebook { border-left-color: #1877F2; }
+    .caption-card.linkedin { border-left-color: #0A66C2; }
+    .caption-card.pinterest { border-left-color: #BD081C; }
+    .caption-card.twitter { border-left-color: #1DA1F2; }
+    .caption-card.bluesky { border-left-color: #0085FF; }
+    .post-type-tabs .nav-link {
+        padding: 0.5rem 1rem;
+    }
+    .post-type-tabs .nav-link.active {
+        font-weight: bold;
+    }
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.95);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+    #loading-overlay.show {
+        display: flex;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'loommarket:dashboard' %}">LoomMarket</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'loommarket:campaign_list' %}">Kampagnen</a></li>
+                    <li class="breadcrumb-item active">{{ campaign.name }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-1">{{ campaign.name }}</h1>
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-building me-1"></i>{{ campaign.business.name|default:campaign.business.instagram_username }}
+                        <span class="ms-3">
+                            <span class="badge bg-{% if campaign.status == 'completed' %}success{% elif campaign.status == 'mockup_generated' %}info{% elif campaign.status == 'captions_generated' %}primary{% else %}secondary{% endif %}">
+                                {{ campaign.get_status_display }}
+                            </span>
+                        </span>
+                    </p>
+                </div>
+                <div class="btn-group">
+                    {% if campaign.mockup_image %}
+                    <a href="{% url 'loommarket:download_all' campaign.pk %}" class="btn btn-success">
+                        <i class="bi bi-download me-2"></i>Alles herunterladen
+                    </a>
+                    {% endif %}
+                    <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Hauptbereich -->
+        <div class="col-lg-8">
+            <!-- Step 1: Mockup generieren -->
+            <div class="card shadow-sm mb-4 step-card {% if campaign.mockup_image %}completed{% elif campaign.status == 'draft' %}active{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <span class="step-number {% if campaign.mockup_image %}bg-success text-white{% else %}bg-primary text-white{% endif %} me-3">
+                            {% if campaign.mockup_image %}<i class="bi bi-check"></i>{% else %}1{% endif %}
+                        </span>
+                        <h5 class="mb-0">Mockup generieren</h5>
+                    </div>
+                    {% if not campaign.mockup_image %}
+                    <button type="button" class="btn btn-primary" id="generate-mockup-btn">
+                        <i class="bi bi-magic me-2"></i>Mockup generieren
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if campaign.mockup_image %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">Feed (1:1)</h6>
+                            <img src="{{ campaign.mockup_image.url }}" alt="Mockup Feed" class="img-fluid mockup-preview">
+                        </div>
+                        {% if campaign.mockup_image_story %}
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-muted mb-2">Story (9:16)</h6>
+                            <img src="{{ campaign.mockup_image_story.url }}" alt="Mockup Story" class="img-fluid mockup-preview">
+                        </div>
+                        {% endif %}
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="regenerate-mockup-btn">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Neu generieren
+                    </button>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-image" style="font-size: 3rem;"></i>
+                        <p class="mt-2">Noch kein Mockup generiert</p>
+                        <p class="small">
+                            Design: <strong>{{ campaign.design_image.image.url|default:'Kein Bild' }}</strong><br>
+                            Vorlage: <strong>{{ campaign.template.name }}</strong>
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Step 2: Captions generieren -->
+            <div class="card shadow-sm mb-4 step-card {% if captions %}completed{% elif campaign.mockup_image %}active{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <span class="step-number {% if captions %}bg-success text-white{% elif campaign.mockup_image %}bg-primary text-white{% else %}bg-secondary text-white{% endif %} me-3">
+                            {% if captions %}<i class="bi bi-check"></i>{% else %}2{% endif %}
+                        </span>
+                        <h5 class="mb-0">Captions generieren</h5>
+                    </div>
+                    {% if campaign.mockup_image %}
+                    <button type="button" class="btn {% if captions %}btn-outline-primary{% else %}btn-primary{% endif %}" id="generate-captions-btn">
+                        <i class="bi bi-chat-text me-2"></i>{% if captions %}Neu generieren{% else %}Captions generieren{% endif %}
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if captions %}
+                    <div class="row">
+                        {% for caption in captions %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card caption-card {{ caption.platform }}">
+                                <div class="card-header py-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-bold">
+                                            {% if caption.platform == 'instagram' %}<i class="bi bi-instagram me-1"></i>{% endif %}
+                                            {% if caption.platform == 'facebook' %}<i class="bi bi-facebook me-1"></i>{% endif %}
+                                            {% if caption.platform == 'linkedin' %}<i class="bi bi-linkedin me-1"></i>{% endif %}
+                                            {% if caption.platform == 'pinterest' %}<i class="bi bi-pinterest me-1"></i>{% endif %}
+                                            {% if caption.platform == 'twitter' %}<i class="bi bi-twitter me-1"></i>{% endif %}
+                                            {% if caption.platform == 'bluesky' %}<i class="bi bi-cloud me-1"></i>{% endif %}
+                                            {{ caption.get_platform_display }}
+                                        </span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                onclick="copyCaption('{{ caption.pk }}')">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body py-2">
+                                    {% if caption.title %}
+                                    <strong class="d-block mb-1">{{ caption.title }}</strong>
+                                    {% endif %}
+                                    <p class="small mb-1" id="caption-text-{{ caption.pk }}">{{ caption.caption_text|truncatechars:150 }}</p>
+                                    {% if caption.hashtags %}
+                                    <small class="text-primary">{{ caption.hashtags|truncatechars:80 }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-chat-text" style="font-size: 3rem;"></i>
+                        <p class="mt-2">
+                            {% if campaign.mockup_image %}
+                            Klicke auf "Captions generieren" um automatisch Texte fuer alle Plattformen zu erstellen.
+                            {% else %}
+                            Zuerst muss ein Mockup generiert werden.
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Step 3: Posten -->
+            <div class="card shadow-sm mb-4 step-card {% if posts %}completed{% elif captions %}active{% endif %}">
+                <div class="card-header">
+                    <div class="d-flex align-items-center">
+                        <span class="step-number {% if posts %}bg-success text-white{% elif captions %}bg-primary text-white{% else %}bg-secondary text-white{% endif %} me-3">
+                            {% if posts %}<i class="bi bi-check"></i>{% else %}3{% endif %}
+                        </span>
+                        <h5 class="mb-0">Posten oder Herunterladen</h5>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if campaign.mockup_image %}
+                    <!-- Post-Typ Tabs -->
+                    <ul class="nav nav-tabs post-type-tabs mb-3" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#feed-tab" type="button">
+                                <i class="bi bi-grid me-1"></i>Feed-Post
+                            </button>
+                        </li>
+                        {% if campaign.mockup_image_story %}
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#story-tab" type="button">
+                                <i class="bi bi-phone me-1"></i>Story
+                            </button>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- Feed Tab -->
+                        <div class="tab-pane fade show active" id="feed-tab">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <img src="{{ campaign.mockup_image.url }}" alt="Feed" class="img-fluid rounded">
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="d-flex flex-wrap gap-2 mb-3">
+                                        {% if has_upload_api %}
+                                        <button type="button" class="btn btn-outline-danger" onclick="publishPost('instagram', 'feed')">
+                                            <i class="bi bi-instagram me-1"></i>Instagram
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="publishPost('facebook', 'feed')">
+                                            <i class="bi bi-facebook me-1"></i>Facebook
+                                        </button>
+                                        <button type="button" class="btn btn-outline-info" onclick="publishPost('linkedin', 'feed')">
+                                            <i class="bi bi-linkedin me-1"></i>LinkedIn
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger" onclick="publishPost('pinterest', 'feed')">
+                                            <i class="bi bi-pinterest me-1"></i>Pinterest
+                                        </button>
+                                        {% else %}
+                                        <div class="alert alert-info w-100 mb-0">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            <a href="{% url 'accounts:neue_api_einstellungen' %}">Upload-Post API einrichten</a> um direkt zu posten.
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <a href="{% url 'loommarket:download_post' campaign.pk %}?type=feed" class="btn btn-success">
+                                        <i class="bi bi-download me-2"></i>Feed-Bild herunterladen
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Story Tab -->
+                        {% if campaign.mockup_image_story %}
+                        <div class="tab-pane fade" id="story-tab">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <img src="{{ campaign.mockup_image_story.url }}" alt="Story" class="img-fluid rounded">
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="d-flex flex-wrap gap-2 mb-3">
+                                        {% if has_upload_api %}
+                                        <button type="button" class="btn btn-outline-danger" onclick="publishPost('instagram', 'story')">
+                                            <i class="bi bi-instagram me-1"></i>Instagram Story
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="publishPost('facebook', 'story')">
+                                            <i class="bi bi-facebook me-1"></i>Facebook Story
+                                        </button>
+                                        {% else %}
+                                        <div class="alert alert-info w-100 mb-0">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            <a href="{% url 'accounts:neue_api_einstellungen' %}">Upload-Post API einrichten</a> um direkt zu posten.
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <a href="{% url 'loommarket:download_post' campaign.pk %}?type=story" class="btn btn-success">
+                                        <i class="bi bi-download me-2"></i>Story-Bild herunterladen
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-send" style="font-size: 3rem;"></i>
+                        <p class="mt-2">Zuerst muss ein Mockup generiert werden.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Bisherige Posts -->
+            {% if posts %}
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Bisherige Posts</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Plattform</th>
+                                    <th>Typ</th>
+                                    <th>Status</th>
+                                    <th>Datum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in posts %}
+                                <tr>
+                                    <td>
+                                        {% if post.platform == 'instagram' %}<i class="bi bi-instagram text-danger me-1"></i>{% endif %}
+                                        {% if post.platform == 'facebook' %}<i class="bi bi-facebook text-primary me-1"></i>{% endif %}
+                                        {% if post.platform == 'linkedin' %}<i class="bi bi-linkedin text-info me-1"></i>{% endif %}
+                                        {% if post.platform == 'pinterest' %}<i class="bi bi-pinterest text-danger me-1"></i>{% endif %}
+                                        {{ post.get_platform_display }}
+                                    </td>
+                                    <td>{{ post.get_post_type_display }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if post.status == 'published' %}success{% elif post.status == 'failed' %}danger{% else %}warning{% endif %}">
+                                            {{ post.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ post.created_at|date:"d.m.Y H:i" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Kampagnen-Info -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Details</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Erstellt</dt>
+                        <dd class="col-sm-8">{{ campaign.created_at|date:"d.m.Y H:i" }}</dd>
+
+                        <dt class="col-sm-4">Vorlage</dt>
+                        <dd class="col-sm-8">{{ campaign.template.name }}</dd>
+
+                        <dt class="col-sm-4">Design</dt>
+                        <dd class="col-sm-8">
+                            {% if campaign.design_image %}
+                            <img src="{{ campaign.design_image.image.url }}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">
+                            {% else %}
+                            -
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Unternehmen -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-building me-2"></i>Unternehmen</h6>
+                </div>
+                <div class="card-body">
+                    <h6>{{ campaign.business.name|default:campaign.business.instagram_username }}</h6>
+                    <p class="mb-1">
+                        <i class="bi bi-instagram text-danger me-1"></i>
+                        <a href="https://instagram.com/{{ campaign.business.instagram_username }}" target="_blank">
+                            @{{ campaign.business.instagram_username }}
+                        </a>
+                    </p>
+                    {% if campaign.business.website %}
+                    <p class="mb-0">
+                        <i class="bi bi-globe me-1"></i>
+                        <a href="{{ campaign.business.website }}" target="_blank">
+                            {{ campaign.business.website|truncatechars:30 }}
+                        </a>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Kampagne loeschen</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Moechtest du die Kampagne <strong>{{ campaign.name }}</strong> wirklich loeschen?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <form action="{% url 'loommarket:campaign_delete' campaign.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Loeschen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+    <h5 id="loading-text">Generiere Mockup...</h5>
+    <p class="text-muted" id="loading-subtext">Dies kann bis zu 60 Sekunden dauern</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const loadingOverlay = document.getElementById('loading-overlay');
+const loadingText = document.getElementById('loading-text');
+const loadingSubtext = document.getElementById('loading-subtext');
+
+function confirmDelete() {
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function copyCaption(captionId) {
+    const text = document.getElementById(`caption-text-${captionId}`).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Caption kopiert!');
+    });
+}
+
+// Mockup generieren
+const generateMockupBtn = document.getElementById('generate-mockup-btn');
+const regenerateMockupBtn = document.getElementById('regenerate-mockup-btn');
+
+function generateMockup() {
+    loadingOverlay.classList.add('show');
+    loadingText.textContent = 'Generiere Mockup...';
+    loadingSubtext.textContent = 'Die KI erstellt ein personalisiertes Produktbild';
+
+    fetch('/loommarket/api/campaigns/{{ campaign.pk }}/generate-mockup/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingOverlay.classList.remove('show');
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler bei der Mockup-Generierung');
+        }
+    })
+    .catch(error => {
+        loadingOverlay.classList.remove('show');
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+
+if (generateMockupBtn) {
+    generateMockupBtn.addEventListener('click', generateMockup);
+}
+if (regenerateMockupBtn) {
+    regenerateMockupBtn.addEventListener('click', generateMockup);
+}
+
+// Captions generieren
+const generateCaptionsBtn = document.getElementById('generate-captions-btn');
+if (generateCaptionsBtn) {
+    generateCaptionsBtn.addEventListener('click', function() {
+        loadingOverlay.classList.add('show');
+        loadingText.textContent = 'Generiere Captions...';
+        loadingSubtext.textContent = 'Die KI erstellt Texte fuer alle Plattformen';
+
+        fetch('/loommarket/api/campaigns/{{ campaign.pk }}/generate-captions/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.classList.remove('show');
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Fehler bei der Caption-Generierung');
+            }
+        })
+        .catch(error => {
+            loadingOverlay.classList.remove('show');
+            console.error('Error:', error);
+            alert('Ein Fehler ist aufgetreten');
+        });
+    });
+}
+
+// Posten
+function publishPost(platform, postType) {
+    if (!confirm(`Wirklich auf ${platform} posten?`)) return;
+
+    loadingOverlay.classList.add('show');
+    loadingText.textContent = `Poste auf ${platform}...`;
+    loadingSubtext.textContent = '';
+
+    fetch('/loommarket/api/posts/{{ campaign.pk }}/publish/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            platform: platform,
+            post_type: postType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingOverlay.classList.remove('show');
+        if (data.success) {
+            alert('Erfolgreich gepostet!');
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Posten');
+        }
+    })
+    .catch(error => {
+        loadingOverlay.classList.remove('show');
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+</script>
+{% endblock %}

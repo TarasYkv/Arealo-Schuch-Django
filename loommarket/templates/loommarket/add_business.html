@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Unternehmen hinzufugen - LoomMarket{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-card {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    .instagram-input {
+        font-size: 1.25rem;
+        padding: 0.75rem 1rem;
+    }
+    .instagram-prefix {
+        background-color: #f8f9fa;
+        font-weight: 500;
+    }
+    .result-card {
+        display: none;
+    }
+    .result-card.show {
+        display: block;
+    }
+    .image-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 1rem;
+    }
+    .image-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 3px solid transparent;
+        transition: all 0.2s;
+    }
+    .image-item:hover {
+        transform: scale(1.05);
+    }
+    .image-item.selected {
+        border-color: #0d6efd;
+    }
+    .image-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .image-item .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+    }
+    .image-item .check-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(13, 110, 253, 0.3);
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    .image-item.selected .check-overlay {
+        display: flex;
+    }
+    #loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.9);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+    #loading-overlay.show {
+        display: flex;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'loommarket:dashboard' %}">LoomMarket</a></li>
+                    <li class="breadcrumb-item active">Unternehmen hinzufugen</li>
+                </ol>
+            </nav>
+            <h1 class="h3">
+                <i class="bi bi-instagram text-danger me-2"></i>Unternehmen via Instagram finden
+            </h1>
+            <p class="text-muted">Gib einen Instagram-Namen ein, um Unternehmensdaten und Bilder zu finden</p>
+        </div>
+    </div>
+
+    <!-- Suchformular -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card search-card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="mb-4">
+                        <label for="instagram-username" class="form-label fw-bold">Instagram-Benutzername</label>
+                        <div class="input-group">
+                            <span class="input-group-text instagram-prefix">@</span>
+                            <input type="text" class="form-control instagram-input" id="instagram-username"
+                                   placeholder="firmenname" autofocus>
+                        </div>
+                        <div class="form-text">z.B. @blumenladen_mueller, @cafe_zentral, @autohaus_schmid</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-primary btn-lg" id="search-btn">
+                            <i class="bi bi-search me-2"></i>Unternehmen suchen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ergebnis-Card -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card result-card shadow-sm" id="result-card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-check-circle me-2"></i>Unternehmen gefunden</h5>
+                </div>
+                <div class="card-body">
+                    <form id="save-business-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="instagram_username" id="form-instagram-username">
+
+                        <!-- Unternehmensdaten -->
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Firmenname</label>
+                                <input type="text" class="form-control" name="name" id="business-name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Website</label>
+                                <input type="url" class="form-control" name="website" id="business-website"
+                                       placeholder="https://...">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Bio/Beschreibung</label>
+                            <textarea class="form-control" name="bio" id="business-bio" rows="2"></textarea>
+                        </div>
+
+                        <!-- Gefundene Bilder -->
+                        <div class="mb-4" id="images-section" style="display: none;">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-images me-2"></i>Gefundene Bilder</h6>
+                            <p class="text-muted small">Klicke auf Bilder um sie auszuwaehlen (max. 10). Das erste ausgewahlte Bild wird als Logo markiert.</p>
+
+                            <div class="image-grid" id="images-grid">
+                                <!-- Bilder werden hier dynamisch eingefugt -->
+                            </div>
+                        </div>
+
+                        <!-- Manuelle Bilder -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-upload me-2"></i>Eigene Bilder hochladen</h6>
+                            <input type="file" class="form-control" name="manual_images" id="manual-images"
+                                   multiple accept="image/*">
+                            <div class="form-text">Optional: Lade eigene Logos oder Produktbilder hoch</div>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'loommarket:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg" id="save-btn">
+                                <i class="bi bi-check-lg me-2"></i>Unternehmen speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keine Ergebnisse -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-warning result-card" id="no-result-card">
+                <h5><i class="bi bi-exclamation-triangle me-2"></i>Kein Profil gefunden</h5>
+                <p class="mb-0">Das Instagram-Profil konnte nicht gefunden werden. Bitte ueberpruefe den Benutzernamen.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+    <h5 id="loading-text">Suche nach Instagram-Profil...</h5>
+    <p class="text-muted" id="loading-subtext">Dies kann einen Moment dauern</p>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchBtn = document.getElementById('search-btn');
+    const usernameInput = document.getElementById('instagram-username');
+    const resultCard = document.getElementById('result-card');
+    const noResultCard = document.getElementById('no-result-card');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    const loadingSubtext = document.getElementById('loading-subtext');
+    const imagesSection = document.getElementById('images-section');
+    const imagesGrid = document.getElementById('images-grid');
+
+    let selectedImages = [];
+    let foundImages = [];
+    let businessId = null;
+
+    // Enter-Taste zum Suchen
+    usernameInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchBtn.click();
+        }
+    });
+
+    // Suche starten
+    searchBtn.addEventListener('click', async function() {
+        const username = usernameInput.value.trim().replace('@', '');
+
+        if (!username) {
+            alert('Bitte gib einen Instagram-Benutzernamen ein.');
+            return;
+        }
+
+        // Reset
+        resultCard.classList.remove('show');
+        noResultCard.classList.remove('show');
+        selectedImages = [];
+        foundImages = [];
+        businessId = null;
+
+        // Loading anzeigen
+        loadingOverlay.classList.add('show');
+        loadingText.textContent = 'Suche nach Instagram-Profil...';
+        loadingSubtext.textContent = 'Extrahiere Unternehmensdaten';
+
+        try {
+            // Instagram-Profil suchen
+            const response = await fetch('{% url "loommarket:api_search_instagram" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ username: username })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Formular fuellen
+                document.getElementById('form-instagram-username').value = username;
+                document.getElementById('business-name').value = data.name || username;
+                document.getElementById('business-website').value = data.website || '';
+                document.getElementById('business-bio').value = data.bio || '';
+                businessId = data.business_id;
+
+                // Bildersuche starten
+                loadingText.textContent = 'Suche nach Logos und Bildern...';
+                loadingSubtext.textContent = 'Durchsuche Web nach Unternehmensbildern';
+
+                if (businessId) {
+                    const imagesResponse = await fetch(`/loommarket/api/search-images/${businessId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    });
+
+                    const imagesData = await imagesResponse.json();
+
+                    if (imagesData.success && imagesData.images && imagesData.images.length > 0) {
+                        foundImages = imagesData.images;
+                        renderImages();
+                        imagesSection.style.display = 'block';
+                    } else {
+                        imagesSection.style.display = 'none';
+                    }
+                }
+
+                resultCard.classList.add('show');
+                loadingOverlay.classList.remove('show');
+            } else {
+                loadingOverlay.classList.remove('show');
+                noResultCard.classList.add('show');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            loadingOverlay.classList.remove('show');
+            alert('Ein Fehler ist aufgetreten. Bitte versuche es erneut.');
+        }
+    });
+
+    // Bilder rendern
+    function renderImages() {
+        imagesGrid.innerHTML = '';
+
+        foundImages.forEach((img, index) => {
+            const div = document.createElement('div');
+            div.className = 'image-item';
+            div.dataset.index = index;
+            div.dataset.url = img.url || img.source_url;
+            div.dataset.imageId = img.id || '';
+
+            div.innerHTML = `
+                <img src="${img.thumbnail || img.url || img.source_url}" alt="Bild ${index + 1}" loading="lazy">
+                ${img.is_logo ? '<span class="badge bg-primary">Logo</span>' : ''}
+                <div class="check-overlay">
+                    <i class="bi bi-check-circle-fill text-white" style="font-size: 2rem;"></i>
+                </div>
+            `;
+
+            div.addEventListener('click', function() {
+                toggleImage(this, index);
+            });
+
+            imagesGrid.appendChild(div);
+        });
+    }
+
+    // Bild auswaehlen/abwaehlen
+    function toggleImage(element, index) {
+        const imageId = foundImages[index].id;
+
+        if (element.classList.contains('selected')) {
+            element.classList.remove('selected');
+            selectedImages = selectedImages.filter(id => id !== imageId);
+        } else {
+            if (selectedImages.length >= 10) {
+                alert('Maximal 10 Bilder koennen ausgewaehlt werden.');
+                return;
+            }
+            element.classList.add('selected');
+            selectedImages.push(imageId);
+        }
+    }
+
+    // Formular absenden
+    document.getElementById('save-business-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        loadingOverlay.classList.add('show');
+        loadingText.textContent = 'Speichere Unternehmen...';
+        loadingSubtext.textContent = '';
+
+        const formData = new FormData(this);
+        formData.append('selected_images', JSON.stringify(selectedImages));
+        if (businessId) {
+            formData.append('business_id', businessId);
+        }
+
+        // Manuelle Bilder
+        const manualImages = document.getElementById('manual-images').files;
+        for (let i = 0; i < manualImages.length; i++) {
+            formData.append('manual_images', manualImages[i]);
+        }
+
+        try {
+            const response = await fetch('{% url "loommarket:add_business" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                window.location.href = data.redirect_url;
+            } else {
+                loadingOverlay.classList.remove('show');
+                alert(data.error || 'Fehler beim Speichern');
+            }
+        } catch (error) {
+            loadingOverlay.classList.remove('show');
+            console.error('Error:', error);
+            alert('Ein Fehler ist aufgetreten.');
+        }
+    });
+});
+</script>
+{% endblock %}

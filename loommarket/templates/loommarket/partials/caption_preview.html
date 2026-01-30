@@ -1,0 +1,76 @@
+{% comment %}
+Caption Preview Partial
+Usage: {% include 'loommarket/partials/caption_preview.html' with caption=caption %}
+{% endcomment %}
+
+<div class="card caption-card {{ caption.platform }} mb-3">
+    <div class="card-header py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-bold">
+                {% if caption.platform == 'instagram' %}
+                <i class="bi bi-instagram me-1" style="color: #E4405F;"></i>
+                {% elif caption.platform == 'facebook' %}
+                <i class="bi bi-facebook me-1" style="color: #1877F2;"></i>
+                {% elif caption.platform == 'linkedin' %}
+                <i class="bi bi-linkedin me-1" style="color: #0A66C2;"></i>
+                {% elif caption.platform == 'pinterest' %}
+                <i class="bi bi-pinterest me-1" style="color: #BD081C;"></i>
+                {% elif caption.platform == 'twitter' %}
+                <i class="bi bi-twitter me-1" style="color: #1DA1F2;"></i>
+                {% elif caption.platform == 'bluesky' %}
+                <i class="bi bi-cloud me-1" style="color: #0085FF;"></i>
+                {% endif %}
+                {{ caption.get_platform_display }}
+            </span>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary copy-caption-btn"
+                        data-caption-id="{{ caption.pk }}" title="Kopieren">
+                    <i class="bi bi-clipboard"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary edit-caption-btn"
+                        data-caption-id="{{ caption.pk }}" title="Bearbeiten">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if caption.title %}
+        <h6 class="card-title mb-2">{{ caption.title }}</h6>
+        {% endif %}
+
+        <p class="card-text caption-text" id="caption-text-{{ caption.pk }}">{{ caption.caption_text }}</p>
+
+        {% if caption.hashtags %}
+        <p class="card-text">
+            <small class="text-primary hashtags">{{ caption.hashtags }}</small>
+        </p>
+        {% endif %}
+
+        {% if caption.mention_username %}
+        <p class="card-text">
+            <small class="text-muted">
+                <i class="bi bi-at me-1"></i>{{ caption.mention_username }}
+            </small>
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.caption-card {
+    border-left-width: 4px;
+}
+.caption-card.instagram { border-left-color: #E4405F; }
+.caption-card.facebook { border-left-color: #1877F2; }
+.caption-card.linkedin { border-left-color: #0A66C2; }
+.caption-card.pinterest { border-left-color: #BD081C; }
+.caption-card.twitter { border-left-color: #1DA1F2; }
+.caption-card.bluesky { border-left-color: #0085FF; }
+.caption-text {
+    white-space: pre-wrap;
+}
+.hashtags {
+    word-break: break-all;
+}
+</style>

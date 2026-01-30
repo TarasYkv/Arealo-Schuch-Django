@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if template %}Vorlage bearbeiten{% else %}Neue Vorlage{% endif %} - LoomMarket{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preview-box {
+        width: 100%;
+        aspect-ratio: 1;
+        background: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .preview-box img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+    .preview-box.has-image {
+        border-style: solid;
+        border-color: #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'loommarket:dashboard' %}">LoomMarket</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'loommarket:template_list' %}">Vorlagen</a></li>
+                    <li class="breadcrumb-item active">{% if template %}{{ template.name }}{% else %}Neue Vorlage{% endif %}</li>
+                </ol>
+            </nav>
+            <h1 class="h3">
+                <i class="bi bi-images me-2"></i>
+                {% if template %}Vorlage bearbeiten{% else %}Neue Mockup-Vorlage{% endif %}
+            </h1>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Grunddaten</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label fw-bold">Name *</label>
+                            <input type="text" class="form-control" id="name" name="name"
+                                   value="{{ template.name|default:'' }}" required
+                                   placeholder="z.B. Holz-Schneidebrett, Keramik-Tasse">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-bold">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="2"
+                                      placeholder="Kurze Beschreibung des Produkts">{{ template.description|default:'' }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="default_background_prompt" class="form-label fw-bold">Standard-Hintergrund</label>
+                            <textarea class="form-control" id="default_background_prompt" name="default_background_prompt" rows="2"
+                                      placeholder="z.B. Rustikaler Holztisch mit Kraeutern, warmes Tageslicht">{{ template.default_background_prompt|default:'' }}</textarea>
+                            <div class="form-text">Wird verwendet, wenn kein spezifischer Hintergrund angegeben wird</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Produktbilder</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Produkt ohne Gravur *</label>
+                                <div class="preview-box mb-2 {% if template.product_image_blank %}has-image{% endif %}" id="preview-blank">
+                                    {% if template.product_image_blank %}
+                                    <img src="{{ template.product_image_blank.url }}" alt="Blank">
+                                    {% else %}
+                                    <span class="text-muted">Kein Bild</span>
+                                    {% endif %}
+                                </div>
+                                <input type="file" class="form-control" id="product_image_blank" name="product_image_blank"
+                                       accept="image/*" {% if not template %}required{% endif %}>
+                                <div class="form-text">Produktfoto ohne Gravur/Beschriftung</div>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Produkt mit Gravur-Beispiel *</label>
+                                <div class="preview-box mb-2 {% if template.product_image_engraved %}has-image{% endif %}" id="preview-engraved">
+                                    {% if template.product_image_engraved %}
+                                    <img src="{{ template.product_image_engraved.url }}" alt="Engraved">
+                                    {% else %}
+                                    <span class="text-muted">Kein Bild</span>
+                                    {% endif %}
+                                </div>
+                                <input type="file" class="form-control" id="product_image_engraved" name="product_image_engraved"
+                                       accept="image/*" {% if not template %}required{% endif %}>
+                                <div class="form-text">Beispiel wie eine Gravur aussehen soll</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Hinweise</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted">
+                            <strong>Produkt ohne Gravur:</strong> Ein sauberes Foto des Produkts ohne jegliche Beschriftung oder Gravur.
+                        </p>
+                        <p class="small text-muted">
+                            <strong>Produkt mit Gravur-Beispiel:</strong> Ein Foto des gleichen Produkts mit einer Beispiel-Gravur. Die KI lernt daraus, wie eine Gravur auf diesem Produkt aussehen sollte.
+                        </p>
+                        <p class="small text-muted mb-0">
+                            <strong>Tipp:</strong> Verwende Fotos mit aehnlicher Beleuchtung und Perspektive fuer beste Ergebnisse.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-lg me-2"></i>
+                        {% if template %}Speichern{% else %}Vorlage erstellen{% endif %}
+                    </button>
+                    <a href="{% url 'loommarket:template_list' %}" class="btn btn-outline-secondary">
+                        Abbrechen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Bildvorschau
+document.getElementById('product_image_blank').addEventListener('change', function(e) {
+    previewImage(e.target, 'preview-blank');
+});
+
+document.getElementById('product_image_engraved').addEventListener('change', function(e) {
+    previewImage(e.target, 'preview-engraved');
+});
+
+function previewImage(input, previewId) {
+    const preview = document.getElementById(previewId);
+
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            preview.innerHTML = `<img src="${e.target.result}" alt="Vorschau">`;
+            preview.classList.add('has-image');
+        };
+
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+{% endblock %}

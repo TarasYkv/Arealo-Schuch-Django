@@ -250,6 +250,12 @@ MENU_STRUCTURE = {
                 'icon': 'bi bi-camera-video text-success',
                 'auth_url_name': 'vskript:dashboard',
             },
+            {
+                'app_name': 'loommarket',
+                'label': 'LoomMarket',
+                'icon': 'bi bi-shop text-warning',
+                'auth_url_name': 'loommarket:dashboard',
+            },
         ],
     },
     'organisation': {
