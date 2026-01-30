@@ -86,6 +86,7 @@ urlpatterns = [
     path('backloom/', include('backloom.urls')),
     path('ploom/', include('ploom.urls')),
     path('vskript/', include('vskript.urls')),
+    path('loommarket/', include('loommarket.urls')),
     path('android-apps/', include('android_apk_manager.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
 
