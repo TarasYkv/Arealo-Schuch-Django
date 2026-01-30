@@ -158,7 +158,7 @@ def business_delete(request, pk):
 @login_required
 @require_POST
 def api_search_instagram(request):
-    """API: Scrapt Instagram-Profil und erstellt/aktualisiert Business."""
+    """API: Erstellt Business basierend auf Instagram-Username."""
     try:
         data = json.loads(request.body)
         username = data.get('username', '').strip()
@@ -174,39 +174,36 @@ def api_search_instagram(request):
         business, created = Business.objects.get_or_create(
             user=request.user,
             instagram_username=normalized,
-            defaults={'status': 'searching'}
+            defaults={
+                'status': 'completed',
+                'name': normalized,  # Username als Default-Name
+            }
         )
 
-        if not created:
-            business.status = 'searching'
-            business.save()
-
-        # Instagram-Profil scrapen
-        profile_data = scraper.get_profile_data_for_business(normalized)
-
-        if profile_data['success']:
-            business.name = profile_data.get('name') or normalized
-            business.bio = profile_data.get('bio')
-            business.website = profile_data.get('website')
-            business.follower_count = profile_data.get('follower_count', 0)
-            business.profile_picture_url = profile_data.get('profile_picture_url')
-            business.status = 'completed'
-            business.error_message = None
-        else:
-            # Auch bei Fehler Name setzen (Fallback auf Username)
-            business.name = business.name or normalized
-            business.status = 'completed'  # Trotzdem als completed markieren
-            business.error_message = profile_data.get('error')
-
-        business.save()
+        # Versuche Instagram-Daten zu scrapen (optional, kann fehlschlagen)
+        try:
+            profile_data = scraper.get_profile_data_for_business(normalized)
+            if profile_data.get('success'):
+                if profile_data.get('name'):
+                    business.name = profile_data['name']
+                if profile_data.get('bio'):
+                    business.bio = profile_data['bio']
+                if profile_data.get('website'):
+                    business.website = profile_data['website']
+                if profile_data.get('follower_count'):
+                    business.follower_count = profile_data['follower_count']
+                business.save()
+        except Exception as e:
+            logger.warning(f"Instagram scraping failed for @{normalized}: {e}")
+            # Kein Fehler - wir haben das Business bereits erstellt
 
         return JsonResponse({
             'success': True,
             'business_id': business.id,
-            'name': business.name,
-            'bio': business.bio,
-            'website': business.website,
-            'follower_count': business.follower_count,
+            'name': business.name or normalized,
+            'bio': business.bio or '',
+            'website': business.website or '',
+            'follower_count': business.follower_count or 0,
         })
 
     except json.JSONDecodeError:
