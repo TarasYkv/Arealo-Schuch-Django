@@ -380,24 +380,87 @@ def template_list(request):
 def template_create(request):
     """Neue Mockup-Vorlage erstellen."""
     # ImageForge Bilder laden
-    from imageforge.models import ImageGeneration
-    imageforge_images = ImageGeneration.objects.filter(
+    from imageforge.models import ImageGeneration, ProductMockup
+
+    # Generierte Bilder (für beide Felder nutzbar)
+    imageforge_generated = ImageGeneration.objects.filter(
         user=request.user,
         generated_image__isnull=False
-    ).exclude(generated_image='').order_by('-created_at')[:50]
+    ).exclude(generated_image='').order_by('-created_at')[:30]
+
+    # ProductMockup: Original-Produktbilder (ohne Gravur)
+    product_mockups = ProductMockup.objects.filter(
+        user=request.user
+    ).exclude(product_image='').order_by('-created_at')[:30]
+
+    # Kombinierte Listen für Template
+    # Blank: Original-Produktbilder + alle generierten
+    imageforge_blank_images = []
+    for pm in product_mockups:
+        if pm.product_image:
+            imageforge_blank_images.append({
+                'id': f'pm_{pm.id}',
+                'url': pm.product_image.url,
+                'type': 'product_mockup',
+                'name': pm.name or 'Produktbild',
+                'date': pm.created_at,
+            })
+
+    for ig in imageforge_generated:
+        imageforge_blank_images.append({
+            'id': f'ig_{ig.id}',
+            'url': ig.generated_image.url,
+            'type': 'generation',
+            'name': 'Generiert',
+            'date': ig.created_at,
+        })
+
+    # Engraved: Style-Referenzen + generierte Mockups + alle generierten
+    imageforge_engraved_images = []
+    for pm in product_mockups:
+        if pm.style_reference_image:
+            imageforge_engraved_images.append({
+                'id': f'pm_style_{pm.id}',
+                'url': pm.style_reference_image.url,
+                'type': 'style_reference',
+                'name': pm.name or 'Gravur-Beispiel',
+                'date': pm.created_at,
+            })
+        if pm.generated_mockup_image:
+            imageforge_engraved_images.append({
+                'id': f'pm_gen_{pm.id}',
+                'url': pm.generated_mockup_image.url,
+                'type': 'generated_mockup',
+                'name': pm.name or 'Generiertes Mockup',
+                'date': pm.created_at,
+            })
+
+    for ig in imageforge_generated:
+        imageforge_engraved_images.append({
+            'id': f'ig_{ig.id}',
+            'url': ig.generated_image.url,
+            'type': 'generation',
+            'name': 'Generiert',
+            'date': ig.created_at,
+        })
+
+    context = {
+        'imageforge_blank_images': imageforge_blank_images,
+        'imageforge_engraved_images': imageforge_engraved_images,
+    }
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         description = request.POST.get('description', '').strip()
         default_background_prompt = request.POST.get('default_background_prompt', '').strip()
 
-        # ImageForge IDs
+        # ImageForge IDs (Format: pm_X, pm_style_X, pm_gen_X, ig_X)
         imageforge_blank_id = request.POST.get('imageforge_blank_id', '').strip()
         imageforge_engraved_id = request.POST.get('imageforge_engraved_id', '').strip()
 
         if not name:
             messages.error(request, "Bitte gib einen Namen ein.")
-            return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+            return render(request, 'loommarket/template_form.html', context)
 
         # Bilder prüfen: entweder Upload oder ImageForge
         has_blank = 'product_image_blank' in request.FILES or imageforge_blank_id
@@ -405,7 +468,7 @@ def template_create(request):
 
         if not has_blank or not has_engraved:
             messages.error(request, "Bitte wähle beide Produktbilder aus (Upload oder ImageForge).")
-            return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+            return render(request, 'loommarket/template_form.html', context)
 
         # Template erstellen
         template = MockupTemplate(
@@ -415,45 +478,137 @@ def template_create(request):
             default_background_prompt=default_background_prompt,
         )
 
+        # Hilfsfunktion um Bild aus ID zu holen
+        def get_image_from_id(img_id):
+            if img_id.startswith('pm_style_'):
+                pk = img_id.replace('pm_style_', '')
+                pm = ProductMockup.objects.get(pk=pk, user=request.user)
+                return pm.style_reference_image
+            elif img_id.startswith('pm_gen_'):
+                pk = img_id.replace('pm_gen_', '')
+                pm = ProductMockup.objects.get(pk=pk, user=request.user)
+                return pm.generated_mockup_image
+            elif img_id.startswith('pm_'):
+                pk = img_id.replace('pm_', '')
+                pm = ProductMockup.objects.get(pk=pk, user=request.user)
+                return pm.product_image
+            elif img_id.startswith('ig_'):
+                pk = img_id.replace('ig_', '')
+                ig = ImageGeneration.objects.get(pk=pk, user=request.user)
+                return ig.generated_image
+            return None
+
         # Blank-Bild setzen
         if 'product_image_blank' in request.FILES:
             template.product_image_blank = request.FILES['product_image_blank']
         elif imageforge_blank_id:
             try:
-                ig = ImageGeneration.objects.get(pk=imageforge_blank_id, user=request.user)
-                template.product_image_blank = ig.generated_image
-            except ImageGeneration.DoesNotExist:
+                template.product_image_blank = get_image_from_id(imageforge_blank_id)
+            except (ProductMockup.DoesNotExist, ImageGeneration.DoesNotExist):
                 messages.error(request, "ImageForge-Bild nicht gefunden.")
-                return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+                return render(request, 'loommarket/template_form.html', context)
 
         # Engraved-Bild setzen
         if 'product_image_engraved' in request.FILES:
             template.product_image_engraved = request.FILES['product_image_engraved']
         elif imageforge_engraved_id:
             try:
-                ig = ImageGeneration.objects.get(pk=imageforge_engraved_id, user=request.user)
-                template.product_image_engraved = ig.generated_image
-            except ImageGeneration.DoesNotExist:
+                template.product_image_engraved = get_image_from_id(imageforge_engraved_id)
+            except (ProductMockup.DoesNotExist, ImageGeneration.DoesNotExist):
                 messages.error(request, "ImageForge-Bild nicht gefunden.")
-                return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+                return render(request, 'loommarket/template_form.html', context)
 
         template.save()
         messages.success(request, f"Vorlage '{name}' wurde erstellt.")
         return redirect('loommarket:template_list')
 
-    return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+    return render(request, 'loommarket/template_form.html', context)
 
 
 @login_required
 def template_edit(request, pk):
     """Mockup-Vorlage bearbeiten."""
-    from imageforge.models import ImageGeneration
+    from imageforge.models import ImageGeneration, ProductMockup
 
     template = get_object_or_404(MockupTemplate, pk=pk, user=request.user)
-    imageforge_images = ImageGeneration.objects.filter(
+
+    # Gleiche Bildlisten wie bei template_create
+    imageforge_generated = ImageGeneration.objects.filter(
         user=request.user,
         generated_image__isnull=False
-    ).exclude(generated_image='').order_by('-created_at')[:50]
+    ).exclude(generated_image='').order_by('-created_at')[:30]
+
+    product_mockups = ProductMockup.objects.filter(
+        user=request.user
+    ).exclude(product_image='').order_by('-created_at')[:30]
+
+    # Blank-Bilder
+    imageforge_blank_images = []
+    for pm in product_mockups:
+        if pm.product_image:
+            imageforge_blank_images.append({
+                'id': f'pm_{pm.id}',
+                'url': pm.product_image.url,
+                'type': 'product_mockup',
+                'name': pm.name or 'Produktbild',
+                'date': pm.created_at,
+            })
+    for ig in imageforge_generated:
+        imageforge_blank_images.append({
+            'id': f'ig_{ig.id}',
+            'url': ig.generated_image.url,
+            'type': 'generation',
+            'name': 'Generiert',
+            'date': ig.created_at,
+        })
+
+    # Engraved-Bilder
+    imageforge_engraved_images = []
+    for pm in product_mockups:
+        if pm.style_reference_image:
+            imageforge_engraved_images.append({
+                'id': f'pm_style_{pm.id}',
+                'url': pm.style_reference_image.url,
+                'type': 'style_reference',
+                'name': pm.name or 'Gravur-Beispiel',
+                'date': pm.created_at,
+            })
+        if pm.generated_mockup_image:
+            imageforge_engraved_images.append({
+                'id': f'pm_gen_{pm.id}',
+                'url': pm.generated_mockup_image.url,
+                'type': 'generated_mockup',
+                'name': pm.name or 'Generiertes Mockup',
+                'date': pm.created_at,
+            })
+    for ig in imageforge_generated:
+        imageforge_engraved_images.append({
+            'id': f'ig_{ig.id}',
+            'url': ig.generated_image.url,
+            'type': 'generation',
+            'name': 'Generiert',
+            'date': ig.created_at,
+        })
+
+    # Hilfsfunktion
+    def get_image_from_id(img_id):
+        if img_id.startswith('pm_style_'):
+            pk = img_id.replace('pm_style_', '')
+            pm = ProductMockup.objects.get(pk=pk, user=request.user)
+            return pm.style_reference_image
+        elif img_id.startswith('pm_gen_'):
+            pk = img_id.replace('pm_gen_', '')
+            pm = ProductMockup.objects.get(pk=pk, user=request.user)
+            return pm.generated_mockup_image
+        elif img_id.startswith('pm_'):
+            pk = img_id.replace('pm_', '')
+            pm = ProductMockup.objects.get(pk=pk, user=request.user)
+            return pm.product_image
+        elif img_id.startswith('ig_'):
+            pk = img_id.replace('ig_', '')
+            ig = ImageGeneration.objects.get(pk=pk, user=request.user)
+            return ig.generated_image
+        return None
 
     if request.method == 'POST':
         template.name = request.POST.get('name', template.name).strip()
@@ -461,7 +616,6 @@ def template_edit(request, pk):
         template.default_background_prompt = request.POST.get('default_background_prompt', '').strip()
         template.is_active = request.POST.get('is_active', 'off') == 'on'
 
-        # ImageForge IDs
         imageforge_blank_id = request.POST.get('imageforge_blank_id', '').strip()
         imageforge_engraved_id = request.POST.get('imageforge_engraved_id', '').strip()
 
@@ -470,9 +624,8 @@ def template_edit(request, pk):
             template.product_image_blank = request.FILES['product_image_blank']
         elif imageforge_blank_id:
             try:
-                ig = ImageGeneration.objects.get(pk=imageforge_blank_id, user=request.user)
-                template.product_image_blank = ig.generated_image
-            except ImageGeneration.DoesNotExist:
+                template.product_image_blank = get_image_from_id(imageforge_blank_id)
+            except (ProductMockup.DoesNotExist, ImageGeneration.DoesNotExist):
                 pass
 
         # Engraved-Bild aktualisieren
@@ -480,9 +633,8 @@ def template_edit(request, pk):
             template.product_image_engraved = request.FILES['product_image_engraved']
         elif imageforge_engraved_id:
             try:
-                ig = ImageGeneration.objects.get(pk=imageforge_engraved_id, user=request.user)
-                template.product_image_engraved = ig.generated_image
-            except ImageGeneration.DoesNotExist:
+                template.product_image_engraved = get_image_from_id(imageforge_engraved_id)
+            except (ProductMockup.DoesNotExist, ImageGeneration.DoesNotExist):
                 pass
 
         template.save()
@@ -491,8 +643,9 @@ def template_edit(request, pk):
 
     context = {
         'template': template,
+        'imageforge_blank_images': imageforge_blank_images,
+        'imageforge_engraved_images': imageforge_engraved_images,
         'edit_mode': True,
-        'imageforge_images': imageforge_images,
     }
     return render(request, 'loommarket/template_form.html', context)
 
