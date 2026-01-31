@@ -61,31 +61,35 @@ def dashboard(request):
 def add_business(request):
     """Seite zum Hinzufügen eines neuen Unternehmens via Instagram."""
     if request.method == 'POST':
-        # Check if this is an AJAX save request
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/x-www-form-urlencoded':
-            business_id = request.POST.get('business_id')
-            name = request.POST.get('name', '').strip()
-            website = request.POST.get('website', '').strip()
-            bio = request.POST.get('bio', '').strip()
+        # Check if this is an AJAX save request (has business_id = from JS form)
+        business_id = request.POST.get('business_id')
 
-            if business_id:
-                try:
-                    business = Business.objects.get(pk=business_id, user=request.user)
-                    business.name = name or business.name
-                    business.website = website or business.website
-                    business.bio = bio or business.bio
-                    business.status = 'completed'
-                    business.save()
+        if business_id:
+            # AJAX Save Request
+            try:
+                name = request.POST.get('name', '').strip()
+                website = request.POST.get('website', '').strip()
+                bio = request.POST.get('bio', '').strip()
 
-                    # Return JSON for AJAX
-                    return JsonResponse({
-                        'success': True,
-                        'redirect_url': f'/loommarket/businesses/{business.id}/'
-                    })
-                except Business.DoesNotExist:
-                    return JsonResponse({'success': False, 'error': 'Unternehmen nicht gefunden'}, status=404)
+                business = Business.objects.get(pk=business_id, user=request.user)
+                business.name = name or business.name
+                business.website = website or business.website
+                business.bio = bio or business.bio
+                business.status = 'completed'
+                business.save()
 
-        # Fallback: Regular form POST
+                # Return JSON for AJAX
+                return JsonResponse({
+                    'success': True,
+                    'redirect_url': f'/loommarket/businesses/{business.id}/'
+                })
+            except Business.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Unternehmen nicht gefunden'}, status=404)
+            except Exception as e:
+                logger.exception(f"Error saving business: {e}")
+                return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+        # Fallback: Regular form POST (ohne business_id)
         instagram_username = request.POST.get('instagram_username', '').strip()
 
         if not instagram_username:
