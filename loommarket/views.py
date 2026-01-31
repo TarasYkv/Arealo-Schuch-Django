@@ -2,6 +2,7 @@
 LoomMarket Views - B2B-Marketing mit Instagram-Integration.
 """
 import io
+import re
 import json
 import zipfile
 import logging
@@ -21,6 +22,18 @@ from .services import InstagramScraper, ImageSearcher, ImageProcessor, CaptionGe
 from .services.image_processor import MockupGenerator
 
 logger = logging.getLogger(__name__)
+
+
+def remove_emojis(text: str) -> str:
+    """
+    Entfernt Emojis und andere nicht-BMP Unicode-Zeichen aus Text.
+    MySQL utf8 (nicht utf8mb4) kann keine 4-Byte Unicode-Zeichen speichern.
+    """
+    if not text:
+        return text
+    # Entferne alle Zeichen außerhalb des BMP (Basic Multilingual Plane)
+    # Das sind alle Zeichen mit Codepoint > 0xFFFF (4-Byte UTF-8)
+    return ''.join(char for char in text if ord(char) <= 0xFFFF)
 
 
 # ============================================================================
@@ -189,9 +202,9 @@ def api_search_instagram(request):
             profile_data = scraper.get_profile_data_for_business(normalized)
             if profile_data.get('success'):
                 if profile_data.get('name'):
-                    business.name = profile_data['name']
+                    business.name = remove_emojis(profile_data['name'])
                 if profile_data.get('bio'):
-                    business.bio = profile_data['bio']
+                    business.bio = remove_emojis(profile_data['bio'])
                 if profile_data.get('website'):
                     business.website = profile_data['website']
                 if profile_data.get('follower_count'):
@@ -373,11 +386,11 @@ def api_refresh_instagram(request, business_id):
         profile_data = scraper.scrape_profile(business.instagram_username)
 
         if profile_data['success']:
-            # Daten aktualisieren
+            # Daten aktualisieren (Emojis entfernen für MySQL-Kompatibilität)
             if profile_data.get('name'):
-                business.name = profile_data['name']
+                business.name = remove_emojis(profile_data['name'])
             if profile_data.get('bio'):
-                business.bio = profile_data['bio']
+                business.bio = remove_emojis(profile_data['bio'])
             if profile_data.get('website'):
                 business.website = profile_data['website']
             if profile_data.get('follower_count'):
