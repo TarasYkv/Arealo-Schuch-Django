@@ -216,6 +216,8 @@ Erstelle eine ansprechende Caption, die:
 3. Die Marke positiv darstellt
 {f'4. @{instagram_username} erwähnt' if instagram_username else ''}
 
+WICHTIG: Verwende KEINE Emojis! Nur Text und Hashtags.
+
 FORMAT DER ANTWORT (EXAKT einhalten):
 TITEL: [Kurzer, knackiger Titel - max 100 Zeichen]
 ---
