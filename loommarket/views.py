@@ -361,6 +361,54 @@ def api_set_logo(request, image_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+@login_required
+@require_POST
+def api_refresh_impressum(request, business_id):
+    """API: Aktualisiert das Impressum von Instagram und Website."""
+    try:
+        from .services import WebsiteScraper
+
+        business = get_object_or_404(Business, pk=business_id, user=request.user)
+
+        # Instagram Bio ist das "Impressum" auf Instagram
+        business.impressum_instagram = business.bio
+
+        # Website Impressum suchen
+        if business.website:
+            scraper = WebsiteScraper()
+            result = scraper.find_impressum(business.website)
+
+            if result['success']:
+                business.impressum_website = result['impressum_text']
+                business.impressum_website_url = result['impressum_url']
+                business.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Impressum aktualisiert',
+                    'impressum_found': True,
+                })
+            else:
+                business.impressum_website = None
+                business.impressum_website_url = None
+                business.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': result.get('error', 'Kein Impressum gefunden'),
+                    'impressum_found': False,
+                })
+        else:
+            business.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Keine Website vorhanden',
+                'impressum_found': False,
+            })
+
+    except Exception as e:
+        logger.exception(f"Error in api_refresh_impressum: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 # ============================================================================
 # MOCKUP TEMPLATES
 # ============================================================================

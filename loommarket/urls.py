@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/upload-image/<int:business_id>/', views.api_upload_image, name='api_upload_image'),
     path('api/delete-image/<int:image_id>/', views.api_delete_image, name='api_delete_image'),
     path('api/set-logo/<int:image_id>/', views.api_set_logo, name='api_set_logo'),
+    path('api/refresh-impressum/<int:business_id>/', views.api_refresh_impressum, name='api_refresh_impressum'),
 
     # Mockup Templates
     path('templates/', views.template_list, name='template_list'),

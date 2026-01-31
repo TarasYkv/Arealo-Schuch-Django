@@ -51,6 +51,11 @@ class Business(models.Model):
     follower_count = models.PositiveIntegerField(default=0, verbose_name="Follower")
     profile_picture_url = models.URLField(max_length=1000, blank=True, null=True, verbose_name="Profilbild URL")
 
+    # Impressum-Daten
+    impressum_instagram = models.TextField(blank=True, null=True, verbose_name="Impressum (Instagram)")
+    impressum_website = models.TextField(blank=True, null=True, verbose_name="Impressum (Website)")
+    impressum_website_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Impressum URL")
+
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     error_message = models.TextField(blank=True, null=True)
