@@ -426,10 +426,10 @@ def template_create(request):
                 'name': pm.name or 'Gravur-Beispiel',
                 'date': pm.created_at,
             })
-        if pm.generated_mockup_image:
+        if pm.mockup_image:
             imageforge_engraved_images.append({
                 'id': f'pm_gen_{pm.id}',
-                'url': pm.generated_mockup_image.url,
+                'url': pm.mockup_image.url,
                 'type': 'generated_mockup',
                 'name': pm.name or 'Generiertes Mockup',
                 'date': pm.created_at,
@@ -487,7 +487,7 @@ def template_create(request):
             elif img_id.startswith('pm_gen_'):
                 pk = img_id.replace('pm_gen_', '')
                 pm = ProductMockup.objects.get(pk=pk, user=request.user)
-                return pm.generated_mockup_image
+                return pm.mockup_image
             elif img_id.startswith('pm_'):
                 pk = img_id.replace('pm_', '')
                 pm = ProductMockup.objects.get(pk=pk, user=request.user)
@@ -573,10 +573,10 @@ def template_edit(request, pk):
                 'name': pm.name or 'Gravur-Beispiel',
                 'date': pm.created_at,
             })
-        if pm.generated_mockup_image:
+        if pm.mockup_image:
             imageforge_engraved_images.append({
                 'id': f'pm_gen_{pm.id}',
-                'url': pm.generated_mockup_image.url,
+                'url': pm.mockup_image.url,
                 'type': 'generated_mockup',
                 'name': pm.name or 'Generiertes Mockup',
                 'date': pm.created_at,
@@ -599,7 +599,7 @@ def template_edit(request, pk):
         elif img_id.startswith('pm_gen_'):
             pk = img_id.replace('pm_gen_', '')
             pm = ProductMockup.objects.get(pk=pk, user=request.user)
-            return pm.generated_mockup_image
+            return pm.mockup_image
         elif img_id.startswith('pm_'):
             pk = img_id.replace('pm_', '')
             pm = ProductMockup.objects.get(pk=pk, user=request.user)
