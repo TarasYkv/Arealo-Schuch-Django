@@ -85,9 +85,9 @@ def add_business(request):
                 bio = request.POST.get('bio', '').strip()
 
                 business = Business.objects.get(pk=business_id, user=request.user)
-                business.name = name or business.name
+                business.name = remove_emojis(name) if name else business.name
                 business.website = website or business.website
-                business.bio = bio or business.bio
+                business.bio = remove_emojis(bio) if bio else business.bio
                 business.status = 'completed'
                 business.save()
 
