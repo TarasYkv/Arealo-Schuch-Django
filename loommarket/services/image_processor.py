@@ -25,6 +25,40 @@ class ImageProcessor:
     def __init__(self):
         pass
 
+    def _open_image(self, image_file) -> Image.Image:
+        """
+        Öffnet ein Bild aus verschiedenen Quellen.
+
+        Args:
+            image_file: Django ImageField, FieldFile, ContentFile, File-like object oder Pfad
+
+        Returns:
+            PIL Image Objekt
+        """
+        # Django FieldFile/ImageField - hat .path Attribut
+        if hasattr(image_file, 'path'):
+            try:
+                return Image.open(image_file.path)
+            except Exception:
+                # Fallback: Versuche über open() und read()
+                if hasattr(image_file, 'open'):
+                    image_file.open('rb')
+                    img = Image.open(image_file)
+                    return img
+                raise
+
+        # ContentFile oder anderes file-like object
+        if hasattr(image_file, 'read'):
+            if hasattr(image_file, 'seek'):
+                image_file.seek(0)
+            return Image.open(image_file)
+
+        # String-Pfad
+        if isinstance(image_file, str):
+            return Image.open(image_file)
+
+        raise ValueError(f"Kann Bild nicht öffnen: {type(image_file)}")
+
     def convert_to_grayscale(self, image_file) -> Optional[ContentFile]:
         """
         Konvertiert ein Bild zu Graustufen.
@@ -38,11 +72,7 @@ class ImageProcessor:
         """
         try:
             # Bild öffnen
-            if hasattr(image_file, 'read'):
-                image_file.seek(0)
-                img = Image.open(image_file)
-            else:
-                img = Image.open(image_file.path)
+            img = self._open_image(image_file)
 
             # Zu RGB konvertieren (falls RGBA)
             if img.mode == 'RGBA':
@@ -91,11 +121,7 @@ class ImageProcessor:
         """
         try:
             # Bild öffnen
-            if hasattr(image_file, 'read'):
-                image_file.seek(0)
-                img = Image.open(image_file)
-            else:
-                img = Image.open(image_file.path)
+            img = self._open_image(image_file)
 
             # Zu RGB konvertieren (falls RGBA)
             if img.mode == 'RGBA':
@@ -160,11 +186,7 @@ class ImageProcessor:
         """
         try:
             # Bild öffnen
-            if hasattr(image_file, 'read'):
-                image_file.seek(0)
-                img = Image.open(image_file)
-            else:
-                img = Image.open(image_file.path)
+            img = self._open_image(image_file)
 
             # Zu RGB konvertieren
             if img.mode == 'RGBA':
