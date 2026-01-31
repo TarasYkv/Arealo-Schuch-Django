@@ -240,8 +240,10 @@ def api_search_images(request, business_id):
         # Suchbegriff: Name oder Instagram-Username
         search_term = business.name or business.instagram_username
 
-        # Bildersuche - mehr Bilder für bessere Auswahl
-        searcher = ImageSearcher()
+        # Bildersuche - User-spezifische Google API-Keys verwenden
+        google_api_key = getattr(request.user, 'google_search_api_key', None)
+        google_cx = getattr(request.user, 'google_search_cx', None)
+        searcher = ImageSearcher(google_api_key=google_api_key, google_cx=google_cx)
         results = searcher.search_and_download(
             company_name=search_term,
             max_logos=8,

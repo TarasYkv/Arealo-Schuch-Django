@@ -16,6 +16,11 @@ class CustomUser(AbstractUser):
     supadata_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Supadata API Key (TikTok)")
     ideogram_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Ideogram API Key")
     gemini_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Gemini API Key")
+
+    # Google Custom Search API für LoomMarket Bildersuche
+    google_search_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Google Search API Key")
+    google_search_cx = models.CharField(max_length=100, blank=True, null=True, verbose_name="Google Search Engine ID (CX)")
+
     upload_post_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Upload-Post API Key")
     upload_post_user_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="Upload-Post User ID")
     upload_post_subreddits = models.TextField(blank=True, null=True, verbose_name="Reddit Subreddits",
