@@ -262,6 +262,12 @@ OPENAI_API_KEY = None
 ANTHROPIC_API_KEY = None
 GOOGLE_AI_API_KEY = None
 
+# Google Custom Search API für LoomMarket Bildersuche
+# Erstelle API-Key: https://console.cloud.google.com/apis/credentials
+# Erstelle Search Engine: https://programmablesearchengine.google.com/
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', None)
+GOOGLE_SEARCH_CX = os.getenv('GOOGLE_SEARCH_CX', None)
+
 # Einstellungen für von Benutzern hochgeladene Dateien (Media Files)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
