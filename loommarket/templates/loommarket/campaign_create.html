@@ -113,11 +113,30 @@
                 <!-- Mockup-Vorlage auswaehlen -->
                 <div class="card shadow-sm mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="bi bi-images me-2"></i>Mockup-Vorlage auswaehlen *</h5>
+                        <h5 class="mb-0"><i class="bi bi-images me-2"></i>Mockup-Vorlage (optional)</h5>
                     </div>
                     <div class="card-body p-0">
                         {% if templates %}
                         <div class="list-group list-group-flush">
+                            <!-- Option: Keine Vorlage -->
+                            <div class="list-group-item template-select-item selected" data-id="0"
+                                 onclick="selectTemplate(this, 0)">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                        <div class="bg-secondary d-flex align-items-center justify-content-center text-white"
+                                             style="width: 60px; height: 60px; border-radius: 4px;">
+                                            <i class="bi bi-x-lg"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <h6 class="mb-1">Keine Vorlage</h6>
+                                        <small class="text-muted">Nur Captions generieren, kein Mockup</small>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="bi bi-check-circle-fill text-primary selected-check"></i>
+                                    </div>
+                                </div>
+                            </div>
                             {% for template in templates %}
                             <div class="list-group-item template-select-item" data-id="{{ template.pk }}"
                                  onclick="selectTemplate(this, {{ template.pk }})">
@@ -148,12 +167,32 @@
                             {% endfor %}
                         </div>
                         {% else %}
-                        <div class="p-4">
-                            <div class="alert alert-warning mb-0">
-                                <i class="bi bi-exclamation-triangle me-2"></i>
-                                Keine Mockup-Vorlagen vorhanden.
-                                <a href="{% url 'loommarket:template_create' %}">Vorlage erstellen</a>
+                        <div class="list-group list-group-flush">
+                            <!-- Option: Keine Vorlage wenn keine existieren -->
+                            <div class="list-group-item template-select-item selected" data-id="0"
+                                 onclick="selectTemplate(this, 0)">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                        <div class="bg-secondary d-flex align-items-center justify-content-center text-white"
+                                             style="width: 60px; height: 60px; border-radius: 4px;">
+                                            <i class="bi bi-x-lg"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <h6 class="mb-1">Keine Vorlage</h6>
+                                        <small class="text-muted">Nur Captions generieren, kein Mockup</small>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="bi bi-check-circle-fill text-primary selected-check"></i>
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+                        <div class="p-3 border-top bg-light">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Fuer Mockup-Generierung: <a href="{% url 'loommarket:template_create' %}">Vorlage erstellen</a>
+                            </small>
                         </div>
                         {% endif %}
                     </div>
@@ -226,7 +265,7 @@
 {% block extra_js %}
 <script>
 let selectedImageId = null;
-let selectedTemplateId = null;
+let selectedTemplateId = 0;  // Default: keine Vorlage
 
 function selectImage(element, imageId) {
     // Alle abwaehlen
@@ -246,14 +285,16 @@ function selectTemplate(element, templateId) {
     // Alle abwaehlen
     document.querySelectorAll('.template-select-item').forEach(el => {
         el.classList.remove('selected');
-        el.querySelector('.selected-check').classList.add('d-none');
+        const check = el.querySelector('.selected-check');
+        if (check) check.classList.add('d-none');
     });
 
     // Dieses auswaehlen
     element.classList.add('selected');
-    element.querySelector('.selected-check').classList.remove('d-none');
+    const check = element.querySelector('.selected-check');
+    if (check) check.classList.remove('d-none');
     selectedTemplateId = templateId;
-    document.getElementById('selected-template').value = templateId;
+    document.getElementById('selected-template').value = templateId || '';
 
     checkSubmitButton();
 }
@@ -262,7 +303,8 @@ function checkSubmitButton() {
     const submitBtn = document.getElementById('submit-btn');
     const nameInput = document.getElementById('name');
 
-    if (selectedImageId && selectedTemplateId && nameInput.value.trim()) {
+    // Nur Image und Name sind required, Template ist optional
+    if (selectedImageId && nameInput.value.trim()) {
         submitBtn.disabled = false;
     } else {
         submitBtn.disabled = true;
@@ -272,11 +314,14 @@ function checkSubmitButton() {
 // Name-Eingabe ueberwachen
 document.getElementById('name').addEventListener('input', checkSubmitButton);
 
+// Initial check
+checkSubmitButton();
+
 // Formular-Validierung
 document.getElementById('campaign-form').addEventListener('submit', function(e) {
-    if (!selectedImageId || !selectedTemplateId) {
+    if (!selectedImageId) {
         e.preventDefault();
-        alert('Bitte waehle ein Design-Bild und eine Mockup-Vorlage aus.');
+        alert('Bitte waehle ein Design-Bild aus.');
     }
 });
 </script>
