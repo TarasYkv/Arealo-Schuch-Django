@@ -379,38 +379,81 @@ def template_list(request):
 @login_required
 def template_create(request):
     """Neue Mockup-Vorlage erstellen."""
+    # ImageForge Bilder laden
+    from imageforge.models import ImageGeneration
+    imageforge_images = ImageGeneration.objects.filter(
+        user=request.user,
+        generated_image__isnull=False
+    ).exclude(generated_image='').order_by('-created_at')[:50]
+
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         description = request.POST.get('description', '').strip()
         default_background_prompt = request.POST.get('default_background_prompt', '').strip()
 
+        # ImageForge IDs
+        imageforge_blank_id = request.POST.get('imageforge_blank_id', '').strip()
+        imageforge_engraved_id = request.POST.get('imageforge_engraved_id', '').strip()
+
         if not name:
             messages.error(request, "Bitte gib einen Namen ein.")
-            return render(request, 'loommarket/template_form.html')
+            return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
 
-        if 'product_image_blank' not in request.FILES or 'product_image_engraved' not in request.FILES:
-            messages.error(request, "Bitte lade beide Produktbilder hoch.")
-            return render(request, 'loommarket/template_form.html')
+        # Bilder prüfen: entweder Upload oder ImageForge
+        has_blank = 'product_image_blank' in request.FILES or imageforge_blank_id
+        has_engraved = 'product_image_engraved' in request.FILES or imageforge_engraved_id
 
-        template = MockupTemplate.objects.create(
+        if not has_blank or not has_engraved:
+            messages.error(request, "Bitte wähle beide Produktbilder aus (Upload oder ImageForge).")
+            return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+
+        # Template erstellen
+        template = MockupTemplate(
             user=request.user,
             name=name,
             description=description,
-            product_image_blank=request.FILES['product_image_blank'],
-            product_image_engraved=request.FILES['product_image_engraved'],
             default_background_prompt=default_background_prompt,
         )
 
+        # Blank-Bild setzen
+        if 'product_image_blank' in request.FILES:
+            template.product_image_blank = request.FILES['product_image_blank']
+        elif imageforge_blank_id:
+            try:
+                ig = ImageGeneration.objects.get(pk=imageforge_blank_id, user=request.user)
+                template.product_image_blank = ig.generated_image
+            except ImageGeneration.DoesNotExist:
+                messages.error(request, "ImageForge-Bild nicht gefunden.")
+                return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+
+        # Engraved-Bild setzen
+        if 'product_image_engraved' in request.FILES:
+            template.product_image_engraved = request.FILES['product_image_engraved']
+        elif imageforge_engraved_id:
+            try:
+                ig = ImageGeneration.objects.get(pk=imageforge_engraved_id, user=request.user)
+                template.product_image_engraved = ig.generated_image
+            except ImageGeneration.DoesNotExist:
+                messages.error(request, "ImageForge-Bild nicht gefunden.")
+                return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
+
+        template.save()
         messages.success(request, f"Vorlage '{name}' wurde erstellt.")
         return redirect('loommarket:template_list')
 
-    return render(request, 'loommarket/template_form.html')
+    return render(request, 'loommarket/template_form.html', {'imageforge_images': imageforge_images})
 
 
 @login_required
 def template_edit(request, pk):
     """Mockup-Vorlage bearbeiten."""
+    from imageforge.models import ImageGeneration
+
     template = get_object_or_404(MockupTemplate, pk=pk, user=request.user)
+    imageforge_images = ImageGeneration.objects.filter(
+        user=request.user,
+        generated_image__isnull=False
+    ).exclude(generated_image='').order_by('-created_at')[:50]
 
     if request.method == 'POST':
         template.name = request.POST.get('name', template.name).strip()
@@ -418,10 +461,29 @@ def template_edit(request, pk):
         template.default_background_prompt = request.POST.get('default_background_prompt', '').strip()
         template.is_active = request.POST.get('is_active', 'off') == 'on'
 
+        # ImageForge IDs
+        imageforge_blank_id = request.POST.get('imageforge_blank_id', '').strip()
+        imageforge_engraved_id = request.POST.get('imageforge_engraved_id', '').strip()
+
+        # Blank-Bild aktualisieren
         if 'product_image_blank' in request.FILES:
             template.product_image_blank = request.FILES['product_image_blank']
+        elif imageforge_blank_id:
+            try:
+                ig = ImageGeneration.objects.get(pk=imageforge_blank_id, user=request.user)
+                template.product_image_blank = ig.generated_image
+            except ImageGeneration.DoesNotExist:
+                pass
+
+        # Engraved-Bild aktualisieren
         if 'product_image_engraved' in request.FILES:
             template.product_image_engraved = request.FILES['product_image_engraved']
+        elif imageforge_engraved_id:
+            try:
+                ig = ImageGeneration.objects.get(pk=imageforge_engraved_id, user=request.user)
+                template.product_image_engraved = ig.generated_image
+            except ImageGeneration.DoesNotExist:
+                pass
 
         template.save()
         messages.success(request, f"Vorlage '{template.name}' wurde aktualisiert.")
@@ -430,6 +492,7 @@ def template_edit(request, pk):
     context = {
         'template': template,
         'edit_mode': True,
+        'imageforge_images': imageforge_images,
     }
     return render(request, 'loommarket/template_form.html', context)
 

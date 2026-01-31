@@ -93,8 +93,16 @@
                                     <span class="text-muted">Kein Bild</span>
                                     {% endif %}
                                 </div>
-                                <input type="file" class="form-control" id="product_image_blank" name="product_image_blank"
-                                       accept="image/*" {% if not template %}required{% endif %}>
+                                <input type="hidden" name="imageforge_blank_id" id="imageforge-blank-id">
+                                <div class="btn-group w-100 mb-2" role="group">
+                                    <input type="file" class="d-none" id="product_image_blank" name="product_image_blank" accept="image/*">
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('product_image_blank').click()">
+                                        <i class="bi bi-upload me-1"></i>Hochladen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#imageforgeModal" data-target="blank">
+                                        <i class="bi bi-images me-1"></i>ImageForge
+                                    </button>
+                                </div>
                                 <div class="form-text">Produktfoto ohne Gravur/Beschriftung</div>
                             </div>
 
@@ -107,8 +115,16 @@
                                     <span class="text-muted">Kein Bild</span>
                                     {% endif %}
                                 </div>
-                                <input type="file" class="form-control" id="product_image_engraved" name="product_image_engraved"
-                                       accept="image/*" {% if not template %}required{% endif %}>
+                                <input type="hidden" name="imageforge_engraved_id" id="imageforge-engraved-id">
+                                <div class="btn-group w-100 mb-2" role="group">
+                                    <input type="file" class="d-none" id="product_image_engraved" name="product_image_engraved" accept="image/*">
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('product_image_engraved').click()">
+                                        <i class="bi bi-upload me-1"></i>Hochladen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#imageforgeModal" data-target="engraved">
+                                        <i class="bi bi-images me-1"></i>ImageForge
+                                    </button>
+                                </div>
                                 <div class="form-text">Beispiel wie eine Gravur aussehen soll</div>
                             </div>
                         </div>
@@ -147,17 +163,68 @@
         </div>
     </form>
 </div>
+<!-- ImageForge Modal -->
+<div class="modal fade" id="imageforgeModal" tabindex="-1" aria-labelledby="imageforgeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageforgeModalLabel">
+                    <i class="bi bi-images me-2"></i>Bild aus ImageForge wählen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% if imageforge_images %}
+                <div class="row g-3">
+                    {% for img in imageforge_images %}
+                    <div class="col-4 col-md-3">
+                        <div class="imageforge-item border rounded overflow-hidden"
+                             style="cursor: pointer; aspect-ratio: 1;"
+                             data-id="{{ img.id }}"
+                             data-url="{{ img.generated_image.url }}"
+                             onclick="selectImageForgeImage(this)">
+                            <img src="{{ img.generated_image.url }}"
+                                 class="w-100 h-100"
+                                 style="object-fit: cover;"
+                                 alt="ImageForge {{ img.id }}">
+                        </div>
+                        <small class="text-muted d-block text-truncate">{{ img.created_at|date:"d.m.Y H:i" }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-images" style="font-size: 3rem;"></i>
+                    <p class="mt-3">Keine ImageForge-Bilder vorhanden</p>
+                    <a href="{% url 'imageforge:generator' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-2"></i>Bild in ImageForge erstellen
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Bildvorschau
+let currentImageTarget = null;
+
+// Bildvorschau bei File-Upload
 document.getElementById('product_image_blank').addEventListener('change', function(e) {
     previewImage(e.target, 'preview-blank');
+    // Clear ImageForge selection
+    document.getElementById('imageforge-blank-id').value = '';
 });
 
 document.getElementById('product_image_engraved').addEventListener('change', function(e) {
     previewImage(e.target, 'preview-engraved');
+    // Clear ImageForge selection
+    document.getElementById('imageforge-engraved-id').value = '';
 });
 
 function previewImage(input, previewId) {
@@ -173,6 +240,41 @@ function previewImage(input, previewId) {
 
         reader.readAsDataURL(input.files[0]);
     }
+}
+
+// ImageForge Modal: Target speichern
+document.getElementById('imageforgeModal').addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    currentImageTarget = button.getAttribute('data-target');
+
+    // Highlight entfernen
+    document.querySelectorAll('.imageforge-item').forEach(el => {
+        el.classList.remove('border-primary', 'border-3');
+    });
+});
+
+// ImageForge Bild auswaehlen
+function selectImageForgeImage(element) {
+    const imageId = element.getAttribute('data-id');
+    const imageUrl = element.getAttribute('data-url');
+
+    if (currentImageTarget === 'blank') {
+        document.getElementById('imageforge-blank-id').value = imageId;
+        document.getElementById('preview-blank').innerHTML = `<img src="${imageUrl}" alt="ImageForge">`;
+        document.getElementById('preview-blank').classList.add('has-image');
+        // Clear file input
+        document.getElementById('product_image_blank').value = '';
+    } else if (currentImageTarget === 'engraved') {
+        document.getElementById('imageforge-engraved-id').value = imageId;
+        document.getElementById('preview-engraved').innerHTML = `<img src="${imageUrl}" alt="ImageForge">`;
+        document.getElementById('preview-engraved').classList.add('has-image');
+        // Clear file input
+        document.getElementById('product_image_engraved').value = '';
+    }
+
+    // Modal schliessen
+    const modal = bootstrap.Modal.getInstance(document.getElementById('imageforgeModal'));
+    modal.hide();
 }
 </script>
 {% endblock %}
