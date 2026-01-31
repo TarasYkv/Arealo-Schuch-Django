@@ -272,6 +272,7 @@ class MockupGenerator:
         template,
         design_image,
         background_prompt: str = None,
+        generate_feed: bool = True,
         generate_story: bool = True
     ) -> dict:
         """
@@ -281,7 +282,8 @@ class MockupGenerator:
             template: MockupTemplate instance
             design_image: BusinessImage oder ImageField
             background_prompt: Optionale Hintergrundbeschreibung
-            generate_story: True = auch Story-Format generieren
+            generate_feed: True = Feed-Format (1:1) generieren
+            generate_story: True = Story-Format (9:16) generieren
 
         Returns:
             Dict mit 'feed_image' und optional 'story_image'
@@ -320,42 +322,44 @@ class MockupGenerator:
                 background_prompt or template.default_background_prompt
             )
 
-            # Feed-Bild generieren (1:1)
-            logger.info("Generating feed mockup...")
-            feed_result = generator.generate(
-                prompt=prompt,
-                reference_images=[
-                    template.product_image_blank,
-                    template.product_image_engraved,
-                    prepared_design,
-                ],
-                width=1024,
-                height=1024,
-            )
+            reference_images = [
+                template.product_image_blank,
+                template.product_image_engraved,
+                prepared_design,
+            ]
 
-            if feed_result.get('success') and feed_result.get('image_data'):
-                result['feed_image'] = feed_result['image_data']
-            else:
-                result['error'] = feed_result.get('error', 'Mockup-Generierung fehlgeschlagen')
-                return result
+            # Feed-Bild generieren (1:1)
+            if generate_feed:
+                logger.info("Generating feed mockup...")
+                feed_result = generator.generate(
+                    prompt=prompt,
+                    reference_images=reference_images,
+                    width=1024,
+                    height=1024,
+                )
+
+                if feed_result.get('success') and feed_result.get('image_data'):
+                    result['feed_image'] = feed_result['image_data']
+                else:
+                    result['error'] = feed_result.get('error', 'Feed-Mockup-Generierung fehlgeschlagen')
+                    return result
 
             # Story-Bild generieren (9:16)
             if generate_story:
                 logger.info("Generating story mockup...")
                 story_result = generator.generate(
                     prompt=prompt,
-                    reference_images=[
-                        template.product_image_blank,
-                        template.product_image_engraved,
-                        prepared_design,
-                    ],
+                    reference_images=reference_images,
                     width=1024,
                     height=1820,  # 9:16 ratio
                 )
 
                 if story_result.get('success') and story_result.get('image_data'):
                     result['story_image'] = story_result['image_data']
-                # Story-Fehler ist nicht kritisch
+                elif not generate_feed:
+                    # Wenn nur Story generiert wird, ist der Fehler kritisch
+                    result['error'] = story_result.get('error', 'Story-Mockup-Generierung fehlgeschlagen')
+                    return result
 
             result['success'] = True
             logger.info("Mockup generation completed successfully")

@@ -120,21 +120,43 @@
                     {% endif %}
                 </div>
                 <div class="card-body">
-                    {% if campaign.mockup_image %}
+                    {% if campaign.mockup_image or campaign.mockup_image_story %}
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <h6 class="text-muted mb-2">Feed (1:1)</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-muted mb-0">Feed (1:1)</h6>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateMockup('feed')">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Neu
+                                </button>
+                            </div>
+                            {% if campaign.mockup_image %}
                             <img src="{{ campaign.mockup_image.url }}" alt="Mockup Feed" class="img-fluid mockup-preview">
+                            {% else %}
+                            <div class="text-center py-4 bg-light rounded">
+                                <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                                <p class="small text-muted mb-0 mt-2">Noch nicht generiert</p>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% if campaign.mockup_image_story %}
                         <div class="col-md-6 mb-3">
-                            <h6 class="text-muted mb-2">Story (9:16)</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="text-muted mb-0">Story (9:16)</h6>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateMockup('story')">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Neu
+                                </button>
+                            </div>
+                            {% if campaign.mockup_image_story %}
                             <img src="{{ campaign.mockup_image_story.url }}" alt="Mockup Story" class="img-fluid mockup-preview">
+                            {% else %}
+                            <div class="text-center py-4 bg-light rounded">
+                                <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                                <p class="small text-muted mb-0 mt-2">Noch nicht generiert</p>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endif %}
                     </div>
-                    <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="regenerate-mockup-btn">
-                        <i class="bi bi-arrow-clockwise me-1"></i>Neu generieren
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="generateMockup('both')">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Beide neu generieren
                     </button>
                     {% else %}
                     <div class="text-center py-4 text-muted">
@@ -468,18 +490,28 @@ function copyCaption(captionId) {
 
 // Mockup generieren
 const generateMockupBtn = document.getElementById('generate-mockup-btn');
-const regenerateMockupBtn = document.getElementById('regenerate-mockup-btn');
 
-function generateMockup() {
+function generateMockup(format = 'both') {
     loadingOverlay.classList.add('show');
-    loadingText.textContent = 'Generiere Mockup...';
-    loadingSubtext.textContent = 'Die KI erstellt ein personalisiertes Produktbild';
+
+    if (format === 'feed') {
+        loadingText.textContent = 'Generiere Feed-Mockup...';
+        loadingSubtext.textContent = 'Die KI erstellt ein 1:1 Produktbild';
+    } else if (format === 'story') {
+        loadingText.textContent = 'Generiere Story-Mockup...';
+        loadingSubtext.textContent = 'Die KI erstellt ein 9:16 Produktbild';
+    } else {
+        loadingText.textContent = 'Generiere Mockups...';
+        loadingSubtext.textContent = 'Die KI erstellt Feed und Story Bilder';
+    }
 
     fetch('/loommarket/api/campaigns/{{ campaign.pk }}/generate-mockup/', {
         method: 'POST',
         headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
-        }
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ format: format })
     })
     .then(response => response.json())
     .then(data => {
@@ -498,10 +530,7 @@ function generateMockup() {
 }
 
 if (generateMockupBtn) {
-    generateMockupBtn.addEventListener('click', generateMockup);
-}
-if (regenerateMockupBtn) {
-    regenerateMockupBtn.addEventListener('click', generateMockup);
+    generateMockupBtn.addEventListener('click', function() { generateMockup('both'); });
 }
 
 // Captions generieren

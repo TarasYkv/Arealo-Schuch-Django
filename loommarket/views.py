@@ -772,6 +772,16 @@ def campaign_delete(request, pk):
 def api_generate_mockup(request, campaign_id):
     """API: Generiert Mockup-Bilder für eine Kampagne."""
     try:
+        # Format aus Request lesen (feed, story, both)
+        if request.body:
+            try:
+                data = json.loads(request.body)
+                mockup_format = data.get('format', 'both')
+            except json.JSONDecodeError:
+                mockup_format = 'both'
+        else:
+            mockup_format = 'both'
+
         campaign = get_object_or_404(MarketingCampaign, pk=campaign_id, user=request.user)
 
         if not campaign.template:
@@ -786,18 +796,24 @@ def api_generate_mockup(request, campaign_id):
 
         # Mockup generieren
         generator = MockupGenerator(request.user)
+
+        # Bestimme welche Formate generiert werden sollen
+        generate_feed = mockup_format in ('feed', 'both')
+        generate_story = mockup_format in ('story', 'both')
+
         result = generator.generate_mockup(
             template=campaign.template,
             design_image=campaign.design_image,
             background_prompt=campaign.background_prompt,
-            generate_story=True,
+            generate_feed=generate_feed,
+            generate_story=generate_story,
         )
 
         if result['success']:
             import base64
             from django.core.files.base import ContentFile
 
-            if result['feed_image']:
+            if result.get('feed_image'):
                 # Base64-String zu ContentFile konvertieren
                 image_data = base64.b64decode(result['feed_image'])
                 campaign.mockup_image.save(
@@ -805,7 +821,7 @@ def api_generate_mockup(request, campaign_id):
                     ContentFile(image_data),
                     save=False
                 )
-            if result['story_image']:
+            if result.get('story_image'):
                 # Base64-String zu ContentFile konvertieren
                 image_data = base64.b64decode(result['story_image'])
                 campaign.mockup_image_story.save(
