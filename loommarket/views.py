@@ -223,12 +223,12 @@ def api_search_images(request, business_id):
         # Suchbegriff: Name oder Instagram-Username
         search_term = business.name or business.instagram_username
 
-        # Bildersuche
+        # Bildersuche - mehr Bilder für bessere Auswahl
         searcher = ImageSearcher()
         results = searcher.search_and_download(
             company_name=search_term,
-            max_logos=3,
-            max_products=5
+            max_logos=8,
+            max_products=12
         )
 
         saved_images = []
