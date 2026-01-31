@@ -182,7 +182,7 @@
                     </div>
                     {% if campaign.mockup_image %}
                     <button type="button" class="btn {% if captions %}btn-outline-primary{% else %}btn-primary{% endif %}" id="generate-captions-btn">
-                        <i class="bi bi-chat-text me-2"></i>{% if captions %}Neu generieren{% else %}Captions generieren{% endif %}
+                        <i class="bi bi-chat-text me-2"></i>{% if captions %}Alle neu generieren{% else %}Captions generieren{% endif %}
                     </button>
                     {% endif %}
                 </div>
@@ -203,10 +203,16 @@
                                             {% if caption.platform == 'bluesky' %}<i class="bi bi-cloud me-1"></i>{% endif %}
                                             {{ caption.get_platform_display }}
                                         </span>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                onclick="copyCaption('{{ caption.pk }}')">
-                                            <i class="bi bi-clipboard"></i>
-                                        </button>
+                                        <div class="btn-group btn-group-sm">
+                                            <button type="button" class="btn btn-outline-secondary"
+                                                    onclick="regenerateCaption('{{ caption.platform }}')" title="Neu generieren">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary"
+                                                    onclick="copyCaption('{{ caption.pk }}')" title="Kopieren">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="card-body py-2">
@@ -534,6 +540,46 @@ if (generateMockupBtn) {
 }
 
 // Captions generieren
+// Einzelne Caption regenerieren
+function regenerateCaption(platform) {
+    const platformNames = {
+        'instagram': 'Instagram',
+        'facebook': 'Facebook',
+        'linkedin': 'LinkedIn',
+        'pinterest': 'Pinterest',
+        'twitter': 'Twitter',
+        'bluesky': 'Bluesky'
+    };
+
+    loadingOverlay.classList.add('show');
+    loadingText.textContent = `Generiere ${platformNames[platform] || platform} Caption...`;
+    loadingSubtext.textContent = 'Die KI erstellt einen neuen Text';
+
+    fetch('/loommarket/api/campaigns/{{ campaign.pk }}/generate-captions/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ platforms: [platform] })
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingOverlay.classList.remove('show');
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler bei der Caption-Generierung');
+        }
+    })
+    .catch(error => {
+        loadingOverlay.classList.remove('show');
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+
+// Alle Captions generieren
 const generateCaptionsBtn = document.getElementById('generate-captions-btn');
 if (generateCaptionsBtn) {
     generateCaptionsBtn.addEventListener('click', function() {
