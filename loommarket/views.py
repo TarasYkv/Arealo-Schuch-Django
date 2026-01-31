@@ -363,6 +363,52 @@ def api_set_logo(request, image_id):
 
 @login_required
 @require_POST
+def api_refresh_instagram(request, business_id):
+    """API: Aktualisiert die Instagram-Profildaten."""
+    try:
+        business = get_object_or_404(Business, pk=business_id, user=request.user)
+
+        # Instagram-Daten neu laden
+        scraper = InstagramScraper()
+        profile_data = scraper.scrape_profile(business.instagram_username)
+
+        if profile_data['success']:
+            # Daten aktualisieren
+            if profile_data.get('name'):
+                business.name = profile_data['name']
+            if profile_data.get('bio'):
+                business.bio = profile_data['bio']
+            if profile_data.get('website'):
+                business.website = profile_data['website']
+            if profile_data.get('follower_count'):
+                business.follower_count = profile_data['follower_count']
+            if profile_data.get('profile_picture_url'):
+                business.profile_picture_url = profile_data['profile_picture_url']
+
+            business.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Instagram-Daten aktualisiert',
+                'data': {
+                    'name': business.name,
+                    'bio': business.bio,
+                    'website': business.website,
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': profile_data.get('error', 'Konnte Instagram-Profil nicht laden')
+            })
+
+    except Exception as e:
+        logger.exception(f"Error in api_refresh_instagram: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
 def api_refresh_impressum(request, business_id):
     """API: Aktualisiert das Impressum von Instagram und Website."""
     try:

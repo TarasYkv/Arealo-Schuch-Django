@@ -112,14 +112,21 @@
                         <!-- Instagram Impressum -->
                         <div class="col-md-6 mb-3">
                             <div class="card h-100 border-primary">
-                                <div class="card-header bg-primary text-white py-2">
-                                    <i class="bi bi-instagram me-1"></i>Instagram Bio
+                                <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-instagram me-1"></i>Instagram Bio</span>
+                                    <button type="button" class="btn btn-sm btn-light" id="refresh-instagram-btn" title="Instagram-Daten neu laden">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
                                 </div>
                                 <div class="card-body small" style="max-height: 300px; overflow-y: auto;">
                                     {% if business.bio %}
                                     <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ business.bio }}</pre>
                                     {% else %}
-                                    <p class="text-muted mb-0">Keine Bio vorhanden</p>
+                                    <div class="text-center py-3">
+                                        <i class="bi bi-exclamation-circle text-warning" style="font-size: 2rem;"></i>
+                                        <p class="text-muted mt-2 mb-0">Keine Bio vorhanden</p>
+                                        <small class="text-muted">Klicke auf den Refresh-Button oben rechts</small>
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>
@@ -452,7 +459,36 @@ document.getElementById('upload-form').addEventListener('submit', function(e) {
     });
 });
 
-// Impressum aktualisieren
+// Instagram-Daten aktualisieren
+document.getElementById('refresh-instagram-btn').addEventListener('click', function() {
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    fetch(`/loommarket/api/refresh-instagram/{{ business.pk }}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Fehler beim Laden der Instagram-Daten');
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+    });
+});
+
+// Website-Impressum aktualisieren
 document.getElementById('refresh-impressum-btn').addEventListener('click', function() {
     this.disabled = true;
     this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Suche...';
