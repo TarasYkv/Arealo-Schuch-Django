@@ -115,23 +115,44 @@ class BaseImageGenerator(ABC):
             Base64-String oder None bei Fehler
         """
         import base64
+        from django.core.files.base import ContentFile
 
         try:
+            # Django FieldFile/ImageField - hat .path Attribut
+            # Muss VOR read() geprüft werden, da FieldFile auch read() hat
+            if hasattr(image, 'path') and not isinstance(image, ContentFile):
+                try:
+                    with open(image.path, 'rb') as f:
+                        image_data = f.read()
+                    return base64.b64encode(image_data).decode('utf-8')
+                except Exception:
+                    # Fallback: Versuche über read()
+                    pass
+
+            # ContentFile oder anderes file-like object
             if hasattr(image, 'read'):
-                # Datei-Objekt
+                if hasattr(image, 'seek'):
+                    try:
+                        image.seek(0)
+                    except Exception:
+                        pass
                 image_data = image.read()
                 if hasattr(image, 'seek'):
-                    image.seek(0)
-            elif hasattr(image, 'path'):
-                # Django FieldFile
-                with open(image.path, 'rb') as f:
-                    image_data = f.read()
-            else:
-                # Pfad als String
-                with open(str(image), 'rb') as f:
-                    image_data = f.read()
+                    try:
+                        image.seek(0)
+                    except Exception:
+                        pass
+                return base64.b64encode(image_data).decode('utf-8')
 
-            return base64.b64encode(image_data).decode('utf-8')
+            # Pfad als String
+            if isinstance(image, str):
+                with open(image, 'rb') as f:
+                    image_data = f.read()
+                return base64.b64encode(image_data).decode('utf-8')
+
+            logger.error(f"Unbekannter Bildtyp: {type(image)}")
+            return None
+
         except Exception as e:
             logger.error(f"Error reading image: {e}")
             return None

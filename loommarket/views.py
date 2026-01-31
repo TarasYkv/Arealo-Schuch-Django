@@ -794,16 +794,23 @@ def api_generate_mockup(request, campaign_id):
         )
 
         if result['success']:
+            import base64
+            from django.core.files.base import ContentFile
+
             if result['feed_image']:
+                # Base64-String zu ContentFile konvertieren
+                image_data = base64.b64decode(result['feed_image'])
                 campaign.mockup_image.save(
                     f'mockup_{campaign.id}_feed.jpg',
-                    result['feed_image'],
+                    ContentFile(image_data),
                     save=False
                 )
             if result['story_image']:
+                # Base64-String zu ContentFile konvertieren
+                image_data = base64.b64decode(result['story_image'])
                 campaign.mockup_image_story.save(
                     f'mockup_{campaign.id}_story.jpg',
-                    result['story_image'],
+                    ContentFile(image_data),
                     save=False
                 )
 
