@@ -839,7 +839,14 @@ def api_generate_mockup(request, campaign_id):
 def api_generate_captions(request, campaign_id):
     """API: Generiert Captions für alle Plattformen."""
     try:
-        data = json.loads(request.body)
+        # JSON-Body optional - Standardwerte verwenden wenn leer
+        if request.body:
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                data = {}
+        else:
+            data = {}
         platforms = data.get('platforms', ['instagram', 'facebook', 'linkedin'])
 
         campaign = get_object_or_404(MarketingCampaign, pk=campaign_id, user=request.user)
