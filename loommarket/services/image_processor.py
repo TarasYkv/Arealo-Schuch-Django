@@ -275,8 +275,14 @@ class MockupGenerator:
             # ImageForge GeminiGenerator importieren
             from imageforge.services.gemini_generator import GeminiGenerator
 
+            # API-Key vom User holen
+            api_key = getattr(self.user, 'gemini_api_key', None)
+            if not api_key:
+                result['error'] = 'Gemini API-Key nicht konfiguriert. Bitte in den Einstellungen hinterlegen.'
+                return result
+
             # Generator initialisieren
-            generator = GeminiGenerator(self.user)
+            generator = GeminiGenerator(api_key)
 
             # Design-Bild vorbereiten (S/W für Gravur)
             design_file = design_image.image if hasattr(design_image, 'image') else design_image
