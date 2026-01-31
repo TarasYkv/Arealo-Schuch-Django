@@ -381,13 +381,18 @@ class MockupGenerator:
             Prompt-String
         """
         base_prompt = (
-            f"Generiere ein professionelles Produktfoto von einem {template.name}. "
-            f"WICHTIG: Das dritte Referenzbild zeigt das Design/Logo, das als Lasergravur auf dem Produkt erscheinen soll. "
-            f"Das KOMPLETTE Design muss vollständig sichtbar sein - schneide NICHTS ab! "
-            f"Skaliere das Design so, dass es gut auf das Produkt passt und zentriert ist. "
-            f"Verwende das erste Referenzbild (Produkt ohne Gravur) als Basis für Form und Perspektive. "
-            f"Verwende das zweite Referenzbild als Beispiel für den Gravur-Stil (Tiefe, Schattierung, Textur). "
-            f"Die Gravur soll realistisch, hochwertig und gut lesbar aussehen."
+            f"Generiere ein professionelles Produktfoto von einem {template.name} mit einer Lasergravur. "
+            f"\n\nKRITISCH - Das dritte Referenzbild zeigt das Design für die Gravur: "
+            f"Übernimm das GESAMTE Design 1:1 - jedes Element, jeden Text, jedes Grafikelement! "
+            f"NICHTS weglassen, NICHTS abschneiden, NICHTS verändern! "
+            f"Das komplette Design (Logo UND Text) muss vollständig und lesbar auf dem Produkt erscheinen. "
+            f"\n\nAnleitung: "
+            f"1. Nimm das erste Referenzbild als Basis (Produkt ohne Gravur) "
+            f"2. Platziere das GESAMTE dritte Referenzbild als Gravur auf dem Produkt "
+            f"3. Orientiere dich am zweiten Referenzbild für den Gravur-Stil "
+            f"4. Skaliere das Design proportional, damit es komplett auf das Produkt passt "
+            f"5. Zentriere die Gravur auf dem Produkt "
+            f"\n\nDie Gravur soll realistisch, hochwertig und vollständig lesbar sein."
         )
 
         if background_prompt:
