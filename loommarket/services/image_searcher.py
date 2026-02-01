@@ -1,9 +1,8 @@
 """
 Image Searcher für LoomMarket.
-Sucht Logos und Produktbilder über Google Custom Search API.
+Sucht Logos und Produktbilder über Bing Image Search API.
 Fallback auf DuckDuckGo wenn kein API-Key konfiguriert.
 """
-import os
 import io
 import uuid
 import logging
@@ -11,15 +10,14 @@ import requests
 from PIL import Image
 from typing import List, Dict, Any, Optional
 from django.core.files.base import ContentFile
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 
 class ImageSearcher:
     """
-    Sucht Bilder über Google Custom Search API oder DuckDuckGo.
-    Google wird bevorzugt (zuverlässiger, kein Rate-Limit bei 100/Tag).
+    Sucht Bilder über Bing Image Search API oder DuckDuckGo.
+    Bing wird bevorzugt (1000 kostenlose Anfragen/Monat).
     """
 
     # User-Agent für Requests
@@ -28,8 +26,8 @@ class ImageSearcher:
         "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     )
 
-    # Google Custom Search API
-    GOOGLE_API_URL = "https://www.googleapis.com/customsearch/v1"
+    # Bing Image Search API
+    BING_API_URL = "https://api.bing.microsoft.com/v7.0/images/search"
 
     # Timeout für Requests
     TIMEOUT = 15
@@ -41,13 +39,12 @@ class ImageSearcher:
     MIN_WIDTH = 100
     MIN_HEIGHT = 100
 
-    def __init__(self, google_api_key: str = None, google_cx: str = None):
+    def __init__(self, bing_api_key: str = None):
         """
         Initialisiert den ImageSearcher.
 
         Args:
-            google_api_key: Google Custom Search API Key (optional, nutzt settings wenn nicht angegeben)
-            google_cx: Google Custom Search Engine ID (optional, nutzt settings wenn nicht angegeben)
+            bing_api_key: Bing Image Search API Key (optional)
         """
         self.session = requests.Session()
         self.session.headers.update({
@@ -56,17 +53,16 @@ class ImageSearcher:
             'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
         })
 
-        # Google API Credentials
-        self.google_api_key = google_api_key or getattr(settings, 'GOOGLE_API_KEY', None)
-        self.google_cx = google_cx or getattr(settings, 'GOOGLE_SEARCH_CX', None)
+        # Bing API Key
+        self.bing_api_key = bing_api_key
 
-        # Prüfe ob Google API verfügbar
-        self.use_google = bool(self.google_api_key and self.google_cx)
+        # Prüfe ob Bing API verfügbar
+        self.use_bing = bool(self.bing_api_key)
 
-        if self.use_google:
-            logger.info("ImageSearcher initialized with Google Custom Search API")
+        if self.use_bing:
+            logger.info("ImageSearcher initialized with Bing Image Search API")
         else:
-            logger.info("ImageSearcher initialized with DuckDuckGo fallback (no Google API key)")
+            logger.info("ImageSearcher initialized with DuckDuckGo fallback (no Bing API key)")
 
     def search_images(
         self,
@@ -91,85 +87,85 @@ class ImageSearcher:
         elif search_type == 'product':
             query = f"{query} produkt"
 
-        # Google API verwenden wenn verfügbar
-        if self.use_google:
-            results = self._search_google(query, max_results, search_type)
+        # Bing API verwenden wenn verfügbar
+        if self.use_bing:
+            results = self._search_bing(query, max_results, search_type)
             if results:
                 return results
-            logger.warning("Google search failed, trying DuckDuckGo fallback")
+            logger.warning("Bing search failed, trying DuckDuckGo fallback")
 
         # DuckDuckGo Fallback
         return self._search_duckduckgo(query, max_results, search_type)
 
-    def _search_google(
+    def _search_bing(
         self,
         query: str,
         max_results: int,
         search_type: str
     ) -> List[Dict[str, Any]]:
         """
-        Sucht Bilder über Google Custom Search API.
+        Sucht Bilder über Bing Image Search API.
         """
         results = []
 
         try:
-            logger.info(f"Google Image Search: {query}")
+            logger.info(f"Bing Image Search: {query}")
 
-            # Google API Params
-            params = {
-                'key': self.google_api_key,
-                'cx': self.google_cx,
-                'q': query,
-                'searchType': 'image',
-                'num': min(max_results, 10),  # Max 10 pro Request
-                'safe': 'active',
-                'imgType': 'photo',
+            headers = {
+                'Ocp-Apim-Subscription-Key': self.bing_api_key,
             }
 
-            # Für Logos: PNG und clipart bevorzugen
+            params = {
+                'q': query,
+                'count': min(max_results * 2, 50),  # Mehr holen für Filterung
+                'mkt': 'de-DE',
+                'safeSearch': 'Moderate',
+            }
+
+            # Für Logos: PNG und transparente Bilder bevorzugen
             if search_type == 'logo':
-                params['imgType'] = 'clipart'
-                params['fileType'] = 'png'
+                params['imageType'] = 'Clipart'
 
             response = self.session.get(
-                self.GOOGLE_API_URL,
+                self.BING_API_URL,
+                headers=headers,
                 params=params,
                 timeout=self.TIMEOUT
             )
 
             if response.status_code == 200:
                 data = response.json()
-                items = data.get('items', [])
+                items = data.get('value', [])
 
                 for item in items:
                     if len(results) >= max_results:
                         break
 
-                    image_info = item.get('image', {})
-
                     result = {
-                        'url': item.get('link'),
-                        'thumbnail': image_info.get('thumbnailLink'),
-                        'title': item.get('title', ''),
-                        'source': item.get('displayLink', ''),
-                        'width': image_info.get('width', 0),
-                        'height': image_info.get('height', 0),
+                        'url': item.get('contentUrl'),
+                        'thumbnail': item.get('thumbnailUrl'),
+                        'title': item.get('name', ''),
+                        'source': item.get('hostPageDisplayUrl', ''),
+                        'width': item.get('width', 0),
+                        'height': item.get('height', 0),
                     }
 
                     if self._validate_image_result(result, search_type):
                         results.append(result)
 
-                logger.info(f"Google found {len(results)} images for: {query}")
+                logger.info(f"Bing found {len(results)} images for: {query}")
 
+            elif response.status_code == 401:
+                logger.error("Bing API: Invalid subscription key")
             elif response.status_code == 403:
-                logger.error("Google API quota exceeded or invalid key")
+                logger.error("Bing API: Quota exceeded or access denied")
             else:
-                logger.warning(f"Google API error: {response.status_code}")
+                logger.warning(f"Bing API error: {response.status_code} - {response.text[:200]}")
 
         except requests.RequestException as e:
-            logger.error(f"Google API request failed: {e}")
+            logger.error(f"Bing API request failed: {e}")
         except Exception as e:
-            logger.exception(f"Google search error: {e}")
+            logger.exception(f"Bing search error: {e}")
 
         return results
 

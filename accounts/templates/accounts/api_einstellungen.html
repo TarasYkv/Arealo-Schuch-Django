@@ -630,21 +630,21 @@ body.bg-dark .password-toggle:hover {
         </div>
         {% endif %}
 
-        <!-- Google Custom Search API (LoomMarket) -->
+        <!-- Bing Image Search API (LoomMarket) -->
         <div class="col-lg-6">
             <div class="card api-provider-card">
-                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #EA4335, #FBBC05);">
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #00a4ef, #7fba00);">
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-search fa-2x me-3"></i>
+                        <i class="fab fa-microsoft fa-2x me-3"></i>
                         <div>
-                            <h5 class="mb-0">Google Search API</h5>
+                            <h5 class="mb-0">Bing Image Search</h5>
                             <small class="opacity-75">LoomMarket - Bildersuche</small>
                         </div>
                     </div>
                     <div class="api-status-indicator">
-                        <div class="status-light {% if google_search_configured %}connected{% else %}disconnected{% endif %}"></div>
+                        <div class="status-light {% if bing_search_configured %}connected{% else %}disconnected{% endif %}"></div>
                         <small class="fw-bold">
-                            {% if google_search_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                            {% if bing_search_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
                         </small>
                     </div>
                 </div>
@@ -652,45 +652,32 @@ body.bg-dark .password-toggle:hover {
                 <div class="card-body">
                     <form method="post" class="mb-3">
                         {% csrf_token %}
-                        <input type="hidden" name="action" value="update_google_search">
+                        <input type="hidden" name="action" value="update_bing_search">
 
                         <div class="mb-3">
-                            <label for="google_search_api_key" class="form-label">API-Schluessel:</label>
+                            <label for="bing_search_api_key" class="form-label">API-Schluessel:</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-key"></i></span>
                                 <input type="password"
                                        class="form-control"
-                                       id="google_search_api_key"
-                                       name="google_search_api_key"
-                                       placeholder="AIzaSy..."
-                                       value="{% if google_search_configured %}{{ google_search_key_masked }}{% endif %}">
+                                       id="bing_search_api_key"
+                                       name="bing_search_api_key"
+                                       placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                       value="{% if bing_search_configured %}{{ bing_search_key_masked }}{% endif %}">
                                 <button class="password-toggle" type="button"
-                                        onclick="togglePasswordVisibility('google_search_api_key', this)">
+                                        onclick="togglePasswordVisibility('bing_search_api_key', this)">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="google_search_cx" class="form-label">Search Engine ID (CX):</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-cog"></i></span>
-                                <input type="text"
-                                       class="form-control"
-                                       id="google_search_cx"
-                                       name="google_search_cx"
-                                       placeholder="a1b2c3d4e5f6g7h8i"
-                                       value="{{ user.google_search_cx|default:'' }}">
-                            </div>
                             <div class="form-text">
-                                Status: <span class="{% if google_search_configured %}text-success{% else %}text-warning{% endif %}">
-                                    {% if google_search_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                                Status: <span class="{% if bing_search_configured %}text-success{% else %}text-warning{% endif %}">
+                                    {% if bing_search_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
                                 </span>
                             </div>
                         </div>
 
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-sm" style="background: linear-gradient(135deg, #EA4335, #FBBC05); color: white;">
+                            <button type="submit" class="btn btn-sm" style="background: linear-gradient(135deg, #00a4ef, #7fba00); color: white;">
                                 <i class="fas fa-save me-1"></i>Speichern
                             </button>
                         </div>
@@ -700,23 +687,13 @@ body.bg-dark .password-toggle:hover {
                         <small class="text-muted d-block mb-2">
                             <strong>Anleitung:</strong>
                         </small>
-                        <a href="https://console.cloud.google.com/apis/credentials"
+                        <a href="https://portal.azure.com/#create/microsoft.bingsearch"
                            target="_blank"
                            class="btn btn-outline-primary btn-sm mb-1">
-                            <i class="fas fa-key me-1"></i>1. API-Key erstellen
-                        </a>
-                        <a href="https://programmablesearchengine.google.com/"
-                           target="_blank"
-                           class="btn btn-outline-primary btn-sm mb-1">
-                            <i class="fas fa-search me-1"></i>2. Search Engine erstellen
-                        </a>
-                        <a href="https://console.cloud.google.com/apis/library/customsearch.googleapis.com"
-                           target="_blank"
-                           class="btn btn-outline-primary btn-sm mb-1">
-                            <i class="fas fa-check me-1"></i>3. API aktivieren
+                            <i class="fab fa-microsoft me-1"></i>Bing Search erstellen
                         </a>
                         <div class="mt-2">
-                            <small class="text-muted">Kostenlos: 100 Suchanfragen/Tag</small>
+                            <small class="text-muted">Kostenlos: 1000 Anfragen/Monat (F0 Tier)</small>
                         </div>
                     </div>
                 </div>
