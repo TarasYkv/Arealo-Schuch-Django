@@ -1,7 +1,6 @@
 """
 Image Searcher für LoomMarket.
-Sucht Logos und Produktbilder über Bing Image Search API.
-Fallback auf DuckDuckGo wenn kein API-Key konfiguriert.
+Sucht Logos und Produktbilder über DuckDuckGo Web-Scraping.
 """
 import io
 import uuid
@@ -16,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ImageSearcher:
     """
-    Sucht Bilder über Bing Image Search API oder DuckDuckGo.
-    Bing wird bevorzugt (1000 kostenlose Anfragen/Monat).
+    Sucht Bilder über DuckDuckGo (kein API-Key erforderlich).
     """
 
     # User-Agent für Requests
@@ -25,9 +23,6 @@ class ImageSearcher:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     )
-
-    # Bing Image Search API
-    BING_API_URL = "https://api.bing.microsoft.com/v7.0/images/search"
 
     # Timeout für Requests
     TIMEOUT = 15
@@ -39,30 +34,15 @@ class ImageSearcher:
     MIN_WIDTH = 100
     MIN_HEIGHT = 100
 
-    def __init__(self, bing_api_key: str = None):
-        """
-        Initialisiert den ImageSearcher.
-
-        Args:
-            bing_api_key: Bing Image Search API Key (optional)
-        """
+    def __init__(self):
+        """Initialisiert den ImageSearcher."""
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': self.USER_AGENT,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
         })
-
-        # Bing API Key
-        self.bing_api_key = bing_api_key
-
-        # Prüfe ob Bing API verfügbar
-        self.use_bing = bool(self.bing_api_key)
-
-        if self.use_bing:
-            logger.info("ImageSearcher initialized with Bing Image Search API")
-        else:
-            logger.info("ImageSearcher initialized with DuckDuckGo fallback (no Bing API key)")
+        logger.info("ImageSearcher initialized with DuckDuckGo scraping")
 
     def search_images(
         self,
@@ -87,87 +67,7 @@ class ImageSearcher:
         elif search_type == 'product':
             query = f"{query} produkt"
 
-        # Bing API verwenden wenn verfügbar
-        if self.use_bing:
-            results = self._search_bing(query, max_results, search_type)
-            if results:
-                return results
-            logger.warning("Bing search failed, trying DuckDuckGo fallback")
-
-        # DuckDuckGo Fallback
         return self._search_duckduckgo(query, max_results, search_type)
-
-    def _search_bing(
-        self,
-        query: str,
-        max_results: int,
-        search_type: str
-    ) -> List[Dict[str, Any]]:
-        """
-        Sucht Bilder über Bing Image Search API.
-        """
-        results = []
-
-        try:
-            logger.info(f"Bing Image Search: {query}")
-
-            headers = {
-                'Ocp-Apim-Subscription-Key': self.bing_api_key,
-            }
-
-            params = {
-                'q': query,
-                'count': min(max_results * 2, 50),  # Mehr holen für Filterung
-                'mkt': 'de-DE',
-                'safeSearch': 'Moderate',
-            }
-
-            # Für Logos: PNG und transparente Bilder bevorzugen
-            if search_type == 'logo':
-                params['imageType'] = 'Clipart'
-
-            response = self.session.get(
-                self.BING_API_URL,
-                headers=headers,
-                params=params,
-                timeout=self.TIMEOUT
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                items = data.get('value', [])
-
-                for item in items:
-                    if len(results) >= max_results:
-                        break
-
-                    result = {
-                        'url': item.get('contentUrl'),
-                        'thumbnail': item.get('thumbnailUrl'),
-                        'title': item.get('name', ''),
-                        'source': item.get('hostPageDisplayUrl', ''),
-                        'width': item.get('width', 0),
-                        'height': item.get('height', 0),
-                    }
-
-                    if self._validate_image_result(result, search_type):
-                        results.append(result)
-
-                logger.info(f"Bing found {len(results)} images for: {query}")
-
-            elif response.status_code == 401:
-                logger.error("Bing API: Invalid subscription key")
-            elif response.status_code == 403:
-                logger.error("Bing API: Quota exceeded or access denied")
-            else:
-                logger.warning(f"Bing API error: {response.status_code} - {response.text[:200]}")
-
-        except requests.RequestException as e:
-            logger.error(f"Bing API request failed: {e}")
-        except Exception as e:
-            logger.exception(f"Bing search error: {e}")
-
-        return results
 
     def _search_duckduckgo(
         self,
@@ -176,7 +76,7 @@ class ImageSearcher:
         search_type: str
     ) -> List[Dict[str, Any]]:
         """
-        Sucht Bilder über DuckDuckGo (Fallback).
+        Sucht Bilder über DuckDuckGo.
         """
         results = []
 
@@ -216,7 +116,7 @@ class ImageSearcher:
         except Exception as e:
             # Rate limit oder anderer Fehler
             if 'Ratelimit' in str(e):
-                logger.warning("DuckDuckGo rate limit reached")
+                logger.warning("DuckDuckGo rate limit reached - try again later")
             else:
                 logger.exception(f"DuckDuckGo search error: {e}")
 
@@ -260,21 +160,15 @@ class ImageSearcher:
         return True
 
     def search_logos(self, company_name: str, max_results: int = 5) -> List[Dict[str, Any]]:
-        """
-        Sucht speziell nach Logos.
-        """
+        """Sucht speziell nach Logos."""
         return self.search_images(company_name, max_results, search_type='logo')
 
     def search_products(self, company_name: str, max_results: int = 5) -> List[Dict[str, Any]]:
-        """
-        Sucht nach Produktbildern.
-        """
+        """Sucht nach Produktbildern."""
         return self.search_images(company_name, max_results, search_type='product')
 
     def download_image(self, url: str) -> Optional[Dict[str, Any]]:
-        """
-        Lädt ein Bild herunter und gibt es als ContentFile zurück.
-        """
+        """Lädt ein Bild herunter und gibt es als ContentFile zurück."""
         try:
             logger.info(f"Downloading image: {url[:100]}...")
 
@@ -340,9 +234,7 @@ class ImageSearcher:
         max_logos: int = 3,
         max_products: int = 5
     ) -> Dict[str, List[Dict]]:
-        """
-        Sucht und lädt Logos und Produktbilder herunter.
-        """
+        """Sucht und lädt Logos und Produktbilder herunter."""
         results = {
             'logos': [],
             'products': [],

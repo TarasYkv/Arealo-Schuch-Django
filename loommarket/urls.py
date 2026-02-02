@@ -22,6 +22,12 @@ urlpatterns = [
     path('api/refresh-instagram/<int:business_id>/', views.api_refresh_instagram, name='api_refresh_instagram'),
     path('api/refresh-impressum/<int:business_id>/', views.api_refresh_impressum, name='api_refresh_impressum'),
 
+    # API: Slogan
+    path('api/fonts/', views.api_get_fonts, name='api_get_fonts'),
+    path('api/extract-slogans/<int:business_id>/', views.api_extract_slogans, name='api_extract_slogans'),
+    path('api/generate-slogan-image/<int:business_id>/', views.api_generate_slogan_image, name='api_generate_slogan_image'),
+    path('api/preview-slogan-fonts/<int:business_id>/', views.api_preview_slogan_fonts, name='api_preview_slogan_fonts'),
+
     # Mockup Templates
     path('templates/', views.template_list, name='template_list'),
     path('templates/create/', views.template_create, name='template_create'),

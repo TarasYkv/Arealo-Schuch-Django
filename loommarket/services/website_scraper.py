@@ -202,3 +202,136 @@ class WebsiteScraper:
 
         # Instagram Bio ist das "Impressum" auf Instagram
         return bio
+
+    def extract_slogans(self, website_url: str) -> Dict[str, Any]:
+        """
+        Extrahiert Slogans/Taglines von einer Website.
+
+        Args:
+            website_url: URL der Website
+
+        Returns:
+            Dict mit slogans (Liste), success, error
+        """
+        result = {
+            'success': False,
+            'slogans': [],
+            'error': None,
+        }
+
+        if not website_url:
+            result['error'] = 'Keine Website-URL angegeben'
+            return result
+
+        try:
+            # URL normalisieren
+            if not website_url.startswith(('http://', 'https://')):
+                website_url = 'https://' + website_url
+
+            logger.info(f"Searching slogans on: {website_url}")
+
+            # Hauptseite laden
+            response = self.session.get(website_url, timeout=self.TIMEOUT)
+            if response.status_code != 200:
+                result['error'] = f'Website nicht erreichbar (Status {response.status_code})'
+                return result
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+            slogans = []
+
+            # 1. Meta Description - oft enthält den Slogan
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                desc = meta_desc['content'].strip()
+                if 10 < len(desc) < 150:
+                    slogans.append({
+                        'text': desc,
+                        'source': 'Meta Description',
+                        'priority': 2
+                    })
+
+            # 2. OG Description
+            og_desc = soup.find('meta', attrs={'property': 'og:description'})
+            if og_desc and og_desc.get('content'):
+                desc = og_desc['content'].strip()
+                if 10 < len(desc) < 150 and desc not in [s['text'] for s in slogans]:
+                    slogans.append({
+                        'text': desc,
+                        'source': 'OG Description',
+                        'priority': 2
+                    })
+
+            # 3. H1 Überschriften (oft Slogans)
+            for h1 in soup.find_all('h1'):
+                text = h1.get_text(strip=True)
+                if 5 < len(text) < 100 and text not in [s['text'] for s in slogans]:
+                    # Keine Navigation/Menu-Texte
+                    if not any(skip in text.lower() for skip in ['menü', 'menu', 'navigation', 'login', 'registrier']):
+                        slogans.append({
+                            'text': text,
+                            'source': 'H1 Überschrift',
+                            'priority': 1
+                        })
+
+            # 4. Suche nach Tagline-Klassen
+            tagline_classes = ['tagline', 'slogan', 'motto', 'hero-text', 'hero-title',
+                             'subtitle', 'claim', 'brand-text', 'headline']
+            for cls in tagline_classes:
+                elements = soup.find_all(class_=re.compile(cls, re.I))
+                for el in elements:
+                    text = el.get_text(strip=True)
+                    if 5 < len(text) < 120 and text not in [s['text'] for s in slogans]:
+                        slogans.append({
+                            'text': text,
+                            'source': f'Klasse: {cls}',
+                            'priority': 1
+                        })
+
+            # 5. Hero-Section H2
+            hero = soup.find(class_=re.compile(r'hero|banner|jumbotron|header-main', re.I))
+            if hero:
+                for h2 in hero.find_all(['h2', 'h3', 'p']):
+                    text = h2.get_text(strip=True)
+                    if 10 < len(text) < 150 and text not in [s['text'] for s in slogans]:
+                        slogans.append({
+                            'text': text,
+                            'source': 'Hero Section',
+                            'priority': 2
+                        })
+
+            # 6. Title Tag (gekürzt)
+            title = soup.find('title')
+            if title:
+                title_text = title.get_text(strip=True)
+                # Entferne Domain-Teil (oft "Firmenname | Slogan" oder "Slogan - Firmenname")
+                parts = re.split(r'\s*[\|–—-]\s*', title_text)
+                for part in parts:
+                    part = part.strip()
+                    if 5 < len(part) < 80 and part not in [s['text'] for s in slogans]:
+                        slogans.append({
+                            'text': part,
+                            'source': 'Title Tag',
+                            'priority': 3
+                        })
+
+            # Sortiere nach Priorität (1 = beste)
+            slogans.sort(key=lambda x: x['priority'])
+
+            # Maximal 5 Slogans zurückgeben
+            result['slogans'] = slogans[:5]
+            result['success'] = len(slogans) > 0
+
+            if not slogans:
+                result['error'] = 'Keine Slogans gefunden'
+
+            logger.info(f"Found {len(result['slogans'])} slogans on: {website_url}")
+
+        except requests.Timeout:
+            result['error'] = 'Timeout beim Abrufen der Website'
+        except requests.RequestException as e:
+            result['error'] = f'Netzwerkfehler: {str(e)}'
+        except Exception as e:
+            result['error'] = f'Fehler: {str(e)}'
+            logger.exception(f"Error scraping slogans: {e}")
+
+        return result

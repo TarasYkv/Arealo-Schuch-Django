@@ -20,6 +20,8 @@ from .models import (
 )
 from .services import InstagramScraper, ImageSearcher, ImageProcessor, CaptionGenerator
 from .services.image_processor import MockupGenerator
+from .services.website_scraper import WebsiteScraper
+from .services.slogan_image_generator import SloganImageGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -240,9 +242,8 @@ def api_search_images(request, business_id):
         # Suchbegriff: Name oder Instagram-Username
         search_term = business.name or business.instagram_username
 
-        # Bildersuche - User-spezifischen Bing API-Key verwenden
-        bing_api_key = getattr(request.user, 'bing_search_api_key', None)
-        searcher = ImageSearcher(bing_api_key=bing_api_key)
+        # Bildersuche - DuckDuckGo Scraping (kein API-Key nötig)
+        searcher = ImageSearcher()
         results = searcher.search_and_download(
             company_name=search_term,
             max_logos=8,
@@ -466,6 +467,163 @@ def api_refresh_impressum(request, business_id):
 
     except Exception as e:
         logger.exception(f"Error in api_refresh_impressum: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_extract_slogans(request, business_id):
+    """API: Extrahiert Slogans von der Website eines Unternehmens."""
+    try:
+        business = get_object_or_404(Business, pk=business_id, user=request.user)
+
+        if not business.website:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Website vorhanden. Bitte erst Website hinzufügen.'
+            }, status=400)
+
+        # Slogans extrahieren
+        scraper = WebsiteScraper()
+        result = scraper.extract_slogans(business.website)
+
+        return JsonResponse({
+            'success': result['success'],
+            'slogans': result.get('slogans', []),
+            'error': result.get('error'),
+        })
+
+    except Exception as e:
+        logger.exception(f"Error in api_extract_slogans: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_GET
+def api_get_fonts(request):
+    """API: Gibt Liste der verfügbaren Fonts zurück."""
+    try:
+        generator = SloganImageGenerator()
+        fonts = generator.get_available_fonts()
+
+        return JsonResponse({
+            'success': True,
+            'fonts': fonts,
+        })
+
+    except Exception as e:
+        logger.exception(f"Error in api_get_fonts: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_generate_slogan_image(request, business_id):
+    """API: Generiert ein Slogan-Bild mit ausgewähltem Font."""
+    try:
+        data = json.loads(request.body)
+        slogan_text = data.get('text', '').strip()
+        font_id = data.get('font_id', 'playfair')
+
+        if not slogan_text:
+            return JsonResponse({
+                'success': False,
+                'error': 'Bitte Slogan-Text angeben'
+            }, status=400)
+
+        business = get_object_or_404(Business, pk=business_id, user=request.user)
+
+        # Slogan-Bild generieren
+        generator = SloganImageGenerator()
+        result = generator.generate_slogan_for_engraving(slogan_text, font_id)
+
+        if not result:
+            return JsonResponse({
+                'success': False,
+                'error': 'Fehler bei der Bildgenerierung'
+            }, status=500)
+
+        # Als BusinessImage speichern
+        img = BusinessImage.objects.create(
+            business=business,
+            image=result['image'],
+            source='slogan',
+            is_logo=False,
+            order=50,  # Mittig in der Sortierung
+            width=result['width'],
+            height=result['height'],
+        )
+
+        return JsonResponse({
+            'success': True,
+            'image': {
+                'id': img.id,
+                'url': img.image.url,
+                'font_name': result['font_name'],
+                'text': result['text'],
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        logger.exception(f"Error in api_generate_slogan_image: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_preview_slogan_fonts(request, business_id):
+    """API: Generiert Vorschaubilder für alle Fonts mit einem Slogan."""
+    try:
+        data = json.loads(request.body)
+        slogan_text = data.get('text', '').strip()
+
+        if not slogan_text:
+            return JsonResponse({
+                'success': False,
+                'error': 'Bitte Slogan-Text angeben'
+            }, status=400)
+
+        business = get_object_or_404(Business, pk=business_id, user=request.user)
+
+        # Vorschaubilder generieren (kleiner als Endprodukt)
+        generator = SloganImageGenerator()
+        previews = generator.generate_all_font_previews(
+            slogan_text,
+            width=400,
+            height=200
+        )
+
+        # Previews temporär speichern und URLs zurückgeben
+        preview_data = []
+        for preview in previews:
+            # Temporär in BusinessImage speichern (wird später gelöscht)
+            img = BusinessImage.objects.create(
+                business=business,
+                image=preview['image'],
+                source='slogan_preview',
+                is_logo=False,
+                order=999,  # Am Ende
+                width=preview['width'],
+                height=preview['height'],
+            )
+            preview_data.append({
+                'id': img.id,
+                'url': img.image.url,
+                'font_id': preview['font_id'],
+                'font_name': preview['font_name'],
+            })
+
+        return JsonResponse({
+            'success': True,
+            'previews': preview_data,
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        logger.exception(f"Error in api_preview_slogan_fonts: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 

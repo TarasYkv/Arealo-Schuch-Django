@@ -181,6 +181,59 @@
             </div>
             {% endif %}
 
+            <!-- Slogan Generator -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-chat-quote me-2"></i>Slogan-Gravur erstellen</h5>
+                    {% if business.website %}
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="extract-slogans-btn">
+                        <i class="bi bi-search me-1"></i>Slogans von Website finden
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Erstelle ein Gravur-Bild aus einem Slogan oder Firmenspruch. Waehle aus verschiedenen Schriftarten.
+                    </p>
+
+                    <!-- Gefundene Slogans -->
+                    <div id="found-slogans-container" class="mb-3" style="display: none;">
+                        <label class="form-label fw-semibold">Gefundene Slogans</label>
+                        <div id="found-slogans-list" class="list-group mb-2">
+                            <!-- Wird per JavaScript gefuellt -->
+                        </div>
+                    </div>
+
+                    <!-- Slogan eingeben -->
+                    <div class="mb-3">
+                        <label for="slogan-text" class="form-label fw-semibold">Slogan-Text</label>
+                        <input type="text" class="form-control" id="slogan-text"
+                               placeholder="z.B. Qualitaet seit 1990" maxlength="100">
+                        <div class="form-text">Max. 100 Zeichen fuer optimale Lesbarkeit</div>
+                    </div>
+
+                    <!-- Font-Vorschau Button -->
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-outline-secondary" id="preview-fonts-btn" disabled>
+                            <i class="bi bi-fonts me-1"></i>Schriftarten-Vorschau
+                        </button>
+                    </div>
+
+                    <!-- Font-Auswahl -->
+                    <div id="font-selection-container" class="mb-3" style="display: none;">
+                        <label class="form-label fw-semibold">Schriftart waehlen</label>
+                        <div id="font-previews" class="row g-2">
+                            <!-- Wird per JavaScript gefuellt -->
+                        </div>
+                    </div>
+
+                    <!-- Generieren Button -->
+                    <button type="button" class="btn btn-success" id="generate-slogan-btn" disabled>
+                        <i class="bi bi-image me-1"></i>Slogan-Bild erstellen
+                    </button>
+                </div>
+            </div>
+
             <!-- Bilder -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -516,5 +569,198 @@ document.getElementById('refresh-impressum-btn').addEventListener('click', funct
         this.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Aktualisieren';
     });
 });
+
+// ============================================================================
+// SLOGAN GENERATOR
+// ============================================================================
+
+let selectedFontId = 'playfair'; // Default-Font
+
+// Slogan-Text Input aktiviert Buttons
+const sloganTextInput = document.getElementById('slogan-text');
+const previewFontsBtn = document.getElementById('preview-fonts-btn');
+const generateSloganBtn = document.getElementById('generate-slogan-btn');
+
+if (sloganTextInput) {
+    sloganTextInput.addEventListener('input', function() {
+        const hasText = this.value.trim().length > 0;
+        previewFontsBtn.disabled = !hasText;
+        generateSloganBtn.disabled = !hasText;
+    });
+}
+
+// Slogans von Website extrahieren
+const extractSlogansBtn = document.getElementById('extract-slogans-btn');
+if (extractSlogansBtn) {
+    extractSlogansBtn.addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Suche...';
+
+        fetch(`/loommarket/api/extract-slogans/{{ business.pk }}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-search me-1"></i>Slogans von Website finden';
+
+            if (data.success && data.slogans && data.slogans.length > 0) {
+                // Slogans anzeigen
+                const container = document.getElementById('found-slogans-container');
+                const list = document.getElementById('found-slogans-list');
+                list.innerHTML = '';
+
+                data.slogans.forEach(slogan => {
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                    item.innerHTML = `
+                        <span class="text-truncate">${slogan.text}</span>
+                        <small class="text-muted ms-2">${slogan.source}</small>
+                    `;
+                    item.addEventListener('click', function() {
+                        sloganTextInput.value = slogan.text;
+                        sloganTextInput.dispatchEvent(new Event('input'));
+                        // Highlight active
+                        list.querySelectorAll('.list-group-item').forEach(i => i.classList.remove('active'));
+                        this.classList.add('active');
+                    });
+                    list.appendChild(item);
+                });
+
+                container.style.display = 'block';
+            } else {
+                alert(data.error || 'Keine Slogans gefunden');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-search me-1"></i>Slogans von Website finden';
+            alert('Fehler beim Suchen der Slogans');
+        });
+    });
+}
+
+// Font-Vorschau generieren
+if (previewFontsBtn) {
+    previewFontsBtn.addEventListener('click', function() {
+        const text = sloganTextInput.value.trim();
+        if (!text) return;
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Lade Vorschau...';
+
+        fetch(`/loommarket/api/preview-slogan-fonts/{{ business.pk }}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: text })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-fonts me-1"></i>Schriftarten-Vorschau';
+
+            if (data.success && data.previews) {
+                const container = document.getElementById('font-selection-container');
+                const previewsDiv = document.getElementById('font-previews');
+                previewsDiv.innerHTML = '';
+
+                data.previews.forEach((preview, index) => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 col-lg-4';
+                    col.innerHTML = `
+                        <div class="card font-preview-card ${index === 0 ? 'border-primary' : ''}"
+                             data-font-id="${preview.font_id}"
+                             data-preview-id="${preview.id}"
+                             style="cursor: pointer;">
+                            <img src="${preview.url}" class="card-img-top" alt="${preview.font_name}">
+                            <div class="card-body py-2 text-center">
+                                <small class="fw-semibold">${preview.font_name}</small>
+                            </div>
+                        </div>
+                    `;
+                    previewsDiv.appendChild(col);
+
+                    // Click-Handler
+                    col.querySelector('.font-preview-card').addEventListener('click', function() {
+                        // Alle deselektieren
+                        previewsDiv.querySelectorAll('.font-preview-card').forEach(c => {
+                            c.classList.remove('border-primary');
+                            c.style.boxShadow = '';
+                        });
+                        // Diese selektieren
+                        this.classList.add('border-primary');
+                        this.style.boxShadow = '0 0 0 3px rgba(13, 110, 253, 0.25)';
+                        selectedFontId = this.dataset.fontId;
+                    });
+
+                    // Erste Font als Default auswaehlen
+                    if (index === 0) {
+                        selectedFontId = preview.font_id;
+                    }
+                });
+
+                container.style.display = 'block';
+            } else {
+                alert(data.error || 'Fehler beim Laden der Vorschau');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-fonts me-1"></i>Schriftarten-Vorschau';
+            alert('Fehler beim Laden der Font-Vorschau');
+        });
+    });
+}
+
+// Slogan-Bild generieren
+if (generateSloganBtn) {
+    generateSloganBtn.addEventListener('click', function() {
+        const text = sloganTextInput.value.trim();
+        if (!text) return;
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Erstelle...';
+
+        fetch(`/loommarket/api/generate-slogan-image/{{ business.pk }}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                font_id: selectedFontId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-image me-1"></i>Slogan-Bild erstellen';
+
+            if (data.success) {
+                // Seite neu laden um das neue Bild anzuzeigen
+                location.reload();
+            } else {
+                alert(data.error || 'Fehler beim Erstellen des Slogan-Bildes');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-image me-1"></i>Slogan-Bild erstellen';
+            alert('Fehler beim Erstellen des Slogan-Bildes');
+        });
+    });
+}
 </script>
 {% endblock %}

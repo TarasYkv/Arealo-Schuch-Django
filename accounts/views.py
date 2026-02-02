@@ -966,15 +966,6 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Gemini API-Key ein.')
 
-        elif action == 'update_bing_search':
-            bing_search_key = request.POST.get('bing_search_api_key', '').strip()
-            if bing_search_key:
-                user.bing_search_api_key = bing_search_key
-                user.save()
-                messages.success(request, 'Bing Image Search API erfolgreich konfiguriert.')
-            else:
-                messages.error(request, 'Bitte geben Sie einen gültigen Bing API-Key ein.')
-
         elif action == 'update_upload_post':
             upload_post_key = request.POST.get('upload_post_api_key', '').strip()
             upload_post_user_id = request.POST.get('upload_post_user_id', '').strip()
@@ -1044,13 +1035,11 @@ def neue_api_einstellungen_view(request):
         'youtube_key_masked': '••••••••' + user.youtube_api_key[-4:] if user.youtube_api_key and len(user.youtube_api_key) > 4 else '',
         'ideogram_key_masked': '••••••••' + user.ideogram_api_key[-4:] if user.ideogram_api_key and len(user.ideogram_api_key) > 4 else '',
         'gemini_key_masked': '••••••••' + user.gemini_api_key[-4:] if user.gemini_api_key and len(user.gemini_api_key) > 4 else '',
-        'bing_search_key_masked': '••••••••' + user.bing_search_api_key[-4:] if user.bing_search_api_key and len(user.bing_search_api_key) > 4 else '',
         'upload_post_key_masked': '••••••••' + user.upload_post_api_key[-4:] if user.upload_post_api_key and len(user.upload_post_api_key) > 4 else '',
         'openai_configured': bool(user.openai_api_key),
         'youtube_configured': bool(user.youtube_api_key),
         'ideogram_configured': bool(user.ideogram_api_key),
         'gemini_configured': bool(user.gemini_api_key),
-        'bing_search_configured': bool(user.bing_search_api_key),
         'upload_post_configured': bool(user.upload_post_api_key),
         # Supadata (TikTok) - nur für Superuser
         'supadata_key_masked': '••••••••' + user.supadata_api_key[-4:] if user.supadata_api_key and len(user.supadata_api_key) > 4 else '',
