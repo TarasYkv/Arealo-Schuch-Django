@@ -638,6 +638,105 @@ def api_preview_slogan_fonts(request, business_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+@login_required
+@require_GET
+def api_get_combo_layouts(request):
+    """API: Gibt verfügbare Layouts für Logo+Text Kombination zurück."""
+    try:
+        generator = SloganImageGenerator()
+        layouts = generator.get_combo_layouts()
+
+        return JsonResponse({
+            'success': True,
+            'layouts': layouts,
+        })
+
+    except Exception as e:
+        logger.exception(f"Error in api_get_combo_layouts: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_combine_logo_text(request, business_id):
+    """API: Kombiniert Logo und Text zu einem Gravur-Bild."""
+    try:
+        from PIL import Image as PILImage
+
+        data = json.loads(request.body)
+        logo_image_id = data.get('logo_image_id')
+        text = data.get('text', '').strip()
+        font_id = data.get('font_id', 'great_vibes')
+        layout = data.get('layout', 'logo_top')
+
+        if not logo_image_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Bitte ein Logo-Bild auswählen'
+            }, status=400)
+
+        if not text:
+            return JsonResponse({
+                'success': False,
+                'error': 'Bitte Text eingeben'
+            }, status=400)
+
+        business = get_object_or_404(Business, pk=business_id, user=request.user)
+
+        # Logo-Bild laden
+        logo_business_image = get_object_or_404(
+            BusinessImage, pk=logo_image_id, business=business
+        )
+
+        # PIL Image öffnen
+        logo_pil = PILImage.open(logo_business_image.image)
+
+        # Kombination generieren
+        generator = SloganImageGenerator()
+        result = generator.combine_logo_and_text(
+            logo_image=logo_pil,
+            text=text,
+            font_id=font_id,
+            layout=layout,
+            width=600,
+            height=600
+        )
+
+        if not result:
+            return JsonResponse({
+                'success': False,
+                'error': 'Fehler bei der Bildgenerierung'
+            }, status=500)
+
+        # Als BusinessImage speichern
+        img = BusinessImage.objects.create(
+            business=business,
+            image=result['image'],
+            source='logo_text_combo',
+            is_logo=False,
+            order=40,  # Vor Slogan-Bildern
+            width=result['width'],
+            height=result['height'],
+        )
+
+        return JsonResponse({
+            'success': True,
+            'image': {
+                'id': img.id,
+                'url': img.image.url,
+                'font_name': result['font_name'],
+                'layout_name': result['layout_name'],
+                'text': result['text'],
+            }
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        logger.exception(f"Error in api_combine_logo_text: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 # ============================================================================
 # MOCKUP TEMPLATES
 # ============================================================================

@@ -241,6 +241,119 @@
                 </div>
             </div>
 
+            <!-- Logo + Text Kombination -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-layers me-2"></i>Logo + Text kombinieren</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Kombiniere ein Logo mit Text zu einem Gravur-Design. Waehle Layout und Schriftart.
+                    </p>
+
+                    <!-- Logo auswaehlen -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Logo auswaehlen</label>
+                        <div id="combo-logo-selection" class="row g-2" style="max-height: 200px; overflow-y: auto;">
+                            {% for img in images %}
+                            <div class="col-4 col-md-3">
+                                <div class="combo-logo-item border rounded p-1 text-center"
+                                     data-image-id="{{ img.pk }}"
+                                     style="cursor: pointer; {% if img.is_logo %}border-color: #0d6efd !important; border-width: 2px !important;{% endif %}">
+                                    <img src="{{ img.image.url }}" alt="Bild" class="img-fluid" style="max-height: 60px; object-fit: contain;">
+                                    {% if img.is_logo %}<small class="text-primary d-block">Logo</small>{% endif %}
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="col-12 text-center text-muted py-3">
+                                <i class="bi bi-image" style="font-size: 2rem;"></i>
+                                <p class="mb-0 small">Noch keine Bilder vorhanden</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Text eingeben -->
+                    <div class="mb-3">
+                        <label for="combo-text" class="form-label fw-semibold">Text</label>
+                        <input type="text" class="form-control" id="combo-text"
+                               placeholder="z.B. Firmenname oder Slogan" maxlength="60">
+                    </div>
+
+                    <!-- Layout waehlen -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Layout</label>
+                        <div id="combo-layout-selection" class="row g-2">
+                            <div class="col-6 col-md-4">
+                                <button type="button" class="btn btn-outline-secondary w-100 combo-layout-btn active" data-layout="logo_top">
+                                    <i class="bi bi-arrow-up-square d-block mb-1"></i>
+                                    <small>Logo oben</small>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <button type="button" class="btn btn-outline-secondary w-100 combo-layout-btn" data-layout="logo_left">
+                                    <i class="bi bi-arrow-left-square d-block mb-1"></i>
+                                    <small>Logo links</small>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <button type="button" class="btn btn-outline-secondary w-100 combo-layout-btn" data-layout="text_top">
+                                    <i class="bi bi-arrow-down-square d-block mb-1"></i>
+                                    <small>Text oben</small>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <button type="button" class="btn btn-outline-secondary w-100 combo-layout-btn" data-layout="logo_center_text_below">
+                                    <i class="bi bi-square d-block mb-1"></i>
+                                    <small>Logo gross</small>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <button type="button" class="btn btn-outline-secondary w-100 combo-layout-btn" data-layout="logo_background">
+                                    <i class="bi bi-stack d-block mb-1"></i>
+                                    <small>Hintergrund</small>
+                                </button>
+                            </div>
+                            <div class="col-6 col-md-4">
+                                <button type="button" class="btn btn-outline-secondary w-100 combo-layout-btn" data-layout="circular">
+                                    <i class="bi bi-circle d-block mb-1"></i>
+                                    <small>Kreisfoermig</small>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Schriftart (nutzt die gleiche Auswahl wie oben) -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Schriftart</label>
+                        <select class="form-select" id="combo-font-select">
+                            <option value="great_vibes">Great Vibes (Elegante Kalligrafie)</option>
+                            <option value="dancing_script">Dancing Script (Handschrift)</option>
+                            <option value="pacifico">Pacifico (Surf Retro)</option>
+                            <option value="lobster">Lobster (Bold Script)</option>
+                            <option value="playfair">Playfair Display (Elegant)</option>
+                            <option value="cinzel">Cinzel (Klassisch)</option>
+                            <option value="bebas_neue">Bebas Neue (Modern)</option>
+                            <option value="montserrat">Montserrat (Clean)</option>
+                        </select>
+                        <div class="form-text">Mehr Schriftarten in der Slogan-Sektion oben</div>
+                    </div>
+
+                    <!-- Vorschau -->
+                    <div id="combo-preview-container" class="mb-3" style="display: none;">
+                        <label class="form-label fw-semibold">Ergebnis</label>
+                        <div class="border rounded p-2 bg-light text-center">
+                            <img id="combo-preview-image" src="" alt="Vorschau" class="img-fluid" style="max-height: 200px;">
+                        </div>
+                    </div>
+
+                    <!-- Generieren Button -->
+                    <button type="button" class="btn btn-success" id="generate-combo-btn" disabled>
+                        <i class="bi bi-layers me-1"></i>Logo + Text erstellen
+                    </button>
+                </div>
+            </div>
+
             <!-- Bilder -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -842,6 +955,113 @@ if (generateSloganBtn) {
             this.disabled = false;
             this.innerHTML = '<i class="bi bi-image me-1"></i>Slogan-Bild erstellen';
             alert('Fehler beim Erstellen des Slogan-Bildes');
+        });
+    });
+}
+
+// ============================================================================
+// LOGO + TEXT KOMBINATION
+// ============================================================================
+
+let selectedComboLogoId = null;
+let selectedComboLayout = 'logo_top';
+
+// Logo-Auswahl
+document.querySelectorAll('.combo-logo-item').forEach(item => {
+    item.addEventListener('click', function() {
+        // Alle deselektieren
+        document.querySelectorAll('.combo-logo-item').forEach(i => {
+            i.style.borderColor = '';
+            i.style.borderWidth = '';
+        });
+        // Diese selektieren
+        this.style.borderColor = '#0d6efd';
+        this.style.borderWidth = '2px';
+        selectedComboLogoId = this.dataset.imageId;
+        updateComboButton();
+    });
+
+    // Pre-select logo if marked as logo
+    if (item.querySelector('.text-primary')) {
+        selectedComboLogoId = item.dataset.imageId;
+    }
+});
+
+// Layout-Auswahl
+document.querySelectorAll('.combo-layout-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.combo-layout-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        selectedComboLayout = this.dataset.layout;
+    });
+});
+
+// Text-Input
+const comboTextInput = document.getElementById('combo-text');
+if (comboTextInput) {
+    comboTextInput.addEventListener('input', updateComboButton);
+}
+
+function updateComboButton() {
+    const hasLogo = selectedComboLogoId && selectedComboLogoId.length > 0;
+    const hasText = comboTextInput && comboTextInput.value.trim().length > 0;
+    const btn = document.getElementById('generate-combo-btn');
+    if (btn) {
+        btn.disabled = !(hasLogo && hasText);
+    }
+}
+
+// Logo + Text generieren
+const generateComboBtn = document.getElementById('generate-combo-btn');
+if (generateComboBtn) {
+    generateComboBtn.addEventListener('click', function() {
+        const text = comboTextInput.value.trim();
+        const fontId = document.getElementById('combo-font-select').value;
+
+        if (!selectedComboLogoId || !text) {
+            alert('Bitte Logo und Text auswaehlen');
+            return;
+        }
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Erstelle...';
+
+        fetch(`/loommarket/api/combine-logo-text/{{ business.pk }}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                logo_image_id: selectedComboLogoId,
+                text: text,
+                font_id: fontId,
+                layout: selectedComboLayout
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-layers me-1"></i>Logo + Text erstellen';
+
+            if (data.success) {
+                // Vorschau anzeigen
+                const previewContainer = document.getElementById('combo-preview-container');
+                const previewImage = document.getElementById('combo-preview-image');
+                previewImage.src = data.image.url;
+                previewContainer.style.display = 'block';
+
+                // Nach kurzer Verzoegerung Seite neu laden
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                alert(data.error || 'Fehler beim Erstellen');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-layers me-1"></i>Logo + Text erstellen';
+            alert('Fehler beim Erstellen');
         });
     });
 }

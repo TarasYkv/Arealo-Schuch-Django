@@ -620,3 +620,402 @@ class SloganImageGenerator:
             height=size,
             inverted=False  # Schwarz auf Weiß für Gravur
         )
+
+    # ========================================================================
+    # LOGO + TEXT KOMBINATION
+    # ========================================================================
+
+    # Verfügbare Layouts für Logo + Text
+    COMBO_LAYOUTS = {
+        'logo_top': {
+            'name': 'Logo oben, Text unten',
+            'description': 'Logo zentriert oben, Text darunter'
+        },
+        'logo_left': {
+            'name': 'Logo links, Text rechts',
+            'description': 'Logo links, Text rechts daneben'
+        },
+        'logo_center_text_below': {
+            'name': 'Logo gross, Text klein unten',
+            'description': 'Großes Logo mit kleinem Text darunter'
+        },
+        'text_top': {
+            'name': 'Text oben, Logo unten',
+            'description': 'Text oben, Logo darunter'
+        },
+        'logo_background': {
+            'name': 'Logo im Hintergrund',
+            'description': 'Logo dezent im Hintergrund, Text darüber'
+        },
+        'circular': {
+            'name': 'Kreisförmig',
+            'description': 'Logo in der Mitte, Text als Bogen'
+        },
+    }
+
+    def get_combo_layouts(self) -> List[Dict]:
+        """Gibt verfügbare Layouts für Logo+Text zurück."""
+        return [
+            {
+                'id': layout_id,
+                'name': info['name'],
+                'description': info['description']
+            }
+            for layout_id, info in self.COMBO_LAYOUTS.items()
+        ]
+
+    def combine_logo_and_text(
+        self,
+        logo_image: Image.Image,
+        text: str,
+        font_id: str = 'great_vibes',
+        layout: str = 'logo_top',
+        width: int = 600,
+        height: int = 600,
+        padding: int = 30
+    ) -> Optional[Dict]:
+        """
+        Kombiniert ein Logo mit Text zu einem Gravur-Bild.
+
+        Args:
+            logo_image: PIL Image des Logos
+            text: Text/Slogan
+            font_id: Schriftart-ID
+            layout: Layout-ID (logo_top, logo_left, etc.)
+            width: Bildbreite
+            height: Bildhöhe
+            padding: Rand in Pixeln
+
+        Returns:
+            Dict mit image (ContentFile), width, height, etc.
+        """
+        if not logo_image or not text:
+            logger.warning("Logo or text missing for combination")
+            return None
+
+        text = text.strip()
+
+        try:
+            # Neues Bild erstellen (weiß)
+            img = Image.new('RGB', (width, height), color=self.BG_COLOR)
+
+            # Logo in Graustufen konvertieren für Gravur-Look
+            if logo_image.mode != 'L':
+                logo_gray = logo_image.convert('L')
+            else:
+                logo_gray = logo_image
+
+            # Schwellenwert für reines S/W
+            logo_bw = logo_gray.point(lambda x: 0 if x < 128 else 255, '1')
+            logo_bw = logo_bw.convert('RGB')
+
+            # Layout-spezifische Verarbeitung
+            if layout == 'logo_top':
+                result = self._layout_logo_top(img, logo_bw, text, font_id, padding)
+            elif layout == 'logo_left':
+                result = self._layout_logo_left(img, logo_bw, text, font_id, padding)
+            elif layout == 'logo_center_text_below':
+                result = self._layout_logo_center(img, logo_bw, text, font_id, padding)
+            elif layout == 'text_top':
+                result = self._layout_text_top(img, logo_bw, text, font_id, padding)
+            elif layout == 'logo_background':
+                result = self._layout_logo_background(img, logo_bw, text, font_id, padding)
+            elif layout == 'circular':
+                result = self._layout_circular(img, logo_bw, text, font_id, padding)
+            else:
+                # Default: logo_top
+                result = self._layout_logo_top(img, logo_bw, text, font_id, padding)
+
+            if not result:
+                return None
+
+            img = result
+
+            # Als PNG speichern
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG', optimize=True)
+            buffer.seek(0)
+
+            # Dateiname
+            text_hash = hashlib.md5(text.encode()).hexdigest()[:8]
+            filename = f"combo_{layout}_{font_id}_{text_hash}.png"
+
+            font_name = self.AVAILABLE_FONTS.get(font_id, {}).get('name', font_id)
+            layout_name = self.COMBO_LAYOUTS.get(layout, {}).get('name', layout)
+
+            logger.info(f"Generated combo image: {filename} ({width}x{height})")
+
+            return {
+                'image': ContentFile(buffer.read(), name=filename),
+                'width': width,
+                'height': height,
+                'font_id': font_id,
+                'font_name': font_name,
+                'layout': layout,
+                'layout_name': layout_name,
+                'text': text,
+            }
+
+        except Exception as e:
+            logger.exception(f"Error combining logo and text: {e}")
+            return None
+
+    def _layout_logo_top(
+        self,
+        img: Image.Image,
+        logo: Image.Image,
+        text: str,
+        font_id: str,
+        padding: int
+    ) -> Image.Image:
+        """Layout: Logo oben, Text unten."""
+        width, height = img.size
+        draw = ImageDraw.Draw(img)
+
+        # Logo-Bereich: obere 60%
+        logo_area_height = int((height - padding * 3) * 0.6)
+        text_area_height = height - logo_area_height - padding * 3
+
+        # Logo skalieren
+        logo_max_width = width - padding * 2
+        logo_max_height = logo_area_height
+        logo_resized = self._resize_image_fit(logo, logo_max_width, logo_max_height)
+
+        # Logo zentriert oben platzieren
+        logo_x = (width - logo_resized.width) // 2
+        logo_y = padding
+        img.paste(logo_resized, (logo_x, logo_y))
+
+        # Text unten
+        font_size = self._calculate_font_size(text, font_id, width - padding * 2, text_area_height)
+        font = self._get_font(font_id, font_size)
+
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_x = (width - text_width) // 2
+        text_y = logo_y + logo_resized.height + padding
+
+        draw.text((text_x, text_y), text, font=font, fill=self.TEXT_COLOR)
+
+        return img
+
+    def _layout_logo_left(
+        self,
+        img: Image.Image,
+        logo: Image.Image,
+        text: str,
+        font_id: str,
+        padding: int
+    ) -> Image.Image:
+        """Layout: Logo links, Text rechts."""
+        width, height = img.size
+        draw = ImageDraw.Draw(img)
+
+        # Logo-Bereich: linke 40%
+        logo_area_width = int((width - padding * 3) * 0.4)
+        text_area_width = width - logo_area_width - padding * 3
+
+        # Logo skalieren
+        logo_max_height = height - padding * 2
+        logo_resized = self._resize_image_fit(logo, logo_area_width, logo_max_height)
+
+        # Logo links zentriert
+        logo_x = padding
+        logo_y = (height - logo_resized.height) // 2
+        img.paste(logo_resized, (logo_x, logo_y))
+
+        # Text rechts
+        text_start_x = logo_area_width + padding * 2
+        font_size = self._calculate_font_size(text, font_id, text_area_width, height - padding * 2)
+        font = self._get_font(font_id, font_size)
+
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_height = bbox[3] - bbox[1]
+        text_y = (height - text_height) // 2 - bbox[1]
+
+        draw.text((text_start_x, text_y), text, font=font, fill=self.TEXT_COLOR)
+
+        return img
+
+    def _layout_logo_center(
+        self,
+        img: Image.Image,
+        logo: Image.Image,
+        text: str,
+        font_id: str,
+        padding: int
+    ) -> Image.Image:
+        """Layout: Großes Logo zentriert, kleiner Text unten."""
+        width, height = img.size
+        draw = ImageDraw.Draw(img)
+
+        # Logo-Bereich: 80% der Höhe
+        logo_area_height = int((height - padding * 2) * 0.8)
+        text_area_height = height - logo_area_height - padding * 2
+
+        # Logo groß skalieren
+        logo_max_size = min(width - padding * 2, logo_area_height)
+        logo_resized = self._resize_image_fit(logo, logo_max_size, logo_max_size)
+
+        # Logo zentriert
+        logo_x = (width - logo_resized.width) // 2
+        logo_y = padding
+        img.paste(logo_resized, (logo_x, logo_y))
+
+        # Kleiner Text unten
+        max_font_size = min(40, text_area_height - 10)
+        font_size = self._calculate_font_size(text, font_id, width - padding * 2, text_area_height, padding=10)
+        font_size = min(font_size, max_font_size)
+        font = self._get_font(font_id, font_size)
+
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_x = (width - text_width) // 2
+        text_y = height - text_area_height
+
+        draw.text((text_x, text_y), text, font=font, fill=self.TEXT_COLOR)
+
+        return img
+
+    def _layout_text_top(
+        self,
+        img: Image.Image,
+        logo: Image.Image,
+        text: str,
+        font_id: str,
+        padding: int
+    ) -> Image.Image:
+        """Layout: Text oben, Logo unten."""
+        width, height = img.size
+        draw = ImageDraw.Draw(img)
+
+        # Text-Bereich: obere 35%
+        text_area_height = int((height - padding * 3) * 0.35)
+        logo_area_height = height - text_area_height - padding * 3
+
+        # Text oben
+        font_size = self._calculate_font_size(text, font_id, width - padding * 2, text_area_height)
+        font = self._get_font(font_id, font_size)
+
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_x = (width - text_width) // 2
+        text_y = padding
+
+        draw.text((text_x, text_y), text, font=font, fill=self.TEXT_COLOR)
+
+        # Logo unten
+        logo_max_width = width - padding * 2
+        logo_resized = self._resize_image_fit(logo, logo_max_width, logo_area_height)
+
+        logo_x = (width - logo_resized.width) // 2
+        logo_y = text_area_height + padding * 2
+        img.paste(logo_resized, (logo_x, logo_y))
+
+        return img
+
+    def _layout_logo_background(
+        self,
+        img: Image.Image,
+        logo: Image.Image,
+        text: str,
+        font_id: str,
+        padding: int
+    ) -> Image.Image:
+        """Layout: Logo dezent im Hintergrund, Text darüber."""
+        width, height = img.size
+        draw = ImageDraw.Draw(img)
+
+        # Logo groß und dezent (aufgehellt)
+        logo_size = min(width, height) - padding * 2
+        logo_resized = self._resize_image_fit(logo, logo_size, logo_size)
+
+        # Logo aufhellen für Hintergrund-Effekt
+        logo_light = Image.blend(
+            Image.new('RGB', logo_resized.size, self.BG_COLOR),
+            logo_resized,
+            0.15  # Nur 15% sichtbar
+        )
+
+        # Logo zentriert
+        logo_x = (width - logo_light.width) // 2
+        logo_y = (height - logo_light.height) // 2
+        img.paste(logo_light, (logo_x, logo_y))
+
+        # Text groß darüber
+        font_size = self._calculate_font_size(text, font_id, width - padding * 2, height - padding * 2)
+        font = self._get_font(font_id, font_size)
+
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        text_x = (width - text_width) // 2
+        text_y = (height - text_height) // 2 - bbox[1]
+
+        draw.text((text_x, text_y), text, font=font, fill=self.TEXT_COLOR)
+
+        return img
+
+    def _layout_circular(
+        self,
+        img: Image.Image,
+        logo: Image.Image,
+        text: str,
+        font_id: str,
+        padding: int
+    ) -> Image.Image:
+        """Layout: Logo in der Mitte, Text als Bogen (vereinfacht: oben und unten)."""
+        width, height = img.size
+        draw = ImageDraw.Draw(img)
+
+        # Logo in der Mitte (kleiner)
+        logo_size = min(width, height) // 2
+        logo_resized = self._resize_image_fit(logo, logo_size, logo_size)
+
+        logo_x = (width - logo_resized.width) // 2
+        logo_y = (height - logo_resized.height) // 2
+        img.paste(logo_resized, (logo_x, logo_y))
+
+        # Text oben und unten (statt echter Bogen - vereinfacht)
+        words = text.split()
+        mid = len(words) // 2
+        text_top = ' '.join(words[:mid]) if mid > 0 else text
+        text_bottom = ' '.join(words[mid:]) if mid > 0 and mid < len(words) else ''
+
+        # Text oben
+        if text_top:
+            font_size_top = self._calculate_font_size(text_top, font_id, width - padding * 2, logo_y - padding)
+            font_top = self._get_font(font_id, min(font_size_top, 50))
+            bbox = draw.textbbox((0, 0), text_top, font=font_top)
+            text_width = bbox[2] - bbox[0]
+            text_x = (width - text_width) // 2
+            draw.text((text_x, padding), text_top, font=font_top, fill=self.TEXT_COLOR)
+
+        # Text unten
+        if text_bottom:
+            font_size_bottom = self._calculate_font_size(text_bottom, font_id, width - padding * 2, height - logo_y - logo_resized.height - padding)
+            font_bottom = self._get_font(font_id, min(font_size_bottom, 50))
+            bbox = draw.textbbox((0, 0), text_bottom, font=font_bottom)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            text_x = (width - text_width) // 2
+            text_y = height - padding - text_height
+            draw.text((text_x, text_y), text_bottom, font=font_bottom, fill=self.TEXT_COLOR)
+
+        return img
+
+    def _resize_image_fit(
+        self,
+        image: Image.Image,
+        max_width: int,
+        max_height: int
+    ) -> Image.Image:
+        """Skaliert ein Bild so, dass es in die Grenzen passt."""
+        ratio = min(max_width / image.width, max_height / image.height)
+        if ratio >= 1:
+            return image
+
+        new_width = int(image.width * ratio)
+        new_height = int(image.height * ratio)
+
+        return image.resize((new_width, new_height), Image.Resampling.LANCZOS)

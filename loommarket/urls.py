@@ -28,6 +28,10 @@ urlpatterns = [
     path('api/generate-slogan-image/<int:business_id>/', views.api_generate_slogan_image, name='api_generate_slogan_image'),
     path('api/preview-slogan-fonts/<int:business_id>/', views.api_preview_slogan_fonts, name='api_preview_slogan_fonts'),
 
+    # API: Logo + Text Kombination
+    path('api/combo-layouts/', views.api_get_combo_layouts, name='api_get_combo_layouts'),
+    path('api/combine-logo-text/<int:business_id>/', views.api_combine_logo_text, name='api_combine_logo_text'),
+
     # Mockup Templates
     path('templates/', views.template_list, name='template_list'),
     path('templates/create/', views.template_create, name='template_create'),
