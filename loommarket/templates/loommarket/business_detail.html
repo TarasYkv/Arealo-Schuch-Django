@@ -193,7 +193,7 @@
                 </div>
                 <div class="card-body">
                     <p class="text-muted small mb-3">
-                        Erstelle ein Gravur-Bild aus einem Slogan oder Firmenspruch. Waehle aus verschiedenen Schriftarten.
+                        Erstelle ein Gravur-Bild aus einem Slogan oder Firmenspruch. Waehle aus 40+ Schriftarten!
                     </p>
 
                     <!-- Gefundene Slogans -->
@@ -212,18 +212,25 @@
                         <div class="form-text">Max. 100 Zeichen fuer optimale Lesbarkeit</div>
                     </div>
 
-                    <!-- Font-Vorschau Button -->
+                    <!-- Font-Auswahl -->
                     <div class="mb-3">
-                        <button type="button" class="btn btn-outline-secondary" id="preview-fonts-btn" disabled>
-                            <i class="bi bi-fonts me-1"></i>Schriftarten-Vorschau
+                        <label class="form-label fw-semibold">Schriftart waehlen</label>
+                        <button type="button" class="btn btn-outline-secondary mb-2" id="load-fonts-btn">
+                            <i class="bi bi-fonts me-1"></i>Schriftarten laden (40+)
                         </button>
+                        <div id="font-selection-container" style="display: none;">
+                            <div id="font-categories" class="accordion" style="max-height: 400px; overflow-y: auto;">
+                                <!-- Wird per JavaScript gefuellt -->
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Font-Auswahl -->
-                    <div id="font-selection-container" class="mb-3" style="display: none;">
-                        <label class="form-label fw-semibold">Schriftart waehlen</label>
-                        <div id="font-previews" class="row g-2">
-                            <!-- Wird per JavaScript gefuellt -->
+                    <!-- Vorschau -->
+                    <div id="font-preview-container" class="mb-3" style="display: none;">
+                        <label class="form-label fw-semibold">Vorschau</label>
+                        <div class="border rounded p-2 bg-light text-center">
+                            <img id="font-preview-image" src="" alt="Vorschau" class="img-fluid" style="max-height: 150px;">
+                            <p id="font-preview-name" class="mb-0 mt-2 text-muted small"></p>
                         </div>
                     </div>
 
@@ -574,19 +581,170 @@ document.getElementById('refresh-impressum-btn').addEventListener('click', funct
 // SLOGAN GENERATOR
 // ============================================================================
 
-let selectedFontId = 'playfair'; // Default-Font
+let selectedFontId = 'great_vibes'; // Default-Font
+let loadedFonts = null;
 
 // Slogan-Text Input aktiviert Buttons
 const sloganTextInput = document.getElementById('slogan-text');
-const previewFontsBtn = document.getElementById('preview-fonts-btn');
 const generateSloganBtn = document.getElementById('generate-slogan-btn');
+const loadFontsBtn = document.getElementById('load-fonts-btn');
+
+// Schriftarten laden Button
+if (loadFontsBtn) {
+    loadFontsBtn.addEventListener('click', function() {
+        if (loadedFonts) {
+            // Fonts bereits geladen, nur Container toggler
+            document.getElementById('font-selection-container').style.display =
+                document.getElementById('font-selection-container').style.display === 'none' ? 'block' : 'none';
+            return;
+        }
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Lade...';
+
+        fetch(`/loommarket/api/fonts/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-fonts me-1"></i>Schriftarten (40+)';
+
+            if (data.success && data.fonts) {
+                loadedFonts = data.fonts;
+                renderFontCategories(data.fonts);
+                document.getElementById('font-selection-container').style.display = 'block';
+            } else {
+                alert(data.error || 'Fehler beim Laden der Schriftarten');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-fonts me-1"></i>Schriftarten laden (40+)';
+            alert('Fehler beim Laden der Schriftarten');
+        });
+    });
+}
+
+function renderFontCategories(fonts) {
+    const container = document.getElementById('font-categories');
+    container.innerHTML = '';
+
+    // Nach Kategorie gruppieren
+    const categories = {};
+    fonts.forEach(font => {
+        const cat = font.category_name || 'Sonstige';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(font);
+    });
+
+    // Accordion Items erstellen
+    let index = 0;
+    for (const [catName, catFonts] of Object.entries(categories)) {
+        const isFirst = index === 0;
+        const accordionItem = document.createElement('div');
+        accordionItem.className = 'accordion-item';
+        accordionItem.innerHTML = `
+            <h2 class="accordion-header">
+                <button class="accordion-button ${isFirst ? '' : 'collapsed'} py-2" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#fontCat${index}">
+                    <span class="fw-semibold">${catName}</span>
+                    <span class="badge bg-secondary ms-2">${catFonts.length}</span>
+                </button>
+            </h2>
+            <div id="fontCat${index}" class="accordion-collapse collapse ${isFirst ? 'show' : ''}">
+                <div class="accordion-body p-2">
+                    <div class="row g-1">
+                        ${catFonts.map(font => `
+                            <div class="col-6">
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm w-100 text-start font-select-btn ${font.id === selectedFontId ? 'active' : ''}"
+                                        data-font-id="${font.id}"
+                                        data-font-name="${font.name}"
+                                        title="${font.description}">
+                                    <small>${font.name}</small>
+                                    <br><span class="text-muted" style="font-size: 0.7rem;">${font.style}</span>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(accordionItem);
+        index++;
+    }
+
+    // Click-Handler fuer Font-Buttons
+    container.querySelectorAll('.font-select-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Alle deaktivieren
+            container.querySelectorAll('.font-select-btn').forEach(b => b.classList.remove('active'));
+            // Diese aktivieren
+            this.classList.add('active');
+            selectedFontId = this.dataset.fontId;
+
+            // Vorschau aktualisieren wenn Text vorhanden
+            const text = sloganTextInput.value.trim();
+            if (text) {
+                generatePreview(text, selectedFontId, this.dataset.fontName);
+            }
+
+            // Generate-Button aktivieren
+            updateGenerateButton();
+        });
+    });
+}
+
+function generatePreview(text, fontId, fontName) {
+    const previewContainer = document.getElementById('font-preview-container');
+    const previewImage = document.getElementById('font-preview-image');
+    const previewName = document.getElementById('font-preview-name');
+
+    previewName.textContent = `${fontName} - Generiere Vorschau...`;
+    previewContainer.style.display = 'block';
+
+    fetch(`/loommarket/api/generate-slogan-image/{{ business.pk }}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            text: text,
+            font_id: fontId,
+            preview_only: true  // Nur Vorschau, nicht speichern
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.image) {
+            previewImage.src = data.image.url;
+            previewName.textContent = `Schriftart: ${data.image.font_name}`;
+        } else {
+            previewName.textContent = `Vorschau fuer ${fontName} (Font wird beim Erstellen geladen)`;
+        }
+    })
+    .catch(error => {
+        console.error('Preview error:', error);
+        previewName.textContent = `${fontName} (Vorschau nicht verfuegbar)`;
+    });
+}
+
+function updateGenerateButton() {
+    const hasText = sloganTextInput && sloganTextInput.value.trim().length > 0;
+    const hasFont = selectedFontId && selectedFontId.length > 0;
+    if (generateSloganBtn) {
+        generateSloganBtn.disabled = !(hasText && hasFont);
+    }
+}
 
 if (sloganTextInput) {
-    sloganTextInput.addEventListener('input', function() {
-        const hasText = this.value.trim().length > 0;
-        previewFontsBtn.disabled = !hasText;
-        generateSloganBtn.disabled = !hasText;
-    });
+    sloganTextInput.addEventListener('input', updateGenerateButton);
 }
 
 // Slogans von Website extrahieren
@@ -628,6 +786,7 @@ if (extractSlogansBtn) {
                         // Highlight active
                         list.querySelectorAll('.list-group-item').forEach(i => i.classList.remove('active'));
                         this.classList.add('active');
+                        updateGenerateButton();
                     });
                     list.appendChild(item);
                 });
@@ -642,82 +801,6 @@ if (extractSlogansBtn) {
             this.disabled = false;
             this.innerHTML = '<i class="bi bi-search me-1"></i>Slogans von Website finden';
             alert('Fehler beim Suchen der Slogans');
-        });
-    });
-}
-
-// Font-Vorschau generieren
-if (previewFontsBtn) {
-    previewFontsBtn.addEventListener('click', function() {
-        const text = sloganTextInput.value.trim();
-        if (!text) return;
-
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Lade Vorschau...';
-
-        fetch(`/loommarket/api/preview-slogan-fonts/{{ business.pk }}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ text: text })
-        })
-        .then(response => response.json())
-        .then(data => {
-            this.disabled = false;
-            this.innerHTML = '<i class="bi bi-fonts me-1"></i>Schriftarten-Vorschau';
-
-            if (data.success && data.previews) {
-                const container = document.getElementById('font-selection-container');
-                const previewsDiv = document.getElementById('font-previews');
-                previewsDiv.innerHTML = '';
-
-                data.previews.forEach((preview, index) => {
-                    const col = document.createElement('div');
-                    col.className = 'col-md-6 col-lg-4';
-                    col.innerHTML = `
-                        <div class="card font-preview-card ${index === 0 ? 'border-primary' : ''}"
-                             data-font-id="${preview.font_id}"
-                             data-preview-id="${preview.id}"
-                             style="cursor: pointer;">
-                            <img src="${preview.url}" class="card-img-top" alt="${preview.font_name}">
-                            <div class="card-body py-2 text-center">
-                                <small class="fw-semibold">${preview.font_name}</small>
-                            </div>
-                        </div>
-                    `;
-                    previewsDiv.appendChild(col);
-
-                    // Click-Handler
-                    col.querySelector('.font-preview-card').addEventListener('click', function() {
-                        // Alle deselektieren
-                        previewsDiv.querySelectorAll('.font-preview-card').forEach(c => {
-                            c.classList.remove('border-primary');
-                            c.style.boxShadow = '';
-                        });
-                        // Diese selektieren
-                        this.classList.add('border-primary');
-                        this.style.boxShadow = '0 0 0 3px rgba(13, 110, 253, 0.25)';
-                        selectedFontId = this.dataset.fontId;
-                    });
-
-                    // Erste Font als Default auswaehlen
-                    if (index === 0) {
-                        selectedFontId = preview.font_id;
-                    }
-                });
-
-                container.style.display = 'block';
-            } else {
-                alert(data.error || 'Fehler beim Laden der Vorschau');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            this.disabled = false;
-            this.innerHTML = '<i class="bi bi-fonts me-1"></i>Schriftarten-Vorschau';
-            alert('Fehler beim Laden der Font-Vorschau');
         });
     });
 }

@@ -22,55 +22,289 @@ class SloganImageGenerator:
     Die Bilder sind für Gravur-Zwecke optimiert (S/W, hoher Kontrast).
     """
 
-    # Google Fonts die gut für Gravuren geeignet sind (dekorativ, gut lesbar)
+    # Google Fonts - Große Auswahl an Schreibschriften und dekorativen Fonts
     AVAILABLE_FONTS = {
-        'playfair': {
-            'name': 'Playfair Display',
-            'url': 'https://github.com/googlefonts/Playfair/raw/main/fonts/ttf/PlayfairDisplay-Bold.ttf',
-            'style': 'Elegant Serif',
-            'description': 'Elegante Serifenschrift - klassisch und edel'
-        },
-        'dancing_script': {
-            'name': 'Dancing Script',
-            'url': 'https://github.com/impallari/DancingScript/raw/master/fonts/DancingScript-Bold.ttf',
-            'style': 'Handschrift',
-            'description': 'Fließende Handschrift - persönlich und warm'
-        },
-        'oswald': {
-            'name': 'Oswald',
-            'url': 'https://github.com/googlefonts/OswaldFont/raw/main/fonts/ttf/Oswald-Bold.ttf',
-            'style': 'Modern Sans',
-            'description': 'Moderne Sans-Serif - klar und kraftvoll'
-        },
+        # ========== ELEGANTE SCHREIBSCHRIFTEN ==========
         'great_vibes': {
             'name': 'Great Vibes',
             'url': 'https://github.com/nickmass/Great-Vibes/raw/master/GreatVibes-Regular.ttf',
-            'style': 'Kalligrafie',
-            'description': 'Kalligrafische Schrift - feierlich und festlich'
+            'style': 'Elegante Kalligrafie',
+            'category': 'script',
+            'description': 'Festliche kalligrafische Schrift'
         },
-        'bebas_neue': {
-            'name': 'Bebas Neue',
-            'url': 'https://github.com/dharmatype/Bebas-Neue/raw/master/fonts/BebasNeue-Regular.ttf',
-            'style': 'Display',
-            'description': 'Markante Versalien - modern und auffällig'
+        'alex_brush': {
+            'name': 'Alex Brush',
+            'url': 'https://github.com/googlefonts/alex-brush/raw/main/fonts/ttf/AlexBrush-Regular.ttf',
+            'style': 'Brush Script',
+            'category': 'script',
+            'description': 'Elegante Pinselschrift'
+        },
+        'allura': {
+            'name': 'Allura',
+            'url': 'https://github.com/nickmass/Allura/raw/master/Allura-Regular.ttf',
+            'style': 'Formale Schreibschrift',
+            'category': 'script',
+            'description': 'Formelle elegante Schreibschrift'
+        },
+        'pinyon_script': {
+            'name': 'Pinyon Script',
+            'url': 'https://github.com/nickmass/Pinyon-Script/raw/master/PinyonScript-Regular.ttf',
+            'style': 'Klassische Kalligrafie',
+            'category': 'script',
+            'description': 'Klassische Federschrift'
+        },
+        'tangerine': {
+            'name': 'Tangerine',
+            'url': 'https://github.com/nickmass/Tangerine/raw/master/Tangerine-Bold.ttf',
+            'style': 'Feine Schreibschrift',
+            'category': 'script',
+            'description': 'Zarte elegante Linien'
+        },
+        'rouge_script': {
+            'name': 'Rouge Script',
+            'url': 'https://github.com/nickmass/Rouge-Script/raw/master/RougeScript-Regular.ttf',
+            'style': 'Vintage Script',
+            'category': 'script',
+            'description': 'Vintage-Eleganz'
+        },
+        'italianno': {
+            'name': 'Italianno',
+            'url': 'https://github.com/nickmass/Italianno/raw/master/Italianno-Regular.ttf',
+            'style': 'Italienische Kalligrafie',
+            'category': 'script',
+            'description': 'Fließende italienische Schrift'
+        },
+        'corinthia': {
+            'name': 'Corinthia',
+            'url': 'https://github.com/nickmass/Corinthia/raw/main/fonts/ttf/Corinthia-Bold.ttf',
+            'style': 'Moderne Kalligrafie',
+            'category': 'script',
+            'description': 'Moderne elegante Kalligrafie'
+        },
+
+        # ========== HANDSCHRIFTEN ==========
+        'dancing_script': {
+            'name': 'Dancing Script',
+            'url': 'https://github.com/impallari/DancingScript/raw/master/fonts/DancingScript-Bold.ttf',
+            'style': 'Fröhliche Handschrift',
+            'category': 'handwriting',
+            'description': 'Lebendige Handschrift'
+        },
+        'sacramento': {
+            'name': 'Sacramento',
+            'url': 'https://github.com/nickmass/Sacramento/raw/master/Sacramento-Regular.ttf',
+            'style': 'Lässige Schreibschrift',
+            'category': 'handwriting',
+            'description': 'Entspannte Monoline-Schrift'
+        },
+        'satisfy': {
+            'name': 'Satisfy',
+            'url': 'https://github.com/nickmass/Satisfy/raw/master/Satisfy-Regular.ttf',
+            'style': 'Retro Handschrift',
+            'category': 'handwriting',
+            'description': '50er Jahre Stil'
+        },
+        'kaushan_script': {
+            'name': 'Kaushan Script',
+            'url': 'https://github.com/googlefonts/kaushan-script/raw/main/fonts/ttf/KaushanScript-Regular.ttf',
+            'style': 'Pinsel-Handschrift',
+            'category': 'handwriting',
+            'description': 'Kraftvolle Pinselschrift'
+        },
+        'marck_script': {
+            'name': 'Marck Script',
+            'url': 'https://github.com/nickmass/Marck-Script/raw/master/MarckScript-Regular.ttf',
+            'style': 'Moderne Handschrift',
+            'category': 'handwriting',
+            'description': 'Zeitgenössische Handschrift'
+        },
+        'cookie': {
+            'name': 'Cookie',
+            'url': 'https://github.com/nickmass/Cookie/raw/master/Cookie-Regular.ttf',
+            'style': 'Verspielte Schrift',
+            'category': 'handwriting',
+            'description': 'Süße verspielte Handschrift'
+        },
+        'courgette': {
+            'name': 'Courgette',
+            'url': 'https://github.com/nickmass/Courgette/raw/master/Courgette-Regular.ttf',
+            'style': 'Brush Handschrift',
+            'category': 'handwriting',
+            'description': 'Weiche Pinselschrift'
+        },
+        'niconne': {
+            'name': 'Niconne',
+            'url': 'https://github.com/nickmass/Niconne/raw/master/Niconne-Regular.ttf',
+            'style': 'Elegante Handschrift',
+            'category': 'handwriting',
+            'description': 'Stilvolle Handschrift'
+        },
+        'euphoria_script': {
+            'name': 'Euphoria Script',
+            'url': 'https://github.com/nickmass/Euphoria-Script/raw/master/EuphoriaScript-Regular.ttf',
+            'style': 'Fließende Handschrift',
+            'category': 'handwriting',
+            'description': 'Weiche fließende Linien'
+        },
+
+        # ========== AUSGEFALLENE DISPLAY-FONTS ==========
+        'lobster': {
+            'name': 'Lobster',
+            'url': 'https://github.com/impallari/Lobster/raw/master/static/Lobster-Regular.ttf',
+            'style': 'Bold Script',
+            'category': 'display',
+            'description': 'Kräftige Retro-Schreibschrift'
         },
         'pacifico': {
             'name': 'Pacifico',
             'url': 'https://github.com/googlefonts/Pacifico/raw/main/fonts/Pacifico-Regular.ttf',
-            'style': 'Retro Script',
-            'description': 'Retro-Schreibschrift - freundlich und verspielt'
+            'style': 'Surf Retro',
+            'category': 'display',
+            'description': 'Kalifornischer Surf-Stil'
+        },
+        'yellowtail': {
+            'name': 'Yellowtail',
+            'url': 'https://github.com/nickmass/Yellowtail/raw/master/Yellowtail-Regular.ttf',
+            'style': 'Vintage Script',
+            'category': 'display',
+            'description': 'Amerikanischer Retro-Stil'
+        },
+        'berkshire_swash': {
+            'name': 'Berkshire Swash',
+            'url': 'https://github.com/nickmass/Berkshire-Swash/raw/master/BerkshireSwash-Regular.ttf',
+            'style': 'Swash Display',
+            'category': 'display',
+            'description': 'Elegante Schwünge'
+        },
+        'arizonia': {
+            'name': 'Arizonia',
+            'url': 'https://github.com/nickmass/Arizonia/raw/master/Arizonia-Regular.ttf',
+            'style': 'Western Eleganz',
+            'category': 'display',
+            'description': 'Eleganter Western-Stil'
+        },
+        'clicker_script': {
+            'name': 'Clicker Script',
+            'url': 'https://github.com/nickmass/Clicker-Script/raw/master/ClickerScript-Regular.ttf',
+            'style': 'Formale Display',
+            'category': 'display',
+            'description': 'Formelle Display-Schrift'
+        },
+        'lovers_quarrel': {
+            'name': 'Lovers Quarrel',
+            'url': 'https://github.com/nickmass/Lovers-Quarrel/raw/master/LoversQuarrel-Regular.ttf',
+            'style': 'Romantisch',
+            'category': 'display',
+            'description': 'Romantische Schnörkel'
+        },
+        'mr_de_haviland': {
+            'name': 'Mr De Haviland',
+            'url': 'https://github.com/nickmass/Mr-De-Haviland/raw/master/MrDeHaviland-Regular.ttf',
+            'style': 'Gentleman Script',
+            'category': 'display',
+            'description': 'Vornehme Signatur'
+        },
+        'herr_von_muellerhoff': {
+            'name': 'Herr Von Muellerhoff',
+            'url': 'https://github.com/nickmass/Herr-Von-Muellerhoff/raw/master/HerrVonMuellerhoff-Regular.ttf',
+            'style': 'Aristokratisch',
+            'category': 'display',
+            'description': 'Aristokratische Eleganz'
+        },
+        'monsieur_la_doulaise': {
+            'name': 'Monsieur La Doulaise',
+            'url': 'https://github.com/nickmass/Monsieur-La-Doulaise/raw/master/MonsieurLaDoulaise-Regular.ttf',
+            'style': 'Französisch Elegant',
+            'category': 'display',
+            'description': 'Französische Raffinesse'
+        },
+
+        # ========== GOTHIC & DEKORATIV ==========
+        'cinzel_decorative': {
+            'name': 'Cinzel Decorative',
+            'url': 'https://github.com/googlefonts/CinzelDecorative/raw/main/fonts/ttf/CinzelDecorative-Bold.ttf',
+            'style': 'Dekorative Kapitälchen',
+            'category': 'decorative',
+            'description': 'Verzierte römische Kapitälchen'
+        },
+        'unifraktur': {
+            'name': 'UnifrakturMaguntia',
+            'url': 'https://github.com/googlefonts/unifraktur/raw/main/fonts/ttf/UnifrakturMaguntia-Regular.ttf',
+            'style': 'Fraktur/Gothic',
+            'category': 'decorative',
+            'description': 'Deutsche Frakturschrift'
+        },
+        'almendra_display': {
+            'name': 'Almendra Display',
+            'url': 'https://github.com/nickmass/Almendra/raw/master/Almendra-Display.ttf',
+            'style': 'Mittelalterlich',
+            'category': 'decorative',
+            'description': 'Mittelalterlicher Fantasy-Stil'
+        },
+        'uncial_antiqua': {
+            'name': 'Uncial Antiqua',
+            'url': 'https://github.com/nickmass/Uncial-Antiqua/raw/master/UncialAntiqua-Regular.ttf',
+            'style': 'Unziale',
+            'category': 'decorative',
+            'description': 'Keltisch-mittelalterlich'
+        },
+
+        # ========== MODERNE & CLEAN ==========
+        'playfair': {
+            'name': 'Playfair Display',
+            'url': 'https://github.com/googlefonts/Playfair/raw/main/fonts/ttf/PlayfairDisplay-Bold.ttf',
+            'style': 'Elegant Modern',
+            'category': 'modern',
+            'description': 'Elegante Serifenschrift'
         },
         'cinzel': {
             'name': 'Cinzel',
             'url': 'https://github.com/googlefonts/Cinzel/raw/main/fonts/ttf/Cinzel-Bold.ttf',
             'style': 'Klassisch',
-            'description': 'Klassische Kapitälchen - zeitlos und würdevoll'
+            'category': 'modern',
+            'description': 'Zeitlose Kapitälchen'
+        },
+        'bebas_neue': {
+            'name': 'Bebas Neue',
+            'url': 'https://github.com/dharmatype/Bebas-Neue/raw/master/fonts/BebasNeue-Regular.ttf',
+            'style': 'Bold Display',
+            'category': 'modern',
+            'description': 'Markante Versalien'
+        },
+        'oswald': {
+            'name': 'Oswald',
+            'url': 'https://github.com/googlefonts/OswaldFont/raw/main/fonts/ttf/Oswald-Bold.ttf',
+            'style': 'Modern Sans',
+            'category': 'modern',
+            'description': 'Klare moderne Sans-Serif'
         },
         'montserrat': {
             'name': 'Montserrat',
             'url': 'https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf',
-            'style': 'Geometric Sans',
-            'description': 'Geometrische Sans-Serif - clean und professionell'
+            'style': 'Geometric',
+            'category': 'modern',
+            'description': 'Geometrische Sans-Serif'
+        },
+        'abril_fatface': {
+            'name': 'Abril Fatface',
+            'url': 'https://github.com/nickmass/Abril-Fatface/raw/master/AbrilFatface-Regular.ttf',
+            'style': 'Display Serif',
+            'category': 'modern',
+            'description': 'Elegante Display-Schrift'
+        },
+        'poiret_one': {
+            'name': 'Poiret One',
+            'url': 'https://github.com/nickmass/Poiret-One/raw/master/PoiretOne-Regular.ttf',
+            'style': 'Art Deco',
+            'category': 'modern',
+            'description': 'Art Deco Eleganz'
+        },
+        'comfortaa': {
+            'name': 'Comfortaa',
+            'url': 'https://github.com/nickmass/Comfortaa/raw/master/fonts/Comfortaa-Bold.ttf',
+            'style': 'Rounded Modern',
+            'category': 'modern',
+            'description': 'Weiche abgerundete Schrift'
         },
     }
 
@@ -89,22 +323,57 @@ class SloganImageGenerator:
         self._cached_fonts: Dict[str, ImageFont.FreeTypeFont] = {}
         logger.info("SloganImageGenerator initialized")
 
+    # Kategorien mit deutschen Namen
+    CATEGORY_NAMES = {
+        'script': 'Elegante Schreibschriften',
+        'handwriting': 'Handschriften',
+        'display': 'Ausgefallene Display-Fonts',
+        'decorative': 'Gothic & Dekorativ',
+        'modern': 'Modern & Clean',
+    }
+
     def get_available_fonts(self) -> List[Dict]:
         """
-        Gibt Liste der verfügbaren Fonts zurück.
+        Gibt Liste der verfügbaren Fonts zurück, sortiert nach Kategorie.
 
         Returns:
-            Liste mit Font-Infos (id, name, style, description)
+            Liste mit Font-Infos (id, name, style, category, description)
         """
-        return [
+        fonts = [
             {
                 'id': font_id,
                 'name': info['name'],
                 'style': info['style'],
+                'category': info.get('category', 'modern'),
+                'category_name': self.CATEGORY_NAMES.get(info.get('category', 'modern'), 'Sonstige'),
                 'description': info['description']
             }
             for font_id, info in self.AVAILABLE_FONTS.items()
         ]
+
+        # Sortieren nach Kategorie-Reihenfolge
+        category_order = ['script', 'handwriting', 'display', 'decorative', 'modern']
+        fonts.sort(key=lambda f: (category_order.index(f['category']) if f['category'] in category_order else 99, f['name']))
+
+        return fonts
+
+    def get_fonts_by_category(self) -> Dict[str, List[Dict]]:
+        """
+        Gibt Fonts gruppiert nach Kategorie zurück.
+
+        Returns:
+            Dict mit Kategorie als Key und Liste von Fonts als Value
+        """
+        fonts = self.get_available_fonts()
+        grouped = {}
+
+        for font in fonts:
+            cat = font['category_name']
+            if cat not in grouped:
+                grouped[cat] = []
+            grouped[cat].append(font)
+
+        return grouped
 
     def _download_font(self, font_id: str) -> Optional[Path]:
         """

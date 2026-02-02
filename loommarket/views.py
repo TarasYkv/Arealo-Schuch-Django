@@ -523,7 +523,8 @@ def api_generate_slogan_image(request, business_id):
     try:
         data = json.loads(request.body)
         slogan_text = data.get('text', '').strip()
-        font_id = data.get('font_id', 'playfair')
+        font_id = data.get('font_id', 'great_vibes')
+        preview_only = data.get('preview_only', False)
 
         if not slogan_text:
             return JsonResponse({
@@ -535,21 +536,31 @@ def api_generate_slogan_image(request, business_id):
 
         # Slogan-Bild generieren
         generator = SloganImageGenerator()
-        result = generator.generate_slogan_for_engraving(slogan_text, font_id)
+
+        if preview_only:
+            # Kleinere Vorschau
+            result = generator.generate_slogan_image(
+                slogan_text, font_id,
+                width=500, height=250
+            )
+        else:
+            # Volle Größe für Gravur
+            result = generator.generate_slogan_for_engraving(slogan_text, font_id)
 
         if not result:
             return JsonResponse({
                 'success': False,
-                'error': 'Fehler bei der Bildgenerierung'
+                'error': 'Fehler bei der Bildgenerierung. Font möglicherweise nicht verfügbar.'
             }, status=500)
 
         # Als BusinessImage speichern
+        source = 'slogan_preview' if preview_only else 'slogan'
         img = BusinessImage.objects.create(
             business=business,
             image=result['image'],
-            source='slogan',
+            source=source,
             is_logo=False,
-            order=50,  # Mittig in der Sortierung
+            order=50 if not preview_only else 999,
             width=result['width'],
             height=result['height'],
         )
