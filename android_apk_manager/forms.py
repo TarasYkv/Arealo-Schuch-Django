@@ -3,7 +3,7 @@ Android APK Manager Forms
 """
 
 from django import forms
-from .models import AndroidApp, AppVersion
+from .models import AndroidApp, AppVersion, AppScreenshot
 
 
 class AndroidAppForm(forms.ModelForm):
@@ -121,3 +121,52 @@ class AppVersionForm(forms.ModelForm):
         if not self.instance.pk:
             self.fields['is_active'].initial = True
             self.fields['channel'].initial = 'production'
+
+
+class AppScreenshotForm(forms.ModelForm):
+    """Form für Screenshot-Upload"""
+
+    class Meta:
+        model = AppScreenshot
+        fields = ['image', 'caption']
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+            'caption': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Optionale Beschreibung...'
+            }),
+        }
+        labels = {
+            'image': 'Screenshot',
+            'caption': 'Bildunterschrift (optional)',
+        }
+
+
+class MultipleFileInput(forms.FileInput):
+    """Custom FileInput widget that allows multiple file selection"""
+    allow_multiple_selected = True
+
+
+class MultipleScreenshotForm(forms.Form):
+    """Form für Mehrfach-Upload von Screenshots"""
+
+    screenshots = forms.FileField(
+        widget=MultipleFileInput(attrs={
+            'class': 'form-control',
+            'accept': 'image/*',
+        }),
+        label='Screenshots hochladen',
+        help_text='Wähle bis zu 10 Bilder aus (PNG, JPG, WebP)',
+        required=False
+    )
+
+    def __init__(self, *args, app=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.app = app
+
+        if app:
+            remaining = 10 - AppScreenshot.objects.filter(app=app).count()
+            self.fields['screenshots'].help_text = f'Noch {remaining} Screenshots möglich (max. 10)'

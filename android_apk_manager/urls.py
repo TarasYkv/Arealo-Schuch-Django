@@ -43,6 +43,11 @@ urlpatterns = [
     path('version/<uuid:version_id>/edit/', views.edit_version, name='edit_version'),
     path('version/<uuid:version_id>/delete/', views.delete_version, name='delete_version'),
 
+    # ===== Screenshots =====
+    path('app/<uuid:app_id>/screenshots/upload/', views.upload_screenshots, name='upload_screenshots'),
+    path('screenshot/<uuid:screenshot_id>/delete/', views.delete_screenshot, name='delete_screenshot'),
+    path('app/<uuid:app_id>/screenshots/reorder/', views.reorder_screenshots, name='reorder_screenshots'),
+
     # ===== Public Pages =====
     path('public/', views.public_app_list, name='public_app_list'),
     path('public/<uuid:app_id>/', views.public_app_detail, name='public_app_detail'),

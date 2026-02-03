@@ -6,7 +6,16 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 
-from .models import AndroidApp, AppVersion, DownloadLog
+from .models import AndroidApp, AppVersion, DownloadLog, AppScreenshot
+
+
+class AppScreenshotInline(admin.TabularInline):
+    """Inline für Screenshots im App-Admin"""
+    model = AppScreenshot
+    extra = 1
+    max_num = 10
+    readonly_fields = ('id', 'uploaded_at')
+    fields = ('image', 'caption', 'order')
 
 
 class AppVersionInline(admin.TabularInline):
@@ -27,7 +36,7 @@ class AndroidAppAdmin(admin.ModelAdmin):
     search_fields = ('name', 'package_name', 'description', 'created_by__username')
     readonly_fields = ('id', 'created_at', 'updated_at')
     date_hierarchy = 'created_at'
-    inlines = [AppVersionInline]
+    inlines = [AppScreenshotInline, AppVersionInline]
 
     fieldsets = (
         ('Grunddaten', {
@@ -152,3 +161,44 @@ class DownloadLogAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         """Keine Logs bearbeiten"""
         return False
+
+
+@admin.register(AppScreenshot)
+class AppScreenshotAdmin(admin.ModelAdmin):
+    """Admin Interface für App Screenshots"""
+
+    list_display = ('app', 'caption', 'order', 'image_preview', 'uploaded_at')
+    list_filter = ('app', 'uploaded_at')
+    search_fields = ('app__name', 'caption')
+    readonly_fields = ('id', 'uploaded_at', 'image_preview_large')
+    ordering = ('app', 'order')
+
+    fieldsets = (
+        ('Screenshot', {
+            'fields': ('app', 'image', 'image_preview_large', 'caption', 'order')
+        }),
+        ('Metadaten', {
+            'fields': ('id', 'uploaded_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def image_preview(self, obj):
+        """Kleine Vorschau in der Liste"""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-height: 50px; max-width: 100px; object-fit: cover;" />',
+                obj.image.url
+            )
+        return "-"
+    image_preview.short_description = 'Vorschau'
+
+    def image_preview_large(self, obj):
+        """Größere Vorschau im Formular"""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-height: 300px; max-width: 500px;" />',
+                obj.image.url
+            )
+        return "-"
+    image_preview_large.short_description = 'Bildvorschau'

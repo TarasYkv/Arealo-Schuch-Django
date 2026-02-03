@@ -9,8 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Q
 from django.contrib import messages
 
-from .models import AndroidApp, AppVersion, DownloadLog
-from .forms import AndroidAppForm, AppVersionForm
+from .models import AndroidApp, AppVersion, DownloadLog, AppScreenshot
+from .forms import AndroidAppForm, AppVersionForm, AppScreenshotForm, MultipleScreenshotForm
 
 
 def download_apk(request, version_id):
@@ -149,10 +149,18 @@ def app_detail(request, app_id):
     ).select_related('app_version').order_by('-downloaded_at')[:10]
     stats['recent_downloads'] = recent_downloads
 
+    # Screenshots
+    screenshots = app.screenshots.all().order_by('order')
+    screenshot_form = MultipleScreenshotForm(app=app)
+    can_add_screenshots = AppScreenshot.can_add_more(app)
+
     context = {
         'app': app,
         'versions': versions,
         'stats': stats,
+        'screenshots': screenshots,
+        'screenshot_form': screenshot_form,
+        'can_add_screenshots': can_add_screenshots,
     }
 
     return render(request, 'android_apk_manager/app_detail.html', context)
@@ -229,10 +237,14 @@ def public_app_detail(request, app_id):
         for version in channel_versions:
             version.is_latest = (version == channel_versions[0]) if channel_versions else False
 
+    # Screenshots
+    screenshots = app.screenshots.all().order_by('order')
+
     context = {
         'app': app,
         'versions_by_channel': versions_by_channel,
         'total_downloads': app.total_downloads,
+        'screenshots': screenshots,
     }
 
     return render(request, 'android_apk_manager/public_app_detail.html', context)
@@ -436,3 +448,114 @@ def delete_version(request, version_id):
     messages.success(request, f'Version {version_name} wurde gelöscht.')
 
     return redirect('android_apk_manager:app_detail', app_id=app_id)
+
+
+@login_required
+def upload_screenshots(request, app_id):
+    """
+    Upload Screenshots für eine App
+    Unterstützt Mehrfach-Upload (bis zu 10 Screenshots)
+    """
+    app = get_object_or_404(
+        AndroidApp,
+        id=app_id,
+        created_by=request.user
+    )
+
+    if request.method != 'POST':
+        return redirect('android_apk_manager:app_detail', app_id=app_id)
+
+    # Prüfe ob noch Screenshots hinzugefügt werden können
+    current_count = AppScreenshot.objects.filter(app=app).count()
+    if current_count >= 10:
+        messages.error(request, 'Maximale Anzahl von 10 Screenshots erreicht.')
+        return redirect('android_apk_manager:app_detail', app_id=app_id)
+
+    # Verarbeite alle hochgeladenen Dateien
+    files = request.FILES.getlist('screenshots')
+    if not files:
+        messages.warning(request, 'Keine Dateien ausgewählt.')
+        return redirect('android_apk_manager:app_detail', app_id=app_id)
+
+    uploaded_count = 0
+    for file in files:
+        # Prüfe Limit
+        if current_count + uploaded_count >= 10:
+            messages.warning(request, f'Limit erreicht. {uploaded_count} von {len(files)} Screenshots hochgeladen.')
+            break
+
+        # Prüfe ob es ein Bild ist
+        if not file.content_type.startswith('image/'):
+            continue
+
+        # Erstelle Screenshot
+        screenshot = AppScreenshot(
+            app=app,
+            image=file,
+            order=AppScreenshot.get_next_order(app)
+        )
+        screenshot.save()
+        uploaded_count += 1
+
+    if uploaded_count > 0:
+        messages.success(request, f'{uploaded_count} Screenshot(s) erfolgreich hochgeladen.')
+    else:
+        messages.warning(request, 'Keine gültigen Bilder gefunden.')
+
+    return redirect('android_apk_manager:app_detail', app_id=app_id)
+
+
+@login_required
+def delete_screenshot(request, screenshot_id):
+    """
+    Lösche Screenshot
+    POST-only view
+    """
+    if request.method != 'POST':
+        return redirect('android_apk_manager:dashboard')
+
+    screenshot = get_object_or_404(
+        AppScreenshot,
+        id=screenshot_id,
+        app__created_by=request.user
+    )
+
+    app_id = screenshot.app.id
+    screenshot.delete()
+
+    messages.success(request, 'Screenshot wurde gelöscht.')
+
+    return redirect('android_apk_manager:app_detail', app_id=app_id)
+
+
+@login_required
+def reorder_screenshots(request, app_id):
+    """
+    Ändere die Reihenfolge von Screenshots
+    POST mit JSON-Body: {"order": ["uuid1", "uuid2", ...]}
+    """
+    from django.http import JsonResponse
+    import json
+
+    app = get_object_or_404(
+        AndroidApp,
+        id=app_id,
+        created_by=request.user
+    )
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        order_list = data.get('order', [])
+
+        for index, screenshot_id in enumerate(order_list):
+            AppScreenshot.objects.filter(
+                id=screenshot_id,
+                app=app
+            ).update(order=index)
+
+        return JsonResponse({'success': True})
+    except (json.JSONDecodeError, KeyError):
+        return JsonResponse({'error': 'Invalid data'}, status=400)

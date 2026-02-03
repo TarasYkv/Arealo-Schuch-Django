@@ -17,6 +17,13 @@ def upload_to_app_icon(instance, filename):
     return f"android_apps/icons/{filename}"
 
 
+def upload_to_app_screenshot(instance, filename):
+    """Upload-Pfad für App-Screenshots"""
+    ext = filename.split('.')[-1]
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    return f"android_apps/screenshots/{instance.app.package_name}/{filename}"
+
+
 def upload_apk_to(instance, filename):
     """Upload-Pfad für APK-Dateien"""
     ext = filename.split('.')[-1]
@@ -278,3 +285,69 @@ class DownloadLog(models.Model):
 
     def __str__(self):
         return f"{self.app_version} - {self.downloaded_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class AppScreenshot(models.Model):
+    """Screenshots für Android Apps (max. 10 pro App)"""
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+
+    app = models.ForeignKey(
+        AndroidApp,
+        on_delete=models.CASCADE,
+        related_name='screenshots',
+        verbose_name="App"
+    )
+
+    image = models.ImageField(
+        upload_to=upload_to_app_screenshot,
+        verbose_name="Screenshot"
+    )
+
+    caption = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Bildunterschrift",
+        help_text="Optionale Beschreibung des Screenshots"
+    )
+
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Reihenfolge",
+        help_text="Kleinere Zahlen werden zuerst angezeigt"
+    )
+
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "App Screenshot"
+        verbose_name_plural = "App Screenshots"
+        ordering = ['order', 'uploaded_at']
+        indexes = [
+            models.Index(fields=['app', 'order']),
+        ]
+
+    def __str__(self):
+        return f"{self.app.name} - Screenshot {self.order + 1}"
+
+    def delete(self, *args, **kwargs):
+        """Lösche Bilddatei beim Löschen des Models"""
+        if self.image:
+            if os.path.isfile(self.image.path):
+                os.remove(self.image.path)
+        super().delete(*args, **kwargs)
+
+    @classmethod
+    def can_add_more(cls, app):
+        """Prüft ob noch Screenshots hinzugefügt werden können (max 10)"""
+        return cls.objects.filter(app=app).count() < 10
+
+    @classmethod
+    def get_next_order(cls, app):
+        """Gibt die nächste Ordnungsnummer zurück"""
+        last = cls.objects.filter(app=app).order_by('-order').first()
+        return (last.order + 1) if last else 0

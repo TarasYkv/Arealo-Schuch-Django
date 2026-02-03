@@ -52,6 +52,28 @@
                 </div>
             </div>
 
+            <!-- Screenshots -->
+            {% if screenshots %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-images me-2"></i>Screenshots</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for screenshot in screenshots %}
+                        <div class="col-4 col-md-3">
+                            <img src="{{ screenshot.image.url }}"
+                                 class="img-fluid rounded shadow-sm"
+                                 alt="{{ screenshot.caption|default:'Screenshot' }}"
+                                 style="cursor: pointer; height: 150px; width: 100%; object-fit: cover;"
+                                 onclick="openScreenshotModal('{{ screenshot.image.url }}', '{{ screenshot.caption|default:"Screenshot"|escapejs }}')">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Versionen nach Channel -->
             {% for channel, channel_versions in versions_by_channel.items %}
             {% if channel_versions %}
@@ -174,4 +196,29 @@
         </div>
     </div>
 </div>
+
+<!-- Screenshot Modal -->
+{% if screenshots %}
+<div class="modal fade" id="screenshotModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="screenshotModalTitle">Screenshot</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img src="" id="screenshotModalImage" class="img-fluid" alt="Screenshot">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openScreenshotModal(imageUrl, caption) {
+    document.getElementById('screenshotModalImage').src = imageUrl;
+    document.getElementById('screenshotModalTitle').textContent = caption;
+    new bootstrap.Modal(document.getElementById('screenshotModal')).show();
+}
+</script>
+{% endif %}
 {% endblock %}
