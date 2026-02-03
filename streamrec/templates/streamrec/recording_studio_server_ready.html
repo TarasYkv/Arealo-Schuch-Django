@@ -526,9 +526,14 @@
 
                         <!-- Kamera-Auswahl Dropdown -->
                         <div class="mb-2">
-                            <select id="cameraSelect" class="form-select form-select-sm bg-dark text-light border-secondary">
-                                <option value="">Kamera auswählen...</option>
-                            </select>
+                            <div class="input-group input-group-sm">
+                                <select id="cameraSelect" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                    <option value="">Kamera auswählen...</option>
+                                </select>
+                                <button id="refreshCamerasBtn" class="btn btn-outline-secondary" type="button" title="Kameras neu laden">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="d-grid gap-2">
@@ -813,10 +818,12 @@
                     const startCameraBtn = document.getElementById('startCameraBtn');
                     const addCameraBtn = document.getElementById('addCameraBtn');
                     const stopAllCamerasBtn = document.getElementById('stopAllCamerasBtn');
+                    const refreshCamerasBtn = document.getElementById('refreshCamerasBtn');
 
                     if (startCameraBtn) startCameraBtn.addEventListener('click', () => this.startCamera());
                     if (addCameraBtn) addCameraBtn.addEventListener('click', () => this.addCamera());
                     if (stopAllCamerasBtn) stopAllCamerasBtn.addEventListener('click', () => this.stopAllCameras());
+                    if (refreshCamerasBtn) refreshCamerasBtn.addEventListener('click', () => this.refreshCameras());
                     
                     // Screen controls
                     const startScreenBtn = document.getElementById('startScreenBtn');
@@ -1041,6 +1048,12 @@
             addCamera() {
                 // Gleiche Logik wie startCamera, wird für "Weitere Kamera hinzufügen" verwendet
                 this.startCamera();
+            }
+
+            async refreshCameras() {
+                this.showNotification('info', 'Aktualisiere...', 'Suche nach Kameras...');
+                await this.loadCameras();
+                this.updateCameraUI();
             }
 
             updateCameraUI() {
