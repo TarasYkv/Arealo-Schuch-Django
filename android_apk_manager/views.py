@@ -174,7 +174,7 @@ def public_app_list(request):
     # Hole alle öffentlichen Apps
     apps = AndroidApp.objects.filter(
         is_public=True
-    ).select_related('created_by').prefetch_related('versions').order_by('name')
+    ).select_related('created_by').prefetch_related('versions', 'screenshots').order_by('name')
 
     # Apps mit Latest Version anreichern
     apps_with_data = []
@@ -191,10 +191,14 @@ def public_app_list(request):
                 is_active=True
             ).order_by('-version_code').first()
 
+        # Erstes Screenshot für Vorschau
+        first_screenshot = app.screenshots.order_by('order').first()
+
         apps_with_data.append({
             'app': app,
             'latest_version': latest_version,
             'total_downloads': app.total_downloads,
+            'first_screenshot': first_screenshot,
         })
 
     context = {
