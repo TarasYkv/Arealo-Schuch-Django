@@ -540,9 +540,85 @@ def _get_available_apps():
                 'Zeit sparen': 'KI schreibt für dich'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'android_apk_manager': {
+            'name': 'APK Manager',
+            'icon': 'bi-android2',
+            'color': 'success',
+            'app_url': '/android-apps/',
+            'short_desc': 'Android App Verwaltung und Distribution',
+            'features': [
+                'APK-Upload und Versionsverwaltung',
+                'Screenshot-Galerie mit Drag & Drop',
+                'Öffentliche Download-Links',
+                'App-Beschreibungen und Changelogs'
+            ],
+            'benefits': {
+                'Eigener App-Store': 'Verteile Apps ohne Play Store',
+                'Beta-Testing': 'Ideal für interne Tests',
+                'Volle Kontrolle': 'Du bestimmst den Zugriff'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'backloom': {
+            'name': 'BackLoom',
+            'icon': 'bi-rss',
+            'color': 'warning',
+            'app_url': '/backloom/',
+            'short_desc': 'Feed-Management und Content-Streams',
+            'features': [
+                'RSS/Atom-Feed Erstellung',
+                'Content-Aggregation',
+                'Automatische Updates',
+                'Verschiedene Export-Formate'
+            ],
+            'benefits': {
+                'Mehr Reichweite': 'RSS-Reader Nutzer erreichen',
+                'Automatisierung': 'Inhalte automatisch verteilen',
+                'SEO-Vorteil': 'Feeds werden indexiert'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'loommarket': {
+            'name': 'LoomMarket',
+            'icon': 'bi-shop-window',
+            'color': 'info',
+            'app_url': '/loommarket/',
+            'short_desc': 'Business Marketing mit Instagram-Integration',
+            'features': [
+                'Instagram-Import',
+                'KI-Textgenerierung',
+                'Gravur-Designer mit Fonts',
+                'Kampagnen-Verwaltung'
+            ],
+            'benefits': {
+                'Schneller Start': 'Instagram als Basis nutzen',
+                'KI-Power': 'Professionelle Texte erstellen',
+                'Gravur-Ready': 'Druckfertige Designs'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'ploom': {
+            'name': 'P-Loom',
+            'icon': 'bi-box-seam',
+            'color': 'primary',
+            'app_url': '/ploom/',
+            'short_desc': 'Shopify Produkt-Creator mit KI',
+            'features': [
+                'Produkt-Erstellung für Shopify',
+                'KI-Beschreibungen',
+                'Bulk-Erstellung',
+                'Direkte Shop-Synchronisation'
+            ],
+            'benefits': {
+                'Schnell': 'Produkte in Minuten erstellen',
+                'Bessere Texte': 'KI schreibt verkaufsfördernd',
+                'SEO-ready': 'Optimierte Meta-Daten'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         }
     }
-    
+
     # Filtere nur die Apps, die in der Datenbank als verfügbar markiert sind
     available_apps = {}
 
@@ -1094,6 +1170,95 @@ def _get_all_apps():
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!',
             'url_name': 'linkloom:dashboard'
+        },
+
+        # === Neue Apps ===
+        'android_apk_manager': {
+            'name': 'APK Manager',
+            'icon': 'bi-android2',
+            'color': 'success',
+            'short_desc': 'Android App Verwaltung - lade APK-Dateien hoch, verwalte Versionen und teile Apps sicher.',
+            'features': [
+                'APK-Upload - Lade Android-Apps (APK-Dateien) einfach hoch',
+                'Versionsverwaltung - Behalte alle App-Versionen im Überblick',
+                'Screenshot-Galerie - Zeige bis zu 10 Screenshots pro App',
+                'Öffentliche Download-Links - Teile Apps über sichere Links',
+                'App-Beschreibungen - Füge Beschreibungen und Changelogs hinzu',
+                'Drag & Drop - Screenshots per Drag & Drop sortieren',
+                'Direkter Download - Benutzer laden Apps direkt ohne App-Store'
+            ],
+            'benefits': {
+                'Eigener App-Store': 'Verteile eigene Apps ohne Google Play',
+                'Beta-Testing': 'Ideal für Beta-Versionen und interne Apps',
+                'Volle Kontrolle': 'Du bestimmst wer Zugriff hat',
+                'Einfach teilen': 'Download-Links per E-Mail oder Chat teilen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'backloom': {
+            'name': 'BackLoom',
+            'icon': 'bi-rss',
+            'color': 'warning',
+            'short_desc': 'Feed-Management - erstelle und verwalte RSS-Feeds und Content-Streams für deine Websites.',
+            'features': [
+                'Feed-Erstellung - Erstelle eigene RSS/Atom-Feeds für deine Inhalte',
+                'Content-Aggregation - Sammle Inhalte aus verschiedenen Quellen',
+                'Automatische Updates - Feeds werden automatisch aktualisiert',
+                'Feed-Vorschau - Sehe wie dein Feed in Readern aussieht',
+                'Kategorien - Organisiere Inhalte nach Themen',
+                'Export-Formate - RSS 2.0, Atom und JSON-Feed'
+            ],
+            'benefits': {
+                'Mehr Reichweite': 'Erreiche Nutzer die RSS-Reader verwenden',
+                'Automatisierung': 'Inhalte werden automatisch verteilt',
+                'SEO-Vorteil': 'Feeds werden von Suchmaschinen indexiert',
+                'Flexibel': 'Verschiedene Formate für jeden Anwendungsfall'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'loommarket': {
+            'name': 'LoomMarket',
+            'icon': 'bi-shop-window',
+            'color': 'info',
+            'short_desc': 'Business Marketing - erstelle Marketing-Kampagnen aus Instagram-Inhalten mit KI-Unterstützung.',
+            'features': [
+                'Instagram-Import - Importiere Bilder und Texte direkt von Instagram-Profilen',
+                'KI-Textgenerierung - Erstelle Marketing-Texte und Slogans mit KI',
+                'Gravur-Designer - Gestalte Produkte mit Logos und Slogans für Gravuren',
+                'Kampagnen-Verwaltung - Organisiere Marketing-Aktivitäten nach Unternehmen',
+                'Bild-Galerie - Alle importierten Bilder übersichtlich verwalten',
+                'Multi-Font-Auswahl - Wähle aus über 40 Schriftarten für Gravuren',
+                'Logo-Integration - Kombiniere Logos mit Text für einzigartige Designs'
+            ],
+            'benefits': {
+                'Schneller Start': 'Instagram-Inhalte als Basis für Marketing nutzen',
+                'KI-Power': 'Professionelle Texte ohne Texter erstellen',
+                'Gravur-Ready': 'Direkt druckfertige Designs für Produkte',
+                'Alles an einem Ort': 'Unternehmen, Bilder und Kampagnen zentral verwalten'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'ploom': {
+            'name': 'P-Loom',
+            'icon': 'bi-box-seam',
+            'color': 'primary',
+            'short_desc': 'Shopify Produkt-Creator - erstelle Shopify-Produkte schnell und einfach mit KI-Unterstützung.',
+            'features': [
+                'Produkt-Erstellung - Erstelle Shopify-Produkte mit allen Details',
+                'KI-Beschreibungen - Lass KI verkaufsstarke Produktbeschreibungen schreiben',
+                'Bild-Management - Lade mehrere Produktbilder hoch und sortiere sie',
+                'Varianten - Erstelle Produkte mit verschiedenen Größen, Farben etc.',
+                'SEO-Optimierung - Meta-Titel und Beschreibungen automatisch generieren',
+                'Bulk-Erstellung - Mehrere Produkte auf einmal erstellen',
+                'Direkte Shopify-Synchronisation - Produkte direkt in deinen Shop übertragen'
+            ],
+            'benefits': {
+                'Schnelle Produkterstellung': 'Vom Bild zum fertigen Produkt in Minuten',
+                'Bessere Beschreibungen': 'KI schreibt verkaufsfördernde Texte',
+                'SEO-ready': 'Produkte von Anfang an suchmaschinenoptimiert',
+                'Zeit sparen': 'Nie wieder manuelles Ausfüllen aller Felder'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
 
         # === Legacy/Fallback entries ===
