@@ -208,6 +208,8 @@ class AppPermission(models.Model):
         ('vskript', 'VSkript - Video-Skript Generator'),
         ('questionfinder', 'QuestionFinder'),
         ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
+        ('backloom', 'BackLoom - Feed Management'),
+        ('loommarket', 'LoomMarket - Business Marketing'),
 
         # SEO Tools
         ('seo_dashboard', 'SEO Dashboard'),
@@ -923,6 +925,9 @@ class AppInfo(models.Model):
         ('lighting_tools', 'Beleuchtungsrechner'),
         ('lighting_classification', 'DIN 13201-1 Klassifizierung'),
         ('shopify_uploads', 'Shopify - Fotogravur Uploads'),
+        ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
+        ('backloom', 'BackLoom - Feed Management'),
+        ('loommarket', 'LoomMarket - Business Marketing'),
     ]
 
     app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Feature")
@@ -1018,6 +1023,10 @@ class FeatureAccess(models.Model):
         ('lighting_tools', 'Beleuchtungsrechner'),
         ('lighting_classification', 'DIN 13201-1 Klassifizierung'),
         ('shopify_uploads', 'Shopify - Fotogravur Uploads'),
+        ('linkloom', 'LinkLoom - Link in Bio'),
+        ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
+        ('backloom', 'BackLoom - Feed Management'),
+        ('loommarket', 'LoomMarket - Business Marketing'),
 
         # Spezifische Features/Sub-Bereiche
         ('video_upload', 'Video Upload'),
