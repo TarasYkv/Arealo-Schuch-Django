@@ -1,0 +1,225 @@
+{% comment %}
+App Info Card - Wiederverwendbares Template für App-Beschreibungen
+
+Verwendung:
+{% load app_info_tags %}
+{% show_app_info 'videos' %}
+{% show_app_info 'loomtalk' gradient_colors='#f5365c, #fb6340' %}
+{% show_app_info 'chat' icon_override='bi-chat-dots' %}
+
+Die AppInfo wird aus der Datenbank geladen (accounts.AppInfo Model).
+{% endcomment %}
+
+{% if app_info %}
+<div class="app-info-card mb-4">
+    <div class="info-card-background" style="background: linear-gradient(135deg, {{ gradient_colors }});"></div>
+    <div class="info-card-content">
+        <div class="row align-items-center">
+            <div class="col-md-2 text-center mb-3 mb-md-0">
+                <div class="info-icon">
+                    <i class="{{ icon_class }}"></i>
+                </div>
+            </div>
+            <div class="col-md-10">
+                <h3 class="info-title">
+                    {{ app_info.title }}
+                </h3>
+
+                {% if parsed_description.problem or parsed_description.solution %}
+                <p class="info-description">
+                    {% if parsed_description.problem %}
+                    <strong>Das Problem:</strong> {{ parsed_description.problem }}
+                    {% endif %}
+                    {% if parsed_description.solution %}
+                    <strong>Die Workloom-Lösung:</strong> {{ parsed_description.solution }}
+                    {% endif %}
+                </p>
+                {% elif parsed_description.raw %}
+                <p class="info-description">
+                    {{ parsed_description.raw|linebreaks }}
+                </p>
+                {% endif %}
+
+                {% if parsed_description.steps %}
+                <div class="info-workflow">
+                    {% for step in parsed_description.steps %}
+                    <div class="workflow-step">
+                        <div class="step-number">{{ forloop.counter }}</div>
+                        <div class="step-text">{{ step }}</div>
+                    </div>
+                    {% if not forloop.last %}
+                    <div class="workflow-arrow">&rarr;</div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if parsed_description.tagline %}
+                <p class="info-tagline">
+                    <i class="bi bi-stars me-2"></i>
+                    <em>{{ parsed_description.tagline }}</em>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* App Info Card Styles */
+.app-info-card {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.app-info-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.app-info-card .info-card-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0.95;
+}
+
+.app-info-card .info-card-content {
+    position: relative;
+    z-index: 2;
+    padding: 2.5rem;
+    color: white;
+}
+
+.app-info-card .info-icon {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.app-info-card .info-icon i {
+    font-size: 2rem;
+    color: white;
+}
+
+.app-info-card:hover .info-icon {
+    transform: scale(1.1) rotate(5deg);
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.app-info-card .info-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: white;
+    line-height: 1.3;
+}
+
+.app-info-card .info-description {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.app-info-card .info-description strong {
+    color: white;
+}
+
+.app-info-card .info-workflow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.app-info-card .workflow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 140px;
+}
+
+.app-info-card .step-number {
+    width: 35px;
+    height: 35px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.app-info-card .step-text {
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.app-info-card .workflow-arrow {
+    font-size: 1.5rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: bold;
+    padding: 0 0.5rem;
+}
+
+.app-info-card .info-tagline {
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-style: italic;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .app-info-card .info-card-content {
+        padding: 1.5rem;
+    }
+
+    .app-info-card .info-title {
+        font-size: 1.2rem;
+    }
+
+    .app-info-card .info-workflow {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .app-info-card .workflow-arrow {
+        transform: rotate(90deg);
+        padding: 0.5rem 0;
+    }
+
+    .app-info-card .workflow-step {
+        width: 100%;
+        min-width: unset;
+    }
+}
+</style>
+{% elif error %}
+<!-- App Info nicht verfügbar: {{ error }} -->
+{% endif %}
