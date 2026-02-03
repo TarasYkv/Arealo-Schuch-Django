@@ -698,6 +698,9 @@
                             <button id="startCameraBtn" class="btn btn-outline-success">
                                 <i class="fas fa-play me-2"></i>Kamera starten
                             </button>
+                            <button id="addCameraBtn" class="btn btn-outline-primary" style="display: none;">
+                                <i class="fas fa-plus me-2"></i>Weitere Kamera hinzufügen
+                            </button>
                             <button id="stopCameraBtn" class="btn btn-outline-danger" disabled>
                                 <i class="fas fa-stop me-2"></i>Kamera stoppen
                             </button>
@@ -706,6 +709,13 @@
                                 <i class="fas fa-sync-alt me-2"></i>Kamera wechseln
                             </button>
                         </div>
+
+                        <!-- Aktive Kameras Liste (Multi-Kamera) -->
+                        <div id="activeCamerasList" class="mt-2" style="display: none;">
+                            <small class="text-muted d-block mb-1">Aktive Kameras:</small>
+                            <div id="activeCamerasContainer"></div>
+                        </div>
+
                         <small id="cameraStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
 
                         <!-- Camera Display Mode & Mirror -->
@@ -1800,6 +1810,7 @@ class StreamRecorderOptimized {
     setupEventListeners() {
         // Camera controls
         document.getElementById('startCameraBtn')?.addEventListener('click', () => this.startCamera());
+        document.getElementById('addCameraBtn')?.addEventListener('click', () => this.addCamera());
         document.getElementById('stopCameraBtn')?.addEventListener('click', () => this.stopCamera());
         document.getElementById('switchCameraBtn')?.addEventListener('click', () => this.switchCamera());
 
@@ -5104,10 +5115,147 @@ class StreamRecorderOptimized {
             this.checkAudioStream(); // Check audio status after stream added
 
             console.log('✅ Kamera-Stream erfolgreich gestartet' + (this.isMobile ? ` (${this.currentFacingMode})` : ''));
+
+            // Multi-Kamera UI aktualisieren
+            this.updateMultiCameraUI();
         } catch (error) {
             console.error('❌ Kamera-Zugriff fehlgeschlagen:', error);
             this.updateStatus('camera', `Fehler: ${error.message}`, 'danger');
             this.updateStatusBadge('camera', 'danger');
+        }
+    }
+
+    // ==================== MULTI-KAMERA SUPPORT ====================
+
+    async addCamera() {
+        try {
+            const cameraSelect = document.getElementById('cameraSelect');
+            const selectedDeviceId = cameraSelect ? cameraSelect.value : '';
+
+            if (!selectedDeviceId) {
+                this.showNotification('warning', 'Keine Kamera ausgewählt', 'Bitte wählen Sie eine Kamera aus dem Dropdown');
+                return;
+            }
+
+            // Prüfen ob diese Kamera bereits aktiv ist
+            const existingCamera = Array.from(this.streams.entries()).find(([key, stream]) => {
+                const videoTrack = stream.getVideoTracks()[0];
+                return videoTrack && videoTrack.getSettings().deviceId === selectedDeviceId;
+            });
+
+            if (existingCamera) {
+                this.showNotification('warning', 'Kamera bereits aktiv', 'Diese Kamera wird bereits verwendet');
+                return;
+            }
+
+            // Zähle bestehende Kameras für eindeutige ID
+            const cameraCount = Array.from(this.streams.keys()).filter(k => k.startsWith('camera')).length;
+            const streamKey = `camera${cameraCount + 1}`;
+
+            this.updateStatus('camera', `Kamera ${cameraCount + 1} wird gestartet...`, 'info');
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: { exact: selectedDeviceId },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: false // Nur Video für zusätzliche Kameras
+            });
+
+            this.streams.set(streamKey, stream);
+            this.activeStreams.add(streamKey);
+            this.streamOrder.push(streamKey);
+            this.streamDisplayModes.set(streamKey, 'cover');
+            this.streamMirror.set(streamKey, false);
+
+            this.addStreamThumbnail(streamKey, stream);
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.refreshLayoutChips();
+            this.updateMultiCameraUI();
+
+            const cameraName = cameraSelect.options[cameraSelect.selectedIndex]?.text || `Kamera ${cameraCount + 1}`;
+            this.showNotification('success', 'Kamera hinzugefügt', `${cameraName} ist nun aktiv`);
+            console.log(`✅ Zusätzliche Kamera "${streamKey}" gestartet`);
+
+        } catch (error) {
+            console.error('❌ Zusätzliche Kamera fehlgeschlagen:', error);
+            this.showNotification('error', 'Kamera-Fehler', error.message);
+        }
+    }
+
+    updateMultiCameraUI() {
+        const addBtn = document.getElementById('addCameraBtn');
+        const activeList = document.getElementById('activeCamerasList');
+        const activeContainer = document.getElementById('activeCamerasContainer');
+        const cameraSelect = document.getElementById('cameraSelect');
+
+        // Zähle aktive Kameras
+        const activeCameraKeys = Array.from(this.streams.keys()).filter(k => k.startsWith('camera'));
+        const hasActiveCameras = activeCameraKeys.length > 0;
+
+        // Verfügbare Kameras aus Dropdown zählen
+        const availableCameras = cameraSelect ? Array.from(cameraSelect.options).filter(o => o.value).length : 0;
+        const hasMoreCameras = availableCameras > activeCameraKeys.length;
+
+        // Button anzeigen wenn Kamera aktiv und weitere verfügbar
+        if (addBtn) {
+            addBtn.style.display = hasActiveCameras ? 'block' : 'none';
+            addBtn.disabled = !hasMoreCameras;
+            addBtn.title = hasMoreCameras ? 'Weitere Kamera hinzufügen' : 'Keine weiteren Kameras verfügbar';
+        }
+
+        // Aktive Kameras Liste
+        if (activeList && activeContainer) {
+            activeList.style.display = activeCameraKeys.length > 1 ? 'block' : 'none';
+            activeContainer.innerHTML = '';
+
+            activeCameraKeys.forEach(key => {
+                const stream = this.streams.get(key);
+                const deviceId = stream?.getVideoTracks()[0]?.getSettings()?.deviceId;
+                let cameraName = key === 'camera' ? 'Kamera 1' : `Kamera ${key.replace('camera', '')}`;
+
+                // Versuche Label aus Dropdown zu finden
+                if (cameraSelect && deviceId) {
+                    const option = Array.from(cameraSelect.options).find(o => o.value === deviceId);
+                    if (option) cameraName = option.text;
+                }
+
+                const badge = document.createElement('div');
+                badge.className = 'd-flex justify-content-between align-items-center bg-success bg-opacity-10 rounded px-2 py-1 mb-1';
+                badge.innerHTML = `
+                    <small class="text-success">
+                        <i class="fas fa-video me-1"></i>${cameraName}
+                    </small>
+                    ${key !== 'camera' ? `<button class="btn btn-sm btn-link text-danger p-0" onclick="streamrecApp.stopSingleCamera('${key}')" title="Stoppen">
+                        <i class="fas fa-times"></i>
+                    </button>` : ''}
+                `;
+                activeContainer.appendChild(badge);
+            });
+        }
+
+        // Status aktualisieren
+        if (activeCameraKeys.length > 1) {
+            this.updateStatus('camera', `${activeCameraKeys.length} Kameras aktiv`, 'success');
+        }
+    }
+
+    stopSingleCamera(streamKey) {
+        const stream = this.streams.get(streamKey);
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete(streamKey);
+            this.activeStreams.delete(streamKey);
+            this.streamOrder = this.streamOrder.filter(k => k !== streamKey);
+            this.removeStreamThumbnail(streamKey);
+            this.updateMultiCameraUI();
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.refreshLayoutChips();
+            this.showNotification('info', 'Kamera gestoppt', `${streamKey} wurde beendet`);
         }
     }
 
