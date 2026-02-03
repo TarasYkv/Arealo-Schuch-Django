@@ -479,16 +479,18 @@
         </div>
     </section>
 
-    <!-- Dynamische Inhalte aus dem Editor -->
-    {% if user.is_authenticated %}
+    <!-- Dynamische Inhalte aus dem Editor - nur anzeigen wenn Inhalte vorhanden oder Superuser -->
+    {% if editable_content or user.is_superuser %}
     <section class="py-5">
         <div class="container">
+            {% if user.is_superuser %}
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2 class="app-section-title mb-0">Zusätzliche Inhalte</h2>
                 <a href="{% url 'accounts:content_editor' %}?page={{ current_page }}" class="btn btn-outline-primary">
                     <i class="fas fa-edit me-2"></i>Seite bearbeiten
                 </a>
             </div>
+            {% endif %}
 
             {% if editable_content %}
                 {% for content in editable_content %}
@@ -510,16 +512,20 @@
                         </div>
                     {% endif %}
                 {% empty %}
+                    {% if user.is_superuser %}
                     <div class="text-center text-muted">
                         <i class="fas fa-layer-group fa-2x mb-2"></i>
                         <p>Noch keine zusätzlichen Inhalte. Füge über den Editor neue Blöcke hinzu.</p>
                     </div>
+                    {% endif %}
                 {% endfor %}
             {% else %}
+                {% if user.is_superuser %}
                 <div class="text-center text-muted">
                     <i class="fas fa-layer-group fa-2x mb-2"></i>
                     <p>Noch keine zusätzlichen Inhalte. Füge über den Editor neue Blöcke hinzu.</p>
                 </div>
+                {% endif %}
             {% endif %}
         </div>
     </section>
