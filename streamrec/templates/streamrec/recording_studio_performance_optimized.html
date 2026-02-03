@@ -4311,17 +4311,17 @@ class StreamRecorderOptimized {
         const imgWidth = img.naturalWidth || img.width;
         const imgHeight = img.naturalHeight || img.height;
 
-        // Berechne Skalierung für "contain" - das kleinere Verhältnis gewinnt
-        // So passt das komplette Bild in den Canvas ohne Beschneidung
+        // Berechne Skalierung für "cover" - das größere Verhältnis gewinnt
+        // So füllt das Bild den gesamten Canvas aus (ggf. wird beschnitten)
         const scaleX = canvasWidth / imgWidth;
         const scaleY = canvasHeight / imgHeight;
-        const scale = Math.min(scaleX, scaleY);
+        const scale = Math.max(scaleX, scaleY);
 
         // Neue Größe des skalierten Bildes
         const scaledWidth = imgWidth * scale;
         const scaledHeight = imgHeight * scale;
 
-        // Zentriere das Bild horizontal und vertikal
+        // Zentriere das Bild horizontal und vertikal (Überschuss wird abgeschnitten)
         const offsetX = (canvasWidth - scaledWidth) / 2;
         const offsetY = (canvasHeight - scaledHeight) / 2;
 
