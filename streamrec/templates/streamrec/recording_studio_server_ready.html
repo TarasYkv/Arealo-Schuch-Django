@@ -961,15 +961,36 @@
             async startCamera() {
                 try {
                     const cameraSelect = document.getElementById('cameraSelect');
-                    const selectedDeviceId = cameraSelect ? cameraSelect.value : null;
+                    let selectedDeviceId = cameraSelect ? cameraSelect.value : '';
 
+                    // Wenn keine Kamera ausgewählt aber Kameras verfügbar sind
                     if (!selectedDeviceId && this.availableCameras.length > 0) {
-                        this.showNotification('warning', 'Keine Kamera ausgewählt', 'Bitte wählen Sie eine Kamera aus');
-                        return;
+                        // Bei mehreren Kameras: Benutzer muss auswählen
+                        if (this.availableCameras.length > 1 && this.activeCameras.size === 0) {
+                            // Erste Kamera automatisch auswählen wenn noch keine aktiv
+                            selectedDeviceId = this.availableCameras[0].deviceId;
+                            if (cameraSelect) cameraSelect.value = selectedDeviceId;
+                        } else if (this.activeCameras.size > 0) {
+                            // Wenn schon Kameras aktiv: nächste freie Kamera finden
+                            const freeCamera = this.availableCameras.find(c => !this.activeCameras.has(c.deviceId));
+                            if (freeCamera) {
+                                selectedDeviceId = freeCamera.deviceId;
+                                if (cameraSelect) cameraSelect.value = selectedDeviceId;
+                            } else {
+                                this.showNotification('warning', 'Keine weitere Kamera', 'Alle verfügbaren Kameras sind bereits aktiv');
+                                return;
+                            }
+                        } else {
+                            // Nur eine Kamera: automatisch verwenden
+                            selectedDeviceId = this.availableCameras[0].deviceId;
+                        }
                     }
 
+                    // Fallback: Default-Kamera wenn keine deviceId
+                    const useDeviceId = selectedDeviceId || 'default-camera';
+
                     // Prüfen ob diese Kamera bereits aktiv ist
-                    if (this.activeCameras.has(selectedDeviceId)) {
+                    if (selectedDeviceId && this.activeCameras.has(selectedDeviceId)) {
                         this.showNotification('warning', 'Kamera bereits aktiv', 'Diese Kamera wird bereits verwendet');
                         return;
                     }
@@ -992,8 +1013,11 @@
                     // Eindeutige Stream-ID generieren
                     const streamKey = this.activeCameras.size === 0 ? 'camera' : `camera-${this.cameraCounter++}`;
 
+                    // DeviceId aus dem Stream extrahieren falls nicht bekannt
+                    const actualDeviceId = selectedDeviceId || stream.getVideoTracks()[0]?.getSettings()?.deviceId || `auto-${streamKey}`;
+
                     this.streams.set(streamKey, stream);
-                    this.activeCameras.set(selectedDeviceId, streamKey);
+                    this.activeCameras.set(actualDeviceId, streamKey);
 
                     // UI aktualisieren
                     this.updateCameraUI();
@@ -1002,7 +1026,7 @@
                     this.updateActiveStreamsCount();
 
                     // Kamera-Name für Benachrichtigung
-                    const cameraName = this.availableCameras.find(c => c.deviceId === selectedDeviceId)?.label || 'Kamera';
+                    const cameraName = this.availableCameras.find(c => c.deviceId === actualDeviceId || c.deviceId === selectedDeviceId)?.label || 'Kamera';
                     this.showNotification('success', 'Kamera gestartet', `${cameraName} ist nun aktiv`);
 
                     console.log(`✅ Kamera-Stream "${streamKey}" erfolgreich gestartet`);
