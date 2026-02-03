@@ -41,9 +41,9 @@
     nav.loomtalk-sidebar {
         position: fixed !important;
         left: 0 !important;
-        top: 70px !important;
+        top: var(--loomtalk-sidebar-top, 70px) !important;
         width: 220px !important;
-        height: calc(100vh - 70px) !important;
+        height: var(--loomtalk-sidebar-height, calc(100vh - 70px)) !important;
         background: var(--loomtalk-sidebar-bg) !important;
         backdrop-filter: blur(10px) !important;
         border-right: 1px solid var(--loomtalk-card-border) !important;
@@ -459,6 +459,36 @@
 
 {% block extra_js %}
 <script>
+// Dynamic sidebar positioning - adjusts for header ads
+(function() {
+    function updateSidebarPosition() {
+        const navbar = document.querySelector('.navbar');
+        const sidebar = document.querySelector('.loomtalk-sidebar');
+
+        if (navbar && sidebar) {
+            const navbarRect = navbar.getBoundingClientRect();
+            const navbarBottom = navbarRect.bottom;
+
+            // Set CSS variables for sidebar positioning
+            document.documentElement.style.setProperty('--loomtalk-sidebar-top', navbarBottom + 'px');
+            document.documentElement.style.setProperty('--loomtalk-sidebar-height', `calc(100vh - ${navbarBottom}px)`);
+        }
+    }
+
+    // Run on load
+    updateSidebarPosition();
+
+    // Run on scroll (navbar is sticky, so position changes)
+    window.addEventListener('scroll', updateSidebarPosition);
+
+    // Run on resize
+    window.addEventListener('resize', updateSidebarPosition);
+
+    // Run after a short delay to catch any dynamic content loading (ads)
+    setTimeout(updateSidebarPosition, 500);
+    setTimeout(updateSidebarPosition, 1500);
+})();
+
 // Vote functionality
 function vote(contentType, pk, voteType) {
     fetch(`/talk/vote/${contentType}/${pk}/`, {
