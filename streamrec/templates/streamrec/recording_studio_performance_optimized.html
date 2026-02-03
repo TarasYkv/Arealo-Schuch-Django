@@ -6989,80 +6989,135 @@ class StreamRecorderOptimized {
             const blob = await response.blob();
 
             if (blob.size > storageData.storage.available_mb * 1024 * 1024) {
-                throw new Error(`Video zu groß (${formatMB(blob.size)} MB)`);
-            }
-
-            // Server upload limit check (Base64 adds ~33% overhead)
-            const maxServerUploadMB = 75; // ~100MB after Base64 encoding
-            if (blob.size > maxServerUploadMB * 1024 * 1024) {
-                throw new Error(`Video zu groß für Server-Upload (${formatMB(blob.size)} MB). Maximum: ${maxServerUploadMB} MB. Bitte kürzere Aufnahme erstellen oder Download nutzen.`);
+                throw new Error(`Video zu groß (${formatMB(blob.size)} MB). Verfügbar: ${storageData.storage.available_mb.toFixed(1)} MB`);
             }
 
             // Show progress
             showProgress();
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Wird vorbereitet...';
+
+            // Get title and filename
+            const customTitle = document.getElementById('customVideoTitle')?.value.trim() || '';
+            const filename = customTitle ? `${customTitle}.webm` : `StreamRec_${new Date().toLocaleString('de-DE').replace(/[/:]/g, '-')}.webm`;
+            const title = customTitle || `StreamRec Aufnahme ${new Date().toLocaleString('de-DE')}`;
+
+            // ============ CHUNKED UPLOAD ============
+            const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+            const totalSize = blob.size;
+            const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
+
+            console.log(`🎬 Starting chunked upload: ${totalChunks} chunks of ${formatMB(CHUNK_SIZE)} MB`);
+
+            // Step 1: Initialize upload
+            const initResponse = await fetch('/videos/api/chunked/init/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken()
+                },
+                body: JSON.stringify({
+                    filename: filename,
+                    total_size: totalSize,
+                    title: title,
+                    description: `Aufgenommen mit StreamRec am ${new Date().toLocaleString('de-DE')}`
+                })
+            });
+
+            const initData = await initResponse.json();
+            if (!initData.success) {
+                throw new Error(initData.error || 'Upload-Initialisierung fehlgeschlagen');
+            }
+
+            const uploadId = initData.upload_id;
+            console.log('✅ Upload initialized:', uploadId);
+
+            // Step 2: Upload chunks
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Wird hochgeladen...';
+            let uploadedBytes = 0;
 
-            // Convert to base64
-            const reader = new FileReader();
-            reader.onload = () => {
-                const base64Data = reader.result.split(',')[1];
-                const customTitle = document.getElementById('customVideoTitle')?.value.trim() || '';
-                const filename = customTitle ? `${customTitle}.webm` : `StreamRec_${new Date().toLocaleString('de-DE').replace(/[/:]/g, '-')}.webm`;
-                const title = customTitle || `StreamRec Aufnahme ${new Date().toLocaleString('de-DE')}`;
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                const start = chunkIndex * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, totalSize);
+                const chunk = blob.slice(start, end);
+                const chunkSize = end - start;
 
-                const jsonBody = JSON.stringify({ video_data: base64Data, filename, title });
+                console.log(`📤 Uploading chunk ${chunkIndex + 1}/${totalChunks}`);
 
-                // XHR with progress
-                const xhr = new XMLHttpRequest();
+                // Upload chunk with progress tracking
+                const chunkResult = await new Promise((resolve, reject) => {
+                    const formData = new FormData();
+                    formData.append('upload_id', uploadId);
+                    formData.append('chunk_number', chunkIndex);
+                    formData.append('chunk', chunk, `chunk_${chunkIndex}`);
 
-                xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable) updateProgress(e.loaded, e.total);
-                });
+                    const xhr = new XMLHttpRequest();
 
-                xhr.addEventListener('load', () => {
-                    if (xhr.status === 200) {
-                        const result = JSON.parse(xhr.responseText);
-                        if (result.success) {
-                            showSuccess();
-                            saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Gespeichert!';
-                            saveBtn.className = 'btn btn-success';
-
-                            setTimeout(() => {
-                                this.showSuccessMessage(result);
-                                const modal = bootstrap.Modal.getInstance(document.getElementById('recordPreviewModal'));
-                                if (modal) modal.hide();
-                            }, 1500);
-                        } else {
-                            showError(result.error || 'Upload fehlgeschlagen');
-                            this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const chunkProgress = e.loaded;
+                            const totalProgress = uploadedBytes + chunkProgress;
+                            updateProgress(totalProgress, totalSize);
                         }
-                    } else if (xhr.status === 413) {
-                        showError('Video zu groß für Server-Upload. Bitte kürzere Aufnahme erstellen oder Download nutzen.');
-                        this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
-                    } else {
-                        showError('Server-Fehler: ' + xhr.status);
-                        this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
-                    }
+                    });
+
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status === 200) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch(e) {
+                                reject(new Error('Ungültige Server-Antwort'));
+                            }
+                        } else {
+                            reject(new Error(`HTTP ${xhr.status}`));
+                        }
+                    });
+
+                    xhr.addEventListener('error', () => reject(new Error('Netzwerkfehler')));
+                    xhr.addEventListener('timeout', () => reject(new Error('Zeitüberschreitung')));
+
+                    xhr.open('POST', '/videos/api/chunked/chunk/', true);
+                    xhr.timeout = 120000; // 2 min per chunk
+                    xhr.setRequestHeader('X-CSRFToken', this.getCSRFToken());
+                    xhr.send(formData);
                 });
 
-                xhr.addEventListener('error', () => {
-                    showError('Netzwerkfehler');
-                    this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
-                });
+                if (!chunkResult.success) {
+                    throw new Error(chunkResult.error || `Chunk ${chunkIndex + 1} fehlgeschlagen`);
+                }
 
-                xhr.open('POST', '/streamrec/api/save-video/', true);
-                xhr.setRequestHeader('X-CSRFToken', this.getCSRFToken());
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.timeout = 300000;
-                xhr.send(jsonBody);
-            };
+                uploadedBytes += chunkSize;
+                updateProgress(uploadedBytes, totalSize);
+            }
 
-            reader.onerror = () => {
-                showError('Fehler beim Lesen der Datei');
-                this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
-            };
+            // Step 3: Complete upload
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Video wird zusammengefügt...';
 
-            reader.readAsDataURL(blob);
+            const completeResponse = await fetch('/videos/api/chunked/complete/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken()
+                },
+                body: JSON.stringify({ upload_id: uploadId })
+            });
+
+            const completeData = await completeResponse.json();
+            if (!completeData.success) {
+                throw new Error(completeData.error || 'Zusammenfügen fehlgeschlagen');
+            }
+
+            console.log('✅ Upload complete!', completeData);
+
+            // Success!
+            showSuccess();
+            saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Gespeichert!';
+            saveBtn.className = 'btn btn-success';
+
+            setTimeout(() => {
+                this.showSuccessMessage(completeData);
+                const modal = bootstrap.Modal.getInstance(document.getElementById('recordPreviewModal'));
+                if (modal) modal.hide();
+            }, 1500);
 
         } catch (error) {
             console.error('❌ Upload Fehler:', error);
@@ -7096,16 +7151,17 @@ class StreamRecorderOptimized {
     }
 
     showSuccessMessage(result) {
-        // API gibt: filename, file_size (bytes), video_id, video_url
-        const fileSizeMB = (result.file_size / 1024 / 1024).toFixed(2);
-        const videoUrl = result.video_url || `/videos/${result.video_id}/`;
+        // Chunked API: video_id, video_title, redirect_url
+        // Legacy API: filename, file_size (bytes), video_id, video_url
+        const videoTitle = result.video_title || result.filename || 'StreamRec Aufnahme';
+        const videoUrl = result.redirect_url || result.video_url || `/videos/${result.video_id}/`;
+        const fileSizeInfo = result.file_size ? `<br>Größe: ${(result.file_size / 1024 / 1024).toFixed(2)} MB` : '';
 
         const message = `
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <h6><i class="fas fa-cloud-upload-alt me-2"></i>Video erfolgreich gespeichert!</h6>
                 <p class="mb-2">
-                    <strong>${result.filename || 'StreamRec Aufnahme'}</strong><br>
-                    Größe: ${fileSizeMB} MB
+                    <strong>${videoTitle}</strong>${fileSizeInfo}
                 </p>
                 <div class="btn-group btn-group-sm">
                     <a href="${videoUrl}" target="_blank" class="btn btn-outline-primary btn-sm">
