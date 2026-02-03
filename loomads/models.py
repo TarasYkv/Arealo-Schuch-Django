@@ -170,7 +170,7 @@ class AppCampaign(models.Model):
         ('loomline', 'LoomLine'),
         ('loomconnect', 'LoomConnect'),
         ('keyengine', 'KeyEngine'),
-        ('fileshare', 'FileShara'),
+        ('fileshare', 'FileShare'),
         ('streamrec', 'StreamRec'),
         ('promptpro', 'PromptPro'),
         ('blog', 'Blog'),
@@ -186,6 +186,12 @@ class AppCampaign(models.Model):
         ('shopify_manager', 'Shopify Manager'),
         ('global', 'Global Bereiche'),
         ('dashboard', 'Dashboard (Legacy)'),
+        # Neue Apps
+        ('android_apk_manager', 'Android APK Manager'),
+        ('backloom', 'BackLoom'),
+        ('linkloom', 'LinkLoom'),
+        ('loommarket', 'LoomMarket'),
+        ('ploom', 'P-Loom'),
     ]
 
     STATUS_CHOICES = [
