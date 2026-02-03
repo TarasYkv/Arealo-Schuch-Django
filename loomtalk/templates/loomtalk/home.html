@@ -1,0 +1,162 @@
+{% extends 'loomtalk/base_loomtalk.html' %}
+
+{% block loomtalk_content %}
+<div class="loomtalk-page-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="loomtalk-page-title">LoomTalk Forum</h1>
+            <p class="text-muted mb-0">Diskutiere, frage und teile Wissen mit der Community</p>
+        </div>
+        {% if can_write %}
+        <a href="{% url 'loomtalk:topic_create' %}" class="btn btn-loomtalk">
+            <i class="bi bi-plus-lg me-2"></i>Neues Thema
+        </a>
+        {% else %}
+        <a href="{% url 'account_login' %}?next={{ request.path }}" class="btn btn-outline-loomtalk">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Anmelden zum Schreiben
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-widget">
+    <div class="stat-item">
+        <div class="stat-value">{{ total_topics }}</div>
+        <div class="stat-label">Themen</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ total_replies }}</div>
+        <div class="stat-label">Antworten</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">Teilnehmer</div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Kategorien -->
+    <div class="col-lg-8">
+        <div class="loomtalk-card mb-4">
+            <div class="loomtalk-card-header">
+                <h5 class="mb-0"><i class="bi bi-grid me-2"></i>Kategorien</h5>
+            </div>
+            <div class="loomtalk-card-body">
+                {% if categories %}
+                <div class="row g-3">
+                    {% for category in categories %}
+                    <div class="col-md-6">
+                        <a href="{% url 'loomtalk:category_detail' category.slug %}" class="text-decoration-none">
+                            <div class="p-3 rounded-3 border" style="border-color: {{ category.color }}20 !important; background: {{ category.color }}08;">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-circle p-2" style="background: {{ category.color }}20;">
+                                        <i class="{{ category.icon }}" style="color: {{ category.color }}; font-size: 1.25rem;"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1" style="color: {{ category.color }};">{{ category.name }}</h6>
+                                        <small class="text-muted">{{ category.topics_count }} Themen</small>
+                                    </div>
+                                </div>
+                                {% if category.description %}
+                                <p class="text-muted small mt-2 mb-0">{{ category.description|truncatewords:15 }}</p>
+                                {% endif %}
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">Noch keine Kategorien vorhanden.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Aktuelle Themen -->
+        <div class="loomtalk-card">
+            <div class="loomtalk-card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Aktuelle Themen</h5>
+                <a href="{% url 'loomtalk:topic_list' %}" class="btn btn-sm btn-outline-loomtalk">Alle anzeigen</a>
+            </div>
+            <div class="loomtalk-card-body p-0">
+                {% if recent_topics %}
+                {% for topic in recent_topics %}
+                <div class="topic-card border-0 rounded-0 border-bottom mb-0">
+                    <div class="d-flex gap-3">
+                        <div class="vote-buttons">
+                            <div class="vote-score" id="score-topic-{{ topic.pk }}">{{ topic.score }}</div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <a href="{% url 'loomtalk:topic_detail' topic.pk %}" class="topic-title">
+                                {% if topic.status == 'pinned' %}<i class="bi bi-pin-fill text-warning me-1"></i>{% endif %}
+                                {% if topic.status == 'closed' %}<i class="bi bi-lock-fill text-secondary me-1"></i>{% endif %}
+                                {{ topic.title }}
+                            </a>
+                            <div class="topic-meta">
+                                <span class="category-badge" style="background: {{ topic.category.color }}15; color: {{ topic.category.color }};">
+                                    <i class="{{ topic.category.icon }}"></i>
+                                    {{ topic.category.name }}
+                                </span>
+                                <span>von {{ topic.author.username }}</span>
+                                <span>{{ topic.created_at|timesince }} her</span>
+                            </div>
+                            <div class="topic-stats mt-2">
+                                <span><i class="bi bi-chat"></i> {{ topic.replies_count }}</span>
+                                <span><i class="bi bi-eye"></i> {{ topic.views_count }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted text-center py-4">Noch keine Themen vorhanden. Sei der Erste!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Beliebte Themen -->
+        <div class="loomtalk-card mb-4">
+            <div class="loomtalk-card-header">
+                <h6 class="mb-0"><i class="bi bi-fire me-2 text-danger"></i>Beliebte Themen</h6>
+            </div>
+            <div class="loomtalk-card-body p-0">
+                {% if popular_topics %}
+                {% for topic in popular_topics %}
+                <a href="{% url 'loomtalk:topic_detail' topic.pk %}" class="d-block p-3 border-bottom text-decoration-none">
+                    <div class="d-flex align-items-start gap-2">
+                        <span class="badge bg-success">+{{ topic.score }}</span>
+                        <span class="text-body">{{ topic.title|truncatewords:8 }}</span>
+                    </div>
+                </a>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted text-center py-3 mb-0">Noch keine beliebten Themen.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Beliebte Tags -->
+        <div class="loomtalk-card">
+            <div class="loomtalk-card-header">
+                <h6 class="mb-0"><i class="bi bi-tags me-2"></i>Beliebte Tags</h6>
+            </div>
+            <div class="loomtalk-card-body">
+                {% if popular_tags %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for tag in popular_tags %}
+                    <a href="{% url 'loomtalk:tag_topics' tag.slug %}" class="tag-badge">
+                        {{ tag.name }} ({{ tag.usage_count }})
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0">Noch keine Tags vorhanden.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

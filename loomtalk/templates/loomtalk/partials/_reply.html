@@ -1,0 +1,51 @@
+<div class="reply-card {% if depth > 0 %}nested{% endif %} {% if reply.is_solution %}is-solution{% endif %}" id="reply-{{ reply.pk }}">
+    <div class="d-flex gap-3">
+        <!-- Voting -->
+        <div class="vote-buttons">
+            {% if can_write %}
+            <button class="vote-btn {% if user_reply_votes and reply.pk in user_reply_votes and user_reply_votes|get_item:reply.pk == 1 %}upvoted{% endif %}"
+                    id="upvote-reply-{{ reply.pk }}"
+                    onclick="vote('reply', '{{ reply.pk }}', 1)">
+                <i class="bi bi-caret-up-fill"></i>
+            </button>
+            {% endif %}
+            <div class="vote-score" id="score-reply-{{ reply.pk }}">{{ reply.score }}</div>
+            {% if can_write %}
+            <button class="vote-btn {% if user_reply_votes and reply.pk in user_reply_votes and user_reply_votes|get_item:reply.pk == -1 %}downvoted{% endif %}"
+                    id="downvote-reply-{{ reply.pk }}"
+                    onclick="vote('reply', '{{ reply.pk }}', -1)">
+                <i class="bi bi-caret-down-fill"></i>
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="flex-grow-1">
+            <!-- Author Info -->
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="author-avatar" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                        {{ reply.author.username|first|upper }}
+                    </div>
+                    <div>
+                        <strong>{{ reply.author.username }}</strong>
+                        {% if reply.is_solution %}
+                        <span class="badge bg-success ms-2"><i class="bi bi-check-circle me-1"></i>Loesung</span>
+                        {% endif %}
+                        <div class="text-muted small">
+                            {{ reply.created_at|date:"d.m.Y H:i" }}
+                            {% if reply.is_edited %}<span class="ms-2">(bearbeitet)</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if can_write and depth < 2 %}
+                <button class="btn btn-sm btn-outline-secondary" onclick="setReplyTo('{{ reply.pk }}', '{{ reply.author.username }}')">
+                    <i class="bi bi-reply"></i> Antworten
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Content -->
+            <div class="reply-content" style="white-space: pre-wrap; line-height: 1.6;">{{ reply.content }}</div>
+        </div>
+    </div>
+</div>

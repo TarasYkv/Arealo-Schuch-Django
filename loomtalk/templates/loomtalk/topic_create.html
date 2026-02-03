@@ -1,0 +1,111 @@
+{% extends 'loomtalk/base_loomtalk.html' %}
+
+{% block loomtalk_content %}
+<div class="loomtalk-page-header">
+    <h1 class="loomtalk-page-title">Neues Thema erstellen</h1>
+    <p class="text-muted">Starte eine neue Diskussion in der Community</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="loomtalk-card">
+            <div class="loomtalk-card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Titel *</label>
+                        <input type="text" name="title" class="form-control loomtalk-form-control"
+                               placeholder="Ein aussagekraeftiger Titel fuer dein Thema..."
+                               required maxlength="200" value="{{ form.title.value|default:'' }}">
+                        <small class="text-muted">Max. 200 Zeichen</small>
+                        {% if form.title.errors %}
+                        <div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Kategorie *</label>
+                        <select name="category" class="form-select loomtalk-form-control" required>
+                            <option value="">Waehle eine Kategorie...</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if form.category.value == cat.id %}selected{% endif %}>
+                                {{ cat.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.category.errors %}
+                        <div class="text-danger small mt-1">{{ form.category.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Inhalt *</label>
+                        <textarea name="content" class="form-control loomtalk-form-control" rows="10"
+                                  placeholder="Beschreibe dein Thema ausfuehrlich...
+
+Tipps:
+- Stelle deine Frage klar und praezise
+- Gib relevanten Kontext
+- Nutze @username um jemanden zu erwähnen"
+                                  required maxlength="10000">{{ form.content.value|default:'' }}</textarea>
+                        <small class="text-muted">Max. 10.000 Zeichen</small>
+                        {% if form.content.errors %}
+                        <div class="text-danger small mt-1">{{ form.content.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Tags</label>
+                        <input type="text" name="tags" class="form-control loomtalk-form-control"
+                               placeholder="z.B. frage, hilfe, diskussion (durch Komma getrennt)"
+                               maxlength="200">
+                        <small class="text-muted">Max. 5 Tags, durch Komma getrennt</small>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <a href="{% url 'loomtalk:home' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Abbrechen
+                        </a>
+                        <button type="submit" class="btn btn-loomtalk">
+                            <i class="bi bi-send me-2"></i>Thema erstellen
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="loomtalk-card">
+            <div class="loomtalk-card-header">
+                <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Tipps fuer gute Themen</h6>
+            </div>
+            <div class="loomtalk-card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>Klarer Titel</strong>
+                        <p class="text-muted small mb-0">Beschreibe dein Thema kurz und praezise</p>
+                    </li>
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>Kontext geben</strong>
+                        <p class="text-muted small mb-0">Erklaere den Hintergrund deiner Frage</p>
+                    </li>
+                    <li class="mb-3">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>Richtige Kategorie</strong>
+                        <p class="text-muted small mb-0">Hilft anderen, dein Thema zu finden</p>
+                    </li>
+                    <li class="mb-0">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>Relevante Tags</strong>
+                        <p class="text-muted small mb-0">Verbessert die Auffindbarkeit</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

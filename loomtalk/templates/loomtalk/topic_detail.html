@@ -1,0 +1,182 @@
+{% extends 'loomtalk/base_loomtalk.html' %}
+
+{% block loomtalk_content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'loomtalk:home' %}">Forum</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'loomtalk:category_detail' topic.category.slug %}">{{ topic.category.name }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ topic.title|truncatewords:5 }}</li>
+    </ol>
+</nav>
+
+<!-- Topic -->
+<div class="loomtalk-card mb-4">
+    <div class="loomtalk-card-body">
+        <div class="d-flex gap-3">
+            <!-- Voting -->
+            <div class="vote-buttons">
+                {% if can_write %}
+                {% csrf_token %}
+                <button class="vote-btn {% if user_vote and user_vote.vote_type == 1 %}upvoted{% endif %}"
+                        id="upvote-topic-{{ topic.pk }}"
+                        onclick="vote('topic', '{{ topic.pk }}', 1)">
+                    <i class="bi bi-caret-up-fill"></i>
+                </button>
+                {% endif %}
+                <div class="vote-score" id="score-topic-{{ topic.pk }}">{{ topic.score }}</div>
+                {% if can_write %}
+                <button class="vote-btn {% if user_vote and user_vote.vote_type == -1 %}downvoted{% endif %}"
+                        id="downvote-topic-{{ topic.pk }}"
+                        onclick="vote('topic', '{{ topic.pk }}', -1)">
+                    <i class="bi bi-caret-down-fill"></i>
+                </button>
+                {% endif %}
+            </div>
+
+            <div class="flex-grow-1">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h1 class="h3 mb-2">
+                            {% if topic.status == 'pinned' %}<i class="bi bi-pin-fill text-warning me-2"></i>{% endif %}
+                            {% if topic.status == 'closed' %}<i class="bi bi-lock-fill text-secondary me-2"></i>{% endif %}
+                            {{ topic.title }}
+                        </h1>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <a href="{% url 'loomtalk:category_detail' topic.category.slug %}" class="category-badge text-decoration-none"
+                               style="background: {{ topic.category.color }}15; color: {{ topic.category.color }};">
+                                <i class="{{ topic.category.icon }}"></i>
+                                {{ topic.category.name }}
+                            </a>
+                            {% for tag in topic.tags.all %}
+                            <a href="{% url 'loomtalk:tag_topics' tag.slug %}" class="tag-badge text-decoration-none">{{ tag.name }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% if request.user == topic.author or request.user.is_superuser %}
+                    <a href="{% url 'loomtalk:topic_edit' topic.pk %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil"></i> Bearbeiten
+                    </a>
+                    {% endif %}
+                </div>
+
+                <!-- Author Info -->
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="author-avatar">
+                        {{ topic.author.username|first|upper }}
+                    </div>
+                    <div>
+                        <strong>{{ topic.author.username }}</strong>
+                        <div class="text-muted small">
+                            {{ topic.created_at|date:"d.m.Y H:i" }}
+                            <span class="mx-2">|</span>
+                            <i class="bi bi-eye"></i> {{ topic.views_count }} Aufrufe
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="topic-content mb-3" style="white-space: pre-wrap; line-height: 1.7;">{{ topic.content }}</div>
+
+                <!-- Stats -->
+                <div class="topic-stats pt-3 border-top">
+                    <span><i class="bi bi-chat"></i> {{ topic.replies_count }} Antworten</span>
+                    <span><i class="bi bi-clock"></i> Letzte Aktivitaet {{ topic.last_activity_at|timesince }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Replies Section -->
+<div class="mb-4">
+    <h5 class="mb-3">
+        <i class="bi bi-chat-left-text me-2"></i>
+        {{ topic.replies_count }} Antwort{% if topic.replies_count != 1 %}en{% endif %}
+    </h5>
+
+    {% if replies %}
+    {% for reply in replies %}
+    {% include 'loomtalk/partials/_reply.html' with reply=reply depth=0 %}
+
+    <!-- Nested Replies -->
+    {% for child in reply.children.all %}
+    {% include 'loomtalk/partials/_reply.html' with reply=child depth=1 %}
+    {% endfor %}
+    {% endfor %}
+    {% else %}
+    <div class="loomtalk-card">
+        <div class="loomtalk-card-body text-center py-4">
+            <i class="bi bi-chat-left text-muted" style="font-size: 2rem;"></i>
+            <p class="text-muted mt-2 mb-0">Noch keine Antworten. Sei der Erste!</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Reply Form -->
+{% if can_write %}
+{% if topic.status != 'closed' %}
+<div class="loomtalk-card" id="reply-form">
+    <div class="loomtalk-card-header">
+        <h6 class="mb-0"><i class="bi bi-reply me-2"></i>Deine Antwort</h6>
+    </div>
+    <div class="loomtalk-card-body">
+        <form method="post" action="{% url 'loomtalk:reply_create' topic.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="parent_id" id="reply-parent-id" value="">
+
+            <div id="reply-to-indicator" class="alert alert-info d-none mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Antwort auf: <strong id="reply-to-username"></strong></span>
+                    <button type="button" class="btn-close btn-sm" onclick="clearReplyTo()"></button>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <textarea name="content" class="form-control loomtalk-form-control" rows="5"
+                          placeholder="Schreibe deine Antwort... (Nutze @username um jemanden zu erwähnen)"
+                          required maxlength="5000"></textarea>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-muted">Markdown wird unterstuetzt. Max. 5000 Zeichen.</small>
+                <button type="submit" class="btn btn-loomtalk">
+                    <i class="bi bi-send me-2"></i>Antwort posten
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-secondary">
+    <i class="bi bi-lock me-2"></i>
+    Dieses Thema ist geschlossen. Neue Antworten sind nicht moeglich.
+</div>
+{% endif %}
+{% else %}
+<div class="loomtalk-card">
+    <div class="loomtalk-card-body text-center py-4">
+        <p class="mb-3">Melde dich an, um zu antworten.</p>
+        <a href="{% url 'account_login' %}?next={{ request.path }}" class="btn btn-loomtalk">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Anmelden
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function setReplyTo(replyId, username) {
+    document.getElementById('reply-parent-id').value = replyId;
+    document.getElementById('reply-to-username').textContent = username;
+    document.getElementById('reply-to-indicator').classList.remove('d-none');
+    document.getElementById('reply-form').scrollIntoView({ behavior: 'smooth' });
+    document.querySelector('textarea[name="content"]').focus();
+}
+
+function clearReplyTo() {
+    document.getElementById('reply-parent-id').value = '';
+    document.getElementById('reply-to-indicator').classList.add('d-none');
+}
+</script>
+{% endblock %}

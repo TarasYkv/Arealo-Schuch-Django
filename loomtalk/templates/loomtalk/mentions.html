@@ -1,0 +1,133 @@
+{% extends 'loomtalk/base_loomtalk.html' %}
+
+{% block loomtalk_content %}
+<div class="loomtalk-page-header">
+    <h1 class="loomtalk-page-title">
+        <i class="bi bi-at me-2"></i>Meine Erwaehnungen
+    </h1>
+    <p class="text-muted">
+        {% if unread_count %}
+        <span class="badge bg-danger me-2">{{ unread_count }} neu</span>
+        {% endif %}
+        Hier siehst du alle Beitraege in denen du erwaehnt wurdest
+    </p>
+</div>
+
+{% if mentions %}
+{% for mention in mentions %}
+<div class="loomtalk-card mb-3 {% if not mention.is_read %}border-primary{% endif %}">
+    <div class="loomtalk-card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex gap-3">
+                <div class="author-avatar">
+                    {{ mention.mentioning_user.username|first|upper }}
+                </div>
+                <div>
+                    <strong>{{ mention.mentioning_user.username }}</strong>
+                    <span class="text-muted">hat dich erwaehnt</span>
+                    <div class="text-muted small">{{ mention.created_at|timesince }} her</div>
+                </div>
+            </div>
+            {% if not mention.is_read %}
+            <span class="badge bg-primary">Neu</span>
+            {% endif %}
+        </div>
+
+        <div class="mt-3 p-3 bg-light rounded">
+            {% if mention.topic %}
+            <a href="{% url 'loomtalk:topic_detail' mention.topic.pk %}" class="text-decoration-none">
+                <strong>{{ mention.topic.title }}</strong>
+            </a>
+            <p class="text-muted small mb-0 mt-1">{{ mention.topic.content|truncatewords:20 }}</p>
+            {% elif mention.reply %}
+            <a href="{% url 'loomtalk:topic_detail' mention.reply.topic.pk %}#reply-{{ mention.reply.pk }}" class="text-decoration-none">
+                <strong>Antwort in: {{ mention.reply.topic.title }}</strong>
+            </a>
+            <p class="text-muted small mb-0 mt-1">{{ mention.reply.content|truncatewords:20 }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+            {% if mention.topic %}
+            <a href="{% url 'loomtalk:topic_detail' mention.topic.pk %}" class="btn btn-sm btn-outline-loomtalk">
+                <i class="bi bi-eye me-1"></i>Thema ansehen
+            </a>
+            {% elif mention.reply %}
+            <a href="{% url 'loomtalk:topic_detail' mention.reply.topic.pk %}#reply-{{ mention.reply.pk }}" class="btn btn-sm btn-outline-loomtalk">
+                <i class="bi bi-eye me-1"></i>Antwort ansehen
+            </a>
+            {% endif %}
+            {% if not mention.is_read %}
+            <button class="btn btn-sm btn-outline-secondary" onclick="markAsRead({{ mention.pk }}, this)">
+                <i class="bi bi-check me-1"></i>Als gelesen markieren
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="loomtalk-card">
+    <div class="loomtalk-card-body text-center py-5">
+        <i class="bi bi-at text-muted" style="font-size: 3rem;"></i>
+        <h5 class="mt-3">Keine Erwaehnungen</h5>
+        <p class="text-muted">Du wurdest noch nicht in Beitraegen erwaehnt.</p>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function markAsRead(mentionId, btn) {
+    fetch(`/talk/mention/${mentionId}/gelesen/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                           document.cookie.split('; ').find(row => row.startsWith('csrftoken=')).split('=')[1]
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const card = btn.closest('.loomtalk-card');
+            card.classList.remove('border-primary');
+            card.querySelector('.badge.bg-primary')?.remove();
+            btn.remove();
+        }
+    });
+}
+</script>
+{% endblock %}

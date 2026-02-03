@@ -616,6 +616,25 @@ def _get_available_apps():
                 'SEO-ready': 'Optimierte Meta-Daten'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'loomtalk': {
+            'name': 'LoomTalk',
+            'icon': 'bi-chat-dots',
+            'color': 'primary',
+            'app_url': '/talk/',
+            'short_desc': 'Diskussions-Forum fuer den Austausch mit der Community',
+            'features': [
+                'Diskussions-Themen erstellen',
+                'Verschachtelte Antworten',
+                'Upvote/Downvote System',
+                '@Mentions mit Benachrichtigungen'
+            ],
+            'benefits': {
+                'Wissen teilen': 'Community-Austausch',
+                'Fragen stellen': 'Hilfe von Experten',
+                'Vernetzen': 'Gleichgesinnte finden'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         }
     }
 
@@ -1259,6 +1278,30 @@ def _get_all_apps():
                 'Zeit sparen': 'Nie wieder manuelles Ausfüllen aller Felder'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'loomtalk': {
+            'name': 'LoomTalk',
+            'icon': 'bi-chat-dots',
+            'color': 'primary',
+            'short_desc': 'Diskussions-Forum - tausche dich mit anderen aus, stelle Fragen und teile Wissen.',
+            'features': [
+                'Diskussions-Themen - Erstelle Themen und beteilige dich an Diskussionen',
+                'Kategorien - Finde Themen nach Bereichen sortiert',
+                'Verschachtelte Antworten - Antworte direkt auf andere Beitraege',
+                'Upvote/Downvote - Bewerte hilfreiche Beitraege',
+                '@Mentions - Erwähne andere Nutzer und erhalte Benachrichtigungen',
+                'Tags - Finde Themen durch Schlagworte',
+                'Loesungs-Markierung - Markiere die beste Antwort als Lösung',
+                'Öffentliches Lesen - Jeder kann lesen, Schreiben für Mitglieder'
+            ],
+            'benefits': {
+                'Wissen teilen': 'Profitiere vom Wissen der Community',
+                'Fragen stellen': 'Erhalte Hilfe von erfahrenen Nutzern',
+                'Vernetzen': 'Tausche dich mit Gleichgesinnten aus',
+                'Lösungen finden': 'Markierte Antworten zeigen bewährte Lösungen'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!',
+            'url_name': 'loomtalk:home'
         },
 
         # === Legacy/Fallback entries ===

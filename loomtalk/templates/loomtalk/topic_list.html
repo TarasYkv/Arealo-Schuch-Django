@@ -1,0 +1,174 @@
+{% extends 'loomtalk/base_loomtalk.html' %}
+
+{% block loomtalk_content %}
+<div class="loomtalk-page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1 class="loomtalk-page-title">Alle Themen</h1>
+            <p class="text-muted mb-0">Entdecke Diskussionen zu verschiedenen Themen</p>
+        </div>
+        {% if can_write %}
+        <a href="{% url 'loomtalk:topic_create' %}" class="btn btn-loomtalk">
+            <i class="bi bi-plus-lg me-2"></i>Neues Thema
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filter und Sortierung -->
+<div class="loomtalk-card mb-4">
+    <div class="loomtalk-card-body py-3">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+            <!-- Sortierung -->
+            <div class="btn-group" role="group">
+                <a href="?sort=recent{% if current_category %}&category={{ current_category }}{% endif %}{% if current_tag %}&tag={{ current_tag }}{% endif %}"
+                   class="btn btn-sm {% if current_sort == 'recent' %}btn-loomtalk{% else %}btn-outline-secondary{% endif %}">
+                    Neueste
+                </a>
+                <a href="?sort=popular{% if current_category %}&category={{ current_category }}{% endif %}{% if current_tag %}&tag={{ current_tag }}{% endif %}"
+                   class="btn btn-sm {% if current_sort == 'popular' %}btn-loomtalk{% else %}btn-outline-secondary{% endif %}">
+                    Beliebt
+                </a>
+                <a href="?sort=hot{% if current_category %}&category={{ current_category }}{% endif %}{% if current_tag %}&tag={{ current_tag }}{% endif %}"
+                   class="btn btn-sm {% if current_sort == 'hot' %}btn-loomtalk{% else %}btn-outline-secondary{% endif %}">
+                    Aktiv
+                </a>
+            </div>
+
+            <!-- Kategorie Filter -->
+            <select class="form-select form-select-sm" style="width: auto;" onchange="filterByCategory(this.value)">
+                <option value="">Alle Kategorien</option>
+                {% for cat in categories %}
+                <option value="{{ cat.slug }}" {% if current_category == cat.slug %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+
+            {% if current_category or current_tag %}
+            <a href="{% url 'loomtalk:topic_list' %}?sort={{ current_sort }}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-x-lg"></i> Filter entfernen
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Themen-Liste -->
+{% if topics %}
+{% for topic in topics %}
+<div class="topic-card">
+    <div class="d-flex gap-3">
+        <!-- Voting -->
+        <div class="vote-buttons">
+            {% if can_write %}
+            {% csrf_token %}
+            <button class="vote-btn {% if user_vote and user_vote.vote_type == 1 %}upvoted{% endif %}"
+                    id="upvote-topic-{{ topic.pk }}"
+                    onclick="vote('topic', '{{ topic.pk }}', 1)">
+                <i class="bi bi-caret-up-fill"></i>
+            </button>
+            {% endif %}
+            <div class="vote-score" id="score-topic-{{ topic.pk }}">{{ topic.score }}</div>
+            {% if can_write %}
+            <button class="vote-btn {% if user_vote and user_vote.vote_type == -1 %}downvoted{% endif %}"
+                    id="downvote-topic-{{ topic.pk }}"
+                    onclick="vote('topic', '{{ topic.pk }}', -1)">
+                <i class="bi bi-caret-down-fill"></i>
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="flex-grow-1">
+            <a href="{% url 'loomtalk:topic_detail' topic.pk %}" class="topic-title">
+                {% if topic.status == 'pinned' %}<i class="bi bi-pin-fill text-warning me-1"></i>{% endif %}
+                {% if topic.status == 'closed' %}<i class="bi bi-lock-fill text-secondary me-1"></i>{% endif %}
+                {{ topic.title }}
+            </a>
+
+            <div class="topic-meta mb-2">
+                <a href="{% url 'loomtalk:category_detail' topic.category.slug %}" class="category-badge text-decoration-none"
+                   style="background: {{ topic.category.color }}15; color: {{ topic.category.color }};">
+                    <i class="{{ topic.category.icon }}"></i>
+                    {{ topic.category.name }}
+                </a>
+                <span>von <strong>{{ topic.author.username }}</strong></span>
+                <span>{{ topic.created_at|timesince }} her</span>
+            </div>
+
+            {% if topic.tags.all %}
+            <div class="mb-2">
+                {% for tag in topic.tags.all %}
+                <a href="{% url 'loomtalk:tag_topics' tag.slug %}" class="tag-badge text-decoration-none">{{ tag.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="topic-stats">
+                <span><i class="bi bi-chat"></i> {{ topic.replies_count }} Antworten</span>
+                <span><i class="bi bi-eye"></i> {{ topic.views_count }} Aufrufe</span>
+                <span><i class="bi bi-clock"></i> Letzte Aktivitaet {{ topic.last_activity_at|timesince }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&sort={{ current_sort }}{% if current_category %}&category={{ current_category }}{% endif %}">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}&sort={{ current_sort }}{% if current_category %}&category={{ current_category }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&sort={{ current_sort }}{% if current_category %}&category={{ current_category }}{% endif %}">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="loomtalk-card">
+    <div class="loomtalk-card-body text-center py-5">
+        <i class="bi bi-chat-left-text text-muted" style="font-size: 3rem;"></i>
+        <h5 class="mt-3">Keine Themen gefunden</h5>
+        <p class="text-muted">Sei der Erste und starte eine Diskussion!</p>
+        {% if can_write %}
+        <a href="{% url 'loomtalk:topic_create' %}" class="btn btn-loomtalk">
+            <i class="bi bi-plus-lg me-2"></i>Neues Thema erstellen
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+function filterByCategory(slug) {
+    const url = new URL(window.location);
+    if (slug) {
+        url.searchParams.set('category', slug);
+    } else {
+        url.searchParams.delete('category');
+    }
+    window.location = url;
+}
+</script>
+{% endblock %}

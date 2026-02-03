@@ -210,6 +210,7 @@ class AppPermission(models.Model):
         ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
         ('backloom', 'BackLoom - Feed Management'),
         ('loommarket', 'LoomMarket - Business Marketing'),
+        ('loomtalk', 'LoomTalk - Forum'),
 
         # SEO Tools
         ('seo_dashboard', 'SEO Dashboard'),
@@ -928,6 +929,7 @@ class AppInfo(models.Model):
         ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
         ('backloom', 'BackLoom - Feed Management'),
         ('loommarket', 'LoomMarket - Business Marketing'),
+        ('loomtalk', 'LoomTalk - Forum'),
     ]
 
     app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Feature")
@@ -1027,6 +1029,7 @@ class FeatureAccess(models.Model):
         ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
         ('backloom', 'BackLoom - Feed Management'),
         ('loommarket', 'LoomMarket - Business Marketing'),
+        ('loomtalk', 'LoomTalk - Forum'),
 
         # Spezifische Features/Sub-Bereiche
         ('video_upload', 'Video Upload'),

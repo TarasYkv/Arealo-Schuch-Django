@@ -1,0 +1,495 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* LoomTalk Forum Design */
+    :root {
+        --loomtalk-primary: #5c7cfa;
+        --loomtalk-secondary: #748ffc;
+        --loomtalk-accent: #845ef7;
+        --loomtalk-success: #51cf66;
+        --loomtalk-warning: #fcc419;
+        --loomtalk-danger: #ff6b6b;
+        --loomtalk-card-bg: rgba(255, 255, 255, 0.98);
+        --loomtalk-card-border: rgba(92, 124, 250, 0.1);
+        --loomtalk-shadow: 0 4px 20px rgba(92, 124, 250, 0.08);
+        --loomtalk-hover-shadow: 0 8px 30px rgba(92, 124, 250, 0.15);
+        --loomtalk-sidebar-bg: rgba(255, 255, 255, 0.95);
+    }
+
+    [data-theme="dark"] {
+        --loomtalk-card-bg: rgba(33, 37, 41, 0.98);
+        --loomtalk-sidebar-bg: rgba(33, 37, 41, 0.95);
+    }
+
+    /* Prevent horizontal scroll */
+    html, body {
+        overflow-x: hidden !important;
+        max-width: 100vw;
+    }
+
+    /* LoomTalk Layout */
+    .loomtalk-layout {
+        display: flex;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+
+    /* Left Sidebar Navigation */
+    nav.loomtalk-sidebar {
+        position: fixed !important;
+        left: 0 !important;
+        top: 95px !important;
+        width: 220px !important;
+        height: calc(100vh - 95px) !important;
+        background: var(--loomtalk-sidebar-bg) !important;
+        backdrop-filter: blur(10px) !important;
+        border-right: 1px solid var(--loomtalk-card-border) !important;
+        padding: 20px 0 !important;
+        z-index: 1040 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    .loomtalk-sidebar-nav {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .loomtalk-sidebar-item {
+        margin-bottom: 4px;
+    }
+
+    .loomtalk-sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 24px;
+        color: #6c757d;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border-left: 3px solid transparent;
+    }
+
+    .loomtalk-sidebar-link:hover {
+        color: var(--loomtalk-primary);
+        background: rgba(92, 124, 250, 0.05);
+        border-left-color: var(--loomtalk-primary);
+    }
+
+    .loomtalk-sidebar-link.active {
+        color: var(--loomtalk-primary);
+        background: rgba(92, 124, 250, 0.08);
+        border-left-color: var(--loomtalk-primary);
+        font-weight: 500;
+    }
+
+    .loomtalk-sidebar-link i {
+        font-size: 1.1rem;
+        width: 24px;
+        text-align: center;
+    }
+
+    /* Main Content */
+    .loomtalk-main {
+        margin-left: 220px;
+        flex: 1;
+        padding: 30px;
+        min-height: calc(100vh - 95px);
+        width: calc(100% - 220px);
+        box-sizing: border-box;
+    }
+
+    /* Cards */
+    .loomtalk-card {
+        background: var(--loomtalk-card-bg);
+        border-radius: 16px;
+        border: 1px solid var(--loomtalk-card-border);
+        box-shadow: var(--loomtalk-shadow);
+        transition: all 0.3s ease;
+        overflow: hidden;
+    }
+
+    .loomtalk-card:hover {
+        box-shadow: var(--loomtalk-hover-shadow);
+        transform: translateY(-2px);
+    }
+
+    .loomtalk-card-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--loomtalk-card-border);
+        background: linear-gradient(135deg, rgba(92, 124, 250, 0.03) 0%, rgba(132, 94, 247, 0.03) 100%);
+    }
+
+    .loomtalk-card-body {
+        padding: 24px;
+    }
+
+    /* Topic Cards */
+    .topic-card {
+        background: var(--loomtalk-card-bg);
+        border-radius: 12px;
+        border: 1px solid var(--loomtalk-card-border);
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: all 0.2s ease;
+    }
+
+    .topic-card:hover {
+        box-shadow: var(--loomtalk-shadow);
+        border-color: var(--loomtalk-primary);
+    }
+
+    .topic-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--bs-body-color);
+        text-decoration: none;
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .topic-title:hover {
+        color: var(--loomtalk-primary);
+    }
+
+    .topic-meta {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .topic-stats {
+        display: flex;
+        gap: 20px;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    .topic-stats span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* Category Badge */
+    .category-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        background: rgba(92, 124, 250, 0.1);
+        color: var(--loomtalk-primary);
+    }
+
+    /* Tags */
+    .tag-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        background: rgba(132, 94, 247, 0.1);
+        color: var(--loomtalk-accent);
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .tag-badge:hover {
+        background: rgba(132, 94, 247, 0.2);
+        color: var(--loomtalk-accent);
+    }
+
+    /* Vote Buttons */
+    .vote-buttons {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .vote-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--loomtalk-card-border);
+        background: transparent;
+        color: #6c757d;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .vote-btn:hover {
+        border-color: var(--loomtalk-primary);
+        color: var(--loomtalk-primary);
+    }
+
+    .vote-btn.upvoted {
+        background: var(--loomtalk-success);
+        border-color: var(--loomtalk-success);
+        color: white;
+    }
+
+    .vote-btn.downvoted {
+        background: var(--loomtalk-danger);
+        border-color: var(--loomtalk-danger);
+        color: white;
+    }
+
+    .vote-score {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    /* Reply Styles */
+    .reply-card {
+        background: var(--loomtalk-card-bg);
+        border-radius: 12px;
+        border: 1px solid var(--loomtalk-card-border);
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+
+    .reply-card.nested {
+        margin-left: 40px;
+        border-left: 3px solid var(--loomtalk-primary);
+    }
+
+    .reply-card.is-solution {
+        border-color: var(--loomtalk-success);
+        background: rgba(81, 207, 102, 0.05);
+    }
+
+    /* Buttons */
+    .btn-loomtalk {
+        background: linear-gradient(135deg, var(--loomtalk-primary) 0%, var(--loomtalk-accent) 100%);
+        border: none;
+        color: white;
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-loomtalk:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(92, 124, 250, 0.3);
+        color: white;
+    }
+
+    .btn-outline-loomtalk {
+        border: 2px solid var(--loomtalk-primary);
+        background: transparent;
+        color: var(--loomtalk-primary);
+        padding: 8px 22px;
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-loomtalk:hover {
+        background: var(--loomtalk-primary);
+        color: white;
+    }
+
+    /* Form Styles */
+    .loomtalk-form-control {
+        border: 2px solid var(--loomtalk-card-border);
+        border-radius: 10px;
+        padding: 12px 16px;
+        transition: all 0.2s ease;
+    }
+
+    .loomtalk-form-control:focus {
+        border-color: var(--loomtalk-primary);
+        box-shadow: 0 0 0 4px rgba(92, 124, 250, 0.1);
+    }
+
+    /* Page Header */
+    .loomtalk-page-header {
+        margin-bottom: 30px;
+    }
+
+    .loomtalk-page-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--loomtalk-primary) 0%, var(--loomtalk-accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+    }
+
+    /* Author Info */
+    .author-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--loomtalk-primary) 0%, var(--loomtalk-accent) 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    /* Stats Widget */
+    .stats-widget {
+        display: flex;
+        gap: 24px;
+        padding: 20px;
+        background: rgba(92, 124, 250, 0.05);
+        border-radius: 12px;
+        margin-bottom: 24px;
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--loomtalk-primary);
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 991px) {
+        nav.loomtalk-sidebar {
+            display: none !important;
+        }
+
+        .loomtalk-main {
+            margin-left: 0;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .topic-card {
+            padding: 16px;
+        }
+
+        .reply-card.nested {
+            margin-left: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="loomtalk-layout">
+    <!-- Sidebar Navigation -->
+    <nav class="loomtalk-sidebar d-none d-lg-block">
+        <ul class="loomtalk-sidebar-nav">
+            <li class="loomtalk-sidebar-item">
+                <a href="{% url 'loomtalk:home' %}" class="loomtalk-sidebar-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+                    <i class="bi bi-house"></i>
+                    <span>Forum Home</span>
+                </a>
+            </li>
+            <li class="loomtalk-sidebar-item">
+                <a href="{% url 'loomtalk:topic_list' %}" class="loomtalk-sidebar-link {% if request.resolver_match.url_name == 'topic_list' %}active{% endif %}">
+                    <i class="bi bi-chat-left-text"></i>
+                    <span>Alle Themen</span>
+                </a>
+            </li>
+            {% if can_write %}
+            <li class="loomtalk-sidebar-item">
+                <a href="{% url 'loomtalk:topic_create' %}" class="loomtalk-sidebar-link {% if request.resolver_match.url_name == 'topic_create' %}active{% endif %}">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>Neues Thema</span>
+                </a>
+            </li>
+            <li class="loomtalk-sidebar-item">
+                <a href="{% url 'loomtalk:mentions' %}" class="loomtalk-sidebar-link {% if request.resolver_match.url_name == 'mentions' %}active{% endif %}">
+                    <i class="bi bi-at"></i>
+                    <span>Erwaehnungen</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="loomtalk-sidebar-item">
+                <a href="{% url 'loomtalk:search' %}" class="loomtalk-sidebar-link {% if request.resolver_match.url_name == 'search' %}active{% endif %}">
+                    <i class="bi bi-search"></i>
+                    <span>Suche</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Kategorien -->
+        {% if sidebar_categories %}
+        <hr class="my-3 mx-3">
+        <div class="px-3 mb-2">
+            <small class="text-muted text-uppercase fw-bold">Kategorien</small>
+        </div>
+        <ul class="loomtalk-sidebar-nav">
+            {% for cat in sidebar_categories %}
+            <li class="loomtalk-sidebar-item">
+                <a href="{% url 'loomtalk:category_detail' cat.slug %}" class="loomtalk-sidebar-link">
+                    <i class="{{ cat.icon }}"></i>
+                    <span>{{ cat.name }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </nav>
+
+    <!-- Main Content -->
+    <main class="loomtalk-main">
+        {% block loomtalk_content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Vote functionality
+function vote(contentType, pk, voteType) {
+    fetch(`/talk/vote/${contentType}/${pk}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `vote_type=${voteType}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update score display
+            const scoreEl = document.querySelector(`#score-${contentType}-${pk}`);
+            if (scoreEl) {
+                scoreEl.textContent = data.new_score;
+            }
+
+            // Update button states
+            const upBtn = document.querySelector(`#upvote-${contentType}-${pk}`);
+            const downBtn = document.querySelector(`#downvote-${contentType}-${pk}`);
+
+            upBtn.classList.remove('upvoted');
+            downBtn.classList.remove('downvoted');
+
+            if (data.action === 'voted') {
+                if (voteType === 1) upBtn.classList.add('upvoted');
+                if (voteType === -1) downBtn.classList.add('downvoted');
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

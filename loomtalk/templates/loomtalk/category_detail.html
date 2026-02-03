@@ -1,0 +1,126 @@
+{% extends 'loomtalk/base_loomtalk.html' %}
+
+{% block loomtalk_content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'loomtalk:home' %}">Forum</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ category.name }}</li>
+    </ol>
+</nav>
+
+<div class="loomtalk-page-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-3">
+            <div class="rounded-circle p-3" style="background: {{ category.color }}20;">
+                <i class="{{ category.icon }}" style="color: {{ category.color }}; font-size: 1.5rem;"></i>
+            </div>
+            <div>
+                <h1 class="loomtalk-page-title mb-1">{{ category.name }}</h1>
+                {% if category.description %}
+                <p class="text-muted mb-0">{{ category.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% if can_write %}
+        <a href="{% url 'loomtalk:topic_create' %}" class="btn btn-loomtalk">
+            <i class="bi bi-plus-lg me-2"></i>Neues Thema
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-widget">
+    <div class="stat-item">
+        <div class="stat-value">{{ category.topics_count }}</div>
+        <div class="stat-label">Themen</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ category.posts_count }}</div>
+        <div class="stat-label">Beitraege</div>
+    </div>
+</div>
+
+<!-- Topics -->
+{% if topics %}
+{% for topic in topics %}
+<div class="topic-card">
+    <div class="d-flex gap-3">
+        <div class="vote-buttons">
+            <div class="vote-score">{{ topic.score }}</div>
+        </div>
+        <div class="flex-grow-1">
+            <a href="{% url 'loomtalk:topic_detail' topic.pk %}" class="topic-title">
+                {% if topic.status == 'pinned' %}<i class="bi bi-pin-fill text-warning me-1"></i>{% endif %}
+                {% if topic.status == 'closed' %}<i class="bi bi-lock-fill text-secondary me-1"></i>{% endif %}
+                {{ topic.title }}
+            </a>
+            <div class="topic-meta mb-2">
+                <span>von <strong>{{ topic.author.username }}</strong></span>
+                <span>{{ topic.created_at|timesince }} her</span>
+            </div>
+            {% if topic.tags.all %}
+            <div class="mb-2">
+                {% for tag in topic.tags.all %}
+                <a href="{% url 'loomtalk:tag_topics' tag.slug %}" class="tag-badge text-decoration-none">{{ tag.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <div class="topic-stats">
+                <span><i class="bi bi-chat"></i> {{ topic.replies_count }} Antworten</span>
+                <span><i class="bi bi-eye"></i> {{ topic.views_count }} Aufrufe</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Pagination -->
+{% if topics.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if topics.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ topics.previous_page_number }}">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+        {% endif %}
+
+        {% for num in topics.paginator.page_range %}
+        {% if topics.number == num %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num > topics.number|add:'-3' and num < topics.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        {% if topics.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ topics.next_page_number }}">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="loomtalk-card">
+    <div class="loomtalk-card-body text-center py-5">
+        <i class="bi bi-chat-left-text text-muted" style="font-size: 3rem;"></i>
+        <h5 class="mt-3">Noch keine Themen in dieser Kategorie</h5>
+        <p class="text-muted">Sei der Erste und starte eine Diskussion!</p>
+        {% if can_write %}
+        <a href="{% url 'loomtalk:topic_create' %}" class="btn btn-loomtalk">
+            <i class="bi bi-plus-lg me-2"></i>Neues Thema erstellen
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -103,6 +103,7 @@ INSTALLED_APPS = [
     'backloom',
     'ploom',
     'loommarket',
+    'loomtalk',
 ]
 
 
