@@ -66,12 +66,16 @@ def download_apk(request, version_id):
         raise
 
 
-@login_required
 def dashboard(request):
     """
     Dashboard für App-Owner
     Zeigt alle eigenen Apps mit Statistiken
+    Nicht eingeloggte User werden zur öffentlichen Liste weitergeleitet
     """
+    # Nicht eingeloggte User zur öffentlichen Liste weiterleiten
+    if not request.user.is_authenticated:
+        return redirect('android_apk_manager:public_app_list')
+
     # Hole alle Apps des Users
     apps = AndroidApp.objects.filter(
         created_by=request.user
