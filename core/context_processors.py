@@ -302,6 +302,12 @@ MENU_STRUCTURE = {
                 'icon': 'bi bi-people',
                 'auth_url_name': 'loomconnect:dashboard',
             },
+            {
+                'app_name': 'loomtalk',
+                'label': 'LoomTalk',
+                'icon': 'bi bi-chat-dots',
+                'auth_url_name': 'loomtalk:home',
+            },
             {'divider': True, 'label': 'Profile'},
             {
                 'app_name': 'linkloom',
