@@ -38,7 +38,7 @@ def dashboard(request):
 @login_required
 def recording_studio(request):
     """
-    Aufnahmestudio mit Multi-Kamera-Support
+    Performance Optimized Aufnahmestudio - Anti-Freeze Technology
     """
     import time
     context = {
@@ -46,15 +46,15 @@ def recording_studio(request):
         'max_duration_minutes': 3,
         'supported_formats': ['webm'],
         'canvas_aspect_ratio': '16:9',  # Default format
-        'version': 'server-ready',
+        'version': 'performance-optimized',
         'cache_bust': int(time.time()),  # Cache-busting parameter
         'features': {
-            'multi_camera': ['Mehrere Kameras gleichzeitig', 'Grid Layout', 'Individuelle Steuerung'],
-            'layouts': ['Picture-in-Picture', 'Side-by-Side', 'Grid', 'Stacked'],
-            'recording': ['WebM Export', 'Live Vorschau', 'Pause/Resume']
+            'anti_freeze': ['Frame Skip Logic', 'Video Element Pooling', 'Smart Rendering'],
+            'performance': ['Adaptive FPS', 'Memory Management', 'Error Recovery'],
+            'monitoring': ['Real-time FPS Counter', 'Dropped Frame Tracking', 'Render Time Analysis']
         }
     }
-    return render(request, 'streamrec/recording_studio_server_ready.html', context)
+    return render(request, 'streamrec/recording_studio_performance_optimized.html', context)
 
 @login_required 
 def recording_studio_self_contained(request):
