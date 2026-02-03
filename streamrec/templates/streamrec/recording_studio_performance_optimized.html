@@ -1884,6 +1884,7 @@ class StreamRecorderOptimized {
         // Audio controls
         document.getElementById('audioEnabled')?.addEventListener('change', () => this.checkAudioStream());
         document.getElementById('systemAudio')?.addEventListener('change', () => this.checkAudioStream());
+        document.getElementById('microphoneSelect')?.addEventListener('change', () => this.switchMicrophone());
 
         // Audio Sync Offset
         document.getElementById('audioSyncOffset')?.addEventListener('input', (e) => {
@@ -9404,14 +9405,14 @@ class StreamRecorderOptimized {
         if (audioEnabled) {
             // Check if any stream has audio
             let hasAudioStream = false;
-            
+
             for (const [streamId, stream] of this.streams) {
                 if (stream && stream.getAudioTracks().length > 0) {
                     hasAudioStream = true;
                     break;
                 }
             }
-            
+
             if (hasAudioStream) {
                 this.updateAudioStatusBadge('success');
                 this.updateAudioStatus('Audio aktiv');
@@ -9422,6 +9423,95 @@ class StreamRecorderOptimized {
         } else {
             this.updateAudioStatusBadge('secondary');
             this.updateAudioStatus('Audio deaktiviert');
+        }
+    }
+
+    // Switch microphone to selected device
+    async switchMicrophone() {
+        const microphoneSelect = document.getElementById('microphoneSelect');
+        const selectedDeviceId = microphoneSelect?.value;
+
+        console.log(`🎤 Mikrofon wechseln zu: ${selectedDeviceId || 'Standard'}`);
+
+        // Stop existing dedicated microphone stream
+        if (this.streams.has('microphone')) {
+            const oldStream = this.streams.get('microphone');
+            if (oldStream) {
+                oldStream.getTracks().forEach(track => track.stop());
+            }
+            this.streams.delete('microphone');
+            const orderIndex = this.streamOrder.indexOf('microphone');
+            if (orderIndex > -1) {
+                this.streamOrder.splice(orderIndex, 1);
+            }
+            console.log('🔇 Altes Mikrofon-Stream gestoppt');
+        }
+
+        // Remove audio tracks from existing camera/screen streams to avoid double audio
+        for (const [streamId, stream] of this.streams) {
+            if (stream && (streamId.startsWith('camera') || streamId.startsWith('screen'))) {
+                const audioTracks = stream.getAudioTracks();
+                audioTracks.forEach(track => {
+                    track.stop();
+                    stream.removeTrack(track);
+                    console.log(`🔇 Audio-Track von ${streamId} entfernt`);
+                });
+            }
+        }
+
+        // Stop audio context for level monitoring
+        if (this.audioContext) {
+            try {
+                this.audioContext.close();
+            } catch (e) {
+                console.warn('Audio context close error:', e);
+            }
+            this.audioContext = null;
+            this.audioAnalyser = null;
+            this.audioGainNode = null;
+        }
+
+        // Check if audio is enabled
+        const audioEnabled = document.getElementById('audioEnabled')?.checked;
+        if (!audioEnabled) {
+            this.updateAudioStatusBadge('secondary');
+            this.updateAudioStatus('Audio deaktiviert');
+            console.log('🔇 Audio ist deaktiviert, kein neuer Stream erstellt');
+            return;
+        }
+
+        try {
+            // Create new audio stream with selected device
+            const audioConstraints = this.getAudioConstraints();
+            if (!audioConstraints) {
+                console.log('🔇 Keine Audio-Constraints, kein Stream erstellt');
+                return;
+            }
+
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                audio: audioConstraints,
+                video: false
+            });
+
+            // Store the new microphone stream
+            this.streams.set('microphone', newStream);
+            if (!this.streamOrder.includes('microphone')) {
+                this.streamOrder.push('microphone');
+            }
+
+            // Restart audio level monitoring
+            this.startAudioLevelMonitoring(newStream);
+
+            this.updateAudioStatusBadge('success');
+            this.updateAudioStatus('Mikrofon gewechselt');
+
+            const deviceLabel = microphoneSelect?.options[microphoneSelect.selectedIndex]?.text || 'Standard';
+            console.log(`✅ Mikrofon gewechselt zu: ${deviceLabel}`);
+
+        } catch (error) {
+            console.error('❌ Mikrofon-Wechsel fehlgeschlagen:', error);
+            this.updateAudioStatusBadge('danger');
+            this.updateAudioStatus('Mikrofon-Fehler');
         }
     }
 
