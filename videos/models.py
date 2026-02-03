@@ -37,7 +37,8 @@ class UserStorage(models.Model):
     used_storage = models.BigIntegerField(default=0)  # in bytes
     max_storage = models.BigIntegerField(default=104857600)  # 100MB default (100 * 1024 * 1024)
     is_premium = models.BooleanField(default=False)
-    
+    manual_storage_override = models.BooleanField(default=False)  # Verhindert Stripe-Sync Überschreibung
+
     # Grace period management
     grace_period_start = models.DateTimeField(null=True, blank=True)
     grace_period_end = models.DateTimeField(null=True, blank=True)

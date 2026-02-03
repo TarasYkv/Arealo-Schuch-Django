@@ -60,7 +60,12 @@ class StorageSubscriptionSync:
                     'is_premium': False,
                 }
             )
-            
+
+            # Skip sync if manual override is set (for manually upgraded users)
+            if user_storage.manual_storage_override:
+                logger.info(f"Skipping storage sync for {user.username} - manual override active")
+                return user_storage
+
             # Get active Stripe subscription
             subscription = StorageSubscriptionSync.get_user_active_subscription(user)
             
