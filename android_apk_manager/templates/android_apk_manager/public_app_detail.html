@@ -65,8 +65,9 @@
                             <img src="{{ screenshot.image.url }}"
                                  class="img-fluid rounded shadow-sm"
                                  alt="{{ screenshot.caption|default:'Screenshot' }}"
-                                 style="cursor: pointer; height: 150px; width: 100%; object-fit: cover;"
-                                 onclick="openScreenshotModal('{{ screenshot.image.url }}', '{{ screenshot.caption|default:"Screenshot"|escapejs }}')">
+                                 style="cursor: pointer; height: 150px; width: 100%; object-fit: contain; background: #f8f9fa;"
+                                 data-index="{{ forloop.counter0 }}"
+                                 onclick="openScreenshotModal({{ forloop.counter0 }})">
                         </div>
                         {% endfor %}
                     </div>
@@ -197,28 +198,87 @@
     </div>
 </div>
 
-<!-- Screenshot Modal -->
+<!-- Screenshot Lightbox Modal -->
 {% if screenshots %}
 <div class="modal fade" id="screenshotModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="screenshotModalTitle">Screenshot</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white" id="screenshotModalTitle">Screenshot</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center p-0">
-                <img src="" id="screenshotModalImage" class="img-fluid" alt="Screenshot">
+            <div class="modal-body text-center p-0 position-relative" style="min-height: 400px;">
+                <!-- Navigation Arrows -->
+                <button type="button" class="btn btn-light position-absolute start-0 top-50 translate-middle-y ms-2 rounded-circle shadow"
+                        onclick="navigateScreenshot(-1)" id="prevScreenshot" style="width: 50px; height: 50px; z-index: 10;">
+                    <i class="bi bi-chevron-left fs-4"></i>
+                </button>
+                <button type="button" class="btn btn-light position-absolute end-0 top-50 translate-middle-y me-2 rounded-circle shadow"
+                        onclick="navigateScreenshot(1)" id="nextScreenshot" style="width: 50px; height: 50px; z-index: 10;">
+                    <i class="bi bi-chevron-right fs-4"></i>
+                </button>
+
+                <!-- Image Container -->
+                <div class="d-flex align-items-center justify-content-center" style="min-height: 400px;">
+                    <img src="" id="screenshotModalImage" class="img-fluid" alt="Screenshot"
+                         style="max-height: 70vh; object-fit: contain;">
+                </div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <span class="text-white-50" id="screenshotCounter">1 / 1</span>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function openScreenshotModal(imageUrl, caption) {
-    document.getElementById('screenshotModalImage').src = imageUrl;
-    document.getElementById('screenshotModalTitle').textContent = caption;
+// Screenshot Data
+const screenshots = [
+    {% for screenshot in screenshots %}
+    {
+        url: '{{ screenshot.image.url }}',
+        caption: '{{ screenshot.caption|default:"Screenshot"|escapejs }}'
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+let currentIndex = 0;
+
+// Open Lightbox
+function openScreenshotModal(index) {
+    currentIndex = index;
+    updateModalContent();
     new bootstrap.Modal(document.getElementById('screenshotModal')).show();
 }
+
+// Navigate Screenshots
+function navigateScreenshot(direction) {
+    currentIndex += direction;
+    if (currentIndex < 0) currentIndex = screenshots.length - 1;
+    if (currentIndex >= screenshots.length) currentIndex = 0;
+    updateModalContent();
+}
+
+// Update Modal Content
+function updateModalContent() {
+    const screenshot = screenshots[currentIndex];
+    document.getElementById('screenshotModalImage').src = screenshot.url;
+    document.getElementById('screenshotModalTitle').textContent = screenshot.caption;
+    document.getElementById('screenshotCounter').textContent = `${currentIndex + 1} / ${screenshots.length}`;
+
+    // Show/hide navigation based on screenshot count
+    document.getElementById('prevScreenshot').style.display = screenshots.length > 1 ? 'block' : 'none';
+    document.getElementById('nextScreenshot').style.display = screenshots.length > 1 ? 'block' : 'none';
+}
+
+// Keyboard Navigation
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('screenshotModal');
+    if (!modal.classList.contains('show')) return;
+
+    if (e.key === 'ArrowLeft') navigateScreenshot(-1);
+    if (e.key === 'ArrowRight') navigateScreenshot(1);
+    if (e.key === 'Escape') bootstrap.Modal.getInstance(modal).hide();
+});
 </script>
 {% endif %}
 {% endblock %}
