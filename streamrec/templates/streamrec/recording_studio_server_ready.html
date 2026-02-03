@@ -942,11 +942,19 @@
 
                     console.log(`📷 ${videoInputs.length} Kamera(s) gefunden`);
 
+                    // Status anzeigen
+                    this.updateStatus('camera', `${videoInputs.length} Kamera(s) verfügbar`, 'secondary');
+
                     if (videoInputs.length > 1) {
-                        this.showNotification('info', 'Multi-Kamera erkannt', `${videoInputs.length} Kameras verfügbar`);
+                        this.showNotification('info', 'Multi-Kamera erkannt', `${videoInputs.length} Kameras verfügbar - Sie können mehrere gleichzeitig nutzen!`);
+                    } else if (videoInputs.length === 1) {
+                        this.showNotification('info', 'Kamera erkannt', '1 Kamera verfügbar');
+                    } else {
+                        this.showNotification('warning', 'Keine Kamera', 'Keine Kamera gefunden. Bitte Kamera anschließen.');
                     }
                 } catch (error) {
                     console.error('❌ Fehler beim Laden der Kameras:', error);
+                    this.updateStatus('camera', 'Fehler beim Laden', 'danger');
                 }
             }
 
@@ -1024,7 +1032,18 @@
 
                 // Buttons anzeigen/verstecken
                 if (startBtn) startBtn.style.display = hasActiveCameras ? 'none' : 'block';
-                if (addBtn) addBtn.style.display = (hasActiveCameras && hasMoreCameras) ? 'block' : 'none';
+                // "Weitere Kamera" Button immer anzeigen wenn eine aktiv, aber disabled wenn keine weiteren
+                if (addBtn) {
+                    addBtn.style.display = hasActiveCameras ? 'block' : 'none';
+                    addBtn.disabled = !hasMoreCameras;
+                    if (!hasMoreCameras) {
+                        addBtn.title = 'Keine weiteren Kameras verfügbar';
+                        addBtn.classList.add('disabled');
+                    } else {
+                        addBtn.title = 'Weitere Kamera zur Aufnahme hinzufügen';
+                        addBtn.classList.remove('disabled');
+                    }
+                }
                 if (stopAllBtn) stopAllBtn.style.display = hasActiveCameras ? 'block' : 'none';
                 if (activeList) activeList.style.display = hasActiveCameras ? 'block' : 'none';
 
@@ -1065,9 +1084,16 @@
                 }
 
                 // Status aktualisieren
-                const count = this.activeCameras.size;
-                this.updateStatus('camera', count > 0 ? `${count} Kamera(s) aktiv` : 'Nicht aktiv', count > 0 ? 'success' : 'secondary');
-                this.updateStatusBadge('camera', count > 0 ? 'success' : 'secondary');
+                const activeCount = this.activeCameras.size;
+                const totalCount = this.availableCameras.length;
+                let statusText = 'Nicht aktiv';
+                if (activeCount > 0) {
+                    statusText = `${activeCount}/${totalCount} Kamera(s) aktiv`;
+                } else if (totalCount > 0) {
+                    statusText = `${totalCount} Kamera(s) verfügbar`;
+                }
+                this.updateStatus('camera', statusText, activeCount > 0 ? 'success' : 'secondary');
+                this.updateStatusBadge('camera', activeCount > 0 ? 'success' : 'secondary');
             }
 
             stopSingleCamera(deviceId) {
