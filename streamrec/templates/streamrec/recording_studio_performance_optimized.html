@@ -6992,6 +6992,12 @@ class StreamRecorderOptimized {
                 throw new Error(`Video zu groß (${formatMB(blob.size)} MB)`);
             }
 
+            // Server upload limit check (Base64 adds ~33% overhead)
+            const maxServerUploadMB = 75; // ~100MB after Base64 encoding
+            if (blob.size > maxServerUploadMB * 1024 * 1024) {
+                throw new Error(`Video zu groß für Server-Upload (${formatMB(blob.size)} MB). Maximum: ${maxServerUploadMB} MB. Bitte kürzere Aufnahme erstellen oder Download nutzen.`);
+            }
+
             // Show progress
             showProgress();
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Wird hochgeladen...';
@@ -7030,6 +7036,9 @@ class StreamRecorderOptimized {
                             showError(result.error || 'Upload fehlgeschlagen');
                             this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
                         }
+                    } else if (xhr.status === 413) {
+                        showError('Video zu groß für Server-Upload. Bitte kürzere Aufnahme erstellen oder Download nutzen.');
+                        this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
                     } else {
                         showError('Server-Fehler: ' + xhr.status);
                         this.resetUploadButton(saveBtn, downloadBtn, originalBtnText);
