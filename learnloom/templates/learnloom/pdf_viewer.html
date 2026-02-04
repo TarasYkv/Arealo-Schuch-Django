@@ -51,17 +51,18 @@
         position: relative;
         margin-bottom: 20px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        line-height: 0; /* Remove extra space below canvas */
     }
     .pdf-page canvas {
         display: block;
+        margin: 0;
+        padding: 0;
     }
     .textLayer {
         position: absolute;
         text-align: initial;
         left: 0;
         top: 0;
-        right: 0;
-        bottom: 0;
         overflow: hidden;
         opacity: 1;
         line-height: 1.0;
@@ -69,13 +70,19 @@
         forced-color-adjust: none;
         transform-origin: 0 0;
         z-index: 2;
+        pointer-events: auto;
     }
-    .textLayer :is(span, br) {
+    .textLayer span {
         color: transparent;
         position: absolute;
         white-space: pre;
         cursor: text;
         transform-origin: 0% 0%;
+        pointer-events: auto;
+    }
+    .textLayer br {
+        color: transparent;
+        position: absolute;
     }
     .textLayer span.markedContent {
         top: 0;
@@ -448,20 +455,24 @@ async function renderPage(pageNum, canvas) {
             const textContent = await page.getTextContent();
             const textLayer = document.createElement('div');
             textLayer.className = 'textLayer';
-            textLayer.style.width = viewport.width + 'px';
-            textLayer.style.height = viewport.height + 'px';
+
+            // Critical: Set exact positioning and size to match canvas
+            textLayer.style.cssText = `
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: ${viewport.width}px;
+                height: ${viewport.height}px;
+                --scale-factor: ${scale};
+            `;
 
             canvas.parentElement.appendChild(textLayer);
-
-            // Collect text divs for post-processing
-            const textDivs = [];
 
             // Use PDF.js official text layer rendering
             await pdfjsLib.renderTextLayer({
                 textContentSource: textContent,
                 container: textLayer,
-                viewport: viewport,
-                textDivs: textDivs
+                viewport: viewport
             }).promise;
 
         } catch (textError) {
