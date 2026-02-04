@@ -453,26 +453,31 @@ async function renderPage(pageNum, canvas) {
         // Add text layer for selection using PDF.js official rendering
         try {
             const textContent = await page.getTextContent();
+
+            // Get viewport at scale 1 for text layer
+            const textViewport = page.getViewport({ scale: 1 });
+
             const textLayer = document.createElement('div');
             textLayer.className = 'textLayer';
 
-            // Critical: Set exact positioning and size to match canvas
+            // Render text at scale 1, then CSS scale to match canvas
             textLayer.style.cssText = `
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: ${viewport.width}px;
-                height: ${viewport.height}px;
-                --scale-factor: ${scale};
+                width: ${textViewport.width}px;
+                height: ${textViewport.height}px;
+                transform: scale(${scale});
+                transform-origin: 0 0;
             `;
 
             canvas.parentElement.appendChild(textLayer);
 
-            // Use PDF.js official text layer rendering
+            // Use PDF.js text layer rendering at scale 1
             await pdfjsLib.renderTextLayer({
                 textContentSource: textContent,
                 container: textLayer,
-                viewport: viewport
+                viewport: textViewport
             }).promise;
 
         } catch (textError) {
