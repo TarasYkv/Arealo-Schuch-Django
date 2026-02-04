@@ -940,13 +940,11 @@ async function extractTextFromRegion(screenRect) {
 
     const pageRect = targetPage.getBoundingClientRect();
 
-    // Convert screen coordinates to page-relative coordinates
-    const relativeRect = {
-        left: (screenRect.left - pageRect.left) / scale,
-        top: (screenRect.top - pageRect.top) / scale,
-        right: (screenRect.left + screenRect.width - pageRect.left) / scale,
-        bottom: (screenRect.top + screenRect.height - pageRect.top) / scale
-    };
+    // Convert screen coordinates to PDF coordinates (unscaled)
+    const selLeft = (screenRect.left - pageRect.left) / scale;
+    const selTop = (screenRect.top - pageRect.top) / scale;
+    const selRight = (screenRect.left + screenRect.width - pageRect.left) / scale;
+    const selBottom = (screenRect.top + screenRect.height - pageRect.top) / scale;
 
     // Get text content for this page
     let textContent = pageTextContents[pageNum];
@@ -956,34 +954,68 @@ async function extractTextFromRegion(screenRect) {
         pageTextContents[pageNum] = textContent;
     }
 
-    // Find text items within the rectangle
-    const viewport = pdfDoc.getPage ?
-        (await pdfDoc.getPage(pageNum)).getViewport({ scale: 1 }) : null;
+    // Get viewport for coordinate conversion
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 1 });
 
-    let extractedWords = [];
+    let extractedParts = [];
 
     for (const item of textContent.items) {
         if (!item.str || !item.transform) continue;
 
-        // Get item position (PDF coordinates)
+        // Get item position in PDF coordinates
         const tx = item.transform;
-        const x = tx[4];
-        const y = viewport ? viewport.height - tx[5] : tx[5]; // Convert PDF y to screen y
-        const width = item.width || item.str.length * 8;
-        const height = Math.abs(tx[0]) || 12;
+        const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
+        const itemX = tx[4];
+        const itemY = viewport.height - tx[5]; // Convert PDF Y (bottom-up) to screen Y (top-down)
+        const itemWidth = item.width || (item.str.length * fontSize * 0.5);
+        const itemHeight = fontSize;
 
-        // Check if item is within selection rectangle
-        if (x + width >= relativeRect.left &&
-            x <= relativeRect.right &&
-            y + height >= relativeRect.top &&
-            y <= relativeRect.bottom) {
-            extractedWords.push(item.str);
+        // Calculate center of the text item
+        const itemCenterX = itemX + itemWidth / 2;
+        const itemCenterY = itemY + itemHeight / 2;
+
+        // Check if the CENTER of the text item is inside the selection rectangle
+        // This is more precise than checking for any overlap
+        if (itemCenterX >= selLeft && itemCenterX <= selRight &&
+            itemCenterY >= selTop && itemCenterY <= selBottom) {
+
+            // For items that are partially selected, try to extract just the selected part
+            const text = item.str;
+
+            // If the item is fully inside, take all of it
+            if (itemX >= selLeft && itemX + itemWidth <= selRight) {
+                extractedParts.push({ text: text, x: itemX, y: itemY });
+            } else {
+                // Item is partially selected - estimate which characters are selected
+                const charWidth = itemWidth / text.length;
+                let selectedChars = '';
+
+                for (let i = 0; i < text.length; i++) {
+                    const charX = itemX + i * charWidth;
+                    const charCenterX = charX + charWidth / 2;
+
+                    if (charCenterX >= selLeft && charCenterX <= selRight) {
+                        selectedChars += text[i];
+                    }
+                }
+
+                if (selectedChars.trim()) {
+                    extractedParts.push({ text: selectedChars, x: itemX, y: itemY });
+                }
+            }
         }
     }
 
+    // Sort by position (top to bottom, left to right)
+    extractedParts.sort((a, b) => {
+        const yDiff = a.y - b.y;
+        if (Math.abs(yDiff) > 5) return yDiff; // Different lines
+        return a.x - b.x; // Same line, sort by x
+    });
+
     // Join and clean up
-    let result = extractedWords.join(' ').trim();
-    // Remove extra whitespace
+    let result = extractedParts.map(p => p.text).join(' ').trim();
     result = result.replace(/\s+/g, ' ');
 
     return result;
