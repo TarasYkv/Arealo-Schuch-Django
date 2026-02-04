@@ -842,6 +842,9 @@ async function loadPDF() {
         totalPages = pdfDoc.numPages;
         document.getElementById('totalPages').textContent = totalPages;
 
+        // Calculate optimal scale to fit width
+        await calculateOptimalScale();
+
         await renderAllPages();
         hideLoading();
 
@@ -860,6 +863,33 @@ async function loadPDF() {
                 </button>
             </div>
         `;
+    }
+}
+
+// Calculate optimal scale to fit PDF width to container
+async function calculateOptimalScale() {
+    try {
+        const firstPage = await pdfDoc.getPage(1);
+        const defaultViewport = firstPage.getViewport({ scale: 1.0 });
+
+        // Get container width (subtract some padding)
+        const container = document.getElementById('pdfCanvasContainer');
+        const containerWidth = container.clientWidth - 40; // 40px padding
+
+        // Calculate scale to fit width
+        const optimalScale = containerWidth / defaultViewport.width;
+
+        // Round to nearest 0.25 and clamp between 0.5 and 3
+        scale = Math.min(3, Math.max(0.5, Math.round(optimalScale * 4) / 4));
+
+        // Update zoom display
+        document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+
+        console.log('Optimal scale calculated:', scale, '(' + Math.round(scale * 100) + '%)');
+    } catch (error) {
+        console.error('Error calculating optimal scale:', error);
+        // Fallback to default scale
+        scale = 1.5;
     }
 }
 
