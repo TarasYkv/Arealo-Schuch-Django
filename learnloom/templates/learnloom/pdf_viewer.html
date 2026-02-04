@@ -510,16 +510,16 @@
     </div>
 </div>
 
-<!-- Floating Toolbar -->
+<!-- Floating Toolbar - Vertical Left -->
 <div class="pdf-toolbar">
     <button class="btn btn-outline-secondary" id="prevPage" title="Vorherige Seite">
-        <i class="bi bi-chevron-left"></i>
+        <i class="bi bi-chevron-up"></i>
     </button>
     <span class="page-info">
-        <span id="currentPage">1</span> / <span id="totalPages">-</span>
+        <span id="currentPage">1</span>/<span id="totalPages">-</span>
     </span>
     <button class="btn btn-outline-secondary" id="nextPage" title="Nächste Seite">
-        <i class="bi bi-chevron-right"></i>
+        <i class="bi bi-chevron-down"></i>
     </button>
 
     <div class="divider"></div>
@@ -534,6 +534,9 @@
 
     <div class="divider"></div>
 
+    <button class="btn btn-outline-dark" id="toggleFullscreen" title="Vollbild">
+        <i class="bi bi-fullscreen"></i>
+    </button>
     <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
         <i class="bi bi-sticky"></i>
     </button>
@@ -1033,6 +1036,33 @@ document.getElementById('zoomIn').addEventListener('click', () => {
 
 document.getElementById('zoomOut').addEventListener('click', () => {
     handleZoom(Math.max(scale - 0.25, 0.5));
+});
+
+// Fullscreen Toggle
+document.getElementById('toggleFullscreen').addEventListener('click', () => {
+    const icon = document.querySelector('#toggleFullscreen i');
+
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+            icon.className = 'bi bi-fullscreen-exit';
+        }).catch(err => {
+            console.error('Fullscreen error:', err);
+        });
+    } else {
+        document.exitFullscreen().then(() => {
+            icon.className = 'bi bi-fullscreen';
+        });
+    }
+});
+
+// Update icon when fullscreen changes (e.g., via ESC key)
+document.addEventListener('fullscreenchange', () => {
+    const icon = document.querySelector('#toggleFullscreen i');
+    if (document.fullscreenElement) {
+        icon.className = 'bi bi-fullscreen-exit';
+    } else {
+        icon.className = 'bi bi-fullscreen';
+    }
 });
 
 // Notes Panel
