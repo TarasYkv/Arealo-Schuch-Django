@@ -262,6 +262,11 @@ async function renderAllPages() {
         // Scroll to saved position
         scrollToPage(currentPage);
 
+        // Render saved highlights
+        setTimeout(() => {
+            renderAllHighlights();
+        }, 100);
+
     } catch (error) {
         console.error('Error rendering pages:', error);
     } finally {
@@ -571,12 +576,149 @@ document.getElementById('saveHighlight').addEventListener('click', async () => {
         const data = await response.json();
         if (data.success) {
             translationPopup.classList.add('d-none');
-            // Could add visual feedback here
+            // Add to local highlights array and render
+            highlights.push({
+                id: data.highlight.id,
+                original_text: original,
+                translated_text: translation,
+                page_number: currentPage,
+                position_data: selectionPosition
+            });
+            // Re-render highlights for current page
+            renderHighlightsForPage(currentPage);
         }
     } catch (error) {
         console.error('Error saving highlight:', error);
     }
 });
+
+// Render highlights for a specific page
+function renderHighlightsForPage(pageNum) {
+    const pageDiv = document.querySelector(`.pdf-page[data-page="${pageNum}"]`);
+    if (!pageDiv) return;
+
+    const textLayer = pageDiv.querySelector('.text-layer');
+    if (!textLayer) return;
+
+    // Remove existing highlight overlays
+    pageDiv.querySelectorAll('.highlight-overlay').forEach(el => el.remove());
+
+    // Get highlights for this page
+    const pageHighlights = highlights.filter(h => h.page_number === pageNum);
+
+    pageHighlights.forEach(highlight => {
+        // Search for the text in the text layer spans
+        const spans = textLayer.querySelectorAll('span');
+        let foundText = '';
+        let startSpan = null;
+        let matchingSpans = [];
+
+        // Try to find matching text across spans
+        for (const span of spans) {
+            const spanText = span.textContent;
+
+            // Check if this span contains or is part of the highlighted text
+            if (highlight.original_text.includes(spanText.trim()) ||
+                spanText.toLowerCase().includes(highlight.original_text.toLowerCase()) ||
+                highlight.original_text.toLowerCase().includes(spanText.toLowerCase().trim())) {
+
+                // Simple match - highlight this span
+                if (spanText.toLowerCase().includes(highlight.original_text.toLowerCase())) {
+                    markSpanAsHighlight(span, highlight, pageDiv);
+                    return;
+                }
+
+                // Build up partial match
+                foundText += spanText;
+                matchingSpans.push(span);
+
+                if (foundText.toLowerCase().includes(highlight.original_text.toLowerCase())) {
+                    // Found complete match across spans
+                    matchingSpans.forEach(s => markSpanAsHighlight(s, highlight, pageDiv));
+                    return;
+                }
+            } else {
+                // Reset if no match
+                foundText = '';
+                matchingSpans = [];
+            }
+        }
+    });
+}
+
+// Mark a span with highlight styling
+function markSpanAsHighlight(span, highlight, pageDiv) {
+    const rect = span.getBoundingClientRect();
+    const pageRect = pageDiv.getBoundingClientRect();
+
+    // Create highlight overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'highlight-overlay';
+    overlay.style.cssText = `
+        position: absolute;
+        left: ${span.offsetLeft}px;
+        top: ${span.offsetTop}px;
+        width: ${span.offsetWidth}px;
+        height: ${span.offsetHeight}px;
+        background-color: rgba(255, 235, 59, 0.4);
+        pointer-events: auto;
+        cursor: pointer;
+        z-index: 5;
+    `;
+    overlay.dataset.highlightId = highlight.id;
+    overlay.title = `${highlight.original_text} → ${highlight.translated_text}`;
+
+    // Add hover tooltip
+    overlay.addEventListener('mouseenter', (e) => {
+        showHighlightTooltip(e, highlight);
+    });
+    overlay.addEventListener('mouseleave', hideHighlightTooltip);
+
+    pageDiv.appendChild(overlay);
+}
+
+// Tooltip for highlights
+let highlightTooltip = null;
+
+function showHighlightTooltip(e, highlight) {
+    if (!highlightTooltip) {
+        highlightTooltip = document.createElement('div');
+        highlightTooltip.className = 'highlight-tooltip-popup';
+        highlightTooltip.style.cssText = `
+            position: fixed;
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            z-index: 2500;
+            max-width: 300px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        `;
+        document.body.appendChild(highlightTooltip);
+    }
+
+    highlightTooltip.innerHTML = `
+        <div style="font-weight: 500; margin-bottom: 4px;">${highlight.original_text}</div>
+        <div style="color: #74b9ff;">→ ${highlight.translated_text}</div>
+    `;
+    highlightTooltip.style.left = e.clientX + 10 + 'px';
+    highlightTooltip.style.top = e.clientY + 10 + 'px';
+    highlightTooltip.style.display = 'block';
+}
+
+function hideHighlightTooltip() {
+    if (highlightTooltip) {
+        highlightTooltip.style.display = 'none';
+    }
+}
+
+// Render all highlights after pages are loaded
+function renderAllHighlights() {
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        renderHighlightsForPage(pageNum);
+    }
+}
 
 // Text-to-Speech
 function speak(text, lang) {
