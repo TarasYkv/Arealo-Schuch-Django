@@ -106,6 +106,12 @@ class PDFNote(models.Model):
         verbose_name="Seitenbezug",
         help_text="Optional: Bezug zu einer bestimmten Seite"
     )
+    marker_position = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Marker-Position",
+        help_text="Position des Markers auf der Seite {x, y, page}"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Aktualisiert am")

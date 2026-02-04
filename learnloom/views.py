@@ -294,7 +294,7 @@ def api_get_notes(request, book_id):
 
     return JsonResponse({
         'success': True,
-        'notes': list(notes.values('id', 'content', 'page_reference', 'created_at', 'updated_at'))
+        'notes': list(notes.values('id', 'content', 'page_reference', 'marker_position', 'created_at', 'updated_at'))
     })
 
 
@@ -312,6 +312,7 @@ def api_save_note(request, book_id):
     note_id = data.get('note_id')
     content = data.get('content', '').strip()
     page_reference = data.get('page_reference')
+    marker_position = data.get('marker_position')
 
     if not content:
         return JsonResponse({'success': False, 'error': 'Inhalt darf nicht leer sein'}, status=400)
@@ -321,6 +322,7 @@ def api_save_note(request, book_id):
         note = get_object_or_404(PDFNote, id=note_id, book=book, user=request.user)
         note.content = content
         note.page_reference = page_reference
+        note.marker_position = marker_position
         note.save()
     else:
         # Neue Notiz erstellen
@@ -329,6 +331,7 @@ def api_save_note(request, book_id):
             user=request.user,
             content=content,
             page_reference=page_reference,
+            marker_position=marker_position,
         )
 
     return JsonResponse({
@@ -337,6 +340,7 @@ def api_save_note(request, book_id):
             'id': str(note.id),
             'content': note.content,
             'page_reference': note.page_reference,
+            'marker_position': note.marker_position,
             'created_at': note.created_at.isoformat(),
             'updated_at': note.updated_at.isoformat(),
         }
