@@ -672,11 +672,8 @@
         </div>
     </div>
     <div class="explanation-popup-footer">
-        <button class="btn btn-sm btn-success flex-grow-1" id="getExplanationBtn">
-            <i class="bi bi-lightbulb me-1"></i>Erklären
-        </button>
-        <small class="text-muted ms-2" id="autoSaveHint" style="display: none;">
-            <i class="bi bi-check-circle text-success"></i> Gespeichert
+        <small class="text-muted" id="autoSaveHint" style="display: none;">
+            <i class="bi bi-check-circle text-success"></i> Automatisch gespeichert
         </small>
     </div>
 </div>
@@ -1390,7 +1387,7 @@ translateBtn.addEventListener('click', () => {
     originalInput.select();
 });
 
-// Explain Button Click - Open explanation popup
+// Explain Button Click - Open explanation popup and fetch immediately
 explainBtn.addEventListener('click', () => {
     actionButtons.classList.add('d-none');
     translationPopup.classList.add('d-none');
@@ -1407,15 +1404,16 @@ explainBtn.addEventListener('click', () => {
     explanationPopup.style.top = Math.max(10, popupY) + 'px';
     explanationPopup.classList.remove('d-none');
 
-    // Set selected text and reset everything
+    // Set selected text
     explanationSelectedText.textContent = selectedText;
-    explanationChatContainer.innerHTML = '<div class="text-muted text-center py-3">Klicke auf "Erklären"</div>';
-    currentExplanation = '';
     document.getElementById('autoSaveHint').style.display = 'none';
 
     // Clear follow-up input
     const followupInp = document.getElementById('followupQuestion');
     if (followupInp) followupInp.value = '';
+
+    // Immediately fetch explanation
+    fetchExplanation(selectedText);
 });
 
 // Translate function
@@ -1521,9 +1519,8 @@ document.getElementById('toggleFullscreenBtn').addEventListener('click', () => {
     }
 });
 
-// Get Explanation (with auto-save)
-document.getElementById('getExplanationBtn').addEventListener('click', async () => {
-    const textToExplain = explanationSelectedText.textContent.trim();
+// Fetch Explanation (with auto-save)
+async function fetchExplanation(textToExplain) {
     if (!textToExplain) {
         explanationChatContainer.innerHTML = '<div class="text-danger text-center py-3">Kein Text ausgewählt</div>';
         return;
@@ -1579,7 +1576,7 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
         explanationChatContainer.innerHTML = '<div class="text-danger text-center py-3">Erklärungsfehler</div>';
         currentExplanation = '';
     }
-});
+}
 
 // Auto-save explanation to database
 async function autoSaveExplanation(textToSave, explanationText) {
