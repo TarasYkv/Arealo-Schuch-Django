@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/pdf/<uuid:book_id>/', views.api_serve_pdf, name='api_serve_pdf'),
     path('api/pdf/<uuid:book_id>/delete/', views.api_delete_pdf, name='api_delete'),
     path('api/pdf/<uuid:book_id>/metadata/', views.api_update_metadata, name='api_metadata'),
+    path('api/pdf/<uuid:book_id>/reading-status/', views.api_update_reading_status, name='api_reading_status'),
 
     # Notes API
     path('api/notes/<uuid:book_id>/', views.api_get_notes, name='api_get_notes'),

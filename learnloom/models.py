@@ -40,6 +40,18 @@ class PDFBook(models.Model):
         default='book',
         verbose_name="Kategorie"
     )
+
+    READING_STATUS_CHOICES = [
+        ('unread', 'Noch nicht gelesen'),
+        ('reading', 'Gerade dabei'),
+        ('completed', 'Bereits gelesen'),
+    ]
+    reading_status = models.CharField(
+        max_length=20,
+        choices=READING_STATUS_CHOICES,
+        default='unread',
+        verbose_name="Lesestatus"
+    )
     tags = models.CharField(
         max_length=500,
         blank=True,

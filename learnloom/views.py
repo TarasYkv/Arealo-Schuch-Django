@@ -247,6 +247,40 @@ def api_update_metadata(request, book_id):
     return JsonResponse({'success': True})
 
 
+@login_required
+@require_POST
+def api_update_reading_status(request, book_id):
+    """Lesestatus eines PDFs aktualisieren"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    status = data.get('status')
+    valid_statuses = ['unread', 'reading', 'completed']
+
+    if status not in valid_statuses:
+        return JsonResponse({'success': False, 'error': 'Ungültiger Status'}, status=400)
+
+    book.reading_status = status
+    book.save(update_fields=['reading_status'])
+
+    # Status-Labels für Response
+    status_labels = {
+        'unread': 'Noch nicht gelesen',
+        'reading': 'Gerade dabei',
+        'completed': 'Bereits gelesen',
+    }
+
+    return JsonResponse({
+        'success': True,
+        'status': status,
+        'status_label': status_labels[status]
+    })
+
+
 # ============================================================================
 # Notes API
 # ============================================================================
