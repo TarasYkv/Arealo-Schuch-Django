@@ -322,63 +322,6 @@ let renderQueue = [];
 // Initialize PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// Split text layer spans into individual words for better selection
-function splitTextLayerIntoWords(textLayer) {
-    const spans = Array.from(textLayer.querySelectorAll('span'));
-
-    spans.forEach(span => {
-        const text = span.textContent;
-        if (!text || text.trim().length === 0) return;
-
-        // Skip if already single word or very short
-        if (!text.includes(' ') && text.length < 20) return;
-
-        // Get original styles
-        const computedStyle = window.getComputedStyle(span);
-        const left = parseFloat(computedStyle.left) || 0;
-        const top = parseFloat(computedStyle.top) || 0;
-        const fontSize = parseFloat(computedStyle.fontSize) || 12;
-        const transform = computedStyle.transform;
-
-        // Estimate character width based on span width and text length
-        const spanWidth = span.getBoundingClientRect().width;
-        const charWidth = text.length > 0 ? spanWidth / text.length : fontSize * 0.5;
-
-        // Split into words (keeping spaces)
-        const parts = text.split(/(\s+)/);
-        let currentOffset = 0;
-
-        // Create document fragment for better performance
-        const fragment = document.createDocumentFragment();
-
-        parts.forEach(part => {
-            if (part.length === 0) return;
-
-            const wordSpan = document.createElement('span');
-            wordSpan.textContent = part;
-            wordSpan.style.cssText = `
-                position: absolute;
-                left: ${left + (currentOffset * charWidth)}px;
-                top: ${top}px;
-                font-size: ${fontSize}px;
-                font-family: ${computedStyle.fontFamily};
-                color: transparent;
-                white-space: pre;
-                cursor: text;
-                transform-origin: 0% 0%;
-            `;
-            if (transform && transform !== 'none') {
-                wordSpan.style.transform = transform;
-            }
-
-            fragment.appendChild(wordSpan);
-            currentOffset += part.length;
-        });
-
-        // Replace original span with word spans
-        span.replaceWith(fragment);
-    });
-}
 
 // Show/Hide Loading
 function showLoading(text = 'PDF wird geladen...') {
@@ -520,9 +463,6 @@ async function renderPage(pageNum, canvas) {
                 viewport: viewport,
                 textDivs: textDivs
             }).promise;
-
-            // Post-process: Split spans into individual words for better selection
-            splitTextLayerIntoWords(textLayer);
 
         } catch (textError) {
             console.warn('Text layer error on page', pageNum, textError);
