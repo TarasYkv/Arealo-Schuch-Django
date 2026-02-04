@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods, require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt
@@ -7,6 +7,16 @@ from django.utils import timezone
 from django.db import IntegrityError
 from django.core.serializers.json import DjangoJSONEncoder
 import json
+import io
+
+# PDF Generation
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 from .models import PDFBook, PDFNote, TranslationHighlight, Vocabulary, ReadingProgress
 from .services import PDFService, TranslationService
@@ -609,6 +619,218 @@ def api_delete_vocabulary(request, vocab_id):
     vocab = get_object_or_404(Vocabulary, id=vocab_id, user=request.user)
     vocab.delete()
     return JsonResponse({'success': True})
+
+
+@login_required
+@require_GET
+def api_vocabulary_pdf(request, book_id):
+    """Vokabelliste als PDF herunterladen (für ein Buch)"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    vocabulary = Vocabulary.objects.filter(book=book).order_by('english_word')
+
+    # PDF erstellen
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=2*cm,
+        leftMargin=2*cm,
+        topMargin=2*cm,
+        bottomMargin=2*cm
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Titel
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=20,
+        alignment=1  # Center
+    )
+    elements.append(Paragraph(f"Vokabeln: {book.title}", title_style))
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Statistik
+    total = vocabulary.count()
+    learned = vocabulary.filter(is_learned=True).count()
+    stats_style = ParagraphStyle('Stats', parent=styles['Normal'], fontSize=10, textColor=colors.grey)
+    elements.append(Paragraph(f"Gesamt: {total} | Gelernt: {learned} | Noch zu lernen: {total - learned}", stats_style))
+    elements.append(Spacer(1, 0.5*cm))
+
+    if vocabulary.exists():
+        # Tabellen-Daten
+        data = [['Englisch', 'Deutsch']]  # Header
+        for vocab in vocabulary:
+            data.append([vocab.english_word, vocab.german_translation])
+
+        # Tabelle erstellen
+        col_widths = [8*cm, 8*cm]
+        table = Table(data, colWidths=col_widths, repeatRows=1)
+
+        # Tabellen-Style mit Rahmen
+        table.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3b82f6')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('TOPPADDING', (0, 0), (-1, 0), 12),
+
+            # Body
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+            ('TOPPADDING', (0, 1), (-1, -1), 8),
+
+            # Rahmen für alle Zellen
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#d1d5db')),
+
+            # Abwechselnde Zeilenfarben
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')]),
+
+            # Ausrichtung
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+
+        elements.append(table)
+    else:
+        elements.append(Paragraph("Keine Vokabeln vorhanden.", styles['Normal']))
+
+    # PDF generieren
+    doc.build(elements)
+
+    # Response
+    buffer.seek(0)
+    filename = f"vokabeln_{book.title[:30].replace(' ', '_')}.pdf"
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+@require_GET
+def api_all_vocabulary_pdf(request):
+    """Alle Vokabeln als PDF herunterladen"""
+    vocabulary = Vocabulary.objects.filter(user=request.user).select_related('book').order_by('book__title', 'english_word')
+
+    # PDF erstellen
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=2*cm,
+        leftMargin=2*cm,
+        topMargin=2*cm,
+        bottomMargin=2*cm
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Titel
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=20,
+        alignment=1
+    )
+    elements.append(Paragraph("Alle Vokabeln", title_style))
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Statistik
+    total = vocabulary.count()
+    learned = vocabulary.filter(is_learned=True).count()
+    stats_style = ParagraphStyle('Stats', parent=styles['Normal'], fontSize=10, textColor=colors.grey)
+    elements.append(Paragraph(f"Gesamt: {total} | Gelernt: {learned} | Noch zu lernen: {total - learned}", stats_style))
+    elements.append(Spacer(1, 0.5*cm))
+
+    if vocabulary.exists():
+        # Gruppieren nach Buch
+        current_book = None
+        book_vocab = []
+
+        for vocab in vocabulary:
+            if current_book != vocab.book:
+                # Vorheriges Buch abschließen
+                if current_book and book_vocab:
+                    _add_vocabulary_table(elements, styles, current_book.title, book_vocab)
+                    elements.append(Spacer(1, 0.8*cm))
+
+                current_book = vocab.book
+                book_vocab = []
+
+            book_vocab.append(vocab)
+
+        # Letztes Buch
+        if current_book and book_vocab:
+            _add_vocabulary_table(elements, styles, current_book.title, book_vocab)
+    else:
+        elements.append(Paragraph("Keine Vokabeln vorhanden.", styles['Normal']))
+
+    # PDF generieren
+    doc.build(elements)
+
+    # Response
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="alle_vokabeln.pdf"'
+    return response
+
+
+def _add_vocabulary_table(elements, styles, book_title, vocabulary_list):
+    """Hilfsfunktion: Fügt eine Vokabeltabelle für ein Buch hinzu"""
+    # Buch-Titel
+    book_style = ParagraphStyle(
+        'BookTitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceBefore=10,
+        spaceAfter=10,
+        textColor=colors.HexColor('#1f2937')
+    )
+    elements.append(Paragraph(f"📖 {book_title}", book_style))
+
+    # Tabellen-Daten
+    data = [['Englisch', 'Deutsch']]
+    for vocab in vocabulary_list:
+        data.append([vocab.english_word, vocab.german_translation])
+
+    # Tabelle erstellen
+    col_widths = [8*cm, 8*cm]
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+
+    table.setStyle(TableStyle([
+        # Header
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3b82f6')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 10),
+
+        # Body
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+        ('TOPPADDING', (0, 1), (-1, -1), 6),
+
+        # Rahmen
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#d1d5db')),
+
+        # Abwechselnde Farben
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')]),
+
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    elements.append(table)
 
 
 # ============================================================================

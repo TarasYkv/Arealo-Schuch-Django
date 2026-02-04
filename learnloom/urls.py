@@ -33,6 +33,8 @@ urlpatterns = [
     path('api/vocabulary/<uuid:book_id>/', views.api_get_vocabulary, name='api_get_vocabulary'),
     path('api/vocabulary/<uuid:book_id>/add/', views.api_add_vocabulary, name='api_add_vocabulary'),
     path('api/vocabulary/<uuid:vocab_id>/delete/', views.api_delete_vocabulary, name='api_delete_vocabulary'),
+    path('api/vocabulary/<uuid:book_id>/pdf/', views.api_vocabulary_pdf, name='api_vocabulary_pdf'),
+    path('api/vocabulary/all/pdf/', views.api_all_vocabulary_pdf, name='api_all_vocabulary_pdf'),
 
     # Progress API
     path('api/progress/<uuid:book_id>/', views.api_get_progress, name='api_get_progress'),
