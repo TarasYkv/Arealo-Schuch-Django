@@ -527,7 +527,7 @@
     <button class="btn btn-outline-secondary" id="zoomOut" title="Verkleinern">
         <i class="bi bi-zoom-out"></i>
     </button>
-    <span class="zoom-info" id="zoomLevel">100%</span>
+    <input type="text" class="zoom-input" id="zoomLevel" value="100%" title="Zoom eingeben (z.B. 150)">
     <button class="btn btn-outline-secondary" id="zoomIn" title="Vergrößern">
         <i class="bi bi-zoom-in"></i>
     </button>
@@ -866,7 +866,7 @@ async function calculateOptimalScale() {
         scale = Math.min(4, Math.max(0.5, optimalScale));
 
         // Update zoom display
-        document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+        document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
 
         console.log('Optimal scale calculated:', scale, '(' + Math.round(scale * 100) + '%)');
     } catch (error) {
@@ -1018,9 +1018,11 @@ document.getElementById('nextPage').addEventListener('click', () => {
 
 // Zoom with debounce
 let zoomTimeout = null;
+const zoomInput = document.getElementById('zoomLevel');
+
 function handleZoom(newScale) {
-    scale = newScale;
-    document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+    scale = Math.min(4, Math.max(0.25, newScale)); // Clamp between 25% and 400%
+    zoomInput.value = Math.round(scale * 100) + '%';
 
     // Debounce re-render
     if (zoomTimeout) clearTimeout(zoomTimeout);
@@ -1030,12 +1032,37 @@ function handleZoom(newScale) {
 }
 
 document.getElementById('zoomIn').addEventListener('click', () => {
-    handleZoom(Math.min(scale + 0.25, 3));
+    handleZoom(scale + 0.25);
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
-    handleZoom(Math.max(scale - 0.25, 0.5));
+    handleZoom(scale - 0.25);
 });
+
+// Custom zoom input
+zoomInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        applyCustomZoom();
+        zoomInput.blur();
+    }
+});
+
+zoomInput.addEventListener('blur', () => {
+    applyCustomZoom();
+});
+
+function applyCustomZoom() {
+    const value = zoomInput.value.replace('%', '').trim();
+    const parsed = parseInt(value, 10);
+
+    if (!isNaN(parsed) && parsed >= 25 && parsed <= 400) {
+        handleZoom(parsed / 100);
+    } else {
+        // Reset to current scale if invalid
+        zoomInput.value = Math.round(scale * 100) + '%';
+    }
+}
 
 // Fullscreen Toggle
 document.getElementById('toggleFullscreen').addEventListener('click', () => {
@@ -2349,7 +2376,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Initialize
-document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
 loadPDF();
 </script>
 {% endblock %}
