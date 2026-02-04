@@ -5,6 +5,8 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+<!-- PDF.js Text Layer CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
 <style>
     body { overflow: hidden; }
     .navbar, footer { display: none !important; }
@@ -58,76 +60,18 @@
         margin: 0;
         padding: 0;
     }
+    /* Text Layer - uses PDF.js CSS, only override for debugging */
     .textLayer {
-        position: absolute;
-        text-align: initial;
-        left: 0;
-        top: 0;
-        overflow: hidden;
-        opacity: 1;
-        line-height: 1.0;
-        text-size-adjust: none;
-        forced-color-adjust: none;
-        transform-origin: 0 0;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
         z-index: 2;
-        pointer-events: auto;
     }
     .textLayer span {
-        color: rgba(255, 0, 0, 0.3); /* DEBUG: rot sichtbar machen */
-        position: absolute;
-        white-space: pre;
-        cursor: text;
-        transform-origin: 0% 0%;
-        pointer-events: auto;
-    }
-    .textLayer br {
-        color: transparent;
-        position: absolute;
-    }
-    .textLayer span.markedContent {
-        top: 0;
-        height: 0;
-    }
-    .textLayer .highlight {
-        margin: -1px;
-        padding: 1px;
-        background-color: rgba(255, 235, 59, 0.5);
-        border-radius: 4px;
-    }
-    .textLayer .highlight.appended {
-        position: initial;
-    }
-    .textLayer .highlight.begin {
-        border-radius: 4px 0 0 4px;
-    }
-    .textLayer .highlight.end {
-        border-radius: 0 4px 4px 0;
-    }
-    .textLayer .highlight.middle {
-        border-radius: 0;
-    }
-    .textLayer .highlight.selected {
-        background-color: rgba(255, 193, 7, 0.6);
+        color: rgba(255, 0, 0, 0.3) !important; /* DEBUG: rot sichtbar */
     }
     .textLayer ::selection {
         background: rgba(0, 100, 255, 0.3);
-    }
-    .textLayer br::selection {
-        background: transparent;
-    }
-    .textLayer .endOfContent {
-        display: block;
-        position: absolute;
-        left: 0;
-        top: 100%;
-        right: 0;
-        bottom: 0;
-        z-index: -1;
-        cursor: default;
-        user-select: none;
-    }
-    .textLayer .endOfContent.active {
-        top: 0;
     }
 
     /* Highlight Overlay */
@@ -453,31 +397,25 @@ async function renderPage(pageNum, canvas) {
         // Add text layer for selection using PDF.js official rendering
         try {
             const textContent = await page.getTextContent();
-
-            // Get viewport at scale 1 for text layer
-            const textViewport = page.getViewport({ scale: 1 });
-
             const textLayer = document.createElement('div');
             textLayer.className = 'textLayer';
 
-            // Render text at scale 1, then CSS scale to match canvas
+            // Match canvas size exactly
             textLayer.style.cssText = `
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: ${textViewport.width}px;
-                height: ${textViewport.height}px;
-                transform: scale(${scale});
-                transform-origin: 0 0;
+                width: ${canvas.width}px;
+                height: ${canvas.height}px;
             `;
 
             canvas.parentElement.appendChild(textLayer);
 
-            // Use PDF.js text layer rendering at scale 1
+            // Use PDF.js text layer rendering with same viewport as canvas
             await pdfjsLib.renderTextLayer({
                 textContentSource: textContent,
                 container: textLayer,
-                viewport: textViewport
+                viewport: viewport
             }).promise;
 
         } catch (textError) {
