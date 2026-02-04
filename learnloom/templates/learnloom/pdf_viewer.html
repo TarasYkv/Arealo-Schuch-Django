@@ -5,8 +5,6 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
-<!-- PDF.js Text Layer CSS -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
 <style>
     body { overflow: hidden; }
     .navbar, footer { display: none !important; }
@@ -60,18 +58,31 @@
         margin: 0;
         padding: 0;
     }
-    /* Text Layer - uses PDF.js CSS, only override for debugging */
+    /* Text Layer for PDF.js 3.x */
     .textLayer {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+        line-height: 1.0;
+        -webkit-text-size-adjust: none;
+        -moz-text-size-adjust: none;
+        text-size-adjust: none;
+        forced-color-adjust: none;
+        transform-origin: 0 0;
         z-index: 2;
     }
-    .textLayer span {
-        color: rgba(255, 0, 0, 0.3) !important; /* DEBUG: rot sichtbar */
+    .textLayer > span {
+        color: rgba(255, 0, 0, 0.3); /* DEBUG: rot sichtbar */
+        position: absolute;
+        white-space: pre;
+        cursor: text;
+        transform-origin: 0% 0%;
     }
     .textLayer ::selection {
-        background: rgba(0, 100, 255, 0.3);
+        background: rgba(0, 100, 255, 0.4);
     }
 
     /* Highlight Overlay */
@@ -394,24 +405,20 @@ async function renderPage(pageNum, canvas) {
 
         await page.render(renderContext).promise;
 
-        // Add text layer for selection using PDF.js official rendering
+        // Add text layer for selection
         try {
             const textContent = await page.getTextContent();
             const textLayer = document.createElement('div');
             textLayer.className = 'textLayer';
 
-            // Match canvas size exactly
-            textLayer.style.cssText = `
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: ${canvas.width}px;
-                height: ${canvas.height}px;
-            `;
+            // Set dimensions and scale factor for PDF.js 3.x
+            textLayer.style.setProperty('--scale-factor', scale);
+            textLayer.style.width = Math.floor(viewport.width) + 'px';
+            textLayer.style.height = Math.floor(viewport.height) + 'px';
 
             canvas.parentElement.appendChild(textLayer);
 
-            // Use PDF.js text layer rendering with same viewport as canvas
+            // Render text layer with PDF.js
             await pdfjsLib.renderTextLayer({
                 textContentSource: textContent,
                 container: textLayer,
