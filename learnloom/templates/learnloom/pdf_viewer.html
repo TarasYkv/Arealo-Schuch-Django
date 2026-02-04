@@ -829,15 +829,16 @@ document.addEventListener('mouseup', async (e) => {
 async function extractTextFromRegion(screenRect) {
     console.log('Extracting from screen rect:', screenRect);
 
-    // Calculate center of selection rectangle
+    const selLeft = screenRect.left;
+    const selRight = screenRect.left + screenRect.width;
+    const selTop = screenRect.top;
+    const selBottom = screenRect.top + screenRect.height;
     const selCenterX = screenRect.left + screenRect.width / 2;
-    const selCenterY = screenRect.top + screenRect.height / 2;
 
-    console.log('Selection center:', selCenterX, selCenterY);
-
-    // Find all text layer spans
+    // Find all text layer spans that overlap with selection
     const allSpans = document.querySelectorAll('.textLayer span');
-    let candidates = [];
+    let bestWord = null;
+    let bestDistance = Infinity;
 
     allSpans.forEach(span => {
         const text = span.textContent;
@@ -845,91 +846,49 @@ async function extractTextFromRegion(screenRect) {
 
         const spanRect = span.getBoundingClientRect();
 
-        // Check if selection center is inside this span (with small margin)
-        const margin = 5;
-        const insideX = selCenterX >= spanRect.left - margin && selCenterX <= spanRect.right + margin;
-        const insideY = selCenterY >= spanRect.top - margin && selCenterY <= spanRect.bottom + margin;
+        // Check if span overlaps with selection vertically
+        const overlapY = spanRect.top < selBottom && spanRect.bottom > selTop;
+        if (!overlapY) return;
 
-        if (insideX && insideY) {
-            // Calculate distance from selection center to span center
-            const spanCenterX = spanRect.left + spanRect.width / 2;
-            const spanCenterY = spanRect.top + spanRect.height / 2;
-            const distance = Math.sqrt(
-                Math.pow(selCenterX - spanCenterX, 2) +
-                Math.pow(selCenterY - spanCenterY, 2)
-            );
+        // Check if span overlaps with selection horizontally
+        const overlapX = spanRect.left < selRight && spanRect.right > selLeft;
+        if (!overlapX) return;
 
-            candidates.push({
-                text: text.trim(),
-                distance: distance,
-                rect: spanRect
-            });
+        // Get font for accurate measurement
+        const computedStyle = window.getComputedStyle(span);
+        const font = `${computedStyle.fontSize} ${computedStyle.fontFamily}`;
+        const scaleX = spanRect.width / measureTextWidth(text, font) || 1;
+
+        // Find which word in this span is under the selection
+        const words = text.split(/(\s+)/); // Keep spaces for position calc
+        let currentX = spanRect.left;
+
+        for (const word of words) {
+            if (word.trim().length === 0) {
+                currentX += measureTextWidth(word, font) * scaleX;
+                continue;
+            }
+
+            const wordWidth = measureTextWidth(word, font) * scaleX;
+            const wordLeft = currentX;
+            const wordRight = currentX + wordWidth;
+            const wordCenterX = wordLeft + wordWidth / 2;
+
+            // Check if this word overlaps with selection
+            if (wordRight > selLeft && wordLeft < selRight) {
+                const distance = Math.abs(wordCenterX - selCenterX);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestWord = word.trim();
+                }
+            }
+
+            currentX += wordWidth;
         }
     });
 
-    console.log('Candidates found:', candidates.length);
-
-    // If we found candidates, pick the closest one
-    if (candidates.length > 0) {
-        candidates.sort((a, b) => a.distance - b.distance);
-        const best = candidates[0];
-        console.log('Best match:', best.text, 'distance:', best.distance);
-
-        // If the span contains multiple words, try to extract just the word at cursor
-        const words = best.text.split(/\s+/).filter(w => w.length > 0);
-        if (words.length === 1) {
-            return words[0];
-        }
-
-        // Multiple words in span - estimate which word the cursor is over
-        const spanRect = best.rect;
-        const relativeX = (selCenterX - spanRect.left) / spanRect.width;
-        const wordIndex = Math.floor(relativeX * words.length);
-        const clampedIndex = Math.max(0, Math.min(wordIndex, words.length - 1));
-
-        console.log('Multiple words, picking index', clampedIndex, 'from', words);
-        return words[clampedIndex];
-    }
-
-    // Fallback: find the closest span to selection center
-    console.log('No direct hit, finding closest span...');
-    let closest = null;
-    let closestDistance = Infinity;
-
-    allSpans.forEach(span => {
-        const text = span.textContent;
-        if (!text || text.trim().length === 0) return;
-
-        const spanRect = span.getBoundingClientRect();
-        const spanCenterX = spanRect.left + spanRect.width / 2;
-        const spanCenterY = spanRect.top + spanRect.height / 2;
-        const distance = Math.sqrt(
-            Math.pow(selCenterX - spanCenterX, 2) +
-            Math.pow(selCenterY - spanCenterY, 2)
-        );
-
-        // Only consider spans within reasonable distance (100px)
-        if (distance < closestDistance && distance < 100) {
-            closestDistance = distance;
-            closest = { text: text.trim(), rect: spanRect };
-        }
-    });
-
-    if (closest) {
-        console.log('Closest span:', closest.text);
-        // Extract single word if multiple words
-        const words = closest.text.split(/\s+/).filter(w => w.length > 0);
-        if (words.length === 1) {
-            return words[0];
-        }
-        // Pick word closest to center
-        const relativeX = (selCenterX - closest.rect.left) / closest.rect.width;
-        const wordIndex = Math.floor(relativeX * words.length);
-        const clampedIndex = Math.max(0, Math.min(wordIndex, words.length - 1));
-        return words[clampedIndex];
-    }
-
-    return '';
+    console.log('Best word found:', bestWord);
+    return bestWord || '';
 }
 
 // Open translation popup with text
