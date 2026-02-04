@@ -690,54 +690,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Click on PDF to place marker
-pdfContainer.addEventListener('click', (e) => {
-    if (!markerMode) return;
-
-    // Find which page was clicked
-    const pages = document.querySelectorAll('.pdf-page');
-    let targetPage = null;
-    let pageNum = 1;
-
-    for (const page of pages) {
-        const pageRect = page.getBoundingClientRect();
-        if (e.clientY >= pageRect.top && e.clientY <= pageRect.bottom &&
-            e.clientX >= pageRect.left && e.clientX <= pageRect.right) {
-            targetPage = page;
-            pageNum = parseInt(page.dataset.page);
-            break;
-        }
-    }
-
-    if (!targetPage) return;
-
-    const pageRect = targetPage.getBoundingClientRect();
-
-    // Calculate relative position (0-1 range for portability)
-    const relX = (e.clientX - pageRect.left) / pageRect.width;
-    const relY = (e.clientY - pageRect.top) / pageRect.height;
-
-    // Store pending marker
-    pendingMarker = {
-        page: pageNum,
-        x: relX,
-        y: relY
-    };
-
-    // Update UI
-    document.getElementById('markerInfo').classList.remove('d-none');
-    document.getElementById('clearMarker').style.display = 'inline-block';
-    document.getElementById('notePageRef').textContent = pageNum;
-
-    // Show temporary marker
-    showTempMarker(targetPage, relX, relY);
-
-    // Exit marker mode
-    exitMarkerMode();
-
-    // Focus on note input
-    document.getElementById('newNoteContent').focus();
-});
+// Note: pdfContainer click handler for markers is defined later after pdfContainer is initialized
 
 function showTempMarker(pageDiv, relX, relY) {
     // Remove existing temp marker
@@ -1169,6 +1122,57 @@ function openTranslationPopup(text, x, y) {
 // Reset transform when closing popup
 document.getElementById('closePopup').addEventListener('click', () => {
     translationPopup.style.transform = '';
+});
+
+// ============================================
+// Marker Mode - Click handler (pdfContainer now defined)
+// ============================================
+pdfContainer.addEventListener('click', (e) => {
+    if (!markerMode) return;
+
+    // Find which page was clicked
+    const pages = document.querySelectorAll('.pdf-page');
+    let targetPage = null;
+    let pageNum = 1;
+
+    for (const page of pages) {
+        const pageRect = page.getBoundingClientRect();
+        if (e.clientY >= pageRect.top && e.clientY <= pageRect.bottom &&
+            e.clientX >= pageRect.left && e.clientX <= pageRect.right) {
+            targetPage = page;
+            pageNum = parseInt(page.dataset.page);
+            break;
+        }
+    }
+
+    if (!targetPage) return;
+
+    const pageRect = targetPage.getBoundingClientRect();
+
+    // Calculate relative position (0-1 range for portability)
+    const relX = (e.clientX - pageRect.left) / pageRect.width;
+    const relY = (e.clientY - pageRect.top) / pageRect.height;
+
+    // Store pending marker
+    pendingMarker = {
+        page: pageNum,
+        x: relX,
+        y: relY
+    };
+
+    // Update UI
+    document.getElementById('markerInfo').classList.remove('d-none');
+    document.getElementById('clearMarker').style.display = 'inline-block';
+    document.getElementById('notePageRef').textContent = pageNum;
+
+    // Show temporary marker
+    showTempMarker(targetPage, relX, relY);
+
+    // Exit marker mode
+    exitMarkerMode();
+
+    // Focus on note input
+    document.getElementById('newNoteContent').focus();
 });
 
 // Save Highlight
