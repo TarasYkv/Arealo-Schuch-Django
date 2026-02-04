@@ -1027,22 +1027,39 @@ function renderHighlightsForPage(pageNum) {
     });
 }
 
+// Measure text width accurately using canvas
+const measureCanvas = document.createElement('canvas');
+const measureCtx = measureCanvas.getContext('2d');
+
+function measureTextWidth(text, font) {
+    measureCtx.font = font;
+    return measureCtx.measureText(text).width;
+}
+
 // Create highlight for a specific word within a span
 function createWordHighlight(span, charIndex, charLength, highlight, pageDiv) {
     const spanRect = span.getBoundingClientRect();
     const pageRect = pageDiv.getBoundingClientRect();
     const spanText = span.textContent;
 
-    // Calculate relative position within span
+    // Get computed font for accurate measurement
+    const computedStyle = window.getComputedStyle(span);
+    const font = `${computedStyle.fontSize} ${computedStyle.fontFamily}`;
+
+    // Calculate relative position within span using accurate text measurement
     const textBefore = spanText.substring(0, charIndex);
     const targetText = spanText.substring(charIndex, charIndex + charLength);
 
-    // Estimate character width (average)
-    const avgCharWidth = spanRect.width / spanText.length;
+    // Measure text widths
+    const beforeWidth = measureTextWidth(textBefore, font);
+    const targetWidth = measureTextWidth(targetText, font);
+
+    // Account for any transform/scale on the span
+    const scaleX = spanRect.width / measureTextWidth(spanText, font) || 1;
 
     // Calculate word position and size
-    const wordLeft = spanRect.left - pageRect.left + (textBefore.length * avgCharWidth);
-    const wordWidth = targetText.length * avgCharWidth;
+    const wordLeft = spanRect.left - pageRect.left + (beforeWidth * scaleX);
+    const wordWidth = targetWidth * scaleX;
     const wordTop = spanRect.top - pageRect.top;
     const wordHeight = spanRect.height;
 
