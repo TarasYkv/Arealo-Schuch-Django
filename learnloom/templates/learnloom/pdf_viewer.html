@@ -141,6 +141,169 @@
         color: white;
     }
 
+    /* Explanation Popup - Advanced */
+    .explanation-popup {
+        position: fixed;
+        z-index: 2000;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        width: 420px;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    .explanation-popup.fullscreen {
+        width: 90vw !important;
+        height: 90vh !important;
+        max-height: 90vh !important;
+        top: 5vh !important;
+        left: 5vw !important;
+        border-radius: 16px;
+    }
+    .explanation-popup-header {
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+        color: white;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: move;
+        user-select: none;
+    }
+    .explanation-popup-header span {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    .explanation-popup-controls {
+        display: flex;
+        gap: 8px;
+    }
+    .btn-popup-control {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+    .btn-popup-control:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    .explanation-popup-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .explanation-selected-text-container {
+        flex-shrink: 0;
+    }
+    .explanation-selected-text {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.9rem;
+        max-height: 80px;
+        overflow-y: auto;
+        margin-top: 4px;
+    }
+    .explanation-content-container {
+        flex: 1;
+        min-height: 100px;
+    }
+    .explanation-content {
+        background: #fafafa;
+        border-radius: 8px;
+        padding: 12px;
+        line-height: 1.6;
+        font-size: 0.95rem;
+        min-height: 80px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .explanation-popup.fullscreen .explanation-content {
+        max-height: none;
+        flex: 1;
+    }
+    .explanation-followup {
+        border-top: 1px solid #e5e7eb;
+        padding-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .explanation-chat-history {
+        max-height: 150px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .explanation-popup.fullscreen .explanation-chat-history {
+        max-height: 300px;
+    }
+    .chat-message {
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        max-width: 90%;
+    }
+    .chat-message.user {
+        background: #dbeafe;
+        color: #1e40af;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+    .chat-message.assistant {
+        background: #f0fdf4;
+        color: #166534;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+    .explanation-input-container {
+        display: flex;
+        gap: 8px;
+    }
+    .explanation-input-container input {
+        flex: 1;
+        border-radius: 20px;
+        padding: 8px 16px;
+        border: 1px solid #d1d5db;
+        font-size: 0.9rem;
+    }
+    .explanation-input-container input:focus {
+        outline: none;
+        border-color: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+    }
+    .explanation-input-container button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .explanation-popup-footer {
+        padding: 12px 16px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        gap: 8px;
+        background: #fafafa;
+    }
+
     /* Selection Mode */
     .select-mode-active .pdf-canvas-container {
         cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cline x1='16' y1='0' x2='16' y2='32' stroke='%23f39c12' stroke-width='2'/%3E%3Cline x1='0' y1='16' x2='32' y2='16' stroke='%23f39c12' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%23f39c12' stroke-width='2'/%3E%3C/svg%3E") 16 16, crosshair !important;
@@ -488,29 +651,48 @@
     </button>
 </div>
 
-<!-- Explanation Popup -->
-<div class="translation-popup d-none" id="explanationPopup" style="max-width: 400px;">
-    <div class="popup-header">
+<!-- Explanation Popup (Draggable & Expandable) -->
+<div class="explanation-popup d-none" id="explanationPopup">
+    <div class="explanation-popup-header" id="explanationPopupHeader">
         <span><i class="bi bi-lightbulb me-2 text-success"></i>Erklärung</span>
+        <div class="explanation-popup-controls">
+            <button class="btn-popup-control" id="toggleFullscreenBtn" title="Vollbild">
+                <i class="bi bi-arrows-fullscreen"></i>
+            </button>
+            <button class="btn-popup-control" id="closeExplanationPopup" title="Schließen">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
     </div>
-    <div class="popup-body">
-        <div class="mb-2">
+    <div class="explanation-popup-body">
+        <div class="explanation-selected-text-container">
             <small class="text-muted">Ausgewählter Text:</small>
-            <div class="border rounded p-2 bg-light" id="explanationSelectedText" style="max-height: 60px; overflow-y: auto; font-size: 0.9rem;"></div>
+            <div class="explanation-selected-text" id="explanationSelectedText"></div>
         </div>
-        <div id="explanationContent" class="mt-3" style="min-height: 80px;">
-            <span class="text-muted">Klicke auf "Erklären"</span>
+
+        <div class="explanation-content-container">
+            <div id="explanationContent" class="explanation-content">
+                <span class="text-muted">Klicke auf "Erklären"</span>
+            </div>
+        </div>
+
+        <!-- Follow-up Questions -->
+        <div class="explanation-followup" id="explanationFollowup">
+            <div class="explanation-chat-history" id="explanationChatHistory"></div>
+            <div class="explanation-input-container">
+                <input type="text" class="form-control" id="followupQuestion" placeholder="Weitere Frage stellen..." />
+                <button class="btn btn-success" id="askFollowupBtn" title="Fragen">
+                    <i class="bi bi-send"></i>
+                </button>
+            </div>
         </div>
     </div>
-    <div class="popup-footer d-flex gap-2">
-        <button class="btn btn-sm btn-success flex-grow-1" id="getExplanationBtn">
+    <div class="explanation-popup-footer">
+        <button class="btn btn-sm btn-success" id="getExplanationBtn">
             <i class="bi bi-lightbulb me-1"></i>Erklären
         </button>
         <button class="btn btn-sm btn-outline-success" id="saveExplanationBtn" disabled>
             <i class="bi bi-bookmark-plus me-1"></i>Speichern
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" id="closeExplanationPopup">
-            <i class="bi bi-x"></i>
         </button>
     </div>
 </div>
@@ -1199,18 +1381,29 @@ explainBtn.addEventListener('click', () => {
     actionButtons.classList.add('d-none');
     translationPopup.classList.add('d-none');
 
+    // Reset fullscreen state
+    explanationPopup.classList.remove('fullscreen');
+    const fullscreenIcon = document.querySelector('#toggleFullscreenBtn i');
+    if (fullscreenIcon) fullscreenIcon.className = 'bi bi-arrows-fullscreen';
+
     // Position popup
-    const popupX = Math.min(selectionPosition.x, window.innerWidth - 420);
-    const popupY = Math.min(selectionPosition.y, window.innerHeight - 300);
-    explanationPopup.style.left = popupX + 'px';
-    explanationPopup.style.top = popupY + 'px';
+    const popupX = Math.min(selectionPosition.x, window.innerWidth - 440);
+    const popupY = Math.min(selectionPosition.y, window.innerHeight - 400);
+    explanationPopup.style.left = Math.max(10, popupX) + 'px';
+    explanationPopup.style.top = Math.max(10, popupY) + 'px';
     explanationPopup.classList.remove('d-none');
 
-    // Set selected text and reset explanation
+    // Set selected text and reset everything
     explanationSelectedText.textContent = selectedText;
     explanationContent.innerHTML = '<span class="text-muted">Klicke auf "Erklären"</span>';
     currentExplanation = '';
     document.getElementById('saveExplanationBtn').disabled = true;
+
+    // Clear chat history
+    const chatHist = document.getElementById('explanationChatHistory');
+    if (chatHist) chatHist.innerHTML = '';
+    const followupInp = document.getElementById('followupQuestion');
+    if (followupInp) followupInp.value = '';
 });
 
 // Translate function
@@ -1269,8 +1462,53 @@ document.getElementById('closePopup').addEventListener('click', () => {
 });
 
 // ============================================
-// Explanation Functions
+// Explanation Functions (Draggable, Fullscreen, Follow-up)
 // ============================================
+
+const chatHistory = document.getElementById('explanationChatHistory');
+const followupInput = document.getElementById('followupQuestion');
+let conversationHistory = []; // Store conversation for context
+
+// Make popup draggable
+let isDragging = false;
+let dragStartX, dragStartY, popupStartX, popupStartY;
+
+const explanationHeader = document.getElementById('explanationPopupHeader');
+
+explanationHeader.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.btn-popup-control')) return; // Don't drag when clicking buttons
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    const rect = explanationPopup.getBoundingClientRect();
+    popupStartX = rect.left;
+    popupStartY = rect.top;
+    explanationPopup.style.transition = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
+    explanationPopup.style.left = (popupStartX + deltaX) + 'px';
+    explanationPopup.style.top = (popupStartY + deltaY) + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+    isDragging = false;
+    explanationPopup.style.transition = 'all 0.3s ease';
+});
+
+// Fullscreen toggle
+document.getElementById('toggleFullscreenBtn').addEventListener('click', () => {
+    explanationPopup.classList.toggle('fullscreen');
+    const icon = document.querySelector('#toggleFullscreenBtn i');
+    if (explanationPopup.classList.contains('fullscreen')) {
+        icon.className = 'bi bi-fullscreen-exit';
+    } else {
+        icon.className = 'bi bi-arrows-fullscreen';
+    }
+});
 
 // Get Explanation
 document.getElementById('getExplanationBtn').addEventListener('click', async () => {
@@ -1280,7 +1518,9 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
         return;
     }
 
-    explanationContent.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analysiere...';
+    explanationContent.innerHTML = '<div class="text-center"><span class="spinner-border spinner-border-sm me-2"></span>Analysiere...</div>';
+    chatHistory.innerHTML = ''; // Clear chat history
+    conversationHistory = []; // Reset conversation
 
     try {
         const response = await fetch('/learnloom/api/explain/', {
@@ -1302,6 +1542,15 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
             currentExplanation = data.explanation;
             explanationContent.textContent = data.explanation;
             document.getElementById('saveExplanationBtn').disabled = false;
+            // Store initial explanation in conversation
+            conversationHistory.push({
+                role: 'user',
+                content: `Erkläre: "${textToExplain}"`
+            });
+            conversationHistory.push({
+                role: 'assistant',
+                content: data.explanation
+            });
         } else {
             explanationContent.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
             currentExplanation = '';
@@ -1309,6 +1558,77 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
     } catch (error) {
         explanationContent.innerHTML = '<span class="text-danger">Erklärungsfehler</span>';
         currentExplanation = '';
+    }
+});
+
+// Ask Follow-up Question
+async function askFollowup() {
+    const question = followupInput.value.trim();
+    if (!question || !currentExplanation) return;
+
+    // Add user message to chat
+    const userMsg = document.createElement('div');
+    userMsg.className = 'chat-message user';
+    userMsg.textContent = question;
+    chatHistory.appendChild(userMsg);
+
+    // Clear input
+    followupInput.value = '';
+
+    // Add loading message
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'chat-message assistant';
+    loadingMsg.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>';
+    chatHistory.appendChild(loadingMsg);
+
+    // Scroll to bottom
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+
+    // Store question in conversation
+    conversationHistory.push({ role: 'user', content: question });
+
+    try {
+        // Build conversation context
+        const conversationContext = conversationHistory.map(msg =>
+            `${msg.role === 'user' ? 'Frage' : 'Antwort'}: ${msg.content}`
+        ).join('\n\n');
+
+        const response = await fetch('/learnloom/api/explain/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                selected_text: question,
+                context_before: `Vorherige Unterhaltung:\n${conversationContext}\n\nUrsprünglicher Text: "${explanationSelectedText.textContent}"`,
+                context_after: contextAfter,
+                provider: 'openai'
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            loadingMsg.textContent = data.explanation;
+            conversationHistory.push({ role: 'assistant', content: data.explanation });
+        } else {
+            loadingMsg.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
+        }
+    } catch (error) {
+        loadingMsg.innerHTML = '<span class="text-danger">Fehler beim Antworten</span>';
+    }
+
+    // Scroll to bottom
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+document.getElementById('askFollowupBtn').addEventListener('click', askFollowup);
+
+// Enter key for follow-up
+followupInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        askFollowup();
     }
 });
 
@@ -1351,9 +1671,8 @@ document.getElementById('saveExplanationBtn').addEventListener('click', async ()
             // Render explanation highlights
             renderAllExplanations();
 
-            // Close popup
-            explanationPopup.classList.add('d-none');
-            currentExplanation = '';
+            // Close popup and reset
+            closeExplanationPopup();
         } else {
             alert('Fehler: ' + data.error);
         }
@@ -1363,10 +1682,16 @@ document.getElementById('saveExplanationBtn').addEventListener('click', async ()
 });
 
 // Close Explanation Popup
-document.getElementById('closeExplanationPopup').addEventListener('click', () => {
+function closeExplanationPopup() {
     explanationPopup.classList.add('d-none');
+    explanationPopup.classList.remove('fullscreen');
+    document.querySelector('#toggleFullscreenBtn i').className = 'bi bi-arrows-fullscreen';
     currentExplanation = '';
-});
+    conversationHistory = [];
+    chatHistory.innerHTML = '';
+}
+
+document.getElementById('closeExplanationPopup').addEventListener('click', closeExplanationPopup);
 
 // ============================================
 // Rectangle Selection Mode
