@@ -853,17 +853,12 @@ async function calculateOptimalScale() {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
 
-        // Get available width: use actual container measurement for accuracy
-        const container = document.getElementById('pdfCanvasContainer');
-        // Force scrollbar to get accurate width
-        container.style.overflowY = 'scroll';
-        const contentWidth = container.clientWidth;
-        container.style.overflowY = 'auto';
-        // Subtract only the toolbar area (52px left padding)
-        const availableWidth = contentWidth - 52;
+        // Get available width: window minus toolbar padding and scrollbar
+        // Using fixed values for consistency: 52px toolbar, 17px scrollbar
+        const availableWidth = window.innerWidth - 52 - 17;
 
         // DEBUG - remove after testing
-        console.log('DEBUG:', {contentWidth, availableWidth, pdfWidth: defaultViewport.width, windowWidth: window.innerWidth});
+        console.log('DEBUG:', {availableWidth, pdfWidth: defaultViewport.width, windowWidth: window.innerWidth});
 
         // Calculate scale to fit width
         const optimalScale = availableWidth / defaultViewport.width;
