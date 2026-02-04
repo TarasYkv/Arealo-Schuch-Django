@@ -190,8 +190,11 @@
     <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
         <i class="bi bi-sticky"></i>
     </button>
-    <a href="{% url 'learnloom:vocabulary' book.id %}" class="btn btn-outline-success" title="Vokabeln">
+    <button class="btn btn-outline-info" id="manualTranslate" title="Wort übersetzen (manuell eingeben)">
         <i class="bi bi-translate"></i>
+    </button>
+    <a href="{% url 'learnloom:vocabulary' book.id %}" class="btn btn-success" title="Vokabelliste">
+        <i class="bi bi-list-check"></i>
     </a>
 </div>
 
@@ -649,24 +652,36 @@ let selectedText = '';
 let selectionPosition = {};
 let currentTranslation = '';
 
-document.addEventListener('mouseup', (e) => {
-    // Ignore clicks inside the popup
-    if (translationPopup.contains(e.target)) return;
-
-    const selection = window.getSelection();
-    const text = selection.toString().trim();
-
-    if (text.length > 0 && text.length < 500) {
-        selectedText = text;
-        selectionPosition = { x: e.clientX, y: e.clientY };
-
-        // Show translate button
-        translateBtn.style.left = e.clientX + 'px';
-        translateBtn.style.top = (e.clientY - 40) + 'px';
-        translateBtn.classList.remove('d-none');
-    } else if (!translationPopup.contains(e.target)) {
-        translateBtn.classList.add('d-none');
+// Hide translate button on click elsewhere
+document.addEventListener('mousedown', (e) => {
+    if (!translateBtn.contains(e.target) && !translationPopup.contains(e.target)) {
+        // Don't hide immediately - wait to see if it's a selection
     }
+});
+
+document.addEventListener('mouseup', (e) => {
+    // Ignore clicks inside the popup or on the translate button
+    if (translationPopup.contains(e.target) || translateBtn.contains(e.target)) return;
+
+    // Small delay to let selection complete
+    setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
+
+        if (text.length > 0 && text.length < 500) {
+            selectedText = text;
+            selectionPosition = { x: e.clientX, y: e.clientY };
+
+            // Show translate button near the selection
+            const btnX = Math.min(e.clientX, window.innerWidth - 150);
+            const btnY = Math.max(e.clientY - 50, 10);
+            translateBtn.style.left = btnX + 'px';
+            translateBtn.style.top = btnY + 'px';
+            translateBtn.classList.remove('d-none');
+        } else {
+            translateBtn.classList.add('d-none');
+        }
+    }, 10);
 });
 
 // Translate Button Click - Open popup with selected text
@@ -743,6 +758,27 @@ originalInput.addEventListener('keypress', (e) => {
 document.getElementById('closePopup').addEventListener('click', () => {
     translationPopup.classList.add('d-none');
     currentTranslation = '';
+});
+
+// Manual translate button - open popup for direct input
+document.getElementById('manualTranslate').addEventListener('click', () => {
+    // Position popup in center of screen
+    translationPopup.style.left = '50%';
+    translationPopup.style.top = '50%';
+    translationPopup.style.transform = 'translate(-50%, -50%)';
+    translationPopup.classList.remove('d-none');
+
+    // Clear and focus input
+    originalInput.value = '';
+    translationDiv.innerHTML = '<span class="text-muted">Wort eingeben und übersetzen</span>';
+    currentTranslation = '';
+    originalInput.focus();
+});
+
+// Reset transform when closing popup
+const originalCloseHandler = document.getElementById('closePopup').onclick;
+document.getElementById('closePopup').addEventListener('click', () => {
+    translationPopup.style.transform = '';
 });
 
 // Save Highlight
