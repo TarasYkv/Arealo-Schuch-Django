@@ -5,6 +5,38 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+<style>
+    .confirm-modal-backdrop {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+        z-index: 9999; display: flex; align-items: center; justify-content: center;
+        opacity: 0; visibility: hidden; transition: all 0.2s ease;
+    }
+    .confirm-modal-backdrop.show { opacity: 1; visibility: visible; }
+    .confirm-modal {
+        background: white; border-radius: 16px; padding: 24px;
+        max-width: 380px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        transform: scale(0.9) translateY(20px); transition: all 0.2s ease;
+    }
+    .confirm-modal-backdrop.show .confirm-modal { transform: scale(1) translateY(0); }
+    .confirm-modal-icon {
+        width: 64px; height: 64px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 16px; font-size: 28px;
+    }
+    .confirm-modal-icon.danger { background: #fee2e2; color: #dc2626; }
+    .confirm-modal-title { font-size: 1.25rem; font-weight: 600; text-align: center; margin-bottom: 8px; color: #1f2937; }
+    .confirm-modal-message { text-align: center; color: #6b7280; margin-bottom: 24px; line-height: 1.5; }
+    .confirm-modal-buttons { display: flex; gap: 12px; }
+    .confirm-modal-buttons button {
+        flex: 1; padding: 12px 20px; border-radius: 10px; font-weight: 500;
+        cursor: pointer; transition: all 0.15s ease; border: none;
+    }
+    .confirm-modal-buttons .btn-cancel { background: #f3f4f6; color: #4b5563; }
+    .confirm-modal-buttons .btn-cancel:hover { background: #e5e7eb; }
+    .confirm-modal-buttons .btn-confirm { background: #dc2626; color: white; }
+    .confirm-modal-buttons .btn-confirm:hover { background: #b91c1c; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -112,15 +144,56 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Modern Confirmation Modal -->
+<div class="confirm-modal-backdrop" id="confirmModal">
+    <div class="confirm-modal">
+        <div class="confirm-modal-icon danger" id="confirmModalIcon"><i class="bi bi-trash"></i></div>
+        <h3 class="confirm-modal-title" id="confirmModalTitle">Löschen bestätigen</h3>
+        <p class="confirm-modal-message" id="confirmModalMessage">Möchtest du dieses Element wirklich löschen?</p>
+        <div class="confirm-modal-buttons">
+            <button class="btn-cancel" id="confirmModalCancel">Abbrechen</button>
+            <button class="btn-confirm" id="confirmModalConfirm">Löschen</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 const csrfToken = '{{ csrf_token }}';
 
+// Modern Confirmation Modal
+function showConfirmModal(options = {}) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const title = document.getElementById('confirmModalTitle');
+        const message = document.getElementById('confirmModalMessage');
+        const cancelBtn = document.getElementById('confirmModalCancel');
+        const confirmBtn = document.getElementById('confirmModalConfirm');
+
+        title.textContent = options.title || 'Bestätigen';
+        message.textContent = options.message || 'Möchtest du fortfahren?';
+        cancelBtn.textContent = options.cancelText || 'Abbrechen';
+        confirmBtn.textContent = options.confirmText || 'Bestätigen';
+        modal.classList.add('show');
+
+        const cleanup = () => { modal.classList.remove('show'); confirmBtn.onclick = null; cancelBtn.onclick = null; modal.onclick = null; };
+        confirmBtn.onclick = () => { cleanup(); resolve(true); };
+        cancelBtn.onclick = () => { cleanup(); resolve(false); };
+        modal.onclick = (e) => { if (e.target === modal) { cleanup(); resolve(false); } };
+    });
+}
+
 // Delete Note
 async function deleteNote(noteId) {
-    if (!confirm('Notiz wirklich löschen?')) return;
+    const confirmed = await showConfirmModal({
+        title: 'Notiz löschen',
+        message: 'Möchtest du diese Notiz wirklich löschen?',
+        confirmText: 'Löschen',
+        cancelText: 'Abbrechen'
+    });
+    if (!confirmed) return;
 
     try {
         const response = await fetch(`/learnloom/api/notes/${noteId}/delete/`, {

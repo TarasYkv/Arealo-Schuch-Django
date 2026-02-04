@@ -180,6 +180,116 @@
         width: 100%;
         height: 100%;
     }
+
+    /* Modern Confirmation Modal */
+    .confirm-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+    }
+    .confirm-modal-backdrop.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    .confirm-modal {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        max-width: 380px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        transform: scale(0.9) translateY(20px);
+        transition: all 0.2s ease;
+    }
+    .confirm-modal-backdrop.show .confirm-modal {
+        transform: scale(1) translateY(0);
+    }
+    .confirm-modal-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 28px;
+    }
+    .confirm-modal-icon.danger {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    .confirm-modal-icon.warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    .confirm-modal-icon.info {
+        background: #dbeafe;
+        color: #2563eb;
+    }
+    .confirm-modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-align: center;
+        margin-bottom: 8px;
+        color: #1f2937;
+    }
+    .confirm-modal-message {
+        text-align: center;
+        color: #6b7280;
+        margin-bottom: 24px;
+        line-height: 1.5;
+    }
+    .confirm-modal-buttons {
+        display: flex;
+        gap: 12px;
+    }
+    .confirm-modal-buttons button {
+        flex: 1;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-weight: 500;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border: none;
+    }
+    .confirm-modal-buttons .btn-cancel {
+        background: #f3f4f6;
+        color: #4b5563;
+    }
+    .confirm-modal-buttons .btn-cancel:hover {
+        background: #e5e7eb;
+    }
+    .confirm-modal-buttons .btn-confirm {
+        background: #dc2626;
+        color: white;
+    }
+    .confirm-modal-buttons .btn-confirm:hover {
+        background: #b91c1c;
+    }
+    .confirm-modal-buttons .btn-confirm.warning {
+        background: #d97706;
+    }
+    .confirm-modal-buttons .btn-confirm.warning:hover {
+        background: #b45309;
+    }
+    .confirm-modal-buttons .btn-confirm.info {
+        background: #2563eb;
+    }
+    .confirm-modal-buttons .btn-confirm.info:hover {
+        background: #1d4ed8;
+    }
 </style>
 {% endblock %}
 
@@ -329,6 +439,21 @@
 <button class="translate-btn-floating d-none" id="translateBtn">
     <i class="bi bi-translate me-1"></i>Übersetzen
 </button>
+
+<!-- Modern Confirmation Modal -->
+<div class="confirm-modal-backdrop" id="confirmModal">
+    <div class="confirm-modal">
+        <div class="confirm-modal-icon danger" id="confirmModalIcon">
+            <i class="bi bi-trash"></i>
+        </div>
+        <h3 class="confirm-modal-title" id="confirmModalTitle">Löschen bestätigen</h3>
+        <p class="confirm-modal-message" id="confirmModalMessage">Möchtest du dieses Element wirklich löschen?</p>
+        <div class="confirm-modal-buttons">
+            <button class="btn-cancel" id="confirmModalCancel">Abbrechen</button>
+            <button class="btn-confirm" id="confirmModalConfirm">Löschen</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -351,6 +476,77 @@ let renderQueue = [];
 // Initialize PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+// ============================================
+// Modern Confirmation Modal
+// ============================================
+function showConfirmModal(options = {}) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const icon = document.getElementById('confirmModalIcon');
+        const title = document.getElementById('confirmModalTitle');
+        const message = document.getElementById('confirmModalMessage');
+        const cancelBtn = document.getElementById('confirmModalCancel');
+        const confirmBtn = document.getElementById('confirmModalConfirm');
+
+        // Set content
+        title.textContent = options.title || 'Bestätigen';
+        message.textContent = options.message || 'Möchtest du fortfahren?';
+        cancelBtn.textContent = options.cancelText || 'Abbrechen';
+        confirmBtn.textContent = options.confirmText || 'Bestätigen';
+
+        // Set type/style
+        const type = options.type || 'danger';
+        icon.className = `confirm-modal-icon ${type}`;
+        confirmBtn.className = `btn-confirm ${type}`;
+
+        // Set icon
+        const icons = {
+            danger: 'bi-trash',
+            warning: 'bi-exclamation-triangle',
+            info: 'bi-question-circle'
+        };
+        icon.innerHTML = `<i class="bi ${icons[type] || icons.danger}"></i>`;
+
+        // Show modal
+        modal.classList.add('show');
+
+        // Handle clicks
+        const handleConfirm = () => {
+            cleanup();
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            cleanup();
+            resolve(false);
+        };
+
+        const handleBackdrop = (e) => {
+            if (e.target === modal) {
+                handleCancel();
+            }
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                handleCancel();
+            }
+        };
+
+        const cleanup = () => {
+            modal.classList.remove('show');
+            confirmBtn.removeEventListener('click', handleConfirm);
+            cancelBtn.removeEventListener('click', handleCancel);
+            modal.removeEventListener('click', handleBackdrop);
+            document.removeEventListener('keydown', handleEscape);
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', handleCancel);
+        modal.addEventListener('click', handleBackdrop);
+        document.addEventListener('keydown', handleEscape);
+    });
+}
 
 // Show/Hide Loading
 function showLoading(text = 'PDF wird geladen...') {
@@ -788,7 +984,15 @@ function goToMarker(noteId) {
 
 // Delete Note
 async function deleteNote(noteId) {
-    if (!confirm('Notiz löschen?')) return;
+    const confirmed = await showConfirmModal({
+        type: 'danger',
+        title: 'Notiz löschen',
+        message: 'Möchtest du diese Notiz wirklich löschen? Der zugehörige Marker wird ebenfalls entfernt.',
+        confirmText: 'Löschen',
+        cancelText: 'Abbrechen'
+    });
+
+    if (!confirmed) return;
 
     try {
         const response = await fetch(`/learnloom/api/notes/${noteId}/delete/`, {
