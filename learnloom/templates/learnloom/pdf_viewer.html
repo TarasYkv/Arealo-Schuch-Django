@@ -45,6 +45,60 @@
         margin-top: 10px;
         font-size: 0.9rem;
     }
+
+    /* Proper Text Layer Styling */
+    .pdf-page {
+        position: relative;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    .pdf-page canvas {
+        display: block;
+    }
+    .textLayer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+        line-height: 1.0;
+        text-size-adjust: none;
+        forced-color-adjust: none;
+        z-index: 2;
+    }
+    .textLayer > span {
+        color: transparent;
+        position: absolute;
+        white-space: pre;
+        cursor: text;
+        transform-origin: 0% 0%;
+    }
+    .textLayer ::selection {
+        background: rgba(0, 100, 255, 0.4);
+    }
+    .textLayer .highlight {
+        margin: -1px;
+        padding: 1px;
+        background-color: rgba(255, 235, 59, 0.5);
+        border-radius: 4px;
+    }
+    .textLayer .highlight.active {
+        background-color: rgba(255, 193, 7, 0.6);
+    }
+
+    /* Highlight Overlay */
+    .highlight-overlay {
+        position: absolute;
+        background-color: rgba(255, 235, 59, 0.4);
+        pointer-events: auto;
+        cursor: pointer;
+        z-index: 3;
+        border-radius: 2px;
+    }
+    .highlight-overlay:hover {
+        background-color: rgba(255, 235, 59, 0.6);
+    }
 </style>
 {% endblock %}
 
@@ -293,39 +347,54 @@ async function renderPage(pageNum, canvas) {
 
         await page.render(renderContext).promise;
 
-        // Add text layer for selection (simplified version)
+        // Add text layer for selection
         try {
             const textContent = await page.getTextContent();
             const textLayer = document.createElement('div');
-            textLayer.className = 'text-layer';
+            textLayer.className = 'textLayer';
             textLayer.style.width = viewport.width + 'px';
             textLayer.style.height = viewport.height + 'px';
 
             canvas.parentElement.appendChild(textLayer);
 
-            // Render text items manually for better compatibility
-            textContent.items.forEach(item => {
-                const div = document.createElement('span');
+            // Use PDF.js text layer rendering
+            const textItems = textContent.items;
+            for (const item of textItems) {
+                if (!item.str) continue;
+
                 const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+                const fontAscent = fontHeight;
 
-                div.textContent = item.str;
-                div.style.position = 'absolute';
-                div.style.left = tx[4] + 'px';
-                div.style.top = tx[5] + 'px';
-                div.style.fontSize = Math.abs(tx[0]) + 'px';
-                div.style.fontFamily = item.fontName || 'sans-serif';
-                div.style.transformOrigin = '0% 0%';
+                const span = document.createElement('span');
+                span.textContent = item.str;
+                span.style.fontSize = `${fontHeight}px`;
+                span.style.fontFamily = item.fontName ? `${item.fontName}, sans-serif` : 'sans-serif';
+                span.style.left = `${tx[4]}px`;
+                span.style.top = `${tx[5] - fontAscent}px`;
 
-                textLayer.appendChild(div);
-            });
+                // Handle rotation if needed
+                const angle = Math.atan2(tx[1], tx[0]);
+                if (angle !== 0) {
+                    span.style.transform = `rotate(${angle}rad)`;
+                }
+
+                // Handle width scaling
+                if (item.width > 0) {
+                    span.style.letterSpacing = '0px';
+                    // Adjust for proper text width
+                    const textWidth = item.width * scale;
+                    span.dataset.width = textWidth;
+                }
+
+                textLayer.appendChild(span);
+            }
         } catch (textError) {
             console.warn('Text layer error on page', pageNum, textError);
-            // Continue without text layer
         }
 
     } catch (error) {
         console.error('Error rendering page', pageNum, error);
-        // Show error placeholder for this page
         canvas.width = 600;
         canvas.height = 800;
         const ctx = canvas.getContext('2d');
@@ -597,7 +666,7 @@ function renderHighlightsForPage(pageNum) {
     const pageDiv = document.querySelector(`.pdf-page[data-page="${pageNum}"]`);
     if (!pageDiv) return;
 
-    const textLayer = pageDiv.querySelector('.text-layer');
+    const textLayer = pageDiv.querySelector('.textLayer');
     if (!textLayer) return;
 
     // Remove existing highlight overlays
@@ -607,40 +676,39 @@ function renderHighlightsForPage(pageNum) {
     const pageHighlights = highlights.filter(h => h.page_number === pageNum);
 
     pageHighlights.forEach(highlight => {
-        // Search for the text in the text layer spans
+        const searchText = highlight.original_text.toLowerCase().trim();
         const spans = textLayer.querySelectorAll('span');
-        let foundText = '';
-        let startSpan = null;
-        let matchingSpans = [];
 
-        // Try to find matching text across spans
-        for (const span of spans) {
-            const spanText = span.textContent;
+        // Collect all text with positions
+        let fullText = '';
+        let spanData = [];
 
-            // Check if this span contains or is part of the highlighted text
-            if (highlight.original_text.includes(spanText.trim()) ||
-                spanText.toLowerCase().includes(highlight.original_text.toLowerCase()) ||
-                highlight.original_text.toLowerCase().includes(spanText.toLowerCase().trim())) {
+        spans.forEach((span, index) => {
+            const text = span.textContent;
+            spanData.push({
+                span: span,
+                start: fullText.length,
+                end: fullText.length + text.length,
+                text: text
+            });
+            fullText += text;
+        });
 
-                // Simple match - highlight this span
-                if (spanText.toLowerCase().includes(highlight.original_text.toLowerCase())) {
-                    markSpanAsHighlight(span, highlight, pageDiv);
-                    return;
-                }
+        // Search for the highlight text
+        const fullTextLower = fullText.toLowerCase();
+        let searchIndex = fullTextLower.indexOf(searchText);
 
-                // Build up partial match
-                foundText += spanText;
-                matchingSpans.push(span);
+        if (searchIndex !== -1) {
+            // Find which spans contain this text
+            const matchingSpans = spanData.filter(sd =>
+                (sd.start <= searchIndex && sd.end > searchIndex) ||
+                (sd.start >= searchIndex && sd.start < searchIndex + searchText.length)
+            );
 
-                if (foundText.toLowerCase().includes(highlight.original_text.toLowerCase())) {
-                    // Found complete match across spans
-                    matchingSpans.forEach(s => markSpanAsHighlight(s, highlight, pageDiv));
-                    return;
-                }
-            } else {
-                // Reset if no match
-                foundText = '';
-                matchingSpans = [];
+            if (matchingSpans.length > 0) {
+                matchingSpans.forEach(sd => {
+                    markSpanAsHighlight(sd.span, highlight, pageDiv);
+                });
             }
         }
     });
@@ -648,23 +716,19 @@ function renderHighlightsForPage(pageNum) {
 
 // Mark a span with highlight styling
 function markSpanAsHighlight(span, highlight, pageDiv) {
-    const rect = span.getBoundingClientRect();
-    const pageRect = pageDiv.getBoundingClientRect();
+    // Get computed style for accurate positioning
+    const spanStyle = window.getComputedStyle(span);
+    const left = parseFloat(spanStyle.left) || 0;
+    const top = parseFloat(spanStyle.top) || 0;
 
     // Create highlight overlay
     const overlay = document.createElement('div');
     overlay.className = 'highlight-overlay';
-    overlay.style.cssText = `
-        position: absolute;
-        left: ${span.offsetLeft}px;
-        top: ${span.offsetTop}px;
-        width: ${span.offsetWidth}px;
-        height: ${span.offsetHeight}px;
-        background-color: rgba(255, 235, 59, 0.4);
-        pointer-events: auto;
-        cursor: pointer;
-        z-index: 5;
-    `;
+    overlay.style.left = left + 'px';
+    overlay.style.top = top + 'px';
+    overlay.style.width = (span.offsetWidth || span.getBoundingClientRect().width) + 'px';
+    overlay.style.height = (span.offsetHeight || parseFloat(spanStyle.fontSize) * 1.2) + 'px';
+
     overlay.dataset.highlightId = highlight.id;
     overlay.title = `${highlight.original_text} → ${highlight.translated_text}`;
 
