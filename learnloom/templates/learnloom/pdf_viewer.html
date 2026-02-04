@@ -137,40 +137,40 @@
     }
 
     /* Selection Mode */
-    .selection-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 1500;
-        cursor: crosshair;
+    .select-mode-active .pdf-canvas-container {
+        cursor: crosshair !important;
     }
-    .selection-overlay.active {
-        background: rgba(0, 0, 0, 0.1);
+    .select-mode-active .pdf-canvas-container * {
+        cursor: crosshair !important;
+        user-select: none !important;
     }
     .selection-rect {
-        position: absolute;
-        border: 2px dashed #0984e3;
-        background: rgba(9, 132, 227, 0.15);
+        position: fixed;
+        border: 3px solid #0984e3;
+        background: rgba(9, 132, 227, 0.2);
         pointer-events: none;
+        z-index: 2000;
+        display: none;
+        box-shadow: 0 0 0 3px rgba(9, 132, 227, 0.3);
     }
     .select-mode-active .pdf-toolbar #toggleSelectMode {
         background: #0984e3 !important;
         color: white !important;
+        border-color: #0984e3 !important;
     }
     .select-mode-hint {
         position: fixed;
-        top: 60px;
+        top: 70px;
         left: 50%;
         transform: translateX(-50%);
-        background: #0984e3;
+        background: linear-gradient(135deg, #0984e3, #6c5ce7);
         color: white;
-        padding: 10px 20px;
-        border-radius: 25px;
+        padding: 12px 24px;
+        border-radius: 30px;
         font-size: 14px;
-        z-index: 1600;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        font-weight: 500;
+        z-index: 2100;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
 </style>
 {% endblock %}
@@ -235,9 +235,12 @@
     </a>
 </div>
 
-<!-- Selection Rectangle Overlay -->
-<div id="selectionOverlay" class="selection-overlay d-none">
-    <div id="selectionRect" class="selection-rect"></div>
+<!-- Selection Rectangle (drawn directly on PDF container) -->
+<div id="selectionRect" class="selection-rect"></div>
+
+<!-- Selection Mode Hint -->
+<div id="selectModeHint" class="select-mode-hint d-none">
+    <i class="bi bi-bounding-box me-2"></i>Ziehe ein Rechteck um das Wort. ESC zum Abbrechen.
 </div>
 
 <!-- Notes Panel -->
@@ -808,9 +811,9 @@ document.getElementById('closePopup').addEventListener('click', () => {
 let selectMode = false;
 let isDrawing = false;
 let startX, startY;
-const selectionOverlay = document.getElementById('selectionOverlay');
 const selectionRect = document.getElementById('selectionRect');
-let selectModeHint = null;
+const selectModeHint = document.getElementById('selectModeHint');
+const pdfContainer = document.getElementById('pdfCanvasContainer');
 
 // Store page text content for extraction
 const pageTextContents = {};
@@ -821,16 +824,8 @@ document.getElementById('toggleSelectMode').addEventListener('click', () => {
 
     if (selectMode) {
         document.body.classList.add('select-mode-active');
-        selectionOverlay.classList.remove('d-none');
-
-        // Show hint
-        if (!selectModeHint) {
-            selectModeHint = document.createElement('div');
-            selectModeHint.className = 'select-mode-hint';
-            selectModeHint.innerHTML = '<i class="bi bi-bounding-box me-2"></i>Ziehe ein Rechteck um das Wort. ESC zum Abbrechen.';
-            document.body.appendChild(selectModeHint);
-        }
-        selectModeHint.style.display = 'block';
+        selectModeHint.classList.remove('d-none');
+        console.log('Selection mode ON');
     } else {
         exitSelectMode();
     }
@@ -840,10 +835,9 @@ function exitSelectMode() {
     selectMode = false;
     isDrawing = false;
     document.body.classList.remove('select-mode-active');
-    selectionOverlay.classList.add('d-none');
-    selectionOverlay.classList.remove('active');
     selectionRect.style.display = 'none';
-    if (selectModeHint) selectModeHint.style.display = 'none';
+    selectModeHint.classList.add('d-none');
+    console.log('Selection mode OFF');
 }
 
 // ESC to exit selection mode
@@ -853,9 +847,10 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Drawing rectangle
-selectionOverlay.addEventListener('mousedown', (e) => {
+// Drawing rectangle on PDF container
+pdfContainer.addEventListener('mousedown', (e) => {
     if (!selectMode) return;
+    e.preventDefault();
 
     isDrawing = true;
     startX = e.clientX;
@@ -866,11 +861,12 @@ selectionOverlay.addEventListener('mousedown', (e) => {
     selectionRect.style.width = '0';
     selectionRect.style.height = '0';
     selectionRect.style.display = 'block';
-    selectionOverlay.classList.add('active');
+
+    console.log('Drawing started at', startX, startY);
 });
 
-selectionOverlay.addEventListener('mousemove', (e) => {
-    if (!isDrawing) return;
+document.addEventListener('mousemove', (e) => {
+    if (!isDrawing || !selectMode) return;
 
     const currentX = e.clientX;
     const currentY = e.clientY;
@@ -886,8 +882,8 @@ selectionOverlay.addEventListener('mousemove', (e) => {
     selectionRect.style.height = height + 'px';
 });
 
-selectionOverlay.addEventListener('mouseup', async (e) => {
-    if (!isDrawing) return;
+document.addEventListener('mouseup', async (e) => {
+    if (!isDrawing || !selectMode) return;
     isDrawing = false;
 
     const rect = {
@@ -897,27 +893,41 @@ selectionOverlay.addEventListener('mouseup', async (e) => {
         height: parseInt(selectionRect.style.height)
     };
 
+    console.log('Selection rectangle:', rect);
+
     // Minimum size check
-    if (rect.width < 10 || rect.height < 10) {
+    if (rect.width < 5 || rect.height < 5) {
         selectionRect.style.display = 'none';
-        selectionOverlay.classList.remove('active');
+        console.log('Rectangle too small');
         return;
     }
 
     // Extract text from the selected region
-    const extractedText = await extractTextFromRegion(rect);
+    try {
+        const extractedText = await extractTextFromRegion(rect);
+        console.log('Extracted text:', extractedText);
 
-    // Exit select mode
-    exitSelectMode();
+        // Exit select mode
+        exitSelectMode();
 
-    if (extractedText) {
-        // Open translation popup with extracted text
-        openTranslationPopup(extractedText, rect.left + rect.width/2, rect.top + rect.height);
+        if (extractedText && extractedText.trim()) {
+            openTranslationPopup(extractedText, rect.left + rect.width/2, rect.top + rect.height);
+        } else {
+            // Show popup with empty input for manual entry
+            openTranslationPopup('', rect.left + rect.width/2, rect.top + rect.height);
+            alert('Kein Text gefunden. Bitte manuell eingeben.');
+        }
+    } catch (error) {
+        console.error('Error extracting text:', error);
+        exitSelectMode();
+        alert('Fehler bei der Textextraktion: ' + error.message);
     }
 });
 
 // Extract text from PDF region
 async function extractTextFromRegion(screenRect) {
+    console.log('Extracting from screen rect:', screenRect);
+
     // Find which page the rectangle is on
     const pages = document.querySelectorAll('.pdf-page');
     let targetPage = null;
@@ -925,99 +935,77 @@ async function extractTextFromRegion(screenRect) {
 
     for (const page of pages) {
         const pageRect = page.getBoundingClientRect();
-        // Check if rectangle overlaps with this page
         if (screenRect.top < pageRect.bottom &&
-            screenRect.top + screenRect.height > pageRect.top &&
-            screenRect.left < pageRect.right &&
-            screenRect.left + screenRect.width > pageRect.left) {
+            screenRect.top + screenRect.height > pageRect.top) {
             targetPage = page;
             pageNum = parseInt(page.dataset.page);
             break;
         }
     }
 
-    if (!targetPage) return '';
-
-    const pageRect = targetPage.getBoundingClientRect();
-
-    // Convert screen coordinates to PDF coordinates (unscaled)
-    const selLeft = (screenRect.left - pageRect.left) / scale;
-    const selTop = (screenRect.top - pageRect.top) / scale;
-    const selRight = (screenRect.left + screenRect.width - pageRect.left) / scale;
-    const selBottom = (screenRect.top + screenRect.height - pageRect.top) / scale;
-
-    // Get text content for this page
-    let textContent = pageTextContents[pageNum];
-    if (!textContent) {
-        const page = await pdfDoc.getPage(pageNum);
-        textContent = await page.getTextContent();
-        pageTextContents[pageNum] = textContent;
+    if (!targetPage) {
+        console.log('No target page found');
+        return '';
     }
 
-    // Get viewport for coordinate conversion
+    console.log('Target page:', pageNum);
+    const pageRect = targetPage.getBoundingClientRect();
+
+    // Convert screen coordinates to page-relative coordinates (scaled)
+    const selLeft = screenRect.left - pageRect.left;
+    const selTop = screenRect.top - pageRect.top;
+    const selRight = screenRect.left + screenRect.width - pageRect.left;
+    const selBottom = screenRect.top + screenRect.height - pageRect.top;
+
+    console.log('Page-relative coords:', { selLeft, selTop, selRight, selBottom });
+
+    // Get text content for this page
     const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1 });
+    const textContent = await page.getTextContent();
+    const viewport = page.getViewport({ scale: scale }); // Use current scale!
+
+    console.log('Text items count:', textContent.items.length);
 
     let extractedParts = [];
 
     for (const item of textContent.items) {
         if (!item.str || !item.transform) continue;
 
-        // Get item position in PDF coordinates
-        const tx = item.transform;
+        // Transform the item position to screen coordinates
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+
         const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
         const itemX = tx[4];
-        const itemY = viewport.height - tx[5]; // Convert PDF Y (bottom-up) to screen Y (top-down)
-        const itemWidth = item.width || (item.str.length * fontSize * 0.5);
-        const itemHeight = fontSize;
+        const itemY = tx[5] - fontSize; // Adjust for baseline
+        const itemWidth = item.width ? item.width * scale : item.str.length * fontSize * 0.6;
+        const itemHeight = fontSize * 1.2;
 
-        // Calculate center of the text item
-        const itemCenterX = itemX + itemWidth / 2;
-        const itemCenterY = itemY + itemHeight / 2;
+        // Check if item overlaps with selection
+        const overlapX = itemX < selRight && itemX + itemWidth > selLeft;
+        const overlapY = itemY < selBottom && itemY + itemHeight > selTop;
 
-        // Check if the CENTER of the text item is inside the selection rectangle
-        // This is more precise than checking for any overlap
-        if (itemCenterX >= selLeft && itemCenterX <= selRight &&
-            itemCenterY >= selTop && itemCenterY <= selBottom) {
-
-            // For items that are partially selected, try to extract just the selected part
-            const text = item.str;
-
-            // If the item is fully inside, take all of it
-            if (itemX >= selLeft && itemX + itemWidth <= selRight) {
-                extractedParts.push({ text: text, x: itemX, y: itemY });
-            } else {
-                // Item is partially selected - estimate which characters are selected
-                const charWidth = itemWidth / text.length;
-                let selectedChars = '';
-
-                for (let i = 0; i < text.length; i++) {
-                    const charX = itemX + i * charWidth;
-                    const charCenterX = charX + charWidth / 2;
-
-                    if (charCenterX >= selLeft && charCenterX <= selRight) {
-                        selectedChars += text[i];
-                    }
-                }
-
-                if (selectedChars.trim()) {
-                    extractedParts.push({ text: selectedChars, x: itemX, y: itemY });
-                }
-            }
+        if (overlapX && overlapY) {
+            extractedParts.push({
+                text: item.str,
+                x: itemX,
+                y: itemY
+            });
         }
     }
 
-    // Sort by position (top to bottom, left to right)
+    console.log('Extracted parts:', extractedParts);
+
+    // Sort by position
     extractedParts.sort((a, b) => {
-        const yDiff = a.y - b.y;
-        if (Math.abs(yDiff) > 5) return yDiff; // Different lines
-        return a.x - b.x; // Same line, sort by x
+        if (Math.abs(a.y - b.y) > 10) return a.y - b.y;
+        return a.x - b.x;
     });
 
-    // Join and clean up
-    let result = extractedParts.map(p => p.text).join(' ').trim();
+    // Join and clean
+    let result = extractedParts.map(p => p.text).join('').trim();
     result = result.replace(/\s+/g, ' ');
 
+    console.log('Final result:', result);
     return result;
 }
 
