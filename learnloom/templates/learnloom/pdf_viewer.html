@@ -924,87 +924,84 @@ document.addEventListener('mouseup', async (e) => {
     }
 });
 
-// Extract text from PDF region
+// Extract text from PDF region using text layer spans (simpler and more accurate)
 async function extractTextFromRegion(screenRect) {
     console.log('Extracting from screen rect:', screenRect);
 
-    // Find which page the rectangle is on
-    const pages = document.querySelectorAll('.pdf-page');
-    let targetPage = null;
-    let pageNum = 1;
+    // Create the selection rectangle bounds
+    const selLeft = screenRect.left;
+    const selTop = screenRect.top;
+    const selRight = screenRect.left + screenRect.width;
+    const selBottom = screenRect.top + screenRect.height;
 
-    for (const page of pages) {
-        const pageRect = page.getBoundingClientRect();
-        if (screenRect.top < pageRect.bottom &&
-            screenRect.top + screenRect.height > pageRect.top) {
-            targetPage = page;
-            pageNum = parseInt(page.dataset.page);
-            break;
-        }
-    }
+    console.log('Selection bounds:', { selLeft, selTop, selRight, selBottom });
 
-    if (!targetPage) {
-        console.log('No target page found');
-        return '';
-    }
-
-    console.log('Target page:', pageNum);
-    const pageRect = targetPage.getBoundingClientRect();
-
-    // Convert screen coordinates to page-relative coordinates (scaled)
-    const selLeft = screenRect.left - pageRect.left;
-    const selTop = screenRect.top - pageRect.top;
-    const selRight = screenRect.left + screenRect.width - pageRect.left;
-    const selBottom = screenRect.top + screenRect.height - pageRect.top;
-
-    console.log('Page-relative coords:', { selLeft, selTop, selRight, selBottom });
-
-    // Get text content for this page
-    const page = await pdfDoc.getPage(pageNum);
-    const textContent = await page.getTextContent();
-    const viewport = page.getViewport({ scale: scale }); // Use current scale!
-
-    console.log('Text items count:', textContent.items.length);
-
+    // Find all text layer spans that overlap with the selection
+    const allSpans = document.querySelectorAll('.textLayer span');
     let extractedParts = [];
 
-    for (const item of textContent.items) {
-        if (!item.str || !item.transform) continue;
+    allSpans.forEach(span => {
+        const text = span.textContent;
+        if (!text || text.trim().length === 0) return;
 
-        // Transform the item position to screen coordinates
-        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        // Get the span's bounding rectangle in screen coordinates
+        const spanRect = span.getBoundingClientRect();
 
-        const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
-        const itemX = tx[4];
-        const itemY = tx[5] - fontSize; // Adjust for baseline
-        const itemWidth = item.width ? item.width * scale : item.str.length * fontSize * 0.6;
-        const itemHeight = fontSize * 1.2;
-
-        // Check if item overlaps with selection
-        const overlapX = itemX < selRight && itemX + itemWidth > selLeft;
-        const overlapY = itemY < selBottom && itemY + itemHeight > selTop;
+        // Check overlap with selection
+        const overlapX = spanRect.left < selRight && spanRect.right > selLeft;
+        const overlapY = spanRect.top < selBottom && spanRect.bottom > selTop;
 
         if (overlapX && overlapY) {
-            extractedParts.push({
-                text: item.str,
-                x: itemX,
-                y: itemY
-            });
+            // Calculate how much of the span is inside the selection
+            const overlapLeft = Math.max(spanRect.left, selLeft);
+            const overlapRight = Math.min(spanRect.right, selRight);
+            const overlapWidth = overlapRight - overlapLeft;
+            const spanWidth = spanRect.width;
+
+            // If selection covers most of the span, include it
+            if (overlapWidth / spanWidth > 0.3) {
+                extractedParts.push({
+                    text: text,
+                    x: spanRect.left,
+                    y: spanRect.top,
+                    centerX: spanRect.left + spanRect.width / 2,
+                    centerY: spanRect.top + spanRect.height / 2
+                });
+                console.log('Found span:', text, 'at', spanRect.left, spanRect.top);
+            }
         }
-    }
+    });
 
     console.log('Extracted parts:', extractedParts);
 
-    // Sort by position
+    if (extractedParts.length === 0) {
+        return '';
+    }
+
+    // Sort by position (top-to-bottom, then left-to-right)
     extractedParts.sort((a, b) => {
-        if (Math.abs(a.y - b.y) > 10) return a.y - b.y;
-        return a.x - b.x;
+        // Consider spans on same line if their Y centers are close
+        if (Math.abs(a.centerY - b.centerY) < 10) {
+            return a.x - b.x;
+        }
+        return a.centerY - b.centerY;
     });
 
-    // Join and clean
-    let result = extractedParts.map(p => p.text).join('').trim();
-    result = result.replace(/\s+/g, ' ');
+    // Join text, adding spaces between words that are not adjacent
+    let result = '';
+    for (let i = 0; i < extractedParts.length; i++) {
+        const part = extractedParts[i];
+        if (i > 0) {
+            const prev = extractedParts[i - 1];
+            // Add space if not adjacent on same line
+            if (Math.abs(part.centerY - prev.centerY) > 10 || (part.x - prev.x) > 5) {
+                result += ' ';
+            }
+        }
+        result += part.text;
+    }
 
+    result = result.trim().replace(/\s+/g, ' ');
     console.log('Final result:', result);
     return result;
 }
