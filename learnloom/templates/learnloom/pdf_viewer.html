@@ -181,18 +181,29 @@
 
 <!-- Translation Popup (hidden by default) -->
 <div class="translation-popup d-none" id="translationPopup">
-    <div class="original-text" id="popupOriginal"></div>
-    <div class="translated-text" id="popupTranslation">
-        <span class="spinner-border spinner-border-sm me-2"></span>Übersetze...
+    <div class="mb-2">
+        <label class="form-label small text-muted mb-1">Originaltext (editierbar)</label>
+        <input type="text" class="form-control form-control-sm" id="popupOriginalInput" placeholder="Text eingeben...">
     </div>
-    <div class="popup-actions">
-        <button class="btn btn-sm btn-outline-secondary" id="speakOriginal" title="Englisch vorlesen">
-            <i class="bi bi-volume-up"></i> EN
+    <div class="d-flex gap-2 mb-2">
+        <button class="btn btn-sm btn-primary flex-grow-1" id="retranslateBtn">
+            <i class="bi bi-translate me-1"></i>Übersetzen
         </button>
+        <button class="btn btn-sm btn-outline-secondary" id="speakOriginal" title="Englisch vorlesen">
+            <i class="bi bi-volume-up"></i>
+        </button>
+    </div>
+    <div class="mb-2">
+        <label class="form-label small text-muted mb-1">Übersetzung</label>
+        <div class="translated-text p-2 bg-light rounded" id="popupTranslation">
+            <span class="text-muted">Klicke auf "Übersetzen"</span>
+        </div>
+    </div>
+    <div class="popup-actions d-flex gap-2">
         <button class="btn btn-sm btn-outline-secondary" id="speakTranslation" title="Deutsch vorlesen">
             <i class="bi bi-volume-up"></i> DE
         </button>
-        <button class="btn btn-sm btn-success" id="saveHighlight">
+        <button class="btn btn-sm btn-success flex-grow-1" id="saveHighlight">
             <i class="bi bi-bookmark-plus me-1"></i>Speichern
         </button>
         <button class="btn btn-sm btn-outline-secondary" id="closePopup">
@@ -357,7 +368,7 @@ async function renderPage(pageNum, canvas) {
 
             canvas.parentElement.appendChild(textLayer);
 
-            // Use PDF.js text layer rendering
+            // Render text items - split into words for better selection
             const textItems = textContent.items;
             for (const item of textItems) {
                 if (!item.str) continue;
@@ -365,29 +376,35 @@ async function renderPage(pageNum, canvas) {
                 const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
                 const fontHeight = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
                 const fontAscent = fontHeight;
-
-                const span = document.createElement('span');
-                span.textContent = item.str;
-                span.style.fontSize = `${fontHeight}px`;
-                span.style.fontFamily = item.fontName ? `${item.fontName}, sans-serif` : 'sans-serif';
-                span.style.left = `${tx[4]}px`;
-                span.style.top = `${tx[5] - fontAscent}px`;
-
-                // Handle rotation if needed
                 const angle = Math.atan2(tx[1], tx[0]);
-                if (angle !== 0) {
-                    span.style.transform = `rotate(${angle}rad)`;
-                }
 
-                // Handle width scaling
-                if (item.width > 0) {
-                    span.style.letterSpacing = '0px';
-                    // Adjust for proper text width
-                    const textWidth = item.width * scale;
-                    span.dataset.width = textWidth;
-                }
+                // Calculate character width
+                const itemWidth = item.width * scale;
+                const charWidth = item.str.length > 0 ? itemWidth / item.str.length : fontHeight * 0.5;
 
-                textLayer.appendChild(span);
+                // Split text into words and spaces for better selection
+                const words = item.str.split(/(\s+)/);
+                let currentX = tx[4];
+
+                for (const word of words) {
+                    if (!word) continue;
+
+                    const span = document.createElement('span');
+                    span.textContent = word;
+                    span.style.fontSize = `${fontHeight}px`;
+                    span.style.fontFamily = item.fontName ? `${item.fontName}, sans-serif` : 'sans-serif';
+                    span.style.left = `${currentX}px`;
+                    span.style.top = `${tx[5] - fontAscent}px`;
+
+                    if (angle !== 0) {
+                        span.style.transform = `rotate(${angle}rad)`;
+                    }
+
+                    textLayer.appendChild(span);
+
+                    // Move position for next word
+                    currentX += word.length * charWidth;
+                }
             }
         } catch (textError) {
             console.warn('Text layer error on page', pageNum, textError);
@@ -556,10 +573,16 @@ async function deleteNote(noteId) {
 // Text Selection & Translation
 const translateBtn = document.getElementById('translateBtn');
 const translationPopup = document.getElementById('translationPopup');
+const originalInput = document.getElementById('popupOriginalInput');
+const translationDiv = document.getElementById('popupTranslation');
 let selectedText = '';
 let selectionPosition = {};
+let currentTranslation = '';
 
 document.addEventListener('mouseup', (e) => {
+    // Ignore clicks inside the popup
+    if (translationPopup.contains(e.target)) return;
+
     const selection = window.getSelection();
     const text = selection.toString().trim();
 
@@ -571,24 +594,42 @@ document.addEventListener('mouseup', (e) => {
         translateBtn.style.left = e.clientX + 'px';
         translateBtn.style.top = (e.clientY - 40) + 'px';
         translateBtn.classList.remove('d-none');
-    } else {
+    } else if (!translationPopup.contains(e.target)) {
         translateBtn.classList.add('d-none');
     }
 });
 
-// Translate Button Click
-translateBtn.addEventListener('click', async () => {
+// Translate Button Click - Open popup with selected text
+translateBtn.addEventListener('click', () => {
     translateBtn.classList.add('d-none');
 
-    // Show popup
-    translationPopup.style.left = Math.min(selectionPosition.x, window.innerWidth - 300) + 'px';
-    translationPopup.style.top = selectionPosition.y + 'px';
+    // Position popup
+    const popupX = Math.min(selectionPosition.x, window.innerWidth - 320);
+    const popupY = Math.min(selectionPosition.y, window.innerHeight - 250);
+    translationPopup.style.left = popupX + 'px';
+    translationPopup.style.top = popupY + 'px';
     translationPopup.classList.remove('d-none');
 
-    document.getElementById('popupOriginal').textContent = selectedText;
-    document.getElementById('popupTranslation').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Übersetze...';
+    // Set input value and reset translation
+    originalInput.value = selectedText;
+    translationDiv.innerHTML = '<span class="text-muted">Klicke auf "Übersetzen"</span>';
+    currentTranslation = '';
 
-    // Call Translation API
+    // Focus input for easy editing
+    originalInput.focus();
+    originalInput.select();
+});
+
+// Translate function
+async function translateText() {
+    const textToTranslate = originalInput.value.trim();
+    if (!textToTranslate) {
+        translationDiv.innerHTML = '<span class="text-danger">Bitte Text eingeben</span>';
+        return;
+    }
+
+    translationDiv.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Übersetze...';
+
     try {
         const response = await fetch('/learnloom/api/translate/', {
             method: 'POST',
@@ -597,7 +638,7 @@ translateBtn.addEventListener('click', async () => {
                 'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({
-                text: selectedText,
+                text: textToTranslate,
                 source_lang: 'en',
                 target_lang: 'de'
             })
@@ -605,26 +646,44 @@ translateBtn.addEventListener('click', async () => {
 
         const data = await response.json();
         if (data.success) {
-            document.getElementById('popupTranslation').textContent = data.translation;
+            currentTranslation = data.translation;
+            translationDiv.textContent = data.translation;
         } else {
-            document.getElementById('popupTranslation').textContent = 'Fehler: ' + data.error;
+            translationDiv.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
+            currentTranslation = '';
         }
     } catch (error) {
-        document.getElementById('popupTranslation').textContent = 'Übersetzungsfehler';
+        translationDiv.innerHTML = '<span class="text-danger">Übersetzungsfehler</span>';
+        currentTranslation = '';
+    }
+}
+
+// Retranslate button
+document.getElementById('retranslateBtn').addEventListener('click', translateText);
+
+// Enter key in input triggers translation
+originalInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        translateText();
     }
 });
 
 // Close Popup
 document.getElementById('closePopup').addEventListener('click', () => {
     translationPopup.classList.add('d-none');
+    currentTranslation = '';
 });
 
 // Save Highlight
 document.getElementById('saveHighlight').addEventListener('click', async () => {
-    const original = document.getElementById('popupOriginal').textContent;
-    const translation = document.getElementById('popupTranslation').textContent;
+    const original = originalInput.value.trim();
+    const translation = currentTranslation;
 
-    if (translation.includes('Fehler') || translation.includes('Übersetze')) return;
+    if (!original || !translation) {
+        alert('Bitte zuerst übersetzen');
+        return;
+    }
 
     try {
         const response = await fetch(`/learnloom/api/highlights/${bookId}/save/`, {
@@ -793,13 +852,13 @@ function speak(text, lang) {
 }
 
 document.getElementById('speakOriginal').addEventListener('click', () => {
-    speak(document.getElementById('popupOriginal').textContent, 'en');
+    const text = originalInput.value.trim();
+    if (text) speak(text, 'en');
 });
 
 document.getElementById('speakTranslation').addEventListener('click', () => {
-    const text = document.getElementById('popupTranslation').textContent;
-    if (!text.includes('Fehler') && !text.includes('Übersetze')) {
-        speak(text, 'de');
+    if (currentTranslation) {
+        speak(currentTranslation, 'de');
     }
 });
 
