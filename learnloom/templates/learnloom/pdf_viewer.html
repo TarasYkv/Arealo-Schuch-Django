@@ -218,46 +218,27 @@
         overflow-y: auto;
         margin-top: 4px;
     }
-    .explanation-content-container {
+    .explanation-chat-container {
         flex: 1;
-        min-height: 100px;
-    }
-    .explanation-content {
-        background: #fafafa;
-        border-radius: 8px;
-        padding: 12px;
-        line-height: 1.6;
-        font-size: 0.95rem;
-        min-height: 80px;
-        max-height: 200px;
+        display: flex;
+        flex-direction: column;
+        min-height: 150px;
+        max-height: 350px;
         overflow-y: auto;
+        gap: 10px;
+        padding: 4px;
     }
-    .explanation-popup.fullscreen .explanation-content {
+    .explanation-popup.fullscreen .explanation-chat-container {
         max-height: none;
         flex: 1;
     }
-    .explanation-followup {
-        border-top: 1px solid #e5e7eb;
-        padding-top: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .explanation-chat-history {
-        max-height: 150px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .explanation-popup.fullscreen .explanation-chat-history {
-        max-height: 300px;
-    }
     .chat-message {
-        padding: 8px 12px;
+        padding: 10px 14px;
         border-radius: 12px;
         font-size: 0.9rem;
-        max-width: 90%;
+        line-height: 1.5;
+        max-width: 95%;
+        word-wrap: break-word;
     }
     .chat-message.user {
         background: #dbeafe;
@@ -270,6 +251,11 @@
         color: #166534;
         align-self: flex-start;
         border-bottom-left-radius: 4px;
+    }
+    .explanation-input-section {
+        border-top: 1px solid #e5e7eb;
+        padding-top: 12px;
+        flex-shrink: 0;
     }
     .explanation-input-container {
         display: flex;
@@ -670,15 +656,13 @@
             <div class="explanation-selected-text" id="explanationSelectedText"></div>
         </div>
 
-        <div class="explanation-content-container">
-            <div id="explanationContent" class="explanation-content">
-                <span class="text-muted">Klicke auf "Erklären"</span>
-            </div>
+        <!-- Single Chat Container -->
+        <div class="explanation-chat-container" id="explanationChatContainer">
+            <!-- All messages (initial explanation + follow-ups) go here -->
         </div>
 
-        <!-- Follow-up Questions -->
-        <div class="explanation-followup" id="explanationFollowup">
-            <div class="explanation-chat-history" id="explanationChatHistory"></div>
+        <!-- Input Section -->
+        <div class="explanation-input-section">
             <div class="explanation-input-container">
                 <input type="text" class="form-control" id="followupQuestion" placeholder="Weitere Frage stellen..." />
                 <button class="btn btn-success" id="askFollowupBtn" title="Fragen">
@@ -1307,7 +1291,7 @@ const explanationPopup = document.getElementById('explanationPopup');
 const originalInput = document.getElementById('popupOriginalInput');
 const translationDiv = document.getElementById('popupTranslation');
 const explanationSelectedText = document.getElementById('explanationSelectedText');
-const explanationContent = document.getElementById('explanationContent');
+const explanationChatContainer = document.getElementById('explanationChatContainer');
 let selectedText = '';
 let selectionPosition = {};
 let currentTranslation = '';
@@ -1425,13 +1409,11 @@ explainBtn.addEventListener('click', () => {
 
     // Set selected text and reset everything
     explanationSelectedText.textContent = selectedText;
-    explanationContent.innerHTML = '<span class="text-muted">Klicke auf "Erklären"</span>';
+    explanationChatContainer.innerHTML = '<div class="text-muted text-center py-3">Klicke auf "Erklären"</div>';
     currentExplanation = '';
     document.getElementById('autoSaveHint').style.display = 'none';
 
-    // Clear chat history
-    const chatHist = document.getElementById('explanationChatHistory');
-    if (chatHist) chatHist.innerHTML = '';
+    // Clear follow-up input
     const followupInp = document.getElementById('followupQuestion');
     if (followupInp) followupInp.value = '';
 });
@@ -1495,7 +1477,6 @@ document.getElementById('closePopup').addEventListener('click', () => {
 // Explanation Functions (Draggable, Fullscreen, Follow-up)
 // ============================================
 
-const chatHistory = document.getElementById('explanationChatHistory');
 const followupInput = document.getElementById('followupQuestion');
 let conversationHistory = []; // Store conversation for context
 
@@ -1544,12 +1525,12 @@ document.getElementById('toggleFullscreenBtn').addEventListener('click', () => {
 document.getElementById('getExplanationBtn').addEventListener('click', async () => {
     const textToExplain = explanationSelectedText.textContent.trim();
     if (!textToExplain) {
-        explanationContent.innerHTML = '<span class="text-danger">Kein Text ausgewählt</span>';
+        explanationChatContainer.innerHTML = '<div class="text-danger text-center py-3">Kein Text ausgewählt</div>';
         return;
     }
 
-    explanationContent.innerHTML = '<div class="text-center"><span class="spinner-border spinner-border-sm me-2"></span>Analysiere...</div>';
-    chatHistory.innerHTML = ''; // Clear chat history
+    // Show loading in chat container
+    explanationChatContainer.innerHTML = '<div class="chat-message assistant"><span class="spinner-border spinner-border-sm me-2"></span>Analysiere...</div>';
     conversationHistory = []; // Reset conversation
 
     try {
@@ -1570,7 +1551,14 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
         const data = await response.json();
         if (data.success) {
             currentExplanation = data.explanation;
-            explanationContent.textContent = data.explanation;
+
+            // Show explanation as first chat message
+            explanationChatContainer.innerHTML = '';
+            const explanationMsg = document.createElement('div');
+            explanationMsg.className = 'chat-message assistant';
+            explanationMsg.textContent = data.explanation;
+            explanationChatContainer.appendChild(explanationMsg);
+
             // Store initial explanation in conversation
             conversationHistory.push({
                 role: 'user',
@@ -1584,11 +1572,11 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
             // Auto-save explanation
             await autoSaveExplanation(textToExplain, data.explanation);
         } else {
-            explanationContent.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
+            explanationChatContainer.innerHTML = '<div class="text-danger text-center py-3">Fehler: ' + data.error + '</div>';
             currentExplanation = '';
         }
     } catch (error) {
-        explanationContent.innerHTML = '<span class="text-danger">Erklärungsfehler</span>';
+        explanationChatContainer.innerHTML = '<div class="text-danger text-center py-3">Erklärungsfehler</div>';
         currentExplanation = '';
     }
 });
@@ -1647,7 +1635,7 @@ async function askFollowup() {
     const userMsg = document.createElement('div');
     userMsg.className = 'chat-message user';
     userMsg.textContent = question;
-    chatHistory.appendChild(userMsg);
+    explanationChatContainer.appendChild(userMsg);
 
     // Clear input
     followupInput.value = '';
@@ -1656,10 +1644,10 @@ async function askFollowup() {
     const loadingMsg = document.createElement('div');
     loadingMsg.className = 'chat-message assistant';
     loadingMsg.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>';
-    chatHistory.appendChild(loadingMsg);
+    explanationChatContainer.appendChild(loadingMsg);
 
     // Scroll to bottom
-    chatHistory.scrollTop = chatHistory.scrollHeight;
+    explanationChatContainer.scrollTop = explanationChatContainer.scrollHeight;
 
     // Store question in conversation
     conversationHistory.push({ role: 'user', content: question });
@@ -1696,7 +1684,7 @@ async function askFollowup() {
     }
 
     // Scroll to bottom
-    chatHistory.scrollTop = chatHistory.scrollHeight;
+    explanationChatContainer.scrollTop = explanationChatContainer.scrollHeight;
 }
 
 document.getElementById('askFollowupBtn').addEventListener('click', askFollowup);
@@ -1716,7 +1704,7 @@ function closeExplanationPopup() {
     document.querySelector('#toggleFullscreenBtn i').className = 'bi bi-arrows-fullscreen';
     currentExplanation = '';
     conversationHistory = [];
-    chatHistory.innerHTML = '';
+    explanationChatContainer.innerHTML = '';
     document.getElementById('autoSaveHint').style.display = 'none';
 }
 
