@@ -1009,75 +1009,59 @@ function renderHighlightsForPage(pageNum) {
 
     // Get highlights for this page
     const pageHighlights = highlights.filter(h => h.page_number === pageNum);
+    const pageRect = pageDiv.getBoundingClientRect();
 
     pageHighlights.forEach(highlight => {
-        // Clean search text - remove extra spaces, normalize
         const searchText = highlight.original_text.toLowerCase().trim().replace(/\s+/g, ' ');
         const spans = textLayer.querySelectorAll('span');
-        let found = false;
+        const posData = highlight.position_data || {};
 
-        // First try: exact match in single span
+        // Find all spans that contain the search text
+        let candidates = [];
+
         for (const span of spans) {
             const spanText = span.textContent;
             const spanTextLower = spanText.toLowerCase();
-            const wordIndex = spanTextLower.indexOf(searchText);
+            let searchIndex = 0;
 
-            if (wordIndex !== -1) {
-                createWordHighlight(span, wordIndex, searchText.length, highlight, pageDiv);
-                found = true;
-                break;
-            }
-        }
-
-        // Second try: search in concatenated text (word might be split)
-        if (!found) {
-            let fullText = '';
-            const spanData = [];
-
-            spans.forEach(span => {
-                spanData.push({
+            // Find all occurrences in this span
+            while ((searchIndex = spanTextLower.indexOf(searchText, searchIndex)) !== -1) {
+                const spanRect = span.getBoundingClientRect();
+                candidates.push({
                     span: span,
-                    start: fullText.length,
-                    text: span.textContent
+                    charIndex: searchIndex,
+                    x: spanRect.left,
+                    y: spanRect.top
                 });
-                fullText += span.textContent;
-            });
-
-            const fullTextLower = fullText.toLowerCase();
-            const searchIndex = fullTextLower.indexOf(searchText);
-
-            if (searchIndex !== -1) {
-                // Find spanning spans and highlight the first one that overlaps
-                for (const sd of spanData) {
-                    const spanEnd = sd.start + sd.text.length;
-                    if (sd.start <= searchIndex && spanEnd > searchIndex) {
-                        const localIndex = searchIndex - sd.start;
-                        const localLength = Math.min(searchText.length, sd.text.length - localIndex);
-                        createWordHighlight(sd.span, localIndex, localLength, highlight, pageDiv);
-                        found = true;
-                        break;
-                    }
-                }
+                searchIndex += 1;
             }
         }
 
-        // Third try: partial match (first word only)
-        if (!found && searchText.includes(' ')) {
-            const firstWord = searchText.split(' ')[0];
-            for (const span of spans) {
-                const spanTextLower = span.textContent.toLowerCase();
-                const wordIndex = spanTextLower.indexOf(firstWord);
-                if (wordIndex !== -1) {
-                    createWordHighlight(span, wordIndex, firstWord.length, highlight, pageDiv);
-                    found = true;
-                    break;
-                }
-            }
-        }
-
-        if (!found) {
+        if (candidates.length === 0) {
             console.log('Highlight not found:', searchText);
+            return;
         }
+
+        // If we have position data, find the closest candidate
+        let bestCandidate = candidates[0];
+
+        if (posData.x && posData.y && candidates.length > 1) {
+            let minDistance = Infinity;
+
+            candidates.forEach(c => {
+                const distance = Math.sqrt(
+                    Math.pow(c.x - posData.x, 2) +
+                    Math.pow(c.y - posData.y, 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    bestCandidate = c;
+                }
+            });
+        }
+
+        // Create highlight for best candidate
+        createWordHighlight(bestCandidate.span, bestCandidate.charIndex, searchText.length, highlight, pageDiv);
     });
 }
 
