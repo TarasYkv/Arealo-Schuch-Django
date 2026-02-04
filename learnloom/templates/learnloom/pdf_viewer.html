@@ -135,6 +135,43 @@
     .highlight-overlay:hover {
         background-color: rgba(255, 235, 59, 0.6);
     }
+
+    /* Selection Mode */
+    .selection-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1500;
+        cursor: crosshair;
+    }
+    .selection-overlay.active {
+        background: rgba(0, 0, 0, 0.1);
+    }
+    .selection-rect {
+        position: absolute;
+        border: 2px dashed #0984e3;
+        background: rgba(9, 132, 227, 0.15);
+        pointer-events: none;
+    }
+    .select-mode-active .pdf-toolbar #toggleSelectMode {
+        background: #0984e3 !important;
+        color: white !important;
+    }
+    .select-mode-hint {
+        position: fixed;
+        top: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #0984e3;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-size: 14px;
+        z-index: 1600;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
 </style>
 {% endblock %}
 
@@ -190,12 +227,17 @@
     <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
         <i class="bi bi-sticky"></i>
     </button>
-    <button class="btn btn-outline-info" id="manualTranslate" title="Wort übersetzen (manuell eingeben)">
-        <i class="bi bi-translate"></i>
+    <button class="btn btn-info" id="toggleSelectMode" title="Rechteck-Auswahl (Bereich markieren)">
+        <i class="bi bi-bounding-box"></i>
     </button>
     <a href="{% url 'learnloom:vocabulary' book.id %}" class="btn btn-success" title="Vokabelliste">
         <i class="bi bi-list-check"></i>
     </a>
+</div>
+
+<!-- Selection Rectangle Overlay -->
+<div id="selectionOverlay" class="selection-overlay d-none">
+    <div id="selectionRect" class="selection-rect"></div>
 </div>
 
 <!-- Notes Panel -->
@@ -760,23 +802,208 @@ document.getElementById('closePopup').addEventListener('click', () => {
     currentTranslation = '';
 });
 
-// Manual translate button - open popup for direct input
-document.getElementById('manualTranslate').addEventListener('click', () => {
-    // Position popup in center of screen
-    translationPopup.style.left = '50%';
-    translationPopup.style.top = '50%';
-    translationPopup.style.transform = 'translate(-50%, -50%)';
-    translationPopup.classList.remove('d-none');
+// ============================================
+// Rectangle Selection Mode
+// ============================================
+let selectMode = false;
+let isDrawing = false;
+let startX, startY;
+const selectionOverlay = document.getElementById('selectionOverlay');
+const selectionRect = document.getElementById('selectionRect');
+let selectModeHint = null;
 
-    // Clear and focus input
-    originalInput.value = '';
-    translationDiv.innerHTML = '<span class="text-muted">Wort eingeben und übersetzen</span>';
-    currentTranslation = '';
-    originalInput.focus();
+// Store page text content for extraction
+const pageTextContents = {};
+
+// Toggle selection mode
+document.getElementById('toggleSelectMode').addEventListener('click', () => {
+    selectMode = !selectMode;
+
+    if (selectMode) {
+        document.body.classList.add('select-mode-active');
+        selectionOverlay.classList.remove('d-none');
+
+        // Show hint
+        if (!selectModeHint) {
+            selectModeHint = document.createElement('div');
+            selectModeHint.className = 'select-mode-hint';
+            selectModeHint.innerHTML = '<i class="bi bi-bounding-box me-2"></i>Ziehe ein Rechteck um das Wort. ESC zum Abbrechen.';
+            document.body.appendChild(selectModeHint);
+        }
+        selectModeHint.style.display = 'block';
+    } else {
+        exitSelectMode();
+    }
 });
 
+function exitSelectMode() {
+    selectMode = false;
+    isDrawing = false;
+    document.body.classList.remove('select-mode-active');
+    selectionOverlay.classList.add('d-none');
+    selectionOverlay.classList.remove('active');
+    selectionRect.style.display = 'none';
+    if (selectModeHint) selectModeHint.style.display = 'none';
+}
+
+// ESC to exit selection mode
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && selectMode) {
+        exitSelectMode();
+    }
+});
+
+// Drawing rectangle
+selectionOverlay.addEventListener('mousedown', (e) => {
+    if (!selectMode) return;
+
+    isDrawing = true;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    selectionRect.style.left = startX + 'px';
+    selectionRect.style.top = startY + 'px';
+    selectionRect.style.width = '0';
+    selectionRect.style.height = '0';
+    selectionRect.style.display = 'block';
+    selectionOverlay.classList.add('active');
+});
+
+selectionOverlay.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+
+    const width = Math.abs(currentX - startX);
+    const height = Math.abs(currentY - startY);
+    const left = Math.min(currentX, startX);
+    const top = Math.min(currentY, startY);
+
+    selectionRect.style.left = left + 'px';
+    selectionRect.style.top = top + 'px';
+    selectionRect.style.width = width + 'px';
+    selectionRect.style.height = height + 'px';
+});
+
+selectionOverlay.addEventListener('mouseup', async (e) => {
+    if (!isDrawing) return;
+    isDrawing = false;
+
+    const rect = {
+        left: parseInt(selectionRect.style.left),
+        top: parseInt(selectionRect.style.top),
+        width: parseInt(selectionRect.style.width),
+        height: parseInt(selectionRect.style.height)
+    };
+
+    // Minimum size check
+    if (rect.width < 10 || rect.height < 10) {
+        selectionRect.style.display = 'none';
+        selectionOverlay.classList.remove('active');
+        return;
+    }
+
+    // Extract text from the selected region
+    const extractedText = await extractTextFromRegion(rect);
+
+    // Exit select mode
+    exitSelectMode();
+
+    if (extractedText) {
+        // Open translation popup with extracted text
+        openTranslationPopup(extractedText, rect.left + rect.width/2, rect.top + rect.height);
+    }
+});
+
+// Extract text from PDF region
+async function extractTextFromRegion(screenRect) {
+    // Find which page the rectangle is on
+    const pages = document.querySelectorAll('.pdf-page');
+    let targetPage = null;
+    let pageNum = 1;
+
+    for (const page of pages) {
+        const pageRect = page.getBoundingClientRect();
+        // Check if rectangle overlaps with this page
+        if (screenRect.top < pageRect.bottom &&
+            screenRect.top + screenRect.height > pageRect.top &&
+            screenRect.left < pageRect.right &&
+            screenRect.left + screenRect.width > pageRect.left) {
+            targetPage = page;
+            pageNum = parseInt(page.dataset.page);
+            break;
+        }
+    }
+
+    if (!targetPage) return '';
+
+    const pageRect = targetPage.getBoundingClientRect();
+
+    // Convert screen coordinates to page-relative coordinates
+    const relativeRect = {
+        left: (screenRect.left - pageRect.left) / scale,
+        top: (screenRect.top - pageRect.top) / scale,
+        right: (screenRect.left + screenRect.width - pageRect.left) / scale,
+        bottom: (screenRect.top + screenRect.height - pageRect.top) / scale
+    };
+
+    // Get text content for this page
+    let textContent = pageTextContents[pageNum];
+    if (!textContent) {
+        const page = await pdfDoc.getPage(pageNum);
+        textContent = await page.getTextContent();
+        pageTextContents[pageNum] = textContent;
+    }
+
+    // Find text items within the rectangle
+    const viewport = pdfDoc.getPage ?
+        (await pdfDoc.getPage(pageNum)).getViewport({ scale: 1 }) : null;
+
+    let extractedWords = [];
+
+    for (const item of textContent.items) {
+        if (!item.str || !item.transform) continue;
+
+        // Get item position (PDF coordinates)
+        const tx = item.transform;
+        const x = tx[4];
+        const y = viewport ? viewport.height - tx[5] : tx[5]; // Convert PDF y to screen y
+        const width = item.width || item.str.length * 8;
+        const height = Math.abs(tx[0]) || 12;
+
+        // Check if item is within selection rectangle
+        if (x + width >= relativeRect.left &&
+            x <= relativeRect.right &&
+            y + height >= relativeRect.top &&
+            y <= relativeRect.bottom) {
+            extractedWords.push(item.str);
+        }
+    }
+
+    // Join and clean up
+    let result = extractedWords.join(' ').trim();
+    // Remove extra whitespace
+    result = result.replace(/\s+/g, ' ');
+
+    return result;
+}
+
+// Open translation popup with text
+function openTranslationPopup(text, x, y) {
+    translationPopup.style.left = Math.min(x, window.innerWidth - 320) + 'px';
+    translationPopup.style.top = Math.min(y + 10, window.innerHeight - 250) + 'px';
+    translationPopup.style.transform = '';
+    translationPopup.classList.remove('d-none');
+
+    originalInput.value = text;
+    translationDiv.innerHTML = '<span class="text-muted">Klicke auf "Übersetzen"</span>';
+    currentTranslation = '';
+    originalInput.focus();
+    originalInput.select();
+}
+
 // Reset transform when closing popup
-const originalCloseHandler = document.getElementById('closePopup').onclick;
 document.getElementById('closePopup').addEventListener('click', () => {
     translationPopup.style.transform = '';
 });
