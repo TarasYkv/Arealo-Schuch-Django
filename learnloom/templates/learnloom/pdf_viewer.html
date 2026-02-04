@@ -1007,13 +1007,10 @@ function renderHighlightsForPage(pageNum) {
     // Remove existing highlight overlays
     pageDiv.querySelectorAll('.highlight-overlay').forEach(el => el.remove());
 
-    // Get highlights for this page
-    const pageHighlights = highlights.filter(h => h.page_number === pageNum);
-
-    pageHighlights.forEach(highlight => {
+    // Search ALL highlights on this page (not just highlights saved on this page)
+    highlights.forEach(highlight => {
         const searchText = highlight.original_text.toLowerCase().trim().replace(/\s+/g, ' ');
         const spans = textLayer.querySelectorAll('span');
-        let foundCount = 0;
 
         // Find ALL occurrences and highlight them
         for (const span of spans) {
@@ -1024,15 +1021,8 @@ function renderHighlightsForPage(pageNum) {
             // Find all occurrences in this span
             while ((searchIndex = spanTextLower.indexOf(searchText, searchIndex)) !== -1) {
                 createWordHighlight(span, searchIndex, searchText.length, highlight, pageDiv);
-                foundCount++;
-                searchIndex += searchText.length; // Move past this occurrence
+                searchIndex += searchText.length;
             }
-        }
-
-        if (foundCount === 0) {
-            console.log('Highlight not found:', searchText);
-        } else {
-            console.log('Highlighted', foundCount, 'occurrences of:', searchText);
         }
     });
 }
