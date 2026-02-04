@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.db import IntegrityError
+from django.core.serializers.json import DjangoJSONEncoder
 import json
 
 from .models import PDFBook, PDFNote, TranslationHighlight, Vocabulary, ReadingProgress
@@ -50,10 +51,23 @@ def pdf_viewer(request, book_id):
     # Markierungen für alle Seiten laden
     highlights = TranslationHighlight.objects.filter(book=book)
 
+    # Highlights als JSON serialisieren (UUIDs werden zu Strings konvertiert)
+    highlights_list = []
+    for h in highlights:
+        highlights_list.append({
+            'id': str(h.id),
+            'original_text': h.original_text,
+            'translated_text': h.translated_text,
+            'page_number': h.page_number,
+            'position_data': h.position_data,
+        })
+
+    highlights_json = json.dumps(highlights_list, cls=DjangoJSONEncoder)
+
     context = {
         'book': book,
         'progress': progress,
-        'highlights': list(highlights.values('id', 'original_text', 'translated_text', 'page_number', 'position_data')),
+        'highlights_json': highlights_json,
     }
     return render(request, 'learnloom/pdf_viewer.html', context)
 
