@@ -104,6 +104,70 @@ def vocabulary_list(request, book_id):
     return render(request, 'learnloom/vocabulary.html', context)
 
 
+@login_required
+def all_vocabulary(request):
+    """Globale Vokabelliste - alle Vokabeln aus allen PDFs"""
+    filter_status = request.GET.get('filter', 'all')
+
+    vocabulary = Vocabulary.objects.filter(user=request.user).select_related('book')
+
+    if filter_status == 'learned':
+        vocabulary = vocabulary.filter(is_learned=True)
+    elif filter_status == 'unlearned':
+        vocabulary = vocabulary.filter(is_learned=False)
+
+    # Statistiken
+    total = Vocabulary.objects.filter(user=request.user).count()
+    learned = Vocabulary.objects.filter(user=request.user, is_learned=True).count()
+
+    # Gruppieren nach Buch
+    books_with_vocab = {}
+    for vocab in vocabulary:
+        book_id = str(vocab.book.id)
+        if book_id not in books_with_vocab:
+            books_with_vocab[book_id] = {
+                'book': vocab.book,
+                'vocabulary': []
+            }
+        books_with_vocab[book_id]['vocabulary'].append(vocab)
+
+    context = {
+        'books_with_vocab': books_with_vocab.values(),
+        'total': total,
+        'learned': learned,
+        'filter_status': filter_status,
+    }
+    return render(request, 'learnloom/all_vocabulary.html', context)
+
+
+@login_required
+def all_notes(request):
+    """Globale Notizliste - alle Notizen sortiert nach PDF"""
+    notes = PDFNote.objects.filter(user=request.user).select_related('book').order_by('book__title', '-updated_at')
+
+    # Gruppieren nach Buch
+    books_with_notes = {}
+    for note in notes:
+        book_id = str(note.book.id)
+        if book_id not in books_with_notes:
+            books_with_notes[book_id] = {
+                'book': note.book,
+                'notes': []
+            }
+        books_with_notes[book_id]['notes'].append(note)
+
+    # Statistiken
+    total_notes = notes.count()
+    total_books = len(books_with_notes)
+
+    context = {
+        'books_with_notes': books_with_notes.values(),
+        'total_notes': total_notes,
+        'total_books': total_books,
+    }
+    return render(request, 'learnloom/all_notes.html', context)
+
+
 # ============================================================================
 # PDF API
 # ============================================================================

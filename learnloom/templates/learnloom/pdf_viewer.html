@@ -596,7 +596,9 @@ async function loadNotes() {
             if (data.notes.length === 0) {
                 notesList.innerHTML = '<p class="text-muted text-center">Noch keine Notizen</p>';
             } else {
-                notesList.innerHTML = data.notes.map(note => `
+                // Reverse order: oldest first, newest at bottom
+                const sortedNotes = [...data.notes].reverse();
+                notesList.innerHTML = sortedNotes.map(note => `
                     <div class="note-item" data-note-id="${note.id}">
                         <div class="note-content">${note.content}</div>
                         <div class="note-meta d-flex justify-content-between align-items-center">
@@ -604,9 +606,9 @@ async function loadNotes() {
                                 ${note.page_reference ? 'Seite ' + note.page_reference : ''}
                                 ${note.marker_position ? '<i class="bi bi-pin-map text-danger ms-1" title="Hat Marker"></i>' : ''}
                             </span>
-                            <div>
-                                ${note.marker_position ? `<button class="btn btn-sm btn-link text-primary p-0 me-2" onclick="goToMarker('${note.id}')" title="Zum Marker springen"><i class="bi bi-geo-alt"></i></button>` : ''}
-                                <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteNote('${note.id}')">
+                            <div class="d-flex gap-1">
+                                ${note.marker_position ? `<button class="btn btn-sm btn-outline-primary" onclick="goToMarker('${note.id}')" title="Zum Marker springen"><i class="bi bi-geo-alt me-1"></i>Marker</button>` : ''}
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteNote('${note.id}')" title="Löschen">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>

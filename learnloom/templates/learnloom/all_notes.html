@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Alle Notizen - LearnLoom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'learnloom:index' %}">LearnLoom</a></li>
+                    <li class="breadcrumb-item active">Alle Notizen</li>
+                </ol>
+            </nav>
+            <h2 class="mb-0">
+                <i class="bi bi-sticky me-2"></i>Alle Notizen
+            </h2>
+        </div>
+        <a href="{% url 'learnloom:index' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Zurück
+        </a>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 bg-primary bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ total_notes }}</h3>
+                    <small class="text-muted">Notizen gesamt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 bg-info bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ total_books }}</h3>
+                    <small class="text-muted">PDFs mit Notizen</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes grouped by Book -->
+    {% if books_with_notes %}
+        {% for item in books_with_notes %}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-book me-2"></i>{{ item.book.title }}
+                </h5>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-secondary">{{ item.notes|length }} Notizen</span>
+                    <a href="{% url 'learnloom:pdf_viewer' item.book.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye me-1"></i>PDF
+                    </a>
+                    <a href="{% url 'learnloom:notes' item.book.id %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-sticky me-1"></i>Notizen
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% for note in item.notes %}
+                <div class="note-item border-bottom pb-3 mb-3 {% if forloop.last %}border-0 pb-0 mb-0{% endif %}" data-note-id="{{ note.id }}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if note.page_reference %}
+                            <span class="badge bg-light text-dark">
+                                <i class="bi bi-file-earmark me-1"></i>Seite {{ note.page_reference }}
+                            </span>
+                            {% endif %}
+                            {% if note.marker_position %}
+                            <span class="badge bg-warning text-dark" title="Mit Marker verknüpft">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </span>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>{{ note.updated_at|timesince }} ago
+                        </small>
+                    </div>
+                    <div class="note-content">
+                        {{ note.content|linebreaksbr }}
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteNote('{{ note.id }}')" title="Löschen">
+                            <i class="bi bi-trash me-1"></i>Löschen
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-sticky text-muted" style="font-size: 5rem;"></i>
+        </div>
+        <h4 class="text-muted">Noch keine Notizen</h4>
+        <p class="text-muted">Erstelle Notizen beim Lesen deiner PDFs, um sie hier zu sehen.</p>
+        <a href="{% url 'learnloom:index' %}" class="btn btn-primary">
+            <i class="bi bi-arrow-left me-2"></i>Zur Bibliothek
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+// Delete Note
+async function deleteNote(noteId) {
+    if (!confirm('Notiz wirklich löschen?')) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/notes/${noteId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            const noteItem = document.querySelector(`.note-item[data-note-id="${noteId}"]`);
+            if (noteItem) {
+                noteItem.remove();
+            }
+            // Seite neu laden um Statistiken zu aktualisieren
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Löschen');
+    }
+}
+</script>
+{% endblock %}

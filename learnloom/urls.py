@@ -9,6 +9,8 @@ urlpatterns = [
     path('view/<uuid:book_id>/', views.pdf_viewer, name='pdf_viewer'),
     path('notes/<uuid:book_id>/', views.notes_view, name='notes'),
     path('vocabulary/<uuid:book_id>/', views.vocabulary_list, name='vocabulary'),
+    path('all-vocabulary/', views.all_vocabulary, name='all_vocabulary'),
+    path('all-notes/', views.all_notes, name='all_notes'),
 
     # PDF API
     path('api/upload/', views.api_upload_pdf, name='api_upload'),
