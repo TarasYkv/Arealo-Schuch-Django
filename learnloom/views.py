@@ -18,8 +18,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from .models import PDFBook, PDFNote, TranslationHighlight, Vocabulary, ReadingProgress
-from .services import PDFService, TranslationService
+from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress
+from .services import PDFService, TranslationService, ExplanationService
 from core.models import StorageLog
 
 
@@ -58,10 +58,8 @@ def pdf_viewer(request, book_id):
     # Lesefortschritt laden oder erstellen
     progress, _ = ReadingProgress.objects.get_or_create(book=book)
 
-    # Markierungen für alle Seiten laden
+    # Markierungen für alle Seiten laden (Übersetzungen)
     highlights = TranslationHighlight.objects.filter(book=book)
-
-    # Highlights als JSON serialisieren (UUIDs werden zu Strings konvertiert)
     highlights_list = []
     for h in highlights:
         highlights_list.append({
@@ -70,14 +68,29 @@ def pdf_viewer(request, book_id):
             'translated_text': h.translated_text,
             'page_number': h.page_number,
             'position_data': h.position_data,
+            'type': 'translation',
         })
-
     highlights_json = json.dumps(highlights_list, cls=DjangoJSONEncoder)
+
+    # Erklärungen laden
+    explanations = TextExplanation.objects.filter(book=book)
+    explanations_list = []
+    for e in explanations:
+        explanations_list.append({
+            'id': str(e.id),
+            'selected_text': e.selected_text,
+            'explanation': e.explanation,
+            'page_number': e.page_number,
+            'position_data': e.position_data,
+            'type': 'explanation',
+        })
+    explanations_json = json.dumps(explanations_list, cls=DjangoJSONEncoder)
 
     context = {
         'book': book,
         'progress': progress,
         'highlights_json': highlights_json,
+        'explanations_json': explanations_json,
     }
     return render(request, 'learnloom/pdf_viewer.html', context)
 
@@ -549,6 +562,122 @@ def api_save_highlight(request, book_id):
         },
         'vocabulary_added': vocab_entry is not None,
     })
+
+
+# ============================================================================
+# Explanation API
+# ============================================================================
+
+@login_required
+@require_POST
+def api_explain(request):
+    """Text erklären mit Kontextberücksichtigung"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    selected_text = data.get('selected_text', '').strip()
+    context_before = data.get('context_before', '')
+    context_after = data.get('context_after', '')
+    provider = data.get('provider', 'openai')
+
+    if not selected_text:
+        return JsonResponse({'success': False, 'error': 'Text darf nicht leer sein'}, status=400)
+
+    try:
+        explanation_service = ExplanationService(request.user)
+        explanation = explanation_service.explain(
+            selected_text,
+            context_before,
+            context_after,
+            provider
+        )
+
+        return JsonResponse({
+            'success': True,
+            'explanation': explanation,
+            'provider': provider,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erklärungsfehler: {str(e)}'}, status=500)
+
+
+@login_required
+@require_GET
+def api_get_explanations(request, book_id):
+    """Erklärungen für ein PDF abrufen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    page = request.GET.get('page')
+    explanations = TextExplanation.objects.filter(book=book)
+
+    if page:
+        explanations = explanations.filter(page_number=int(page))
+
+    return JsonResponse({
+        'success': True,
+        'explanations': list(explanations.values(
+            'id', 'selected_text', 'explanation', 'page_number',
+            'position_data', 'created_at'
+        ))
+    })
+
+
+@login_required
+@require_POST
+def api_save_explanation(request, book_id):
+    """Erklärung speichern"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    selected_text = data.get('selected_text', '').strip()
+    explanation_text = data.get('explanation', '').strip()
+    context_before = data.get('context_before', '')
+    context_after = data.get('context_after', '')
+    page_number = data.get('page_number')
+    position_data = data.get('position_data', {})
+    provider = data.get('provider', 'openai')
+
+    if not selected_text or not explanation_text or page_number is None:
+        return JsonResponse({'success': False, 'error': 'Pflichtfelder fehlen'}, status=400)
+
+    explanation = TextExplanation.objects.create(
+        book=book,
+        user=request.user,
+        selected_text=selected_text,
+        context_before=context_before,
+        context_after=context_after,
+        explanation=explanation_text,
+        page_number=page_number,
+        position_data=position_data,
+        explanation_provider=provider,
+    )
+
+    return JsonResponse({
+        'success': True,
+        'explanation': {
+            'id': str(explanation.id),
+            'selected_text': explanation.selected_text,
+            'explanation': explanation.explanation,
+            'page_number': explanation.page_number,
+        },
+    })
+
+
+@login_required
+@require_POST
+def api_delete_explanation(request, explanation_id):
+    """Erklärung löschen"""
+    explanation = get_object_or_404(TextExplanation, id=explanation_id, user=request.user)
+    explanation.delete()
+    return JsonResponse({'success': True})
 
 
 # ============================================================================

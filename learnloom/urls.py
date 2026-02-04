@@ -29,6 +29,12 @@ urlpatterns = [
     path('api/highlights/<uuid:book_id>/', views.api_get_highlights, name='api_get_highlights'),
     path('api/highlights/<uuid:book_id>/save/', views.api_save_highlight, name='api_save_highlight'),
 
+    # Explanation API
+    path('api/explain/', views.api_explain, name='api_explain'),
+    path('api/explanations/<uuid:book_id>/', views.api_get_explanations, name='api_get_explanations'),
+    path('api/explanations/<uuid:book_id>/save/', views.api_save_explanation, name='api_save_explanation'),
+    path('api/explanations/<uuid:explanation_id>/delete/', views.api_delete_explanation, name='api_delete_explanation'),
+
     # Vocabulary API
     path('api/vocabulary/<uuid:book_id>/', views.api_get_vocabulary, name='api_get_vocabulary'),
     path('api/vocabulary/<uuid:book_id>/add/', views.api_add_vocabulary, name='api_add_vocabulary'),

@@ -179,6 +179,59 @@ class TranslationHighlight(models.Model):
         return f"'{self.original_text[:20]}...' → '{self.translated_text[:20]}...'"
 
 
+class TextExplanation(models.Model):
+    """Erklärte Textabschnitte im PDF"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    book = models.ForeignKey(
+        PDFBook,
+        on_delete=models.CASCADE,
+        related_name='explanations',
+        verbose_name="PDF-Buch"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Benutzer"
+    )
+
+    selected_text = models.TextField(verbose_name="Ausgewählter Text")
+    context_before = models.TextField(blank=True, verbose_name="Kontext davor")
+    context_after = models.TextField(blank=True, verbose_name="Kontext danach")
+    explanation = models.TextField(verbose_name="Erklärung")
+
+    page_number = models.PositiveIntegerField(verbose_name="Seitennummer")
+    position_data = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Positionsdaten",
+        help_text="JSON mit Positionsdaten für die Markierung im PDF"
+    )
+
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI'),
+        ('anthropic', 'Anthropic'),
+    ]
+    explanation_provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        default='openai',
+        verbose_name="Erklärungs-Provider"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+
+    class Meta:
+        ordering = ['page_number', 'created_at']
+        verbose_name = "Text-Erklärung"
+        verbose_name_plural = "Text-Erklärungen"
+        indexes = [
+            models.Index(fields=['book', 'page_number']),
+        ]
+
+    def __str__(self):
+        return f"Erklärung: '{self.selected_text[:30]}...'"
+
+
 class Vocabulary(models.Model):
     """Vokabelliste pro PDF"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
