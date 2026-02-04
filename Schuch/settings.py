@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     'ploom',
     'loommarket',
     'loomtalk',
+    'learnloom',
 ]
 
 

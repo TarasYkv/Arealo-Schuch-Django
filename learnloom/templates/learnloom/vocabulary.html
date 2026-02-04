@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Vokabeln - {{ book.title }} - LearnLoom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'learnloom:index' %}">LearnLoom</a></li>
+                    <li class="breadcrumb-item active">Vokabeln</li>
+                </ol>
+            </nav>
+            <h2 class="mb-0">
+                <i class="bi bi-translate me-2"></i>{{ book.title }}
+            </h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'learnloom:pdf_viewer' book.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-eye me-2"></i>PDF öffnen
+            </a>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addVocabModal">
+                <i class="bi bi-plus-lg me-2"></i>Vokabel hinzufügen
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 bg-primary bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ total }}</h3>
+                    <small class="text-muted">Vokabeln gesamt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 bg-success bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ learned }}</h3>
+                    <small class="text-muted">Gelernt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 bg-warning bg-opacity-10">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ total|add:"-"|add:learned }}</h3>
+                    <small class="text-muted">Noch zu lernen</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vocabulary Table -->
+    {% if vocabulary %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover vocabulary-table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Englisch</th>
+                            <th style="width: 40%;">Deutsch</th>
+                            <th class="text-center" style="width: 10%;">Status</th>
+                            <th class="text-center" style="width: 10%;">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vocab in vocabulary %}
+                        <tr data-vocab-id="{{ vocab.id }}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2">{{ vocab.english_word }}</span>
+                                    <button class="btn btn-sm btn-link speak-btn p-0" onclick="speak('{{ vocab.english_word|escapejs }}', 'en')" title="Englisch vorlesen">
+                                        <i class="bi bi-volume-up"></i>
+                                    </button>
+                                </div>
+                                {% if vocab.page_reference %}
+                                <small class="text-muted d-block">Seite {{ vocab.page_reference }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2">{{ vocab.german_translation }}</span>
+                                    <button class="btn btn-sm btn-link speak-btn p-0" onclick="speak('{{ vocab.german_translation|escapejs }}', 'de')" title="Deutsch vorlesen">
+                                        <i class="bi bi-volume-up"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                {% if vocab.is_learned %}
+                                <span class="learned-badge">Gelernt</span>
+                                {% else %}
+                                <button class="btn btn-sm btn-outline-success" onclick="markLearned('{{ vocab.id }}')" title="Als gelernt markieren">
+                                    <i class="bi bi-check2"></i>
+                                </button>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteVocab('{{ vocab.id }}')" title="Löschen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-translate text-muted" style="font-size: 5rem;"></i>
+        </div>
+        <h4 class="text-muted">Noch keine Vokabeln</h4>
+        <p class="text-muted">Markiere Wörter im PDF-Viewer und übersetze sie, um sie hier zu speichern.</p>
+        <a href="{% url 'learnloom:pdf_viewer' book.id %}" class="btn btn-primary">
+            <i class="bi bi-eye me-2"></i>PDF öffnen
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Vocabulary Modal -->
+<div class="modal fade" id="addVocabModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Vokabel hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addVocabForm">
+                    <div class="mb-3">
+                        <label class="form-label">Englisch</label>
+                        <input type="text" class="form-control" name="english_word" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Deutsch</label>
+                        <input type="text" class="form-control" name="german_translation" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Seitenbezug (optional)</label>
+                        <input type="number" class="form-control" name="page_reference" min="1" max="{{ book.page_count }}">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="saveVocabBtn">
+                    <i class="bi bi-plus-lg me-2"></i>Hinzufügen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const bookId = '{{ book.id }}';
+const csrfToken = '{{ csrf_token }}';
+
+// Text-to-Speech
+function speak(text, lang) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'en' ? 'en-US' : 'de-DE';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+}
+
+// Mark as Learned (would need API endpoint)
+async function markLearned(vocabId) {
+    // For now, just reload - could implement PATCH endpoint
+    alert('Feature kommt bald!');
+}
+
+// Delete Vocabulary
+async function deleteVocab(vocabId) {
+    if (!confirm('Vokabel wirklich löschen?')) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/vocabulary/${vocabId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.querySelector(`tr[data-vocab-id="${vocabId}"]`).remove();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Löschen');
+    }
+}
+
+// Add Vocabulary
+document.getElementById('saveVocabBtn').addEventListener('click', async () => {
+    const form = document.getElementById('addVocabForm');
+    const formData = new FormData(form);
+
+    const data = {
+        english_word: formData.get('english_word'),
+        german_translation: formData.get('german_translation'),
+        page_reference: formData.get('page_reference') || null
+    };
+
+    try {
+        const response = await fetch(`/learnloom/api/vocabulary/${bookId}/add/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + result.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Speichern');
+    }
+});
+</script>
+{% endblock %}

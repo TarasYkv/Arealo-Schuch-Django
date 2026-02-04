@@ -26,6 +26,7 @@ class StorageLog(models.Model):
         ('organization', 'Organization'),
         ('chat', 'Chat'),
         ('android_apk_manager', 'Android APK Manager'),
+        ('learnloom', 'LearnLoom'),
         ('other', 'Andere'),
     ]
 

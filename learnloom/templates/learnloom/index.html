@@ -1,0 +1,325 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}LearnLoom - PDF-Bibliothek{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">
+                <i class="bi bi-book me-2"></i>LearnLoom
+            </h1>
+            <p class="text-muted mb-0">Deine PDF-Bibliothek für Bücher & Paper</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="bi bi-plus-lg me-2"></i>PDF hochladen
+        </button>
+    </div>
+
+    <!-- Statistiken -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
+                            <i class="bi bi-file-earmark-pdf text-primary fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0 small">PDFs</p>
+                            <h4 class="mb-0">{{ total_books }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-success bg-opacity-10 p-3 rounded me-3">
+                            <i class="bi bi-translate text-success fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0 small">Vokabeln</p>
+                            <h4 class="mb-0">{{ total_vocabulary }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-warning bg-opacity-10 p-3 rounded me-3">
+                            <i class="bi bi-check2-circle text-warning fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0 small">Gelernt</p>
+                            <h4 class="mb-0">{{ learned_vocabulary }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Kacheln -->
+    {% if books %}
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4" id="booksGrid">
+        {% for book in books %}
+        <div class="col">
+            <div class="card h-100 book-card border-0 shadow-sm" data-book-id="{{ book.id }}">
+                <!-- Thumbnail -->
+                <div class="book-thumbnail position-relative">
+                    {% if book.thumbnail %}
+                    <img src="{{ book.thumbnail.url }}" class="card-img-top" alt="{{ book.title }}">
+                    {% else %}
+                    <div class="card-img-top bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="bi bi-file-earmark-pdf text-secondary" style="font-size: 4rem;"></i>
+                    </div>
+                    {% endif %}
+                    <!-- Kategorie Badge -->
+                    <span class="badge bg-{{ book.category|default:'book' }} position-absolute top-0 end-0 m-2">
+                        {{ book.get_category_display }}
+                    </span>
+                </div>
+
+                <div class="card-body">
+                    <h6 class="card-title text-truncate" title="{{ book.title }}">{{ book.title }}</h6>
+                    <p class="card-text small text-muted mb-2">
+                        <i class="bi bi-file-earmark me-1"></i>{{ book.page_count }} Seiten
+                        {% if book.last_opened_at %}
+                        <br><i class="bi bi-clock me-1"></i>{{ book.last_opened_at|timesince }} ago
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <div class="btn-group w-100" role="group">
+                        <a href="{% url 'learnloom:pdf_viewer' book.id %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'learnloom:notes' book.id %}" class="btn btn-outline-secondary btn-sm" title="Notizen">
+                            <i class="bi bi-sticky"></i>
+                        </a>
+                        <a href="{% url 'learnloom:vocabulary' book.id %}" class="btn btn-outline-secondary btn-sm" title="Vokabeln">
+                            <i class="bi bi-translate"></i>
+                        </a>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteBook('{{ book.id }}')" title="Löschen">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-book text-muted" style="font-size: 5rem;"></i>
+        </div>
+        <h4 class="text-muted">Noch keine PDFs</h4>
+        <p class="text-muted">Lade dein erstes PDF hoch, um mit dem Lernen zu beginnen.</p>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="bi bi-plus-lg me-2"></i>PDF hochladen
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">PDF hochladen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <!-- Drag & Drop Zone -->
+                    <div class="upload-zone border border-2 border-dashed rounded p-5 text-center mb-3" id="dropZone">
+                        <i class="bi bi-cloud-arrow-up text-muted mb-3" style="font-size: 3rem;"></i>
+                        <p class="mb-2">PDF hierher ziehen oder klicken zum Auswählen</p>
+                        <input type="file" id="pdfFile" name="file" accept=".pdf" class="d-none">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('pdfFile').click()">
+                            Datei auswählen
+                        </button>
+                    </div>
+                    <div id="selectedFile" class="alert alert-info d-none">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>
+                        <span id="fileName"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Titel</label>
+                        <input type="text" class="form-control" name="title" id="pdfTitle" placeholder="Wird aus Dateinamen übernommen">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Kategorie</label>
+                        <select class="form-select" name="category">
+                            <option value="book">Buch</option>
+                            <option value="paper">Wissenschaftliches Paper</option>
+                            <option value="article">Artikel</option>
+                            <option value="other">Sonstiges</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tags (optional)</label>
+                        <input type="text" class="form-control" name="tags" placeholder="z.B. Python, Programmierung">
+                    </div>
+
+                    <!-- Progress -->
+                    <div class="progress d-none" id="uploadProgress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="uploadBtn" disabled>
+                    <i class="bi bi-upload me-2"></i>Hochladen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+// Drag & Drop
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('pdfFile');
+const uploadBtn = document.getElementById('uploadBtn');
+const selectedFile = document.getElementById('selectedFile');
+const fileName = document.getElementById('fileName');
+const pdfTitle = document.getElementById('pdfTitle');
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    });
+});
+
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => dropZone.classList.add('border-primary'));
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-primary'));
+});
+
+dropZone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length && files[0].name.toLowerCase().endsWith('.pdf')) {
+        fileInput.files = files;
+        handleFileSelect(files[0]);
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+        handleFileSelect(e.target.files[0]);
+    }
+});
+
+function handleFileSelect(file) {
+    fileName.textContent = file.name;
+    selectedFile.classList.remove('d-none');
+    uploadBtn.disabled = false;
+
+    // Titel aus Dateinamen vorschlagen
+    if (!pdfTitle.value) {
+        pdfTitle.value = file.name.replace('.pdf', '').replace(/_/g, ' ');
+    }
+}
+
+// Upload
+uploadBtn.addEventListener('click', async () => {
+    const formData = new FormData(document.getElementById('uploadForm'));
+    const progressBar = document.getElementById('uploadProgress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+
+    uploadBtn.disabled = true;
+    progressBar.classList.remove('d-none');
+
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '{% url "learnloom:api_upload" %}');
+        xhr.setRequestHeader('X-CSRFToken', csrfToken);
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = (e.loaded / e.total) * 100;
+                progressBarInner.style.width = percent + '%';
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                    window.location.reload();
+                } else {
+                    alert('Fehler: ' + response.error);
+                    uploadBtn.disabled = false;
+                    progressBar.classList.add('d-none');
+                }
+            } else {
+                alert('Upload fehlgeschlagen');
+                uploadBtn.disabled = false;
+                progressBar.classList.add('d-none');
+            }
+        };
+
+        xhr.send(formData);
+    } catch (error) {
+        alert('Fehler beim Upload: ' + error.message);
+        uploadBtn.disabled = false;
+        progressBar.classList.add('d-none');
+    }
+});
+
+// Delete Book
+async function deleteBook(bookId) {
+    if (!confirm('PDF wirklich löschen? Alle Notizen und Vokabeln werden ebenfalls gelöscht.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/learnloom/api/pdf/${bookId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+            }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Löschen: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

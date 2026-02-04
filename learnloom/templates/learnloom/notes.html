@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Notizen - {{ book.title }} - LearnLoom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'learnloom:index' %}">LearnLoom</a></li>
+                    <li class="breadcrumb-item active">Notizen</li>
+                </ol>
+            </nav>
+            <h2 class="mb-0">
+                <i class="bi bi-sticky me-2"></i>{{ book.title }}
+            </h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'learnloom:pdf_viewer' book.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-eye me-2"></i>PDF öffnen
+            </a>
+            <a href="{% url 'learnloom:vocabulary' book.id %}" class="btn btn-outline-success">
+                <i class="bi bi-translate me-2"></i>Vokabeln
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Notes List -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-journal-text me-2"></i>Alle Notizen
+                        <span class="badge bg-secondary ms-2">{{ notes.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if notes %}
+                    <div id="notesList">
+                        {% for note in notes %}
+                        <div class="note-item" data-note-id="{{ note.id }}">
+                            <div class="note-content">{{ note.content }}</div>
+                            <div class="note-meta d-flex justify-content-between align-items-center mt-2">
+                                <div>
+                                    {% if note.page_reference %}
+                                    <span class="badge bg-light text-dark me-2">
+                                        <i class="bi bi-file-earmark me-1"></i>Seite {{ note.page_reference }}
+                                    </span>
+                                    {% endif %}
+                                    <small class="text-muted">{{ note.created_at|date:"d.m.Y H:i" }}</small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editNote('{{ note.id }}', `{{ note.content|escapejs }}`, {{ note.page_reference|default:'null' }})">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteNote('{{ note.id }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-sticky text-muted" style="font-size: 3rem;"></i>
+                        <p class="text-muted mt-2">Noch keine Notizen vorhanden</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Note Form -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm sticky-top" style="top: 20px;">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0" id="formTitle">
+                        <i class="bi bi-plus-lg me-2"></i>Neue Notiz
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="noteForm">
+                        <input type="hidden" id="noteId" value="">
+                        <div class="mb-3">
+                            <label class="form-label">Inhalt</label>
+                            <textarea class="form-control" id="noteContent" rows="6" placeholder="Schreibe deine Notiz hier..." required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Seitenbezug (optional)</label>
+                            <input type="number" class="form-control" id="pageReference" min="1" max="{{ book.page_count }}" placeholder="z.B. 42">
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="saveBtn">
+                                <i class="bi bi-save me-2"></i>Speichern
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary d-none" id="cancelBtn" onclick="resetForm()">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const bookId = '{{ book.id }}';
+const csrfToken = '{{ csrf_token }}';
+
+// Save Note
+document.getElementById('noteForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const noteId = document.getElementById('noteId').value;
+    const content = document.getElementById('noteContent').value.trim();
+    const pageReference = document.getElementById('pageReference').value || null;
+
+    if (!content) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/notes/${bookId}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                note_id: noteId || null,
+                content: content,
+                page_reference: pageReference ? parseInt(pageReference) : null
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Speichern');
+    }
+});
+
+// Edit Note
+function editNote(noteId, content, pageRef) {
+    document.getElementById('noteId').value = noteId;
+    document.getElementById('noteContent').value = content;
+    document.getElementById('pageReference').value = pageRef || '';
+    document.getElementById('formTitle').innerHTML = '<i class="bi bi-pencil me-2"></i>Notiz bearbeiten';
+    document.getElementById('saveBtn').innerHTML = '<i class="bi bi-save me-2"></i>Aktualisieren';
+    document.getElementById('cancelBtn').classList.remove('d-none');
+    document.getElementById('noteContent').focus();
+}
+
+// Reset Form
+function resetForm() {
+    document.getElementById('noteId').value = '';
+    document.getElementById('noteContent').value = '';
+    document.getElementById('pageReference').value = '';
+    document.getElementById('formTitle').innerHTML = '<i class="bi bi-plus-lg me-2"></i>Neue Notiz';
+    document.getElementById('saveBtn').innerHTML = '<i class="bi bi-save me-2"></i>Speichern';
+    document.getElementById('cancelBtn').classList.add('d-none');
+}
+
+// Delete Note
+async function deleteNote(noteId) {
+    if (!confirm('Notiz wirklich löschen?')) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/notes/${noteId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.querySelector(`[data-note-id="${noteId}"]`).remove();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Löschen');
+    }
+}
+</script>
+{% endblock %}

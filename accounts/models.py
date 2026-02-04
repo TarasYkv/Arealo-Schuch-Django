@@ -211,6 +211,7 @@ class AppPermission(models.Model):
         ('backloom', 'BackLoom - Feed Management'),
         ('loommarket', 'LoomMarket - Business Marketing'),
         ('loomtalk', 'LoomTalk - Forum'),
+        ('learnloom', 'LearnLoom - PDF-Bibliothek'),
 
         # SEO Tools
         ('seo_dashboard', 'SEO Dashboard'),

@@ -315,6 +315,16 @@ MENU_STRUCTURE = {
                 'icon': 'fas fa-link',
                 'auth_url_name': 'linkloom:dashboard',
             },
+            {'divider': True, 'label': 'Lernen'},
+            {
+                'app_name': 'learnloom',
+                'label': 'LearnLoom',
+                'icon': 'bi bi-book',
+                'auth_url_name': 'learnloom:index',
+                'sub_items': [
+                    {'label': 'Bibliothek', 'icon': 'bi bi-collection', 'url_name': 'learnloom:index'},
+                ],
+            },
             {'divider': True, 'label': 'Apps'},
             {
                 'app_name': 'android_apk_manager',

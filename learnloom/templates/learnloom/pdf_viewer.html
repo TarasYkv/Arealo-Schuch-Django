@@ -1,0 +1,489 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ book.title }} - LearnLoom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+<style>
+    body { overflow: hidden; }
+    .navbar, footer { display: none !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Back Button -->
+<a href="{% url 'learnloom:index' %}" class="btn btn-light position-fixed" style="top: 15px; left: 15px; z-index: 1200;">
+    <i class="bi bi-arrow-left me-2"></i>Zurück
+</a>
+
+<!-- Title -->
+<div class="position-fixed text-center" style="top: 15px; left: 50%; transform: translateX(-50%); z-index: 1200;">
+    <h6 class="mb-0 text-white bg-dark bg-opacity-75 px-3 py-2 rounded">{{ book.title }}</h6>
+</div>
+
+<!-- PDF Viewer Container -->
+<div class="pdf-viewer-container" id="pdfViewerContainer">
+    <div class="pdf-canvas-container" id="pdfCanvasContainer">
+        <!-- Pages will be rendered here -->
+    </div>
+</div>
+
+<!-- Floating Toolbar -->
+<div class="pdf-toolbar">
+    <button class="btn btn-outline-secondary" id="prevPage" title="Vorherige Seite">
+        <i class="bi bi-chevron-left"></i>
+    </button>
+    <span class="page-info">
+        <span id="currentPage">1</span> / <span id="totalPages">-</span>
+    </span>
+    <button class="btn btn-outline-secondary" id="nextPage" title="Nächste Seite">
+        <i class="bi bi-chevron-right"></i>
+    </button>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-outline-secondary" id="zoomOut" title="Verkleinern">
+        <i class="bi bi-zoom-out"></i>
+    </button>
+    <span class="zoom-info" id="zoomLevel">100%</span>
+    <button class="btn btn-outline-secondary" id="zoomIn" title="Vergrößern">
+        <i class="bi bi-zoom-in"></i>
+    </button>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
+        <i class="bi bi-sticky"></i>
+    </button>
+    <a href="{% url 'learnloom:vocabulary' book.id %}" class="btn btn-outline-success" title="Vokabeln">
+        <i class="bi bi-translate"></i>
+    </a>
+</div>
+
+<!-- Notes Panel -->
+<div class="notes-panel" id="notesPanel">
+    <div class="notes-panel-header">
+        <h5 class="mb-0"><i class="bi bi-sticky me-2"></i>Notizen</h5>
+        <button class="btn btn-close" id="closeNotes"></button>
+    </div>
+    <div class="notes-panel-body" id="notesList">
+        <!-- Notes will be loaded here -->
+    </div>
+    <div class="notes-panel-footer">
+        <textarea class="form-control mb-2" id="newNoteContent" rows="3" placeholder="Neue Notiz schreiben..."></textarea>
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">Seite: <span id="notePageRef">{{ progress.current_page }}</span></small>
+            <button class="btn btn-primary btn-sm" id="saveNote">
+                <i class="bi bi-plus-lg me-1"></i>Hinzufügen
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Translation Popup (hidden by default) -->
+<div class="translation-popup d-none" id="translationPopup">
+    <div class="original-text" id="popupOriginal"></div>
+    <div class="translated-text" id="popupTranslation">
+        <span class="spinner-border spinner-border-sm me-2"></span>Übersetze...
+    </div>
+    <div class="popup-actions">
+        <button class="btn btn-sm btn-outline-secondary" id="speakOriginal" title="Englisch vorlesen">
+            <i class="bi bi-volume-up"></i> EN
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" id="speakTranslation" title="Deutsch vorlesen">
+            <i class="bi bi-volume-up"></i> DE
+        </button>
+        <button class="btn btn-sm btn-success" id="saveHighlight">
+            <i class="bi bi-bookmark-plus me-1"></i>Speichern
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" id="closePopup">
+            <i class="bi bi-x"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Translate Button (appears on selection) -->
+<button class="translate-btn-floating d-none" id="translateBtn">
+    <i class="bi bi-translate me-1"></i>Übersetzen
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<!-- PDF.js from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
+// Configuration
+const bookId = '{{ book.id }}';
+const pdfUrl = '{% url "learnloom:api_serve_pdf" book.id %}';
+const csrfToken = '{{ csrf_token }}';
+let currentPage = {{ progress.current_page }};
+let totalPages = {{ book.page_count }};
+let scale = {{ progress.zoom_level }};
+let pdfDoc = null;
+let highlights = {{ highlights|safe }};
+
+// Initialize PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// Load PDF
+async function loadPDF() {
+    try {
+        pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+        totalPages = pdfDoc.numPages;
+        document.getElementById('totalPages').textContent = totalPages;
+        renderAllPages();
+    } catch (error) {
+        console.error('Error loading PDF:', error);
+        alert('Fehler beim Laden des PDFs');
+    }
+}
+
+// Render all pages
+async function renderAllPages() {
+    const container = document.getElementById('pdfCanvasContainer');
+    container.innerHTML = '';
+
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'pdf-page';
+        pageDiv.dataset.page = pageNum;
+
+        const canvas = document.createElement('canvas');
+        pageDiv.appendChild(canvas);
+
+        container.appendChild(pageDiv);
+
+        await renderPage(pageNum, canvas);
+    }
+
+    // Scroll to saved position
+    scrollToPage(currentPage);
+}
+
+// Render single page
+async function renderPage(pageNum, canvas) {
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: scale });
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    const ctx = canvas.getContext('2d');
+    await page.render({
+        canvasContext: ctx,
+        viewport: viewport
+    }).promise;
+
+    // Add text layer for selection
+    const textContent = await page.getTextContent();
+    const textLayer = document.createElement('div');
+    textLayer.className = 'text-layer';
+    textLayer.style.width = viewport.width + 'px';
+    textLayer.style.height = viewport.height + 'px';
+
+    canvas.parentElement.appendChild(textLayer);
+
+    pdfjsLib.renderTextLayer({
+        textContent: textContent,
+        container: textLayer,
+        viewport: viewport,
+        textDivs: []
+    });
+}
+
+// Scroll to page
+function scrollToPage(pageNum) {
+    const pageDiv = document.querySelector(`.pdf-page[data-page="${pageNum}"]`);
+    if (pageDiv) {
+        pageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
+// Update current page on scroll
+document.getElementById('pdfCanvasContainer').addEventListener('scroll', function() {
+    const pages = document.querySelectorAll('.pdf-page');
+    const containerRect = this.getBoundingClientRect();
+
+    for (const page of pages) {
+        const pageRect = page.getBoundingClientRect();
+        if (pageRect.top <= containerRect.top + 100 && pageRect.bottom > containerRect.top + 100) {
+            currentPage = parseInt(page.dataset.page);
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('notePageRef').textContent = currentPage;
+            break;
+        }
+    }
+});
+
+// Navigation
+document.getElementById('prevPage').addEventListener('click', () => {
+    if (currentPage > 1) {
+        scrollToPage(currentPage - 1);
+    }
+});
+
+document.getElementById('nextPage').addEventListener('click', () => {
+    if (currentPage < totalPages) {
+        scrollToPage(currentPage + 1);
+    }
+});
+
+// Zoom
+document.getElementById('zoomIn').addEventListener('click', () => {
+    scale = Math.min(scale + 0.25, 3);
+    document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+    renderAllPages();
+});
+
+document.getElementById('zoomOut').addEventListener('click', () => {
+    scale = Math.max(scale - 0.25, 0.5);
+    document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+    renderAllPages();
+});
+
+// Notes Panel
+const notesPanel = document.getElementById('notesPanel');
+document.getElementById('toggleNotes').addEventListener('click', () => {
+    notesPanel.classList.toggle('open');
+    if (notesPanel.classList.contains('open')) {
+        loadNotes();
+    }
+});
+document.getElementById('closeNotes').addEventListener('click', () => {
+    notesPanel.classList.remove('open');
+});
+
+// Load Notes
+async function loadNotes() {
+    try {
+        const response = await fetch(`/learnloom/api/notes/${bookId}/`);
+        const data = await response.json();
+
+        if (data.success) {
+            const notesList = document.getElementById('notesList');
+            if (data.notes.length === 0) {
+                notesList.innerHTML = '<p class="text-muted text-center">Noch keine Notizen</p>';
+            } else {
+                notesList.innerHTML = data.notes.map(note => `
+                    <div class="note-item" data-note-id="${note.id}">
+                        <div class="note-content">${note.content}</div>
+                        <div class="note-meta d-flex justify-content-between">
+                            <span>${note.page_reference ? 'Seite ' + note.page_reference : ''}</span>
+                            <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteNote('${note.id}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading notes:', error);
+    }
+}
+
+// Save Note
+document.getElementById('saveNote').addEventListener('click', async () => {
+    const content = document.getElementById('newNoteContent').value.trim();
+    if (!content) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/notes/${bookId}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                content: content,
+                page_reference: currentPage
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('newNoteContent').value = '';
+            loadNotes();
+        }
+    } catch (error) {
+        console.error('Error saving note:', error);
+    }
+});
+
+// Delete Note
+async function deleteNote(noteId) {
+    if (!confirm('Notiz löschen?')) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/notes/${noteId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            loadNotes();
+        }
+    } catch (error) {
+        console.error('Error deleting note:', error);
+    }
+}
+
+// Text Selection & Translation
+const translateBtn = document.getElementById('translateBtn');
+const translationPopup = document.getElementById('translationPopup');
+let selectedText = '';
+let selectionPosition = {};
+
+document.addEventListener('mouseup', (e) => {
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+
+    if (text.length > 0 && text.length < 500) {
+        selectedText = text;
+        selectionPosition = { x: e.clientX, y: e.clientY };
+
+        // Show translate button
+        translateBtn.style.left = e.clientX + 'px';
+        translateBtn.style.top = (e.clientY - 40) + 'px';
+        translateBtn.classList.remove('d-none');
+    } else {
+        translateBtn.classList.add('d-none');
+    }
+});
+
+// Translate Button Click
+translateBtn.addEventListener('click', async () => {
+    translateBtn.classList.add('d-none');
+
+    // Show popup
+    translationPopup.style.left = Math.min(selectionPosition.x, window.innerWidth - 300) + 'px';
+    translationPopup.style.top = selectionPosition.y + 'px';
+    translationPopup.classList.remove('d-none');
+
+    document.getElementById('popupOriginal').textContent = selectedText;
+    document.getElementById('popupTranslation').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Übersetze...';
+
+    // Call Translation API
+    try {
+        const response = await fetch('/learnloom/api/translate/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                text: selectedText,
+                source_lang: 'en',
+                target_lang: 'de'
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('popupTranslation').textContent = data.translation;
+        } else {
+            document.getElementById('popupTranslation').textContent = 'Fehler: ' + data.error;
+        }
+    } catch (error) {
+        document.getElementById('popupTranslation').textContent = 'Übersetzungsfehler';
+    }
+});
+
+// Close Popup
+document.getElementById('closePopup').addEventListener('click', () => {
+    translationPopup.classList.add('d-none');
+});
+
+// Save Highlight
+document.getElementById('saveHighlight').addEventListener('click', async () => {
+    const original = document.getElementById('popupOriginal').textContent;
+    const translation = document.getElementById('popupTranslation').textContent;
+
+    if (translation.includes('Fehler') || translation.includes('Übersetze')) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/highlights/${bookId}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                original_text: original,
+                translated_text: translation,
+                page_number: currentPage,
+                position_data: selectionPosition,
+                add_to_vocabulary: true
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            translationPopup.classList.add('d-none');
+            // Could add visual feedback here
+        }
+    } catch (error) {
+        console.error('Error saving highlight:', error);
+    }
+});
+
+// Text-to-Speech
+function speak(text, lang) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang === 'en' ? 'en-US' : 'de-DE';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+}
+
+document.getElementById('speakOriginal').addEventListener('click', () => {
+    speak(document.getElementById('popupOriginal').textContent, 'en');
+});
+
+document.getElementById('speakTranslation').addEventListener('click', () => {
+    const text = document.getElementById('popupTranslation').textContent;
+    if (!text.includes('Fehler') && !text.includes('Übersetze')) {
+        speak(text, 'de');
+    }
+});
+
+// Save progress on page unload
+window.addEventListener('beforeunload', () => {
+    fetch(`/learnloom/api/progress/${bookId}/save/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            current_page: currentPage,
+            zoom_level: scale
+        }),
+        keepalive: true
+    });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+        document.getElementById('prevPage').click();
+    } else if (e.key === 'ArrowRight') {
+        document.getElementById('nextPage').click();
+    } else if (e.key === '+' || e.key === '=') {
+        document.getElementById('zoomIn').click();
+    } else if (e.key === '-') {
+        document.getElementById('zoomOut').click();
+    } else if (e.key === 'Escape') {
+        translationPopup.classList.add('d-none');
+        translateBtn.classList.add('d-none');
+        notesPanel.classList.remove('open');
+    }
+});
+
+// Initialize
+document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+loadPDF();
+</script>
+{% endblock %}

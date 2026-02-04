@@ -1,0 +1,541 @@
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse, FileResponse, Http404
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods, require_POST, require_GET
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from django.db import IntegrityError
+import json
+
+from .models import PDFBook, PDFNote, TranslationHighlight, Vocabulary, ReadingProgress
+from .services import PDFService, TranslationService
+from core.models import StorageLog
+
+
+# ============================================================================
+# Page Views
+# ============================================================================
+
+@login_required
+def index(request):
+    """Kachelübersicht aller PDFs des Users"""
+    books = PDFBook.objects.filter(user=request.user)
+
+    # Statistiken
+    total_books = books.count()
+    total_vocabulary = Vocabulary.objects.filter(user=request.user).count()
+    learned_vocabulary = Vocabulary.objects.filter(user=request.user, is_learned=True).count()
+
+    context = {
+        'books': books,
+        'total_books': total_books,
+        'total_vocabulary': total_vocabulary,
+        'learned_vocabulary': learned_vocabulary,
+    }
+    return render(request, 'learnloom/index.html', context)
+
+
+@login_required
+def pdf_viewer(request, book_id):
+    """PDF-Viewer Seite"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    # Letzten Zugriff aktualisieren
+    book.last_opened_at = timezone.now()
+    book.save(update_fields=['last_opened_at'])
+
+    # Lesefortschritt laden oder erstellen
+    progress, _ = ReadingProgress.objects.get_or_create(book=book)
+
+    # Markierungen für alle Seiten laden
+    highlights = TranslationHighlight.objects.filter(book=book)
+
+    context = {
+        'book': book,
+        'progress': progress,
+        'highlights': list(highlights.values('id', 'original_text', 'translated_text', 'page_number', 'position_data')),
+    }
+    return render(request, 'learnloom/pdf_viewer.html', context)
+
+
+@login_required
+def notes_view(request, book_id):
+    """Standalone Notizen-Seite"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    notes = PDFNote.objects.filter(book=book)
+
+    context = {
+        'book': book,
+        'notes': notes,
+    }
+    return render(request, 'learnloom/notes.html', context)
+
+
+@login_required
+def vocabulary_list(request, book_id):
+    """Vokabelliste für ein PDF"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    vocabulary = Vocabulary.objects.filter(book=book)
+
+    # Statistiken
+    total = vocabulary.count()
+    learned = vocabulary.filter(is_learned=True).count()
+
+    context = {
+        'book': book,
+        'vocabulary': vocabulary,
+        'total': total,
+        'learned': learned,
+    }
+    return render(request, 'learnloom/vocabulary.html', context)
+
+
+# ============================================================================
+# PDF API
+# ============================================================================
+
+@login_required
+@require_POST
+def api_upload_pdf(request):
+    """PDF hochladen"""
+    if 'file' not in request.FILES:
+        return JsonResponse({'success': False, 'error': 'Keine Datei hochgeladen'}, status=400)
+
+    pdf_file = request.FILES['file']
+
+    # Prüfen ob es ein PDF ist
+    if not pdf_file.name.lower().endswith('.pdf'):
+        return JsonResponse({'success': False, 'error': 'Nur PDF-Dateien erlaubt'}, status=400)
+
+    title = request.POST.get('title', pdf_file.name.rsplit('.', 1)[0])
+    category = request.POST.get('category', 'book')
+    tags = request.POST.get('tags', '')
+
+    try:
+        # PDF-Informationen extrahieren
+        pdf_service = PDFService()
+        page_count = pdf_service.get_page_count(pdf_file)
+        pdf_file.seek(0)  # Reset file pointer
+
+        # Thumbnail generieren
+        thumbnail = pdf_service.generate_thumbnail(pdf_file)
+        pdf_file.seek(0)  # Reset file pointer
+
+        # Book erstellen
+        book = PDFBook.objects.create(
+            user=request.user,
+            title=title,
+            original_filename=pdf_file.name,
+            file=pdf_file,
+            file_size=pdf_file.size,
+            page_count=page_count,
+            category=category,
+            tags=tags,
+        )
+
+        # Thumbnail speichern
+        if thumbnail:
+            book.thumbnail.save(f'{book.id}_thumb.png', thumbnail, save=True)
+
+        # StorageLog erstellen
+        StorageLog.objects.create(
+            user=request.user,
+            app_name='learnloom',
+            action='upload',
+            size_bytes=pdf_file.size,
+            metadata={
+                'filename': pdf_file.name,
+                'book_id': str(book.id),
+                'page_count': page_count,
+            }
+        )
+
+        return JsonResponse({
+            'success': True,
+            'book': {
+                'id': str(book.id),
+                'title': book.title,
+                'thumbnail_url': book.thumbnail.url if book.thumbnail else None,
+                'page_count': book.page_count,
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_GET
+def api_serve_pdf(request, book_id):
+    """PDF für PDF.js bereitstellen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        response = FileResponse(book.file.open('rb'), content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{book.original_filename}"'
+        return response
+    except FileNotFoundError:
+        raise Http404("PDF nicht gefunden")
+
+
+@login_required
+@require_POST
+def api_delete_pdf(request, book_id):
+    """PDF löschen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    file_size = book.file_size
+    filename = book.original_filename
+
+    # Dateien löschen
+    if book.file:
+        book.file.delete(save=False)
+    if book.thumbnail:
+        book.thumbnail.delete(save=False)
+
+    # StorageLog erstellen
+    StorageLog.objects.create(
+        user=request.user,
+        app_name='learnloom',
+        action='delete',
+        size_bytes=file_size,
+        metadata={
+            'filename': filename,
+            'book_id': str(book_id),
+        }
+    )
+
+    book.delete()
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def api_update_metadata(request, book_id):
+    """Metadaten eines PDFs aktualisieren"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    if 'title' in data:
+        book.title = data['title']
+    if 'category' in data:
+        book.category = data['category']
+    if 'tags' in data:
+        book.tags = data['tags']
+
+    book.save()
+
+    return JsonResponse({'success': True})
+
+
+# ============================================================================
+# Notes API
+# ============================================================================
+
+@login_required
+@require_GET
+def api_get_notes(request, book_id):
+    """Notizen für ein PDF abrufen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    notes = PDFNote.objects.filter(book=book)
+
+    return JsonResponse({
+        'success': True,
+        'notes': list(notes.values('id', 'content', 'page_reference', 'created_at', 'updated_at'))
+    })
+
+
+@login_required
+@require_POST
+def api_save_note(request, book_id):
+    """Notiz speichern oder aktualisieren"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    note_id = data.get('note_id')
+    content = data.get('content', '').strip()
+    page_reference = data.get('page_reference')
+
+    if not content:
+        return JsonResponse({'success': False, 'error': 'Inhalt darf nicht leer sein'}, status=400)
+
+    if note_id:
+        # Bestehende Notiz aktualisieren
+        note = get_object_or_404(PDFNote, id=note_id, book=book, user=request.user)
+        note.content = content
+        note.page_reference = page_reference
+        note.save()
+    else:
+        # Neue Notiz erstellen
+        note = PDFNote.objects.create(
+            book=book,
+            user=request.user,
+            content=content,
+            page_reference=page_reference,
+        )
+
+    return JsonResponse({
+        'success': True,
+        'note': {
+            'id': str(note.id),
+            'content': note.content,
+            'page_reference': note.page_reference,
+            'created_at': note.created_at.isoformat(),
+            'updated_at': note.updated_at.isoformat(),
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_delete_note(request, note_id):
+    """Notiz löschen"""
+    note = get_object_or_404(PDFNote, id=note_id, user=request.user)
+    note.delete()
+    return JsonResponse({'success': True})
+
+
+# ============================================================================
+# Translation API
+# ============================================================================
+
+@login_required
+@require_POST
+def api_translate(request):
+    """Text übersetzen"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    text = data.get('text', '').strip()
+    source_lang = data.get('source_lang', 'en')
+    target_lang = data.get('target_lang', 'de')
+    provider = data.get('provider', 'openai')
+
+    if not text:
+        return JsonResponse({'success': False, 'error': 'Text darf nicht leer sein'}, status=400)
+
+    try:
+        translation_service = TranslationService(request.user)
+        translation = translation_service.translate(text, source_lang, target_lang, provider)
+
+        return JsonResponse({
+            'success': True,
+            'translation': translation,
+            'provider': provider,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Übersetzungsfehler: {str(e)}'}, status=500)
+
+
+@login_required
+@require_GET
+def api_get_highlights(request, book_id):
+    """Markierungen für ein PDF abrufen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    page = request.GET.get('page')
+    highlights = TranslationHighlight.objects.filter(book=book)
+
+    if page:
+        highlights = highlights.filter(page_number=int(page))
+
+    return JsonResponse({
+        'success': True,
+        'highlights': list(highlights.values(
+            'id', 'original_text', 'translated_text', 'page_number',
+            'position_data', 'source_language', 'target_language', 'created_at'
+        ))
+    })
+
+
+@login_required
+@require_POST
+def api_save_highlight(request, book_id):
+    """Markierung speichern"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    original_text = data.get('original_text', '').strip()
+    translated_text = data.get('translated_text', '').strip()
+    page_number = data.get('page_number')
+    position_data = data.get('position_data', {})
+    source_language = data.get('source_language', 'en')
+    target_language = data.get('target_language', 'de')
+    provider = data.get('provider', 'openai')
+
+    if not original_text or not translated_text or page_number is None:
+        return JsonResponse({'success': False, 'error': 'Pflichtfelder fehlen'}, status=400)
+
+    highlight = TranslationHighlight.objects.create(
+        book=book,
+        user=request.user,
+        original_text=original_text,
+        translated_text=translated_text,
+        page_number=page_number,
+        position_data=position_data,
+        source_language=source_language,
+        target_language=target_language,
+        translation_provider=provider,
+    )
+
+    # Optional: Automatisch zur Vokabelliste hinzufügen
+    add_to_vocabulary = data.get('add_to_vocabulary', True)
+    vocab_entry = None
+
+    if add_to_vocabulary:
+        try:
+            vocab_entry = Vocabulary.objects.create(
+                book=book,
+                user=request.user,
+                english_word=original_text,
+                german_translation=translated_text,
+                from_highlight=highlight,
+                page_reference=page_number,
+            )
+        except IntegrityError:
+            # Vokabel existiert bereits
+            pass
+
+    return JsonResponse({
+        'success': True,
+        'highlight': {
+            'id': str(highlight.id),
+            'original_text': highlight.original_text,
+            'translated_text': highlight.translated_text,
+            'page_number': highlight.page_number,
+        },
+        'vocabulary_added': vocab_entry is not None,
+    })
+
+
+# ============================================================================
+# Vocabulary API
+# ============================================================================
+
+@login_required
+@require_GET
+def api_get_vocabulary(request, book_id):
+    """Vokabelliste für ein PDF abrufen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    vocabulary = Vocabulary.objects.filter(book=book)
+
+    return JsonResponse({
+        'success': True,
+        'vocabulary': list(vocabulary.values(
+            'id', 'english_word', 'german_translation', 'page_reference',
+            'is_learned', 'times_reviewed', 'created_at'
+        )),
+        'total': vocabulary.count(),
+        'learned': vocabulary.filter(is_learned=True).count(),
+    })
+
+
+@login_required
+@require_POST
+def api_add_vocabulary(request, book_id):
+    """Vokabel manuell hinzufügen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    english_word = data.get('english_word', '').strip()
+    german_translation = data.get('german_translation', '').strip()
+    page_reference = data.get('page_reference')
+
+    if not english_word or not german_translation:
+        return JsonResponse({'success': False, 'error': 'Englisch und Deutsch sind Pflichtfelder'}, status=400)
+
+    try:
+        vocab = Vocabulary.objects.create(
+            book=book,
+            user=request.user,
+            english_word=english_word,
+            german_translation=german_translation,
+            page_reference=page_reference,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'vocabulary': {
+                'id': str(vocab.id),
+                'english_word': vocab.english_word,
+                'german_translation': vocab.german_translation,
+            }
+        })
+    except IntegrityError:
+        return JsonResponse({'success': False, 'error': 'Vokabel existiert bereits'}, status=400)
+
+
+@login_required
+@require_POST
+def api_delete_vocabulary(request, vocab_id):
+    """Vokabel löschen"""
+    vocab = get_object_or_404(Vocabulary, id=vocab_id, user=request.user)
+    vocab.delete()
+    return JsonResponse({'success': True})
+
+
+# ============================================================================
+# Progress API
+# ============================================================================
+
+@login_required
+@require_GET
+def api_get_progress(request, book_id):
+    """Lesefortschritt abrufen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    progress, _ = ReadingProgress.objects.get_or_create(book=book)
+
+    return JsonResponse({
+        'success': True,
+        'progress': {
+            'current_page': progress.current_page,
+            'last_scroll_position': progress.last_scroll_position,
+            'zoom_level': progress.zoom_level,
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_save_progress(request, book_id):
+    """Lesefortschritt speichern"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    progress, _ = ReadingProgress.objects.get_or_create(book=book)
+
+    if 'current_page' in data:
+        progress.current_page = data['current_page']
+    if 'last_scroll_position' in data:
+        progress.last_scroll_position = data['last_scroll_position']
+    if 'zoom_level' in data:
+        progress.zoom_level = data['zoom_level']
+
+    progress.save()
+
+    return JsonResponse({'success': True})
