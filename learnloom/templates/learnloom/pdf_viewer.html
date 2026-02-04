@@ -8,10 +8,54 @@
 <style>
     body { overflow: hidden; }
     .navbar, footer { display: none !important; }
+
+    /* Loading Overlay */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(82, 86, 89, 0.95);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 3000;
+    }
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255,255,255,0.3);
+        border-top: 4px solid #fff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+        color: white;
+        margin-top: 20px;
+        font-size: 1.1rem;
+    }
+    .loading-progress {
+        color: rgba(255,255,255,0.7);
+        margin-top: 10px;
+        font-size: 0.9rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">PDF wird geladen...</div>
+    <div class="loading-progress" id="loadingProgress"></div>
+</div>
+
 <!-- Back Button -->
 <a href="{% url 'learnloom:index' %}" class="btn btn-light position-fixed" style="top: 15px; left: 15px; z-index: 1200;">
     <i class="bi bi-arrow-left me-2"></i>Zurück
@@ -123,74 +167,170 @@ let totalPages = {{ book.page_count }};
 let scale = {{ progress.zoom_level }};
 let pdfDoc = null;
 let highlights = {{ highlights|safe }};
+let isRendering = false;
+let renderQueue = [];
 
 // Initialize PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+// Show/Hide Loading
+function showLoading(text = 'PDF wird geladen...') {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    document.querySelector('.loading-text').textContent = text;
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+function updateLoadingProgress(current, total) {
+    document.getElementById('loadingProgress').textContent = `Seite ${current} von ${total}`;
+}
+
 // Load PDF
 async function loadPDF() {
+    showLoading('PDF wird geladen...');
+
     try {
-        pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+        const loadingTask = pdfjsLib.getDocument({
+            url: pdfUrl,
+            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapPacked: true,
+        });
+
+        loadingTask.onProgress = function(progress) {
+            if (progress.total > 0) {
+                const percent = Math.round((progress.loaded / progress.total) * 100);
+                document.getElementById('loadingProgress').textContent = `${percent}% geladen`;
+            }
+        };
+
+        pdfDoc = await loadingTask.promise;
         totalPages = pdfDoc.numPages;
         document.getElementById('totalPages').textContent = totalPages;
-        renderAllPages();
+
+        await renderAllPages();
+        hideLoading();
+
     } catch (error) {
         console.error('Error loading PDF:', error);
-        alert('Fehler beim Laden des PDFs');
+        hideLoading();
+
+        const container = document.getElementById('pdfCanvasContainer');
+        container.innerHTML = `
+            <div class="text-center text-white py-5">
+                <i class="bi bi-exclamation-triangle" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">Fehler beim Laden des PDFs</h4>
+                <p class="text-muted">${error.message || 'Unbekannter Fehler'}</p>
+                <button class="btn btn-primary mt-3" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Erneut versuchen
+                </button>
+            </div>
+        `;
     }
 }
 
 // Render all pages
 async function renderAllPages() {
+    if (isRendering) {
+        console.log('Already rendering, skipping...');
+        return;
+    }
+
+    isRendering = true;
     const container = document.getElementById('pdfCanvasContainer');
     container.innerHTML = '';
 
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-        const pageDiv = document.createElement('div');
-        pageDiv.className = 'pdf-page';
-        pageDiv.dataset.page = pageNum;
+    showLoading('Seiten werden gerendert...');
 
-        const canvas = document.createElement('canvas');
-        pageDiv.appendChild(canvas);
+    try {
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+            updateLoadingProgress(pageNum, totalPages);
 
-        container.appendChild(pageDiv);
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'pdf-page';
+            pageDiv.dataset.page = pageNum;
 
-        await renderPage(pageNum, canvas);
+            const canvas = document.createElement('canvas');
+            pageDiv.appendChild(canvas);
+
+            container.appendChild(pageDiv);
+
+            await renderPage(pageNum, canvas);
+        }
+
+        // Scroll to saved position
+        scrollToPage(currentPage);
+
+    } catch (error) {
+        console.error('Error rendering pages:', error);
+    } finally {
+        isRendering = false;
+        hideLoading();
     }
-
-    // Scroll to saved position
-    scrollToPage(currentPage);
 }
 
 // Render single page
 async function renderPage(pageNum, canvas) {
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: scale });
+    try {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: scale });
 
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
 
-    const ctx = canvas.getContext('2d');
-    await page.render({
-        canvasContext: ctx,
-        viewport: viewport
-    }).promise;
+        const ctx = canvas.getContext('2d');
 
-    // Add text layer for selection
-    const textContent = await page.getTextContent();
-    const textLayer = document.createElement('div');
-    textLayer.className = 'text-layer';
-    textLayer.style.width = viewport.width + 'px';
-    textLayer.style.height = viewport.height + 'px';
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+        };
 
-    canvas.parentElement.appendChild(textLayer);
+        await page.render(renderContext).promise;
 
-    pdfjsLib.renderTextLayer({
-        textContent: textContent,
-        container: textLayer,
-        viewport: viewport,
-        textDivs: []
-    });
+        // Add text layer for selection (simplified version)
+        try {
+            const textContent = await page.getTextContent();
+            const textLayer = document.createElement('div');
+            textLayer.className = 'text-layer';
+            textLayer.style.width = viewport.width + 'px';
+            textLayer.style.height = viewport.height + 'px';
+
+            canvas.parentElement.appendChild(textLayer);
+
+            // Render text items manually for better compatibility
+            textContent.items.forEach(item => {
+                const div = document.createElement('span');
+                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+
+                div.textContent = item.str;
+                div.style.position = 'absolute';
+                div.style.left = tx[4] + 'px';
+                div.style.top = tx[5] + 'px';
+                div.style.fontSize = Math.abs(tx[0]) + 'px';
+                div.style.fontFamily = item.fontName || 'sans-serif';
+                div.style.transformOrigin = '0% 0%';
+
+                textLayer.appendChild(div);
+            });
+        } catch (textError) {
+            console.warn('Text layer error on page', pageNum, textError);
+            // Continue without text layer
+        }
+
+    } catch (error) {
+        console.error('Error rendering page', pageNum, error);
+        // Show error placeholder for this page
+        canvas.width = 600;
+        canvas.height = 800;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f8d7da';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#721c24';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Fehler beim Laden von Seite ${pageNum}`, canvas.width/2, canvas.height/2);
+    }
 }
 
 // Scroll to page
@@ -230,17 +370,25 @@ document.getElementById('nextPage').addEventListener('click', () => {
     }
 });
 
-// Zoom
-document.getElementById('zoomIn').addEventListener('click', () => {
-    scale = Math.min(scale + 0.25, 3);
+// Zoom with debounce
+let zoomTimeout = null;
+function handleZoom(newScale) {
+    scale = newScale;
     document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-    renderAllPages();
+
+    // Debounce re-render
+    if (zoomTimeout) clearTimeout(zoomTimeout);
+    zoomTimeout = setTimeout(() => {
+        renderAllPages();
+    }, 300);
+}
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+    handleZoom(Math.min(scale + 0.25, 3));
 });
 
 document.getElementById('zoomOut').addEventListener('click', () => {
-    scale = Math.max(scale - 0.25, 0.5);
-    document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
-    renderAllPages();
+    handleZoom(Math.max(scale - 0.25, 0.5));
 });
 
 // Notes Panel
@@ -467,6 +615,9 @@ window.addEventListener('beforeunload', () => {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+    // Ignore if typing in textarea
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
     if (e.key === 'ArrowLeft') {
         document.getElementById('prevPage').click();
     } else if (e.key === 'ArrowRight') {
