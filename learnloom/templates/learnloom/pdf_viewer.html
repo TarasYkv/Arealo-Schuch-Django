@@ -688,12 +688,12 @@
         </div>
     </div>
     <div class="explanation-popup-footer">
-        <button class="btn btn-sm btn-success" id="getExplanationBtn">
+        <button class="btn btn-sm btn-success flex-grow-1" id="getExplanationBtn">
             <i class="bi bi-lightbulb me-1"></i>Erklären
         </button>
-        <button class="btn btn-sm btn-outline-success" id="saveExplanationBtn" disabled>
-            <i class="bi bi-bookmark-plus me-1"></i>Speichern
-        </button>
+        <small class="text-muted ms-2" id="autoSaveHint" style="display: none;">
+            <i class="bi bi-check-circle text-success"></i> Gespeichert
+        </small>
     </div>
 </div>
 
@@ -1397,7 +1397,7 @@ explainBtn.addEventListener('click', () => {
     explanationSelectedText.textContent = selectedText;
     explanationContent.innerHTML = '<span class="text-muted">Klicke auf "Erklären"</span>';
     currentExplanation = '';
-    document.getElementById('saveExplanationBtn').disabled = true;
+    document.getElementById('autoSaveHint').style.display = 'none';
 
     // Clear chat history
     const chatHist = document.getElementById('explanationChatHistory');
@@ -1510,7 +1510,7 @@ document.getElementById('toggleFullscreenBtn').addEventListener('click', () => {
     }
 });
 
-// Get Explanation
+// Get Explanation (with auto-save)
 document.getElementById('getExplanationBtn').addEventListener('click', async () => {
     const textToExplain = explanationSelectedText.textContent.trim();
     if (!textToExplain) {
@@ -1541,7 +1541,6 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
         if (data.success) {
             currentExplanation = data.explanation;
             explanationContent.textContent = data.explanation;
-            document.getElementById('saveExplanationBtn').disabled = false;
             // Store initial explanation in conversation
             conversationHistory.push({
                 role: 'user',
@@ -1551,6 +1550,9 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
                 role: 'assistant',
                 content: data.explanation
             });
+
+            // Auto-save explanation
+            await autoSaveExplanation(textToExplain, data.explanation);
         } else {
             explanationContent.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
             currentExplanation = '';
@@ -1560,6 +1562,51 @@ document.getElementById('getExplanationBtn').addEventListener('click', async () 
         currentExplanation = '';
     }
 });
+
+// Auto-save explanation to database
+async function autoSaveExplanation(textToSave, explanationText) {
+    try {
+        const response = await fetch(`/learnloom/api/explanations/${bookId}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                selected_text: textToSave,
+                explanation: explanationText,
+                context_before: contextBefore,
+                context_after: contextAfter,
+                page_number: currentPage,
+                position_data: {},
+                provider: 'openai'
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            // Add to local explanations array
+            explanations.push({
+                id: data.explanation.id,
+                selected_text: data.explanation.selected_text,
+                explanation: data.explanation.explanation,
+                page_number: data.explanation.page_number,
+                position_data: {},
+                type: 'explanation'
+            });
+
+            // Render explanation highlights
+            renderAllExplanations();
+
+            // Show saved hint
+            document.getElementById('autoSaveHint').style.display = 'inline';
+
+            console.log('Erklärung automatisch gespeichert');
+        }
+    } catch (error) {
+        console.error('Fehler beim Auto-Speichern:', error);
+    }
+}
 
 // Ask Follow-up Question
 async function askFollowup() {
@@ -1632,55 +1679,6 @@ followupInput.addEventListener('keypress', (e) => {
     }
 });
 
-// Save Explanation
-document.getElementById('saveExplanationBtn').addEventListener('click', async () => {
-    if (!currentExplanation) return;
-
-    const textToSave = explanationSelectedText.textContent.trim();
-
-    try {
-        const response = await fetch(`/learnloom/api/explanations/${bookId}/save/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            },
-            body: JSON.stringify({
-                selected_text: textToSave,
-                explanation: currentExplanation,
-                context_before: contextBefore,
-                context_after: contextAfter,
-                page_number: currentPage,
-                position_data: {},
-                provider: 'openai'
-            })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            // Add to local explanations array
-            explanations.push({
-                id: data.explanation.id,
-                selected_text: data.explanation.selected_text,
-                explanation: data.explanation.explanation,
-                page_number: data.explanation.page_number,
-                position_data: {},
-                type: 'explanation'
-            });
-
-            // Render explanation highlights
-            renderAllExplanations();
-
-            // Close popup and reset
-            closeExplanationPopup();
-        } else {
-            alert('Fehler: ' + data.error);
-        }
-    } catch (error) {
-        alert('Fehler beim Speichern');
-    }
-});
-
 // Close Explanation Popup
 function closeExplanationPopup() {
     explanationPopup.classList.add('d-none');
@@ -1689,9 +1687,22 @@ function closeExplanationPopup() {
     currentExplanation = '';
     conversationHistory = [];
     chatHistory.innerHTML = '';
+    document.getElementById('autoSaveHint').style.display = 'none';
 }
 
 document.getElementById('closeExplanationPopup').addEventListener('click', closeExplanationPopup);
+
+// Close explanation popup when clicking outside
+document.addEventListener('click', (e) => {
+    if (explanationPopup.classList.contains('d-none')) return;
+
+    // Check if click is outside the popup
+    if (!explanationPopup.contains(e.target) &&
+        !actionButtons.contains(e.target) &&
+        !e.target.closest('#explainBtn')) {
+        closeExplanationPopup();
+    }
+});
 
 // ============================================
 // Rectangle Selection Mode
