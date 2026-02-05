@@ -6740,14 +6740,22 @@ class StreamRecorderOptimized {
     }
 
     startRecordingTimer() {
+        // 🔧 Speichere originalen Tab-Titel
+        if (!this.originalDocumentTitle) {
+            this.originalDocumentTitle = document.title;
+        }
+
         this.recordingTimer = setInterval(() => {
             const elapsed = Date.now() - this.recordingStartTime - (this.pausedAccum || 0);
             const minutes = Math.floor(elapsed / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
-            
+
             const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             document.getElementById('recordingTime').textContent = timeStr;
             document.getElementById('recordingTimeIndicator').textContent = timeStr;
+
+            // 🔧 Update Tab-Titel mit Aufnahmezeit (sichtbar auch bei Tab-Wechsel)
+            document.title = `🔴 ${timeStr} - Aufnahme läuft`;
 
             // 📱 Update mobile timer
             if (this.isMobile) {
@@ -6756,7 +6764,7 @@ class StreamRecorderOptimized {
 
             const progress = (elapsed / this.maxDuration) * 100;
             document.getElementById('recordingProgress').style.width = `${Math.min(progress, 100)}%`;
-            
+
             // Auto-stop at max duration
             if (elapsed >= this.maxDuration) {
                 this.stopRecording();
@@ -6769,6 +6777,11 @@ class StreamRecorderOptimized {
         if (this.recordingTimer) {
             clearInterval(this.recordingTimer);
             this.recordingTimer = null;
+        }
+
+        // 🔧 Stelle originalen Tab-Titel wieder her
+        if (this.originalDocumentTitle) {
+            document.title = this.originalDocumentTitle;
         }
     }
 
