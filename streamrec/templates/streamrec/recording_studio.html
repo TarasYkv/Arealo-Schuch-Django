@@ -212,10 +212,8 @@ class StreamRecorder {
         this.canvas = document.getElementById('compositionCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.isComposing = false;
-        this.animationFrame = null;
-        this.renderInterval = null; // Fallback für inaktive Tabs
-        this.useIntervalFallback = false;
-        
+        this.renderInterval = null; // setInterval für stabiles Rendering
+
         this.init();
     }
 
@@ -345,32 +343,15 @@ class StreamRecorder {
         navigator.mediaDevices.addEventListener('devicechange', () => {
             this.loadDevices();
         });
-        
-        // Page Visibility API - Wichtig für Video-Aufnahme bei inaktivem Tab
+
+        // Page Visibility API - Log für Debugging
         document.addEventListener('visibilitychange', () => {
             if (this.isComposing) {
                 if (document.hidden) {
-                    console.log('⚠️ Tab ist inaktiv - Wechsle zu Interval-basiertem Rendering');
-                    this.switchToIntervalRendering();
+                    console.log('⚠️ Tab ist inaktiv - setInterval rendert weiter');
                 } else {
-                    console.log('✅ Tab ist aktiv - Wechsle zurück zu requestAnimationFrame');
-                    this.switchToAnimationFrameRendering();
+                    console.log('✅ Tab ist wieder aktiv');
                 }
-            }
-        });
-        
-        // Blur/Focus Events als zusätzliche Sicherheit
-        window.addEventListener('blur', () => {
-            if (this.isComposing) {
-                console.log('⚠️ Fenster hat Fokus verloren');
-                this.useIntervalFallback = true;
-            }
-        });
-        
-        window.addEventListener('focus', () => {
-            if (this.isComposing) {
-                console.log('✅ Fenster hat Fokus erhalten');
-                this.useIntervalFallback = false;
             }
         });
     }
@@ -518,30 +499,34 @@ class StreamRecorder {
         this.isComposing = true;
         this.updateStatus('composition', 'Aktiv - Live Composition', 'success');
         this.updateButtons('composition', true);
-        
+
         // Hide no content overlay
         document.getElementById('noContentOverlay').style.display = 'none';
-        
-        this.renderComposition();
-        console.log('🎬 Live Composition gestartet');
+
+        // Verwende setInterval statt requestAnimationFrame - stabiler bei Tab-Wechseln
+        // 30 FPS = 33.33ms Intervall
+        if (!this.renderInterval) {
+            this.renderInterval = setInterval(() => {
+                if (this.isComposing) {
+                    this.renderComposition();
+                }
+            }, 1000 / 30);
+        }
+
+        console.log('🎬 Live Composition gestartet (setInterval-basiert)');
     }
 
     stopComposition() {
         this.isComposing = false;
         this.updateStatus('composition', 'Nicht aktiv', 'muted');
         this.updateButtons('composition', false);
-        
-        // Stoppe beide Rendering-Mechanismen
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
-            this.animationFrame = null;
-        }
-        
+
+        // Stoppe das Rendering-Interval
         if (this.renderInterval) {
             clearInterval(this.renderInterval);
             this.renderInterval = null;
         }
-        
+
         this.clearCanvas();
         console.log('🛑 Live Composition gestoppt');
     }
@@ -553,10 +538,10 @@ class StreamRecorder {
 
         // Simple layout: Screen as background, camera as overlay
         const streams = Array.from(this.streams.entries());
-        
+
         streams.forEach(([type, stream], index) => {
             const video = this.getVideoElement(type, stream);
-            
+
             if (video && video.readyState >= 2) {
                 if (type === 'screen') {
                     // Full background
@@ -567,7 +552,7 @@ class StreamRecorder {
                     const overlayHeight = 90;
                     const x = this.canvas.width - overlayWidth - 20;
                     const y = 20;
-                    
+
                     // Draw camera overlay with border
                     this.ctx.strokeStyle = '#fff';
                     this.ctx.lineWidth = 2;
@@ -576,40 +561,9 @@ class StreamRecorder {
                 }
             }
         });
-
-        // Verwende requestAnimationFrame nur wenn Tab aktiv ist
-        if (!this.useIntervalFallback && !document.hidden) {
-            this.animationFrame = requestAnimationFrame(() => this.renderComposition());
-        }
+        // Rendering wird jetzt von setInterval gesteuert - kein requestAnimationFrame mehr nötig
     }
     
-    switchToIntervalRendering() {
-        // Stoppe requestAnimationFrame
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
-            this.animationFrame = null;
-        }
-        
-        // Starte Interval-basiertes Rendering (30 FPS)
-        if (!this.renderInterval) {
-            this.renderInterval = setInterval(() => {
-                this.renderComposition();
-            }, 1000 / 30); // 30 FPS
-        }
-    }
-    
-    switchToAnimationFrameRendering() {
-        // Stoppe Interval
-        if (this.renderInterval) {
-            clearInterval(this.renderInterval);
-            this.renderInterval = null;
-        }
-        
-        // Starte requestAnimationFrame wieder
-        this.useIntervalFallback = false;
-        this.renderComposition();
-    }
-
     getVideoElement(type, stream) {
         let video = document.getElementById(`video-${type}`);
         if (!video) {

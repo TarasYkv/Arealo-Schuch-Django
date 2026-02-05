@@ -1365,7 +1365,7 @@ class StreamRecorderOptimized {
         this.canvas = null;
         this.ctx = null;
         this.isComposing = false;
-        this.animationFrame = null;
+        this.renderInterval = null; // setInterval für stabiles Rendering bei Tab-Wechsel
         this.currentLayout = 'pip';
         this.mediaRecorder = null;
         this.recordedChunks = [];
@@ -5714,19 +5714,31 @@ class StreamRecorderOptimized {
             console.log('⏸️ Keine Streams verfügbar - warte auf Streams');
             return;
         }
-        
+
         this.isComposing = true;
-        this.renderComposition();
-        console.log('✅ Rendering Loop gestartet');
+
+        // Verwende setInterval statt requestAnimationFrame - stabiler bei Tab-Wechseln
+        // frameInterval ist bereits definiert (z.B. 1000/30 für 30 FPS)
+        if (!this.renderInterval) {
+            this.renderInterval = setInterval(() => {
+                if (this.isComposing) {
+                    this.renderComposition();
+                }
+            }, this.frameInterval || 1000 / 30);
+        }
+
+        console.log('✅ Rendering Loop gestartet (setInterval-basiert)');
     }
 
     stopRenderLoop() {
         this.isComposing = false;
-        
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
+
+        // Stoppe das Rendering-Interval
+        if (this.renderInterval) {
+            clearInterval(this.renderInterval);
+            this.renderInterval = null;
         }
-        
+
         this.clearCanvas();
         console.log('🛑 Rendering Loop gestoppt');
     }
@@ -5762,8 +5774,7 @@ class StreamRecorderOptimized {
                 this.performanceMetrics.droppedFrames++;
             }
         }
-        
-        this.animationFrame = requestAnimationFrame(() => this.renderComposition());
+        // Rendering wird jetzt von setInterval gesteuert - kein requestAnimationFrame mehr nötig
     }
 
     renderCurrentLayout() {
