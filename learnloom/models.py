@@ -284,6 +284,47 @@ class Vocabulary(models.Model):
         return f"{self.english_word} → {self.german_translation}"
 
 
+class ReadingListItem(models.Model):
+    """Leseliste/ToDo-Liste für Quellen"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reading_list',
+        verbose_name='Benutzer'
+    )
+
+    title = models.CharField(max_length=500, verbose_name="Titel/Quelle")
+    url = models.URLField(blank=True, verbose_name="URL/Link")
+    notes = models.TextField(blank=True, verbose_name="Notizen")
+
+    STATUS_CHOICES = [
+        ('todo', 'ToDo'),
+        ('done', 'Erledigt'),
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='todo',
+        verbose_name="Status"
+    )
+
+    priority = models.PositiveIntegerField(default=0, verbose_name="Priorität")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Erledigt am")
+
+    class Meta:
+        ordering = ['status', 'priority', '-created_at']
+        verbose_name = "Leselisten-Eintrag"
+        verbose_name_plural = "Leselisten-Einträge"
+        indexes = [
+            models.Index(fields=['user', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.title[:50]} ({self.get_status_display()})"
+
+
 class ReadingProgress(models.Model):
     """Lesefortschritt pro PDF"""
     book = models.OneToOneField(

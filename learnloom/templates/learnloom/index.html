@@ -108,6 +108,9 @@
             <a href="{% url 'learnloom:all_notes' %}" class="btn btn-outline-info" title="Alle Notizen">
                 <i class="bi bi-sticky me-1"></i>Notizen
             </a>
+            <button class="btn btn-outline-warning" onclick="toggleReadingList()" title="Leseliste">
+                <i class="bi bi-list-check me-1"></i>Leseliste
+            </button>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                 <i class="bi bi-plus-lg me-2"></i>PDF hochladen
             </button>
@@ -354,6 +357,118 @@
         </div>
     </div>
 </div>
+
+<!-- Reading List Slide-Out Panel -->
+<div class="reading-list-panel" id="readingListPanel">
+    <div class="reading-list-header">
+        <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Leseliste</h5>
+        <button class="btn btn-sm btn-light" onclick="toggleReadingList()">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <!-- Add New Item -->
+    <div class="reading-list-add p-3 border-bottom">
+        <div class="input-group mb-2">
+            <input type="text" class="form-control form-control-sm" id="newItemTitle" placeholder="Neue Quelle/ToDo...">
+            <button class="btn btn-warning btn-sm" onclick="addReadingListItem()">
+                <i class="bi bi-plus"></i>
+            </button>
+        </div>
+        <input type="text" class="form-control form-control-sm mb-2" id="newItemUrl" placeholder="URL (optional)">
+        <textarea class="form-control form-control-sm" id="newItemNotes" rows="2" placeholder="Notizen (optional)"></textarea>
+    </div>
+
+    <!-- Filter -->
+    <div class="reading-list-filter p-2 border-bottom bg-light">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="showCompletedItems" onchange="loadReadingList()">
+            <label class="form-check-label small" for="showCompletedItems">Erledigte anzeigen</label>
+        </div>
+        <small class="text-muted" id="readingListStats"></small>
+    </div>
+
+    <!-- Items List -->
+    <div class="reading-list-items" id="readingListItems">
+        <!-- Items loaded via JS -->
+    </div>
+</div>
+
+<!-- Reading List Panel Styles -->
+<style>
+.reading-list-panel {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 400px;
+    height: 100vh;
+    background: white;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+    z-index: 2000;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+.reading-list-panel.open {
+    right: 0;
+}
+.reading-list-header {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.reading-list-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+.reading-list-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-left: 4px solid #f59e0b;
+    transition: all 0.2s;
+}
+.reading-list-item.done {
+    opacity: 0.6;
+    border-left-color: #22c55e;
+    background: #f0fdf4;
+}
+.reading-list-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.reading-list-item .item-title {
+    font-weight: 500;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+.reading-list-item.done .item-title {
+    text-decoration: line-through;
+}
+.reading-list-item .item-url {
+    font-size: 0.8rem;
+    color: #3b82f6;
+    word-break: break-all;
+}
+.reading-list-item .item-notes {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 4px;
+}
+.reading-list-item .item-actions {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+}
+.reading-list-item .item-date {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -549,6 +664,166 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         });
     });
 });
+
+// ============================================================================
+// Reading List Functions
+// ============================================================================
+
+function toggleReadingList() {
+    const panel = document.getElementById('readingListPanel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+        loadReadingList();
+    }
+}
+
+async function loadReadingList() {
+    const showCompleted = document.getElementById('showCompletedItems').checked;
+    try {
+        const response = await fetch(`/learnloom/api/reading-list/?show_completed=${showCompleted}`);
+        const data = await response.json();
+
+        if (data.success) {
+            renderReadingList(data.items);
+            document.getElementById('readingListStats').textContent =
+                `${data.stats.todo} offen, ${data.stats.done} erledigt`;
+        }
+    } catch (error) {
+        console.error('Error loading reading list:', error);
+    }
+}
+
+function renderReadingList(items) {
+    const container = document.getElementById('readingListItems');
+
+    if (items.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                <p class="mt-2 mb-0">Keine Einträge</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = items.map(item => `
+        <div class="reading-list-item ${item.status === 'done' ? 'done' : ''}" data-id="${item.id}">
+            <div class="item-title">${escapeHtml(item.title)}</div>
+            ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" class="item-url"><i class="bi bi-link-45deg"></i>${escapeHtml(item.url)}</a>` : ''}
+            ${item.notes ? `<div class="item-notes">${escapeHtml(item.notes)}</div>` : ''}
+            <div class="item-date">${new Date(item.created_at).toLocaleDateString('de-DE')}</div>
+            <div class="item-actions">
+                ${item.status === 'todo'
+                    ? `<button class="btn btn-success btn-sm" onclick="toggleItemStatus('${item.id}', 'done')" title="Als erledigt markieren">
+                         <i class="bi bi-check-lg"></i>
+                       </button>`
+                    : `<button class="btn btn-warning btn-sm" onclick="toggleItemStatus('${item.id}', 'todo')" title="Wieder öffnen">
+                         <i class="bi bi-arrow-counterclockwise"></i>
+                       </button>`
+                }
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteReadingListItem('${item.id}')" title="Löschen">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function addReadingListItem() {
+    const title = document.getElementById('newItemTitle').value.trim();
+    const url = document.getElementById('newItemUrl').value.trim();
+    const notes = document.getElementById('newItemNotes').value.trim();
+
+    if (!title) {
+        alert('Bitte einen Titel eingeben');
+        return;
+    }
+
+    try {
+        const response = await fetch('/learnloom/api/reading-list/add/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ title, url, notes })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('newItemTitle').value = '';
+            document.getElementById('newItemUrl').value = '';
+            document.getElementById('newItemNotes').value = '';
+            loadReadingList();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Hinzufügen: ' + error.message);
+    }
+}
+
+async function toggleItemStatus(itemId, newStatus) {
+    try {
+        const response = await fetch(`/learnloom/api/reading-list/${itemId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            loadReadingList();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Aktualisieren: ' + error.message);
+    }
+}
+
+async function deleteReadingListItem(itemId) {
+    const confirmed = await showConfirmModal({
+        type: 'danger',
+        title: 'Eintrag löschen',
+        message: 'Möchtest du diesen Eintrag wirklich löschen?',
+        confirmText: 'Löschen',
+        cancelText: 'Abbrechen'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/reading-list/${itemId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+            }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            loadReadingList();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Löschen: ' + error.message);
+    }
+}
+
+// ============================================================================
+// Reading Status Functions
+// ============================================================================
 
 // Set Reading Status
 async function setReadingStatus(bookId, status) {

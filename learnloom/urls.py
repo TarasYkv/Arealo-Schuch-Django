@@ -45,4 +45,10 @@ urlpatterns = [
     # Progress API
     path('api/progress/<uuid:book_id>/', views.api_get_progress, name='api_get_progress'),
     path('api/progress/<uuid:book_id>/save/', views.api_save_progress, name='api_save_progress'),
+
+    # Reading List API
+    path('api/reading-list/', views.api_get_reading_list, name='api_reading_list'),
+    path('api/reading-list/add/', views.api_add_reading_list_item, name='api_add_reading_list'),
+    path('api/reading-list/<uuid:item_id>/update/', views.api_update_reading_list_item, name='api_update_reading_list'),
+    path('api/reading-list/<uuid:item_id>/delete/', views.api_delete_reading_list_item, name='api_delete_reading_list'),
 ]

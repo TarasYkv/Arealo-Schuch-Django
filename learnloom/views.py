@@ -18,7 +18,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress
+from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress, ReadingListItem
 from .services import PDFService, TranslationService, ExplanationService
 from core.models import StorageLog
 
@@ -1005,4 +1005,136 @@ def api_save_progress(request, book_id):
 
     progress.save()
 
+    return JsonResponse({'success': True})
+
+
+# ============================================================================
+# Reading List API
+# ============================================================================
+
+@login_required
+@require_GET
+def api_get_reading_list(request):
+    """Leseliste abrufen"""
+    show_completed = request.GET.get('show_completed', 'false') == 'true'
+
+    items = ReadingListItem.objects.filter(user=request.user)
+
+    if not show_completed:
+        items = items.filter(status='todo')
+
+    items_list = []
+    for item in items:
+        items_list.append({
+            'id': str(item.id),
+            'title': item.title,
+            'url': item.url,
+            'notes': item.notes,
+            'status': item.status,
+            'priority': item.priority,
+            'created_at': item.created_at.isoformat(),
+            'completed_at': item.completed_at.isoformat() if item.completed_at else None,
+        })
+
+    # Statistiken
+    total = ReadingListItem.objects.filter(user=request.user).count()
+    todo = ReadingListItem.objects.filter(user=request.user, status='todo').count()
+    done = ReadingListItem.objects.filter(user=request.user, status='done').count()
+
+    return JsonResponse({
+        'success': True,
+        'items': items_list,
+        'stats': {
+            'total': total,
+            'todo': todo,
+            'done': done,
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_add_reading_list_item(request):
+    """Eintrag zur Leseliste hinzufügen"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    title = data.get('title', '').strip()
+    url = data.get('url', '').strip()
+    notes = data.get('notes', '').strip()
+
+    if not title:
+        return JsonResponse({'success': False, 'error': 'Titel ist erforderlich'}, status=400)
+
+    item = ReadingListItem.objects.create(
+        user=request.user,
+        title=title,
+        url=url,
+        notes=notes,
+    )
+
+    return JsonResponse({
+        'success': True,
+        'item': {
+            'id': str(item.id),
+            'title': item.title,
+            'url': item.url,
+            'notes': item.notes,
+            'status': item.status,
+            'created_at': item.created_at.isoformat(),
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_update_reading_list_item(request, item_id):
+    """Leselisten-Eintrag aktualisieren"""
+    item = get_object_or_404(ReadingListItem, id=item_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    if 'title' in data:
+        item.title = data['title']
+    if 'url' in data:
+        item.url = data['url']
+    if 'notes' in data:
+        item.notes = data['notes']
+    if 'status' in data:
+        new_status = data['status']
+        if new_status in ['todo', 'done']:
+            item.status = new_status
+            if new_status == 'done':
+                item.completed_at = timezone.now()
+            else:
+                item.completed_at = None
+    if 'priority' in data:
+        item.priority = data['priority']
+
+    item.save()
+
+    return JsonResponse({
+        'success': True,
+        'item': {
+            'id': str(item.id),
+            'title': item.title,
+            'url': item.url,
+            'notes': item.notes,
+            'status': item.status,
+            'completed_at': item.completed_at.isoformat() if item.completed_at else None,
+        }
+    })
+
+
+@login_required
+@require_POST
+def api_delete_reading_list_item(request, item_id):
+    """Leselisten-Eintrag löschen"""
+    item = get_object_or_404(ReadingListItem, id=item_id, user=request.user)
+    item.delete()
     return JsonResponse({'success': True})
