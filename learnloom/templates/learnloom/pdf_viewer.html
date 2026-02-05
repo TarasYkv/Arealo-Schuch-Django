@@ -541,6 +541,12 @@
     <button class="btn btn-info" id="toggleSelectMode" title="Rechteck-Auswahl (Bereich markieren)">
         <i class="bi bi-bounding-box"></i>
     </button>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-outline-warning" id="toggleReadingList" title="Leseliste">
+        <i class="bi bi-list-check"></i>
+    </button>
 </div>
 
 <!-- Selection Rectangle (drawn directly on PDF container) -->
@@ -586,6 +592,42 @@
                 <i class="bi bi-plus-lg me-1"></i>Hinzufügen
             </button>
         </div>
+    </div>
+</div>
+
+<!-- Reading List Panel -->
+<div class="reading-list-panel" id="readingListPanel">
+    <div class="reading-list-header">
+        <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Leseliste</h5>
+        <button class="btn btn-sm btn-light" id="closeReadingList">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <!-- Add New Item -->
+    <div class="reading-list-add p-3 border-bottom">
+        <div class="input-group mb-2">
+            <input type="text" class="form-control form-control-sm" id="rlNewTitle" placeholder="Neue Quelle/ToDo...">
+            <button class="btn btn-warning btn-sm" id="rlAddBtn">
+                <i class="bi bi-plus"></i>
+            </button>
+        </div>
+        <input type="text" class="form-control form-control-sm mb-2" id="rlNewUrl" placeholder="URL (optional)">
+        <textarea class="form-control form-control-sm" id="rlNewNotes" rows="2" placeholder="Notizen (optional)"></textarea>
+    </div>
+
+    <!-- Filter -->
+    <div class="reading-list-filter p-2 border-bottom bg-light">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="rlShowCompleted">
+            <label class="form-check-label small" for="rlShowCompleted">Erledigte anzeigen</label>
+        </div>
+        <small class="text-muted" id="rlStats"></small>
+    </div>
+
+    <!-- Items List -->
+    <div class="reading-list-items" id="rlItems">
+        <!-- Items loaded via JS -->
     </div>
 </div>
 
@@ -1100,6 +1142,155 @@ document.getElementById('toggleNotes').addEventListener('click', () => {
 document.getElementById('closeNotes').addEventListener('click', () => {
     notesPanel.classList.remove('open');
 });
+
+// Reading List Panel
+const readingListPanel = document.getElementById('readingListPanel');
+document.getElementById('toggleReadingList').addEventListener('click', () => {
+    readingListPanel.classList.toggle('open');
+    if (readingListPanel.classList.contains('open')) {
+        loadReadingListPDF();
+    }
+});
+document.getElementById('closeReadingList').addEventListener('click', () => {
+    readingListPanel.classList.remove('open');
+});
+document.getElementById('rlShowCompleted').addEventListener('change', loadReadingListPDF);
+document.getElementById('rlAddBtn').addEventListener('click', addReadingListItemPDF);
+
+// Enter key to add item
+document.getElementById('rlNewTitle').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addReadingListItemPDF();
+});
+
+async function loadReadingListPDF() {
+    const showCompleted = document.getElementById('rlShowCompleted').checked;
+    try {
+        const response = await fetch(`/learnloom/api/reading-list/?show_completed=${showCompleted}`);
+        const data = await response.json();
+
+        if (data.success) {
+            renderReadingListPDF(data.items);
+            document.getElementById('rlStats').textContent =
+                `${data.stats.todo} offen, ${data.stats.done} erledigt`;
+        }
+    } catch (error) {
+        console.error('Error loading reading list:', error);
+    }
+}
+
+function renderReadingListPDF(items) {
+    const container = document.getElementById('rlItems');
+
+    if (items.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                <p class="mt-2 mb-0">Keine Einträge</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = items.map(item => `
+        <div class="reading-list-item ${item.status === 'done' ? 'done' : ''}" data-id="${item.id}">
+            <div class="item-title">${escapeHtmlRL(item.title)}</div>
+            ${item.url ? `<a href="${escapeHtmlRL(item.url)}" target="_blank" class="item-url"><i class="bi bi-link-45deg"></i>${escapeHtmlRL(item.url)}</a>` : ''}
+            ${item.notes ? `<div class="item-notes">${escapeHtmlRL(item.notes)}</div>` : ''}
+            <div class="item-date">${new Date(item.created_at).toLocaleDateString('de-DE')}</div>
+            <div class="item-actions">
+                ${item.status === 'todo'
+                    ? `<button class="btn btn-success btn-sm" onclick="toggleRLStatus('${item.id}', 'done')" title="Als erledigt markieren">
+                         <i class="bi bi-check-lg"></i>
+                       </button>`
+                    : `<button class="btn btn-warning btn-sm" onclick="toggleRLStatus('${item.id}', 'todo')" title="Wieder öffnen">
+                         <i class="bi bi-arrow-counterclockwise"></i>
+                       </button>`
+                }
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteRLItem('${item.id}')" title="Löschen">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function escapeHtmlRL(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function addReadingListItemPDF() {
+    const title = document.getElementById('rlNewTitle').value.trim();
+    const url = document.getElementById('rlNewUrl').value.trim();
+    const notes = document.getElementById('rlNewNotes').value.trim();
+
+    if (!title) {
+        alert('Bitte einen Titel eingeben');
+        return;
+    }
+
+    try {
+        const response = await fetch('/learnloom/api/reading-list/add/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ title, url, notes })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('rlNewTitle').value = '';
+            document.getElementById('rlNewUrl').value = '';
+            document.getElementById('rlNewNotes').value = '';
+            loadReadingListPDF();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Hinzufügen: ' + error.message);
+    }
+}
+
+async function toggleRLStatus(itemId, newStatus) {
+    try {
+        const response = await fetch(`/learnloom/api/reading-list/${itemId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            loadReadingListPDF();
+        }
+    } catch (error) {
+        alert('Fehler: ' + error.message);
+    }
+}
+
+async function deleteRLItem(itemId) {
+    if (!confirm('Eintrag wirklich löschen?')) return;
+
+    try {
+        const response = await fetch(`/learnloom/api/reading-list/${itemId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            loadReadingListPDF();
+        }
+    } catch (error) {
+        alert('Fehler: ' + error.message);
+    }
+}
 
 // Load Notes
 async function loadNotes() {
