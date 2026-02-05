@@ -3562,20 +3562,12 @@ class StreamRecorderOptimized {
         // MediaPipe kann nicht mit 60 FPS mithalten
         const targetSegmentationFPS = 15;
         const minFrameInterval = 1000 / targetSegmentationFPS;
-        let lastProcessTime = 0;
 
-        const processFrame = async (timestamp) => {
+        // 🔧 FIX: Verwende setInterval statt requestAnimationFrame für Tab-Wechsel-Stabilität
+        const processFrame = async () => {
             if (!this.backgroundEffects.enabled || !this.streams.has('camera') || !this.segmentationReady) {
                 return;
             }
-
-            // Frame-Throttling: Überspringe Frames wenn zu schnell
-            const elapsed = timestamp - lastProcessTime;
-            if (elapsed < minFrameInterval) {
-                requestAnimationFrame(processFrame);
-                return;
-            }
-            lastProcessTime = timestamp;
 
             try {
                 const opt = this.segmentationOptimization;
@@ -3600,16 +3592,14 @@ class StreamRecorderOptimized {
                     }
                 }
 
-                // Continue processing loop
-                requestAnimationFrame(processFrame);
-
             } catch (error) {
                 console.error('❌ Error in background processing:', error);
                 this.updateSegmentationStatus('Fehler beim Verarbeiten');
-                // Trotzdem weitermachen
-                requestAnimationFrame(processFrame);
             }
         };
+
+        // 🔧 FIX: setInterval läuft auch bei inaktivem Tab weiter
+        this.backgroundEffects.processInterval = setInterval(processFrame, minFrameInterval);
         
         let processingStarted = false;
 
@@ -3776,16 +3766,16 @@ class StreamRecorderOptimized {
     }
 
     // 🚀 NEU: Live-Render-Loop - zeichnet AKTUELLES Video mit gecachter Maske
+    // 🔧 FIX: Verwendet setInterval statt requestAnimationFrame für Tab-Wechsel-Stabilität
     startLiveRenderLoop() {
         const opt = this.segmentationOptimization;
         if (opt.liveRenderActive) return;
 
         opt.liveRenderActive = true;
-        console.log('🚀 Live-Render-Loop gestartet (keine Verzögerung mehr!)');
+        console.log('🚀 Live-Render-Loop gestartet (setInterval-basiert für Tab-Stabilität)');
 
         const renderLiveFrame = () => {
             if (!this.backgroundEffects.enabled || !opt.liveRenderActive) {
-                opt.liveRenderActive = false;
                 return;
             }
 
@@ -3793,14 +3783,12 @@ class StreamRecorderOptimized {
             const ctx = this.backgroundEffects.segmentationCtx;
 
             if (!canvas || !ctx) {
-                requestAnimationFrame(renderLiveFrame);
                 return;
             }
 
             // 🚀 Hole das AKTUELLE Live-Video (nicht das gecachte!)
             const liveVideo = document.getElementById('processing-video');
             if (!liveVideo || liveVideo.readyState < 2) {
-                requestAnimationFrame(renderLiveFrame);
                 return;
             }
 
@@ -3821,12 +3809,10 @@ class StreamRecorderOptimized {
             // Validate und update stream
             this.validateCanvasStream();
             this.updateCameraStreamWithProcessed();
-
-            // Nächster Frame
-            opt.liveRenderFrame = requestAnimationFrame(renderLiveFrame);
         };
 
-        renderLiveFrame();
+        // 🔧 FIX: setInterval mit 30 FPS (33ms) - läuft auch bei inaktivem Tab
+        opt.liveRenderInterval = setInterval(renderLiveFrame, 33);
     }
 
     // 🚀 NEU: Wende Effekt mit Live-Video und gecachter Maske an
@@ -3897,9 +3883,10 @@ class StreamRecorderOptimized {
     stopLiveRenderLoop() {
         const opt = this.segmentationOptimization;
         opt.liveRenderActive = false;
-        if (opt.liveRenderFrame) {
-            cancelAnimationFrame(opt.liveRenderFrame);
-            opt.liveRenderFrame = null;
+        // 🔧 FIX: Stoppe das Interval statt cancelAnimationFrame
+        if (opt.liveRenderInterval) {
+            clearInterval(opt.liveRenderInterval);
+            opt.liveRenderInterval = null;
         }
         console.log('🛑 Live-Render-Loop gestoppt');
     }
@@ -4828,7 +4815,13 @@ class StreamRecorderOptimized {
             cancelAnimationFrame(this.backgroundEffects.animationFrame);
             this.backgroundEffects.animationFrame = null;
         }
-        
+
+        // 🔧 FIX: Stop process interval (für Tab-Wechsel-Stabilität)
+        if (this.backgroundEffects.processInterval) {
+            clearInterval(this.backgroundEffects.processInterval);
+            this.backgroundEffects.processInterval = null;
+        }
+
         // Clean up source video element
         if (this.backgroundEffects.sourceVideoElement) {
             this.backgroundEffects.sourceVideoElement.srcObject = null;
