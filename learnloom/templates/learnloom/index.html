@@ -163,11 +163,28 @@
         </div>
     </div>
 
+    <!-- Filter -->
+    <div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
+        <span class="text-muted me-2"><i class="bi bi-funnel me-1"></i>Filter:</span>
+        <button class="btn btn-sm btn-primary filter-btn active" data-filter="all">
+            Alle <span class="badge bg-light text-dark ms-1">{{ books|length }}</span>
+        </button>
+        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="unread">
+            <i class="bi bi-circle me-1"></i>Ungelesen
+        </button>
+        <button class="btn btn-sm btn-outline-warning filter-btn" data-filter="reading">
+            <i class="bi bi-book-half me-1"></i>Dabei
+        </button>
+        <button class="btn btn-sm btn-outline-success filter-btn" data-filter="completed">
+            <i class="bi bi-check-circle-fill me-1"></i>Gelesen
+        </button>
+    </div>
+
     <!-- PDF Kacheln -->
     {% if books %}
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4" id="booksGrid">
         {% for book in books %}
-        <div class="col">
+        <div class="col book-col" data-status="{{ book.reading_status }}">
             <div class="card h-100 book-card border-0 shadow-sm" data-book-id="{{ book.id }}">
                 <!-- Thumbnail -->
                 <div class="book-thumbnail position-relative">
@@ -503,6 +520,36 @@ async function deleteBook(bookId) {
     }
 }
 
+// Filter Books
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const filter = this.dataset.filter;
+
+        // Update active button
+        document.querySelectorAll('.filter-btn').forEach(b => {
+            b.classList.remove('active', 'btn-primary', 'btn-secondary', 'btn-warning', 'btn-success');
+            b.classList.add('btn-outline-secondary');
+            if (b.dataset.filter === 'reading') b.classList.replace('btn-outline-secondary', 'btn-outline-warning');
+            if (b.dataset.filter === 'completed') b.classList.replace('btn-outline-secondary', 'btn-outline-success');
+        });
+        this.classList.add('active');
+        this.classList.remove('btn-outline-secondary', 'btn-outline-warning', 'btn-outline-success');
+        if (filter === 'all') this.classList.add('btn-primary');
+        else if (filter === 'reading') this.classList.add('btn-warning');
+        else if (filter === 'completed') this.classList.add('btn-success');
+        else this.classList.add('btn-secondary');
+
+        // Filter books
+        document.querySelectorAll('.book-col').forEach(col => {
+            if (filter === 'all' || col.dataset.status === filter) {
+                col.style.display = '';
+            } else {
+                col.style.display = 'none';
+            }
+        });
+    });
+});
+
 // Set Reading Status
 async function setReadingStatus(bookId, status) {
     try {
@@ -544,6 +591,12 @@ async function setReadingStatus(bookId, status) {
                 const activeItem = card.querySelector(`.dropdown-item[onclick*="'${status}'"]`);
                 if (activeItem) {
                     activeItem.classList.add('active');
+                }
+
+                // Update data-status on parent col for filtering
+                const col = card.closest('.book-col');
+                if (col) {
+                    col.dataset.status = status;
                 }
             }
         } else {
