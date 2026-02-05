@@ -1837,7 +1837,15 @@ class StreamRecorderOptimized {
             console.log('📱 Geräte wurden geändert - lade neu...');
             this.loadMediaDevices();
         });
-        
+
+        // 🔧 FIX: Tab Visibility Handler - starte alle Videos neu wenn Tab wieder aktiv wird
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && this.isComposing) {
+                console.log('✅ Tab ist wieder aktiv - starte alle Video-Elemente neu');
+                this.restartAllVideos();
+            }
+        });
+
         // PIP Controls
         this.setupPIPControls();
         
@@ -6214,12 +6222,20 @@ class StreamRecorderOptimized {
             video.style.position = 'absolute';
             video.style.top = '-9999px';
             document.body.appendChild(video);
-            
+
             // 🎯 PERFORMANCE: Only set if necessary
             if (video.srcObject !== stream) {
                 video.srcObject = stream;
             }
-            
+
+            // 🔧 FIX: Auto-restart video wenn es pausiert wird (Tab-Wechsel etc.)
+            video.addEventListener('pause', () => {
+                if (this.isComposing && video.srcObject) {
+                    console.log(`⚠️ Video ${type} wurde pausiert - starte neu`);
+                    video.play().catch(e => console.warn(`Video ${type} play failed:`, e));
+                }
+            });
+
             // Optimized playback start
             const initVideo = async () => {
                 try {
@@ -6240,7 +6256,7 @@ class StreamRecorderOptimized {
                     console.warn('Video init failed:', err);
                 }
             };
-            
+
             initVideo();
             return null; // Not ready immediately
         }
@@ -6252,11 +6268,22 @@ class StreamRecorderOptimized {
         if (this.videoElements.has(type)) {
             this.videoElements.delete(type);
         }
-        
+
         const video = document.getElementById(`video-${type}`);
         if (video) {
             video.srcObject = null;
             video.remove();
+        }
+    }
+
+    // 🔧 FIX: Starte alle Video-Elemente neu (nach Tab-Wechsel)
+    restartAllVideos() {
+        for (const [type, stream] of this.streams.entries()) {
+            const video = document.getElementById(`video-${type}`);
+            if (video && video.paused && video.srcObject) {
+                console.log(`🔄 Starte Video ${type} neu...`);
+                video.play().catch(e => console.warn(`Video ${type} restart failed:`, e));
+            }
         }
     }
 
