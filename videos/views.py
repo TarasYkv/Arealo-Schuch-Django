@@ -27,8 +27,29 @@ def video_list(request):
     """List all videos for the current user"""
     from .subscription_sync import StorageSubscriptionSync
     from .storage_management import StorageOverageService
-    
-    videos = Video.objects.filter(user=request.user)
+    from django.db.models import Q
+
+    # Filter: standardmäßig nur nicht gepostete Videos anzeigen
+    show_posted = request.GET.get('show_posted', 'false') == 'true'
+
+    all_videos = Video.objects.filter(user=request.user)
+
+    # Zähle Videos für Filter-Anzeige
+    total_count = all_videos.count()
+    posted_count = all_videos.exclude(
+        Q(social_platforms_posted='') | Q(social_platforms_posted__isnull=True)
+    ).count()
+    not_posted_count = total_count - posted_count
+
+    if show_posted:
+        # Alle Videos anzeigen
+        videos = all_videos
+    else:
+        # Nur Videos anzeigen, die noch nicht auf Social Media gepostet wurden
+        videos = all_videos.filter(
+            Q(social_platforms_posted='') | Q(social_platforms_posted__isnull=True)
+        )
+
     user_storage = StorageSubscriptionSync.sync_user_storage(request.user)
     
     # Check for storage overage and handle accordingly
@@ -44,6 +65,11 @@ def video_list(request):
         'restriction_message': user_storage.get_restriction_message(),
         'can_upload': user_storage.can_upload(),
         'can_share': user_storage.can_share(),
+        # Filter-Status
+        'show_posted': show_posted,
+        'total_count': total_count,
+        'posted_count': posted_count,
+        'not_posted_count': not_posted_count,
     }
     return render(request, 'videos/video_list.html', context)
 
