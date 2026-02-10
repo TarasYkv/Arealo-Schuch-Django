@@ -422,15 +422,15 @@ class SummaryService:
         
         lang_name = "Deutsch" if language == 'de' else "English"
         
-        system_prompt = f"""Du bist ein Experte für wissenschaftliche Texte. Erstelle eine strukturierte Zusammenfassung auf {lang_name}.
+        system_prompt = f"""Du bist ein Experte für wissenschaftliche Texte. Erstelle eine ausführliche, strukturierte Zusammenfassung auf {lang_name}.
 
 Antworte NUR mit diesem JSON-Format:
 {{
-    "full_summary": "Ausführliche Zusammenfassung (300-500 Wörter)",
+    "full_summary": "Sehr ausführliche Zusammenfassung des gesamten Dokuments (800-1500 Wörter). Erkläre die wichtigsten Konzepte, Methoden, Ergebnisse und Schlussfolgerungen detailliert.",
     "sections": [
         {{
             "title": "Abschnittstitel",
-            "text": "Zusammenfassung (50-100 Wörter)",
+            "text": "Detaillierte Zusammenfassung dieses Abschnitts (150-300 Wörter)",
             "start_page": 1,
             "end_page": 2
         }}
@@ -440,8 +440,10 @@ Antworte NUR mit diesem JSON-Format:
 Regeln:
 1. NUR valides JSON ausgeben
 2. Seitenzahlen aus [Seite X] Markierungen entnehmen
-3. 4-8 Abschnitte erstellen
-4. Wissenschaftlich prägnant zusammenfassen"""
+3. 5-10 Abschnitte erstellen je nach Dokumentstruktur
+4. Wissenschaftlich korrekt aber verständlich zusammenfassen
+5. Wichtige Details, Zahlen und Erkenntnisse einbeziehen
+6. Bei Studien: Methodik, Stichprobe, Ergebnisse und Limitationen erwähnen"""
 
         if provider == 'openai':
             return self._generate_summary_openai(full_text, system_prompt, api_key)
@@ -467,7 +469,7 @@ Regeln:
                     {'role': 'user', 'content': f'Dokument:\n\n{text}'}
                 ],
                 'temperature': 0.3,
-                'max_tokens': 4000,
+                'max_tokens': 8000,
                 'response_format': {'type': 'json_object'}
             },
             timeout=120
@@ -494,13 +496,13 @@ Regeln:
             },
             json={
                 'model': model,
-                'max_tokens': 4000,
+                'max_tokens': 8000,
                 'system': system_prompt,
                 'messages': [
                     {'role': 'user', 'content': f'Dokument:\n\n{text}'}
                 ]
             },
-            timeout=120
+            timeout=180
         )
         
         if response.status_code == 200:
@@ -536,10 +538,10 @@ Regeln:
                 'contents': [{'parts': [{'text': full_prompt}]}],
                 'generationConfig': {
                     'temperature': 0.3,
-                    'maxOutputTokens': 4000,
+                    'maxOutputTokens': 8000,
                 }
             },
-            timeout=120
+            timeout=180
         )
         
         if response.status_code == 200:
