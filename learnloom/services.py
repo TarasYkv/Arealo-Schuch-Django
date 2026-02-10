@@ -433,6 +433,7 @@ class SummaryService:
 
 Antworte NUR mit diesem JSON-Format:
 {{
+    "short_summary": "Sehr kurze Zusammenfassung in 2-3 Sätzen (max. 50 Wörter). Worum geht es im Kern?",
     "full_summary": "Sehr ausführliche Zusammenfassung des gesamten Dokuments (800-1500 Wörter). Erkläre die wichtigsten Konzepte, Methoden, Ergebnisse und Schlussfolgerungen detailliert.",
     "sections": [
         {{
@@ -446,11 +447,11 @@ Antworte NUR mit diesem JSON-Format:
 
 Regeln:
 1. NUR valides JSON ausgeben
-2. Seitenzahlen aus [Seite X] Markierungen entnehmen
-3. 5-10 Abschnitte erstellen je nach Dokumentstruktur
-4. Wissenschaftlich korrekt aber verständlich zusammenfassen
-5. Wichtige Details, Zahlen und Erkenntnisse einbeziehen
-6. Bei Studien: Methodik, Stichprobe, Ergebnisse und Limitationen erwähnen"""
+2. short_summary: Kernaussage in 2-3 Sätzen für schnellen Überblick
+3. full_summary: Ausführliche Zusammenfassung mit allen Details
+4. Seitenzahlen aus [Seite X] Markierungen entnehmen
+5. 5-10 Abschnitte erstellen je nach Dokumentstruktur
+6. Wissenschaftlich korrekt aber verständlich zusammenfassen"""
 
         if provider == 'openai':
             return self._generate_summary_openai(full_text, system_prompt, api_key)

@@ -725,6 +725,7 @@ def api_get_summary(request, book_id):
             'has_summary': True,
             'summary': {
                 'id': str(summary.id),
+                'short_summary': summary.short_summary,
                 'full_summary': summary.full_summary,
                 'sections': summary.sections,
                 'provider': summary.provider,
@@ -769,6 +770,7 @@ def api_generate_summary(request, book_id):
         summary, created = PDFSummary.objects.update_or_create(
             book=book,
             defaults={
+                'short_summary': result.get('short_summary', ''),
                 'full_summary': result.get('full_summary', ''),
                 'sections': result.get('sections', []),
                 'provider': provider,
@@ -780,6 +782,7 @@ def api_generate_summary(request, book_id):
             'success': True,
             'summary': {
                 'id': str(summary.id),
+                'short_summary': summary.short_summary,
                 'full_summary': summary.full_summary,
                 'sections': summary.sections,
                 'provider': summary.provider,

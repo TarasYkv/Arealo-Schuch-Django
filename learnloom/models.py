@@ -335,6 +335,12 @@ class PDFSummary(models.Model):
         verbose_name="PDF-Buch"
     )
     
+    short_summary = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Kurze Zusammenfassung",
+        help_text="Kurze Zusammenfassung für das PDF-Viewer Panel (2-3 Sätze)"
+    )
     full_summary = models.TextField(verbose_name="Vollständige Zusammenfassung")
     sections = models.JSONField(
         default=list,
