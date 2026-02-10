@@ -598,7 +598,7 @@
     /* Adjust PDF container when panels are open */
     .pdf-canvas-container.panel-open {
         width: calc(100% - 380px) !important;
-        padding-right: 60px !important;
+        padding-right: 10px !important;
         transition: width 0.3s ease;
     }
 </style>
@@ -1060,14 +1060,16 @@ async function calculateOptimalScale() {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
 
-        // Tatsächliche Container-Breite messen
+        // Tatsächliche Container-Breite und Padding messen
         const container = document.getElementById('pdfCanvasContainer');
-        const containerWidth = container.clientWidth;
+        const style = getComputedStyle(container);
+        const paddingLeft = parseFloat(style.paddingLeft) || 75;
+        const paddingRight = parseFloat(style.paddingRight) || 60;
         
-        // Verfügbare Breite = Container minus Padding (75 links + 60 rechts)
-        const availableWidth = containerWidth - 75 - 60;
+        // Verfügbare Breite = Container minus tatsächliches Padding
+        const availableWidth = container.clientWidth - paddingLeft - paddingRight;
 
-        console.log('DEBUG calculateOptimalScale:', {containerWidth, availableWidth, pdfWidth: defaultViewport.width});
+        console.log('DEBUG calculateOptimalScale:', {clientWidth: container.clientWidth, paddingLeft, paddingRight, availableWidth, pdfWidth: defaultViewport.width});
 
         // Calculate scale to fit width
         const optimalScale = availableWidth / defaultViewport.width;
@@ -2775,14 +2777,16 @@ async function recalculateAndRender(panelWidth, forceRecalculate = false) {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
         
-        // Tatsächliche Container-Breite messen statt berechnen
+        // Tatsächliche Container-Breite messen
         const container = document.getElementById('pdfCanvasContainer');
-        const containerWidth = container.clientWidth;
+        const style = getComputedStyle(container);
+        const paddingLeft = parseFloat(style.paddingLeft) || 75;
+        const paddingRight = parseFloat(style.paddingRight) || 60;
         
-        // Verfügbare Breite = Container minus Padding (75 links + 60 rechts)
-        const availableWidth = containerWidth - 75 - 60;
+        // Verfügbare Breite = Container minus tatsächliches Padding
+        const availableWidth = container.clientWidth - paddingLeft - paddingRight;
         
-        console.log('DEBUG recalculate:', {containerWidth, availableWidth, pdfWidth: defaultViewport.width, panelWidth});
+        console.log('DEBUG recalculate:', {clientWidth: container.clientWidth, paddingLeft, paddingRight, availableWidth, pdfWidth: defaultViewport.width});
         
         // Neue optimale Skalierung
         const newScale = Math.min(4, Math.max(0.5, availableWidth / defaultViewport.width));
