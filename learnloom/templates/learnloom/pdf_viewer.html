@@ -598,8 +598,13 @@
     /* Adjust PDF container when panels are open */
     .pdf-canvas-container.panel-open {
         margin-right: 380px !important;
-        padding-right: 20px !important;
+        padding-right: 15px !important;
+        align-items: flex-start !important; /* Links ausrichten statt zentrieren */
         transition: margin-right 0.3s ease;
+    }
+    .pdf-canvas-container.panel-open .pdf-page {
+        margin-left: auto; /* PDF-Seiten nach rechts schieben */
+        margin-right: 0;
     }
 </style>
 {% endblock %}
@@ -1073,7 +1078,7 @@ async function calculateOptimalScale() {
         const scrollbarWidth = container.offsetWidth - container.clientWidth;
         
         // Verfügbare Breite für PDF (mit kleinem Puffer von 5px)
-        const availableWidth = containerRect.width - paddingLeft - paddingRight - scrollbarWidth - 5;
+        const availableWidth = containerRect.width - paddingLeft - paddingRight - scrollbarWidth;
 
         console.log('calculateOptimalScale:', {
             containerRect: containerRect.width,
@@ -2800,7 +2805,7 @@ async function recalculateAndRender(panelWidth, forceRecalculate = false) {
         const scrollbarWidth = container.offsetWidth - container.clientWidth;
         
         // Verfügbare Breite für PDF (mit kleinem Puffer von 5px)
-        const availableWidth = containerRect.width - paddingLeft - paddingRight - scrollbarWidth - 5;
+        const availableWidth = containerRect.width - paddingLeft - paddingRight - scrollbarWidth;
         
         console.log('recalculateAndRender:', {
             containerRect: containerRect.width,
