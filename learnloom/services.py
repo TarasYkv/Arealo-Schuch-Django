@@ -445,6 +445,8 @@ Regeln:
 
         if provider == 'openai':
             return self._generate_summary_openai(full_text, system_prompt, api_key)
+        elif provider == 'gemini':
+            return self._generate_summary_gemini(full_text, system_prompt, api_key)
         else:
             return self._generate_summary_anthropic(full_text, system_prompt, api_key)
 
@@ -513,3 +515,44 @@ Regeln:
         else:
             error_msg = response.json().get('error', {}).get('message', 'Fehler')
             raise Exception(f"Anthropic Fehler: {error_msg}")
+
+    def _generate_summary_gemini(self, text, system_prompt, api_key):
+        """Zusammenfassung mit Google Gemini generieren"""
+        import json
+        import re
+        
+        model = getattr(self.user, 'preferred_gemini_model', None) or 'gemini-2.0-flash'
+        
+        # Gemini API URL
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        
+        # Kombiniere System-Prompt und User-Prompt
+        full_prompt = f"{system_prompt}\n\nDokument:\n\n{text}"
+        
+        response = requests.post(
+            url,
+            headers={'Content-Type': 'application/json'},
+            json={
+                'contents': [{'parts': [{'text': full_prompt}]}],
+                'generationConfig': {
+                    'temperature': 0.3,
+                    'maxOutputTokens': 4000,
+                }
+            },
+            timeout=120
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['candidates'][0]['content']['parts'][0]['text']
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                # Versuche JSON aus der Antwort zu extrahieren
+                json_match = re.search(r'\{[\s\S]*\}', content)
+                if json_match:
+                    return json.loads(json_match.group())
+                raise ValueError("Kein gültiges JSON in Gemini-Antwort")
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"Gemini Fehler: {error_msg}")

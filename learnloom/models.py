@@ -346,6 +346,7 @@ class PDFSummary(models.Model):
     PROVIDER_CHOICES = [
         ('openai', 'OpenAI'),
         ('anthropic', 'Anthropic'),
+        ('gemini', 'Google Gemini'),
     ]
     provider = models.CharField(
         max_length=20,
