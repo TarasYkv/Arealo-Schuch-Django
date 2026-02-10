@@ -597,8 +597,9 @@
 
     /* Adjust PDF container when panels are open */
     .pdf-canvas-container.panel-open {
-        padding-right: 390px !important; /* Panel width + small gap */
-        transition: padding-right 0.3s ease;
+        padding-left: 85px !important; /* 75 toolbar + 10 gap */
+        padding-right: 390px !important; /* 380 panel + 10 gap */
+        transition: padding 0.3s ease;
     }
 </style>
 {% endblock %}
@@ -1068,10 +1069,11 @@ async function calculateOptimalScale() {
 
         // Direkte Berechnung aus Fensterbreite
         const viewportWidth = window.innerWidth;
-        const toolbarAndPadding = 95;
+        const leftPadding = panelWidth > 0 ? 85 : 75; // 75 + 10 gap when panel open
+        const rightPadding = panelWidth > 0 ? (panelWidth + 10) : 60; // panel + 10 gap, or 60 when closed
         const scrollbar = 17;
         
-        const availableWidth = viewportWidth - toolbarAndPadding - panelWidth - scrollbar - 10;
+        const availableWidth = viewportWidth - leftPadding - rightPadding - scrollbar;
 
         console.log('calculateOptimalScale:', {
             viewportWidth,
@@ -2785,13 +2787,14 @@ async function recalculateAndRender(panelWidth, forceRecalculate = false) {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
         
-        // Direkte Berechnung aus Fensterbreite - kein CSS-Messen
+        // Direkte Berechnung aus Fensterbreite
         const viewportWidth = window.innerWidth;
-        const toolbarAndPadding = 95; // 75px toolbar + 20px padding
+        const leftPadding = 85; // 75px toolbar + 10px gap
+        const rightPadding = panelWidth + 10; // panel + 10px gap (390 when panel=380)
         const scrollbar = 17;
         
-        // Verfügbare Breite = Fenster - Toolbar - Panel - Scrollbar - kleiner Puffer
-        const availableWidth = viewportWidth - toolbarAndPadding - panelWidth - scrollbar - 10;
+        // Verfügbare Breite = Fenster - linkes Padding - rechtes Padding - Scrollbar
+        const availableWidth = viewportWidth - leftPadding - rightPadding - scrollbar;
         
         console.log('recalculateAndRender:', {
             viewportWidth,
