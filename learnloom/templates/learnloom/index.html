@@ -181,13 +181,35 @@
         <button class="btn btn-sm btn-outline-success filter-btn" data-filter="completed">
             <i class="bi bi-check-circle-fill me-1"></i>Gelesen
         </button>
+        
+        <!-- Tag Filter -->
+        <div class="dropdown ms-3">
+            <button class="btn btn-sm btn-outline-info dropdown-toggle" type="button" id="tagFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-tags me-1"></i>Tags
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="tagFilterDropdown" style="max-height: 300px; overflow-y: auto;">
+                <li><a class="dropdown-item tag-filter-item active" href="#" data-tag="all"><i class="bi bi-grid me-2"></i>Alle Tags</a></li>
+                <li><hr class="dropdown-divider"></li>
+                {% for tag in all_tags %}
+                <li><a class="dropdown-item tag-filter-item" href="#" data-tag="{{ tag }}"><i class="bi bi-tag me-2"></i>{{ tag }}</a></li>
+                {% empty %}
+                <li><span class="dropdown-item text-muted">Keine Tags vorhanden</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <!-- Active Tag Badge -->
+        <span id="activeTagBadge" class="badge bg-info d-none">
+            <i class="bi bi-tag me-1"></i><span id="activeTagName"></span>
+            <button type="button" class="btn-close btn-close-white ms-2" style="font-size: 0.6rem;" onclick="clearTagFilter()"></button>
+        </span>
     </div>
 
     <!-- PDF Kacheln -->
     {% if books %}
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4" id="booksGrid">
         {% for book in books %}
-        <div class="col book-col" data-status="{{ book.reading_status }}">
+        <div class="col book-col" data-status="{{ book.reading_status }}" data-tags="{{ book.tags|default:'' }}">
             <div class="card h-100 book-card border-0 shadow-sm" data-book-id="{{ book.id }}">
                 <!-- Thumbnail -->
                 <div class="book-thumbnail position-relative">
@@ -228,9 +250,9 @@
                         {% endif %}
                     </p>
                     {% if book.tags %}
-                    <div class="book-tags mb-2">
+                    <div class="book-tags mb-2 text-truncate" style="max-height: 52px; overflow: hidden;" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="{% for tag in book.tags_list %}{{ tag }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                         {% for tag in book.tags_list %}
-                        <span class="badge bg-light text-dark border me-1 mb-1"><i class="bi bi-tag me-1"></i>{{ tag }}</span>
+                        <span class="badge bg-light text-dark border me-1 mb-1 tag-badge" data-tag="{{ tag }}" style="cursor: pointer;"><i class="bi bi-tag me-1"></i>{{ tag }}</span>
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -674,16 +696,94 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         else if (filter === 'completed') this.classList.add('btn-success');
         else this.classList.add('btn-secondary');
 
-        // Filter books
-        document.querySelectorAll('.book-col').forEach(col => {
-            if (filter === 'all' || col.dataset.status === filter) {
-                col.style.display = '';
-            } else {
-                col.style.display = 'none';
-            }
-        });
+        // Filter books (respecting both status and tag filters)
+        applyFilters();
     });
 });
+
+// Current filters state
+let currentStatusFilter = 'all';
+let currentTagFilter = 'all';
+
+function applyFilters() {
+    document.querySelectorAll('.book-col').forEach(col => {
+        const statusMatch = currentStatusFilter === 'all' || col.dataset.status === currentStatusFilter;
+        const tags = col.dataset.tags.toLowerCase();
+        const tagMatch = currentTagFilter === 'all' || tags.includes(currentTagFilter.toLowerCase());
+        
+        if (statusMatch && tagMatch) {
+            col.style.display = '';
+        } else {
+            col.style.display = 'none';
+        }
+    });
+}
+
+// Update status filter to use new system
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    const originalClick = btn.onclick;
+    btn.addEventListener('click', function() {
+        currentStatusFilter = this.dataset.filter;
+    });
+});
+
+// Tag Filter
+document.querySelectorAll('.tag-filter-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+        e.preventDefault();
+        const tag = this.dataset.tag;
+        currentTagFilter = tag;
+        
+        // Update active state
+        document.querySelectorAll('.tag-filter-item').forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Show/hide active tag badge
+        const badge = document.getElementById('activeTagBadge');
+        const tagName = document.getElementById('activeTagName');
+        if (tag === 'all') {
+            badge.classList.add('d-none');
+        } else {
+            badge.classList.remove('d-none');
+            tagName.textContent = tag;
+        }
+        
+        applyFilters();
+    });
+});
+
+// Click on tag badge in card to filter
+document.querySelectorAll('.tag-badge').forEach(badge => {
+    badge.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const tag = this.dataset.tag;
+        currentTagFilter = tag;
+        
+        // Update dropdown active state
+        document.querySelectorAll('.tag-filter-item').forEach(i => {
+            i.classList.remove('active');
+            if (i.dataset.tag === tag) i.classList.add('active');
+        });
+        
+        // Show active tag badge
+        const activeBadge = document.getElementById('activeTagBadge');
+        const tagName = document.getElementById('activeTagName');
+        activeBadge.classList.remove('d-none');
+        tagName.textContent = tag;
+        
+        applyFilters();
+    });
+});
+
+function clearTagFilter() {
+    currentTagFilter = 'all';
+    document.getElementById('activeTagBadge').classList.add('d-none');
+    document.querySelectorAll('.tag-filter-item').forEach(i => {
+        i.classList.remove('active');
+        if (i.dataset.tag === 'all') i.classList.add('active');
+    });
+    applyFilters();
+}
 
 // ============================================================================
 // Reading List Functions

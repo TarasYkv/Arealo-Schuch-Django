@@ -37,11 +37,22 @@ def index(request):
     total_vocabulary = Vocabulary.objects.filter(user=request.user).count()
     learned_vocabulary = Vocabulary.objects.filter(user=request.user, is_learned=True).count()
 
+    # Alle einzigartigen Tags sammeln
+    all_tags = set()
+    for book in books:
+        if book.tags:
+            for tag in book.tags.split(','):
+                tag = tag.strip()
+                if tag:
+                    all_tags.add(tag)
+    all_tags = sorted(all_tags)
+
     context = {
         'books': books,
         'total_books': total_books,
         'total_vocabulary': total_vocabulary,
         'learned_vocabulary': learned_vocabulary,
+        'all_tags': all_tags,
     }
     return render(request, 'learnloom/index.html', context)
 
