@@ -67,35 +67,45 @@
     }
     /* Toolbar collapsed state */
     .toolbar-column.collapsed {
-        width: 0 !important;
+        width: 12px !important;
+        min-width: 12px !important;
         padding: 0 !important;
-        overflow: hidden;
+        overflow: visible;
     }
-    /* Toggle button */
+    .toolbar-column.collapsed > *:not(.toolbar-toggle) {
+        display: none;
+    }
+    .toolbar-column.collapsed .toolbar-toggle {
+        right: 0;
+        border-radius: 0 4px 4px 0;
+    }
+    /* Toggle button - compact, at toolbar edge */
     .toolbar-toggle {
-        position: fixed;
+        position: absolute;
         top: 50%;
-        left: 70px;
+        right: -12px;
         transform: translateY(-50%);
         z-index: 1001;
-        width: 24px;
-        height: 48px;
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-left: none;
-        border-radius: 0 8px 8px 0;
+        width: 12px;
+        height: 36px;
+        background: #dee2e6;
+        border: none;
+        border-radius: 0 4px 4px 0;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: left 0.3s ease;
+        padding: 0;
+        font-size: 0.6rem;
+        color: #6c757d;
+        transition: background 0.2s;
     }
     .toolbar-toggle:hover {
-        background: #e9ecef;
+        background: #adb5bd;
+        color: #212529;
     }
-    .toolbar-column.collapsed + .pdf-column .toolbar-toggle,
-    .pdf-viewer-grid:has(.toolbar-column.collapsed) .toolbar-toggle {
-        left: 0;
+    .toolbar-toggle i {
+        font-size: 0.5rem;
     }
     /* Mobile: smaller buttons */
     @media (max-width: 768px) {
@@ -124,9 +134,6 @@
         .toolbar-column .divider {
             margin: 3px 0;
         }
-        .toolbar-toggle {
-            left: 50px;
-        }
     }
     /* Very small screens */
     @media (max-width: 480px) {
@@ -144,9 +151,6 @@
             width: 28px;
             height: 28px;
             font-size: 0.7rem;
-        }
-        .toolbar-toggle {
-            left: 40px;
         }
     }
     .toolbar-column .btn {
@@ -867,13 +871,12 @@
 <!-- ========== 3-COLUMN GRID LAYOUT ========== -->
 <div class="pdf-viewer-grid" id="pdfViewerGrid">
     
-    <!-- Toolbar Toggle Button -->
-    <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
-        <i class="bi bi-chevron-left"></i>
-    </button>
-    
     <!-- LEFT COLUMN: Toolbar -->
     <div class="toolbar-column" id="toolbarColumn">
+        <!-- Toggle Button at edge -->
+        <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
+            <i class="bi bi-chevron-left"></i>
+        </button>
         <a href="{% url 'learnloom:index' %}" class="btn btn-outline-secondary mb-3" title="Zurück">
             <i class="bi bi-arrow-left"></i>
         </a>
@@ -3262,25 +3265,10 @@ async function setReadingStatus(status) {
 // ============================================
 document.getElementById('toolbarToggle').addEventListener('click', () => {
     const toolbar = document.getElementById('toolbarColumn');
-    const toggle = document.getElementById('toolbarToggle');
-    const icon = toggle.querySelector('i');
+    const icon = document.querySelector('#toolbarToggle i');
     
     toolbar.classList.toggle('collapsed');
-    
-    if (toolbar.classList.contains('collapsed')) {
-        icon.className = 'bi bi-chevron-right';
-        toggle.style.left = '0';
-    } else {
-        icon.className = 'bi bi-chevron-left';
-        // Reset based on screen size
-        if (window.innerWidth <= 480) {
-            toggle.style.left = '40px';
-        } else if (window.innerWidth <= 768) {
-            toggle.style.left = '50px';
-        } else {
-            toggle.style.left = '70px';
-        }
-    }
+    icon.className = toolbar.classList.contains('collapsed') ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
 });
 
 // Initialize
