@@ -2710,20 +2710,49 @@ document.addEventListener('keydown', (e) => {
 const summaryPanel = document.getElementById('summaryPanel');
 const pdfCanvasContainer = document.getElementById('pdfCanvasContainer');
 
-document.getElementById('toggleSummaryPanel').addEventListener('click', () => {
+document.getElementById('toggleSummaryPanel').addEventListener('click', async () => {
     const isOpen = summaryPanel.classList.toggle('open');
     if (isOpen) {
         pdfCanvasContainer.classList.add('panel-open');
         loadSummary();
+        // Warte kurz und skaliere PDF neu
+        setTimeout(() => recalculateAndRender(380), 350);
     } else {
         pdfCanvasContainer.classList.remove('panel-open');
+        // Zurück zur vollen Breite
+        setTimeout(() => recalculateAndRender(0), 350);
     }
 });
 
 document.getElementById('closeSummaryPanel').addEventListener('click', () => {
     summaryPanel.classList.remove('open');
     pdfCanvasContainer.classList.remove('panel-open');
+    setTimeout(() => recalculateAndRender(0), 350);
 });
+
+// Funktion um PDF für verfügbaren Platz neu zu skalieren
+async function recalculateAndRender(panelWidth) {
+    if (!pdfDoc) return;
+    
+    try {
+        const firstPage = await pdfDoc.getPage(1);
+        const defaultViewport = firstPage.getViewport({ scale: 1.0 });
+        
+        // Verfügbare Breite berechnen (mit Panel-Breite abgezogen)
+        const availableWidth = window.innerWidth - 75 - 60 - 17 - panelWidth;
+        
+        // Neue optimale Skalierung
+        const newScale = Math.min(4, Math.max(0.5, availableWidth / defaultViewport.width));
+        
+        scale = newScale;
+        document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
+        
+        // Seiten neu rendern
+        await renderAllPages();
+    } catch (error) {
+        console.error('Error recalculating scale:', error);
+    }
+}
 
 async function loadSummary() {
     const loading = document.getElementById('summaryLoading');
@@ -2836,6 +2865,8 @@ document.getElementById('dockExplanationBtn').addEventListener('click', () => {
         dockBtn.title = 'Als Popup lösen';
         // Close summary panel if open
         summaryPanel.classList.remove('open');
+        // PDF neu skalieren
+        setTimeout(() => recalculateAndRender(400), 350);
     } else {
         popup.classList.remove('docked');
         pdfCanvasContainer.classList.remove('panel-open');
@@ -2845,6 +2876,8 @@ document.getElementById('dockExplanationBtn').addEventListener('click', () => {
         popup.style.left = '50%';
         popup.style.top = '50%';
         popup.style.transform = 'translate(-50%, -50%)';
+        // PDF zurück skalieren
+        setTimeout(() => recalculateAndRender(0), 350);
     }
 });
 
@@ -2856,6 +2889,8 @@ document.getElementById('closeExplanationPopup').addEventListener('click', () =>
         const dockBtn = document.getElementById('dockExplanationBtn');
         dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
         dockBtn.title = 'Rechts andocken';
+        // PDF zurück skalieren
+        setTimeout(() => recalculateAndRender(0), 350);
     }
 });
 
