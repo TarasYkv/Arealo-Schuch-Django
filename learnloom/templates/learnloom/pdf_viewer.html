@@ -162,18 +162,33 @@
         display: flex;
         flex-direction: column;
     }
-    /* Explanation panel specific - input at bottom */
+    /* Explanation panel specific - single scroll for chat */
     #explanationView .panel-body {
-        overflow: hidden; /* Don't scroll the whole body */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
     }
-    #explanationView .explanation-chat-container {
+    #explanationView .explanation-scroll-area {
         flex: 1;
         overflow-y: auto;
-        min-height: 0; /* Important for flex overflow */
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-bottom: 10px;
+    }
+    #explanationView .explanation-selected-text-container {
+        flex-shrink: 0;
+    }
+    #explanationView .explanation-chat-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
     #explanationView .explanation-input-section {
         flex-shrink: 0;
         margin-top: auto;
+        padding-top: 12px;
     }
     /* Chat message styles */
     .chat-message {
@@ -889,15 +904,18 @@
                 </button>
             </div>
             <div class="panel-body">
-                <div class="explanation-selected-text-container mb-3" style="flex-shrink: 0;">
-                    <small class="text-muted">Ausgewählter Text:</small>
-                    <div class="explanation-selected-text" id="explanationSelectedText" 
-                         style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px; max-height: 80px; overflow-y: auto;"></div>
+                <!-- Single scroll area for selected text + chat -->
+                <div class="explanation-scroll-area">
+                    <div class="explanation-selected-text-container">
+                        <small class="text-muted">Ausgewählter Text:</small>
+                        <div class="explanation-selected-text" id="explanationSelectedText" 
+                             style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px;"></div>
+                    </div>
+                    <div class="explanation-chat-container" id="explanationChatContainer">
+                    </div>
                 </div>
-                <div class="explanation-chat-container" id="explanationChatContainer" 
-                     style="display: flex; flex-direction: column; gap: 10px;">
-                </div>
-                <div class="explanation-input-section pt-3 border-top">
+                <!-- Fixed input at bottom -->
+                <div class="explanation-input-section border-top">
                     <div class="input-group">
                         <input type="text" class="form-control" id="followupQuestion" placeholder="Weitere Frage...">
                         <button class="btn btn-success" id="askFollowupBtn"><i class="bi bi-send"></i></button>
