@@ -1125,14 +1125,7 @@ async function calculateOptimalScale() {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
 
-        // Check if any panel is open
-        const summaryOpen = document.getElementById('summaryPanel')?.classList.contains('open');
-        const explanationDocked = document.getElementById('explanationPopup')?.classList.contains('docked');
-        let panelWidth = 0;
-        if (summaryOpen) panelWidth = 380;
-        if (explanationDocked) panelWidth = 400;
-
-        // PDF-Spalte direkt messen (Grid macht das Layout)
+        // PDF-Spalte direkt messen (Grid macht das Layout automatisch)
         const pdfColumn = document.getElementById('pdfCanvasContainer');
         const columnWidth = pdfColumn.clientWidth;
         
@@ -1140,8 +1133,7 @@ async function calculateOptimalScale() {
         const availableWidth = columnWidth - 40;
 
         console.log('calculateOptimalScale:', {
-            viewportWidth,
-            panelWidth,
+            columnWidth,
             availableWidth, 
             pdfNaturalWidth: defaultViewport.width
         });
