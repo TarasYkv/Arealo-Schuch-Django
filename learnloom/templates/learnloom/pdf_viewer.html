@@ -73,20 +73,21 @@
         background: #dee2e6;
         margin: 5px 0;
     }
-    .toolbar-column .reading-status-selector {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-    .toolbar-column .reading-status-selector .btn {
+    .toolbar-column .reading-status-dropdown .btn {
         width: 38px;
-        height: 32px;
+        height: 38px;
         padding: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.85rem;
-        border-radius: 6px;
+        font-size: 0.9rem;
+        border-radius: 50%;
+    }
+    .toolbar-column .reading-status-dropdown .btn::after {
+        display: none; /* Hide dropdown arrow */
+    }
+    .toolbar-column .reading-status-dropdown .dropdown-menu {
+        min-width: 180px;
     }
     
     /* Middle Column - PDF */
@@ -750,20 +751,32 @@
 
         <div class="divider"></div>
 
-        <!-- Reading Status -->
-        <div class="reading-status-selector" title="Lesestatus">
-            <button class="btn btn-sm {% if book.reading_status == 'unread' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" 
-                    id="statusUnread" onclick="setReadingStatus('unread')" title="Noch nicht gelesen">
-                <i class="bi bi-circle"></i>
+        <!-- Reading Status Dropdown -->
+        <div class="dropdown reading-status-dropdown">
+            <button class="btn btn-sm dropdown-toggle 
+                {% if book.reading_status == 'completed' %}btn-success
+                {% elif book.reading_status == 'reading' %}btn-warning
+                {% else %}btn-secondary{% endif %}" 
+                type="button" id="readingStatusBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Lesestatus">
+                {% if book.reading_status == 'completed' %}
+                    <i class="bi bi-check-circle"></i>
+                {% elif book.reading_status == 'reading' %}
+                    <i class="bi bi-book"></i>
+                {% else %}
+                    <i class="bi bi-circle"></i>
+                {% endif %}
             </button>
-            <button class="btn btn-sm {% if book.reading_status == 'reading' %}btn-warning{% else %}btn-outline-warning{% endif %}" 
-                    id="statusReading" onclick="setReadingStatus('reading')" title="Gerade dabei">
-                <i class="bi bi-book"></i>
-            </button>
-            <button class="btn btn-sm {% if book.reading_status == 'completed' %}btn-success{% else %}btn-outline-success{% endif %}" 
-                    id="statusCompleted" onclick="setReadingStatus('completed')" title="Bereits gelesen">
-                <i class="bi bi-check-circle"></i>
-            </button>
+            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="readingStatusBtn">
+                <li><a class="dropdown-item {% if book.reading_status == 'unread' %}active{% endif %}" href="#" onclick="setReadingStatus('unread'); return false;">
+                    <i class="bi bi-circle me-2"></i>Noch nicht gelesen
+                </a></li>
+                <li><a class="dropdown-item {% if book.reading_status == 'reading' %}active{% endif %}" href="#" onclick="setReadingStatus('reading'); return false;">
+                    <i class="bi bi-book me-2"></i>Gerade dabei
+                </a></li>
+                <li><a class="dropdown-item {% if book.reading_status == 'completed' %}active{% endif %}" href="#" onclick="setReadingStatus('completed'); return false;">
+                    <i class="bi bi-check-circle me-2"></i>Bereits gelesen
+                </a></li>
+            </ul>
         </div>
 
         <div class="divider"></div>
@@ -3062,24 +3075,29 @@ async function setReadingStatus(status) {
 
         const data = await response.json();
         if (data.success) {
-            // Update button states
-            const btnUnread = document.getElementById('statusUnread');
-            const btnReading = document.getElementById('statusReading');
-            const btnCompleted = document.getElementById('statusCompleted');
-
-            // Reset all buttons
-            btnUnread.className = 'btn btn-sm btn-outline-secondary';
-            btnReading.className = 'btn btn-sm btn-outline-warning';
-            btnCompleted.className = 'btn btn-sm btn-outline-success';
-
-            // Highlight active
+            const btn = document.getElementById('readingStatusBtn');
+            const dropdownItems = document.querySelectorAll('.reading-status-dropdown .dropdown-item');
+            
+            // Update button appearance
+            btn.className = 'btn btn-sm dropdown-toggle';
             if (status === 'unread') {
-                btnUnread.className = 'btn btn-sm btn-secondary';
+                btn.classList.add('btn-secondary');
+                btn.innerHTML = '<i class="bi bi-circle"></i>';
             } else if (status === 'reading') {
-                btnReading.className = 'btn btn-sm btn-warning';
+                btn.classList.add('btn-warning');
+                btn.innerHTML = '<i class="bi bi-book"></i>';
             } else if (status === 'completed') {
-                btnCompleted.className = 'btn btn-sm btn-success';
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<i class="bi bi-check-circle"></i>';
             }
+            
+            // Update active state in dropdown
+            dropdownItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.textContent.includes('Noch nicht') && status === 'unread') item.classList.add('active');
+                if (item.textContent.includes('Gerade') && status === 'reading') item.classList.add('active');
+                if (item.textContent.includes('Bereits') && status === 'completed') item.classList.add('active');
+            });
         }
     } catch (error) {
         console.error('Error updating reading status:', error);
