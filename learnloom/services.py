@@ -74,6 +74,50 @@ class PDFService:
             return 0
 
     @staticmethod
+    def extract_title(pdf_file):
+        """
+        Extrahiert den Titel aus PDF-Metadaten oder der ersten Seite.
+
+        Args:
+            pdf_file: Django UploadedFile oder File-ähnliches Objekt
+
+        Returns:
+            str: Extrahierter Titel oder leerer String
+        """
+        try:
+            pdf_bytes = pdf_file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            
+            # 1. Versuche Titel aus Metadaten zu lesen
+            metadata = doc.metadata
+            if metadata and metadata.get('title'):
+                title = metadata['title'].strip()
+                if title and len(title) > 3:  # Ignoriere zu kurze Titel
+                    doc.close()
+                    return title
+            
+            # 2. Versuche Titel aus erster Seite zu extrahieren
+            if len(doc) > 0:
+                page = doc[0]
+                text = page.get_text()
+                lines = [line.strip() for line in text.split('\n') if line.strip()]
+                
+                # Suche nach der ersten nicht-leeren Zeile mit min. 10 Zeichen
+                # die nicht wie eine Seitenzahl oder DOI aussieht
+                for line in lines[:10]:  # Nur erste 10 Zeilen prüfen
+                    if len(line) >= 10 and not line.isdigit():
+                        # Ignoriere Zeilen die wie DOI, URLs, etc. aussehen
+                        if not any(x in line.lower() for x in ['doi:', 'http', 'www.', '@', 'issn', 'isbn']):
+                            doc.close()
+                            return line[:200]  # Max 200 Zeichen
+            
+            doc.close()
+            return ""
+        except Exception as e:
+            print(f"Fehler beim Titel-Extrahieren: {e}")
+            return ""
+
+    @staticmethod
     def extract_text_from_page(pdf_file, page_number):
         """
         Extrahiert Text von einer bestimmten Seite.

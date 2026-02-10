@@ -14,6 +14,7 @@ urlpatterns = [
     path('all-notes/', views.all_notes, name='all_notes'),
 
     # PDF API
+    path('api/extract-title/', views.api_extract_title, name='api_extract_title'),
     path('api/upload/', views.api_upload_pdf, name='api_upload'),
     path('api/pdf/<uuid:book_id>/', views.api_serve_pdf, name='api_serve_pdf'),
     path('api/pdf/<uuid:book_id>/delete/', views.api_delete_pdf, name='api_delete'),

@@ -236,6 +236,31 @@ def all_notes(request):
 
 @login_required
 @require_POST
+def api_extract_title(request):
+    """Extrahiert den Titel aus einer PDF-Datei"""
+    if 'file' not in request.FILES:
+        return JsonResponse({'success': False, 'error': 'Keine Datei'}, status=400)
+
+    pdf_file = request.FILES['file']
+    
+    if not pdf_file.name.lower().endswith('.pdf'):
+        return JsonResponse({'success': False, 'error': 'Nur PDF-Dateien'}, status=400)
+
+    try:
+        pdf_service = PDFService()
+        title = pdf_service.extract_title(pdf_file)
+        
+        # Fallback auf Dateiname ohne Erweiterung
+        if not title:
+            title = pdf_file.name.rsplit('.', 1)[0]
+        
+        return JsonResponse({'success': True, 'title': title})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
 def api_upload_pdf(request):
     """PDF hochladen"""
     if 'file' not in request.FILES:

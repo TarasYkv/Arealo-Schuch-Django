@@ -589,14 +589,40 @@ fileInput.addEventListener('change', (e) => {
     }
 });
 
-function handleFileSelect(file) {
+async function handleFileSelect(file) {
     fileName.textContent = file.name;
     selectedFile.classList.remove('d-none');
     uploadBtn.disabled = false;
 
-    // Titel aus Dateinamen vorschlagen
-    if (!pdfTitle.value) {
+    // Titel aus PDF-Metadaten extrahieren
+    pdfTitle.value = 'Titel wird extrahiert...';
+    pdfTitle.disabled = true;
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('{% url "learnloom:api_extract_title" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success && data.title) {
+            pdfTitle.value = data.title;
+        } else {
+            // Fallback auf Dateinamen
+            pdfTitle.value = file.name.replace('.pdf', '').replace(/_/g, ' ');
+        }
+    } catch (error) {
+        console.error('Fehler beim Extrahieren des Titels:', error);
+        // Fallback auf Dateinamen
         pdfTitle.value = file.name.replace('.pdf', '').replace(/_/g, ' ');
+    } finally {
+        pdfTitle.disabled = false;
     }
 }
 
