@@ -482,6 +482,105 @@
     .confirm-modal-buttons .btn-confirm.info:hover {
         background: #1d4ed8;
     }
+
+    /* Summary Panel (Right Side) */
+    .summary-panel {
+        position: fixed;
+        top: 0;
+        right: -400px;
+        width: 400px;
+        height: 100vh;
+        background: white;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+        z-index: 1100;
+        transition: right 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+    .summary-panel.open {
+        right: 0;
+    }
+    .summary-panel-header {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .summary-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+    }
+    .summary-loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6b7280;
+    }
+    .summary-content {
+        line-height: 1.7;
+        color: #374151;
+    }
+    .summary-section {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        border-left: 3px solid #3b82f6;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .summary-section:hover {
+        background: #f0f9ff;
+        transform: translateX(2px);
+    }
+    .summary-section-title {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 6px;
+    }
+    .summary-section-pages {
+        font-size: 0.8rem;
+        color: #3b82f6;
+        margin-bottom: 6px;
+    }
+    .summary-section-text {
+        font-size: 0.9rem;
+        color: #4b5563;
+    }
+    .summary-generate-btn {
+        width: 100%;
+        padding: 12px;
+        margin-top: 16px;
+    }
+
+    /* Docked Explanation Panel */
+    .explanation-popup.docked {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        left: auto !important;
+        width: 450px !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.15) !important;
+    }
+    .explanation-popup.docked .explanation-popup-body {
+        flex: 1;
+        max-height: none;
+    }
+    .explanation-popup.docked .explanation-chat-container {
+        max-height: none;
+        flex: 1;
+    }
+
+    /* Adjust PDF container when panels are open */
+    .pdf-viewer-container.panel-open {
+        margin-right: 450px;
+        transition: margin-right 0.3s ease;
+    }
 </style>
 {% endblock %}
 
@@ -546,6 +645,9 @@
 
     <button class="btn btn-outline-warning" id="toggleReadingList" title="Leseliste">
         <i class="bi bi-list-check"></i>
+    </button>
+    <button class="btn btn-outline-info" id="toggleSummaryPanel" title="Zusammenfassung">
+        <i class="bi bi-file-text"></i>
     </button>
 </div>
 
@@ -631,6 +733,39 @@
     </div>
 </div>
 
+<!-- Summary Panel -->
+<div class="summary-panel" id="summaryPanel">
+    <div class="summary-panel-header">
+        <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Zusammenfassung</h5>
+        <button class="btn btn-sm btn-light" id="closeSummaryPanel">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+    <div class="summary-panel-body" id="summaryPanelBody">
+        <div class="summary-loading" id="summaryLoading">
+            <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
+            <p class="mt-2">Lade Zusammenfassung...</p>
+        </div>
+        <div id="summaryContent" style="display: none;">
+            <!-- Summary content loaded via JS -->
+        </div>
+        <div id="summaryEmpty" style="display: none;">
+            <div class="text-center py-4">
+                <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
+                <p class="text-muted mt-3">Noch keine Zusammenfassung vorhanden.</p>
+                {% if book.category != 'book' %}
+                <button class="btn btn-primary summary-generate-btn" id="generateSummaryBtn">
+                    <i class="bi bi-magic me-2"></i>Jetzt generieren
+                </button>
+                <p class="text-muted small mt-2">Dies kann 30-60 Sekunden dauern.</p>
+                {% else %}
+                <p class="text-muted small">Zusammenfassungen sind nur für Paper/Artikel verfügbar.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Translation Popup (hidden by default) -->
 <div class="translation-popup d-none" id="translationPopup">
     <div class="mb-2">
@@ -679,6 +814,9 @@
     <div class="explanation-popup-header" id="explanationPopupHeader">
         <span><i class="bi bi-lightbulb me-2 text-success"></i>Erklärung</span>
         <div class="explanation-popup-controls">
+            <button class="btn-popup-control" id="dockExplanationBtn" title="Rechts andocken">
+                <i class="bi bi-layout-sidebar-reverse"></i>
+            </button>
             <button class="btn-popup-control" id="toggleFullscreenBtn" title="Vollbild">
                 <i class="bi bi-arrows-fullscreen"></i>
             </button>
@@ -2558,6 +2696,155 @@ document.addEventListener('keydown', (e) => {
         translationPopup.classList.add('d-none');
         translateBtn.classList.add('d-none');
         notesPanel.classList.remove('open');
+    }
+});
+
+// ============================================
+// Summary Panel
+// ============================================
+const summaryPanel = document.getElementById('summaryPanel');
+const pdfViewerContainer = document.getElementById('pdfViewerContainer');
+
+document.getElementById('toggleSummaryPanel').addEventListener('click', () => {
+    summaryPanel.classList.toggle('open');
+    if (summaryPanel.classList.contains('open')) {
+        pdfViewerContainer.classList.add('panel-open');
+        loadSummary();
+    } else {
+        pdfViewerContainer.classList.remove('panel-open');
+    }
+});
+
+document.getElementById('closeSummaryPanel').addEventListener('click', () => {
+    summaryPanel.classList.remove('open');
+    pdfViewerContainer.classList.remove('panel-open');
+});
+
+async function loadSummary() {
+    const loading = document.getElementById('summaryLoading');
+    const content = document.getElementById('summaryContent');
+    const empty = document.getElementById('summaryEmpty');
+    
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    
+    try {
+        const response = await fetch(`/learnloom/api/summary/${bookId}/`);
+        const data = await response.json();
+        
+        loading.style.display = 'none';
+        
+        if (data.success && data.has_summary) {
+            content.style.display = 'block';
+            renderSummary(data.summary);
+        } else {
+            empty.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error loading summary:', error);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+    }
+}
+
+function renderSummary(summary) {
+    const content = document.getElementById('summaryContent');
+    
+    let html = `<div class="summary-content mb-4">${summary.full_summary}</div>`;
+    
+    if (summary.sections && summary.sections.length > 0) {
+        html += '<h6 class="text-muted mb-3"><i class="bi bi-list-columns-reverse me-2"></i>Abschnitte</h6>';
+        summary.sections.forEach(section => {
+            html += `
+                <div class="summary-section" onclick="scrollToPage(${section.start_page})">
+                    <div class="summary-section-title">${section.title}</div>
+                    <div class="summary-section-pages">
+                        <i class="bi bi-file-earmark me-1"></i>
+                        ${section.start_page === section.end_page ? 'Seite ' + section.start_page : 'Seite ' + section.start_page + '-' + section.end_page}
+                    </div>
+                    <div class="summary-section-text">${section.text}</div>
+                </div>
+            `;
+        });
+    }
+    
+    content.innerHTML = html;
+}
+
+// Generate Summary Button
+const generateBtn = document.getElementById('generateSummaryBtn');
+if (generateBtn) {
+    generateBtn.addEventListener('click', async () => {
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generiere...';
+        
+        try {
+            const response = await fetch(`/learnloom/api/summary/${bookId}/generate/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ provider: 'openai', language: 'de' })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                loadSummary();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (error) {
+            alert('Fehler beim Generieren: ' + error.message);
+        } finally {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-magic me-2"></i>Jetzt generieren';
+        }
+    });
+}
+
+// ============================================
+// Dock Explanation Panel
+// ============================================
+let isExplanationDocked = false;
+
+document.getElementById('dockExplanationBtn').addEventListener('click', () => {
+    const popup = document.getElementById('explanationPopup');
+    const dockBtn = document.getElementById('dockExplanationBtn');
+    
+    isExplanationDocked = !isExplanationDocked;
+    
+    if (isExplanationDocked) {
+        popup.classList.add('docked');
+        popup.classList.remove('fullscreen');
+        pdfViewerContainer.classList.add('panel-open');
+        dockBtn.innerHTML = '<i class="bi bi-pip"></i>';
+        dockBtn.title = 'Als Popup lösen';
+        // Close summary panel if open
+        summaryPanel.classList.remove('open');
+    } else {
+        popup.classList.remove('docked');
+        pdfViewerContainer.classList.remove('panel-open');
+        dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
+        dockBtn.title = 'Rechts andocken';
+        // Reset position
+        popup.style.left = '50%';
+        popup.style.top = '50%';
+        popup.style.transform = 'translate(-50%, -50%)';
+    }
+});
+
+// Update close handler to also undock
+const originalCloseHandler = document.getElementById('closeExplanationPopup').onclick;
+document.getElementById('closeExplanationPopup').addEventListener('click', () => {
+    if (isExplanationDocked) {
+        pdfViewerContainer.classList.remove('panel-open');
+        isExplanationDocked = false;
+        const dockBtn = document.getElementById('dockExplanationBtn');
+        dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
+        dockBtn.title = 'Rechts andocken';
     }
 });
 
