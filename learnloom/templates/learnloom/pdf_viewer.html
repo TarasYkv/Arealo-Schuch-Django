@@ -891,6 +891,7 @@ let highlights = {{ highlights_json|safe }};
 let explanations = {{ explanations_json|safe }};
 let isRendering = false;
 let renderQueue = [];
+let userHasZoomed = false; // Track if user manually zoomed
 
 // Initialize PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1003,9 +1004,19 @@ async function loadPDF() {
         totalPages = pdfDoc.numPages;
         document.getElementById('totalPages').textContent = totalPages;
 
-        // Use saved zoom level (default is 175% from database)
-        // No auto-fit calculation - user's zoom preference is preserved
-        document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
+        // Check if user has a custom zoom saved (not the default 1.75)
+        const savedZoom = {{ progress.zoom_level }};
+        const isDefaultZoom = Math.abs(savedZoom - 1.75) < 0.01;
+        
+        if (isDefaultZoom) {
+            // First time or default: calculate optimal fit-to-width
+            await calculateOptimalScale();
+        } else {
+            // User has custom zoom saved: use it and mark as manually zoomed
+            scale = savedZoom;
+            userHasZoomed = true;
+            document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
+        }
 
         await renderAllPages();
         hideLoading();
@@ -1035,15 +1046,22 @@ async function calculateOptimalScale() {
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
 
         // Get available width: window minus padding (75px left + 60px right) and scrollbar
-        const availableWidth = window.innerWidth - 75 - 60 - 17;
-
-        // DEBUG - remove after testing
-        console.log('DEBUG:', {availableWidth, pdfWidth: defaultViewport.width, windowWidth: window.innerWidth});
+        let availableWidth = window.innerWidth - 75 - 60 - 17;
+        
+        // Account for open panels (summary panel = 380px, explanation panel when docked = 400px)
+        const summaryPanel = document.getElementById('summaryPanel');
+        const explanationPopup = document.getElementById('explanationPopup');
+        if (summaryPanel && summaryPanel.classList.contains('open')) {
+            availableWidth -= 380;
+        }
+        if (explanationPopup && explanationPopup.classList.contains('docked')) {
+            availableWidth -= 400;
+        }
 
         // Calculate scale to fit width
         const optimalScale = availableWidth / defaultViewport.width;
 
-        // Use exact scale (no rounding) for maximum width, clamp between 0.5 and 4
+        // Clamp between 0.5 and 4
         scale = Math.min(4, Math.max(0.5, optimalScale));
 
         // Update zoom display
@@ -1053,7 +1071,7 @@ async function calculateOptimalScale() {
     } catch (error) {
         console.error('Error calculating optimal scale:', error);
         // Fallback to default scale
-        scale = 1.5;
+        scale = 1.75;
     }
 }
 
@@ -1204,6 +1222,7 @@ const zoomInput = document.getElementById('zoomLevel');
 function handleZoom(newScale) {
     scale = Math.min(4, Math.max(0.25, newScale)); // Clamp between 25% and 400%
     zoomInput.value = Math.round(scale * 100) + '%';
+    userHasZoomed = true; // User manually changed zoom
 
     // Debounce re-render
     if (zoomTimeout) clearTimeout(zoomTimeout);
@@ -2734,6 +2753,12 @@ document.getElementById('closeSummaryPanel').addEventListener('click', () => {
 // Funktion um PDF für verfügbaren Platz neu zu skalieren
 async function recalculateAndRender(panelWidth) {
     if (!pdfDoc) return;
+    
+    // If user manually zoomed, don't auto-adjust
+    if (userHasZoomed) {
+        console.log('User has manually zoomed, skipping auto-fit');
+        return;
+    }
     
     try {
         const firstPage = await pdfDoc.getPage(1);
