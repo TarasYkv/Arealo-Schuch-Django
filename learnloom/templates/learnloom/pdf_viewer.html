@@ -6,8 +6,97 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
 <style>
-    body { overflow: hidden; }
+    body { overflow: hidden; margin: 0; padding: 0; }
     .navbar, footer { display: none !important; }
+
+    /* ========== 3-COLUMN GRID LAYOUT ========== */
+    .pdf-viewer-grid {
+        display: grid;
+        grid-template-columns: 70px 1fr 0px;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        transition: grid-template-columns 0.3s ease;
+    }
+    .pdf-viewer-grid.panel-open {
+        grid-template-columns: 70px 1fr 380px;
+    }
+    
+    /* Left Column - Toolbar */
+    .toolbar-column {
+        background: #f8f9fa;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 60px 5px 20px 5px;
+        gap: 8px;
+        overflow-y: auto;
+        z-index: 100;
+    }
+    .toolbar-column .btn {
+        border-radius: 50%;
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+    .toolbar-column .page-info {
+        font-size: 0.7rem;
+        text-align: center;
+        color: #6c757d;
+    }
+    .toolbar-column .zoom-input {
+        width: 42px;
+        font-size: 0.7rem;
+        text-align: center;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 3px;
+    }
+    .toolbar-column .divider {
+        width: 30px;
+        height: 1px;
+        background: #dee2e6;
+        margin: 5px 0;
+    }
+    
+    /* Middle Column - PDF */
+    .pdf-column {
+        background: #525659;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+    }
+    
+    /* Right Column - Panel */
+    .panel-column {
+        background: white;
+        border-left: 1px solid #dee2e6;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .panel-column .panel-header {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .panel-column .panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+    }
 
     /* Loading Overlay */
     .loading-overlay {
@@ -483,38 +572,7 @@
         background: #1d4ed8;
     }
 
-    /* Summary Panel (Right Side) */
-    .summary-panel {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: 380px;
-        height: 100vh;
-        background: white;
-        box-shadow: -4px 0 20px rgba(0,0,0,0.15);
-        z-index: 1100;
-        display: flex;
-        flex-direction: column;
-        transform: translateX(100%);
-        transition: transform 0.3s ease;
-    }
-    .summary-panel.open {
-        transform: translateX(0);
-    }
-    .summary-panel-header {
-        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-        color: white;
-        padding: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-shrink: 0;
-    }
-    .summary-panel-body {
-        flex: 1;
-        overflow-y: auto;
-        padding: 16px;
-    }
+    /* Old Summary Panel CSS removed - using grid layout now */
     .summary-loading {
         text-align: center;
         padding: 40px 20px;
@@ -595,13 +653,6 @@
         flex: 1;
     }
 
-    /* Adjust PDF container when panels are open */
-    .pdf-canvas-container.panel-open {
-        margin-right: 380px !important;
-        padding-left: 85px !important; /* 75 toolbar + 10 gap */
-        padding-right: 10px !important; /* 10px gap zum Panel */
-        transition: all 0.3s ease;
-    }
 </style>
 {% endblock %}
 
@@ -613,64 +664,97 @@
     <div class="loading-progress" id="loadingProgress"></div>
 </div>
 
-<!-- Back Button -->
-<a href="{% url 'learnloom:index' %}" class="btn btn-light position-fixed" style="top: 15px; left: 15px; z-index: 1200;">
-    <i class="bi bi-arrow-left me-2"></i>Zurück
-</a>
+<!-- ========== 3-COLUMN GRID LAYOUT ========== -->
+<div class="pdf-viewer-grid" id="pdfViewerGrid">
+    
+    <!-- LEFT COLUMN: Toolbar -->
+    <div class="toolbar-column">
+        <a href="{% url 'learnloom:index' %}" class="btn btn-outline-secondary mb-3" title="Zurück">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        
+        <button class="btn btn-outline-secondary" id="prevPage" title="Vorherige Seite">
+            <i class="bi bi-chevron-up"></i>
+        </button>
+        <span class="page-info">
+            <span id="currentPage">1</span>/<span id="totalPages">-</span>
+        </span>
+        <button class="btn btn-outline-secondary" id="nextPage" title="Nächste Seite">
+            <i class="bi bi-chevron-down"></i>
+        </button>
 
-<!-- PDF Viewer Container -->
-<div class="pdf-viewer-container" id="pdfViewerContainer">
-    <div class="pdf-canvas-container" id="pdfCanvasContainer">
+        <div class="divider"></div>
+
+        <button class="btn btn-outline-secondary" id="zoomOut" title="Verkleinern">
+            <i class="bi bi-zoom-out"></i>
+        </button>
+        <input type="text" class="zoom-input" id="zoomLevel" value="100%" title="Zoom">
+        <button class="btn btn-outline-secondary" id="zoomIn" title="Vergrößern">
+            <i class="bi bi-zoom-in"></i>
+        </button>
+
+        <div class="divider"></div>
+
+        <button class="btn btn-outline-dark" id="toggleFullscreen" title="Vollbild">
+            <i class="bi bi-fullscreen"></i>
+        </button>
+        <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
+            <i class="bi bi-sticky"></i>
+        </button>
+        <button class="btn btn-outline-warning" id="toggleMarkerMode" title="Marker">
+            <i class="bi bi-pin-map"></i>
+        </button>
+        <button class="btn btn-info" id="toggleSelectMode" title="Auswahl">
+            <i class="bi bi-bounding-box"></i>
+        </button>
+
+        <div class="divider"></div>
+
+        <button class="btn btn-outline-warning" id="toggleReadingList" title="Leseliste">
+            <i class="bi bi-list-check"></i>
+        </button>
+        <button class="btn btn-outline-info" id="toggleSummaryPanel" title="Zusammenfassung">
+            <i class="bi bi-file-text"></i>
+        </button>
+    </div>
+    
+    <!-- MIDDLE COLUMN: PDF -->
+    <div class="pdf-column" id="pdfCanvasContainer">
         <!-- Pages will be rendered here -->
     </div>
+    
+    <!-- RIGHT COLUMN: Summary Panel -->
+    <div class="panel-column" id="summaryPanelColumn">
+        <div class="panel-header">
+            <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Zusammenfassung</h5>
+            <button class="btn btn-sm btn-light" id="closeSummaryPanel">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="panel-body" id="summaryPanelBody">
+            <div class="summary-loading" id="summaryLoading">
+                <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
+                <p class="mt-2">Lade Zusammenfassung...</p>
+            </div>
+            <div id="summaryContent" style="display: none;">
+                <!-- Summary content loaded via JS -->
+            </div>
+            <div id="summaryEmpty" style="display: none;">
+                <div class="text-center py-4">
+                    <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-3">Noch keine Zusammenfassung vorhanden.</p>
+                    {% if book.category != 'book' %}
+                    <button class="btn btn-primary" id="generateSummaryBtn">
+                        <i class="bi bi-magic me-2"></i>Jetzt generieren
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
 </div>
-
-<!-- Floating Toolbar - Vertical Left -->
-<div class="pdf-toolbar">
-    <button class="btn btn-outline-secondary" id="prevPage" title="Vorherige Seite">
-        <i class="bi bi-chevron-up"></i>
-    </button>
-    <span class="page-info">
-        <span id="currentPage">1</span>/<span id="totalPages">-</span>
-    </span>
-    <button class="btn btn-outline-secondary" id="nextPage" title="Nächste Seite">
-        <i class="bi bi-chevron-down"></i>
-    </button>
-
-    <div class="divider"></div>
-
-    <button class="btn btn-outline-secondary" id="zoomOut" title="Verkleinern">
-        <i class="bi bi-zoom-out"></i>
-    </button>
-    <input type="text" class="zoom-input" id="zoomLevel" value="100%" title="Zoom eingeben (z.B. 150)">
-    <button class="btn btn-outline-secondary" id="zoomIn" title="Vergrößern">
-        <i class="bi bi-zoom-in"></i>
-    </button>
-
-    <div class="divider"></div>
-
-    <button class="btn btn-outline-dark" id="toggleFullscreen" title="Vollbild">
-        <i class="bi bi-fullscreen"></i>
-    </button>
-    <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
-        <i class="bi bi-sticky"></i>
-    </button>
-    <button class="btn btn-outline-warning" id="toggleMarkerMode" title="Notiz-Marker setzen">
-        <i class="bi bi-pin-map"></i>
-    </button>
-    <button class="btn btn-info" id="toggleSelectMode" title="Rechteck-Auswahl (Bereich markieren)">
-        <i class="bi bi-bounding-box"></i>
-    </button>
-
-    <div class="divider"></div>
-
-    <button class="btn btn-outline-warning" id="toggleReadingList" title="Leseliste">
-        <i class="bi bi-list-check"></i>
-    </button>
-    <button class="btn btn-outline-info" id="toggleSummaryPanel" title="Zusammenfassung">
-        <i class="bi bi-file-text"></i>
-    </button>
-</div>
+<!-- END 3-COLUMN GRID -->
 
 <!-- Selection Rectangle (drawn directly on PDF container) -->
 <div id="selectionRect" class="selection-rect"></div>
@@ -754,38 +838,7 @@
     </div>
 </div>
 
-<!-- Summary Panel -->
-<div class="summary-panel" id="summaryPanel">
-    <div class="summary-panel-header">
-        <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Zusammenfassung</h5>
-        <button class="btn btn-sm btn-light" id="closeSummaryPanel">
-            <i class="bi bi-x-lg"></i>
-        </button>
-    </div>
-    <div class="summary-panel-body" id="summaryPanelBody">
-        <div class="summary-loading" id="summaryLoading">
-            <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
-            <p class="mt-2">Lade Zusammenfassung...</p>
-        </div>
-        <div id="summaryContent" style="display: none;">
-            <!-- Summary content loaded via JS -->
-        </div>
-        <div id="summaryEmpty" style="display: none;">
-            <div class="text-center py-4">
-                <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
-                <p class="text-muted mt-3">Noch keine Zusammenfassung vorhanden.</p>
-                {% if book.category != 'book' %}
-                <button class="btn btn-primary summary-generate-btn" id="generateSummaryBtn">
-                    <i class="bi bi-magic me-2"></i>Jetzt generieren
-                </button>
-                <p class="text-muted small mt-2">Dies kann 30-60 Sekunden dauern.</p>
-                {% else %}
-                <p class="text-muted small">Zusammenfassungen sind nur für Paper/Artikel verfügbar.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Old Summary Panel removed - now part of grid layout -->
 
 <!-- Translation Popup (hidden by default) -->
 <div class="translation-popup d-none" id="translationPopup">
@@ -1068,15 +1121,12 @@ async function calculateOptimalScale() {
         if (summaryOpen) panelWidth = 380;
         if (explanationDocked) panelWidth = 400;
 
-        // DIREKT den Container messen
-        const container = document.getElementById('pdfCanvasContainer');
-        const style = getComputedStyle(container);
-        const containerWidth = container.clientWidth;
-        const paddingLeft = parseFloat(style.paddingLeft) || 0;
-        const paddingRight = parseFloat(style.paddingRight) || 0;
+        // PDF-Spalte direkt messen (Grid macht das Layout)
+        const pdfColumn = document.getElementById('pdfCanvasContainer');
+        const columnWidth = pdfColumn.clientWidth;
         
-        // Verfügbare Breite = clientWidth minus Padding
-        const availableWidth = containerWidth - paddingLeft - paddingRight;
+        // Verfügbare Breite = Spaltenbreite minus Padding (40px total)
+        const availableWidth = columnWidth - 40;
 
         console.log('calculateOptimalScale:', {
             viewportWidth,
@@ -2751,29 +2801,25 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ============================================
-// Summary Panel
+// Summary Panel (3-Column Grid)
 // ============================================
-const summaryPanel = document.getElementById('summaryPanel');
+const pdfViewerGrid = document.getElementById('pdfViewerGrid');
 const pdfCanvasContainer = document.getElementById('pdfCanvasContainer');
 
 document.getElementById('toggleSummaryPanel').addEventListener('click', async () => {
-    const isOpen = summaryPanel.classList.toggle('open');
+    const isOpen = pdfViewerGrid.classList.toggle('panel-open');
     if (isOpen) {
-        pdfCanvasContainer.classList.add('panel-open');
         loadSummary();
-        // Warte kurz und skaliere PDF neu
-        setTimeout(() => recalculateAndRender(380, true), 400);
+        // Warte auf CSS-Transition, dann PDF neu skalieren
+        setTimeout(() => recalculateAndRender(380, true), 350);
     } else {
-        pdfCanvasContainer.classList.remove('panel-open');
-        // Zurück zur vollen Breite
-        setTimeout(() => recalculateAndRender(0, true), 400);
+        setTimeout(() => recalculateAndRender(0, true), 350);
     }
 });
 
 document.getElementById('closeSummaryPanel').addEventListener('click', () => {
-    summaryPanel.classList.remove('open');
-    pdfCanvasContainer.classList.remove('panel-open');
-    setTimeout(() => recalculateAndRender(0, true), 400);
+    pdfViewerGrid.classList.remove('panel-open');
+    setTimeout(() => recalculateAndRender(0, true), 350);
 });
 
 // Funktion um PDF für verfügbaren Platz neu zu skalieren
@@ -2790,20 +2836,15 @@ async function recalculateAndRender(panelWidth, forceRecalculate = false) {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
         
-        // DIREKT den Container messen nach CSS-Änderung
-        const container = document.getElementById('pdfCanvasContainer');
-        const style = getComputedStyle(container);
-        const containerWidth = container.clientWidth; // content + padding, ohne scrollbar
-        const paddingLeft = parseFloat(style.paddingLeft) || 0;
-        const paddingRight = parseFloat(style.paddingRight) || 0;
+        // PDF-Spalte direkt messen (Grid macht das Layout)
+        const pdfColumn = document.getElementById('pdfCanvasContainer');
+        const columnWidth = pdfColumn.clientWidth;
         
-        // Verfügbare Breite = clientWidth minus Padding (clientWidth inkludiert Padding)
-        const availableWidth = containerWidth - paddingLeft - paddingRight;
+        // Verfügbare Breite = Spaltenbreite minus Padding (40px total: 20px each side)
+        const availableWidth = columnWidth - 40;
         
         console.log('recalculateAndRender:', {
-            containerWidth,
-            paddingLeft,
-            paddingRight,
+            columnWidth,
             availableWidth, 
             pdfNaturalWidth: defaultViewport.width
         });
