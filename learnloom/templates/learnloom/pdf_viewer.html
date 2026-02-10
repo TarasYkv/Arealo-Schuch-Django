@@ -57,12 +57,97 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 60px 5px 20px 5px;
-        gap: 8px;
+        padding: 50px 5px 20px 5px;
+        gap: 6px;
         overflow-y: auto;
         overflow-x: visible;
         z-index: 1000;
         position: relative;
+        transition: width 0.3s ease, padding 0.3s ease;
+    }
+    /* Toolbar collapsed state */
+    .toolbar-column.collapsed {
+        width: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+    /* Toggle button */
+    .toolbar-toggle {
+        position: fixed;
+        top: 50%;
+        left: 70px;
+        transform: translateY(-50%);
+        z-index: 1001;
+        width: 24px;
+        height: 48px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-left: none;
+        border-radius: 0 8px 8px 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: left 0.3s ease;
+    }
+    .toolbar-toggle:hover {
+        background: #e9ecef;
+    }
+    .toolbar-column.collapsed + .pdf-column .toolbar-toggle,
+    .pdf-viewer-grid:has(.toolbar-column.collapsed) .toolbar-toggle {
+        left: 0;
+    }
+    /* Mobile: smaller buttons */
+    @media (max-width: 768px) {
+        .pdf-viewer-grid {
+            grid-template-columns: 50px 1fr 0;
+        }
+        .pdf-viewer-grid.panel-open {
+            grid-template-columns: 50px 1fr 280px;
+        }
+        .toolbar-column {
+            padding: 40px 3px 10px 3px;
+            gap: 4px;
+        }
+        .toolbar-column .btn {
+            width: 32px;
+            height: 32px;
+            font-size: 0.8rem;
+        }
+        .toolbar-column .zoom-input {
+            width: 36px;
+            font-size: 0.6rem;
+        }
+        .toolbar-column .page-info {
+            font-size: 0.6rem;
+        }
+        .toolbar-column .divider {
+            margin: 3px 0;
+        }
+        .toolbar-toggle {
+            left: 50px;
+        }
+    }
+    /* Very small screens */
+    @media (max-width: 480px) {
+        .pdf-viewer-grid {
+            grid-template-columns: 40px 1fr 0;
+        }
+        .pdf-viewer-grid.panel-open {
+            grid-template-columns: 0 1fr 100%;
+        }
+        .toolbar-column {
+            padding: 35px 2px 10px 2px;
+            gap: 3px;
+        }
+        .toolbar-column .btn {
+            width: 28px;
+            height: 28px;
+            font-size: 0.7rem;
+        }
+        .toolbar-toggle {
+            left: 40px;
+        }
     }
     .toolbar-column .btn {
         border-radius: 50%;
@@ -782,8 +867,13 @@
 <!-- ========== 3-COLUMN GRID LAYOUT ========== -->
 <div class="pdf-viewer-grid" id="pdfViewerGrid">
     
+    <!-- Toolbar Toggle Button -->
+    <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
+        <i class="bi bi-chevron-left"></i>
+    </button>
+    
     <!-- LEFT COLUMN: Toolbar -->
-    <div class="toolbar-column">
+    <div class="toolbar-column" id="toolbarColumn">
         <a href="{% url 'learnloom:index' %}" class="btn btn-outline-secondary mb-3" title="Zurück">
             <i class="bi bi-arrow-left"></i>
         </a>
@@ -3166,6 +3256,32 @@ async function setReadingStatus(status) {
         console.error('Error updating reading status:', error);
     }
 }
+
+// ============================================
+// Toolbar Toggle
+// ============================================
+document.getElementById('toolbarToggle').addEventListener('click', () => {
+    const toolbar = document.getElementById('toolbarColumn');
+    const toggle = document.getElementById('toolbarToggle');
+    const icon = toggle.querySelector('i');
+    
+    toolbar.classList.toggle('collapsed');
+    
+    if (toolbar.classList.contains('collapsed')) {
+        icon.className = 'bi bi-chevron-right';
+        toggle.style.left = '0';
+    } else {
+        icon.className = 'bi bi-chevron-left';
+        // Reset based on screen size
+        if (window.innerWidth <= 480) {
+            toggle.style.left = '40px';
+        } else if (window.innerWidth <= 768) {
+            toggle.style.left = '50px';
+        } else {
+            toggle.style.left = '70px';
+        }
+    }
+});
 
 // Initialize
 document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
