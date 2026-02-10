@@ -1060,18 +1060,14 @@ async function calculateOptimalScale() {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
 
-        // Get available width: window minus padding (75px left + 60px right) and scrollbar
-        let availableWidth = window.innerWidth - 75 - 60 - 17;
+        // Tatsächliche Container-Breite messen
+        const container = document.getElementById('pdfCanvasContainer');
+        const containerWidth = container.clientWidth;
         
-        // Account for open panels (summary panel = 380px, explanation panel when docked = 400px)
-        const summaryPanel = document.getElementById('summaryPanel');
-        const explanationPopup = document.getElementById('explanationPopup');
-        if (summaryPanel && summaryPanel.classList.contains('open')) {
-            availableWidth -= 380;
-        }
-        if (explanationPopup && explanationPopup.classList.contains('docked')) {
-            availableWidth -= 400;
-        }
+        // Verfügbare Breite = Container minus Padding (75 links + 60 rechts)
+        const availableWidth = containerWidth - 75 - 60;
+
+        console.log('DEBUG calculateOptimalScale:', {containerWidth, availableWidth, pdfWidth: defaultViewport.width});
 
         // Calculate scale to fit width
         const optimalScale = availableWidth / defaultViewport.width;
@@ -2751,26 +2747,26 @@ document.getElementById('toggleSummaryPanel').addEventListener('click', async ()
         pdfCanvasContainer.classList.add('panel-open');
         loadSummary();
         // Warte kurz und skaliere PDF neu
-        setTimeout(() => recalculateAndRender(380), 350);
+        setTimeout(() => recalculateAndRender(380, true), 350);
     } else {
         pdfCanvasContainer.classList.remove('panel-open');
         // Zurück zur vollen Breite
-        setTimeout(() => recalculateAndRender(0), 350);
+        setTimeout(() => recalculateAndRender(0, true), 350);
     }
 });
 
 document.getElementById('closeSummaryPanel').addEventListener('click', () => {
     summaryPanel.classList.remove('open');
     pdfCanvasContainer.classList.remove('panel-open');
-    setTimeout(() => recalculateAndRender(0), 350);
+    setTimeout(() => recalculateAndRender(0, true), 350);
 });
 
 // Funktion um PDF für verfügbaren Platz neu zu skalieren
-async function recalculateAndRender(panelWidth) {
+async function recalculateAndRender(panelWidth, forceRecalculate = false) {
     if (!pdfDoc) return;
     
-    // If user manually zoomed, don't auto-adjust
-    if (userHasZoomed) {
+    // If user manually zoomed and not forcing, don't auto-adjust
+    if (userHasZoomed && !forceRecalculate) {
         console.log('User has manually zoomed, skipping auto-fit');
         return;
     }
@@ -2779,13 +2775,20 @@ async function recalculateAndRender(panelWidth) {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
         
-        // Verfügbare Breite berechnen (mit Panel-Breite abgezogen)
-        const availableWidth = window.innerWidth - 75 - 60 - 17 - panelWidth;
+        // Tatsächliche Container-Breite messen statt berechnen
+        const container = document.getElementById('pdfCanvasContainer');
+        const containerWidth = container.clientWidth;
+        
+        // Verfügbare Breite = Container minus Padding (75 links + 60 rechts)
+        const availableWidth = containerWidth - 75 - 60;
+        
+        console.log('DEBUG recalculate:', {containerWidth, availableWidth, pdfWidth: defaultViewport.width, panelWidth});
         
         // Neue optimale Skalierung
         const newScale = Math.min(4, Math.max(0.5, availableWidth / defaultViewport.width));
         
         scale = newScale;
+        userHasZoomed = false; // Reset nach Panel-Wechsel
         document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
         
         // Seiten neu rendern
@@ -2979,7 +2982,7 @@ document.getElementById('dockExplanationBtn').addEventListener('click', () => {
         // Close summary panel if open
         summaryPanel.classList.remove('open');
         // PDF neu skalieren
-        setTimeout(() => recalculateAndRender(400), 350);
+        setTimeout(() => recalculateAndRender(400, true), 350);
     } else {
         popup.classList.remove('docked');
         pdfCanvasContainer.classList.remove('panel-open');
@@ -2990,7 +2993,7 @@ document.getElementById('dockExplanationBtn').addEventListener('click', () => {
         popup.style.top = '50%';
         popup.style.transform = 'translate(-50%, -50%)';
         // PDF zurück skalieren
-        setTimeout(() => recalculateAndRender(0), 350);
+        setTimeout(() => recalculateAndRender(0, true), 350);
     }
 });
 
@@ -3003,7 +3006,7 @@ document.getElementById('closeExplanationPopup').addEventListener('click', () =>
         dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
         dockBtn.title = 'Rechts andocken';
         // PDF zurück skalieren
-        setTimeout(() => recalculateAndRender(0), 350);
+        setTimeout(() => recalculateAndRender(0, true), 350);
     }
 });
 
