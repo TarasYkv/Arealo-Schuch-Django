@@ -597,9 +597,10 @@
 
     /* Adjust PDF container when panels are open */
     .pdf-canvas-container.panel-open {
+        width: calc(100% - 380px) !important; /* Platz für Panel */
         padding-left: 85px !important; /* 75 toolbar + 10 gap */
-        padding-right: 390px !important; /* 380 panel + 10 gap */
-        transition: padding 0.3s ease;
+        padding-right: 20px !important; /* symmetrisch zu links: 10px gap */
+        transition: all 0.3s ease;
     }
 </style>
 {% endblock %}
@@ -1067,13 +1068,15 @@ async function calculateOptimalScale() {
         if (summaryOpen) panelWidth = 380;
         if (explanationDocked) panelWidth = 400;
 
-        // Direkte Berechnung aus Fensterbreite
-        const viewportWidth = window.innerWidth;
-        const leftPadding = panelWidth > 0 ? 85 : 75; // 75 + 10 gap when panel open
-        const rightPadding = panelWidth > 0 ? (panelWidth + 10) : 60; // panel + 10 gap, or 60 when closed
-        const scrollbar = 17;
+        // DIREKT den Container messen
+        const container = document.getElementById('pdfCanvasContainer');
+        const style = getComputedStyle(container);
+        const containerWidth = container.clientWidth;
+        const paddingLeft = parseFloat(style.paddingLeft) || 0;
+        const paddingRight = parseFloat(style.paddingRight) || 0;
         
-        const availableWidth = viewportWidth - leftPadding - rightPadding - scrollbar;
+        // Verfügbare Breite = clientWidth minus Padding
+        const availableWidth = containerWidth - paddingLeft - paddingRight;
 
         console.log('calculateOptimalScale:', {
             viewportWidth,
@@ -2787,18 +2790,20 @@ async function recalculateAndRender(panelWidth, forceRecalculate = false) {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
         
-        // Direkte Berechnung aus Fensterbreite
-        const viewportWidth = window.innerWidth;
-        const leftPadding = 85; // 75px toolbar + 10px gap
-        const rightPadding = panelWidth + 10; // panel + 10px gap (390 when panel=380)
-        const scrollbar = 17;
+        // DIREKT den Container messen nach CSS-Änderung
+        const container = document.getElementById('pdfCanvasContainer');
+        const style = getComputedStyle(container);
+        const containerWidth = container.clientWidth; // content + padding, ohne scrollbar
+        const paddingLeft = parseFloat(style.paddingLeft) || 0;
+        const paddingRight = parseFloat(style.paddingRight) || 0;
         
-        // Verfügbare Breite = Fenster - linkes Padding - rechtes Padding - Scrollbar
-        const availableWidth = viewportWidth - leftPadding - rightPadding - scrollbar;
+        // Verfügbare Breite = clientWidth minus Padding (clientWidth inkludiert Padding)
+        const availableWidth = containerWidth - paddingLeft - paddingRight;
         
         console.log('recalculateAndRender:', {
-            viewportWidth,
-            panelWidth,
+            containerWidth,
+            paddingLeft,
+            paddingRight,
             availableWidth, 
             pdfNaturalWidth: defaultViewport.width
         });
