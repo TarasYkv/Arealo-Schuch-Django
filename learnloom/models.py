@@ -83,6 +83,13 @@ class PDFBook(models.Model):
         """Gibt Dateigröße in MB zurück"""
         return self.file_size / (1024 * 1024)
 
+    @property
+    def tags_list(self):
+        """Gibt Tags als Liste zurück"""
+        if self.tags:
+            return [tag.strip() for tag in self.tags.split(',') if tag.strip()]
+        return []
+
 
 class PDFNote(models.Model):
     """Notizen zu einem PDF"""
