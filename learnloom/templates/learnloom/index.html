@@ -292,6 +292,9 @@
                                 </a></li>
                             </ul>
                         </div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="editBook('{{ book.id }}', '{{ book.title|escapejs }}', '{{ book.tags|escapejs }}', '{{ book.category }}')" title="Bearbeiten">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                         <button class="btn btn-outline-danger btn-sm" onclick="deleteBook('{{ book.id }}')" title="Löschen">
                             <i class="bi bi-trash"></i>
                         </button>
@@ -350,7 +353,7 @@
                         <label class="form-label">Kategorie</label>
                         <select class="form-select" name="category">
                             <option value="book">Buch</option>
-                            <option value="paper">Wissenschaftliches Paper</option>
+                            <option value="paper">Paper</option>
                             <option value="article">Artikel</option>
                             <option value="other">Sonstiges</option>
                         </select>
@@ -371,6 +374,44 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                 <button type="button" class="btn btn-primary" id="uploadBtn" disabled>
                     <i class="bi bi-upload me-2"></i>Hochladen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit PDF Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>PDF bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editBookId">
+                <div class="mb-3">
+                    <label for="editTitle" class="form-label">Titel</label>
+                    <input type="text" class="form-control" id="editTitle" placeholder="Titel des PDFs">
+                </div>
+                <div class="mb-3">
+                    <label for="editCategory" class="form-label">Kategorie</label>
+                    <select class="form-select" id="editCategory">
+                        <option value="book">Buch</option>
+                        <option value="paper">Paper</option>
+                        <option value="article">Artikel</option>
+                        <option value="other">Sonstiges</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="editTags" class="form-label">Tags (kommagetrennt)</label>
+                    <input type="text" class="form-control" id="editTags" placeholder="tag1, tag2, tag3">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveBookEdit()">
+                    <i class="bi bi-check-lg me-2"></i>Speichern
                 </button>
             </div>
         </div>
@@ -671,6 +712,53 @@ uploadBtn.addEventListener('click', async () => {
         progressBar.classList.add('d-none');
     }
 });
+
+// Edit Book
+function editBook(bookId, title, tags, category) {
+    document.getElementById('editBookId').value = bookId;
+    document.getElementById('editTitle').value = title;
+    document.getElementById('editTags').value = tags;
+    document.getElementById('editCategory').value = category;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+}
+
+async function saveBookEdit() {
+    const bookId = document.getElementById('editBookId').value;
+    const title = document.getElementById('editTitle').value.trim();
+    const tags = document.getElementById('editTags').value.trim();
+    const category = document.getElementById('editCategory').value;
+    
+    if (!title) {
+        alert('Bitte gib einen Titel ein.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/learnloom/api/pdf/${bookId}/metadata/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ title, tags, category })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Modal schließen
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+            // Seite neu laden um Änderungen zu zeigen
+            location.reload();
+        } else {
+            alert('Fehler beim Speichern: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (error) {
+        console.error('Fehler:', error);
+        alert('Fehler beim Speichern');
+    }
+}
 
 // Delete Book
 async function deleteBook(bookId) {

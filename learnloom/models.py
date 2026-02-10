@@ -30,7 +30,7 @@ class PDFBook(models.Model):
 
     CATEGORY_CHOICES = [
         ('book', 'Buch'),
-        ('paper', 'Wissenschaftliches Paper'),
+        ('paper', 'Paper'),
         ('article', 'Artikel'),
         ('other', 'Sonstiges'),
     ]
