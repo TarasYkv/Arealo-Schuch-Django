@@ -566,3 +566,130 @@ Regeln:
         else:
             error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
             raise Exception(f"Gemini Fehler: {error_msg}")
+
+    def summarize_section(self, book, start_page, end_page, section_title, provider='openai', language='de'):
+        """
+        Generiert eine Zusammenfassung für einen bestimmten Abschnitt (Seitenbereich).
+        """
+        from naturmacher.utils.api_helpers import get_user_api_key
+        import json
+        
+        # API-Key holen
+        if provider == 'gemini':
+            api_key = getattr(self.user, 'gemini_api_key', None)
+            if api_key:
+                api_key = api_key.strip()
+        else:
+            api_key = get_user_api_key(self.user, provider)
+        
+        if not api_key:
+            raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
+        
+        # Text nur von den relevanten Seiten extrahieren
+        book.file.seek(0)
+        pdf_bytes = book.file.read()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        
+        section_text = ""
+        for page_num in range(start_page - 1, min(end_page, len(doc))):
+            page = doc[page_num]
+            text = page.get_text().strip()
+            if text:
+                section_text += f"\n\n[Seite {page_num + 1}]\n{text}"
+        
+        doc.close()
+        
+        if not section_text.strip():
+            raise ValueError("Konnte keinen Text aus diesem Abschnitt extrahieren.")
+        
+        # Text kürzen wenn zu lang
+        if len(section_text) > 15000:
+            section_text = section_text[:15000] + "\n\n[... Text gekürzt ...]"
+        
+        lang_name = "Deutsch" if language == 'de' else "English"
+        
+        prompt = f"""Fasse den folgenden Abschnitt "{section_title}" auf {lang_name} zusammen.
+
+Erstelle eine prägnante Zusammenfassung (100-200 Wörter) die die wichtigsten Punkte erklärt.
+Antworte NUR mit dem Zusammenfassungstext, ohne JSON oder Formatierung.
+
+Abschnitt:
+{section_text}"""
+
+        if provider == 'openai':
+            return self._summarize_section_openai(prompt, api_key)
+        elif provider == 'gemini':
+            return self._summarize_section_gemini(prompt, api_key)
+        else:
+            return self._summarize_section_anthropic(prompt, api_key)
+
+    def _summarize_section_openai(self, prompt, api_key):
+        model = getattr(self.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
+        
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': model,
+                'messages': [{'role': 'user', 'content': prompt}],
+                'temperature': 0.3,
+                'max_tokens': 1000
+            },
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"OpenAI Fehler: {error_msg}")
+
+    def _summarize_section_anthropic(self, prompt, api_key):
+        model = getattr(self.user, 'preferred_anthropic_model', None) or 'claude-3-5-sonnet-20241022'
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': api_key,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01'
+            },
+            json={
+                'model': model,
+                'max_tokens': 1000,
+                'messages': [{'role': 'user', 'content': prompt}]
+            },
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            return response.json()['content'][0]['text'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Fehler')
+            raise Exception(f"Anthropic Fehler: {error_msg}")
+
+    def _summarize_section_gemini(self, prompt, api_key):
+        model = getattr(self.user, 'preferred_gemini_model', None) or 'gemini-2.0-flash'
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        
+        response = requests.post(
+            url,
+            headers={'Content-Type': 'application/json'},
+            json={
+                'contents': [{'parts': [{'text': prompt}]}],
+                'generationConfig': {
+                    'temperature': 0.3,
+                    'maxOutputTokens': 1000,
+                }
+            },
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            return response.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"Gemini Fehler: {error_msg}")

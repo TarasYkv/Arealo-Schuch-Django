@@ -551,6 +551,21 @@
     .summary-section-text {
         font-size: 0.9rem;
         color: #4b5563;
+        line-height: 1.6;
+        margin-top: 8px;
+        padding: 10px;
+        background: #f8fafc;
+        border-radius: 6px;
+        border-left: 3px solid #3b82f6;
+    }
+    .summary-section-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .summarizing-spinner {
+        font-size: 0.85rem;
+        color: #6b7280;
     }
     .summary-generate-btn {
         width: 100%;
@@ -2823,13 +2838,32 @@ function renderSummary(summary) {
     
     if (summary.sections && summary.sections.length > 0) {
         html += '<h6 class="text-muted mb-3"><i class="bi bi-list-columns-reverse me-2"></i>Abschnitte</h6>';
-        summary.sections.forEach(section => {
+        summary.sections.forEach((section, index) => {
+            const hasText = section.text && section.text.trim().length > 0;
             html += `
-                <div class="summary-section" onclick="scrollToPage(${section.start_page})">
-                    <div class="summary-section-title">${section.title}</div>
-                    <div class="summary-section-pages">
-                        <i class="bi bi-file-earmark me-1"></i>
-                        ${section.start_page === section.end_page ? 'Seite ' + section.start_page : 'Seite ' + section.start_page + '-' + section.end_page}
+                <div class="summary-section" data-section-index="${index}">
+                    <div class="summary-section-header" onclick="scrollToPage(${section.start_page})" style="cursor: pointer;">
+                        <div class="summary-section-title">${section.title}</div>
+                        <div class="summary-section-pages">
+                            <i class="bi bi-file-earmark me-1"></i>
+                            ${section.start_page === section.end_page ? 'Seite ' + section.start_page : 'Seite ' + section.start_page + '-' + section.end_page}
+                        </div>
+                    </div>
+                    <div class="summary-section-text" id="section-text-${index}" style="${hasText ? '' : 'display: none;'}">
+                        ${hasText ? section.text : ''}
+                    </div>
+                    <div class="summary-section-actions mt-2">
+                        <button class="btn btn-sm btn-outline-primary summarize-section-btn" 
+                                data-index="${index}"
+                                data-title="${section.title}"
+                                data-start="${section.start_page}"
+                                data-end="${section.end_page}"
+                                ${hasText ? 'style="display: none;"' : ''}>
+                            <i class="bi bi-magic me-1"></i>Zusammenfassen
+                        </button>
+                        <span class="summarizing-spinner d-none" id="spinner-${index}">
+                            <span class="spinner-border spinner-border-sm me-1"></span>Generiere...
+                        </span>
                     </div>
                 </div>
             `;
@@ -2871,6 +2905,59 @@ if (generateBtn) {
         }
     });
 }
+
+// Section Summarize Buttons (event delegation)
+document.getElementById('summaryContent').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.summarize-section-btn');
+    if (!btn) return;
+    
+    const index = btn.dataset.index;
+    const title = btn.dataset.title;
+    const startPage = parseInt(btn.dataset.start);
+    const endPage = parseInt(btn.dataset.end);
+    
+    const spinner = document.getElementById(`spinner-${index}`);
+    const textDiv = document.getElementById(`section-text-${index}`);
+    
+    // UI: Loading state
+    btn.style.display = 'none';
+    spinner.classList.remove('d-none');
+    
+    try {
+        const response = await fetch(`/learnloom/api/summary/${bookId}/section/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                start_page: startPage,
+                end_page: endPage,
+                title: title,
+                section_index: parseInt(index),
+                provider: 'openai',
+                language: 'de'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            textDiv.textContent = data.summary;
+            textDiv.style.display = 'block';
+            spinner.classList.add('d-none');
+            // Button bleibt versteckt
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.style.display = '';
+            spinner.classList.add('d-none');
+        }
+    } catch (error) {
+        alert('Fehler beim Zusammenfassen: ' + error.message);
+        btn.style.display = '';
+        spinner.classList.add('d-none');
+    }
+});
 
 // ============================================
 // Dock Explanation Panel

@@ -40,6 +40,7 @@ urlpatterns = [
     path('api/summary/<uuid:book_id>/', views.api_get_summary, name='api_get_summary'),
     path('api/summary/<uuid:book_id>/generate/', views.api_generate_summary, name='api_generate_summary'),
     path('api/summary/<uuid:book_id>/delete/', views.api_delete_summary, name='api_delete_summary'),
+    path('api/summary/<uuid:book_id>/section/', views.api_summarize_section, name='api_summarize_section'),
 
     # Vocabulary API
     path('api/vocabulary/<uuid:book_id>/', views.api_get_vocabulary, name='api_get_vocabulary'),

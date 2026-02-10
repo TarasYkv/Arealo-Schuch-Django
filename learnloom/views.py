@@ -809,6 +809,58 @@ def api_delete_summary(request, book_id):
         return JsonResponse({'success': False, 'error': 'Keine Zusammenfassung vorhanden'}, status=404)
 
 
+@login_required
+@require_POST
+def api_summarize_section(request, book_id):
+    """Einzelnen Abschnitt zusammenfassen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        start_page = data.get('start_page')
+        end_page = data.get('end_page')
+        section_title = data.get('title', 'Abschnitt')
+        section_index = data.get('section_index')
+        provider = data.get('provider', 'openai')
+        language = data.get('language', 'de')
+        
+        if not start_page or not end_page:
+            return JsonResponse({'success': False, 'error': 'Start- und Endseite erforderlich'}, status=400)
+        
+        # Zusammenfassung generieren
+        service = SummaryService(request.user)
+        summary_text = service.summarize_section(
+            book, 
+            start_page, 
+            end_page, 
+            section_title,
+            provider=provider,
+            language=language
+        )
+        
+        # Optional: In der bestehenden Zusammenfassung speichern
+        if section_index is not None:
+            try:
+                pdf_summary = book.summary
+                if pdf_summary.sections and section_index < len(pdf_summary.sections):
+                    pdf_summary.sections[section_index]['text'] = summary_text
+                    pdf_summary.save()
+            except PDFSummary.DoesNotExist:
+                pass  # Kein Problem, nur nicht speichern
+        
+        return JsonResponse({
+            'success': True,
+            'summary': summary_text
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
 # ============================================================================
 # Vocabulary API
 # ============================================================================
