@@ -487,18 +487,19 @@
     .summary-panel {
         position: fixed;
         top: 0;
-        right: -400px;
-        width: 400px;
+        right: 0;
+        width: 380px;
         height: 100vh;
         background: white;
         box-shadow: -4px 0 20px rgba(0,0,0,0.15);
         z-index: 1100;
-        transition: right 0.3s ease;
         display: flex;
         flex-direction: column;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
     }
     .summary-panel.open {
-        right: 0;
+        transform: translateX(0);
     }
     .summary-panel-header {
         background: linear-gradient(135deg, #3b82f6, #1d4ed8);
@@ -507,6 +508,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-shrink: 0;
     }
     .summary-panel-body {
         flex: 1;
@@ -518,9 +520,10 @@
         padding: 40px 20px;
         color: #6b7280;
     }
-    .summary-content {
+    .summary-text {
         line-height: 1.7;
         color: #374151;
+        font-size: 0.95rem;
     }
     .summary-section {
         background: #f9fafb;
@@ -561,11 +564,12 @@
         top: 0 !important;
         right: 0 !important;
         left: auto !important;
-        width: 450px !important;
+        width: 400px !important;
         height: 100vh !important;
         max-height: 100vh !important;
         border-radius: 0 !important;
         box-shadow: -4px 0 20px rgba(0,0,0,0.15) !important;
+        transform: none !important;
     }
     .explanation-popup.docked .explanation-popup-body {
         flex: 1;
@@ -577,9 +581,13 @@
     }
 
     /* Adjust PDF container when panels are open */
-    .pdf-viewer-container.panel-open {
-        margin-right: 450px;
-        transition: margin-right 0.3s ease;
+    .pdf-canvas-container.panel-open {
+        padding-right: 420px !important;
+        transition: padding-right 0.3s ease;
+    }
+    .summary-panel.open ~ .pdf-viewer-container .pdf-canvas-container,
+    body.summary-open .pdf-canvas-container {
+        padding-right: 420px !important;
     }
 </style>
 {% endblock %}
@@ -2703,21 +2711,21 @@ document.addEventListener('keydown', (e) => {
 // Summary Panel
 // ============================================
 const summaryPanel = document.getElementById('summaryPanel');
-const pdfViewerContainer = document.getElementById('pdfViewerContainer');
+const pdfCanvasContainer = document.getElementById('pdfCanvasContainer');
 
 document.getElementById('toggleSummaryPanel').addEventListener('click', () => {
-    summaryPanel.classList.toggle('open');
-    if (summaryPanel.classList.contains('open')) {
-        pdfViewerContainer.classList.add('panel-open');
+    const isOpen = summaryPanel.classList.toggle('open');
+    if (isOpen) {
+        pdfCanvasContainer.classList.add('panel-open');
         loadSummary();
     } else {
-        pdfViewerContainer.classList.remove('panel-open');
+        pdfCanvasContainer.classList.remove('panel-open');
     }
 });
 
 document.getElementById('closeSummaryPanel').addEventListener('click', () => {
     summaryPanel.classList.remove('open');
-    pdfViewerContainer.classList.remove('panel-open');
+    pdfCanvasContainer.classList.remove('panel-open');
 });
 
 async function loadSummary() {
@@ -2751,7 +2759,17 @@ async function loadSummary() {
 function renderSummary(summary) {
     const content = document.getElementById('summaryContent');
     
-    let html = `<div class="summary-content mb-4">${summary.full_summary}</div>`;
+    // Kurze Zusammenfassung (erste 500 Zeichen oder volle)
+    const shortSummary = summary.full_summary.length > 600 
+        ? summary.full_summary.substring(0, 600) + '...' 
+        : summary.full_summary;
+    
+    let html = `
+        <div class="summary-text mb-4">${shortSummary}</div>
+        <a href="/learnloom/summary/${bookId}/" class="btn btn-outline-primary btn-sm mb-4" target="_blank">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Vollständige Zusammenfassung
+        </a>
+    `;
     
     if (summary.sections && summary.sections.length > 0) {
         html += '<h6 class="text-muted mb-3"><i class="bi bi-list-columns-reverse me-2"></i>Abschnitte</h6>';
@@ -2763,7 +2781,6 @@ function renderSummary(summary) {
                         <i class="bi bi-file-earmark me-1"></i>
                         ${section.start_page === section.end_page ? 'Seite ' + section.start_page : 'Seite ' + section.start_page + '-' + section.end_page}
                     </div>
-                    <div class="summary-section-text">${section.text}</div>
                 </div>
             `;
         });
@@ -2819,14 +2836,14 @@ document.getElementById('dockExplanationBtn').addEventListener('click', () => {
     if (isExplanationDocked) {
         popup.classList.add('docked');
         popup.classList.remove('fullscreen');
-        pdfViewerContainer.classList.add('panel-open');
+        pdfCanvasContainer.classList.add('panel-open');
         dockBtn.innerHTML = '<i class="bi bi-pip"></i>';
         dockBtn.title = 'Als Popup lösen';
         // Close summary panel if open
         summaryPanel.classList.remove('open');
     } else {
         popup.classList.remove('docked');
-        pdfViewerContainer.classList.remove('panel-open');
+        pdfCanvasContainer.classList.remove('panel-open');
         dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
         dockBtn.title = 'Rechts andocken';
         // Reset position
@@ -2837,10 +2854,9 @@ document.getElementById('dockExplanationBtn').addEventListener('click', () => {
 });
 
 // Update close handler to also undock
-const originalCloseHandler = document.getElementById('closeExplanationPopup').onclick;
 document.getElementById('closeExplanationPopup').addEventListener('click', () => {
     if (isExplanationDocked) {
-        pdfViewerContainer.classList.remove('panel-open');
+        pdfCanvasContainer.classList.remove('panel-open');
         isExplanationDocked = false;
         const dockBtn = document.getElementById('dockExplanationBtn');
         dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
