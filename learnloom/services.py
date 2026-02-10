@@ -400,9 +400,14 @@ class SummaryService:
         from naturmacher.utils.api_helpers import get_user_api_key
         import json
         
-        # Gemini verwendet 'google' als Key-Name in der DB
-        api_key_provider = 'google' if provider == 'gemini' else provider
-        api_key = get_user_api_key(self.user, api_key_provider)
+        # Gemini API-Key direkt aus User-Modell holen (Feld heißt gemini_api_key)
+        if provider == 'gemini':
+            api_key = getattr(self.user, 'gemini_api_key', None)
+            if api_key:
+                api_key = api_key.strip()
+        else:
+            api_key = get_user_api_key(self.user, provider)
+        
         if not api_key:
             raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
         
