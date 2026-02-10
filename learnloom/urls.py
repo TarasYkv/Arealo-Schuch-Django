@@ -15,6 +15,7 @@ urlpatterns = [
 
     # PDF API
     path('api/extract-title/', views.api_extract_title, name='api_extract_title'),
+    path('api/add-online/', views.api_add_online_article, name='api_add_online'),
     path('api/upload/', views.api_upload_pdf, name='api_upload'),
     path('api/pdf/<uuid:book_id>/', views.api_serve_pdf, name='api_serve_pdf'),
     path('api/pdf/<uuid:book_id>/delete/', views.api_delete_pdf, name='api_delete'),

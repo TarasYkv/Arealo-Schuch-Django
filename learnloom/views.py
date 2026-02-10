@@ -261,6 +261,45 @@ def api_extract_title(request):
 
 @login_required
 @require_POST
+def api_add_online_article(request):
+    """Online-Artikel hinzufügen (nur URL, kein PDF)"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    title = data.get('title', '').strip()
+    url = data.get('url', '').strip()
+    tags = data.get('tags', '').strip()
+
+    if not title:
+        return JsonResponse({'success': False, 'error': 'Titel erforderlich'}, status=400)
+    if not url:
+        return JsonResponse({'success': False, 'error': 'URL erforderlich'}, status=400)
+
+    try:
+        book = PDFBook.objects.create(
+            user=request.user,
+            title=title,
+            url=url,
+            category='online',
+            tags=tags,
+            original_filename='',
+            file_size=0,
+            page_count=0,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'book_id': str(book.id),
+            'title': book.title
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
 def api_upload_pdf(request):
     """PDF hochladen"""
     if 'file' not in request.FILES:

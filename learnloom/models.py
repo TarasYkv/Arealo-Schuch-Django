@@ -32,6 +32,7 @@ class PDFBook(models.Model):
         ('book', 'Buch'),
         ('paper', 'Paper'),
         ('article', 'Artikel'),
+        ('online', 'Online-Artikel'),
         ('other', 'Sonstiges'),
     ]
     category = models.CharField(
@@ -57,6 +58,13 @@ class PDFBook(models.Model):
         blank=True,
         verbose_name="Tags",
         help_text="Kommagetrennte Tags"
+    )
+    url = models.URLField(
+        max_length=2000,
+        blank=True,
+        null=True,
+        verbose_name="URL",
+        help_text="URL für Online-Artikel"
     )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")

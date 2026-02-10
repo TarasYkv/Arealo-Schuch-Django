@@ -117,6 +117,9 @@
             <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#batchUploadModal">
                 <i class="bi bi-files me-2"></i>Mehrere PDFs
             </button>
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#onlineArticleModal">
+                <i class="bi bi-link-45deg me-2"></i>Online-Artikel
+            </button>
         </div>
     </div>
 
@@ -216,7 +219,11 @@
             <div class="card h-100 book-card border-0 shadow-sm" data-book-id="{{ book.id }}">
                 <!-- Thumbnail -->
                 <div class="book-thumbnail position-relative">
-                    {% if book.thumbnail %}
+                    {% if book.category == 'online' %}
+                    <div class="card-img-top bg-info bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="bi bi-link-45deg text-info" style="font-size: 4rem;"></i>
+                    </div>
+                    {% elif book.thumbnail %}
                     <img src="{{ book.thumbnail.url }}" class="card-img-top" alt="{{ book.title }}">
                     {% else %}
                     <div class="card-img-top bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 200px;">
@@ -247,7 +254,11 @@
                 <div class="card-body">
                     <h6 class="card-title text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ book.title }}">{{ book.title }}</h6>
                     <p class="card-text small text-muted mb-2">
+                        {% if book.category == 'online' %}
+                        <i class="bi bi-link-45deg me-1"></i>Online-Artikel
+                        {% else %}
                         <i class="bi bi-file-earmark me-1"></i>{{ book.page_count }} Seiten
+                        {% endif %}
                         {% if book.last_opened_at %}
                         <br><i class="bi bi-clock me-1"></i>{{ book.last_opened_at|timesince }} ago
                         {% endif %}
@@ -263,9 +274,15 @@
 
                 <div class="card-footer bg-transparent border-0 pt-0">
                     <div class="d-flex gap-1 mb-2">
+                        {% if book.category == 'online' %}
+                        <a href="{{ book.url }}" target="_blank" class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Öffnen
+                        </a>
+                        {% else %}
                         <a href="{% url 'learnloom:pdf_viewer' book.id %}" class="btn btn-primary btn-sm flex-grow-1">
                             <i class="bi bi-eye me-1"></i>Lesen
                         </a>
+                        {% endif %}
                         <a href="{% url 'learnloom:notes' book.id %}" class="btn btn-outline-secondary btn-sm" title="Notizen">
                             <i class="bi bi-sticky"></i>
                         </a>
@@ -452,6 +469,38 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                 <button type="button" class="btn btn-primary" id="batchUploadBtn" disabled onclick="startBatchUpload()">
                     <i class="bi bi-upload me-2"></i>Alle hochladen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Online-Artikel Modal -->
+<div class="modal fade" id="onlineArticleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-link-45deg me-2"></i>Online-Artikel hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="onlineUrl" class="form-label">URL</label>
+                    <input type="url" class="form-control" id="onlineUrl" placeholder="https://..." required>
+                </div>
+                <div class="mb-3">
+                    <label for="onlineTitle" class="form-label">Titel</label>
+                    <input type="text" class="form-control" id="onlineTitle" placeholder="Titel des Artikels">
+                </div>
+                <div class="mb-3">
+                    <label for="onlineTags" class="form-label">Tags (kommagetrennt)</label>
+                    <input type="text" class="form-control" id="onlineTags" placeholder="tag1, tag2, tag3">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="addOnlineArticle()">
+                    <i class="bi bi-plus-lg me-2"></i>Hinzufügen
                 </button>
             </div>
         </div>
@@ -977,6 +1026,55 @@ document.getElementById('batchUploadModal').addEventListener('hidden.bs.modal', 
     batchFilesList.classList.add('d-none');
     batchUploadBtn.disabled = true;
     document.getElementById('batchUploadProgress').classList.add('d-none');
+});
+
+// ============================================================================
+// Online Article Functions
+// ============================================================================
+
+async function addOnlineArticle() {
+    const url = document.getElementById('onlineUrl').value.trim();
+    const title = document.getElementById('onlineTitle').value.trim();
+    const tags = document.getElementById('onlineTags').value.trim();
+    
+    if (!url) {
+        alert('Bitte gib eine URL ein.');
+        return;
+    }
+    
+    if (!title) {
+        alert('Bitte gib einen Titel ein.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "learnloom:api_add_online" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ url, title, tags })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('onlineArticleModal')).hide();
+            location.reload();
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (error) {
+        console.error('Fehler:', error);
+        alert('Fehler beim Hinzufügen');
+    }
+}
+
+// Reset online article form when modal closes
+document.getElementById('onlineArticleModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('onlineUrl').value = '';
+    document.getElementById('onlineTitle').value = '';
+    document.getElementById('onlineTags').value = '';
 });
 
 // Delete Book
