@@ -1967,46 +1967,10 @@ document.getElementById('closePopup').addEventListener('click', () => {
 const followupInput = document.getElementById('followupQuestion');
 let conversationHistory = []; // Store conversation for context
 
-// Make popup draggable
+// Old draggable popup code removed - explanation is now in right panel
+// Keeping variables for backward compatibility with other code
 let isDragging = false;
 let dragStartX, dragStartY, popupStartX, popupStartY;
-
-const explanationHeader = document.getElementById('explanationPopupHeader');
-
-explanationHeader.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.btn-popup-control')) return; // Don't drag when clicking buttons
-    isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    const rect = explanationPopup.getBoundingClientRect();
-    popupStartX = rect.left;
-    popupStartY = rect.top;
-    explanationPopup.style.transition = 'none';
-});
-
-document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const deltaX = e.clientX - dragStartX;
-    const deltaY = e.clientY - dragStartY;
-    explanationPopup.style.left = (popupStartX + deltaX) + 'px';
-    explanationPopup.style.top = (popupStartY + deltaY) + 'px';
-});
-
-document.addEventListener('mouseup', () => {
-    isDragging = false;
-    explanationPopup.style.transition = 'all 0.3s ease';
-});
-
-// Fullscreen toggle
-document.getElementById('toggleFullscreenBtn').addEventListener('click', () => {
-    explanationPopup.classList.toggle('fullscreen');
-    const icon = document.querySelector('#toggleFullscreenBtn i');
-    if (explanationPopup.classList.contains('fullscreen')) {
-        icon.className = 'bi bi-fullscreen-exit';
-    } else {
-        icon.className = 'bi bi-arrows-fullscreen';
-    }
-});
 
 // Fetch Explanation (with auto-save)
 async function fetchExplanation(textToExplain) {
@@ -2102,9 +2066,6 @@ async function autoSaveExplanation(textToSave, explanationText) {
             // Render explanation highlights
             renderAllExplanations();
 
-            // Show saved hint
-            document.getElementById('autoSaveHint').style.display = 'inline';
-
             console.log('Erklärung automatisch gespeichert');
         }
     } catch (error) {
@@ -2183,30 +2144,15 @@ followupInput.addEventListener('keypress', (e) => {
     }
 });
 
-// Close Explanation Popup
-function closeExplanationPopup() {
-    explanationPopup.classList.add('d-none');
-    explanationPopup.classList.remove('fullscreen');
-    document.querySelector('#toggleFullscreenBtn i').className = 'bi bi-arrows-fullscreen';
+// Old popup close code removed - explanation is now in right panel
+// Reset function for explanation state (used when switching views)
+function resetExplanationState() {
     currentExplanation = '';
     conversationHistory = [];
-    explanationChatContainer.innerHTML = '';
-    document.getElementById('autoSaveHint').style.display = 'none';
-}
-
-document.getElementById('closeExplanationPopup').addEventListener('click', closeExplanationPopup);
-
-// Close explanation popup when clicking outside
-document.addEventListener('click', (e) => {
-    if (explanationPopup.classList.contains('d-none')) return;
-
-    // Check if click is outside the popup
-    if (!explanationPopup.contains(e.target) &&
-        !actionButtons.contains(e.target) &&
-        !e.target.closest('#explainBtn')) {
-        closeExplanationPopup();
+    if (explanationChatContainer) {
+        explanationChatContainer.innerHTML = '';
     }
-});
+}
 
 // ============================================
 // Rectangle Selection Mode
@@ -3038,53 +2984,7 @@ document.getElementById('summaryContent').addEventListener('click', async (e) =>
     }
 });
 
-// ============================================
-// Dock Explanation Panel
-// ============================================
-let isExplanationDocked = false;
-
-document.getElementById('dockExplanationBtn').addEventListener('click', () => {
-    const popup = document.getElementById('explanationPopup');
-    const dockBtn = document.getElementById('dockExplanationBtn');
-    
-    isExplanationDocked = !isExplanationDocked;
-    
-    if (isExplanationDocked) {
-        popup.classList.add('docked');
-        popup.classList.remove('fullscreen');
-        pdfCanvasContainer.classList.add('panel-open');
-        dockBtn.innerHTML = '<i class="bi bi-pip"></i>';
-        dockBtn.title = 'Als Popup lösen';
-        // Close summary panel if open
-        summaryPanel.classList.remove('open');
-        // PDF neu skalieren
-        setTimeout(() => recalculateAndRender(400, true), 400);
-    } else {
-        popup.classList.remove('docked');
-        pdfCanvasContainer.classList.remove('panel-open');
-        dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
-        dockBtn.title = 'Rechts andocken';
-        // Reset position
-        popup.style.left = '50%';
-        popup.style.top = '50%';
-        popup.style.transform = 'translate(-50%, -50%)';
-        // PDF zurück skalieren
-        setTimeout(() => recalculateAndRender(0, true), 400);
-    }
-});
-
-// Update close handler to also undock
-document.getElementById('closeExplanationPopup').addEventListener('click', () => {
-    if (isExplanationDocked) {
-        pdfCanvasContainer.classList.remove('panel-open');
-        isExplanationDocked = false;
-        const dockBtn = document.getElementById('dockExplanationBtn');
-        dockBtn.innerHTML = '<i class="bi bi-layout-sidebar-reverse"></i>';
-        dockBtn.title = 'Rechts andocken';
-        // PDF zurück skalieren
-        setTimeout(() => recalculateAndRender(0, true), 400);
-    }
-});
+// Old dock explanation code removed - now using integrated panel layout
 
 // Initialize
 document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
