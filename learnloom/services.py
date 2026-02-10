@@ -359,3 +359,157 @@ class ExplanationService:
         else:
             error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
             raise Exception(f"Anthropic API Fehler ({response.status_code}): {error_msg}")
+
+
+class SummaryService:
+    """Service für KI-generierte PDF-Zusammenfassungen"""
+
+    def __init__(self, user):
+        self.user = user
+
+    def extract_full_text(self, pdf_file):
+        """
+        Extrahiert den gesamten Text aus einem PDF mit Seitenzuordnung.
+        
+        Returns:
+            list: [{"page": 1, "text": "..."}, ...]
+        """
+        try:
+            pdf_bytes = pdf_file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            
+            pages = []
+            for i, page in enumerate(doc):
+                text = page.get_text().strip()
+                if text:
+                    pages.append({
+                        "page": i + 1,
+                        "text": text
+                    })
+            
+            doc.close()
+            return pages
+        except Exception as e:
+            print(f"Fehler bei Textextraktion: {e}")
+            return []
+
+    def generate_summary(self, book, provider='openai', language='de'):
+        """
+        Generiert eine strukturierte Zusammenfassung eines PDFs.
+        """
+        from naturmacher.utils.api_helpers import get_user_api_key
+        import json
+        
+        api_key = get_user_api_key(self.user, provider)
+        if not api_key:
+            raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
+        
+        # PDF-Text extrahieren
+        book.file.seek(0)
+        pages = self.extract_full_text(book.file)
+        
+        if not pages:
+            raise ValueError("Konnte keinen Text aus dem PDF extrahieren.")
+        
+        # Text zusammenfügen mit Seitenmarkierungen
+        full_text = ""
+        for p in pages:
+            full_text += f"\n\n[Seite {p['page']}]\n{p['text']}"
+        
+        # Text kürzen wenn zu lang
+        if len(full_text) > 50000:
+            full_text = full_text[:50000] + "\n\n[... Text gekürzt ...]"
+        
+        lang_name = "Deutsch" if language == 'de' else "English"
+        
+        system_prompt = f"""Du bist ein Experte für wissenschaftliche Texte. Erstelle eine strukturierte Zusammenfassung auf {lang_name}.
+
+Antworte NUR mit diesem JSON-Format:
+{{
+    "full_summary": "Ausführliche Zusammenfassung (300-500 Wörter)",
+    "sections": [
+        {{
+            "title": "Abschnittstitel",
+            "text": "Zusammenfassung (50-100 Wörter)",
+            "start_page": 1,
+            "end_page": 2
+        }}
+    ]
+}}
+
+Regeln:
+1. NUR valides JSON ausgeben
+2. Seitenzahlen aus [Seite X] Markierungen entnehmen
+3. 4-8 Abschnitte erstellen
+4. Wissenschaftlich prägnant zusammenfassen"""
+
+        if provider == 'openai':
+            return self._generate_summary_openai(full_text, system_prompt, api_key)
+        else:
+            return self._generate_summary_anthropic(full_text, system_prompt, api_key)
+
+    def _generate_summary_openai(self, text, system_prompt, api_key):
+        import json
+        model = getattr(self.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
+        
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': model,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': f'Dokument:\n\n{text}'}
+                ],
+                'temperature': 0.3,
+                'max_tokens': 4000,
+                'response_format': {'type': 'json_object'}
+            },
+            timeout=120
+        )
+        
+        if response.status_code == 200:
+            content = response.json()['choices'][0]['message']['content']
+            return json.loads(content)
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"OpenAI Fehler: {error_msg}")
+
+    def _generate_summary_anthropic(self, text, system_prompt, api_key):
+        import json
+        import re
+        model = getattr(self.user, 'preferred_anthropic_model', None) or 'claude-3-5-sonnet-20241022'
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': api_key,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01'
+            },
+            json={
+                'model': model,
+                'max_tokens': 4000,
+                'system': system_prompt,
+                'messages': [
+                    {'role': 'user', 'content': f'Dokument:\n\n{text}'}
+                ]
+            },
+            timeout=120
+        )
+        
+        if response.status_code == 200:
+            content = response.json()['content'][0]['text']
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                json_match = re.search(r'\{[\s\S]*\}', content)
+                if json_match:
+                    return json.loads(json_match.group())
+                raise ValueError("Kein gültiges JSON in Antwort")
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Fehler')
+            raise Exception(f"Anthropic Fehler: {error_msg}")

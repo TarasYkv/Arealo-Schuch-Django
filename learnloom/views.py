@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods, require_POST, require_GET
@@ -18,8 +18,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress, ReadingListItem
-from .services import PDFService, TranslationService, ExplanationService
+from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress, ReadingListItem, PDFSummary
+from .services import PDFService, TranslationService, ExplanationService, SummaryService
 from core.models import StorageLog
 
 
@@ -106,6 +106,34 @@ def notes_view(request, book_id):
         'notes': notes,
     }
     return render(request, 'learnloom/notes.html', context)
+
+
+@login_required
+def summary_view(request, book_id):
+    """Zusammenfassungs-Seite für Paper/Artikel"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    # Nur für Paper, Artikel und Sonstiges erlaubt
+    if book.category == 'book':
+        from django.contrib import messages
+        messages.warning(request, 'Zusammenfassungen sind nur für Paper, Artikel und Sonstiges verfügbar.')
+        return redirect('learnloom:index')
+    
+    # Prüfen ob bereits eine Zusammenfassung existiert
+    try:
+        summary = book.summary
+        has_summary = True
+    except PDFSummary.DoesNotExist:
+        summary = None
+        has_summary = False
+    
+    context = {
+        'book': book,
+        'summary': summary,
+        'has_summary': has_summary,
+        'sections_json': json.dumps(summary.sections if summary else [], cls=DjangoJSONEncoder),
+    }
+    return render(request, 'learnloom/summary.html', context)
 
 
 @login_required
@@ -678,6 +706,104 @@ def api_delete_explanation(request, explanation_id):
     explanation = get_object_or_404(TextExplanation, id=explanation_id, user=request.user)
     explanation.delete()
     return JsonResponse({'success': True})
+
+
+# ============================================================================
+# Summary API
+# ============================================================================
+
+@login_required
+@require_GET
+def api_get_summary(request, book_id):
+    """Zusammenfassung für ein PDF abrufen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        summary = book.summary
+        return JsonResponse({
+            'success': True,
+            'has_summary': True,
+            'summary': {
+                'id': str(summary.id),
+                'full_summary': summary.full_summary,
+                'sections': summary.sections,
+                'provider': summary.provider,
+                'language': summary.language,
+                'created_at': summary.created_at.isoformat(),
+            }
+        })
+    except PDFSummary.DoesNotExist:
+        return JsonResponse({
+            'success': True,
+            'has_summary': False,
+        })
+
+
+@login_required
+@require_POST
+def api_generate_summary(request, book_id):
+    """Zusammenfassung für ein PDF generieren"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    # Nur für Paper, Artikel und Sonstiges
+    if book.category == 'book':
+        return JsonResponse({
+            'success': False, 
+            'error': 'Zusammenfassungen sind nur für Paper, Artikel und Sonstiges verfügbar.'
+        }, status=400)
+    
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = {}
+    
+    provider = data.get('provider', 'openai')
+    language = data.get('language', 'de')
+    
+    try:
+        # Generiere Zusammenfassung
+        service = SummaryService(request.user)
+        result = service.generate_summary(book, provider=provider, language=language)
+        
+        # Speichere oder aktualisiere
+        summary, created = PDFSummary.objects.update_or_create(
+            book=book,
+            defaults={
+                'full_summary': result.get('full_summary', ''),
+                'sections': result.get('sections', []),
+                'provider': provider,
+                'language': language,
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'summary': {
+                'id': str(summary.id),
+                'full_summary': summary.full_summary,
+                'sections': summary.sections,
+                'provider': summary.provider,
+                'created_at': summary.created_at.isoformat(),
+            }
+        })
+        
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler bei Zusammenfassung: {str(e)}'}, status=500)
+
+
+@login_required
+@require_POST
+def api_delete_summary(request, book_id):
+    """Zusammenfassung löschen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        book.summary.delete()
+        return JsonResponse({'success': True})
+    except PDFSummary.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Keine Zusammenfassung vorhanden'}, status=404)
 
 
 # ============================================================================

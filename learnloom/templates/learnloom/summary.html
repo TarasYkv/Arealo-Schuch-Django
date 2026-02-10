@@ -1,0 +1,398 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Zusammenfassung: {{ book.title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
+<style>
+    .summary-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .summary-header {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+    
+    .summary-content {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        padding: 32px;
+        margin-bottom: 24px;
+    }
+    
+    .full-summary {
+        font-size: 1.1rem;
+        line-height: 1.8;
+        color: #374151;
+        border-left: 4px solid #3b82f6;
+        padding-left: 20px;
+        margin-bottom: 32px;
+    }
+    
+    .sections-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .section-card {
+        background: #f9fafb;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .section-card:hover {
+        background: #f0f9ff;
+        border-color: #3b82f6;
+        transform: translateX(4px);
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+    
+    .section-title {
+        font-weight: 600;
+        color: #1f2937;
+        font-size: 1.1rem;
+    }
+    
+    .section-pages {
+        background: #3b82f6;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+    
+    .section-text {
+        color: #4b5563;
+        line-height: 1.6;
+    }
+    
+    .section-jump {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 12px;
+        color: #3b82f6;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .section-jump:hover {
+        text-decoration: underline;
+    }
+    
+    .generate-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        padding: 48px;
+        text-align: center;
+    }
+    
+    .generate-icon {
+        font-size: 4rem;
+        color: #9ca3af;
+        margin-bottom: 20px;
+    }
+    
+    .generate-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 12px;
+    }
+    
+    .generate-desc {
+        color: #6b7280;
+        margin-bottom: 24px;
+    }
+    
+    .provider-select {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    
+    .provider-btn {
+        padding: 12px 24px;
+        border-radius: 10px;
+        border: 2px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .provider-btn:hover {
+        border-color: #3b82f6;
+    }
+    
+    .provider-btn.active {
+        border-color: #3b82f6;
+        background: #eff6ff;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+        margin-top: 20px;
+        font-size: 1.1rem;
+        color: #4b5563;
+    }
+    
+    .loading-subtext {
+        margin-top: 8px;
+        font-size: 0.9rem;
+        color: #9ca3af;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="summary-container">
+        <!-- Header -->
+        <div class="summary-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <nav aria-label="breadcrumb" class="mb-2">
+                        <ol class="breadcrumb mb-0" style="--bs-breadcrumb-divider-color: rgba(255,255,255,0.6);">
+                            <li class="breadcrumb-item"><a href="{% url 'learnloom:index' %}" class="text-white-50">LearnLoom</a></li>
+                            <li class="breadcrumb-item active text-white" aria-current="page">Zusammenfassung</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-2">{{ book.title }}</h1>
+                    <p class="mb-0 opacity-75">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>{{ book.page_count }} Seiten
+                        <span class="ms-3"><i class="bi bi-tag me-1"></i>{{ book.get_category_display }}</span>
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'learnloom:pdf_viewer' book.id %}" class="btn btn-light btn-sm">
+                        <i class="bi bi-eye me-1"></i>PDF lesen
+                    </a>
+                    {% if has_summary %}
+                    <button class="btn btn-outline-light btn-sm" onclick="regenerateSummary()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Neu generieren
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        {% if has_summary %}
+        <!-- Summary Content -->
+        <div class="summary-content">
+            <h2 class="h5 mb-3"><i class="bi bi-file-text me-2 text-primary"></i>Zusammenfassung</h2>
+            <div class="full-summary">
+                {{ summary.full_summary }}
+            </div>
+            
+            <div class="sections-title">
+                <i class="bi bi-list-columns-reverse text-primary"></i>
+                Abschnitte
+            </div>
+            
+            <div id="sectionsContainer">
+                {% for section in summary.sections %}
+                <div class="section-card" onclick="jumpToPage({{ section.start_page }})">
+                    <div class="section-header">
+                        <span class="section-title">{{ section.title }}</span>
+                        <span class="section-pages">
+                            {% if section.start_page == section.end_page %}
+                            Seite {{ section.start_page }}
+                            {% else %}
+                            Seite {{ section.start_page }}-{{ section.end_page }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="section-text">{{ section.text }}</div>
+                    <div class="section-jump">
+                        <i class="bi bi-arrow-right-circle"></i>
+                        Im PDF anzeigen
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="text-muted small mt-4">
+                <i class="bi bi-info-circle me-1"></i>
+                Generiert mit {{ summary.get_provider_display }} am {{ summary.created_at|date:"d.m.Y H:i" }}
+            </div>
+        </div>
+        
+        {% else %}
+        <!-- Generate Summary -->
+        <div class="generate-container">
+            <div class="generate-icon">
+                <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <h2 class="generate-title">Noch keine Zusammenfassung</h2>
+            <p class="generate-desc">
+                Lass dir eine KI-generierte Zusammenfassung dieses {{ book.get_category_display }}s erstellen.
+            </p>
+            
+            <div class="provider-select">
+                <button class="provider-btn active" data-provider="openai" onclick="selectProvider('openai')">
+                    <i class="bi bi-lightning-fill" style="color: #10a37f;"></i>
+                    OpenAI
+                </button>
+                <button class="provider-btn" data-provider="anthropic" onclick="selectProvider('anthropic')">
+                    <i class="bi bi-stars" style="color: #cc785c;"></i>
+                    Anthropic
+                </button>
+            </div>
+            
+            <button class="btn btn-primary btn-lg px-5" onclick="generateSummary()">
+                <i class="bi bi-magic me-2"></i>Zusammenfassung generieren
+            </button>
+            
+            <p class="text-muted small mt-3">
+                <i class="bi bi-clock me-1"></i>Dies kann je nach Dokumentgröße 30-60 Sekunden dauern
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Zusammenfassung wird generiert...</div>
+    <div class="loading-subtext">Bitte warte einen Moment</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+const bookId = '{{ book.id }}';
+let selectedProvider = 'openai';
+
+function selectProvider(provider) {
+    selectedProvider = provider;
+    document.querySelectorAll('.provider-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.provider === provider);
+    });
+}
+
+async function generateSummary() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    
+    try {
+        const response = await fetch(`/learnloom/api/summary/${bookId}/generate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                provider: selectedProvider,
+                language: 'de'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    } catch (error) {
+        alert('Fehler beim Generieren: ' + error.message);
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+}
+
+async function regenerateSummary() {
+    if (!confirm('Möchtest du die Zusammenfassung neu generieren? Die alte wird überschrieben.')) {
+        return;
+    }
+    
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    
+    try {
+        const response = await fetch(`/learnloom/api/summary/${bookId}/generate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                provider: 'openai',
+                language: 'de'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    } catch (error) {
+        alert('Fehler beim Generieren: ' + error.message);
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+}
+
+function jumpToPage(pageNumber) {
+    // Zum PDF-Viewer navigieren mit Seitenzahl
+    window.location.href = `/learnloom/view/${bookId}/?page=${pageNumber}`;
+}
+</script>
+{% endblock %}

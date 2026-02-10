@@ -8,6 +8,7 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('view/<uuid:book_id>/', views.pdf_viewer, name='pdf_viewer'),
     path('notes/<uuid:book_id>/', views.notes_view, name='notes'),
+    path('summary/<uuid:book_id>/', views.summary_view, name='summary'),
     path('vocabulary/<uuid:book_id>/', views.vocabulary_list, name='vocabulary'),
     path('all-vocabulary/', views.all_vocabulary, name='all_vocabulary'),
     path('all-notes/', views.all_notes, name='all_notes'),
@@ -34,6 +35,11 @@ urlpatterns = [
     path('api/explanations/<uuid:book_id>/', views.api_get_explanations, name='api_get_explanations'),
     path('api/explanations/<uuid:book_id>/save/', views.api_save_explanation, name='api_save_explanation'),
     path('api/explanations/<uuid:explanation_id>/delete/', views.api_delete_explanation, name='api_delete_explanation'),
+
+    # Summary API
+    path('api/summary/<uuid:book_id>/', views.api_get_summary, name='api_get_summary'),
+    path('api/summary/<uuid:book_id>/generate/', views.api_generate_summary, name='api_generate_summary'),
+    path('api/summary/<uuid:book_id>/delete/', views.api_delete_summary, name='api_delete_summary'),
 
     # Vocabulary API
     path('api/vocabulary/<uuid:book_id>/', views.api_get_vocabulary, name='api_get_vocabulary'),

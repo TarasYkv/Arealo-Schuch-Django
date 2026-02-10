@@ -325,6 +325,52 @@ class ReadingListItem(models.Model):
         return f"{self.title[:50]} ({self.get_status_display()})"
 
 
+class PDFSummary(models.Model):
+    """KI-generierte Zusammenfassung eines PDFs"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    book = models.OneToOneField(
+        PDFBook,
+        on_delete=models.CASCADE,
+        related_name='summary',
+        verbose_name="PDF-Buch"
+    )
+    
+    full_summary = models.TextField(verbose_name="Vollständige Zusammenfassung")
+    sections = models.JSONField(
+        default=list,
+        verbose_name="Abschnitte",
+        help_text="Strukturierte Abschnitte mit Seitenreferenzen"
+    )
+    # Format: [{"title": "Introduction", "text": "...", "start_page": 1, "end_page": 3}, ...]
+    
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI'),
+        ('anthropic', 'Anthropic'),
+    ]
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        default='openai',
+        verbose_name="KI-Provider"
+    )
+    
+    language = models.CharField(
+        max_length=10,
+        default='de',
+        verbose_name="Sprache"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Aktualisiert am")
+    
+    class Meta:
+        verbose_name = "PDF-Zusammenfassung"
+        verbose_name_plural = "PDF-Zusammenfassungen"
+    
+    def __str__(self):
+        return f"Summary: {self.book.title[:50]}"
+
+
 class ReadingProgress(models.Model):
     """Lesefortschritt pro PDF"""
     book = models.OneToOneField(
