@@ -392,7 +392,7 @@ class ReadingProgress(models.Model):
         verbose_name="Scroll-Position",
         help_text="Scroll-Position in Prozent (0-100)"
     )
-    zoom_level = models.FloatField(default=1.0, verbose_name="Zoom-Stufe")
+    zoom_level = models.FloatField(default=1.75, verbose_name="Zoom-Stufe")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Aktualisiert am")
 
     class Meta:
