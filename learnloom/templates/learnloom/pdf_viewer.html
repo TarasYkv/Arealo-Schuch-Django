@@ -67,40 +67,54 @@
     }
     /* Toolbar collapsed state */
     .toolbar-column.collapsed {
-        width: 0 !important;
-        min-width: 0 !important;
+        width: 16px !important;
+        min-width: 16px !important;
         padding: 0 !important;
-        overflow: hidden;
+        overflow: visible;
         border: none;
+        background: transparent;
     }
-    /* Toggle button - fixed position at right edge of toolbar */
+    .toolbar-column.collapsed > *:not(.toolbar-toggle) {
+        display: none !important;
+    }
+    /* Toggle button - inside toolbar, at bottom */
     .toolbar-toggle {
-        position: fixed;
-        top: 50%;
-        left: 70px;
-        transform: translateY(-50%);
-        z-index: 1001;
-        width: 14px;
-        height: 40px;
-        background: linear-gradient(to right, #e9ecef, #dee2e6);
+        position: absolute;
+        bottom: 10px;
+        left: 5px;
+        z-index: 10;
+        width: 20px;
+        height: 20px;
+        background: #e9ecef;
         border: 1px solid #ced4da;
-        border-left: none;
-        border-radius: 0 6px 6px 0;
+        border-radius: 4px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0;
-        font-size: 0.65rem;
+        font-size: 0.6rem;
         color: #6c757d;
-        transition: left 0.3s ease, background 0.2s;
+        transition: background 0.2s;
     }
     .toolbar-toggle:hover {
-        background: linear-gradient(to right, #dee2e6, #ced4da);
+        background: #dee2e6;
         color: #212529;
     }
     .toolbar-toggle i {
-        font-size: 0.6rem;
+        font-size: 0.55rem;
+    }
+    /* When collapsed, show toggle at edge */
+    .toolbar-column.collapsed .toolbar-toggle {
+        position: fixed;
+        left: 0;
+        bottom: auto;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 50px;
+        border-radius: 0 4px 4px 0;
+        border-left: none;
     }
     /* Mobile: smaller buttons */
     @media (max-width: 768px) {
@@ -866,13 +880,12 @@
 <!-- ========== 3-COLUMN GRID LAYOUT ========== -->
 <div class="pdf-viewer-grid" id="pdfViewerGrid">
     
-    <!-- Toggle Button (fixed position) -->
-    <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
-        <i class="bi bi-chevron-left"></i>
-    </button>
-    
     <!-- LEFT COLUMN: Toolbar -->
     <div class="toolbar-column" id="toolbarColumn">
+        <!-- Toggle button inside toolbar -->
+        <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
+            <i class="bi bi-chevron-left"></i>
+        </button>
         <a href="{% url 'learnloom:index' %}" class="btn btn-outline-secondary mb-3" title="Zurück">
             <i class="bi bi-arrow-left"></i>
         </a>
@@ -3262,31 +3275,11 @@ async function setReadingStatus(status) {
 const toolbarToggle = document.getElementById('toolbarToggle');
 const toolbarColumn = document.getElementById('toolbarColumn');
 
-function updateTogglePosition() {
-    const isCollapsed = toolbarColumn.classList.contains('collapsed');
-    const isMobile = window.innerWidth <= 768;
-    const isVerySmall = window.innerWidth <= 480;
-    
-    if (isCollapsed) {
-        toolbarToggle.style.left = '0';
-    } else if (isVerySmall) {
-        toolbarToggle.style.left = '40px';  // 40px toolbar width on very small
-    } else if (isMobile) {
-        toolbarToggle.style.left = '50px';  // 50px toolbar width on mobile
-    } else {
-        toolbarToggle.style.left = '70px';  // 70px toolbar width on desktop
-    }
-}
-
 toolbarToggle.addEventListener('click', () => {
     const icon = toolbarToggle.querySelector('i');
     toolbarColumn.classList.toggle('collapsed');
     icon.className = toolbarColumn.classList.contains('collapsed') ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
-    updateTogglePosition();
 });
-
-window.addEventListener('resize', updateTogglePosition);
-updateTogglePosition();
 
 // Initialize
 document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
