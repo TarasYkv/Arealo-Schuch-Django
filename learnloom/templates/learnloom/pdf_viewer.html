@@ -67,45 +67,43 @@
     }
     /* Toolbar collapsed state */
     .toolbar-column.collapsed {
-        width: 12px !important;
-        min-width: 12px !important;
+        width: 0 !important;
+        min-width: 0 !important;
         padding: 0 !important;
-        overflow: visible;
+        overflow: hidden;
+        border: none;
     }
-    .toolbar-column.collapsed > *:not(.toolbar-toggle) {
-        display: none;
-    }
-    .toolbar-column.collapsed .toolbar-toggle {
-        right: 0;
-        border-radius: 0 4px 4px 0;
-    }
-    /* Toggle button - compact, at toolbar edge */
+    /* Toggle button - fixed position at toolbar edge */
     .toolbar-toggle {
-        position: absolute;
+        position: fixed;
         top: 50%;
-        right: -12px;
+        left: 58px;
         transform: translateY(-50%);
         z-index: 1001;
-        width: 12px;
-        height: 36px;
-        background: #dee2e6;
-        border: none;
-        border-radius: 0 4px 4px 0;
+        width: 14px;
+        height: 40px;
+        background: linear-gradient(to right, #e9ecef, #dee2e6);
+        border: 1px solid #ced4da;
+        border-left: none;
+        border-radius: 0 6px 6px 0;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0;
-        font-size: 0.6rem;
+        font-size: 0.65rem;
         color: #6c757d;
-        transition: background 0.2s;
+        transition: left 0.3s ease, background 0.2s;
     }
     .toolbar-toggle:hover {
-        background: #adb5bd;
+        background: linear-gradient(to right, #dee2e6, #ced4da);
         color: #212529;
     }
     .toolbar-toggle i {
-        font-size: 0.5rem;
+        font-size: 0.6rem;
+    }
+    .pdf-viewer-grid:has(.toolbar-column.collapsed) .toolbar-toggle {
+        left: 0;
     }
     /* Mobile: smaller buttons */
     @media (max-width: 768px) {
@@ -871,12 +869,13 @@
 <!-- ========== 3-COLUMN GRID LAYOUT ========== -->
 <div class="pdf-viewer-grid" id="pdfViewerGrid">
     
+    <!-- Toggle Button (fixed position) -->
+    <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
+        <i class="bi bi-chevron-left"></i>
+    </button>
+    
     <!-- LEFT COLUMN: Toolbar -->
     <div class="toolbar-column" id="toolbarColumn">
-        <!-- Toggle Button at edge -->
-        <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
-            <i class="bi bi-chevron-left"></i>
-        </button>
         <a href="{% url 'learnloom:index' %}" class="btn btn-outline-secondary mb-3" title="Zurück">
             <i class="bi bi-arrow-left"></i>
         </a>
@@ -3263,13 +3262,34 @@ async function setReadingStatus(status) {
 // ============================================
 // Toolbar Toggle
 // ============================================
-document.getElementById('toolbarToggle').addEventListener('click', () => {
-    const toolbar = document.getElementById('toolbarColumn');
-    const icon = document.querySelector('#toolbarToggle i');
+const toolbarToggle = document.getElementById('toolbarToggle');
+const toolbarColumn = document.getElementById('toolbarColumn');
+
+function updateTogglePosition() {
+    const isCollapsed = toolbarColumn.classList.contains('collapsed');
+    const isMobile = window.innerWidth <= 768;
+    const isVerySmall = window.innerWidth <= 480;
     
-    toolbar.classList.toggle('collapsed');
-    icon.className = toolbar.classList.contains('collapsed') ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
+    if (isCollapsed) {
+        toolbarToggle.style.left = '0';
+    } else if (isVerySmall) {
+        toolbarToggle.style.left = '28px';
+    } else if (isMobile) {
+        toolbarToggle.style.left = '38px';
+    } else {
+        toolbarToggle.style.left = '58px';
+    }
+}
+
+toolbarToggle.addEventListener('click', () => {
+    const icon = toolbarToggle.querySelector('i');
+    toolbarColumn.classList.toggle('collapsed');
+    icon.className = toolbarColumn.classList.contains('collapsed') ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
+    updateTogglePosition();
 });
+
+window.addEventListener('resize', updateTogglePosition);
+updateTogglePosition();
 
 // Initialize
 document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
