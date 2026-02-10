@@ -2133,6 +2133,9 @@ async function fetchExplanation(textToExplain) {
             explanationMsg.className = 'chat-message assistant';
             explanationMsg.textContent = data.explanation;
             explanationChatContainer.appendChild(explanationMsg);
+            
+            // Scroll to bottom
+            setTimeout(scrollExplanationToBottom, 100);
 
             // Store initial explanation in conversation
             conversationHistory.push({
@@ -2198,6 +2201,14 @@ async function autoSaveExplanation(textToSave, explanationText) {
     }
 }
 
+// Helper: scroll explanation panel to bottom
+function scrollExplanationToBottom() {
+    const scrollArea = document.querySelector('#explanationView .explanation-scroll-area');
+    if (scrollArea) {
+        scrollArea.scrollTop = scrollArea.scrollHeight;
+    }
+}
+
 // Ask Follow-up Question
 async function askFollowup() {
     const question = followupInput.value.trim();
@@ -2219,7 +2230,7 @@ async function askFollowup() {
     explanationChatContainer.appendChild(loadingMsg);
 
     // Scroll to bottom
-    explanationChatContainer.scrollTop = explanationChatContainer.scrollHeight;
+    scrollExplanationToBottom();
 
     // Store question in conversation
     conversationHistory.push({ role: 'user', content: question });
@@ -2256,7 +2267,7 @@ async function askFollowup() {
     }
 
     // Scroll to bottom
-    explanationChatContainer.scrollTop = explanationChatContainer.scrollHeight;
+    scrollExplanationToBottom();
 }
 
 document.getElementById('askFollowupBtn').addEventListener('click', askFollowup);
