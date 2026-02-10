@@ -225,7 +225,7 @@
                         <i class="bi bi-eye me-1"></i>PDF lesen
                     </a>
                     {% if has_summary %}
-                    <button class="btn btn-outline-light btn-sm" onclick="regenerateSummary()">
+                    <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#regenerateModal">
                         <i class="bi bi-arrow-clockwise me-1"></i>Neu generieren
                     </button>
                     {% endif %}
@@ -312,6 +312,41 @@
     </div>
 </div>
 
+<!-- Regenerate Modal -->
+<div class="modal fade" id="regenerateModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-arrow-clockwise me-2"></i>Zusammenfassung neu generieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Wähle den KI-Provider für die neue Zusammenfassung:</p>
+                <div class="provider-select justify-content-center">
+                    <button class="provider-btn active" data-provider="openai" onclick="selectRegenerateProvider('openai')">
+                        <i class="bi bi-lightning-fill" style="color: #10a37f;"></i>
+                        OpenAI
+                    </button>
+                    <button class="provider-btn" data-provider="anthropic" onclick="selectRegenerateProvider('anthropic')">
+                        <i class="bi bi-stars" style="color: #cc785c;"></i>
+                        Anthropic
+                    </button>
+                    <button class="provider-btn" data-provider="gemini" onclick="selectRegenerateProvider('gemini')">
+                        <i class="bi bi-google" style="color: #4285f4;"></i>
+                        Gemini
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="regenerateSummary()">
+                    <i class="bi bi-magic me-1"></i>Generieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay" style="display: none;">
     <div class="loading-spinner"></div>
@@ -325,10 +360,18 @@
 const csrfToken = '{{ csrf_token }}';
 const bookId = '{{ book.id }}';
 let selectedProvider = 'openai';
+let regenerateProvider = 'openai';
 
 function selectProvider(provider) {
     selectedProvider = provider;
-    document.querySelectorAll('.provider-btn').forEach(btn => {
+    document.querySelectorAll('.generate-container .provider-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.provider === provider);
+    });
+}
+
+function selectRegenerateProvider(provider) {
+    regenerateProvider = provider;
+    document.querySelectorAll('#regenerateModal .provider-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.provider === provider);
     });
 }
@@ -364,9 +407,9 @@ async function generateSummary() {
 }
 
 async function regenerateSummary() {
-    if (!confirm('Möchtest du die Zusammenfassung neu generieren? Die alte wird überschrieben.')) {
-        return;
-    }
+    // Modal schließen
+    const modal = bootstrap.Modal.getInstance(document.getElementById('regenerateModal'));
+    if (modal) modal.hide();
     
     document.getElementById('loadingOverlay').style.display = 'flex';
     
@@ -378,7 +421,7 @@ async function regenerateSummary() {
                 'X-CSRFToken': csrfToken,
             },
             body: JSON.stringify({
-                provider: 'openai',
+                provider: regenerateProvider,
                 language: 'de'
             })
         });
