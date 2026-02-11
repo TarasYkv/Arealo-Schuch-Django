@@ -2382,33 +2382,28 @@ async function askFollowup() {
     // Scroll to bottom
     scrollExplanationToBottom();
 
-    // Store question in conversation
-    conversationHistory.push({ role: 'user', content: question });
-
     try {
-        // Build conversation context
-        const conversationContext = conversationHistory.map(msg =>
-            `${msg.role === 'user' ? 'Frage' : 'Antwort'}: ${msg.content}`
-        ).join('\n\n');
-
-        const response = await fetch('/learnloom/api/explain/', {
+        // Use dedicated followup endpoint that treats the input as a question
+        const response = await fetch('/learnloom/api/followup/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({
-                selected_text: question,
-                context_before: `Vorherige Unterhaltung:\n${conversationContext}\n\nUrsprünglicher Text: "${explanationSelectedText.textContent}"`,
-                context_after: contextAfter,
+                question: question,
+                conversation_history: conversationHistory,
+                original_context: explanationSelectedText.textContent,
                 provider: 'openai'
             })
         });
 
         const data = await response.json();
         if (data.success) {
-            loadingMsg.textContent = data.explanation;
-            conversationHistory.push({ role: 'assistant', content: data.explanation });
+            loadingMsg.textContent = data.answer;
+            // Update conversation history
+            conversationHistory.push({ role: 'user', content: question });
+            conversationHistory.push({ role: 'assistant', content: data.answer });
         } else {
             loadingMsg.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
         }

@@ -710,6 +710,44 @@ def api_explain(request):
 
 @login_required
 @require_POST
+def api_followup(request):
+    """Follow-up-Frage zu einer vorherigen Erklärung beantworten"""
+    from .services import FollowupService
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    question = data.get('question', '').strip()
+    conversation_history = data.get('conversation_history', [])
+    original_context = data.get('original_context', '')
+    provider = data.get('provider', 'openai')
+
+    if not question:
+        return JsonResponse({'success': False, 'error': 'Keine Frage angegeben'}, status=400)
+
+    try:
+        service = FollowupService(request.user)
+        answer = service.answer_followup(
+            question,
+            conversation_history,
+            original_context,
+            provider
+        )
+
+        return JsonResponse({
+            'success': True,
+            'answer': answer,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
+@login_required
+@require_POST
 def api_explain_image(request):
     """Bild/Grafik erklären mit OpenAI Vision"""
     from .services import ImageExplanationService

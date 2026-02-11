@@ -367,6 +367,119 @@ class ImageExplanationService:
             raise Exception(f"OpenAI Vision Fehler ({response.status_code}): {error_msg}")
 
 
+class FollowupService:
+    """Service für Follow-up-Fragen zu Erklärungen"""
+
+    def __init__(self, user):
+        self.user = user
+
+    def answer_followup(self, question, conversation_history, original_context='', provider='openai'):
+        """
+        Beantwortet eine Follow-up-Frage basierend auf der vorherigen Konversation.
+
+        Args:
+            question: Die Follow-up-Frage
+            conversation_history: Liste von vorherigen Nachrichten
+            original_context: Ursprünglicher Kontext (Text oder Bildbeschreibung)
+            provider: 'openai' oder 'anthropic'
+
+        Returns:
+            str: Antwort auf die Frage
+        """
+        from naturmacher.utils.api_helpers import get_user_api_key
+
+        api_key = get_user_api_key(self.user, provider)
+        if not api_key:
+            raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
+
+        if provider == 'openai':
+            return self._answer_openai(question, conversation_history, original_context, api_key)
+        else:
+            return self._answer_anthropic(question, conversation_history, original_context, api_key)
+
+    def _answer_openai(self, question, conversation_history, original_context, api_key):
+        """Antwort mit OpenAI API"""
+        model = getattr(self.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
+
+        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem zuvor erklärten Thema beantwortet.
+Du hast vorher etwas erklärt (Text, Bild, Diagramm aus einem PDF). Der Nutzer stellt jetzt eine Follow-up-Frage dazu.
+Beantworte die Frage direkt und hilfreich auf Deutsch. Beziehe dich auf die vorherige Erklärung.
+
+Ursprünglicher Kontext: {original_context}"""
+
+        messages = [{'role': 'system', 'content': system_prompt}]
+        
+        # Vorherige Konversation hinzufügen
+        for msg in conversation_history[-10:]:
+            messages.append({
+                'role': msg.get('role', 'user'),
+                'content': msg.get('content', '')
+            })
+        
+        messages.append({'role': 'user', 'content': question})
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': model,
+                'messages': messages,
+                'temperature': 0.5,
+                'max_tokens': 1000
+            },
+            timeout=60
+        )
+
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"OpenAI Fehler: {error_msg}")
+
+    def _answer_anthropic(self, question, conversation_history, original_context, api_key):
+        """Antwort mit Anthropic Claude API"""
+        model = getattr(self.user, 'preferred_anthropic_model', None) or 'claude-3-5-sonnet-20241022'
+
+        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem zuvor erklärten Thema beantwortet.
+Du hast vorher etwas erklärt (Text, Bild, Diagramm aus einem PDF). Der Nutzer stellt jetzt eine Follow-up-Frage dazu.
+Beantworte die Frage direkt und hilfreich auf Deutsch. Beziehe dich auf die vorherige Erklärung.
+
+Ursprünglicher Kontext: {original_context}"""
+
+        messages = []
+        for msg in conversation_history[-10:]:
+            messages.append({
+                'role': msg.get('role', 'user'),
+                'content': msg.get('content', '')
+            })
+        messages.append({'role': 'user', 'content': question})
+
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': api_key,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01'
+            },
+            json={
+                'model': model,
+                'max_tokens': 1000,
+                'system': system_prompt,
+                'messages': messages
+            },
+            timeout=60
+        )
+
+        if response.status_code == 200:
+            return response.json()['content'][0]['text'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Fehler')
+            raise Exception(f"Anthropic Fehler: {error_msg}")
+
+
 class ExplanationService:
     """Service für Texterklärungen via OpenAI/Anthropic"""
 
