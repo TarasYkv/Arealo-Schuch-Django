@@ -2650,6 +2650,9 @@ async function captureAndExplainImage(screenRect) {
         const data = await response.json();
         
         if (data.success) {
+            // Store explanation for follow-up questions
+            currentExplanation = data.explanation;
+            
             explanationChatContainer.innerHTML = '';
             const explanationMsg = document.createElement('div');
             explanationMsg.className = 'chat-message assistant';
@@ -2669,11 +2672,13 @@ async function captureAndExplainImage(screenRect) {
             // Scroll to bottom
             setTimeout(scrollExplanationToBottom, 100);
         } else {
+            currentExplanation = '';
             explanationChatContainer.innerHTML = `<div class="text-danger text-center py-3">
                 <i class="bi bi-exclamation-triangle me-2"></i>${data.error}
             </div>`;
         }
     } catch (error) {
+        currentExplanation = '';
         explanationChatContainer.innerHTML = `<div class="text-danger text-center py-3">
             <i class="bi bi-exclamation-triangle me-2"></i>Fehler: ${error.message}
         </div>`;
