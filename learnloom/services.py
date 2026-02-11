@@ -277,6 +277,96 @@ class TranslationService:
             raise Exception(f"Anthropic API Fehler ({response.status_code}): {error_msg}")
 
 
+class ImageExplanationService:
+    """Service für Bild-Erklärungen via OpenAI Vision"""
+
+    def __init__(self, user):
+        self.user = user
+
+    def explain_image(self, image_base64, context='', provider='openai'):
+        """
+        Erklärt ein Bild (z.B. ein Diagramm, Grafik oder Formel aus einer PDF).
+
+        Args:
+            image_base64: Base64-kodiertes Bild (PNG/JPEG)
+            context: Optionaler Kontext (z.B. PDF-Titel, Thema)
+            provider: 'openai' (aktuell nur OpenAI Vision unterstützt)
+
+        Returns:
+            str: Erklärung des Bildinhalts
+
+        Raises:
+            ValueError: Wenn kein API-Key konfiguriert ist
+            Exception: Bei API-Fehlern
+        """
+        from naturmacher.utils.api_helpers import get_user_api_key
+
+        api_key = get_user_api_key(self.user, 'openai')
+        if not api_key:
+            raise ValueError("Kein OpenAI API-Key konfiguriert. "
+                           "Bitte in den Account-Einstellungen hinterlegen.")
+
+        return self._explain_image_openai(image_base64, context, api_key)
+
+    def _explain_image_openai(self, image_base64, context, api_key):
+        """Bild-Erklärung mit OpenAI Vision API"""
+        # gpt-4o und gpt-4o-mini unterstützen Vision
+        model = 'gpt-4o-mini'  # Kostengünstig und gut für Bilder
+        
+        # Sicherstellen, dass das Bild das richtige Format hat
+        if not image_base64.startswith('data:'):
+            # Annahme: PNG wenn kein MIME-Typ angegeben
+            image_base64 = f"data:image/png;base64,{image_base64}"
+
+        context_text = ""
+        if context:
+            context_text = f"\n\nKontext: {context}"
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': model,
+                'messages': [
+                    {
+                        'role': 'system',
+                        'content': 'Du bist ein Experte für die Analyse von Bildern aus wissenschaftlichen '
+                                   'Dokumenten und PDFs. Erkläre den Bildinhalt auf Deutsch, klar und verständlich. '
+                                   'Beschreibe Diagramme, Grafiken, Formeln, Tabellen oder andere visuelle Elemente. '
+                                   'Erkläre die Bedeutung und den Zusammenhang. Halte die Erklärung informativ aber verständlich.'
+                    },
+                    {
+                        'role': 'user',
+                        'content': [
+                            {
+                                'type': 'text',
+                                'text': f'Erkläre bitte dieses Bild/Diagramm aus einem PDF-Dokument.{context_text}'
+                            },
+                            {
+                                'type': 'image_url',
+                                'image_url': {
+                                    'url': image_base64,
+                                    'detail': 'high'
+                                }
+                            }
+                        ]
+                    }
+                ],
+                'max_tokens': 1000
+            },
+            timeout=60
+        )
+
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"OpenAI Vision Fehler ({response.status_code}): {error_msg}")
+
+
 class ExplanationService:
     """Service für Texterklärungen via OpenAI/Anthropic"""
 

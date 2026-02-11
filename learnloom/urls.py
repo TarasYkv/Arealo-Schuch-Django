@@ -34,6 +34,7 @@ urlpatterns = [
 
     # Explanation API
     path('api/explain/', views.api_explain, name='api_explain'),
+    path('api/explain-image/', views.api_explain_image, name='api_explain_image'),
     path('api/explanations/<uuid:book_id>/', views.api_get_explanations, name='api_get_explanations'),
     path('api/explanations/<uuid:book_id>/save/', views.api_save_explanation, name='api_save_explanation'),
     path('api/explanations/<uuid:explanation_id>/delete/', views.api_delete_explanation, name='api_delete_explanation'),

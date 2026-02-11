@@ -709,6 +709,37 @@ def api_explain(request):
 
 
 @login_required
+@require_POST
+def api_explain_image(request):
+    """Bild/Grafik erklären mit OpenAI Vision"""
+    from .services import ImageExplanationService
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    image_base64 = data.get('image', '').strip()
+    context = data.get('context', '')
+
+    if not image_base64:
+        return JsonResponse({'success': False, 'error': 'Kein Bild übergeben'}, status=400)
+
+    try:
+        service = ImageExplanationService(request.user)
+        explanation = service.explain_image(image_base64, context)
+
+        return JsonResponse({
+            'success': True,
+            'explanation': explanation,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Bild-Erklärungsfehler: {str(e)}'}, status=500)
+
+
+@login_required
 @require_GET
 def api_get_explanations(request, book_id):
     """Erklärungen für ein PDF abrufen"""

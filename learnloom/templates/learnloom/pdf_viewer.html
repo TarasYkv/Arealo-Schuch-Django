@@ -2546,18 +2546,139 @@ document.addEventListener('mouseup', async (e) => {
         exitSelectMode();
 
         if (extractedText && extractedText.trim()) {
+            // Text found - open translation popup
             openTranslationPopup(extractedText, rect.left + rect.width/2, rect.top + rect.height);
         } else {
-            // Show popup with empty input for manual entry
-            openTranslationPopup('', rect.left + rect.width/2, rect.top + rect.height);
-            alert('Kein Text gefunden. Bitte manuell eingeben.');
+            // No text found - capture screenshot and explain image
+            console.log('No text found, capturing image for explanation...');
+            await captureAndExplainImage(rect);
         }
     } catch (error) {
-        console.error('Error extracting text:', error);
+        console.error('Error in selection handler:', error);
         exitSelectMode();
-        alert('Fehler bei der Textextraktion: ' + error.message);
+        alert('Fehler: ' + error.message);
     }
 });
+
+// Capture screenshot of selected area and send to Vision API for explanation
+async function captureAndExplainImage(screenRect) {
+    // Find which page(s) the selection is on
+    const pages = document.querySelectorAll('.pdf-page');
+    let targetPage = null;
+    let pageNum = 1;
+    
+    for (const page of pages) {
+        const pageRect = page.getBoundingClientRect();
+        // Check if selection overlaps with this page
+        if (screenRect.top < pageRect.bottom && screenRect.top + screenRect.height > pageRect.top) {
+            targetPage = page;
+            pageNum = parseInt(page.dataset.page);
+            break;
+        }
+    }
+    
+    if (!targetPage) {
+        alert('Keine Seite gefunden für die Auswahl.');
+        return;
+    }
+    
+    const canvas = targetPage.querySelector('canvas');
+    if (!canvas) {
+        alert('Canvas nicht gefunden.');
+        return;
+    }
+    
+    // Calculate relative position on the canvas
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+    
+    // Selection relative to canvas
+    const relLeft = Math.max(0, (screenRect.left - canvasRect.left) * scaleX);
+    const relTop = Math.max(0, (screenRect.top - canvasRect.top) * scaleY);
+    const relWidth = Math.min(screenRect.width * scaleX, canvas.width - relLeft);
+    const relHeight = Math.min(screenRect.height * scaleY, canvas.height - relTop);
+    
+    console.log('Canvas crop:', { relLeft, relTop, relWidth, relHeight });
+    
+    // Create a temporary canvas to crop the selection
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = relWidth;
+    tempCanvas.height = relHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // Draw the selected portion
+    tempCtx.drawImage(
+        canvas,
+        relLeft, relTop, relWidth, relHeight,  // Source rect
+        0, 0, relWidth, relHeight               // Destination rect
+    );
+    
+    // Convert to base64
+    const imageBase64 = tempCanvas.toDataURL('image/png');
+    console.log('Image captured, size:', imageBase64.length);
+    
+    // Show explanation view in right panel
+    document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('explanationView').style.display = 'flex';
+    
+    // Open panel if not open
+    if (!pdfViewerGrid.classList.contains('panel-open')) {
+        pdfViewerGrid.classList.add('panel-open');
+    }
+    
+    // Set "selected text" to indicate it's an image
+    explanationSelectedText.innerHTML = '<i class="bi bi-image me-2"></i><em>Bild/Grafik aus Seite ' + pageNum + '</em>';
+    
+    // Show loading
+    explanationChatContainer.innerHTML = '<div class="chat-message assistant"><span class="spinner-border spinner-border-sm me-2"></span>Analysiere Bild...</div>';
+    conversationHistory = [];
+    
+    try {
+        const response = await fetch('/learnloom/api/explain-image/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                image: imageBase64,
+                context: `PDF: {{ book.title }} - Seite ${pageNum}`
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            explanationChatContainer.innerHTML = '';
+            const explanationMsg = document.createElement('div');
+            explanationMsg.className = 'chat-message assistant';
+            explanationMsg.textContent = data.explanation;
+            explanationChatContainer.appendChild(explanationMsg);
+            
+            // Store in conversation
+            conversationHistory.push({
+                role: 'user',
+                content: '[Bild aus PDF]'
+            });
+            conversationHistory.push({
+                role: 'assistant',
+                content: data.explanation
+            });
+            
+            // Scroll to bottom
+            setTimeout(scrollExplanationToBottom, 100);
+        } else {
+            explanationChatContainer.innerHTML = `<div class="text-danger text-center py-3">
+                <i class="bi bi-exclamation-triangle me-2"></i>${data.error}
+            </div>`;
+        }
+    } catch (error) {
+        explanationChatContainer.innerHTML = `<div class="text-danger text-center py-3">
+            <i class="bi bi-exclamation-triangle me-2"></i>Fehler: ${error.message}
+        </div>`;
+    }
+}
 
 // Extract text from PDF region - find the SINGLE word closest to selection center
 async function extractTextFromRegion(screenRect) {
