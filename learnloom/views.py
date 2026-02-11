@@ -937,6 +937,49 @@ def api_summarize_section(request, book_id):
 
 
 # ============================================================================
+# PDF Chat API
+# ============================================================================
+
+@login_required
+@require_POST
+def api_pdf_chat(request, book_id):
+    """Chat mit PDF-Dokument - beantwortet Fragen zum Inhalt"""
+    from .services import PDFChatService
+    
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        question = data.get('question', '').strip()
+        conversation_history = data.get('conversation_history', [])
+        provider = data.get('provider', 'openai')
+        
+        if not question:
+            return JsonResponse({'success': False, 'error': 'Keine Frage angegeben'}, status=400)
+        
+        # Chat-Service aufrufen
+        service = PDFChatService(request.user)
+        answer = service.chat(
+            book,
+            question,
+            conversation_history=conversation_history,
+            provider=provider
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'answer': answer
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
+# ============================================================================
 # Vocabulary API
 # ============================================================================
 

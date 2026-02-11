@@ -1008,21 +1008,42 @@
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
-            <div class="panel-body" id="summaryPanelBody">
-                <div class="summary-loading" id="summaryLoading">
-                    <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
-                    <p class="mt-2">Lade Zusammenfassung...</p>
+            <div class="panel-body" id="summaryPanelBody" style="display: flex; flex-direction: column; overflow: hidden;">
+                <!-- Scroll area for summary + chat -->
+                <div class="summary-scroll-area" id="summaryScrollArea" style="flex: 1; overflow-y: auto; min-height: 0;">
+                    <div class="summary-loading" id="summaryLoading">
+                        <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
+                        <p class="mt-2">Lade Zusammenfassung...</p>
+                    </div>
+                    <div id="summaryContent" style="display: none;"></div>
+                    <div id="summaryEmpty" style="display: none;">
+                        <div class="text-center py-4">
+                            <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-3">Noch keine Zusammenfassung.</p>
+                            {% if book.category != 'book' %}
+                            <button class="btn btn-primary" id="generateSummaryBtn">
+                                <i class="bi bi-magic me-2"></i>Generieren
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- PDF Chat Container -->
+                    <div id="pdfChatContainer" class="pdf-chat-container" style="display: none; margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+                        <h6 class="text-muted mb-3"><i class="bi bi-chat-dots me-2"></i>Fragen zum Dokument</h6>
+                        <div id="pdfChatMessages" class="pdf-chat-messages" style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- Chat messages will be inserted here -->
+                        </div>
+                    </div>
                 </div>
-                <div id="summaryContent" style="display: none;"></div>
-                <div id="summaryEmpty" style="display: none;">
-                    <div class="text-center py-4">
-                        <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
-                        <p class="text-muted mt-3">Noch keine Zusammenfassung.</p>
-                        {% if book.category != 'book' %}
-                        <button class="btn btn-primary" id="generateSummaryBtn">
-                            <i class="bi bi-magic me-2"></i>Generieren
+                
+                <!-- Fixed input at bottom -->
+                <div class="pdf-chat-input-section" id="pdfChatInputSection" style="display: none; border-top: 1px solid #e5e7eb; padding-top: 12px; flex-shrink: 0; margin-top: auto;">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="pdfChatQuestion" placeholder="Frage zum Dokument stellen...">
+                        <button class="btn btn-primary" id="pdfChatSendBtn" title="Frage senden">
+                            <i class="bi bi-send"></i>
                         </button>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -3161,6 +3182,9 @@ function renderSummary(summary) {
     }
     
     content.innerHTML = html;
+    
+    // Show PDF Chat UI when summary is loaded
+    showPdfChatUI();
 }
 
 // Generate Summary Button
@@ -3306,6 +3330,122 @@ toolbarToggle.addEventListener('click', () => {
     const icon = toolbarToggle.querySelector('i');
     toolbarColumn.classList.toggle('collapsed');
     icon.className = toolbarColumn.classList.contains('collapsed') ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
+});
+
+// ============================================
+// PDF Chat Feature
+// ============================================
+let pdfChatHistory = []; // Store conversation history
+
+function showPdfChatUI() {
+    const chatContainer = document.getElementById('pdfChatContainer');
+    const inputSection = document.getElementById('pdfChatInputSection');
+    
+    if (chatContainer && inputSection) {
+        chatContainer.style.display = 'block';
+        inputSection.style.display = 'block';
+    }
+}
+
+function hidePdfChatUI() {
+    const chatContainer = document.getElementById('pdfChatContainer');
+    const inputSection = document.getElementById('pdfChatInputSection');
+    
+    if (chatContainer && inputSection) {
+        chatContainer.style.display = 'none';
+        inputSection.style.display = 'none';
+    }
+}
+
+function scrollSummaryToBottom() {
+    const scrollArea = document.getElementById('summaryScrollArea');
+    if (scrollArea) {
+        scrollArea.scrollTop = scrollArea.scrollHeight;
+    }
+}
+
+async function sendPdfChatMessage() {
+    const input = document.getElementById('pdfChatQuestion');
+    const messagesContainer = document.getElementById('pdfChatMessages');
+    const sendBtn = document.getElementById('pdfChatSendBtn');
+    
+    const question = input.value.trim();
+    if (!question) return;
+    
+    // Disable input while processing
+    input.disabled = true;
+    sendBtn.disabled = true;
+    
+    // Add user message to chat
+    const userMsg = document.createElement('div');
+    userMsg.className = 'chat-message user';
+    userMsg.textContent = question;
+    messagesContainer.appendChild(userMsg);
+    
+    // Clear input
+    input.value = '';
+    
+    // Add loading message
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'chat-message assistant';
+    loadingMsg.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Denke nach...';
+    messagesContainer.appendChild(loadingMsg);
+    
+    // Scroll to bottom
+    scrollSummaryToBottom();
+    
+    try {
+        const response = await fetch(`/learnloom/api/pdf/${bookId}/chat/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                question: question,
+                conversation_history: pdfChatHistory,
+                provider: 'openai'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update loading message with actual answer
+            loadingMsg.textContent = data.answer;
+            
+            // Store in conversation history
+            pdfChatHistory.push({ role: 'user', content: question });
+            pdfChatHistory.push({ role: 'assistant', content: data.answer });
+            
+            // Keep only last 10 messages in history
+            if (pdfChatHistory.length > 20) {
+                pdfChatHistory = pdfChatHistory.slice(-20);
+            }
+        } else {
+            loadingMsg.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${data.error}</span>`;
+        }
+    } catch (error) {
+        loadingMsg.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Fehler: ${error.message}</span>`;
+    } finally {
+        // Re-enable input
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+        
+        // Scroll to bottom
+        scrollSummaryToBottom();
+    }
+}
+
+// Event listeners for PDF Chat
+document.getElementById('pdfChatSendBtn').addEventListener('click', sendPdfChatMessage);
+
+document.getElementById('pdfChatQuestion').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        sendPdfChatMessage();
+    }
 });
 
 // Initialize

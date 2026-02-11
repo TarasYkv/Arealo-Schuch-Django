@@ -44,6 +44,9 @@ urlpatterns = [
     path('api/summary/<uuid:book_id>/delete/', views.api_delete_summary, name='api_delete_summary'),
     path('api/summary/<uuid:book_id>/section/', views.api_summarize_section, name='api_summarize_section'),
 
+    # PDF Chat API
+    path('api/pdf/<uuid:book_id>/chat/', views.api_pdf_chat, name='api_pdf_chat'),
+
     # Vocabulary API
     path('api/vocabulary/<uuid:book_id>/', views.api_get_vocabulary, name='api_get_vocabulary'),
     path('api/vocabulary/<uuid:book_id>/add/', views.api_add_vocabulary, name='api_add_vocabulary'),

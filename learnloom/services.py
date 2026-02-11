@@ -737,3 +737,225 @@ Abschnitt:
         else:
             error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
             raise Exception(f"Gemini Fehler: {error_msg}")
+
+
+class PDFChatService:
+    """Service für Chat mit PDF-Dokumenten"""
+
+    def __init__(self, user):
+        self.user = user
+
+    def get_pdf_context(self, book, max_chars=30000):
+        """
+        Extrahiert Text aus dem PDF für Chat-Kontext.
+        
+        Args:
+            book: PDFBook-Instanz
+            max_chars: Maximale Zeichen für Kontext
+            
+        Returns:
+            str: Extrahierter PDF-Text
+        """
+        try:
+            book.file.seek(0)
+            pdf_bytes = book.file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            
+            full_text = ""
+            for i, page in enumerate(doc):
+                text = page.get_text().strip()
+                if text:
+                    full_text += f"\n\n[Seite {i + 1}]\n{text}"
+                
+                # Abbrechen wenn max_chars erreicht
+                if len(full_text) > max_chars:
+                    full_text = full_text[:max_chars] + "\n\n[... Text gekürzt ...]"
+                    break
+            
+            doc.close()
+            return full_text
+        except Exception as e:
+            print(f"Fehler bei PDF-Textextraktion: {e}")
+            return ""
+
+    def chat(self, book, question, conversation_history=None, provider='openai'):
+        """
+        Beantwortet eine Frage zum PDF-Dokument.
+        
+        Args:
+            book: PDFBook-Instanz
+            question: Die Frage des Benutzers
+            conversation_history: Liste von vorherigen Nachrichten [{"role": "user/assistant", "content": "..."}]
+            provider: 'openai', 'anthropic' oder 'gemini'
+            
+        Returns:
+            str: Antwort auf die Frage
+        """
+        from naturmacher.utils.api_helpers import get_user_api_key
+        
+        # API-Key holen
+        if provider == 'gemini':
+            api_key = getattr(self.user, 'gemini_api_key', None)
+            if api_key:
+                api_key = api_key.strip()
+        else:
+            api_key = get_user_api_key(self.user, provider)
+        
+        if not api_key:
+            raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
+        
+        # PDF-Text extrahieren
+        pdf_context = self.get_pdf_context(book)
+        
+        if not pdf_context:
+            raise ValueError("Konnte keinen Text aus dem PDF extrahieren.")
+        
+        # Zusammenfassung einbeziehen wenn vorhanden
+        summary_context = ""
+        try:
+            if hasattr(book, 'summary') and book.summary:
+                summary = book.summary
+                if summary.full_summary:
+                    summary_context = f"\n\nZusammenfassung des Dokuments:\n{summary.full_summary}"
+        except Exception:
+            pass
+        
+        if provider == 'openai':
+            return self._chat_openai(pdf_context, summary_context, question, conversation_history, api_key)
+        elif provider == 'gemini':
+            return self._chat_gemini(pdf_context, summary_context, question, conversation_history, api_key)
+        else:
+            return self._chat_anthropic(pdf_context, summary_context, question, conversation_history, api_key)
+
+    def _chat_openai(self, pdf_context, summary_context, question, conversation_history, api_key):
+        """Chat mit OpenAI API"""
+        model = getattr(self.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
+        
+        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem PDF-Dokument beantwortet.
+Beantworte die Fragen basierend auf dem Dokumentinhalt. Wenn die Antwort nicht im Dokument steht, sage das ehrlich.
+Antworte auf Deutsch, klar und präzise.
+{summary_context}
+
+Dokumentinhalt:
+{pdf_context}"""
+
+        messages = [{'role': 'system', 'content': system_prompt}]
+        
+        # Vorherige Konversation hinzufügen (max. letzte 10 Nachrichten)
+        if conversation_history:
+            for msg in conversation_history[-10:]:
+                messages.append({
+                    'role': msg.get('role', 'user'),
+                    'content': msg.get('content', '')
+                })
+        
+        messages.append({'role': 'user', 'content': question})
+        
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': model,
+                'messages': messages,
+                'temperature': 0.5,
+                'max_tokens': 1500
+            },
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"OpenAI Fehler: {error_msg}")
+
+    def _chat_anthropic(self, pdf_context, summary_context, question, conversation_history, api_key):
+        """Chat mit Anthropic Claude API"""
+        model = getattr(self.user, 'preferred_anthropic_model', None) or 'claude-3-5-sonnet-20241022'
+        
+        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem PDF-Dokument beantwortet.
+Beantworte die Fragen basierend auf dem Dokumentinhalt. Wenn die Antwort nicht im Dokument steht, sage das ehrlich.
+Antworte auf Deutsch, klar und präzise.
+{summary_context}
+
+Dokumentinhalt:
+{pdf_context}"""
+
+        messages = []
+        
+        # Vorherige Konversation hinzufügen
+        if conversation_history:
+            for msg in conversation_history[-10:]:
+                messages.append({
+                    'role': msg.get('role', 'user'),
+                    'content': msg.get('content', '')
+                })
+        
+        messages.append({'role': 'user', 'content': question})
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': api_key,
+                'Content-Type': 'application/json',
+                'anthropic-version': '2023-06-01'
+            },
+            json={
+                'model': model,
+                'max_tokens': 1500,
+                'system': system_prompt,
+                'messages': messages
+            },
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            return response.json()['content'][0]['text'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Fehler')
+            raise Exception(f"Anthropic Fehler: {error_msg}")
+
+    def _chat_gemini(self, pdf_context, summary_context, question, conversation_history, api_key):
+        """Chat mit Google Gemini API"""
+        model = getattr(self.user, 'preferred_gemini_model', None) or 'gemini-2.0-flash'
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        
+        # Kontext und Konversation zusammenbauen
+        context_text = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem PDF-Dokument beantwortet.
+Beantworte die Fragen basierend auf dem Dokumentinhalt. Wenn die Antwort nicht im Dokument steht, sage das ehrlich.
+Antworte auf Deutsch, klar und präzise.
+{summary_context}
+
+Dokumentinhalt:
+{pdf_context}"""
+        
+        # Vorherige Konversation als Text
+        history_text = ""
+        if conversation_history:
+            for msg in conversation_history[-10:]:
+                role = "Nutzer" if msg.get('role') == 'user' else "Assistent"
+                history_text += f"\n{role}: {msg.get('content', '')}"
+        
+        full_prompt = f"{context_text}\n\nBisherige Konversation:{history_text}\n\nNutzer: {question}\n\nAssistent:"
+        
+        response = requests.post(
+            url,
+            headers={'Content-Type': 'application/json'},
+            json={
+                'contents': [{'parts': [{'text': full_prompt}]}],
+                'generationConfig': {
+                    'temperature': 0.5,
+                    'maxOutputTokens': 1500,
+                }
+            },
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            return response.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"Gemini Fehler: {error_msg}")
