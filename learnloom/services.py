@@ -368,19 +368,42 @@ class ImageExplanationService:
 
 
 class FollowupService:
-    """Service für Follow-up-Fragen zu Erklärungen"""
+    """Service für Follow-up-Fragen zu Erklärungen - mit PDF-Kontext"""
 
     def __init__(self, user):
         self.user = user
 
-    def answer_followup(self, question, conversation_history, original_context='', provider='openai'):
+    def get_pdf_context(self, book, max_chars=25000):
+        """Extrahiert PDF-Text für Kontext"""
+        try:
+            book.file.seek(0)
+            pdf_bytes = book.file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            
+            full_text = ""
+            for i, page in enumerate(doc):
+                text = page.get_text().strip()
+                if text:
+                    full_text += f"\n\n[Seite {i + 1}]\n{text}"
+                if len(full_text) > max_chars:
+                    full_text = full_text[:max_chars] + "\n[...]"
+                    break
+            
+            doc.close()
+            return full_text
+        except Exception as e:
+            print(f"Fehler bei PDF-Textextraktion: {e}")
+            return ""
+
+    def answer_followup(self, question, conversation_history, original_context='', book=None, provider='openai'):
         """
-        Beantwortet eine Follow-up-Frage basierend auf der vorherigen Konversation.
+        Beantwortet eine Follow-up-Frage basierend auf der vorherigen Konversation UND dem PDF-Inhalt.
 
         Args:
             question: Die Follow-up-Frage
             conversation_history: Liste von vorherigen Nachrichten
-            original_context: Ursprünglicher Kontext (Text oder Bildbeschreibung)
+            original_context: Ursprünglicher Kontext (ausgewählter Text/Bild)
+            book: PDFBook-Objekt für vollen Dokumentkontext
             provider: 'openai' oder 'anthropic'
 
         Returns:
@@ -392,20 +415,29 @@ class FollowupService:
         if not api_key:
             raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
 
-        if provider == 'openai':
-            return self._answer_openai(question, conversation_history, original_context, api_key)
-        else:
-            return self._answer_anthropic(question, conversation_history, original_context, api_key)
+        # PDF-Text extrahieren wenn Book übergeben wurde
+        pdf_context = ""
+        if book:
+            pdf_context = self.get_pdf_context(book)
 
-    def _answer_openai(self, question, conversation_history, original_context, api_key):
+        if provider == 'openai':
+            return self._answer_openai(question, conversation_history, original_context, pdf_context, api_key)
+        else:
+            return self._answer_anthropic(question, conversation_history, original_context, pdf_context, api_key)
+
+    def _answer_openai(self, question, conversation_history, original_context, pdf_context, api_key):
         """Antwort mit OpenAI API"""
         model = getattr(self.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
 
-        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem zuvor erklärten Thema beantwortet.
-Du hast vorher etwas erklärt (Text, Bild, Diagramm aus einem PDF). Der Nutzer stellt jetzt eine Follow-up-Frage dazu.
-Beantworte die Frage direkt und hilfreich auf Deutsch. Beziehe dich auf die vorherige Erklärung.
+        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem PDF-Dokument beantwortet.
+Der Nutzer hat zuvor einen Teil des Dokuments (Text oder Bild) erklären lassen. Jetzt stellt er eine Follow-up-Frage.
+Beantworte die Frage basierend auf dem gesamten Dokumentinhalt und der vorherigen Erklärung.
+Antworte auf Deutsch, klar und hilfreich.
 
-Ursprünglicher Kontext: {original_context}"""
+Ausgewählter Bereich: {original_context}
+
+Vollständiger Dokumentinhalt:
+{pdf_context}"""
 
         messages = [{'role': 'system', 'content': system_prompt}]
         
@@ -428,7 +460,7 @@ Ursprünglicher Kontext: {original_context}"""
                 'model': model,
                 'messages': messages,
                 'temperature': 0.5,
-                'max_tokens': 1000
+                'max_tokens': 1500
             },
             timeout=60
         )
@@ -439,15 +471,19 @@ Ursprünglicher Kontext: {original_context}"""
             error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
             raise Exception(f"OpenAI Fehler: {error_msg}")
 
-    def _answer_anthropic(self, question, conversation_history, original_context, api_key):
+    def _answer_anthropic(self, question, conversation_history, original_context, pdf_context, api_key):
         """Antwort mit Anthropic Claude API"""
         model = getattr(self.user, 'preferred_anthropic_model', None) or 'claude-3-5-sonnet-20241022'
 
-        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem zuvor erklärten Thema beantwortet.
-Du hast vorher etwas erklärt (Text, Bild, Diagramm aus einem PDF). Der Nutzer stellt jetzt eine Follow-up-Frage dazu.
-Beantworte die Frage direkt und hilfreich auf Deutsch. Beziehe dich auf die vorherige Erklärung.
+        system_prompt = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem PDF-Dokument beantwortet.
+Der Nutzer hat zuvor einen Teil des Dokuments (Text oder Bild) erklären lassen. Jetzt stellt er eine Follow-up-Frage.
+Beantworte die Frage basierend auf dem gesamten Dokumentinhalt und der vorherigen Erklärung.
+Antworte auf Deutsch, klar und hilfreich.
 
-Ursprünglicher Kontext: {original_context}"""
+Ausgewählter Bereich: {original_context}
+
+Vollständiger Dokumentinhalt:
+{pdf_context}"""
 
         messages = []
         for msg in conversation_history[-10:]:
@@ -466,7 +502,7 @@ Ursprünglicher Kontext: {original_context}"""
             },
             json={
                 'model': model,
-                'max_tokens': 1000,
+                'max_tokens': 1500,
                 'system': system_prompt,
                 'messages': messages
             },

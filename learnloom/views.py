@@ -711,7 +711,7 @@ def api_explain(request):
 @login_required
 @require_POST
 def api_followup(request):
-    """Follow-up-Frage zu einer vorherigen Erklärung beantworten"""
+    """Follow-up-Frage zu einer vorherigen Erklärung beantworten - mit vollem PDF-Kontext"""
     from .services import FollowupService
     
     try:
@@ -722,10 +722,19 @@ def api_followup(request):
     question = data.get('question', '').strip()
     conversation_history = data.get('conversation_history', [])
     original_context = data.get('original_context', '')
+    book_id = data.get('book_id', '')
     provider = data.get('provider', 'openai')
 
     if not question:
         return JsonResponse({'success': False, 'error': 'Keine Frage angegeben'}, status=400)
+
+    # Book laden wenn book_id angegeben
+    book = None
+    if book_id:
+        try:
+            book = PDFBook.objects.get(id=book_id, user=request.user)
+        except PDFBook.DoesNotExist:
+            pass  # Kein Problem, funktioniert auch ohne
 
     try:
         service = FollowupService(request.user)
@@ -733,7 +742,8 @@ def api_followup(request):
             question,
             conversation_history,
             original_context,
-            provider
+            book=book,
+            provider=provider
         )
 
         return JsonResponse({
