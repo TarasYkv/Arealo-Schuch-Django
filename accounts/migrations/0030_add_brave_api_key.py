@@ -7,7 +7,7 @@ import encrypted_model_fields.fields
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0028_alter_appinfo_app_name_alter_apppermission_app_name_and_more'),
+        ('accounts', '0029_add_bing_api_key'),
     ]
 
     operations = [
