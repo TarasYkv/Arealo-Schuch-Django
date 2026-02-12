@@ -1139,7 +1139,7 @@ class BacklinkScraper:
                 timeout=15
             )
 
-            if response.status_code != 200:
+            if response.status_code not in [200, 202]:
                 self.search.log_progress(f"TikTok: DuckDuckGo HTTP {response.status_code}")
                 self.source_stats['tiktok']['status'] = 'error'
                 return results
