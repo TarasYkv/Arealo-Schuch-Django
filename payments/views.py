@@ -1796,6 +1796,41 @@ def user_storage_detail_api(request, user_id):
     except Exception as e:
         logger.error(f"Error calculating streamrec storage for user {user_id}: {e}")
 
+    # Ideopin (Pinterest Pin Generator)
+    try:
+        from ideopin.models import PinProject, Pin
+        ideopin_total = 0
+        ideopin_count = 0
+
+        # PinProject Bilder
+        pin_projects = PinProject.objects.filter(user=target_user)
+        for project in pin_projects:
+            for field_name in ['product_image', 'generated_image', 'final_image']:
+                field = getattr(project, field_name, None)
+                if field and hasattr(field, 'size'):
+                    try:
+                        ideopin_total += field.size
+                        ideopin_count += 1
+                    except:
+                        pass
+
+        # Pin Bilder (Multi-Pin)
+        pins = Pin.objects.filter(project__user=target_user)
+        for pin in pins:
+            for field_name in ['generated_image', 'final_image']:
+                field = getattr(pin, field_name, None)
+                if field and hasattr(field, 'size'):
+                    try:
+                        ideopin_total += field.size
+                        ideopin_count += 1
+                    except:
+                        pass
+
+        if ideopin_total > 0:
+            apps['Ideopin'] = {'bytes': ideopin_total, 'mb': ideopin_total / (1024 * 1024), 'count': ideopin_count, 'icon': 'fab fa-pinterest'}
+    except Exception as e:
+        logger.error(f"Error calculating ideopin storage for user {user_id}: {e}")
+
     # Image Editor
     try:
         from image_editor.models import ImageProject, AIGenerationHistory

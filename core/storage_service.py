@@ -471,6 +471,38 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error calculating streamrec storage: {e}")
 
+        # Ideopin (PinProject + Pin Bilder)
+        try:
+            from ideopin.models import PinProject, Pin
+            ideopin_total = 0
+
+            # PinProject Bilder (product_image, generated_image, final_image)
+            pin_projects = PinProject.objects.filter(user=user)
+            for project in pin_projects:
+                for field_name in ['product_image', 'generated_image', 'final_image']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            ideopin_total += field.size
+                        except Exception:
+                            pass
+
+            # Pin Bilder (Multi-Pin Feature: generated_image, final_image)
+            pins = Pin.objects.filter(project__user=user)
+            for pin in pins:
+                for field_name in ['generated_image', 'final_image']:
+                    field = getattr(pin, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            ideopin_total += field.size
+                        except Exception:
+                            pass
+
+            by_app['ideopin'] = ideopin_total
+            total_bytes += ideopin_total
+        except Exception as e:
+            logger.error(f"Error calculating ideopin storage: {e}")
+
         # UserStorage aktualisieren
         storage.used_storage = total_bytes
         storage.save(update_fields=['used_storage', 'updated_at'])
