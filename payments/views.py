@@ -1666,3 +1666,224 @@ def delete_user_file_api(request):
             'success': False,
             'error': f'Fehler beim Löschen: {str(e)}'
         }, status=500)
+
+
+@login_required
+def user_storage_detail_api(request, user_id):
+    """
+    API endpoint for superusers to get detailed storage breakdown for a specific user.
+    Returns per-app storage usage.
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Zugriff verweigert'}, status=403)
+
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        target_user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'User nicht gefunden'}, status=404)
+
+    apps = {}
+
+    # Videos
+    try:
+        from videos.models import Video
+        videos = Video.objects.filter(user=target_user, video_file__isnull=False)
+        video_total = 0
+        video_count = 0
+        for video in videos:
+            if video.video_file and hasattr(video.video_file, 'size'):
+                try:
+                    video_total += video.video_file.size
+                    video_count += 1
+                except:
+                    pass
+        if video_total > 0:
+            apps['Videos'] = {'bytes': video_total, 'mb': video_total / (1024 * 1024), 'count': video_count, 'icon': 'fas fa-video'}
+    except Exception as e:
+        logger.error(f"Error calculating videos storage for user {user_id}: {e}")
+
+    # Fileshare
+    try:
+        from fileshare.models import TransferFile
+        files = TransferFile.objects.filter(transfer__sender=target_user, file__isnull=False)
+        fs_total = 0
+        fs_count = 0
+        for f in files:
+            if f.file and hasattr(f.file, 'size'):
+                try:
+                    fs_total += f.file.size
+                    fs_count += 1
+                except:
+                    pass
+        if fs_total > 0:
+            apps['Fileshare'] = {'bytes': fs_total, 'mb': fs_total / (1024 * 1024), 'count': fs_count, 'icon': 'fas fa-share-alt'}
+    except Exception as e:
+        logger.error(f"Error calculating fileshare storage for user {user_id}: {e}")
+
+    # Chat
+    try:
+        from chat.models import ChatMessageAttachment
+        attachments = ChatMessageAttachment.objects.filter(message__sender=target_user, file__isnull=False)
+        chat_total = 0
+        chat_count = 0
+        for att in attachments:
+            if att.file and hasattr(att.file, 'size'):
+                try:
+                    chat_total += att.file.size
+                    chat_count += 1
+                except:
+                    pass
+        if chat_total > 0:
+            apps['Chat'] = {'bytes': chat_total, 'mb': chat_total / (1024 * 1024), 'count': chat_count, 'icon': 'fas fa-comments'}
+    except Exception as e:
+        logger.error(f"Error calculating chat storage for user {user_id}: {e}")
+
+    # Organization (Notes + Board Images)
+    try:
+        from organization.models import Note, BoardElement
+        from django.core.files.storage import default_storage
+        import re
+
+        org_total = 0
+        org_count = 0
+
+        notes = Note.objects.filter(author=target_user, image__isnull=False)
+        for note in notes:
+            if note.image and hasattr(note.image, 'size'):
+                try:
+                    org_total += note.image.size
+                    org_count += 1
+                except:
+                    pass
+
+        board_elements = BoardElement.objects.filter(created_by=target_user, element_type='image')
+        for element in board_elements:
+            try:
+                element_data = element.data if isinstance(element.data, dict) else {}
+                image_url = element_data.get('url') or element_data.get('src')
+                if not image_url:
+                    continue
+                match = re.search(r'board_images/[^/\s]+', image_url)
+                if match and default_storage.exists(match.group(0)):
+                    org_total += default_storage.size(match.group(0))
+                    org_count += 1
+            except:
+                pass
+
+        if org_total > 0:
+            apps['Organization'] = {'bytes': org_total, 'mb': org_total / (1024 * 1024), 'count': org_count, 'icon': 'fas fa-building'}
+    except Exception as e:
+        logger.error(f"Error calculating organization storage for user {user_id}: {e}")
+
+    # Streamrec
+    try:
+        user_prefix = f"{target_user.id}_"
+        streamrec_total = 0
+        streamrec_count = 0
+        for dir_name in ['audio_recordings', 'video_recordings']:
+            media_dir = os.path.join(settings.MEDIA_ROOT, dir_name)
+            if os.path.exists(media_dir):
+                for filename in os.listdir(media_dir):
+                    if filename.startswith(user_prefix):
+                        filepath = os.path.join(media_dir, filename)
+                        if os.path.isfile(filepath):
+                            streamrec_total += os.path.getsize(filepath)
+                            streamrec_count += 1
+        if streamrec_total > 0:
+            apps['Streamrec'] = {'bytes': streamrec_total, 'mb': streamrec_total / (1024 * 1024), 'count': streamrec_count, 'icon': 'fas fa-microphone'}
+    except Exception as e:
+        logger.error(f"Error calculating streamrec storage for user {user_id}: {e}")
+
+    # Image Editor
+    try:
+        from image_editor.models import ImageProject, AIGenerationHistory
+        img_total = 0
+        img_count = 0
+        projects = ImageProject.objects.filter(user=target_user)
+        for project in projects:
+            for field in ['original_image', 'processed_image']:
+                img = getattr(project, field, None)
+                if img and hasattr(img, 'size'):
+                    try:
+                        img_total += img.size
+                        img_count += 1
+                    except:
+                        pass
+        histories = AIGenerationHistory.objects.filter(project__user=target_user, output_image__isnull=False)
+        for history in histories:
+            if history.output_image and hasattr(history.output_image, 'size'):
+                try:
+                    img_total += history.output_image.size
+                    img_count += 1
+                except:
+                    pass
+        if img_total > 0:
+            apps['Image Editor'] = {'bytes': img_total, 'mb': img_total / (1024 * 1024), 'count': img_count, 'icon': 'fas fa-image'}
+    except Exception as e:
+        logger.error(f"Error calculating image editor storage for user {user_id}: {e}")
+
+    # LearnLoom
+    try:
+        from learnloom.models import Document
+        ll_total = 0
+        ll_count = 0
+        docs = Document.objects.filter(user=target_user, file__isnull=False)
+        for doc in docs:
+            if doc.file and hasattr(doc.file, 'size'):
+                try:
+                    ll_total += doc.file.size
+                    ll_count += 1
+                except:
+                    pass
+        if ll_total > 0:
+            apps['LearnLoom'] = {'bytes': ll_total, 'mb': ll_total / (1024 * 1024), 'count': ll_count, 'icon': 'fas fa-book'}
+    except Exception as e:
+        logger.error(f"Error calculating learnloom storage for user {user_id}: {e}")
+
+    # Shopify Backups
+    try:
+        from shopify_manager.models import ShopifyBackup
+        backup_total = 0
+        backup_count = 0
+        backups = ShopifyBackup.objects.filter(user=target_user, status='completed')
+        for backup in backups:
+            if backup.total_size_bytes > 0:
+                backup_total += backup.total_size_bytes
+                backup_count += 1
+        if backup_total > 0:
+            apps['Shopify Backups'] = {'bytes': backup_total, 'mb': backup_total / (1024 * 1024), 'count': backup_count, 'icon': 'fas fa-cloud-download-alt'}
+    except Exception as e:
+        logger.error(f"Error calculating shopify backups storage for user {user_id}: {e}")
+
+    # Calculate totals
+    total_bytes = sum(app['bytes'] for app in apps.values())
+    total_mb = total_bytes / (1024 * 1024)
+
+    # Get user's storage quota
+    from videos.models import UserStorage
+    try:
+        user_storage = UserStorage.objects.get(user=target_user)
+        max_bytes = user_storage.max_storage
+        max_mb = max_bytes / (1024 * 1024)
+        percentage = (total_bytes / max_bytes * 100) if max_bytes > 0 else 0
+    except UserStorage.DoesNotExist:
+        max_bytes = 100 * 1024 * 1024  # Default 100MB
+        max_mb = 100
+        percentage = (total_bytes / max_bytes * 100)
+
+    # Sort apps by usage (highest first)
+    sorted_apps = dict(sorted(apps.items(), key=lambda x: x[1]['bytes'], reverse=True))
+
+    return JsonResponse({
+        'success': True,
+        'user_id': user_id,
+        'username': target_user.username,
+        'email': target_user.email,
+        'total_bytes': total_bytes,
+        'total_mb': round(total_mb, 2),
+        'max_mb': round(max_mb, 2),
+        'percentage': round(percentage, 2),
+        'apps': sorted_apps
+    })

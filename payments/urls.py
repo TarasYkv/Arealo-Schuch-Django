@@ -18,4 +18,5 @@ urlpatterns = [
     path('api/status/', views.subscription_status_api, name='subscription_status_api'),
     path('api/user-files/', views.user_files_api, name='user_files_api'),
     path('api/delete-file/', views.delete_user_file_api, name='delete_user_file_api'),
+    path('api/user-storage-detail/<int:user_id>/', views.user_storage_detail_api, name='user_storage_detail_api'),
 ]
