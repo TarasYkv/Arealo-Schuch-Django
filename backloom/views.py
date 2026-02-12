@@ -716,11 +716,17 @@ def api_search_progress(request):
     """
     import re
 
-    # Aktive oder letzte Suche finden
+    # Aktive Suche des aktuellen Users oder global laufende Suche finden
     search = BacklinkSearch.objects.filter(
         status=BacklinkSearchStatus.RUNNING
     ).first()
 
+    # Fallback: Letzte Suche des Users oder überhaupt
+    if not search:
+        search = BacklinkSearch.objects.filter(
+            triggered_by=request.user
+        ).first()
+    
     if not search:
         search = BacklinkSearch.objects.first()
 

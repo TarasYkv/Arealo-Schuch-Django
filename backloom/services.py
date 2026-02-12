@@ -1583,19 +1583,43 @@ class BacklinkScraper:
 
 def run_backlink_search(user, sources: List[str] = None) -> BacklinkSearch:
     """
-    Startet eine neue Backlink-Suche
+    Startet eine neue Backlink-Suche (asynchron in einem Thread)
 
     Args:
         user: Der User der die Suche startet
         sources: Liste der zu verwendenden Quellen (duckduckgo, reddit, youtube)
                  Wenn None, werden alle aktiven Quellen verwendet
     """
+    import threading
+
     # Neue Suche erstellen
     search = BacklinkSearch.objects.create(triggered_by=user)
 
-    # Scraper starten mit ausgewählten Quellen
-    scraper = BacklinkScraper(search)
-    scraper.run(sources=sources)
+    def run_search_async():
+        """Führt die Suche in einem separaten Thread aus"""
+        try:
+            from django.db import connection
+            # Neue DB-Verbindung für den Thread
+            connection.close()
+
+            scraper = BacklinkScraper(search)
+            scraper.run(sources=sources)
+        except Exception as e:
+            logger.exception(f"Error in async backlink search: {e}")
+            # Search-Objekt neu laden und Fehler speichern
+            try:
+                from django.db import connection
+                connection.close()
+                search_obj = BacklinkSearch.objects.get(pk=search.pk)
+                search_obj.status = BacklinkSearchStatus.FAILED
+                search_obj.error_log = str(e)
+                search_obj.save()
+            except:
+                pass
+
+    # Suche in separatem Thread starten
+    thread = threading.Thread(target=run_search_async, daemon=True)
+    thread.start()
 
     return search
 
