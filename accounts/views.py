@@ -3255,24 +3255,59 @@ def storage_overview_view(request):
     # Sortiere nach Größe (größte zuerst)
     all_files.sort(key=lambda x: x['size_bytes'], reverse=True)
 
-    # Per-App Statistiken berechnen
+    # Alle Apps die Speicher verwenden können (mit Namen und Icons)
+    ALL_STORAGE_APPS = {
+        'videos': {'name': 'Videos', 'icon': 'fas fa-video'},
+        'fileshare': {'name': 'FileShare', 'icon': 'fas fa-file-upload'},
+        'organization': {'name': 'Organisation', 'icon': 'fas fa-sticky-note'},
+        'chat': {'name': 'Chat', 'icon': 'fas fa-comments'},
+        'streamrec': {'name': 'StreamRec', 'icon': 'fas fa-video-camera'},
+        'image_editor': {'name': 'Bild Editor', 'icon': 'fas fa-image'},
+        'shopify_manager': {'name': 'Shopify Manager', 'icon': 'bi bi-shop'},
+        'shopify_uploads': {'name': 'Shopify Uploads', 'icon': 'bi bi-cloud-upload'},
+        'blogprep': {'name': 'BlogPrep', 'icon': 'bi bi-pencil-square'},
+        'pdf_sucher': {'name': 'PDF-Suche', 'icon': 'bi bi-file-earmark-text'},
+        'naturmacher': {'name': 'Schulungen', 'icon': 'fas fa-graduation-cap'},
+        'makeads': {'name': 'AdsMake', 'icon': 'bi bi-megaphone'},
+        'ideopin': {'name': 'IdeoPin', 'icon': 'bi bi-pinterest'},
+        'imageforge': {'name': 'ImageForge', 'icon': 'bi bi-image'},
+        'vskript': {'name': 'VSkript', 'icon': 'bi bi-file-play'},
+        'loomconnect': {'name': 'LoomConnect', 'icon': 'fas fa-plug'},
+        'bug_report': {'name': 'Bug Reports', 'icon': 'fas fa-bug'},
+    }
+    
+    # Per-App Statistiken berechnen - ALLE Apps initialisieren (auch mit 0 Bytes)
     app_stats = {}
+    for app_key, app_info in ALL_STORAGE_APPS.items():
+        app_stats[app_key] = {
+            'key': app_key,
+            'name': app_info['name'],
+            'icon': app_info['icon'],
+            'file_count': 0,
+            'total_bytes': 0,
+            'total_mb': 0,
+        }
+    
+    # Dateien zählen und Speicher addieren
     for file in all_files:
         app = file['app']
-        if app not in app_stats:
+        if app in app_stats:
+            app_stats[app]['file_count'] += 1
+            app_stats[app]['total_bytes'] += file['size_bytes']
+            app_stats[app]['total_mb'] = app_stats[app]['total_bytes'] / (1024 * 1024)
+        else:
+            # Falls eine App nicht in der Liste ist, trotzdem hinzufügen
             app_stats[app] = {
+                'key': app,
                 'name': file['app_name'],
                 'icon': file['app_icon'],
-                'file_count': 0,
-                'total_bytes': 0,
-                'total_mb': 0,
+                'file_count': 1,
+                'total_bytes': file['size_bytes'],
+                'total_mb': file['size_bytes'] / (1024 * 1024),
             }
-        app_stats[app]['file_count'] += 1
-        app_stats[app]['total_bytes'] += file['size_bytes']
-        app_stats[app]['total_mb'] = app_stats[app]['total_bytes'] / (1024 * 1024)
 
-    # Sortiere Apps nach Speicherverbrauch
-    app_stats_list = sorted(app_stats.values(), key=lambda x: x['total_bytes'], reverse=True)
+    # Sortiere Apps nach Speicherverbrauch (größte zuerst, dann alphabetisch)
+    app_stats_list = sorted(app_stats.values(), key=lambda x: (-x['total_bytes'], x['name']))
 
     # Storage quota info
     video_storage, _ = VideoUserStorage.objects.get_or_create(user=user)
