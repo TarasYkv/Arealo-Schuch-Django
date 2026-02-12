@@ -1148,7 +1148,10 @@ class BacklinkScraper:
 
             # TikTok-Video-URLs extrahieren
             tiktok_urls = []
-            for result in soup.select('div.result'):
+            all_results = soup.select('div.result')
+            self.search.log_progress(f"TikTok: DuckDuckGo {len(all_results)} Ergebnisse geparst")
+            
+            for result in all_results:
                 try:
                     link_elem = result.select_one('a.result__a') or result.select_one('a[href^="http"]')
                     if not link_elem:
@@ -1174,7 +1177,7 @@ class BacklinkScraper:
                     continue
 
             if not tiktok_urls:
-                self.search.log_progress("TikTok: Keine Videos gefunden")
+                self.search.log_progress(f"TikTok: Keine Videos mit /video/ gefunden (HTTP {response.status_code}, {len(response.text)} bytes)")
                 self.source_stats['tiktok']['status'] = 'warning'
                 return results
 
