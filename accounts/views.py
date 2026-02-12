@@ -2880,30 +2880,30 @@ def storage_overview_view(request):
     except Exception:
         pass
 
-    # 10. Ideopin
+    # 10. Ideopin (PinProject)
     try:
-        from ideopin.models import PinDesign
+        from ideopin.models import PinProject
 
-        designs = PinDesign.objects.filter(user=user).order_by('-created_at')
-        for design in designs:
+        pins = PinProject.objects.filter(user=user).order_by('-created_at')
+        for pin in pins:
             for field_name in ['product_image', 'generated_image', 'final_image']:
-                img = getattr(design, field_name, None)
+                img = getattr(pin, field_name, None)
                 if img:
                     try:
                         file_size = img.size if hasattr(img, 'size') else 0
                         if file_size > 0:
                             all_files.append({
                                 'app': 'ideopin',
-                                'app_name': 'Ideopin',
-                                'app_icon': 'fab fa-pinterest',
-                                'name': f"Pin: {design.pin_title or 'Unbenannt'}",
+                                'app_name': 'IdeoPin',
+                                'app_icon': 'bi bi-pinterest',
+                                'name': f"Pin: {pin.title or 'Unbenannt'}",
                                 'filename': os.path.basename(img.name),
                                 'size_bytes': file_size,
                                 'size_mb': file_size / (1024 * 1024),
-                                'created_at': design.created_at,
-                                'type': 'Pin-Design',
+                                'created_at': pin.created_at,
+                                'type': 'Pin-Bild',
                                 'url': None,
-                                'id': design.id,
+                                'id': pin.id,
                             })
                     except Exception:
                         pass
