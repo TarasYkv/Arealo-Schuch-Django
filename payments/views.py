@@ -1684,6 +1684,10 @@ def user_storage_detail_api(request, user_id):
     except User.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'User nicht gefunden'}, status=404)
 
+    # Speicher neu berechnen bevor Details angezeigt werden
+    from core.storage_service import StorageService
+    StorageService.recalculate_storage(target_user)
+
     apps = {}
 
     # Videos

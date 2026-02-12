@@ -2560,6 +2560,9 @@ def storage_overview_view(request):
 
     user = request.user
 
+    # Speicher bei jedem Laden neu berechnen (inkl. aller Apps wie ideopin)
+    StorageService.recalculate_storage(user)
+
     # Zentrale Storage-Statistiken holen
     storage_stats = StorageService.get_usage_stats(user)
 
