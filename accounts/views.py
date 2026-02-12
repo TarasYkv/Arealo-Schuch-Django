@@ -3255,21 +3255,44 @@ def storage_overview_view(request):
     # Sortiere nach Größe (größte zuerst)
     all_files.sort(key=lambda x: x['size_bytes'], reverse=True)
 
-    # Mapping von internen App-Namen zu Storage-Keys und Display-Namen
-    # Nur Apps die für normale User verfügbar sind (aus AppPermission)
+    # Mapping von Menü-App-Namen zu Storage-Keys und Display-Info
+    # Format: menu_app_name -> (storage_key, display_name, icon)
     STORAGE_APP_MAPPING = {
-        # AppPermission.app_name -> (storage_key, display_name, icon)
+        # Media Apps
         'videos': ('videos', 'VideoFlow', 'fas fa-video'),
         'fileshare': ('fileshare', 'FileShare', 'fas fa-file-upload'),
-        'organization': ('organization', 'Organisation', 'fas fa-sticky-note'),
-        'chat': ('chat', 'LoomConnect', 'fas fa-comments'),
         'streamrec': ('streamrec', 'StreamRec', 'fas fa-video-camera'),
         'bilder': ('image_editor', 'Bilder', 'fas fa-image'),
         'promptpro': ('promptpro', 'PromptPro', 'bi bi-collection'),
+        'myprompter': ('myprompter', 'MyPrompter', 'bi bi-mic-fill'),
         'schulungen': ('naturmacher', 'Schulungen', 'fas fa-graduation-cap'),
+        # Organisation Apps
+        'organisation': ('organization', 'Organisation', 'fas fa-sticky-note'),
+        'todos': ('todos', 'ToDo Manager', 'bi bi-list-check'),
+        'chat': ('chat', 'Chat', 'fas fa-comments'),
+        'loomconnect': ('loomconnect', 'LoomConnect', 'fas fa-plug'),
+        'mail': ('mail', 'Mail', 'fas fa-envelope'),
+        # SEO Apps
+        'loomline': ('loomline', 'LoomLine', 'fas fa-list-alt'),
+        'keyengine': ('keyengine', 'KeyEngine', 'fas fa-key'),
+        'questionfinder': ('questionfinder', 'QuestionFinder', 'fas fa-question-circle'),
+        'backloom': ('backloom', 'BackLoom', 'fas fa-link'),
+        # Shopify Apps
+        'shopify': ('shopify_manager', 'ShopifyFlow', 'bi bi-shop'),
+        'blogprep': ('blogprep', 'BlogPrep', 'bi bi-pencil-square'),
+        'ploom': ('ploom', 'P-Loom', 'bi bi-box-seam-fill'),
+        # Kreativ Apps
+        'makeads': ('makeads', 'AdsMake', 'bi bi-megaphone'),
+        'somi_plan': ('somi_plan', 'SoMi-Plan', 'bi bi-graph-up'),
+        'ideopin': ('ideopin', 'IdeoPin', 'bi bi-pinterest'),
+        'imageforge': ('imageforge', 'ImageForge', 'bi bi-image'),
+        'vskript': ('vskript', 'VSkript', 'bi bi-file-play'),
+        # Weitere Apps
+        'linkloom': ('linkloom', 'LinkLoom', 'fas fa-link'),
+        'learnloom': ('learnloom', 'LearnLoom', 'fas fa-graduation-cap'),
     }
     
-    # Hole nur die Apps die für normale User verfügbar sind (aus AppPermission)
+    # Hole nur die Apps die für eingeloggte User im Menü sichtbar sind
     from accounts.models import AppPermission
     from django.db.models import Q
     
@@ -3279,19 +3302,21 @@ def storage_overview_view(request):
         hide_in_frontend=False
     ).values_list('app_name', flat=True)
     
-    # Per-App Statistiken berechnen - nur verfügbare Apps initialisieren
+    # Per-App Statistiken berechnen - nur verfügbare Apps aus dem Menü
     app_stats = {}
     for perm_app_name in available_permissions:
         if perm_app_name in STORAGE_APP_MAPPING:
             storage_key, display_name, icon = STORAGE_APP_MAPPING[perm_app_name]
-            app_stats[storage_key] = {
-                'key': storage_key,
-                'name': display_name,
-                'icon': icon,
-                'file_count': 0,
-                'total_bytes': 0,
-                'total_mb': 0,
-            }
+            # Verhindere Duplikate falls mehrere Menü-Namen auf gleichen Storage-Key mappen
+            if storage_key not in app_stats:
+                app_stats[storage_key] = {
+                    'key': storage_key,
+                    'name': display_name,
+                    'icon': icon,
+                    'file_count': 0,
+                    'total_bytes': 0,
+                    'total_mb': 0,
+                }
     
     # Dateien zählen und Speicher addieren (nur für verfügbare Apps)
     for file in all_files:
