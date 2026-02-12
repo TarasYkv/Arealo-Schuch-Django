@@ -1108,76 +1108,81 @@ class BacklinkScraper:
     # ==================
     # TIKTOK SUCHE (via DuckDuckGo + Supadata)
     # ==================
-    def search_tiktok(self, query: str, num_results: int = 1) -> List[Dict]:
+    def search_tiktok(self, query: str, num_results: int = 10) -> List[Dict]:
         """
         Durchsucht TikTok-Videos nach relevanten Inhalten.
-        1. Findet TikTok-Videos via DuckDuckGo (site:tiktok.com)
+        1. Findet TikTok-Videos via Bing Search API (site:tiktok.com)
         2. Extrahiert Untertitel via Supadata API
         3. Sucht in Untertiteln nach URLs und Domain-Erwähnungen
         """
         results = []
         self.search.log_progress(f"TikTok-Suche: '{query}'")
 
-        # Supadata API Key prüfen
-        api_key = None
+        # API Keys prüfen
+        supadata_key = None
+        bing_key = None
         if self.search.triggered_by:
-            api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+            supadata_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+            bing_key = getattr(self.search.triggered_by, 'bing_api_key', None)
 
-        if not api_key:
+        if not supadata_key:
             self.search.log_progress("TikTok: Supadata API-Key nicht konfiguriert")
             self.source_stats['tiktok']['status'] = 'warning'
             return results
 
+        if not bing_key:
+            self.search.log_progress("TikTok: Bing API-Key nicht konfiguriert")
+            self.source_stats['tiktok']['status'] = 'warning'
+            return results
+
         try:
-            # Schritt 1: TikTok-Videos via DuckDuckGo finden
-            search_query = f"site:tiktok.com {query}"
-            url = f"https://html.duckduckgo.com/html/?q={quote_plus(search_query)}&kl=de-de"
+            # Schritt 1: TikTok-Videos via Bing Search API finden
+            search_query = f"site:tiktok.com/*/video {query}"
+            bing_url = "https://api.bing.microsoft.com/v7.0/search"
 
             response = self.session.get(
-                url,
-                headers=self._get_headers(),
+                bing_url,
+                params={
+                    'q': search_query,
+                    'count': 20,
+                    'mkt': 'de-DE'
+                },
+                headers={
+                    'Ocp-Apim-Subscription-Key': bing_key
+                },
                 timeout=15
             )
 
-            if response.status_code not in [200, 202]:
-                self.search.log_progress(f"TikTok: DuckDuckGo HTTP {response.status_code}")
+            if response.status_code == 401:
+                self.search.log_progress("TikTok: Bing API-Key ungültig")
                 self.source_stats['tiktok']['status'] = 'error'
                 return results
 
-            soup = BeautifulSoup(response.text, 'html.parser')
+            if response.status_code != 200:
+                self.search.log_progress(f"TikTok: Bing HTTP {response.status_code}")
+                self.source_stats['tiktok']['status'] = 'error'
+                return results
+
+            data = response.json()
+            web_pages = data.get('webPages', {}).get('value', [])
 
             # TikTok-Video-URLs extrahieren
             tiktok_urls = []
-            all_results = soup.select('div.result')
-            self.search.log_progress(f"TikTok: DuckDuckGo {len(all_results)} Ergebnisse geparst")
+            self.search.log_progress(f"TikTok: Bing {len(web_pages)} Ergebnisse")
             
-            for result in all_results:
+            for page in web_pages:
                 try:
-                    link_elem = result.select_one('a.result__a') or result.select_one('a[href^="http"]')
-                    if not link_elem:
-                        continue
-
-                    href = link_elem.get('href', '')
-
-                    # DuckDuckGo-Weiterleitungs-Links bereinigen
-                    if '//duckduckgo.com/l/' in href:
-                        import urllib.parse as urlparse
-                        parsed = urlparse.urlparse(href)
-                        params = urlparse.parse_qs(parsed.query)
-                        if 'uddg' in params:
-                            href = urlparse.unquote(params['uddg'][0])
-
+                    href = page.get('url', '')
                     # Nur TikTok-Video-URLs (/@user/video/ID Format)
                     if 'tiktok.com' in href and '/video/' in href:
                         tiktok_urls.append(href)
-
-                    if len(tiktok_urls) >= num_results:
-                        break
+                        if len(tiktok_urls) >= num_results:
+                            break
                 except:
                     continue
 
             if not tiktok_urls:
-                self.search.log_progress(f"TikTok: Keine Videos mit /video/ gefunden (HTTP {response.status_code}, {len(response.text)} bytes)")
+                self.search.log_progress(f"TikTok: Keine Videos mit /video/ gefunden")
                 self.source_stats['tiktok']['status'] = 'warning'
                 return results
 
