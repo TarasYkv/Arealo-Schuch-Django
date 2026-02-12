@@ -988,6 +988,15 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Supadata API-Key ein.')
 
+        elif action == 'update_bing' and user.is_superuser:
+            bing_key = request.POST.get('bing_api_key', '').strip()
+            if bing_key:
+                user.bing_api_key = bing_key
+                user.save()
+                messages.success(request, 'Bing Search API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Bing API-Key ein.')
+
         elif action == 'clear_keys':
             user.openai_api_key = ''
             user.youtube_api_key = ''
@@ -996,6 +1005,7 @@ def neue_api_einstellungen_view(request):
             user.upload_post_api_key = ''
             if user.is_superuser:
                 user.supadata_api_key = ''
+                user.bing_api_key = ''
             user.save()
             messages.success(request, 'Alle API-Keys wurden gelöscht.')
         
@@ -1044,6 +1054,9 @@ def neue_api_einstellungen_view(request):
         # Supadata (TikTok) - nur für Superuser
         'supadata_key_masked': '••••••••' + user.supadata_api_key[-4:] if user.supadata_api_key and len(user.supadata_api_key) > 4 else '',
         'supadata_configured': bool(user.supadata_api_key),
+        # Bing Search API - nur für Superuser
+        'bing_key_masked': '••••••••' + user.bing_api_key[-4:] if user.bing_api_key and len(user.bing_api_key) > 4 else '',
+        'bing_configured': bool(user.bing_api_key),
         'zoho_configured': bool(zoho_settings and zoho_settings.is_configured),
         'shopify_configured': len(shopify_stores) > 0,
         'zoho_settings': zoho_settings,
