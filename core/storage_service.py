@@ -547,24 +547,6 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error calculating blogprep storage: {e}")
 
-        # VideoFlow
-        try:
-            from videoflow.models import VideoFlowProject
-            videoflow_total = 0
-            projects = VideoFlowProject.objects.filter(user=user)
-            for project in projects:
-                for field_name in ['video_file', 'thumbnail', 'processed_video']:
-                    field = getattr(project, field_name, None)
-                    if field and hasattr(field, 'size'):
-                        try:
-                            videoflow_total += field.size
-                        except Exception:
-                            pass
-            by_app['videoflow'] = videoflow_total
-            total_bytes += videoflow_total
-        except Exception as e:
-            logger.error(f"Error calculating videoflow storage: {e}")
-
         # PDF Sucher
         try:
             from pdf_sucher.models import PDFDocument
@@ -640,22 +622,6 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error calculating makeads storage: {e}")
 
-        # Bug Report
-        try:
-            from bug_report.models import BugReportAttachment
-            bug_total = 0
-            attachments = BugReportAttachment.objects.filter(bug_report__sender=user, file__isnull=False)
-            for att in attachments:
-                if att.file and hasattr(att.file, 'size'):
-                    try:
-                        bug_total += att.file.size
-                    except Exception:
-                        pass
-            by_app['bug_report'] = bug_total
-            total_bytes += bug_total
-        except Exception as e:
-            logger.error(f"Error calculating bug_report storage: {e}")
-
         # LoomConnect
         try:
             from loomconnect.models import ConnectProject
@@ -673,6 +639,116 @@ class StorageService:
             total_bytes += loom_total
         except Exception as e:
             logger.error(f"Error calculating loomconnect storage: {e}")
+
+        # LearnLoom (PDF-Bibliothek)
+        try:
+            from learnloom.models import PDFBook
+            learnloom_total = 0
+            books = PDFBook.objects.filter(user=user)
+            for book in books:
+                if book.file and hasattr(book.file, 'size'):
+                    try:
+                        learnloom_total += book.file.size
+                    except Exception:
+                        pass
+                if book.thumbnail and hasattr(book.thumbnail, 'size'):
+                    try:
+                        learnloom_total += book.thumbnail.size
+                    except Exception:
+                        pass
+            by_app['learnloom'] = learnloom_total
+            total_bytes += learnloom_total
+        except Exception as e:
+            logger.error(f"Error calculating learnloom storage: {e}")
+
+        # P-Loom (Produkt-Bilder)
+        try:
+            from ploom.models import PLoomProduct, PLoomProductImage
+            ploom_total = 0
+            # Bilder über PLoomProductImage
+            images = PLoomProductImage.objects.filter(product__user=user, image__isnull=False)
+            for img in images:
+                if img.image and hasattr(img.image, 'size'):
+                    try:
+                        ploom_total += img.image.size
+                    except Exception:
+                        pass
+            by_app['ploom'] = ploom_total
+            total_bytes += ploom_total
+        except Exception as e:
+            logger.error(f"Error calculating ploom storage: {e}")
+
+        # LoomMarket (Business-Marketing)
+        try:
+            from loommarket.models import Business, MockupTemplate
+            loommarket_total = 0
+            # Business-Bilder
+            businesses = Business.objects.filter(user=user)
+            for biz in businesses:
+                if biz.image and hasattr(biz.image, 'size'):
+                    try:
+                        loommarket_total += biz.image.size
+                    except Exception:
+                        pass
+            # Mockup-Templates
+            mockups = MockupTemplate.objects.filter(user=user)
+            for mockup in mockups:
+                for field_name in ['product_image_blank', 'product_image_engraved', 'mockup_image', 'mockup_image_story']:
+                    field = getattr(mockup, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            loommarket_total += field.size
+                        except Exception:
+                            pass
+            by_app['loommarket'] = loommarket_total
+            total_bytes += loommarket_total
+        except Exception as e:
+            logger.error(f"Error calculating loommarket storage: {e}")
+
+        # LinkLoom (Profilseiten)
+        try:
+            from linkloom.models import LinkLoomPage
+            linkloom_total = 0
+            pages = LinkLoomPage.objects.filter(user=user)
+            for page in pages:
+                if page.profile_picture and hasattr(page.profile_picture, 'size'):
+                    try:
+                        linkloom_total += page.profile_picture.size
+                    except Exception:
+                        pass
+            by_app['linkloom'] = linkloom_total
+            total_bytes += linkloom_total
+        except Exception as e:
+            logger.error(f"Error calculating linkloom storage: {e}")
+
+        # Android APK Manager
+        try:
+            from android_apk_manager.models import App, AppScreenshot
+            apk_total = 0
+            apps = App.objects.filter(created_by=user)
+            for app in apps:
+                if app.icon and hasattr(app.icon, 'size'):
+                    try:
+                        apk_total += app.icon.size
+                    except Exception:
+                        pass
+                if app.apk_file and hasattr(app.apk_file, 'size'):
+                    try:
+                        apk_total += app.apk_file.size
+                    except Exception:
+                        pass
+            # Screenshots
+            screenshots = AppScreenshot.objects.filter(app__created_by=user)
+            for ss in screenshots:
+                if ss.image and hasattr(ss.image, 'size'):
+                    try:
+                        apk_total += ss.image.size
+                    except Exception:
+                        pass
+            by_app['android_apk_manager'] = apk_total
+            total_bytes += apk_total
+        except Exception as e:
+            logger.error(f"Error calculating android_apk_manager storage: {e}")
 
         # UserStorage aktualisieren
         storage.used_storage = total_bytes
