@@ -84,7 +84,7 @@ class SourceHealthCheck:
         },
         'tiktok': {
             'name': 'TikTok (Supadata)',
-            'test_url': 'https://api.supadata.ai/v1/tiktok/transcript',
+            'test_url': 'https://api.supadata.ai/v1/transcript',
             'check_text': None,  # API check
             'is_api': True,
             'enabled': True,
@@ -186,7 +186,7 @@ class SourceHealthCheck:
 
                 # Test mit einer bekannten TikTok-URL
                 response = requests.get(
-                    'https://api.supadata.ai/v1/tiktok/transcript',
+                    'https://api.supadata.ai/v1/transcript',
                     params={'url': 'https://www.tiktok.com/@test/video/123'},
                     headers={'x-api-key': api_key},
                     timeout=10
@@ -464,7 +464,7 @@ class BacklinkScraper:
 
         try:
             response = self.session.get(
-                'https://api.supadata.ai/v1/tiktok/transcript',
+                'https://api.supadata.ai/v1/transcript',
                 params={'url': video_url},
                 headers={'x-api-key': api_key},
                 timeout=15
