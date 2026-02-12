@@ -1602,7 +1602,9 @@ def run_backlink_search(user, sources: List[str] = None) -> BacklinkSearch:
             # Neue DB-Verbindung für den Thread
             connection.close()
 
-            scraper = BacklinkScraper(search)
+            # Search-Objekt im neuen Thread frisch laden
+            fresh_search = BacklinkSearch.objects.get(pk=search.pk)
+            scraper = BacklinkScraper(fresh_search)
             scraper.run(sources=sources)
         except Exception as e:
             logger.exception(f"Error in async backlink search: {e}")
