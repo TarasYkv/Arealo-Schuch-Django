@@ -997,6 +997,15 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Bing API-Key ein.')
 
+        elif action == 'update_brave' and user.is_superuser:
+            brave_key = request.POST.get('brave_api_key', '').strip()
+            if brave_key:
+                user.brave_api_key = brave_key
+                user.save()
+                messages.success(request, 'Brave Search API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Brave API-Key ein.')
+
         elif action == 'clear_keys':
             user.openai_api_key = ''
             user.youtube_api_key = ''
@@ -1006,6 +1015,7 @@ def neue_api_einstellungen_view(request):
             if user.is_superuser:
                 user.supadata_api_key = ''
                 user.bing_api_key = ''
+                user.brave_api_key = ''
             user.save()
             messages.success(request, 'Alle API-Keys wurden gelöscht.')
         
@@ -1057,6 +1067,9 @@ def neue_api_einstellungen_view(request):
         # Bing Search API - nur für Superuser
         'bing_key_masked': '••••••••' + user.bing_api_key[-4:] if user.bing_api_key and len(user.bing_api_key) > 4 else '',
         'bing_configured': bool(user.bing_api_key),
+        # Brave Search API - nur für Superuser (Free Tier: 2000 Anfragen/Monat)
+        'brave_key_masked': '••••••••' + user.brave_api_key[-4:] if user.brave_api_key and len(user.brave_api_key) > 4 else '',
+        'brave_configured': bool(user.brave_api_key),
         'zoho_configured': bool(zoho_settings and zoho_settings.is_configured),
         'shopify_configured': len(shopify_stores) > 0,
         'zoho_settings': zoho_settings,

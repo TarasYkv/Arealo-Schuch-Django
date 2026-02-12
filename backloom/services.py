@@ -83,8 +83,15 @@ class SourceHealthCheck:
             'enabled': True,
         },
         'tiktok': {
-            'name': 'TikTok (Supadata)',
-            'test_url': 'https://api.supadata.ai/v1/transcript',
+            'name': 'TikTok (Brave + Supadata)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,  # API check
+            'is_api': True,
+            'enabled': True,
+        },
+        'brave': {
+            'name': 'Brave Search API',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
             'check_text': None,  # API check
             'is_api': True,
             'enabled': True,
@@ -174,35 +181,75 @@ class SourceHealthCheck:
                     result['message'] = f'HTTP {response.status_code}'
                 return result
 
-            # TikTok/Supadata API spezielle Behandlung
+            # TikTok: Benötigt Brave + Supadata API Keys
             if source.get('is_api') and source_key == 'tiktok':
+                brave_key = None
+                supadata_key = None
+                if user:
+                    brave_key = getattr(user, 'brave_api_key', None)
+                    supadata_key = getattr(user, 'supadata_api_key', None)
+                
+                missing_keys = []
+                if not brave_key:
+                    missing_keys.append('Brave Search')
+                if not supadata_key:
+                    missing_keys.append('Supadata')
+                
+                if missing_keys:
+                    result['status'] = 'warning'
+                    result['message'] = f'API-Key(s) nicht konfiguriert: {", ".join(missing_keys)}'
+                    return result
+
+                # Test Brave Search API
+                response = requests.get(
+                    'https://api.search.brave.com/res/v1/web/search',
+                    params={'q': 'test', 'count': 1},
+                    headers={'X-Subscription-Token': brave_key, 'Accept': 'application/json'},
+                    timeout=10
+                )
+                result['response_time'] = round((time.time() - start_time) * 1000)
+
+                if response.status_code == 200:
+                    result['status'] = 'ok'
+                    result['message'] = 'Brave + Supadata konfiguriert'
+                elif response.status_code == 401:
+                    result['status'] = 'error'
+                    result['message'] = 'Brave API-Key ungültig'
+                elif response.status_code == 429:
+                    result['status'] = 'warning'
+                    result['message'] = 'Brave Rate-Limit erreicht'
+                else:
+                    result['status'] = 'error'
+                    result['message'] = f'Brave HTTP {response.status_code}'
+                return result
+
+            # Brave Search API spezielle Behandlung
+            if source.get('is_api') and source_key == 'brave':
                 api_key = None
                 if user:
-                    api_key = getattr(user, 'supadata_api_key', None)
+                    api_key = getattr(user, 'brave_api_key', None)
                 if not api_key:
                     result['status'] = 'warning'
                     result['message'] = 'API-Key nicht konfiguriert'
                     return result
 
-                # Test mit einer bekannten TikTok-URL
                 response = requests.get(
-                    'https://api.supadata.ai/v1/transcript',
-                    params={'url': 'https://www.tiktok.com/@test/video/123'},
-                    headers={'x-api-key': api_key},
+                    source['test_url'],
+                    params={'q': 'test', 'count': 1},
+                    headers={'X-Subscription-Token': api_key, 'Accept': 'application/json'},
                     timeout=10
                 )
                 result['response_time'] = round((time.time() - start_time) * 1000)
 
-                # 400/404 ist okay - bedeutet API funktioniert, Video existiert nur nicht
-                if response.status_code in [200, 400, 404]:
+                if response.status_code == 200:
                     result['status'] = 'ok'
                     result['message'] = 'API funktioniert'
                 elif response.status_code == 401:
                     result['status'] = 'error'
                     result['message'] = 'API-Key ungültig'
-                elif response.status_code == 403:
-                    result['status'] = 'error'
-                    result['message'] = 'API-Key ungültig oder Quota überschritten'
+                elif response.status_code == 429:
+                    result['status'] = 'warning'
+                    result['message'] = 'Rate-Limit erreicht (2000/Monat Free)'
                 else:
                     result['status'] = 'error'
                     result['message'] = f'HTTP {response.status_code}'
@@ -1106,12 +1153,12 @@ class BacklinkScraper:
         return results
 
     # ==================
-    # TIKTOK SUCHE (via DuckDuckGo + Supadata)
+    # TIKTOK SUCHE (via Brave Search + Supadata)
     # ==================
     def search_tiktok(self, query: str, num_results: int = 10) -> List[Dict]:
         """
         Durchsucht TikTok-Videos nach relevanten Inhalten.
-        1. Findet TikTok-Videos via Bing Search API (site:tiktok.com)
+        1. Findet TikTok-Videos via Brave Search API (site:tiktok.com)
         2. Extrahiert Untertitel via Supadata API
         3. Sucht in Untertiteln nach URLs und Domain-Erwähnungen
         """
@@ -1120,55 +1167,62 @@ class BacklinkScraper:
 
         # API Keys prüfen
         supadata_key = None
-        bing_key = None
+        brave_key = None
         if self.search.triggered_by:
             supadata_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
-            bing_key = getattr(self.search.triggered_by, 'bing_api_key', None)
+            brave_key = getattr(self.search.triggered_by, 'brave_api_key', None)
 
         if not supadata_key:
             self.search.log_progress("TikTok: Supadata API-Key nicht konfiguriert")
             self.source_stats['tiktok']['status'] = 'warning'
             return results
 
-        if not bing_key:
-            self.search.log_progress("TikTok: Bing API-Key nicht konfiguriert")
+        if not brave_key:
+            self.search.log_progress("TikTok: Brave Search API-Key nicht konfiguriert")
             self.source_stats['tiktok']['status'] = 'warning'
             return results
 
         try:
-            # Schritt 1: TikTok-Videos via Bing Search API finden
-            search_query = f"site:tiktok.com/*/video {query}"
-            bing_url = "https://api.bing.microsoft.com/v7.0/search"
+            # Schritt 1: TikTok-Videos via Brave Search API finden
+            search_query = f"site:tiktok.com {query}"
+            brave_url = "https://api.search.brave.com/res/v1/web/search"
 
             response = self.session.get(
-                bing_url,
+                brave_url,
                 params={
                     'q': search_query,
                     'count': 20,
-                    'mkt': 'de-DE'
+                    'country': 'de',
+                    'search_lang': 'de'
                 },
                 headers={
-                    'Ocp-Apim-Subscription-Key': bing_key
+                    'X-Subscription-Token': brave_key,
+                    'Accept': 'application/json'
                 },
                 timeout=15
             )
 
             if response.status_code == 401:
-                self.search.log_progress("TikTok: Bing API-Key ungültig")
+                self.search.log_progress("TikTok: Brave API-Key ungültig")
+                self.source_stats['tiktok']['status'] = 'error'
+                return results
+
+            if response.status_code == 429:
+                self.search.log_progress("TikTok: Brave API Rate-Limit erreicht")
                 self.source_stats['tiktok']['status'] = 'error'
                 return results
 
             if response.status_code != 200:
-                self.search.log_progress(f"TikTok: Bing HTTP {response.status_code}")
+                self.search.log_progress(f"TikTok: Brave HTTP {response.status_code}")
                 self.source_stats['tiktok']['status'] = 'error'
                 return results
 
             data = response.json()
-            web_pages = data.get('webPages', {}).get('value', [])
+            web_pages = data.get('web', {}).get('results', [])
 
             # TikTok-Video-URLs extrahieren
             tiktok_urls = []
-            self.search.log_progress(f"TikTok: Bing {len(web_pages)} Ergebnisse")
+            self.search.log_progress(f"TikTok: Brave Search {len(web_pages)} Ergebnisse")
             
             for page in web_pages:
                 try:
