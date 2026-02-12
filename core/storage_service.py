@@ -503,6 +503,177 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error calculating ideopin storage: {e}")
 
+        # Image Editor
+        try:
+            from image_editor.models import ImageProject, AIGenerationHistory
+            img_total = 0
+            projects = ImageProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['original_image', 'processed_image']:
+                    img = getattr(project, field_name, None)
+                    if img and hasattr(img, 'size'):
+                        try:
+                            img_total += img.size
+                        except Exception:
+                            pass
+            # AI Generated Images
+            ai_images = AIGenerationHistory.objects.filter(user=user, generated_image__isnull=False)
+            for ai_img in ai_images:
+                if ai_img.generated_image and hasattr(ai_img.generated_image, 'size'):
+                    try:
+                        img_total += ai_img.generated_image.size
+                    except Exception:
+                        pass
+            by_app['image_editor'] = img_total
+            total_bytes += img_total
+        except Exception as e:
+            logger.error(f"Error calculating image_editor storage: {e}")
+
+        # BlogPrep
+        try:
+            from blogprep.models import BlogPrepProject
+            blogprep_total = 0
+            projects = BlogPrepProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['featured_image', 'generated_image']:
+                    img = getattr(project, field_name, None)
+                    if img and hasattr(img, 'size'):
+                        try:
+                            blogprep_total += img.size
+                        except Exception:
+                            pass
+            by_app['blogprep'] = blogprep_total
+            total_bytes += blogprep_total
+        except Exception as e:
+            logger.error(f"Error calculating blogprep storage: {e}")
+
+        # VideoFlow
+        try:
+            from videoflow.models import VideoFlowProject
+            videoflow_total = 0
+            projects = VideoFlowProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['video_file', 'thumbnail', 'processed_video']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            videoflow_total += field.size
+                        except Exception:
+                            pass
+            by_app['videoflow'] = videoflow_total
+            total_bytes += videoflow_total
+        except Exception as e:
+            logger.error(f"Error calculating videoflow storage: {e}")
+
+        # PDF Sucher
+        try:
+            from pdf_sucher.models import PDFDocument
+            pdf_total = 0
+            pdfs = PDFDocument.objects.filter(user=user, file__isnull=False)
+            for pdf in pdfs:
+                if pdf.file and hasattr(pdf.file, 'size'):
+                    try:
+                        pdf_total += pdf.file.size
+                    except Exception:
+                        pass
+            by_app['pdf_sucher'] = pdf_total
+            total_bytes += pdf_total
+        except Exception as e:
+            logger.error(f"Error calculating pdf_sucher storage: {e}")
+
+        # ImageForge
+        try:
+            from imageforge.models import ImageGeneration, ProductMockup
+            forge_total = 0
+            generations = ImageGeneration.objects.filter(user=user)
+            for gen in generations:
+                if gen.product_image and hasattr(gen.product_image, 'size'):
+                    try:
+                        forge_total += gen.product_image.size
+                    except Exception:
+                        pass
+            mockups = ProductMockup.objects.filter(user=user)
+            for mockup in mockups:
+                if mockup.mockup_image and hasattr(mockup.mockup_image, 'size'):
+                    try:
+                        forge_total += mockup.mockup_image.size
+                    except Exception:
+                        pass
+            by_app['imageforge'] = forge_total
+            total_bytes += forge_total
+        except Exception as e:
+            logger.error(f"Error calculating imageforge storage: {e}")
+
+        # VSkript
+        try:
+            from vskript.models import VSkriptProject
+            vskript_total = 0
+            projects = VSkriptProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['video_file', 'audio_file', 'thumbnail']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            vskript_total += field.size
+                        except Exception:
+                            pass
+            by_app['vskript'] = vskript_total
+            total_bytes += vskript_total
+        except Exception as e:
+            logger.error(f"Error calculating vskript storage: {e}")
+
+        # MakeAds
+        try:
+            from makeads.models import AdProject
+            makeads_total = 0
+            projects = AdProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['product_image', 'generated_image', 'final_image']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            makeads_total += field.size
+                        except Exception:
+                            pass
+            by_app['makeads'] = makeads_total
+            total_bytes += makeads_total
+        except Exception as e:
+            logger.error(f"Error calculating makeads storage: {e}")
+
+        # Bug Report
+        try:
+            from bug_report.models import BugReportAttachment
+            bug_total = 0
+            attachments = BugReportAttachment.objects.filter(bug_report__sender=user, file__isnull=False)
+            for att in attachments:
+                if att.file and hasattr(att.file, 'size'):
+                    try:
+                        bug_total += att.file.size
+                    except Exception:
+                        pass
+            by_app['bug_report'] = bug_total
+            total_bytes += bug_total
+        except Exception as e:
+            logger.error(f"Error calculating bug_report storage: {e}")
+
+        # LoomConnect
+        try:
+            from loomconnect.models import ConnectProject
+            loom_total = 0
+            projects = ConnectProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['image', 'generated_image']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            loom_total += field.size
+                        except Exception:
+                            pass
+            by_app['loomconnect'] = loom_total
+            total_bytes += loom_total
+        except Exception as e:
+            logger.error(f"Error calculating loomconnect storage: {e}")
+
         # UserStorage aktualisieren
         storage.used_storage = total_bytes
         storage.save(update_fields=['used_storage', 'updated_at'])
