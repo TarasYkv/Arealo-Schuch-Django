@@ -1654,23 +1654,35 @@ class BacklinkScraper:
 
                 # DuckDuckGo (nur wenn ausgewählt)
                 if 'duckduckgo' in sources:
-                    self._delay(2, 4)
-                    all_results.extend(self.search_duckduckgo(query.query))
+                    try:
+                        self._delay(2, 4)
+                        all_results.extend(self.search_duckduckgo(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"DuckDuckGo-Fehler: {str(e)[:100]}")
 
                 # Reddit (nur wenn ausgewählt)
                 if 'reddit' in sources:
-                    self._delay(2, 4)
-                    all_results.extend(self.search_reddit(query.query))
+                    try:
+                        self._delay(2, 4)
+                        all_results.extend(self.search_reddit(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Reddit-Fehler: {str(e)[:100]}")
 
                 # YouTube (nur wenn ausgewählt)
                 if 'youtube' in sources:
-                    self._delay(1, 2)
-                    all_results.extend(self.search_youtube(query.query))
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_youtube(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"YouTube-Fehler: {str(e)[:100]}")
 
                 # TikTok (nur wenn ausgewählt)
                 if 'tiktok' in sources:
-                    self._delay(1, 2)
-                    all_results.extend(self.search_tiktok(query.query))
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_tiktok(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"TikTok-Fehler: {str(e)[:100]}")
 
                 # Ergebnisse speichern
                 for result in all_results:
