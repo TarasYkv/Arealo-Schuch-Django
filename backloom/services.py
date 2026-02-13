@@ -225,68 +225,32 @@ class SourceHealthCheck:
                     result['message'] = f'Brave HTTP {response.status_code}'
                 return result
 
-            # Brave Search API spezielle Behandlung
+            # Brave Search API - nur Key-Check, kein API-Call um Quota zu sparen
             if source.get('is_api') and source_key == 'brave':
                 api_key = None
                 if user:
                     api_key = getattr(user, 'brave_api_key', None)
-                if not api_key:
+                result['response_time'] = round((time.time() - start_time) * 1000)
+                if api_key and len(api_key) > 10:
+                    result['status'] = 'ok'
+                    result['message'] = 'API-Key konfiguriert'
+                else:
                     result['status'] = 'warning'
                     result['message'] = 'API-Key nicht konfiguriert'
-                    return result
-
-                response = requests.get(
-                    source['test_url'],
-                    params={'q': 'test', 'count': 1},
-                    headers={'X-Subscription-Token': api_key, 'Accept': 'application/json'},
-                    timeout=10
-                )
-                result['response_time'] = round((time.time() - start_time) * 1000)
-
-                if response.status_code == 200:
-                    result['status'] = 'ok'
-                    result['message'] = 'API funktioniert'
-                elif response.status_code == 401:
-                    result['status'] = 'error'
-                    result['message'] = 'API-Key ungültig'
-                elif response.status_code == 429:
-                    result['status'] = 'warning'
-                    result['message'] = 'Rate-Limit erreicht (2000/Monat Free)'
-                else:
-                    result['status'] = 'error'
-                    result['message'] = f'HTTP {response.status_code}'
                 return result
 
-            # Reddit (via Brave Search API)
+            # Reddit (via Brave Search API) - nur Key-Check, kein API-Call um Quota zu sparen
             if source.get('is_api') and source_key == 'reddit':
                 api_key = None
                 if user:
                     api_key = getattr(user, 'brave_api_key', None)
-                if not api_key:
+                result['response_time'] = round((time.time() - start_time) * 1000)
+                if api_key and len(api_key) > 10:
+                    result['status'] = 'ok'
+                    result['message'] = 'Brave API-Key konfiguriert'
+                else:
                     result['status'] = 'warning'
                     result['message'] = 'Brave API-Key nicht konfiguriert'
-                    return result
-
-                response = requests.get(
-                    source['test_url'],
-                    params={'q': 'site:reddit.com test', 'count': 1},
-                    headers={'X-Subscription-Token': api_key, 'Accept': 'application/json'},
-                    timeout=10
-                )
-                result['response_time'] = round((time.time() - start_time) * 1000)
-
-                if response.status_code == 200:
-                    result['status'] = 'ok'
-                    result['message'] = 'Reddit via Brave funktioniert'
-                elif response.status_code == 401:
-                    result['status'] = 'error'
-                    result['message'] = 'Brave API-Key ungültig'
-                elif response.status_code == 429:
-                    result['status'] = 'warning'
-                    result['message'] = 'Brave Rate-Limit erreicht'
-                else:
-                    result['status'] = 'error'
-                    result['message'] = f'HTTP {response.status_code}'
                 return result
 
             # Standard Scraping-Check
