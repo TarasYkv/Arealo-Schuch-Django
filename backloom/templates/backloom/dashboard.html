@@ -553,30 +553,30 @@
                     </div>
                 </div>
 
-                <!-- Quellen-Status (nur aktive Quellen) -->
+                <!-- Quellen-Status (nur ausgewählte Quellen) -->
                 <div class="row mt-3" id="source-status-row">
                     <div class="col-12">
                         <small class="text-muted">Aktive Quellen:</small>
                         <div class="d-flex flex-wrap gap-2 mt-1" id="source-indicators">
-                            <span class="badge bg-secondary" data-source="duckduckgo">
+                            <span class="badge bg-secondary" data-source="duckduckgo" style="display:none;">
                                 <i class="fas fa-search me-1"></i>DuckDuckGo: -
                             </span>
-                            <span class="badge bg-secondary" data-source="youtube">
+                            <span class="badge bg-secondary" data-source="youtube" style="display:none;">
                                 <i class="fab fa-youtube me-1"></i>YouTube: -
                             </span>
-                            <span class="badge bg-secondary" data-source="tiktok">
+                            <span class="badge bg-secondary" data-source="tiktok" style="display:none;">
                                 <i class="fab fa-tiktok me-1"></i>TikTok: -
                             </span>
-                            <span class="badge bg-secondary" data-source="reddit">
+                            <span class="badge bg-secondary" data-source="reddit" style="display:none;">
                                 <i class="fab fa-reddit me-1"></i>Reddit: -
                             </span>
-                            <span class="badge bg-secondary" data-source="pinterest">
+                            <span class="badge bg-secondary" data-source="pinterest" style="display:none;">
                                 <i class="fab fa-pinterest me-1"></i>Pinterest: -
                             </span>
-                            <span class="badge bg-secondary" data-source="quora">
+                            <span class="badge bg-secondary" data-source="quora" style="display:none;">
                                 <i class="fab fa-quora me-1"></i>Quora: -
                             </span>
-                            <span class="badge bg-secondary" data-source="medium">
+                            <span class="badge bg-secondary" data-source="medium" style="display:none;">
                                 <i class="fab fa-medium me-1"></i>Medium: -
                             </span>
                         </div>
@@ -839,6 +839,20 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('search-status-badge').className = 'badge bg-primary ms-2';
             document.getElementById('search-status-badge').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Startet';
             btnCloseModal.disabled = true;
+            
+            // Nur ausgewählte Quellen als Badges anzeigen
+            const allSources = ['duckduckgo', 'youtube', 'tiktok', 'reddit', 'pinterest', 'quora', 'medium'];
+            allSources.forEach(s => {
+                const badge = document.querySelector(`[data-source="${s}"]`);
+                if (badge) {
+                    badge.style.display = selectedSources.includes(s) ? 'inline-block' : 'none';
+                    // Reset Badge
+                    badge.className = 'badge bg-secondary';
+                    const iconHtml = badge.innerHTML.split(':')[0] + ': ';
+                    badge.innerHTML = iconHtml + '0';
+                }
+            });
+            
             progressModal.show();
 
             // Suche starten mit ausgewählten Quellen
