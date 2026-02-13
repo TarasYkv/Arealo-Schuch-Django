@@ -546,6 +546,54 @@ class BacklinkScraper:
 
         return None
 
+    def _get_tiktok_metadata(self, video_url: str) -> Optional[Dict]:
+        """
+        Holt Metadaten eines TikTok-Videos über die Supadata Metadata API.
+        Gibt Description, Creator-Username und andere Infos zurück.
+        """
+        api_key = None
+        if self.search.triggered_by:
+            api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+
+        if not api_key:
+            return None
+
+        video_id = video_url.split('/video/')[-1].split('?')[0][:12] if '/video/' in video_url else video_url[-20:]
+
+        try:
+            response = self.session.get(
+                'https://api.supadata.ai/v1/metadata',
+                params={'url': video_url},
+                headers={'x-api-key': api_key},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                description = data.get('description', '') or ''
+                author = data.get('author', {})
+                username = author.get('username', '')
+                
+                if description or username:
+                    self.search.log_progress(f"  → {video_id}: Metadata OK (@{username}, {len(description)} Zeichen Desc)")
+                    return {
+                        'description': description,
+                        'username': username,
+                        'display_name': author.get('displayName', ''),
+                        'title': data.get('title', ''),
+                    }
+                else:
+                    self.search.log_progress(f"  → {video_id}: Metadata leer")
+            elif response.status_code == 404:
+                self.search.log_progress(f"  → {video_id}: Metadata nicht gefunden (404)")
+            else:
+                self.search.log_progress(f"  → {video_id}: Metadata HTTP {response.status_code}")
+
+        except Exception as e:
+            self.search.log_progress(f"  → {video_id}: Metadata Fehler - {str(e)[:50]}")
+
+        return None
+
     # ==================
     # GOOGLE SCRAPING
     # ==================
@@ -1251,33 +1299,42 @@ class BacklinkScraper:
                 self.source_stats['tiktok']['status'] = 'warning'
                 return results
 
-            self.search.log_progress(f"TikTok: {len(tiktok_urls)} Videos gefunden, extrahiere Untertitel...")
+            self.search.log_progress(f"TikTok: {len(tiktok_urls)} Videos gefunden, extrahiere Daten...")
 
-            # Schritt 2: Untertitel für jedes Video abrufen
+            # Schritt 2: Untertitel UND Metadata für jedes Video abrufen
             urls_found = 0
             domains_found = 0
 
             for video_url in tiktok_urls:
                 try:
+                    all_urls = set()
+                    all_domains = set()
+                    video_id = video_url.split('/video/')[-1].split('?')[0][:12] if '/video/' in video_url else video_url[-20:]
+
                     # Rate-Limit: 1 request/second (Supadata free tier)
                     time.sleep(1.5)
 
-                    # Untertitel abrufen
+                    # A) Untertitel abrufen (was im Video gesagt wird)
                     transcript_text = self._get_tiktok_transcript(video_url)
+                    if transcript_text:
+                        transcript_urls = self._extract_urls_from_text(transcript_text)
+                        all_urls.update(transcript_urls)
+                        transcript_domains = self._extract_domains_from_text(transcript_text)
+                        all_domains.update(transcript_domains)
 
-                    if not transcript_text:
-                        continue
+                    # Kurze Pause zwischen API-Aufrufen
+                    time.sleep(1.0)
 
-                    all_urls = set()
-                    all_domains = set()
-
-                    # URLs aus Untertitel extrahieren
-                    transcript_urls = self._extract_urls_from_text(transcript_text)
-                    all_urls.update(transcript_urls)
-
-                    # Domain-Erwähnungen aus Untertitel (z.B. "besucht example.de")
-                    transcript_domains = self._extract_domains_from_text(transcript_text)
-                    all_domains.update(transcript_domains)
+                    # B) Metadata abrufen (Video-Description mit Links)
+                    metadata = self._get_tiktok_metadata(video_url)
+                    if metadata:
+                        description = metadata.get('description', '')
+                        if description:
+                            # URLs aus Description extrahieren
+                            desc_urls = self._extract_urls_from_text(description)
+                            all_urls.update(desc_urls)
+                            desc_domains = self._extract_domains_from_text(description)
+                            all_domains.update(desc_domains)
 
                     # Domains die bereits als URLs gefunden wurden, entfernen
                     for url_item in all_urls:
@@ -1286,10 +1343,8 @@ class BacklinkScraper:
 
                     found_count = len(all_urls) + len(all_domains)
                     if found_count > 0:
-                        # Video-ID für Anzeige extrahieren
-                        video_id = video_url.split('/video/')[-1].split('?')[0] if '/video/' in video_url else video_url
                         self.search.log_progress(
-                            f"  TikTok {video_id[:12]}... → {len(all_urls)} URLs, {len(all_domains)} Domains"
+                            f"  TikTok {video_id}... → {len(all_urls)} URLs, {len(all_domains)} Domains"
                         )
 
                         # Vollständige URLs speichern
@@ -1312,7 +1367,7 @@ class BacklinkScraper:
                             })
                             domains_found += 1
 
-                    # Kurze Pause zwischen API-Aufrufen
+                    # Kurze Pause zwischen Videos
                     self._delay(0.5, 1.0)
 
                 except Exception as e:
