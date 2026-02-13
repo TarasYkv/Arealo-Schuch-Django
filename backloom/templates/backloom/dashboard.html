@@ -82,6 +82,11 @@
                         <label class="btn btn-outline-dark btn-sm" for="source-tiktok" title="TikTok (Supadata API)">
                             <i class="fab fa-tiktok"></i> TikTok
                         </label>
+
+                        <input type="checkbox" class="btn-check" id="source-reddit">
+                        <label class="btn btn-outline-warning btn-sm" for="source-reddit" title="Reddit (via Brave)">
+                            <i class="fab fa-reddit"></i> Reddit
+                        </label>
                     </div>
 
                     <button type="button"
@@ -547,6 +552,9 @@
                             <span class="badge bg-secondary" data-source="tiktok">
                                 <i class="fab fa-tiktok me-1"></i>TikTok: -
                             </span>
+                            <span class="badge bg-secondary" data-source="reddit">
+                                <i class="fab fa-reddit me-1"></i>Reddit: -
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -717,8 +725,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateSourceIndicators(lines) {
-        // Nur aktive Quellen (Google/Bing/Ecosia/Reddit sind deaktiviert)
-        const sources = ['duckduckgo', 'youtube', 'tiktok'];
+        // Aktive Quellen (Google/Bing/Ecosia sind deaktiviert)
+        const sources = ['duckduckgo', 'youtube', 'tiktok', 'reddit'];
         const counts = {};
 
         sources.forEach(s => counts[s] = 0);
@@ -727,7 +735,7 @@ document.addEventListener('DOMContentLoaded', function() {
             lines.forEach(line => {
                 const lower = line.toLowerCase();
                 sources.forEach(source => {
-                    // Match patterns like "DuckDuckGo: 10 Ergebnisse" or "YouTube: 5 Videos" or "TikTok: 3 URLs"
+                    // Match patterns like "DuckDuckGo: 10 Ergebnisse" or "YouTube: 5 Videos" or "TikTok: 3 URLs" or "Reddit: 5 Ergebnisse"
                     const match = lower.match(new RegExp(`${source}[:\\s]+([0-9]+)\\s+(ergebnisse|videos|urls)`));
                     if (match) {
                         counts[source] = Math.max(counts[source], parseInt(match[1]));
@@ -768,11 +776,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnStartSearch = document.getElementById('btn-start-search');
     if (btnStartSearch) {
         btnStartSearch.addEventListener('click', function() {
-            // Ausgewählte Quellen sammeln (nur funktionierende)
+            // Ausgewählte Quellen sammeln
             const selectedSources = [];
             if (document.getElementById('source-duckduckgo')?.checked) selectedSources.push('duckduckgo');
             if (document.getElementById('source-youtube')?.checked) selectedSources.push('youtube');
             if (document.getElementById('source-tiktok')?.checked) selectedSources.push('tiktok');
+            if (document.getElementById('source-reddit')?.checked) selectedSources.push('reddit');
 
             if (selectedSources.length === 0) {
                 alert('Bitte wählen Sie mindestens eine Quelle aus!');
@@ -783,6 +792,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (s === 'duckduckgo') return 'DuckDuckGo';
                 if (s === 'youtube') return 'YouTube';
                 if (s === 'tiktok') return 'TikTok';
+                if (s === 'reddit') return 'Reddit';
                 return s;
             }).join(', ');
 
