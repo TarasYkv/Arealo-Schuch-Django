@@ -507,7 +507,10 @@ class BacklinkScraper:
             api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
 
         if not api_key:
+            self.search.log_progress("  → Supadata: Kein API-Key")
             return None
+
+        video_id = video_url.split('/video/')[-1].split('?')[0][:12] if '/video/' in video_url else video_url[-20:]
 
         try:
             response = self.session.get(
@@ -524,14 +527,22 @@ class BacklinkScraper:
                 if content:
                     # Text zusammenfügen
                     full_text = ' '.join([seg.get('text', '') for seg in content])
+                    self.search.log_progress(f"  → {video_id}: Transkript OK ({len(full_text)} Zeichen)")
                     return full_text
+                else:
+                    # Response OK aber kein Content - zeige was wir bekommen haben
+                    self.search.log_progress(f"  → {video_id}: Kein Content (Keys: {list(data.keys())})")
             elif response.status_code == 404:
-                logger.debug(f"TikTok transcript not found for {video_url}")
+                self.search.log_progress(f"  → {video_id}: Keine Untertitel verfügbar (404)")
+            elif response.status_code == 401:
+                self.search.log_progress(f"  → {video_id}: API-Key ungültig (401)")
+            elif response.status_code == 429:
+                self.search.log_progress(f"  → {video_id}: Rate-Limit erreicht (429)")
             else:
-                logger.debug(f"TikTok API error {response.status_code} for {video_url}")
+                self.search.log_progress(f"  → {video_id}: HTTP {response.status_code}")
 
         except Exception as e:
-            logger.debug(f"TikTok transcript error for {video_url}: {e}")
+            self.search.log_progress(f"  → {video_id}: Fehler - {str(e)[:50]}")
 
         return None
 
