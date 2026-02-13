@@ -103,6 +103,27 @@ class SourceHealthCheck:
             'is_api': True,
             'enabled': True,
         },
+        'pinterest': {
+            'name': 'Pinterest (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,
+            'is_api': True,
+            'enabled': True,
+        },
+        'quora': {
+            'name': 'Quora (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,
+            'is_api': True,
+            'enabled': True,
+        },
+        'medium': {
+            'name': 'Medium (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,
+            'is_api': True,
+            'enabled': True,
+        },
     }
 
     # Deaktivierte Quellen (blockiert oder benötigen JavaScript)
@@ -239,8 +260,8 @@ class SourceHealthCheck:
                     result['message'] = 'API-Key nicht konfiguriert'
                 return result
 
-            # Reddit (via Brave Search API) - nur Key-Check, kein API-Call um Quota zu sparen
-            if source.get('is_api') and source_key == 'reddit':
+            # Reddit, Pinterest, Quora, Medium (via Brave) - nur Key-Check, kein API-Call
+            if source.get('is_api') and source_key in ['reddit', 'pinterest', 'quora', 'medium']:
                 api_key = None
                 if user:
                     api_key = getattr(user, 'brave_api_key', None)
@@ -331,6 +352,9 @@ class BacklinkScraper:
             'duckduckgo': {'found': 0, 'status': 'pending'},
             'ecosia': {'found': 0, 'status': 'pending'},
             'reddit': {'found': 0, 'status': 'pending'},
+            'pinterest': {'found': 0, 'status': 'pending'},
+            'quora': {'found': 0, 'status': 'pending'},
+            'medium': {'found': 0, 'status': 'pending'},
             'youtube': {'found': 0, 'status': 'pending'},
             'tiktok': {'found': 0, 'status': 'pending'},
         }
@@ -1074,6 +1098,119 @@ class BacklinkScraper:
         return results
 
     # ==================
+    # PINTEREST SUCHE (via Brave)
+    # ==================
+    def search_pinterest(self, query: str, num_results: int = 20) -> List[Dict]:
+        """Durchsucht Pinterest via Brave Search API."""
+        return self._search_via_brave(query, 'pinterest.com', 'pinterest', SourceType.SOCIAL, num_results)
+
+    # ==================
+    # QUORA SUCHE (via Brave)
+    # ==================
+    def search_quora(self, query: str, num_results: int = 20) -> List[Dict]:
+        """Durchsucht Quora via Brave Search API."""
+        return self._search_via_brave(query, 'quora.com', 'quora', SourceType.FORUM, num_results)
+
+    # ==================
+    # MEDIUM SUCHE (via Brave)
+    # ==================
+    def search_medium(self, query: str, num_results: int = 20) -> List[Dict]:
+        """Durchsucht Medium via Brave Search API."""
+        return self._search_via_brave(query, 'medium.com', 'medium', SourceType.BLOG, num_results)
+
+    def _search_via_brave(self, query: str, site_domain: str, source_name: str, source_type, num_results: int = 20) -> List[Dict]:
+        """
+        Generische Suche via Brave Search API mit site:-Filter.
+        Wiederverwendbar für Pinterest, Quora, Medium, etc.
+        """
+        results = []
+        display_name = source_name.capitalize()
+        self.search.log_progress(f"{display_name}-Suche: '{query}'")
+
+        # Brave API Key prüfen
+        brave_key = None
+        if self.search.triggered_by:
+            brave_key = getattr(self.search.triggered_by, 'brave_api_key', None)
+
+        if not brave_key:
+            self.search.log_progress(f"{display_name}: Brave API-Key nicht konfiguriert")
+            self.source_stats[source_name]['status'] = 'warning'
+            return results
+
+        try:
+            search_query = f"site:{site_domain} {query}"
+            brave_url = "https://api.search.brave.com/res/v1/web/search"
+
+            response = self.session.get(
+                brave_url,
+                params={
+                    'q': search_query,
+                    'count': min(num_results, 20),
+                    'country': 'de',
+                    'search_lang': 'de'
+                },
+                headers={
+                    'X-Subscription-Token': brave_key,
+                    'Accept': 'application/json'
+                },
+                timeout=15
+            )
+
+            if response.status_code == 401:
+                self.search.log_progress(f"{display_name}: Brave API-Key ungültig")
+                self.source_stats[source_name]['status'] = 'error'
+                return results
+
+            if response.status_code == 429:
+                self.search.log_progress(f"{display_name}: Brave Rate-Limit erreicht")
+                self.source_stats[source_name]['status'] = 'error'
+                return results
+
+            if response.status_code != 200:
+                self.search.log_progress(f"{display_name}: Brave HTTP {response.status_code}")
+                self.source_stats[source_name]['status'] = 'error'
+                return results
+
+            data = response.json()
+            web_results = data.get('web', {}).get('results', [])
+
+            self.search.log_progress(f"{display_name}: Brave liefert {len(web_results)} Ergebnisse")
+
+            for item in web_results:
+                try:
+                    url = item.get('url', '')
+                    title = item.get('title', '')
+                    description = item.get('description', '')
+
+                    if site_domain not in url:
+                        continue
+
+                    results.append({
+                        'url': url,
+                        'title': sanitize_for_mysql(title),
+                        'description': sanitize_for_mysql(description),
+                        'source_type': source_type
+                    })
+
+                    if len(results) >= num_results:
+                        break
+
+                except Exception as e:
+                    logger.debug(f"Error parsing {display_name}/Brave result: {e}")
+                    continue
+
+            self.source_stats[source_name]['found'] = len(results)
+            self.source_stats[source_name]['status'] = 'ok' if results else 'warning'
+            self.search.log_progress(f"{display_name}: {len(results)} Ergebnisse gefunden")
+
+        except requests.RequestException as e:
+            logger.error(f"{display_name} search error: {e}")
+            self.search.log_progress(f"{display_name}-Fehler: {e}")
+            self.source_stats[source_name]['status'] = 'error'
+
+        return results
+
+    # ==================
     # YOUTUBE API
     # ==================
     def search_youtube(self, query: str, num_results: int = 10) -> List[Dict]:
@@ -1628,6 +1765,12 @@ class BacklinkScraper:
             source_names.append('DuckDuckGo')
         if 'reddit' in sources:
             source_names.append('Reddit')
+        if 'pinterest' in sources:
+            source_names.append('Pinterest')
+        if 'quora' in sources:
+            source_names.append('Quora')
+        if 'medium' in sources:
+            source_names.append('Medium')
         if 'youtube' in sources:
             source_names.append('YouTube')
         if 'tiktok' in sources:
@@ -1667,6 +1810,30 @@ class BacklinkScraper:
                         all_results.extend(self.search_reddit(query.query))
                     except Exception as e:
                         self.search.log_progress(f"Reddit-Fehler: {str(e)[:100]}")
+
+                # Pinterest (nur wenn ausgewählt)
+                if 'pinterest' in sources:
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_pinterest(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Pinterest-Fehler: {str(e)[:100]}")
+
+                # Quora (nur wenn ausgewählt)
+                if 'quora' in sources:
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_quora(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Quora-Fehler: {str(e)[:100]}")
+
+                # Medium (nur wenn ausgewählt)
+                if 'medium' in sources:
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_medium(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Medium-Fehler: {str(e)[:100]}")
 
                 # YouTube (nur wenn ausgewählt)
                 if 'youtube' in sources:

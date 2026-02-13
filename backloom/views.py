@@ -258,7 +258,7 @@ def api_start_search(request):
     selected_sources = [s.strip() for s in sources_param.split(',') if s.strip()]
 
     # Validiere Quellen (nur funktionierende)
-    valid_sources = ['duckduckgo', 'youtube', 'tiktok', 'reddit']
+    valid_sources = ['duckduckgo', 'youtube', 'tiktok', 'reddit', 'pinterest', 'quora', 'medium']
     selected_sources = [s for s in selected_sources if s in valid_sources]
 
     # Fallback: alle aktiven Quellen wenn keine angegeben
