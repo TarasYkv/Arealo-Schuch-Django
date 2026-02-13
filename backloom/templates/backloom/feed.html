@@ -18,7 +18,7 @@
                         <i class="fas fa-link text-primary me-2"></i>Backlink-Möglichkeiten
                     </h1>
                     <p class="text-muted mb-0">
-                        {{ page_obj.paginator.count }} Seiten gefunden
+                        <strong>{{ page_obj.paginator.count }}</strong> Links gefunden
                         {% if not show_all %}<small class="text-info ms-2">(nur echte Backlink-Quellen)</small>{% endif %}
                     </p>
                 </div>
@@ -292,18 +292,39 @@
 
     <!-- Pagination -->
     {% if page_obj.has_other_pages %}
+    {% with filter_params=""|add:""|add:current_category|yesno:","|add:"category="|add:current_category|default:"" %}
     <div class="row mt-4">
         <div class="col-12">
+            <!-- Info: Seite X von Y (Z Links) -->
+            <div class="text-center text-muted mb-2">
+                <small>
+                    Seite <strong>{{ page_obj.number }}</strong> von <strong>{{ page_obj.paginator.num_pages }}</strong>
+                    &nbsp;·&nbsp;
+                    <strong>{{ page_obj.paginator.count }}</strong> Links insgesamt
+                </small>
+            </div>
+            
             <nav aria-label="Seitennavigation">
-                <ul class="pagination justify-content-center">
+                <ul class="pagination justify-content-center flex-wrap">
+                    <!-- Erste Seite -->
+                    {% if page_obj.number > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" title="Erste Seite">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Vorherige Seite -->
                     {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" title="Vorherige Seite">
                             <i class="fas fa-chevron-left"></i>
                         </a>
                     </li>
                     {% endif %}
 
+                    <!-- Seitenzahlen -->
                     {% for num in page_obj.paginator.page_range %}
                         {% if page_obj.number == num %}
                         <li class="page-item active"><span class="page-link">{{ num }}</span></li>
@@ -314,10 +335,20 @@
                         {% endif %}
                     {% endfor %}
 
+                    <!-- Nächste Seite -->
                     {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" title="Nächste Seite">
                             <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Letzte Seite -->
+                    {% if page_obj.number < page_obj.paginator.num_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_quality %}&quality={{ current_quality }}{% endif %}{% if current_keyword %}&keyword={{ current_keyword }}{% endif %}{% if current_sort %}&sort={{ current_sort }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" title="Letzte Seite (älteste)">
+                            <i class="fas fa-angle-double-right"></i>
                         </a>
                     </li>
                     {% endif %}
@@ -325,6 +356,7 @@
             </nav>
         </div>
     </div>
+    {% endwith %}
     {% endif %}
 </div>
 {% endblock %}
