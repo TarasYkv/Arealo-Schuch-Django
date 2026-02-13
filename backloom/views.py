@@ -67,11 +67,11 @@ class BackloomDashboardView(LoginRequiredMixin, ListView):
         if running_search and running_search.started_at:
             from django.utils import timezone
             age_minutes = (timezone.now() - running_search.started_at).total_seconds() / 60
-            if age_minutes > 30:
+            if age_minutes > 10:
                 # Suche hängt - als fehlgeschlagen markieren
                 running_search.status = BacklinkSearchStatus.FAILED
                 running_search.completed_at = timezone.now()
-                running_search.error_log = f"Automatisch beendet: Suche lief > 30 Minuten ({int(age_minutes)} Min)"
+                running_search.error_log = f"Automatisch beendet: Suche lief > 10 Minuten ({int(age_minutes)} Min)"
                 running_search.save(update_fields=['status', 'completed_at', 'error_log'])
                 running_search = None  # Nicht mehr als "laufend" anzeigen
 
