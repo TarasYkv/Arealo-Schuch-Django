@@ -96,6 +96,13 @@ class SourceHealthCheck:
             'is_api': True,
             'enabled': True,
         },
+        'reddit': {
+            'name': 'Reddit (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,  # API check
+            'is_api': True,
+            'enabled': True,
+        },
     }
 
     # Deaktivierte Quellen (blockiert oder benötigen JavaScript)
@@ -113,11 +120,6 @@ class SourceHealthCheck:
         'ecosia': {
             'name': 'Ecosia',
             'reason': 'Benötigt JavaScript',
-            'enabled': False,
-        },
-        'reddit': {
-            'name': 'Reddit',
-            'reason': 'Blockiert (403)',
             'enabled': False,
         },
     }
@@ -250,6 +252,38 @@ class SourceHealthCheck:
                 elif response.status_code == 429:
                     result['status'] = 'warning'
                     result['message'] = 'Rate-Limit erreicht (2000/Monat Free)'
+                else:
+                    result['status'] = 'error'
+                    result['message'] = f'HTTP {response.status_code}'
+                return result
+
+            # Reddit (via Brave Search API)
+            if source.get('is_api') and source_key == 'reddit':
+                api_key = None
+                if user:
+                    api_key = getattr(user, 'brave_api_key', None)
+                if not api_key:
+                    result['status'] = 'warning'
+                    result['message'] = 'Brave API-Key nicht konfiguriert'
+                    return result
+
+                response = requests.get(
+                    source['test_url'],
+                    params={'q': 'site:reddit.com test', 'count': 1},
+                    headers={'X-Subscription-Token': api_key, 'Accept': 'application/json'},
+                    timeout=10
+                )
+                result['response_time'] = round((time.time() - start_time) * 1000)
+
+                if response.status_code == 200:
+                    result['status'] = 'ok'
+                    result['message'] = 'Reddit via Brave funktioniert'
+                elif response.status_code == 401:
+                    result['status'] = 'error'
+                    result['message'] = 'Brave API-Key ungültig'
+                elif response.status_code == 429:
+                    result['status'] = 'warning'
+                    result['message'] = 'Brave Rate-Limit erreicht'
                 else:
                     result['status'] = 'error'
                     result['message'] = f'HTTP {response.status_code}'
@@ -972,75 +1006,88 @@ class BacklinkScraper:
         return results
 
     # ==================
-    # REDDIT SCRAPING
+    # ==================
+    # REDDIT SUCHE (via Brave Search API)
     # ==================
     def search_reddit(self, query: str, num_results: int = 20) -> List[Dict]:
         """
-        Durchsucht Reddit nach relevanten Diskussionen
-        Verwendet die alte Reddit-Version für einfacheres Scraping
+        Durchsucht Reddit nach relevanten Diskussionen via Brave Search API.
+        Verwendet site:reddit.com für gezielte Reddit-Suche.
         """
         results = []
         self.search.log_progress(f"Reddit-Suche: '{query}'")
 
+        # Brave API Key prüfen
+        brave_key = None
+        if self.search.triggered_by:
+            brave_key = getattr(self.search.triggered_by, 'brave_api_key', None)
+
+        if not brave_key:
+            self.search.log_progress("Reddit: Brave API-Key nicht konfiguriert")
+            self.source_stats['reddit']['status'] = 'warning'
+            return results
+
         try:
-            # Reddit-Suche (alte Version - stabiler für Scraping)
-            url = f"https://old.reddit.com/search?q={quote_plus(query)}&sort=new&t=year"
+            # Reddit-Suche via Brave (site:reddit.com)
+            search_query = f"site:reddit.com {query}"
+            brave_url = "https://api.search.brave.com/res/v1/web/search"
 
             response = self.session.get(
-                url,
-                headers=self._get_headers(),
+                brave_url,
+                params={
+                    'q': search_query,
+                    'count': min(num_results, 20),  # Brave max 20
+                    'country': 'de',
+                    'search_lang': 'de'
+                },
+                headers={
+                    'X-Subscription-Token': brave_key,
+                    'Accept': 'application/json'
+                },
                 timeout=15
             )
 
-            if response.status_code != 200:
-                self.search.log_progress(f"Reddit: HTTP {response.status_code}")
+            if response.status_code == 401:
+                self.search.log_progress("Reddit: Brave API-Key ungültig")
                 self.source_stats['reddit']['status'] = 'error'
                 return results
 
-            soup = BeautifulSoup(response.text, 'html.parser')
+            if response.status_code == 429:
+                self.search.log_progress("Reddit: Brave Rate-Limit erreicht")
+                self.source_stats['reddit']['status'] = 'error'
+                return results
 
-            # Mehrere Selektoren versuchen
-            selectors = [
-                'div.search-result',  # Standard old.reddit Format
-                'div.thing',  # Alternatives old.reddit Format
-                'div.search-result-link',  # Link-Container
-            ]
+            if response.status_code != 200:
+                self.search.log_progress(f"Reddit: Brave HTTP {response.status_code}")
+                self.source_stats['reddit']['status'] = 'error'
+                return results
 
-            found_containers = []
-            for selector in selectors:
-                containers = soup.select(selector)
-                if containers:
-                    found_containers = containers
-                    self.search.log_progress(f"Reddit: Verwende Selector '{selector}' ({len(containers)} Container)")
-                    break
+            data = response.json()
+            web_results = data.get('web', {}).get('results', [])
 
-            for result in found_containers:
+            self.search.log_progress(f"Reddit: Brave liefert {len(web_results)} Ergebnisse")
+
+            for item in web_results:
                 try:
-                    # Link finden
-                    link_elem = result.select_one('a.search-title') or result.select_one('a.title') or result.select_one('a[data-click-id="body"]')
-                    if not link_elem:
+                    url = item.get('url', '')
+                    title = item.get('title', '')
+                    description = item.get('description', '')
+
+                    # Nur Reddit-URLs
+                    if 'reddit.com' not in url:
                         continue
 
-                    href = link_elem.get('href', '')
-                    if href.startswith('/'):
-                        href = f"https://www.reddit.com{href}"
-                    elif href.startswith('//'):
-                        href = f"https:{href}"
-
-                    if not href.startswith('https://'):
-                        continue
-
-                    title = self._clean_text(link_elem.get_text())
-
-                    # Subreddit als Beschreibung
-                    subreddit_elem = result.select_one('a.search-subreddit-link') or result.select_one('a.subreddit')
-                    subreddit = subreddit_elem.get_text() if subreddit_elem else ''
-                    description = f"Subreddit: {subreddit}" if subreddit else ''
+                    # Subreddit aus URL extrahieren (z.B. /r/de/)
+                    subreddit = ''
+                    if '/r/' in url:
+                        parts = url.split('/r/')
+                        if len(parts) > 1:
+                            subreddit = 'r/' + parts[1].split('/')[0]
 
                     results.append({
-                        'url': href,
-                        'title': title,
-                        'description': description,
+                        'url': url,
+                        'title': sanitize_for_mysql(title),
+                        'description': sanitize_for_mysql(f"{subreddit}: {description}" if subreddit else description),
                         'source_type': SourceType.REDDIT
                     })
 
@@ -1048,7 +1095,7 @@ class BacklinkScraper:
                         break
 
                 except Exception as e:
-                    logger.debug(f"Error parsing Reddit result: {e}")
+                    logger.debug(f"Error parsing Reddit/Brave result: {e}")
                     continue
 
             self.source_stats['reddit']['found'] = len(results)
