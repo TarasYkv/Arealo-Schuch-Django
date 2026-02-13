@@ -122,16 +122,21 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
         if category and category in dict(BacklinkCategory.choices):
             queryset = queryset.filter(category=category)
 
-        # Filter: Status
+        # Filter: Status (Default: Abgelehnte ausblenden)
         status = self.request.GET.get('status')
         if status == 'new':
-            queryset = queryset.filter(is_processed=False)
+            queryset = queryset.filter(is_processed=False, is_rejected=False)
         elif status == 'processed':
             queryset = queryset.filter(is_processed=True, is_successful=False, is_rejected=False)
         elif status == 'successful':
             queryset = queryset.filter(is_successful=True)
         elif status == 'rejected':
             queryset = queryset.filter(is_rejected=True)
+        elif status == 'all':
+            pass  # Alle anzeigen, inkl. abgelehnte
+        else:
+            # Default: Abgelehnte ausblenden
+            queryset = queryset.filter(is_rejected=False)
 
         # Filter: Qualität
         quality = self.request.GET.get('quality')
