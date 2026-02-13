@@ -1102,21 +1102,21 @@ class BacklinkScraper:
     # ==================
     def search_pinterest(self, query: str, num_results: int = 20) -> List[Dict]:
         """Durchsucht Pinterest via Brave Search API."""
-        return self._search_via_brave(query, 'pinterest.com', 'pinterest', SourceType.SOCIAL, num_results)
+        return self._search_via_brave(query, 'pinterest.com', 'pinterest', SourceType.PINTEREST, num_results)
 
     # ==================
     # QUORA SUCHE (via Brave)
     # ==================
     def search_quora(self, query: str, num_results: int = 20) -> List[Dict]:
         """Durchsucht Quora via Brave Search API."""
-        return self._search_via_brave(query, 'quora.com', 'quora', SourceType.FORUM, num_results)
+        return self._search_via_brave(query, 'quora.com', 'quora', SourceType.QUORA, num_results)
 
     # ==================
     # MEDIUM SUCHE (via Brave)
     # ==================
     def search_medium(self, query: str, num_results: int = 20) -> List[Dict]:
         """Durchsucht Medium via Brave Search API."""
-        return self._search_via_brave(query, 'medium.com', 'medium', SourceType.BLOG, num_results)
+        return self._search_via_brave(query, 'medium.com', 'medium', SourceType.MEDIUM, num_results)
 
     def _search_via_brave(self, query: str, site_domain: str, source_name: str, source_type, num_results: int = 20) -> List[Dict]:
         """
