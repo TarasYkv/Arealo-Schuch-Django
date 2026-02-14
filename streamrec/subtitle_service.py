@@ -10,8 +10,22 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
-# OpenAI API Key from environment
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+def get_openai_api_key(user=None):
+    """
+    Get OpenAI API Key - first from user profile, then from environment
+    """
+    # Try user's profile first
+    if user:
+        try:
+            profile = user.userprofile
+            if profile.openai_api_key:
+                return profile.openai_api_key
+        except Exception:
+            pass
+    
+    # Fallback to environment variable
+    return os.environ.get('OPENAI_API_KEY', '')
 
 
 def format_timestamp(seconds: float) -> str:
@@ -42,7 +56,7 @@ def extract_audio(video_path: str, audio_path: str) -> bool:
         return False
 
 
-def transcribe_with_whisper(audio_path: str, language: str = 'de') -> dict:
+def transcribe_with_whisper(audio_path: str, language: str = 'de', api_key: str = None) -> dict:
     """
     Transcribe audio using OpenAI Whisper API
     Returns segments with timestamps
@@ -51,8 +65,8 @@ def transcribe_with_whisper(audio_path: str, language: str = 'de') -> dict:
     import urllib.error
     import json
     
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY not configured")
+    if not api_key:
+        raise ValueError("OpenAI API Key not configured. Please add it in your profile settings.")
     
     url = "https://api.openai.com/v1/audio/transcriptions"
     
@@ -102,7 +116,7 @@ def transcribe_with_whisper(audio_path: str, language: str = 'de') -> dict:
     body_bytes = b'\r\n'.join(body)
     
     req = urllib.request.Request(url, data=body_bytes)
-    req.add_header('Authorization', f'Bearer {OPENAI_API_KEY}')
+    req.add_header('Authorization', f'Bearer {api_key}')
     req.add_header('Content-Type', f'multipart/form-data; boundary={boundary}')
     
     try:
@@ -135,7 +149,7 @@ def generate_webvtt(segments: list) -> str:
     return "\n".join(lines)
 
 
-def create_subtitles_for_video(video_path: str, output_vtt_path: str, language: str = 'de') -> dict:
+def create_subtitles_for_video(video_path: str, output_vtt_path: str, language: str = 'de', user=None) -> dict:
     """
     Main function: Create subtitles for a video file
     
@@ -143,10 +157,15 @@ def create_subtitles_for_video(video_path: str, output_vtt_path: str, language: 
         video_path: Path to the video file
         output_vtt_path: Where to save the .vtt file
         language: Language code (default: 'de' for German)
+        user: Django user object (to get API key from profile)
     
     Returns:
         dict with 'success', 'message', and optionally 'transcript'
     """
+    # Get API key from user profile or environment
+    api_key = get_openai_api_key(user)
+    if not api_key:
+        return {'success': False, 'message': 'OpenAI API Key nicht konfiguriert. Bitte in den Profil-Einstellungen hinterlegen.'}
     try:
         # Create temp file for audio
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
@@ -165,7 +184,7 @@ def create_subtitles_for_video(video_path: str, output_vtt_path: str, language: 
             
             # Step 2: Transcribe with Whisper
             logger.info("Transcribing with Whisper API...")
-            result = transcribe_with_whisper(audio_path, language)
+            result = transcribe_with_whisper(audio_path, language, api_key)
             
             segments = result.get('segments', [])
             if not segments:

@@ -291,7 +291,7 @@ def generate_subtitles(request):
         vtt_path = os.path.join(settings.MEDIA_ROOT, 'videos', 'subtitles', vtt_filename)
         os.makedirs(os.path.dirname(vtt_path), exist_ok=True)
 
-        result = create_subtitles_for_video(video_path, vtt_path, language)
+        result = create_subtitles_for_video(video_path, vtt_path, language, user=request.user)
 
         if result['success']:
             # Read the VTT file and save to model
@@ -422,7 +422,7 @@ def save_video_recording(request):
                 vtt_path = os.path.join(settings.MEDIA_ROOT, 'videos', 'subtitles', vtt_filename)
                 os.makedirs(os.path.dirname(vtt_path), exist_ok=True)
                 
-                result = create_subtitles_for_video(video.video_file.path, vtt_path, 'de')
+                result = create_subtitles_for_video(video.video_file.path, vtt_path, 'de', user=request.user)
                 
                 if result['success']:
                     with open(vtt_path, 'r', encoding='utf-8') as f:
