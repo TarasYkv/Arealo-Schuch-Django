@@ -6878,7 +6878,7 @@ class StreamRecorderOptimized {
                                         <!-- Font Size -->
                                         <div class="col-6">
                                             <label class="form-label small mb-1">Größe</label>
-                                            <select class="form-select form-select-sm" id="subtitleSize">
+                                            <select class="form-select form-select-sm" id="subtitleSize" onchange="saveSubtitlePreferencesNow()">
                                                 <option value="small">Klein</option>
                                                 <option value="medium" selected>Mittel</option>
                                                 <option value="large">Groß</option>
@@ -6891,13 +6891,14 @@ class StreamRecorderOptimized {
                                             <label class="form-label small mb-1">Position: <span id="positionValue">90</span>%</label>
                                             <input type="range" class="form-range" id="subtitlePosition" 
                                                    min="0" max="100" value="90" 
-                                                   oninput="document.getElementById('positionValue').textContent = this.value">
+                                                   oninput="document.getElementById('positionValue').textContent = this.value"
+                                                   onchange="saveSubtitlePreferencesNow()">
                                         </div>
                                         
                                         <!-- Text Color -->
                                         <div class="col-6">
                                             <label class="form-label small mb-1">Textfarbe</label>
-                                            <select class="form-select form-select-sm" id="subtitleColor">
+                                            <select class="form-select form-select-sm" id="subtitleColor" onchange="saveSubtitlePreferencesNow()">
                                                 <option value="white" selected>Weiß</option>
                                                 <option value="yellow">Gelb</option>
                                                 <option value="cyan">Cyan</option>
@@ -6909,7 +6910,7 @@ class StreamRecorderOptimized {
                                         <!-- Background -->
                                         <div class="col-6">
                                             <label class="form-label small mb-1">Hintergrund</label>
-                                            <select class="form-select form-select-sm" id="subtitleBg">
+                                            <select class="form-select form-select-sm" id="subtitleBg" onchange="saveSubtitlePreferencesNow()">
                                                 <option value="rgba(0,0,0,0.8)" selected>Dunkel</option>
                                                 <option value="rgba(0,0,0,0.5)">Halbtransparent</option>
                                                 <option value="transparent">Transparent</option>
@@ -6921,7 +6922,7 @@ class StreamRecorderOptimized {
                                         <!-- Font Style -->
                                         <div class="col-6">
                                             <label class="form-label small mb-1">Schriftstil</label>
-                                            <select class="form-select form-select-sm" id="subtitleFontStyle">
+                                            <select class="form-select form-select-sm" id="subtitleFontStyle" onchange="saveSubtitlePreferencesNow()">
                                                 <option value="normal" selected>Normal</option>
                                                 <option value="bold">Fett</option>
                                                 <option value="shadow">Mit Schatten</option>
@@ -6932,7 +6933,7 @@ class StreamRecorderOptimized {
                                         <!-- Font Family -->
                                         <div class="col-6">
                                             <label class="form-label small mb-1">Schriftart</label>
-                                            <select class="form-select form-select-sm" id="subtitleFont">
+                                            <select class="form-select form-select-sm" id="subtitleFont" onchange="saveSubtitlePreferencesNow()">
                                                 <option value="sans-serif" selected>Sans-Serif</option>
                                                 <option value="serif">Serif</option>
                                                 <option value="monospace">Monospace</option>
@@ -6942,7 +6943,7 @@ class StreamRecorderOptimized {
                                         <!-- Karaoke Mode -->
                                         <div class="col-12 mt-2">
                                             <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="karaokeMode">
+                                                <input class="form-check-input" type="checkbox" id="karaokeMode" onchange="saveSubtitlePreferencesNow()">
                                                 <label class="form-check-label small" for="karaokeMode">
                                                     <i class="fas fa-microphone me-1"></i>Karaoke-Modus (Wort-Hervorhebung)
                                                 </label>
@@ -7254,6 +7255,10 @@ class StreamRecorderOptimized {
             const generateSubtitles = document.getElementById('generateSubtitles')?.checked;
             
             if (generateSubtitles && completeData.video_id) {
+                // Save subtitle preferences before generating
+                if (typeof saveSubtitlePreferencesNow === 'function') {
+                    saveSubtitlePreferencesNow();
+                }
                 saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Untertitel werden erstellt...';
                 document.getElementById('uploadStatusText').innerHTML = '<i class="fas fa-closed-captioning me-2"></i>KI-Transkription läuft...';
                 
@@ -10033,7 +10038,19 @@ function toggleSubtitleOptions() {
     
     if (checkbox && optionsPanel) {
         optionsPanel.style.display = checkbox.checked ? 'block' : 'none';
+        
+        // Load saved prefs when panel opens
+        if (checkbox.checked) {
+            loadSubtitlePreferences();
+        }
     }
+}
+
+function saveSubtitlePreferencesNow() {
+    const prefs = getSubtitleSettings();
+    localStorage.setItem('subtitlePrefs', JSON.stringify(prefs));
+    console.log('Subtitle prefs saved:', prefs);
+    return prefs;
 }
 
 function getSubtitleSettings() {
