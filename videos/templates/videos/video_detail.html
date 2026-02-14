@@ -52,11 +52,14 @@
                             
                             <!-- Position -->
                             <div class="col-md-6">
-                                <label class="form-label small">Position</label>
-                                <select class="form-select form-select-sm" id="subtitlePosition" onchange="updateSubtitleStyle()">
-                                    <option value="bottom" selected>Unten</option>
-                                    <option value="top">Oben</option>
-                                </select>
+                                <label class="form-label small">Position: <span id="positionValue">90</span>%</label>
+                                <input type="range" class="form-range" id="subtitlePosition" 
+                                       min="0" max="100" value="90" 
+                                       oninput="document.getElementById('positionValue').textContent = this.value; updateSubtitleStyle()">
+                                <div class="d-flex justify-content-between small text-muted">
+                                    <span>Oben (0)</span>
+                                    <span>Unten (100)</span>
+                                </div>
                             </div>
                             
                             <!-- Text Color -->
@@ -408,7 +411,7 @@ function updateSubtitleStyle() {
     if (!video) return;
     
     const size = document.getElementById('subtitleSize')?.value || 'medium';
-    const position = document.getElementById('subtitlePosition')?.value || 'bottom';
+    const position = parseInt(document.getElementById('subtitlePosition')?.value || '90');
     const color = document.getElementById('subtitleColor')?.value || 'white';
     const bg = document.getElementById('subtitleBg')?.value || 'rgba(0,0,0,0.8)';
     const style = document.getElementById('subtitleStyle')?.value || 'normal';
@@ -441,7 +444,13 @@ function updateSubtitleStyle() {
         document.head.appendChild(styleEl);
     }
     
+    // Calculate vertical position
+    // 0 = top (line: 0), 100 = bottom (line: auto/default ~90%)
+    // We use CSS transform to position the cue container
+    const topPercent = position;
+    
     // CSS for video::cue (WebVTT styling)
+    // Note: position via line is limited, using transform workaround
     styleEl.textContent = `
         video::cue {
             font-size: ${sizeMap[size]} !important;
@@ -453,11 +462,47 @@ function updateSubtitleStyle() {
             padding: 4px 8px !important;
             border-radius: 4px !important;
         }
+        
+        /* Custom subtitle overlay positioning */
+        .video-container {
+            position: relative;
+        }
+        
+        .custom-subtitle-overlay {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: ${topPercent}%;
+            transform: translateY(-50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .custom-subtitle-text {
+            display: inline-block;
+            font-size: ${sizeMap[size]};
+            color: ${color};
+            background-color: ${bg};
+            font-family: ${font};
+            font-weight: ${fontWeight};
+            text-shadow: ${textShadow};
+            padding: 4px 12px;
+            border-radius: 4px;
+            max-width: 80%;
+        }
     `;
     
-    // Position (requires modifying track positioning - more complex)
-    // For now we store preference
-    video.dataset.subtitlePosition = position;
+    // Update position value display
+    const positionValueEl = document.getElementById('positionValue');
+    if (positionValueEl) positionValueEl.textContent = position;
+    
+    // Setup custom subtitle renderer if position is not default (90)
+    if (position !== 90) {
+        setupCustomSubtitleRenderer(video, position, sizeMap[size], color, bg, font, fontWeight, textShadow);
+    } else {
+        removeCustomSubtitleRenderer();
+    }
     
     // Save to localStorage
     const prefs = { size, position, color, bg, style, font };
@@ -466,14 +511,92 @@ function updateSubtitleStyle() {
     console.log('Subtitle style updated:', prefs);
 }
 
+function setupCustomSubtitleRenderer(video, position, fontSize, color, bg, font, fontWeight, textShadow) {
+    // Remove existing
+    removeCustomSubtitleRenderer();
+    
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'customSubtitleOverlay';
+    overlay.className = 'custom-subtitle-overlay';
+    overlay.style.cssText = `
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: ${position}%;
+        transform: translateY(-50%);
+        text-align: center;
+        pointer-events: none;
+        z-index: 10;
+    `;
+    
+    const textEl = document.createElement('span');
+    textEl.className = 'custom-subtitle-text';
+    textEl.style.cssText = `
+        display: inline-block;
+        font-size: ${fontSize};
+        color: ${color};
+        background-color: ${bg};
+        font-family: ${font};
+        font-weight: ${fontWeight};
+        text-shadow: ${textShadow};
+        padding: 4px 12px;
+        border-radius: 4px;
+        max-width: 80%;
+    `;
+    overlay.appendChild(textEl);
+    
+    // Add to video container
+    const container = video.closest('.video-container');
+    if (container) {
+        container.style.position = 'relative';
+        container.appendChild(overlay);
+    }
+    
+    // Hide native subtitles, use custom renderer
+    const tracks = video.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+        const track = tracks[i];
+        if (track.kind === 'subtitles') {
+            track.mode = 'hidden';
+            
+            track.oncuechange = function() {
+                const cue = this.activeCues[0];
+                textEl.textContent = cue ? cue.text : '';
+                overlay.style.display = cue ? 'block' : 'none';
+            };
+        }
+    }
+}
+
+function removeCustomSubtitleRenderer() {
+    const overlay = document.getElementById('customSubtitleOverlay');
+    if (overlay) overlay.remove();
+    
+    // Restore native subtitles
+    const video = document.querySelector('video');
+    if (video) {
+        const tracks = video.textTracks;
+        for (let i = 0; i < tracks.length; i++) {
+            if (tracks[i].kind === 'subtitles') {
+                tracks[i].mode = 'showing';
+            }
+        }
+    }
+}
+
 function resetSubtitleStyle() {
-    // Reset all selects to defaults
+    // Reset all inputs to defaults
     document.getElementById('subtitleSize').value = 'medium';
-    document.getElementById('subtitlePosition').value = 'bottom';
+    document.getElementById('subtitlePosition').value = 90;
+    document.getElementById('positionValue').textContent = '90';
     document.getElementById('subtitleColor').value = 'white';
     document.getElementById('subtitleBg').value = 'rgba(0,0,0,0.8)';
     document.getElementById('subtitleStyle').value = 'normal';
     document.getElementById('subtitleFont').value = 'sans-serif';
+    
+    // Remove custom renderer
+    removeCustomSubtitleRenderer();
     
     // Apply defaults
     updateSubtitleStyle();
@@ -488,7 +611,10 @@ function loadSubtitlePrefs() {
         try {
             const prefs = JSON.parse(saved);
             if (prefs.size) document.getElementById('subtitleSize').value = prefs.size;
-            if (prefs.position) document.getElementById('subtitlePosition').value = prefs.position;
+            if (prefs.position !== undefined) {
+                document.getElementById('subtitlePosition').value = prefs.position;
+                document.getElementById('positionValue').textContent = prefs.position;
+            }
             if (prefs.color) document.getElementById('subtitleColor').value = prefs.color;
             if (prefs.bg) document.getElementById('subtitleBg').value = prefs.bg;
             if (prefs.style) document.getElementById('subtitleStyle').value = prefs.style;
