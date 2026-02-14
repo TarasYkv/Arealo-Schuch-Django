@@ -728,8 +728,26 @@ function setupCustomSubtitleRenderer(video, position, fontSize, color, bg, font,
     // Also listen for tracks being added later
     tracks.addEventListener('addtrack', function(e) {
         console.log('Track added:', e.track.kind, e.track.label);
-        attachTrackListeners();
+        // Immediately hide the new track
+        if (e.track.kind === 'subtitles') {
+            e.track.mode = 'hidden';
+        }
+        setTimeout(attachTrackListeners, 100); // Small delay to ensure track is ready
     });
+    
+    // Also check periodically in case tracks load later
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+        checkCount++;
+        if (tracks.length > 0) {
+            console.log('Found tracks after', checkCount * 200, 'ms');
+            attachTrackListeners();
+            clearInterval(checkInterval);
+        }
+        if (checkCount > 25) { // Stop after 5 seconds
+            clearInterval(checkInterval);
+        }
+    }, 200);
     
     console.log('Custom subtitle renderer setup complete');
 }
@@ -1016,9 +1034,25 @@ function previewTitleOverlay() {
 
 function showTitleOverlay(isPreview = false) {
     const overlay = document.getElementById('titleOverlay');
-    const enabled = document.getElementById('titleOverlayEnabled')?.checked;
     
-    if (!overlay || (!enabled && !isPreview)) return;
+    // Check enabled from checkbox OR localStorage
+    let enabled = document.getElementById('titleOverlayEnabled')?.checked;
+    if (!enabled) {
+        const saved = localStorage.getItem('titleOverlayPrefs');
+        if (saved) {
+            try {
+                const prefs = JSON.parse(saved);
+                enabled = prefs.enabled === true;
+            } catch (e) {}
+        }
+    }
+    
+    console.log('showTitleOverlay called. isPreview:', isPreview, 'enabled:', enabled, 'overlay exists:', !!overlay);
+    
+    if (!overlay || (!enabled && !isPreview)) {
+        console.log('Not showing overlay:', !overlay ? 'no overlay element' : 'not enabled');
+        return;
+    }
     
     const duration = parseInt(document.getElementById('titleDuration')?.value || '5') * 1000;
     const animation = document.getElementById('titleAnimation')?.value || 'fade';
