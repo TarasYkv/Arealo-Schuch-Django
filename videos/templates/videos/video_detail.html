@@ -1175,34 +1175,47 @@ async function toggleKaraokeMode() {
 }
 
 async function enableKaraokeMode(video) {
+    console.log('🎤 Enabling karaoke mode...');
+    
     // Load word timestamps if not already loaded
     if (!karaokeData) {
         try {
             const jsonUrl = '{% if video.subtitle_words_json and video.subtitle_words_json.name %}{{ video.subtitle_words_json.url }}{% endif %}';
+            console.log('🎤 JSON URL:', jsonUrl);
             if (!jsonUrl) {
-                console.warn('No karaoke data available');
+                console.warn('🎤 No karaoke data available - JSON URL is empty');
+                alert('Karaoke-Daten nicht verfügbar. Bitte Untertitel neu generieren.');
+                document.getElementById('karaokeMode').checked = false;
                 return;
             }
             const response = await fetch(jsonUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
             karaokeData = await response.json();
-            console.log('Karaoke data loaded:', karaokeData.words?.length, 'words');
+            console.log('🎤 Karaoke data loaded:', karaokeData.words?.length, 'words,', karaokeData.segments?.length, 'segments');
         } catch (e) {
-            console.error('Failed to load karaoke data:', e);
+            console.error('🎤 Failed to load karaoke data:', e);
+            alert('Karaoke-Daten konnten nicht geladen werden: ' + e.message);
+            document.getElementById('karaokeMode').checked = false;
             return;
         }
     }
     
     // Setup karaoke overlay
     setupKaraokeOverlay(video);
+    console.log('🎤 Karaoke overlay created');
     
     // Start updating
     karaokeInterval = setInterval(() => updateKaraokeDisplay(video), 50);
     
     // Also update on timeupdate for better sync
     video.addEventListener('timeupdate', () => updateKaraokeDisplay(video));
+    console.log('🎤 Karaoke mode active!');
 }
 
 function disableKaraokeMode(video) {
+    console.log('🎤 Disabling karaoke mode...');
     if (karaokeInterval) {
         clearInterval(karaokeInterval);
         karaokeInterval = null;
@@ -1211,10 +1224,14 @@ function disableKaraokeMode(video) {
     const overlay = document.getElementById('karaokeOverlay');
     if (overlay) overlay.remove();
     
+    // Remove the CSS that hides VTT cues
+    const style = document.getElementById('karaokeHideVTT');
+    if (style) style.remove();
+    
     // Restore normal subtitles
     const tracks = video.textTracks;
     for (let i = 0; i < tracks.length; i++) {
-        if (tracks[i].kind === 'subtitles') {
+        if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
             tracks[i].mode = 'showing';
         }
     }
@@ -1227,11 +1244,20 @@ function setupKaraokeOverlay(video) {
     
     // Hide native subtitles
     const tracks = video.textTracks;
+    console.log('🎤 Hiding', tracks.length, 'text tracks');
     for (let i = 0; i < tracks.length; i++) {
-        if (tracks[i].kind === 'subtitles') {
+        console.log('🎤 Track', i, ':', tracks[i].kind, tracks[i].mode);
+        if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
             tracks[i].mode = 'hidden';
+            console.log('🎤 Hidden track', i);
         }
     }
+    
+    // Also hide any VTT cue display via CSS
+    const style = document.createElement('style');
+    style.id = 'karaokeHideVTT';
+    style.textContent = 'video::cue { opacity: 0 !important; }';
+    document.head.appendChild(style);
     
     // Get current style settings
     const size = document.getElementById('subtitleSize')?.value || 'medium';
