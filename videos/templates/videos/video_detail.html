@@ -745,32 +745,80 @@ function resetSubtitleStyle() {
 
 function loadSubtitlePrefs() {
     const saved = localStorage.getItem('subtitlePrefs');
+    console.log('Loading subtitle prefs:', saved);
+    
     if (saved) {
         try {
             const prefs = JSON.parse(saved);
-            if (prefs.size) document.getElementById('subtitleSize').value = prefs.size;
-            if (prefs.position !== undefined) {
-                document.getElementById('subtitlePosition').value = prefs.position;
-                document.getElementById('positionValue').textContent = prefs.position;
+            console.log('Parsed subtitle prefs:', prefs);
+            
+            const sizeEl = document.getElementById('subtitleSize');
+            const positionEl = document.getElementById('subtitlePosition');
+            const positionValueEl = document.getElementById('positionValue');
+            const colorEl = document.getElementById('subtitleColor');
+            const bgEl = document.getElementById('subtitleBg');
+            const styleEl = document.getElementById('subtitleStyle');
+            const fontEl = document.getElementById('subtitleFont');
+            const karaokeEl = document.getElementById('karaokeMode');
+            
+            if (prefs.size && sizeEl) sizeEl.value = prefs.size;
+            if (prefs.position !== undefined && positionEl) {
+                positionEl.value = prefs.position;
+                if (positionValueEl) positionValueEl.textContent = prefs.position;
             }
-            if (prefs.color) document.getElementById('subtitleColor').value = prefs.color;
-            if (prefs.bg) document.getElementById('subtitleBg').value = prefs.bg;
-            if (prefs.style) document.getElementById('subtitleStyle').value = prefs.style;
-            if (prefs.font) document.getElementById('subtitleFont').value = prefs.font;
+            if (prefs.color && colorEl) colorEl.value = prefs.color;
+            if (prefs.bg && bgEl) bgEl.value = prefs.bg;
+            if (prefs.style && styleEl) styleEl.value = prefs.style;
+            if (prefs.font && fontEl) fontEl.value = prefs.font;
+            if (prefs.karaokeMode !== undefined && karaokeEl) karaokeEl.checked = prefs.karaokeMode;
+            
+            console.log('Subtitle prefs applied to form elements');
             updateSubtitleStyle();
         } catch (e) {
             console.warn('Could not load subtitle prefs:', e);
         }
+    } else {
+        console.log('No saved subtitle prefs found');
     }
 }
 
 // Load saved preferences on page load
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing subtitle and title overlay...');
+    
+    // Load preferences first
     loadSubtitlePrefs();
     loadTitleOverlayPrefs();
-    // Also apply styles immediately (even if panel doesn't exist)
-    setTimeout(updateSubtitleStyle, 100);
-    setTimeout(initTitleOverlay, 200);
+    
+    // Apply styles after a short delay to ensure elements exist
+    setTimeout(() => {
+        console.log('Applying subtitle style...');
+        updateSubtitleStyle();
+    }, 100);
+    
+    setTimeout(() => {
+        console.log('Initializing title overlay...');
+        initTitleOverlay();
+    }, 200);
+    
+    // Also reapply when video loads (for subtitle cues)
+    const video = document.getElementById('mainVideo');
+    if (video) {
+        video.addEventListener('loadedmetadata', function() {
+            console.log('Video metadata loaded, reapplying subtitle style...');
+            setTimeout(updateSubtitleStyle, 100);
+        });
+        
+        // Also watch for track changes
+        if (video.textTracks && video.textTracks.length > 0) {
+            for (let i = 0; i < video.textTracks.length; i++) {
+                video.textTracks[i].addEventListener('load', function() {
+                    console.log('Track loaded, reapplying subtitle style...');
+                    updateSubtitleStyle();
+                });
+            }
+        }
+    }
 });
 
 // ============ TITLE OVERLAY ============
@@ -844,23 +892,42 @@ function updateTitleOverlay() {
 
 function loadTitleOverlayPrefs() {
     const saved = localStorage.getItem('titleOverlayPrefs');
+    console.log('Loading title overlay prefs:', saved);
+    
     if (saved) {
         try {
             const prefs = JSON.parse(saved);
-            if (prefs.enabled !== undefined) document.getElementById('titleOverlayEnabled').checked = prefs.enabled;
-            if (prefs.duration) {
-                document.getElementById('titleDuration').value = prefs.duration;
-                document.getElementById('titleDurationValue').textContent = prefs.duration;
+            console.log('Parsed title overlay prefs:', prefs);
+            
+            const enabledEl = document.getElementById('titleOverlayEnabled');
+            const durationEl = document.getElementById('titleDuration');
+            const durationValueEl = document.getElementById('titleDurationValue');
+            const positionEl = document.getElementById('titlePosition');
+            const fontSizeEl = document.getElementById('titleFontSize');
+            const colorEl = document.getElementById('titleColor');
+            const bgEl = document.getElementById('titleBg');
+            const animationEl = document.getElementById('titleAnimation');
+            
+            if (prefs.enabled !== undefined && enabledEl) enabledEl.checked = prefs.enabled;
+            if (prefs.duration && durationEl) {
+                durationEl.value = prefs.duration;
+                if (durationValueEl) durationValueEl.textContent = prefs.duration;
             }
-            if (prefs.position) document.getElementById('titlePosition').value = prefs.position;
-            if (prefs.fontSize) document.getElementById('titleFontSize').value = prefs.fontSize;
-            if (prefs.color) document.getElementById('titleColor').value = prefs.color;
-            if (prefs.bg) document.getElementById('titleBg').value = prefs.bg;
-            if (prefs.animation) document.getElementById('titleAnimation').value = prefs.animation;
+            if (prefs.position && positionEl) positionEl.value = prefs.position;
+            if (prefs.fontSize && fontSizeEl) fontSizeEl.value = prefs.fontSize;
+            if (prefs.color && colorEl) colorEl.value = prefs.color;
+            if (prefs.bg && bgEl) bgEl.value = prefs.bg;
+            if (prefs.animation && animationEl) animationEl.value = prefs.animation;
+            
+            // Apply to overlay element
             updateTitleOverlay();
+            
+            console.log('Title overlay prefs applied. Enabled:', prefs.enabled);
         } catch (e) {
             console.warn('Could not load title overlay prefs:', e);
         }
+    } else {
+        console.log('No saved title overlay prefs found');
     }
 }
 
@@ -939,14 +1006,37 @@ function showTitleOverlay(isPreview = false) {
 
 function initTitleOverlay() {
     const video = document.getElementById('mainVideo');
-    if (!video) return;
+    if (!video) {
+        console.warn('initTitleOverlay: Video element not found');
+        return;
+    }
     
+    // Apply current settings to overlay
     updateTitleOverlay();
     
+    // Check if enabled from localStorage
+    const savedPrefs = localStorage.getItem('titleOverlayPrefs');
+    let isEnabled = false;
+    if (savedPrefs) {
+        try {
+            const prefs = JSON.parse(savedPrefs);
+            isEnabled = prefs.enabled === true;
+            console.log('Title overlay enabled from prefs:', isEnabled);
+        } catch (e) {
+            console.warn('Could not parse title overlay prefs');
+        }
+    }
+    
     // Show title on video play (only first time)
-    video.addEventListener('play', function onFirstPlay() {
-        const enabled = document.getElementById('titleOverlayEnabled')?.checked;
-        if (enabled && !titleOverlayShown && video.currentTime < 0.5) {
+    video.addEventListener('play', function() {
+        // Re-check enabled state from checkbox OR localStorage
+        const checkboxEnabled = document.getElementById('titleOverlayEnabled')?.checked;
+        const shouldShow = checkboxEnabled || isEnabled;
+        
+        console.log('Video play event. Checkbox enabled:', checkboxEnabled, 'Prefs enabled:', isEnabled, 'Should show:', shouldShow);
+        
+        if (shouldShow && !titleOverlayShown && video.currentTime < 0.5) {
+            console.log('Showing title overlay...');
             showTitleOverlay();
         }
     });
@@ -955,8 +1045,11 @@ function initTitleOverlay() {
     video.addEventListener('seeked', function() {
         if (video.currentTime < 0.5) {
             titleOverlayShown = false;
+            console.log('Title overlay reset (video seeked to start)');
         }
     });
+    
+    console.log('Title overlay initialized. Enabled:', isEnabled);
 }
 
 // ============ KARAOKE MODE ============
