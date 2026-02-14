@@ -698,25 +698,38 @@ function setupCustomSubtitleRenderer(video, position, fontSize, color, bg, font,
     
     // Hide native subtitles, use custom renderer
     const tracks = video.textTracks;
-    console.log('Found', tracks.length, 'text tracks');
+    console.log('Found', tracks.length, 'text tracks initially');
     
-    for (let i = 0; i < tracks.length; i++) {
-        const track = tracks[i];
-        console.log('Track', i, '- kind:', track.kind, 'mode:', track.mode, 'label:', track.label);
-        
-        if (track.kind === 'subtitles') {
-            track.mode = 'hidden';
-            console.log('Hiding native subtitles, attaching cuechange listener');
+    function attachTrackListeners() {
+        for (let i = 0; i < tracks.length; i++) {
+            const track = tracks[i];
+            console.log('Track', i, '- kind:', track.kind, 'mode:', track.mode, 'label:', track.label);
             
-            track.oncuechange = function() {
-                const cue = this.activeCues[0];
-                const text = cue ? cue.text : '';
-                console.log('Cue change:', text ? text.substring(0, 50) : '(empty)');
-                textEl.textContent = text;
-                overlay.style.display = cue ? 'block' : 'none';
-            };
+            if (track.kind === 'subtitles') {
+                track.mode = 'hidden';
+                console.log('Hiding native subtitles, attaching cuechange listener');
+                
+                track.oncuechange = function() {
+                    const cue = this.activeCues[0];
+                    const text = cue ? cue.text : '';
+                    console.log('Cue change:', text ? text.substring(0, 50) : '(empty)');
+                    textEl.textContent = text;
+                    overlay.style.display = cue ? 'block' : 'none';
+                };
+            }
         }
     }
+    
+    // Attach immediately if tracks exist
+    if (tracks.length > 0) {
+        attachTrackListeners();
+    }
+    
+    // Also listen for tracks being added later
+    tracks.addEventListener('addtrack', function(e) {
+        console.log('Track added:', e.track.kind, e.track.label);
+        attachTrackListeners();
+    });
     
     console.log('Custom subtitle renderer setup complete');
 }
