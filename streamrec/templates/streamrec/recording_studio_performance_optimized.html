@@ -6857,6 +6857,19 @@ class StreamRecorderOptimized {
                                     Optional: Leer lassen für automatischen Namen
                                 </div>
                             </div>
+                            
+                            <!-- Subtitle generation toggle -->
+                            <div class="mb-3" id="subtitleSection" style="display: none;">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="generateSubtitles">
+                                    <label class="form-check-label" for="generateSubtitles">
+                                        <i class="fas fa-closed-captioning me-2"></i>Untertitel automatisch erstellen
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    KI-Transkription des Audios (benötigt OpenAI API-Key in Profil-Einstellungen)
+                                </div>
+                            </div>
 
                             <!-- Upload Progress (initially hidden) -->
                             <div id="uploadProgressSection" class="mt-3" style="display: none;">
@@ -6906,12 +6919,14 @@ class StreamRecorderOptimized {
 
         document.getElementById('saveToServerBtn')?.addEventListener('click', () => {
             const customFilenameSection = document.getElementById('customFilenameSection');
+            const subtitleSection = document.getElementById('subtitleSection');
             const saveBtn = document.getElementById('saveToServerBtn');
             const cancelBtn = document.getElementById('cancelSaveBtn');
             
-            // First click: Show filename input
+            // First click: Show filename input and subtitle toggle
             if (customFilenameSection.style.display === 'none') {
                 customFilenameSection.style.display = 'block';
+                subtitleSection.style.display = 'block';
                 saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Jetzt speichern';
                 saveBtn.className = 'btn btn-success';
                 cancelBtn.style.display = 'inline-block';
@@ -6932,11 +6947,13 @@ class StreamRecorderOptimized {
 
         document.getElementById('cancelSaveBtn')?.addEventListener('click', () => {
             const customFilenameSection = document.getElementById('customFilenameSection');
+            const subtitleSection = document.getElementById('subtitleSection');
             const saveBtn = document.getElementById('saveToServerBtn');
             const cancelBtn = document.getElementById('cancelSaveBtn');
             
-            // Hide filename input and reset button
+            // Hide filename input, subtitle toggle and reset button
             customFilenameSection.style.display = 'none';
+            subtitleSection.style.display = 'none';
             saveBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Auf Server speichern';
             saveBtn.className = 'btn btn-primary';
             cancelBtn.style.display = 'none';
@@ -7151,6 +7168,40 @@ class StreamRecorderOptimized {
             }
 
             console.log('✅ Upload complete!', completeData);
+
+            // Check if subtitle generation is requested
+            const generateSubtitles = document.getElementById('generateSubtitles')?.checked;
+            
+            if (generateSubtitles && completeData.video_id) {
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Untertitel werden erstellt...';
+                document.getElementById('uploadStatusText').innerHTML = '<i class="fas fa-closed-captioning me-2"></i>KI-Transkription läuft...';
+                
+                try {
+                    const subtitleResponse = await fetch('/streamrec/api/generate-subtitles/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCSRFToken()
+                        },
+                        body: JSON.stringify({
+                            video_id: completeData.video_id,
+                            language: 'de'
+                        })
+                    });
+                    
+                    const subtitleData = await subtitleResponse.json();
+                    if (subtitleData.success) {
+                        console.log('✅ Subtitles generated!', subtitleData);
+                        completeData.subtitles = subtitleData;
+                    } else {
+                        console.warn('⚠️ Subtitle generation failed:', subtitleData.error);
+                        completeData.subtitle_error = subtitleData.error;
+                    }
+                } catch (subError) {
+                    console.warn('⚠️ Subtitle generation error:', subError);
+                    completeData.subtitle_error = subError.message;
+                }
+            }
 
             // Success!
             showSuccess();
