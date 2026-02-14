@@ -13,14 +13,13 @@ logger = logging.getLogger(__name__)
 
 def get_openai_api_key(user=None):
     """
-    Get OpenAI API Key - first from user profile, then from environment
+    Get OpenAI API Key - first from user (CustomUser model), then from environment
     """
-    # Try user's profile first
+    # Try user's API key first (stored on CustomUser model)
     if user:
         try:
-            profile = user.userprofile
-            if profile.openai_api_key:
-                return profile.openai_api_key
+            if user.openai_api_key:
+                return user.openai_api_key
         except Exception:
             pass
     
