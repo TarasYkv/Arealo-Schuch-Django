@@ -108,7 +108,7 @@
                                 </select>
                             </div>
                             
-                            {% if video.subtitle_words_json %}
+                            {% if video.subtitle_words_json and video.subtitle_words_json.name %}
                             <!-- Karaoke Mode -->
                             <div class="col-12 mt-2">
                                 <div class="form-check form-switch">
@@ -662,7 +662,7 @@ async function enableKaraokeMode(video) {
     // Load word timestamps if not already loaded
     if (!karaokeData) {
         try {
-            const jsonUrl = '{{ video.subtitle_words_json.url|default:"" }}';
+            const jsonUrl = '{% if video.subtitle_words_json and video.subtitle_words_json.name %}{{ video.subtitle_words_json.url }}{% endif %}';
             if (!jsonUrl) {
                 console.warn('No karaoke data available');
                 return;
