@@ -299,6 +299,16 @@ def generate_subtitles(request):
                 vtt_content = f.read()
 
             video.subtitle_file.save(vtt_filename, ContentFile(vtt_content.encode('utf-8')), save=False)
+            
+            # Check if word-level JSON was generated (for karaoke mode)
+            json_path = vtt_path.replace('.vtt', '_words.json')
+            if os.path.exists(json_path):
+                json_filename = vtt_filename.replace('.vtt', '_words.json')
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    json_content = f.read()
+                video.subtitle_words_json.save(json_filename, ContentFile(json_content.encode('utf-8')), save=False)
+                logger.info(f"Word timestamps saved for karaoke mode")
+            
             video.subtitle_status = 'ready'
             video.transcript = result.get('transcript', '')
             video.save()
@@ -310,7 +320,8 @@ def generate_subtitles(request):
                 'message': 'Untertitel erfolgreich erstellt',
                 'transcript': result.get('transcript', ''),
                 'segments': result.get('segments', 0),
-                'subtitle_url': video.subtitle_file.url if video.subtitle_file else None
+                'subtitle_url': video.subtitle_file.url if video.subtitle_file else None,
+                'has_karaoke': video.subtitle_words_json.name is not None and video.subtitle_words_json.name != ''
             })
         else:
             video.subtitle_status = 'failed'

@@ -103,11 +103,16 @@ def transcribe_with_whisper(audio_path: str, language: str = 'de', api_key: str 
     body.append(b'')
     body.append(b'verbose_json')
     
-    # Add timestamp granularities
+    # Add timestamp granularities (segment + word for karaoke-style highlighting)
     body.append(f'--{boundary}'.encode())
     body.append(b'Content-Disposition: form-data; name="timestamp_granularities[]"')
     body.append(b'')
     body.append(b'segment')
+    
+    body.append(f'--{boundary}'.encode())
+    body.append(b'Content-Disposition: form-data; name="timestamp_granularities[]"')
+    body.append(b'')
+    body.append(b'word')
     
     body.append(f'--{boundary}--'.encode())
     body.append(b'')
@@ -201,6 +206,21 @@ def create_subtitles_for_video(video_path: str, output_vtt_path: str, language: 
             # Step 4: Save VTT file
             with open(output_vtt_path, 'w', encoding='utf-8') as f:
                 f.write(vtt_content)
+            
+            # Step 5: Save word-level timestamps as JSON for karaoke mode
+            words = result.get('words', [])
+            if words:
+                import json
+                json_path = output_vtt_path.replace('.vtt', '_words.json')
+                word_data = {
+                    'words': words,
+                    'segments': segments,
+                    'duration': result.get('duration', 0),
+                    'language': language
+                }
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(word_data, f, ensure_ascii=False, indent=2)
+                logger.info(f"Word timestamps saved to {json_path}")
             
             logger.info(f"Subtitles saved to {output_vtt_path}")
             

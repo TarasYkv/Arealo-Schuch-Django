@@ -255,6 +255,12 @@ class Video(models.Model):
         null=True,
         help_text="WebVTT Untertitel-Datei"
     )
+    subtitle_words_json = models.FileField(
+        upload_to='videos/subtitles/',
+        blank=True,
+        null=True,
+        help_text="JSON mit Wort-Zeitstempeln für Karaoke-Modus"
+    )
     subtitle_status = models.CharField(
         max_length=20, 
         choices=SUBTITLE_STATUS_CHOICES, 
