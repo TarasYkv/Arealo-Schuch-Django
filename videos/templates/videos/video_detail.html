@@ -34,8 +34,9 @@
         <div class="col-md-8">
             <h1>{{ video.title }}</h1>
             
-            <div class="video-container mb-4 text-center">
-                <video controls crossorigin="anonymous" id="mainVideo" style="max-height: 75vh; object-fit: contain;">
+            <div class="mb-4 text-center">
+              <div class="video-container" style="position: relative; display: inline-block;">
+                <video controls crossorigin="anonymous" id="mainVideo" style="max-height: 75vh; object-fit: contain; display: block;">
                     <source src="{% url 'videos:stream' video.unique_id %}" type="video/mp4">
                     {% if video.subtitle_file and video.subtitle_status == 'ready' %}
                     <track kind="subtitles" src="{{ video.subtitle_file.url }}" srclang="{{ video.subtitle_language }}" label="Untertitel ({{ video.subtitle_language }})" default>
@@ -44,9 +45,10 @@
                 </video>
                 
                 <!-- Title Overlay -->
-                <div id="titleOverlay" class="title-overlay" style="display: none;">
-                    <div id="titleOverlayText" class="title-overlay-text">{{ video.title }}</div>
+                <div id="titleOverlay" class="title-overlay" style="display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 100; text-align: center; pointer-events: none;">
+                    <div id="titleOverlayText" class="title-overlay-text" style="display: inline-block; padding: 15px 30px; font-size: 32px; color: white; background-color: rgba(0,0,0,0.7); font-family: 'Segoe UI', sans-serif; font-weight: bold; border-radius: 8px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">{{ video.title }}</div>
                 </div>
+              </div>
             </div>
             
             <!-- Title Overlay & Subtitle Styling -->
