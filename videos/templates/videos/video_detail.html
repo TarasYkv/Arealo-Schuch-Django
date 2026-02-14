@@ -34,8 +34,8 @@
         <div class="col-md-8">
             <h1>{{ video.title }}</h1>
             
-            <div class="video-container mb-4" style="position: relative; display: flex; justify-content: center; align-items: center; background: #000; min-height: 400px;">
-                <video controls crossorigin="anonymous" id="mainVideo" style="max-width: 100%; max-height: 85vh; min-height: 400px; object-fit: contain;">
+            <div class="video-container mb-4" id="videoContainer" style="position: relative; display: flex; justify-content: center; align-items: center; background: #000;">
+                <video controls crossorigin="anonymous" id="mainVideo" style="max-width: 100%; max-height: 80vh;">
                     <source src="{% url 'videos:stream' video.unique_id %}" type="video/mp4">
                     {% if video.subtitle_file and video.subtitle_status == 'ready' %}
                     <track kind="subtitles" src="{{ video.subtitle_file.url }}" srclang="{{ video.subtitle_language }}" label="Untertitel ({{ video.subtitle_language }})" default>
@@ -796,9 +796,51 @@ function loadSubtitlePrefs() {
     }
 }
 
+// Adjust video size based on aspect ratio
+function adjustVideoSize() {
+    const video = document.getElementById('mainVideo');
+    const container = document.getElementById('videoContainer');
+    if (!video || !container) return;
+    
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    
+    if (videoWidth && videoHeight) {
+        const aspectRatio = videoWidth / videoHeight;
+        const isPortrait = aspectRatio < 1;
+        
+        console.log('Video dimensions:', videoWidth, 'x', videoHeight, '- Aspect ratio:', aspectRatio.toFixed(2), '- Portrait:', isPortrait);
+        
+        if (isPortrait) {
+            // Portrait video (9:16, etc.) - make it tall
+            video.style.maxWidth = 'none';
+            video.style.width = 'auto';
+            video.style.height = '80vh';
+            video.style.maxHeight = '80vh';
+            container.style.minHeight = '80vh';
+        } else {
+            // Landscape video (16:9, etc.) - make it wide
+            video.style.width = '100%';
+            video.style.height = 'auto';
+            video.style.maxHeight = '80vh';
+            container.style.minHeight = 'auto';
+        }
+        
+        console.log('Video size adjusted for', isPortrait ? 'portrait' : 'landscape', 'mode');
+    }
+}
+
 // Load saved preferences on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing subtitle and title overlay...');
+    
+    // Adjust video size when metadata loads
+    const video = document.getElementById('mainVideo');
+    if (video) {
+        video.addEventListener('loadedmetadata', adjustVideoSize);
+        // Also try immediately in case already loaded
+        if (video.videoWidth) adjustVideoSize();
+    }
     
     // Load preferences first
     loadSubtitlePrefs();
