@@ -27,4 +27,5 @@ urlpatterns = [
     path('api/get-devices/', views.get_media_devices, name='get_media_devices'),
     path('api/save-audio/', views.save_audio_recording, name='save_audio_recording'),
     path('api/save-video/', views.save_video_recording, name='save_video_recording'),
+    path('api/generate-subtitles/', views.generate_subtitles, name='generate_subtitles'),
 ]
