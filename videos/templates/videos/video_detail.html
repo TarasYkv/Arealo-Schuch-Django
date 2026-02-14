@@ -811,18 +811,28 @@ function adjustVideoSize() {
         
         console.log('Video dimensions:', videoWidth, 'x', videoHeight, '- Aspect ratio:', aspectRatio.toFixed(2), '- Portrait:', isPortrait);
         
+        // Remove black background for cleaner look
+        container.style.background = 'transparent';
+        
         if (isPortrait) {
-            // Portrait video (9:16, etc.) - make it tall
-            video.style.maxWidth = 'none';
-            video.style.width = 'auto';
-            video.style.height = '80vh';
-            video.style.maxHeight = '80vh';
-            container.style.minHeight = '80vh';
+            // Portrait video (9:16, etc.) - center it and make it as tall as possible
+            const viewportHeight = window.innerHeight;
+            const targetHeight = Math.min(viewportHeight * 0.85, 800); // max 85vh or 800px
+            const targetWidth = targetHeight * aspectRatio;
+            
+            video.style.width = targetWidth + 'px';
+            video.style.height = targetHeight + 'px';
+            video.style.maxWidth = '100%';
+            video.style.maxHeight = 'none';
+            container.style.minHeight = targetHeight + 'px';
+            
+            console.log('Portrait video sized to:', targetWidth.toFixed(0), 'x', targetHeight.toFixed(0));
         } else {
             // Landscape video (16:9, etc.) - make it wide
             video.style.width = '100%';
             video.style.height = 'auto';
             video.style.maxHeight = '80vh';
+            video.style.maxWidth = '100%';
             container.style.minHeight = 'auto';
         }
         
