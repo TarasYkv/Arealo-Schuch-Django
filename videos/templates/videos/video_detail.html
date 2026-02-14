@@ -636,9 +636,12 @@ function updateSubtitleStyle() {
     if (positionValueEl) positionValueEl.textContent = position;
     
     // Setup custom subtitle renderer if position is not default (90)
+    console.log('Checking if custom subtitle renderer needed. Position:', position, '(default is 90)');
     if (position !== 90) {
+        console.log('Setting up custom subtitle renderer at position', position + '%');
         setupCustomSubtitleRenderer(video, position, sizeMap[size], color, bg, font, fontWeight, textShadow);
     } else {
+        console.log('Using native subtitle rendering (position is default 90)');
         removeCustomSubtitleRenderer();
     }
     
@@ -650,6 +653,8 @@ function updateSubtitleStyle() {
 }
 
 function setupCustomSubtitleRenderer(video, position, fontSize, color, bg, font, fontWeight, textShadow) {
+    console.log('setupCustomSubtitleRenderer called with:', { position, fontSize, color, bg, font });
+    
     // Remove existing
     removeCustomSubtitleRenderer();
     
@@ -693,18 +698,27 @@ function setupCustomSubtitleRenderer(video, position, fontSize, color, bg, font,
     
     // Hide native subtitles, use custom renderer
     const tracks = video.textTracks;
+    console.log('Found', tracks.length, 'text tracks');
+    
     for (let i = 0; i < tracks.length; i++) {
         const track = tracks[i];
+        console.log('Track', i, '- kind:', track.kind, 'mode:', track.mode, 'label:', track.label);
+        
         if (track.kind === 'subtitles') {
             track.mode = 'hidden';
+            console.log('Hiding native subtitles, attaching cuechange listener');
             
             track.oncuechange = function() {
                 const cue = this.activeCues[0];
-                textEl.textContent = cue ? cue.text : '';
+                const text = cue ? cue.text : '';
+                console.log('Cue change:', text ? text.substring(0, 50) : '(empty)');
+                textEl.textContent = text;
                 overlay.style.display = cue ? 'block' : 'none';
             };
         }
     }
+    
+    console.log('Custom subtitle renderer setup complete');
 }
 
 function removeCustomSubtitleRenderer() {
@@ -1034,10 +1048,14 @@ function initTitleOverlay() {
         const shouldShow = checkboxEnabled || isEnabled;
         
         console.log('Video play event. Checkbox enabled:', checkboxEnabled, 'Prefs enabled:', isEnabled, 'Should show:', shouldShow);
+        console.log('titleOverlayShown:', titleOverlayShown, 'currentTime:', video.currentTime);
         
-        if (shouldShow && !titleOverlayShown && video.currentTime < 0.5) {
+        // Show if enabled and not yet shown and near start (within 2 seconds)
+        if (shouldShow && !titleOverlayShown && video.currentTime < 2.0) {
             console.log('Showing title overlay...');
             showTitleOverlay();
+        } else {
+            console.log('NOT showing title overlay. Reasons: shouldShow=', shouldShow, 'alreadyShown=', titleOverlayShown, 'currentTime=', video.currentTime);
         }
     });
     
