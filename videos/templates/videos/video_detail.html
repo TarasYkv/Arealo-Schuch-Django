@@ -34,8 +34,8 @@
         <div class="col-md-8">
             <h1>{{ video.title }}</h1>
             
-            <div class="video-container mb-4">
-                <video controls crossorigin="anonymous" id="mainVideo" style="width: 100%; max-height: 70vh;">
+            <div class="video-container mb-4 d-flex justify-content-center">
+                <video controls crossorigin="anonymous" id="mainVideo" style="max-width: 100%; max-height: 75vh;">
                     <source src="{% url 'videos:stream' video.unique_id %}" type="video/mp4">
                     {% if video.subtitle_file and video.subtitle_status == 'ready' %}
                     <track kind="subtitles" src="{{ video.subtitle_file.url }}" srclang="{{ video.subtitle_language }}" label="Untertitel ({{ video.subtitle_language }})" default>
@@ -810,12 +810,18 @@ function adjustVideoSize() {
         
         console.log('Video dimensions:', videoWidth, 'x', videoHeight, '- Aspect ratio:', aspectRatio.toFixed(2), '- Portrait:', isPortrait);
         
-        // For all videos, let the browser handle sizing naturally
-        // Portrait videos will be narrower, landscape will be wider
-        video.style.maxWidth = '100%';
-        video.style.maxHeight = '70vh';
-        video.style.width = 'auto';
-        video.style.height = 'auto';
+        if (isPortrait) {
+            // Portrait video: constrain by height, let width be auto
+            video.style.width = 'auto';
+            video.style.height = '75vh';
+            video.style.maxWidth = '100%';
+            video.style.maxHeight = '75vh';
+        } else {
+            // Landscape video: constrain by width, let height be auto
+            video.style.width = '100%';
+            video.style.height = 'auto';
+            video.style.maxHeight = '75vh';
+        }
         
         console.log('Video size adjusted for', isPortrait ? 'portrait' : 'landscape', 'mode');
     }
