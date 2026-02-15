@@ -2125,6 +2125,42 @@ document.addEventListener('mouseup', (e) => {
     }, 10);
 });
 
+// Touch support for tablets - handle text selection on touch devices
+document.addEventListener('touchend', (e) => {
+    // Ignore touches inside popups or action buttons
+    if (translationPopup.contains(e.target) || explanationPopup.contains(e.target) ||
+        actionButtons.contains(e.target)) return;
+
+    // Get touch position from the last touch point
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+
+    // Longer delay for touch - selection needs time to complete
+    setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
+
+        if (text.length > 0 && text.length < 1000) {
+            selectedText = text;
+            selectionPosition = { x: touch.clientX, y: touch.clientY };
+
+            // Get surrounding context
+            const ctx = getSelectionContext();
+            contextBefore = ctx.before;
+            contextAfter = ctx.after;
+
+            // Show action buttons near the selection
+            const btnX = Math.min(touch.clientX, window.innerWidth - 250);
+            const btnY = Math.max(touch.clientY - 70, 10); // More offset on touch for finger
+            actionButtons.style.left = btnX + 'px';
+            actionButtons.style.top = btnY + 'px';
+            actionButtons.classList.remove('d-none');
+        } else {
+            actionButtons.classList.add('d-none');
+        }
+    }, 150); // Longer delay for touch selection to complete
+});
+
 // Translate Button Click - Open translation popup
 translateBtn.addEventListener('click', () => {
     actionButtons.classList.add('d-none');
