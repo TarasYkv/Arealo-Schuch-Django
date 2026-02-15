@@ -2050,11 +2050,74 @@ const translationDiv = document.getElementById('popupTranslation');
 const explanationSelectedText = document.getElementById('explanationSelectedText');
 const explanationChatContainer = document.getElementById('explanationChatContainer');
 let selectedText = '';
-let selectionPosition = {};
+let selectionPosition = { x: window.innerWidth / 2, y: 100 };
 let currentTranslation = '';
 let currentExplanation = '';
 let contextBefore = '';
 let contextAfter = '';
+let selectionTimeout = null;
+let lastTouchPosition = { x: 0, y: 0 };
+
+// Track touch position for popup placement
+document.addEventListener('touchstart', (e) => {
+    if (e.touches[0]) {
+        lastTouchPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+    if (e.touches[0]) {
+        lastTouchPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+}, { passive: true });
+
+// Universal selection change handler - works on all devices
+document.addEventListener('selectionchange', () => {
+    // Clear any pending timeout
+    if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+    }
+    
+    // Debounce to wait for selection to stabilize
+    selectionTimeout = setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
+        
+        if (text.length > 0 && text.length < 1000) {
+            // Check if selection is within PDF container
+            const pdfContainer = document.getElementById('pdfCanvasContainer');
+            if (selection.anchorNode && pdfContainer.contains(selection.anchorNode)) {
+                selectedText = text;
+                
+                // Get selection rectangle for positioning
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                
+                // Use selection rect center, fallback to last touch position
+                if (rect.width > 0) {
+                    selectionPosition = { 
+                        x: rect.left + rect.width / 2, 
+                        y: rect.top 
+                    };
+                } else {
+                    selectionPosition = lastTouchPosition;
+                }
+                
+                // Get surrounding context
+                const ctx = getSelectionContext();
+                contextBefore = ctx.before;
+                contextAfter = ctx.after;
+                
+                // Show action buttons
+                const btnX = Math.min(selectionPosition.x - 100, window.innerWidth - 250);
+                const btnY = Math.max(selectionPosition.y - 60, 10);
+                actionButtons.style.left = Math.max(10, btnX) + 'px';
+                actionButtons.style.top = btnY + 'px';
+                actionButtons.classList.remove('d-none');
+            }
+        }
+    }, 300); // Wait 300ms for selection to stabilize
+});
 
 // Get surrounding context from selection
 function getSelectionContext() {
@@ -2087,12 +2150,19 @@ function getSelectionContext() {
     return { before: '', after: '' };
 }
 
-// Hide action buttons on click elsewhere
+// Hide action buttons on click/touch elsewhere
 document.addEventListener('mousedown', (e) => {
     if (!actionButtons.contains(e.target) && !translationPopup.contains(e.target) && !explanationPopup.contains(e.target)) {
-        // Don't hide immediately - wait to see if it's a selection
+        actionButtons.classList.add('d-none');
     }
 });
+
+document.addEventListener('touchstart', (e) => {
+    if (!actionButtons.contains(e.target) && !translationPopup.contains(e.target) && !explanationPopup.contains(e.target)) {
+        // Hide buttons when starting a new touch (but selectionchange will show them again if selecting)
+        actionButtons.classList.add('d-none');
+    }
+}, { passive: true });
 
 document.addEventListener('mouseup', (e) => {
     // Ignore clicks inside popups or action buttons
