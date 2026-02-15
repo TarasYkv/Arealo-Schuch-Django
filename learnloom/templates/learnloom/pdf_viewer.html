@@ -25,30 +25,17 @@
         margin: 0 !important;
     }
     
-    /* ========== 3-COLUMN GRID LAYOUT ========== */
+    /* ========== 2-COLUMN GRID LAYOUT (Toolbar + PDF) ========== */
     .pdf-viewer-grid {
         display: grid;
-        grid-template-columns: 70px 1fr 0;
+        grid-template-columns: 70px 1fr;
         height: 100vh;
         width: 100%;
         max-width: 100%;
         overflow: hidden;
-        transition: grid-template-columns 0.3s ease;
         box-sizing: border-box;
     }
-    .pdf-viewer-grid.panel-open {
-        grid-template-columns: 70px 1fr 350px;
-    }
-    @media (max-width: 1400px) {
-        .pdf-viewer-grid.panel-open {
-            grid-template-columns: 70px 1fr 300px;
-        }
-    }
-    @media (max-width: 1000px) {
-        .pdf-viewer-grid.panel-open {
-            grid-template-columns: 70px 1fr 260px;
-        }
-    }
+    /* panel-open class no longer changes grid - panels are overlays now */
     
     /* Left Column - Toolbar */
     .toolbar-column {
@@ -129,10 +116,7 @@
     /* Mobile: smaller buttons */
     @media (max-width: 768px) {
         .pdf-viewer-grid {
-            grid-template-columns: 46px 1fr 0;
-        }
-        .pdf-viewer-grid.panel-open {
-            grid-template-columns: 46px 1fr 260px;
+            grid-template-columns: 46px 1fr;
         }
         .toolbar-column {
             padding: 26px 3px 10px 3px;
@@ -164,10 +148,7 @@
     /* Very small screens */
     @media (max-width: 480px) {
         .pdf-viewer-grid {
-            grid-template-columns: 40px 1fr 0;
-        }
-        .pdf-viewer-grid.panel-open {
-            grid-template-columns: 0 1fr 100%;
+            grid-template-columns: 40px 1fr;
         }
         .toolbar-column {
             padding: 24px 2px 8px 2px;
@@ -265,15 +246,28 @@
         padding: 20px;
     }
     
-    /* Right Column - Panel */
+    /* Right Panel - OVERLAY (like reading list) */
     .panel-column {
+        position: fixed;
+        right: -400px;
+        top: 0;
+        bottom: 0;
+        width: 400px;
         background: white;
-        border-left: 1px solid #dee2e6;
-        overflow: hidden;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+        z-index: 1500;
         display: flex;
         flex-direction: column;
-        min-width: 0; /* Prevent grid blowout */
-        max-width: 100%; /* Ensure it stays within grid cell */
+        transition: right 0.3s ease;
+    }
+    .panel-column.open {
+        right: 0;
+    }
+    @media (max-width: 500px) {
+        .panel-column {
+            width: 100%;
+            right: -100%;
+        }
     }
     .panel-view {
         display: flex;
@@ -2304,11 +2298,9 @@ explainBtn.addEventListener('click', () => {
     document.getElementById('summaryView').style.display = 'none';
     document.getElementById('explanationView').style.display = 'flex';
 
-    // Open the panel if not already open
-    if (!pdfViewerGrid.classList.contains('panel-open')) {
-        pdfViewerGrid.classList.add('panel-open');
-        setTimeout(() => recalculateAndRender(380, true), 350);
-    }
+    // Open the panel overlay
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
 
     // Set selected text
     explanationSelectedText.textContent = selectedText;
@@ -2323,7 +2315,9 @@ explainBtn.addEventListener('click', () => {
 
 // Close explanation panel
 document.getElementById('closeExplanationPanel').addEventListener('click', () => {
-    // Switch back to summary view
+    // Close the panel overlay
+    document.getElementById('rightPanelColumn').classList.remove('open');
+    // Switch back to summary view for next time
     document.getElementById('explanationView').style.display = 'none';
     document.getElementById('summaryView').style.display = 'flex';
 });
@@ -2767,10 +2761,9 @@ async function captureAndExplainImage(screenRect) {
     document.getElementById('summaryView').style.display = 'none';
     document.getElementById('explanationView').style.display = 'flex';
     
-    // Open panel if not open
-    if (!pdfViewerGrid.classList.contains('panel-open')) {
-        pdfViewerGrid.classList.add('panel-open');
-    }
+    // Open panel overlay
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
     
     // Set "selected text" to indicate it's an image
     explanationSelectedText.innerHTML = '<i class="bi bi-image me-2"></i><em>Bild/Grafik aus Seite ' + pageNum + '</em>';
@@ -3322,18 +3315,15 @@ document.getElementById('toggleSummaryPanel').addEventListener('click', async ()
     document.getElementById('summaryView').style.display = 'flex';
     document.getElementById('explanationView').style.display = 'none';
     
-    const isOpen = pdfViewerGrid.classList.toggle('panel-open');
+    const panelColumn = document.getElementById('rightPanelColumn');
+    const isOpen = panelColumn.classList.toggle('open');
     if (isOpen) {
         loadSummary();
-        setTimeout(() => recalculateAndRender(380, true), 350);
-    } else {
-        setTimeout(() => recalculateAndRender(0, true), 350);
     }
 });
 
 document.getElementById('closeSummaryPanel').addEventListener('click', () => {
-    pdfViewerGrid.classList.remove('panel-open');
-    setTimeout(() => recalculateAndRender(0, true), 350);
+    document.getElementById('rightPanelColumn').classList.remove('open');
 });
 
 // Funktion um PDF für verfügbaren Platz neu zu skalieren
