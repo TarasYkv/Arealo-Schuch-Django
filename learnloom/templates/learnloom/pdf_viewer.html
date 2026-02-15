@@ -448,19 +448,31 @@
     /* Floating Action Buttons */
     .floating-action-btns {
         position: fixed;
-        z-index: 1000;
+        z-index: 99999;
         display: flex;
         gap: 8px;
+        /* Make more visible on touch devices */
+        background: rgba(255, 255, 255, 0.95);
+        padding: 8px 12px;
+        border-radius: 28px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
     .action-btn-floating {
-        padding: 8px 16px;
+        padding: 10px 18px;
         border-radius: 20px;
         border: none;
-        font-size: 0.9rem;
-        font-weight: 500;
+        font-size: 0.95rem;
+        font-weight: 600;
         cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         transition: all 0.2s ease;
+    }
+    /* Larger buttons on touch devices */
+    @media (pointer: coarse) {
+        .action-btn-floating {
+            padding: 12px 20px;
+            font-size: 1rem;
+        }
     }
     .action-btn-floating:hover {
         transform: translateY(-2px);
@@ -2071,12 +2083,18 @@ document.addEventListener('touchmove', (e) => {
     }
 }, { passive: true });
 
+// Detect touch device
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
 // Universal selection change handler - works on all devices
 document.addEventListener('selectionchange', () => {
     // Clear any pending timeout
     if (selectionTimeout) {
         clearTimeout(selectionTimeout);
     }
+    
+    // Longer delay on touch devices to let native menu appear first
+    const delay = isTouchDevice ? 600 : 300;
     
     // Debounce to wait for selection to stabilize
     selectionTimeout = setTimeout(() => {
@@ -2093,30 +2111,44 @@ document.addEventListener('selectionchange', () => {
                 const range = selection.getRangeAt(0);
                 const rect = range.getBoundingClientRect();
                 
-                // Use selection rect center, fallback to last touch position
+                // Use selection rect, fallback to last touch position
+                let posX, posY, rectBottom;
                 if (rect.width > 0) {
-                    selectionPosition = { 
-                        x: rect.left + rect.width / 2, 
-                        y: rect.top 
-                    };
+                    posX = rect.left + rect.width / 2;
+                    posY = rect.top;
+                    rectBottom = rect.bottom;
                 } else {
-                    selectionPosition = lastTouchPosition;
+                    posX = lastTouchPosition.x;
+                    posY = lastTouchPosition.y;
+                    rectBottom = lastTouchPosition.y + 20;
                 }
+                
+                selectionPosition = { x: posX, y: posY };
                 
                 // Get surrounding context
                 const ctx = getSelectionContext();
                 contextBefore = ctx.before;
                 contextAfter = ctx.after;
                 
-                // Show action buttons
-                const btnX = Math.min(selectionPosition.x - 100, window.innerWidth - 250);
-                const btnY = Math.max(selectionPosition.y - 60, 10);
+                // Position buttons - BELOW selection on touch devices (avoid native menu)
+                const btnX = Math.min(posX - 100, window.innerWidth - 250);
+                let btnY;
+                if (isTouchDevice) {
+                    // Below the selection + some space for native menu
+                    btnY = Math.min(rectBottom + 60, window.innerHeight - 60);
+                } else {
+                    // Above the selection on desktop
+                    btnY = Math.max(posY - 60, 10);
+                }
+                
                 actionButtons.style.left = Math.max(10, btnX) + 'px';
                 actionButtons.style.top = btnY + 'px';
                 actionButtons.classList.remove('d-none');
+                
+                console.log('LernLoom buttons shown at:', btnX, btnY, 'touch:', isTouchDevice);
             }
         }
-    }, 300); // Wait 300ms for selection to stabilize
+    }, delay);
 });
 
 // Get surrounding context from selection
