@@ -114,6 +114,12 @@
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                 <i class="bi bi-plus-lg me-2"></i>PDF hochladen
             </button>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#batchUploadModal">
+                <i class="bi bi-files me-2"></i>Mehrere PDFs
+            </button>
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#onlineArticleModal">
+                <i class="bi bi-link-45deg me-2"></i>Online-Artikel
+            </button>
         </div>
     </div>
 
@@ -181,17 +187,43 @@
         <button class="btn btn-sm btn-outline-success filter-btn" data-filter="completed">
             <i class="bi bi-check-circle-fill me-1"></i>Gelesen
         </button>
+        
+        <!-- Tag Filter -->
+        <div class="dropdown ms-3">
+            <button class="btn btn-sm btn-outline-info dropdown-toggle" type="button" id="tagFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-tags me-1"></i>Tags
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="tagFilterDropdown" style="max-height: 300px; overflow-y: auto;">
+                <li><a class="dropdown-item tag-filter-item active" href="#" data-tag="all"><i class="bi bi-grid me-2"></i>Alle Tags</a></li>
+                <li><hr class="dropdown-divider"></li>
+                {% for tag in all_tags %}
+                <li><a class="dropdown-item tag-filter-item" href="#" data-tag="{{ tag }}"><i class="bi bi-tag me-2"></i>{{ tag }}</a></li>
+                {% empty %}
+                <li><span class="dropdown-item text-muted">Keine Tags vorhanden</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <!-- Active Tag Badge -->
+        <span id="activeTagBadge" class="badge bg-info d-none">
+            <i class="bi bi-tag me-1"></i><span id="activeTagName"></span>
+            <button type="button" class="btn-close btn-close-white ms-2" style="font-size: 0.6rem;" onclick="clearTagFilter()"></button>
+        </span>
     </div>
 
     <!-- PDF Kacheln -->
     {% if books %}
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4" id="booksGrid">
         {% for book in books %}
-        <div class="col book-col" data-status="{{ book.reading_status }}">
+        <div class="col book-col" data-status="{{ book.reading_status }}" data-tags="{{ book.tags|default:'' }}">
             <div class="card h-100 book-card border-0 shadow-sm" data-book-id="{{ book.id }}">
                 <!-- Thumbnail -->
                 <div class="book-thumbnail position-relative">
-                    {% if book.thumbnail %}
+                    {% if book.category == 'online' %}
+                    <div class="card-img-top bg-info bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="bi bi-link-45deg text-info" style="font-size: 4rem;"></i>
+                    </div>
+                    {% elif book.thumbnail %}
                     <img src="{{ book.thumbnail.url }}" class="card-img-top" alt="{{ book.title }}">
                     {% else %}
                     <div class="card-img-top bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="height: 200px;">
@@ -220,26 +252,48 @@
                 </div>
 
                 <div class="card-body">
-                    <h6 class="card-title text-truncate" title="{{ book.title }}">{{ book.title }}</h6>
+                    <h6 class="card-title text-truncate" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ book.title }}">{{ book.title }}</h6>
                     <p class="card-text small text-muted mb-2">
+                        {% if book.category == 'online' %}
+                        <i class="bi bi-link-45deg me-1"></i>Online-Artikel
+                        {% else %}
                         <i class="bi bi-file-earmark me-1"></i>{{ book.page_count }} Seiten
+                        {% endif %}
                         {% if book.last_opened_at %}
                         <br><i class="bi bi-clock me-1"></i>{{ book.last_opened_at|timesince }} ago
                         {% endif %}
                     </p>
+                    {% if book.tags %}
+                    <div class="book-tags mb-2 text-truncate" style="max-height: 52px; overflow: hidden;" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="{% for tag in book.tags_list %}{{ tag }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                        {% for tag in book.tags_list %}
+                        <span class="badge bg-light text-dark border me-1 mb-1 tag-badge" data-tag="{{ tag }}" style="cursor: pointer;"><i class="bi bi-tag me-1"></i>{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
 
                 <div class="card-footer bg-transparent border-0 pt-0">
                     <div class="d-flex gap-1 mb-2">
+                        {% if book.category == 'online' %}
+                        <a href="{{ book.url }}" target="_blank" class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Öffnen
+                        </a>
+                        {% else %}
                         <a href="{% url 'learnloom:pdf_viewer' book.id %}" class="btn btn-primary btn-sm flex-grow-1">
                             <i class="bi bi-eye me-1"></i>Lesen
                         </a>
+                        {% endif %}
                         <a href="{% url 'learnloom:notes' book.id %}" class="btn btn-outline-secondary btn-sm" title="Notizen">
                             <i class="bi bi-sticky"></i>
                         </a>
                         <a href="{% url 'learnloom:vocabulary' book.id %}" class="btn btn-outline-secondary btn-sm" title="Vokabeln">
                             <i class="bi bi-translate"></i>
                         </a>
+                        {% if book.category != 'book' %}
+                        <a href="{% url 'learnloom:summary' book.id %}" class="btn btn-outline-info btn-sm" title="Zusammenfassung">
+                            <i class="bi bi-file-text"></i>
+                        </a>
+                        {% endif %}
                     </div>
                     <div class="d-flex gap-1">
                         <div class="dropdown flex-grow-1">
@@ -258,6 +312,9 @@
                                 </a></li>
                             </ul>
                         </div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="editBook('{{ book.id }}', '{{ book.title|escapejs }}', '{{ book.tags|escapejs }}', '{{ book.category }}')" title="Bearbeiten">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                         <button class="btn btn-outline-danger btn-sm" onclick="deleteBook('{{ book.id }}')" title="Löschen">
                             <i class="bi bi-trash"></i>
                         </button>
@@ -316,7 +373,7 @@
                         <label class="form-label">Kategorie</label>
                         <select class="form-select" name="category">
                             <option value="book">Buch</option>
-                            <option value="paper">Wissenschaftliches Paper</option>
+                            <option value="paper">Paper</option>
                             <option value="article">Artikel</option>
                             <option value="other">Sonstiges</option>
                         </select>
@@ -337,6 +394,113 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                 <button type="button" class="btn btn-primary" id="uploadBtn" disabled>
                     <i class="bi bi-upload me-2"></i>Hochladen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit PDF Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>PDF bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editBookId">
+                <div class="mb-3">
+                    <label for="editTitle" class="form-label">Titel</label>
+                    <input type="text" class="form-control" id="editTitle" placeholder="Titel des PDFs">
+                </div>
+                <div class="mb-3">
+                    <label for="editCategory" class="form-label">Kategorie</label>
+                    <select class="form-select" id="editCategory">
+                        <option value="book">Buch</option>
+                        <option value="paper">Paper</option>
+                        <option value="article">Artikel</option>
+                        <option value="other">Sonstiges</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="editTags" class="form-label">Tags (kommagetrennt)</label>
+                    <input type="text" class="form-control" id="editTags" placeholder="tag1, tag2, tag3">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveBookEdit()">
+                    <i class="bi bi-check-lg me-2"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Upload Modal -->
+<div class="modal fade" id="batchUploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-files me-2"></i>Mehrere PDFs hochladen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Drop Zone für mehrere Dateien -->
+                <div class="border border-2 border-dashed rounded p-4 text-center mb-3" id="batchDropZone" style="cursor: pointer;">
+                    <i class="bi bi-cloud-upload text-muted" style="font-size: 3rem;"></i>
+                    <p class="mb-0 mt-2">PDFs hierher ziehen oder klicken zum Auswählen</p>
+                    <input type="file" id="batchFileInput" accept=".pdf" multiple class="d-none">
+                </div>
+                
+                <!-- Liste der ausgewählten PDFs -->
+                <div id="batchFilesList" class="d-none">
+                    <h6 class="mb-3"><i class="bi bi-list-ul me-2"></i>Ausgewählte PDFs (<span id="batchFilesCount">0</span>)</h6>
+                    <div id="batchFilesContainer"></div>
+                </div>
+                
+                <!-- Upload Progress -->
+                <div class="progress d-none mt-3" id="batchUploadProgress" style="height: 25px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="batchUploadBtn" disabled onclick="startBatchUpload()">
+                    <i class="bi bi-upload me-2"></i>Alle hochladen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Online-Artikel Modal -->
+<div class="modal fade" id="onlineArticleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-link-45deg me-2"></i>Online-Artikel hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="onlineUrl" class="form-label">URL</label>
+                    <input type="url" class="form-control" id="onlineUrl" placeholder="https://..." required>
+                </div>
+                <div class="mb-3">
+                    <label for="onlineTitle" class="form-label">Titel</label>
+                    <input type="text" class="form-control" id="onlineTitle" placeholder="Titel des Artikels">
+                </div>
+                <div class="mb-3">
+                    <label for="onlineTags" class="form-label">Tags (kommagetrennt)</label>
+                    <input type="text" class="form-control" id="onlineTags" placeholder="tag1, tag2, tag3">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="addOnlineArticle()">
+                    <i class="bi bi-plus-lg me-2"></i>Hinzufügen
                 </button>
             </div>
         </div>
@@ -475,6 +639,14 @@
 <script>
 const csrfToken = '{{ csrf_token }}';
 
+// Initialize Bootstrap tooltips for full title on hover
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
 // Modern Confirmation Modal
 function showConfirmModal(options = {}) {
     return new Promise((resolve) => {
@@ -547,14 +719,40 @@ fileInput.addEventListener('change', (e) => {
     }
 });
 
-function handleFileSelect(file) {
+async function handleFileSelect(file) {
     fileName.textContent = file.name;
     selectedFile.classList.remove('d-none');
     uploadBtn.disabled = false;
 
-    // Titel aus Dateinamen vorschlagen
-    if (!pdfTitle.value) {
+    // Titel aus PDF-Metadaten extrahieren
+    pdfTitle.value = 'Titel wird extrahiert...';
+    pdfTitle.disabled = true;
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('{% url "learnloom:api_extract_title" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        if (data.success && data.title) {
+            pdfTitle.value = data.title;
+        } else {
+            // Fallback auf Dateinamen
+            pdfTitle.value = file.name.replace('.pdf', '').replace(/_/g, ' ');
+        }
+    } catch (error) {
+        console.error('Fehler beim Extrahieren des Titels:', error);
+        // Fallback auf Dateinamen
         pdfTitle.value = file.name.replace('.pdf', '').replace(/_/g, ' ');
+    } finally {
+        pdfTitle.disabled = false;
     }
 }
 
@@ -604,6 +802,281 @@ uploadBtn.addEventListener('click', async () => {
     }
 });
 
+// Edit Book
+function editBook(bookId, title, tags, category) {
+    document.getElementById('editBookId').value = bookId;
+    document.getElementById('editTitle').value = title;
+    document.getElementById('editTags').value = tags;
+    document.getElementById('editCategory').value = category;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+}
+
+async function saveBookEdit() {
+    const bookId = document.getElementById('editBookId').value;
+    const title = document.getElementById('editTitle').value.trim();
+    const tags = document.getElementById('editTags').value.trim();
+    const category = document.getElementById('editCategory').value;
+    
+    if (!title) {
+        alert('Bitte gib einen Titel ein.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/learnloom/api/pdf/${bookId}/metadata/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ title, tags, category })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Modal schließen
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+            // Seite neu laden um Änderungen zu zeigen
+            location.reload();
+        } else {
+            alert('Fehler beim Speichern: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (error) {
+        console.error('Fehler:', error);
+        alert('Fehler beim Speichern');
+    }
+}
+
+// ============================================================================
+// Batch Upload Functions
+// ============================================================================
+
+const batchDropZone = document.getElementById('batchDropZone');
+const batchFileInput = document.getElementById('batchFileInput');
+const batchFilesList = document.getElementById('batchFilesList');
+const batchFilesContainer = document.getElementById('batchFilesContainer');
+const batchFilesCount = document.getElementById('batchFilesCount');
+const batchUploadBtn = document.getElementById('batchUploadBtn');
+
+let batchFiles = [];
+
+// Drop Zone Events
+batchDropZone.addEventListener('click', () => batchFileInput.click());
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    batchDropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    });
+});
+
+['dragenter', 'dragover'].forEach(eventName => {
+    batchDropZone.addEventListener(eventName, () => batchDropZone.classList.add('border-primary', 'bg-light'));
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    batchDropZone.addEventListener(eventName, () => batchDropZone.classList.remove('border-primary', 'bg-light'));
+});
+
+batchDropZone.addEventListener('drop', (e) => {
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    addBatchFiles(files);
+});
+
+batchFileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    addBatchFiles(files);
+});
+
+async function addBatchFiles(files) {
+    for (const file of files) {
+        // Titel extrahieren
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        let title = file.name.replace('.pdf', '').replace(/_/g, ' ');
+        
+        try {
+            const response = await fetch('{% url "learnloom:api_extract_title" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success && data.title) {
+                title = data.title;
+            }
+        } catch (e) {
+            console.error('Titel-Extraktion fehlgeschlagen:', e);
+        }
+        
+        batchFiles.push({
+            file: file,
+            title: title,
+            category: 'paper',
+            tags: ''
+        });
+    }
+    
+    renderBatchFiles();
+}
+
+function renderBatchFiles() {
+    if (batchFiles.length === 0) {
+        batchFilesList.classList.add('d-none');
+        batchUploadBtn.disabled = true;
+        return;
+    }
+    
+    batchFilesList.classList.remove('d-none');
+    batchFilesCount.textContent = batchFiles.length;
+    batchUploadBtn.disabled = false;
+    
+    batchFilesContainer.innerHTML = batchFiles.map((item, index) => `
+        <div class="card mb-2">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <small class="text-muted"><i class="bi bi-file-pdf me-1"></i>${item.file.name}</small>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeBatchFile(${index})">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <div class="row g-2">
+                    <div class="col-12">
+                        <input type="text" class="form-control form-control-sm" 
+                               value="${item.title}" 
+                               onchange="updateBatchFile(${index}, 'title', this.value)"
+                               placeholder="Titel">
+                    </div>
+                    <div class="col-6">
+                        <select class="form-select form-select-sm" onchange="updateBatchFile(${index}, 'category', this.value)">
+                            <option value="book" ${item.category === 'book' ? 'selected' : ''}>Buch</option>
+                            <option value="paper" ${item.category === 'paper' ? 'selected' : ''}>Paper</option>
+                            <option value="article" ${item.category === 'article' ? 'selected' : ''}>Artikel</option>
+                            <option value="other" ${item.category === 'other' ? 'selected' : ''}>Sonstiges</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <input type="text" class="form-control form-control-sm" 
+                               value="${item.tags}" 
+                               onchange="updateBatchFile(${index}, 'tags', this.value)"
+                               placeholder="Tags (kommagetrennt)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateBatchFile(index, field, value) {
+    batchFiles[index][field] = value;
+}
+
+function removeBatchFile(index) {
+    batchFiles.splice(index, 1);
+    renderBatchFiles();
+}
+
+async function startBatchUpload() {
+    const progressBar = document.getElementById('batchUploadProgress');
+    const progressBarInner = progressBar.querySelector('.progress-bar');
+    
+    progressBar.classList.remove('d-none');
+    batchUploadBtn.disabled = true;
+    
+    let uploaded = 0;
+    const total = batchFiles.length;
+    
+    for (const item of batchFiles) {
+        const formData = new FormData();
+        formData.append('file', item.file);
+        formData.append('title', item.title);
+        formData.append('category', item.category);
+        formData.append('tags', item.tags);
+        
+        try {
+            await fetch('{% url "learnloom:api_upload" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+        } catch (e) {
+            console.error('Upload fehlgeschlagen:', item.file.name, e);
+        }
+        
+        uploaded++;
+        const percent = Math.round((uploaded / total) * 100);
+        progressBarInner.style.width = percent + '%';
+        progressBarInner.textContent = `${uploaded}/${total} (${percent}%)`;
+    }
+    
+    // Fertig
+    setTimeout(() => {
+        bootstrap.Modal.getInstance(document.getElementById('batchUploadModal')).hide();
+        location.reload();
+    }, 500);
+}
+
+// Reset batch files when modal closes
+document.getElementById('batchUploadModal').addEventListener('hidden.bs.modal', () => {
+    batchFiles = [];
+    batchFilesContainer.innerHTML = '';
+    batchFilesList.classList.add('d-none');
+    batchUploadBtn.disabled = true;
+    document.getElementById('batchUploadProgress').classList.add('d-none');
+});
+
+// ============================================================================
+// Online Article Functions
+// ============================================================================
+
+async function addOnlineArticle() {
+    const url = document.getElementById('onlineUrl').value.trim();
+    const title = document.getElementById('onlineTitle').value.trim();
+    const tags = document.getElementById('onlineTags').value.trim();
+    
+    if (!url) {
+        alert('Bitte gib eine URL ein.');
+        return;
+    }
+    
+    if (!title) {
+        alert('Bitte gib einen Titel ein.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "learnloom:api_add_online" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ url, title, tags })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('onlineArticleModal')).hide();
+            location.reload();
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (error) {
+        console.error('Fehler:', error);
+        alert('Fehler beim Hinzufügen');
+    }
+}
+
+// Reset online article form when modal closes
+document.getElementById('onlineArticleModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('onlineUrl').value = '';
+    document.getElementById('onlineTitle').value = '';
+    document.getElementById('onlineTags').value = '';
+});
+
 // Delete Book
 async function deleteBook(bookId) {
     const confirmed = await showConfirmModal({
@@ -639,6 +1112,9 @@ async function deleteBook(bookId) {
 document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         const filter = this.dataset.filter;
+        
+        // Update current status filter BEFORE applying
+        currentStatusFilter = filter;
 
         // Update active button
         document.querySelectorAll('.filter-btn').forEach(b => {
@@ -654,16 +1130,86 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         else if (filter === 'completed') this.classList.add('btn-success');
         else this.classList.add('btn-secondary');
 
-        // Filter books
-        document.querySelectorAll('.book-col').forEach(col => {
-            if (filter === 'all' || col.dataset.status === filter) {
-                col.style.display = '';
-            } else {
-                col.style.display = 'none';
-            }
-        });
+        // Filter books (respecting both status and tag filters)
+        applyFilters();
     });
 });
+
+// Current filters state
+let currentStatusFilter = 'all';
+let currentTagFilter = 'all';
+
+function applyFilters() {
+    document.querySelectorAll('.book-col').forEach(col => {
+        const statusMatch = currentStatusFilter === 'all' || col.dataset.status === currentStatusFilter;
+        const tags = col.dataset.tags.toLowerCase();
+        const tagMatch = currentTagFilter === 'all' || tags.includes(currentTagFilter.toLowerCase());
+        
+        if (statusMatch && tagMatch) {
+            col.style.display = '';
+        } else {
+            col.style.display = 'none';
+        }
+    });
+}
+
+// Tag Filter
+document.querySelectorAll('.tag-filter-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+        e.preventDefault();
+        const tag = this.dataset.tag;
+        currentTagFilter = tag;
+        
+        // Update active state
+        document.querySelectorAll('.tag-filter-item').forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Show/hide active tag badge
+        const badge = document.getElementById('activeTagBadge');
+        const tagName = document.getElementById('activeTagName');
+        if (tag === 'all') {
+            badge.classList.add('d-none');
+        } else {
+            badge.classList.remove('d-none');
+            tagName.textContent = tag;
+        }
+        
+        applyFilters();
+    });
+});
+
+// Click on tag badge in card to filter
+document.querySelectorAll('.tag-badge').forEach(badge => {
+    badge.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const tag = this.dataset.tag;
+        currentTagFilter = tag;
+        
+        // Update dropdown active state
+        document.querySelectorAll('.tag-filter-item').forEach(i => {
+            i.classList.remove('active');
+            if (i.dataset.tag === tag) i.classList.add('active');
+        });
+        
+        // Show active tag badge
+        const activeBadge = document.getElementById('activeTagBadge');
+        const tagName = document.getElementById('activeTagName');
+        activeBadge.classList.remove('d-none');
+        tagName.textContent = tag;
+        
+        applyFilters();
+    });
+});
+
+function clearTagFilter() {
+    currentTagFilter = 'all';
+    document.getElementById('activeTagBadge').classList.add('d-none');
+    document.querySelectorAll('.tag-filter-item').forEach(i => {
+        i.classList.remove('active');
+        if (i.dataset.tag === 'all') i.classList.add('active');
+    });
+    applyFilters();
+}
 
 // ============================================================================
 // Reading List Functions

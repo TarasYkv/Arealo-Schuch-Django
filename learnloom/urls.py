@@ -8,11 +8,14 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('view/<uuid:book_id>/', views.pdf_viewer, name='pdf_viewer'),
     path('notes/<uuid:book_id>/', views.notes_view, name='notes'),
+    path('summary/<uuid:book_id>/', views.summary_view, name='summary'),
     path('vocabulary/<uuid:book_id>/', views.vocabulary_list, name='vocabulary'),
     path('all-vocabulary/', views.all_vocabulary, name='all_vocabulary'),
     path('all-notes/', views.all_notes, name='all_notes'),
 
     # PDF API
+    path('api/extract-title/', views.api_extract_title, name='api_extract_title'),
+    path('api/add-online/', views.api_add_online_article, name='api_add_online'),
     path('api/upload/', views.api_upload_pdf, name='api_upload'),
     path('api/pdf/<uuid:book_id>/', views.api_serve_pdf, name='api_serve_pdf'),
     path('api/pdf/<uuid:book_id>/delete/', views.api_delete_pdf, name='api_delete'),
@@ -26,14 +29,26 @@ urlpatterns = [
 
     # Translation API
     path('api/translate/', views.api_translate, name='api_translate'),
+    path('api/translate-detailed/', views.api_translate_detailed, name='api_translate_detailed'),
     path('api/highlights/<uuid:book_id>/', views.api_get_highlights, name='api_get_highlights'),
     path('api/highlights/<uuid:book_id>/save/', views.api_save_highlight, name='api_save_highlight'),
 
     # Explanation API
     path('api/explain/', views.api_explain, name='api_explain'),
+    path('api/explain-image/', views.api_explain_image, name='api_explain_image'),
+    path('api/followup/', views.api_followup, name='api_followup'),
     path('api/explanations/<uuid:book_id>/', views.api_get_explanations, name='api_get_explanations'),
     path('api/explanations/<uuid:book_id>/save/', views.api_save_explanation, name='api_save_explanation'),
     path('api/explanations/<uuid:explanation_id>/delete/', views.api_delete_explanation, name='api_delete_explanation'),
+
+    # Summary API
+    path('api/summary/<uuid:book_id>/', views.api_get_summary, name='api_get_summary'),
+    path('api/summary/<uuid:book_id>/generate/', views.api_generate_summary, name='api_generate_summary'),
+    path('api/summary/<uuid:book_id>/delete/', views.api_delete_summary, name='api_delete_summary'),
+    path('api/summary/<uuid:book_id>/section/', views.api_summarize_section, name='api_summarize_section'),
+
+    # PDF Chat API
+    path('api/pdf/<uuid:book_id>/chat/', views.api_pdf_chat, name='api_pdf_chat'),
 
     # Vocabulary API
     path('api/vocabulary/<uuid:book_id>/', views.api_get_vocabulary, name='api_get_vocabulary'),

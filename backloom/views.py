@@ -59,10 +59,21 @@ class BackloomDashboardView(LoginRequiredMixin, ListView):
         # Letzte Suche
         last_search = BacklinkSearch.objects.first()
 
-        # Laufende Suche
+        # Laufende Suche - automatisch als fehlgeschlagen markieren wenn >30 Min alt
         running_search = BacklinkSearch.objects.filter(
             status=BacklinkSearchStatus.RUNNING
         ).first()
+        
+        if running_search and running_search.started_at:
+            from django.utils import timezone
+            age_minutes = (timezone.now() - running_search.started_at).total_seconds() / 60
+            if age_minutes > 10:
+                # Suche hängt - als fehlgeschlagen markieren
+                running_search.status = BacklinkSearchStatus.FAILED
+                running_search.completed_at = timezone.now()
+                running_search.error_log = f"Automatisch beendet: Suche lief > 10 Minuten ({int(age_minutes)} Min)"
+                running_search.save(update_fields=['status', 'completed_at', 'error_log'])
+                running_search = None  # Nicht mehr als "laufend" anzeigen
 
         context.update({
             'total_sources': total_sources,
@@ -111,16 +122,21 @@ class BackloomFeedView(LoginRequiredMixin, ListView):
         if category and category in dict(BacklinkCategory.choices):
             queryset = queryset.filter(category=category)
 
-        # Filter: Status
+        # Filter: Status (Default: Abgelehnte ausblenden)
         status = self.request.GET.get('status')
         if status == 'new':
-            queryset = queryset.filter(is_processed=False)
+            queryset = queryset.filter(is_processed=False, is_rejected=False)
         elif status == 'processed':
             queryset = queryset.filter(is_processed=True, is_successful=False, is_rejected=False)
         elif status == 'successful':
             queryset = queryset.filter(is_successful=True)
         elif status == 'rejected':
             queryset = queryset.filter(is_rejected=True)
+        elif status == 'all':
+            pass  # Alle anzeigen, inkl. abgelehnte
+        else:
+            # Default: Abgelehnte ausblenden
+            queryset = queryset.filter(is_rejected=False)
 
         # Filter: Qualität
         quality = self.request.GET.get('quality')
@@ -247,7 +263,7 @@ def api_start_search(request):
     selected_sources = [s.strip() for s in sources_param.split(',') if s.strip()]
 
     # Validiere Quellen (nur funktionierende)
-    valid_sources = ['duckduckgo', 'youtube', 'tiktok']
+    valid_sources = ['duckduckgo', 'youtube', 'tiktok', 'reddit', 'pinterest', 'quora', 'medium']
     selected_sources = [s for s in selected_sources if s in valid_sources]
 
     # Fallback: alle aktiven Quellen wenn keine angegeben
@@ -716,11 +732,17 @@ def api_search_progress(request):
     """
     import re
 
-    # Aktive oder letzte Suche finden
+    # Aktive Suche des aktuellen Users oder global laufende Suche finden
     search = BacklinkSearch.objects.filter(
         status=BacklinkSearchStatus.RUNNING
     ).first()
 
+    # Fallback: Letzte Suche des Users oder überhaupt
+    if not search:
+        search = BacklinkSearch.objects.filter(
+            triggered_by=request.user
+        ).first()
+    
     if not search:
         search = BacklinkSearch.objects.first()
 

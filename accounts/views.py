@@ -988,6 +988,24 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Supadata API-Key ein.')
 
+        elif action == 'update_bing' and user.is_superuser:
+            bing_key = request.POST.get('bing_api_key', '').strip()
+            if bing_key:
+                user.bing_api_key = bing_key
+                user.save()
+                messages.success(request, 'Bing Search API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Bing API-Key ein.')
+
+        elif action == 'update_brave' and user.is_superuser:
+            brave_key = request.POST.get('brave_api_key', '').strip()
+            if brave_key:
+                user.brave_api_key = brave_key
+                user.save()
+                messages.success(request, 'Brave Search API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Brave API-Key ein.')
+
         elif action == 'clear_keys':
             user.openai_api_key = ''
             user.youtube_api_key = ''
@@ -996,6 +1014,8 @@ def neue_api_einstellungen_view(request):
             user.upload_post_api_key = ''
             if user.is_superuser:
                 user.supadata_api_key = ''
+                user.bing_api_key = ''
+                user.brave_api_key = ''
             user.save()
             messages.success(request, 'Alle API-Keys wurden gelöscht.')
         
@@ -1044,6 +1064,12 @@ def neue_api_einstellungen_view(request):
         # Supadata (TikTok) - nur für Superuser
         'supadata_key_masked': '••••••••' + user.supadata_api_key[-4:] if user.supadata_api_key and len(user.supadata_api_key) > 4 else '',
         'supadata_configured': bool(user.supadata_api_key),
+        # Bing Search API - nur für Superuser
+        'bing_key_masked': '••••••••' + user.bing_api_key[-4:] if user.bing_api_key and len(user.bing_api_key) > 4 else '',
+        'bing_configured': bool(user.bing_api_key),
+        # Brave Search API - nur für Superuser (Free Tier: 2000 Anfragen/Monat)
+        'brave_key_masked': '••••••••' + user.brave_api_key[-4:] if user.brave_api_key and len(user.brave_api_key) > 4 else '',
+        'brave_configured': bool(user.brave_api_key),
         'zoho_configured': bool(zoho_settings and zoho_settings.is_configured),
         'shopify_configured': len(shopify_stores) > 0,
         'zoho_settings': zoho_settings,
@@ -2560,6 +2586,9 @@ def storage_overview_view(request):
 
     user = request.user
 
+    # Speicher bei jedem Laden neu berechnen (inkl. aller Apps wie ideopin)
+    StorageService.recalculate_storage(user)
+
     # Zentrale Storage-Statistiken holen
     storage_stats = StorageService.get_usage_stats(user)
 
@@ -2880,30 +2909,30 @@ def storage_overview_view(request):
     except Exception:
         pass
 
-    # 10. Ideopin
+    # 10. Ideopin (PinProject)
     try:
-        from ideopin.models import PinDesign
+        from ideopin.models import PinProject
 
-        designs = PinDesign.objects.filter(user=user).order_by('-created_at')
-        for design in designs:
+        pins = PinProject.objects.filter(user=user).order_by('-created_at')
+        for pin in pins:
             for field_name in ['product_image', 'generated_image', 'final_image']:
-                img = getattr(design, field_name, None)
+                img = getattr(pin, field_name, None)
                 if img:
                     try:
                         file_size = img.size if hasattr(img, 'size') else 0
                         if file_size > 0:
                             all_files.append({
                                 'app': 'ideopin',
-                                'app_name': 'Ideopin',
-                                'app_icon': 'fab fa-pinterest',
-                                'name': f"Pin: {design.pin_title or 'Unbenannt'}",
+                                'app_name': 'IdeoPin',
+                                'app_icon': 'bi bi-pinterest',
+                                'name': f"Pin: {pin.title or 'Unbenannt'}",
                                 'filename': os.path.basename(img.name),
                                 'size_bytes': file_size,
                                 'size_mb': file_size / (1024 * 1024),
-                                'created_at': design.created_at,
-                                'type': 'Pin-Design',
+                                'created_at': pin.created_at,
+                                'type': 'Pin-Bild',
                                 'url': None,
-                                'id': design.id,
+                                'id': pin.id,
                             })
                     except Exception:
                         pass
@@ -3255,24 +3284,79 @@ def storage_overview_view(request):
     # Sortiere nach Größe (größte zuerst)
     all_files.sort(key=lambda x: x['size_bytes'], reverse=True)
 
-    # Per-App Statistiken berechnen
+    # Mapping von Menü-App-Namen zu Storage-Keys und Display-Info
+    # Format: menu_app_name -> (storage_key, display_name, icon)
+    STORAGE_APP_MAPPING = {
+        # Media Apps
+        'videos': ('videos', 'VideoFlow', 'fas fa-video'),
+        'fileshare': ('fileshare', 'FileShare', 'fas fa-file-upload'),
+        'streamrec': ('streamrec', 'StreamRec', 'fas fa-video-camera'),
+        'bilder': ('image_editor', 'Bilder', 'fas fa-image'),
+        'promptpro': ('promptpro', 'PromptPro', 'bi bi-collection'),
+        'myprompter': ('myprompter', 'MyPrompter', 'bi bi-mic-fill'),
+        'schulungen': ('naturmacher', 'Schulungen', 'fas fa-graduation-cap'),
+        # Organisation Apps
+        'organisation': ('organization', 'Organisation', 'fas fa-sticky-note'),
+        'todos': ('todos', 'ToDo Manager', 'bi bi-list-check'),
+        'chat': ('chat', 'Chat', 'fas fa-comments'),
+        'loomconnect': ('loomconnect', 'LoomConnect', 'fas fa-plug'),
+        'mail': ('mail', 'Mail', 'fas fa-envelope'),
+        # SEO Apps
+        'loomline': ('loomline', 'LoomLine', 'fas fa-list-alt'),
+        'keyengine': ('keyengine', 'KeyEngine', 'fas fa-key'),
+        'questionfinder': ('questionfinder', 'QuestionFinder', 'fas fa-question-circle'),
+        'backloom': ('backloom', 'BackLoom', 'fas fa-link'),
+        # Shopify Apps
+        'shopify': ('shopify_manager', 'ShopifyFlow', 'bi bi-shop'),
+        'blogprep': ('blogprep', 'BlogPrep', 'bi bi-pencil-square'),
+        'ploom': ('ploom', 'P-Loom', 'bi bi-box-seam-fill'),
+        # Kreativ Apps
+        'makeads': ('makeads', 'AdsMake', 'bi bi-megaphone'),
+        'somi_plan': ('somi_plan', 'SoMi-Plan', 'bi bi-graph-up'),
+        'ideopin': ('ideopin', 'IdeoPin', 'bi bi-pinterest'),
+        'imageforge': ('imageforge', 'ImageForge', 'bi bi-image'),
+        'vskript': ('vskript', 'VSkript', 'bi bi-file-play'),
+        # Weitere Apps
+        'linkloom': ('linkloom', 'LinkLoom', 'fas fa-link'),
+        'learnloom': ('learnloom', 'LearnLoom', 'fas fa-graduation-cap'),
+    }
+    
+    # Hole nur die Apps die für eingeloggte User im Menü sichtbar sind
+    from accounts.models import AppPermission
+    from django.db.models import Q
+    
+    available_permissions = AppPermission.objects.filter(
+        Q(access_level='authenticated') | Q(access_level='anonymous'),
+        is_active=True,
+        hide_in_frontend=False
+    ).values_list('app_name', flat=True)
+    
+    # Per-App Statistiken berechnen - nur verfügbare Apps aus dem Menü
     app_stats = {}
+    for perm_app_name in available_permissions:
+        if perm_app_name in STORAGE_APP_MAPPING:
+            storage_key, display_name, icon = STORAGE_APP_MAPPING[perm_app_name]
+            # Verhindere Duplikate falls mehrere Menü-Namen auf gleichen Storage-Key mappen
+            if storage_key not in app_stats:
+                app_stats[storage_key] = {
+                    'key': storage_key,
+                    'name': display_name,
+                    'icon': icon,
+                    'file_count': 0,
+                    'total_bytes': 0,
+                    'total_mb': 0,
+                }
+    
+    # Dateien zählen und Speicher addieren (nur für verfügbare Apps)
     for file in all_files:
         app = file['app']
-        if app not in app_stats:
-            app_stats[app] = {
-                'name': file['app_name'],
-                'icon': file['app_icon'],
-                'file_count': 0,
-                'total_bytes': 0,
-                'total_mb': 0,
-            }
-        app_stats[app]['file_count'] += 1
-        app_stats[app]['total_bytes'] += file['size_bytes']
-        app_stats[app]['total_mb'] = app_stats[app]['total_bytes'] / (1024 * 1024)
+        if app in app_stats:
+            app_stats[app]['file_count'] += 1
+            app_stats[app]['total_bytes'] += file['size_bytes']
+            app_stats[app]['total_mb'] = app_stats[app]['total_bytes'] / (1024 * 1024)
 
-    # Sortiere Apps nach Speicherverbrauch
-    app_stats_list = sorted(app_stats.values(), key=lambda x: x['total_bytes'], reverse=True)
+    # Sortiere Apps nach Speicherverbrauch (größte zuerst, dann alphabetisch)
+    app_stats_list = sorted(app_stats.values(), key=lambda x: (-x['total_bytes'], x['name']))
 
     # Storage quota info
     video_storage, _ = VideoUserStorage.objects.get_or_create(user=user)

@@ -471,6 +471,285 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error calculating streamrec storage: {e}")
 
+        # Ideopin (PinProject + Pin Bilder)
+        try:
+            from ideopin.models import PinProject, Pin
+            ideopin_total = 0
+
+            # PinProject Bilder (product_image, generated_image, final_image)
+            pin_projects = PinProject.objects.filter(user=user)
+            for project in pin_projects:
+                for field_name in ['product_image', 'generated_image', 'final_image']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            ideopin_total += field.size
+                        except Exception:
+                            pass
+
+            # Pin Bilder (Multi-Pin Feature: generated_image, final_image)
+            pins = Pin.objects.filter(project__user=user)
+            for pin in pins:
+                for field_name in ['generated_image', 'final_image']:
+                    field = getattr(pin, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            ideopin_total += field.size
+                        except Exception:
+                            pass
+
+            by_app['ideopin'] = ideopin_total
+            total_bytes += ideopin_total
+        except Exception as e:
+            logger.error(f"Error calculating ideopin storage: {e}")
+
+        # Image Editor
+        try:
+            from image_editor.models import ImageProject, AIGenerationHistory
+            img_total = 0
+            projects = ImageProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['original_image', 'processed_image']:
+                    img = getattr(project, field_name, None)
+                    if img and hasattr(img, 'size'):
+                        try:
+                            img_total += img.size
+                        except Exception:
+                            pass
+            # AI Generated Images
+            ai_images = AIGenerationHistory.objects.filter(user=user, generated_image__isnull=False)
+            for ai_img in ai_images:
+                if ai_img.generated_image and hasattr(ai_img.generated_image, 'size'):
+                    try:
+                        img_total += ai_img.generated_image.size
+                    except Exception:
+                        pass
+            by_app['image_editor'] = img_total
+            total_bytes += img_total
+        except Exception as e:
+            logger.error(f"Error calculating image_editor storage: {e}")
+
+        # BlogPrep
+        try:
+            from blogprep.models import BlogPrepProject
+            blogprep_total = 0
+            projects = BlogPrepProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['featured_image', 'generated_image']:
+                    img = getattr(project, field_name, None)
+                    if img and hasattr(img, 'size'):
+                        try:
+                            blogprep_total += img.size
+                        except Exception:
+                            pass
+            by_app['blogprep'] = blogprep_total
+            total_bytes += blogprep_total
+        except Exception as e:
+            logger.error(f"Error calculating blogprep storage: {e}")
+
+        # PDF Sucher
+        try:
+            from pdf_sucher.models import PDFDocument
+            pdf_total = 0
+            pdfs = PDFDocument.objects.filter(user=user, file__isnull=False)
+            for pdf in pdfs:
+                if pdf.file and hasattr(pdf.file, 'size'):
+                    try:
+                        pdf_total += pdf.file.size
+                    except Exception:
+                        pass
+            by_app['pdf_sucher'] = pdf_total
+            total_bytes += pdf_total
+        except Exception as e:
+            logger.error(f"Error calculating pdf_sucher storage: {e}")
+
+        # ImageForge
+        try:
+            from imageforge.models import ImageGeneration, ProductMockup
+            forge_total = 0
+            generations = ImageGeneration.objects.filter(user=user)
+            for gen in generations:
+                if gen.product_image and hasattr(gen.product_image, 'size'):
+                    try:
+                        forge_total += gen.product_image.size
+                    except Exception:
+                        pass
+            mockups = ProductMockup.objects.filter(user=user)
+            for mockup in mockups:
+                if mockup.mockup_image and hasattr(mockup.mockup_image, 'size'):
+                    try:
+                        forge_total += mockup.mockup_image.size
+                    except Exception:
+                        pass
+            by_app['imageforge'] = forge_total
+            total_bytes += forge_total
+        except Exception as e:
+            logger.error(f"Error calculating imageforge storage: {e}")
+
+        # VSkript
+        try:
+            from vskript.models import VSkriptProject
+            vskript_total = 0
+            projects = VSkriptProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['video_file', 'audio_file', 'thumbnail']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            vskript_total += field.size
+                        except Exception:
+                            pass
+            by_app['vskript'] = vskript_total
+            total_bytes += vskript_total
+        except Exception as e:
+            logger.error(f"Error calculating vskript storage: {e}")
+
+        # MakeAds
+        try:
+            from makeads.models import AdProject
+            makeads_total = 0
+            projects = AdProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['product_image', 'generated_image', 'final_image']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            makeads_total += field.size
+                        except Exception:
+                            pass
+            by_app['makeads'] = makeads_total
+            total_bytes += makeads_total
+        except Exception as e:
+            logger.error(f"Error calculating makeads storage: {e}")
+
+        # LoomConnect
+        try:
+            from loomconnect.models import ConnectProject
+            loom_total = 0
+            projects = ConnectProject.objects.filter(user=user)
+            for project in projects:
+                for field_name in ['image', 'generated_image']:
+                    field = getattr(project, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            loom_total += field.size
+                        except Exception:
+                            pass
+            by_app['loomconnect'] = loom_total
+            total_bytes += loom_total
+        except Exception as e:
+            logger.error(f"Error calculating loomconnect storage: {e}")
+
+        # LearnLoom (PDF-Bibliothek)
+        try:
+            from learnloom.models import PDFBook
+            learnloom_total = 0
+            books = PDFBook.objects.filter(user=user)
+            for book in books:
+                if book.file and hasattr(book.file, 'size'):
+                    try:
+                        learnloom_total += book.file.size
+                    except Exception:
+                        pass
+                if book.thumbnail and hasattr(book.thumbnail, 'size'):
+                    try:
+                        learnloom_total += book.thumbnail.size
+                    except Exception:
+                        pass
+            by_app['learnloom'] = learnloom_total
+            total_bytes += learnloom_total
+        except Exception as e:
+            logger.error(f"Error calculating learnloom storage: {e}")
+
+        # P-Loom (Produkt-Bilder)
+        try:
+            from ploom.models import PLoomProduct, PLoomProductImage
+            ploom_total = 0
+            # Bilder über PLoomProductImage
+            images = PLoomProductImage.objects.filter(product__user=user, image__isnull=False)
+            for img in images:
+                if img.image and hasattr(img.image, 'size'):
+                    try:
+                        ploom_total += img.image.size
+                    except Exception:
+                        pass
+            by_app['ploom'] = ploom_total
+            total_bytes += ploom_total
+        except Exception as e:
+            logger.error(f"Error calculating ploom storage: {e}")
+
+        # LoomMarket (Business-Marketing)
+        try:
+            from loommarket.models import Business, MockupTemplate
+            loommarket_total = 0
+            # Business-Bilder
+            businesses = Business.objects.filter(user=user)
+            for biz in businesses:
+                if biz.image and hasattr(biz.image, 'size'):
+                    try:
+                        loommarket_total += biz.image.size
+                    except Exception:
+                        pass
+            # Mockup-Templates
+            mockups = MockupTemplate.objects.filter(user=user)
+            for mockup in mockups:
+                for field_name in ['product_image_blank', 'product_image_engraved', 'mockup_image', 'mockup_image_story']:
+                    field = getattr(mockup, field_name, None)
+                    if field and hasattr(field, 'size'):
+                        try:
+                            loommarket_total += field.size
+                        except Exception:
+                            pass
+            by_app['loommarket'] = loommarket_total
+            total_bytes += loommarket_total
+        except Exception as e:
+            logger.error(f"Error calculating loommarket storage: {e}")
+
+        # LinkLoom (Profilseiten)
+        try:
+            from linkloom.models import LinkLoomPage
+            linkloom_total = 0
+            pages = LinkLoomPage.objects.filter(user=user)
+            for page in pages:
+                if page.profile_picture and hasattr(page.profile_picture, 'size'):
+                    try:
+                        linkloom_total += page.profile_picture.size
+                    except Exception:
+                        pass
+            by_app['linkloom'] = linkloom_total
+            total_bytes += linkloom_total
+        except Exception as e:
+            logger.error(f"Error calculating linkloom storage: {e}")
+
+        # Android APK Manager
+        try:
+            from android_apk_manager.models import App, AppScreenshot
+            apk_total = 0
+            apps = App.objects.filter(created_by=user)
+            for app in apps:
+                if app.icon and hasattr(app.icon, 'size'):
+                    try:
+                        apk_total += app.icon.size
+                    except Exception:
+                        pass
+                if app.apk_file and hasattr(app.apk_file, 'size'):
+                    try:
+                        apk_total += app.apk_file.size
+                    except Exception:
+                        pass
+            # Screenshots
+            screenshots = AppScreenshot.objects.filter(app__created_by=user)
+            for ss in screenshots:
+                if ss.image and hasattr(ss.image, 'size'):
+                    try:
+                        apk_total += ss.image.size
+                    except Exception:
+                        pass
+            by_app['android_apk_manager'] = apk_total
+            total_bytes += apk_total
+        except Exception as e:
+            logger.error(f"Error calculating android_apk_manager storage: {e}")
+
         # UserStorage aktualisieren
         storage.used_storage = total_bytes
         storage.save(update_fields=['used_storage', 'updated_at'])

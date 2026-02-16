@@ -6857,6 +6857,177 @@ class StreamRecorderOptimized {
                                     Optional: Leer lassen für automatischen Namen
                                 </div>
                             </div>
+                            
+                            <!-- Subtitle generation toggle -->
+                            <div class="mb-3" id="subtitleSection" style="display: none;">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="generateSubtitles" onchange="toggleSubtitleOptions()">
+                                    <label class="form-check-label" for="generateSubtitles">
+                                        <i class="fas fa-closed-captioning me-2"></i>Untertitel automatisch erstellen
+                                    </label>
+                                </div>
+                                <div class="form-text mb-2">
+                                    KI-Transkription des Audios (benötigt OpenAI API-Key in Profil-Einstellungen)
+                                </div>
+                                
+                                <!-- Subtitle Style Options (shown when checkbox is checked) -->
+                                <div id="subtitleStyleOptions" class="mt-3 p-3 bg-light rounded" style="display: none;">
+                                    <h6 class="mb-3"><i class="fas fa-palette me-2"></i>Untertitel-Stil</h6>
+                                    
+                                    <div class="row g-2">
+                                        <!-- Font Size -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Größe</label>
+                                            <select class="form-select form-select-sm" id="subtitleSize" onchange="saveSubtitlePreferencesNow()">
+                                                <option value="small">Klein</option>
+                                                <option value="medium" selected>Mittel</option>
+                                                <option value="large">Groß</option>
+                                                <option value="xlarge">Sehr Groß</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Position -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Position: <span id="positionValue">90</span>%</label>
+                                            <input type="range" class="form-range" id="subtitlePosition" 
+                                                   min="0" max="100" value="90" 
+                                                   oninput="document.getElementById('positionValue').textContent = this.value"
+                                                   onchange="saveSubtitlePreferencesNow()">
+                                        </div>
+                                        
+                                        <!-- Text Color -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Textfarbe</label>
+                                            <select class="form-select form-select-sm" id="subtitleColor" onchange="saveSubtitlePreferencesNow()">
+                                                <option value="white" selected>Weiß</option>
+                                                <option value="yellow">Gelb</option>
+                                                <option value="cyan">Cyan</option>
+                                                <option value="lime">Grün</option>
+                                                <option value="pink">Pink</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Background -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Hintergrund</label>
+                                            <select class="form-select form-select-sm" id="subtitleBg" onchange="saveSubtitlePreferencesNow()">
+                                                <option value="rgba(0,0,0,0.8)" selected>Dunkel</option>
+                                                <option value="rgba(0,0,0,0.5)">Halbtransparent</option>
+                                                <option value="transparent">Transparent</option>
+                                                <option value="rgba(0,0,128,0.8)">Blau</option>
+                                                <option value="rgba(128,0,0,0.8)">Rot</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Font Style -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Schriftstil</label>
+                                            <select class="form-select form-select-sm" id="subtitleFontStyle" onchange="saveSubtitlePreferencesNow()">
+                                                <option value="normal" selected>Normal</option>
+                                                <option value="bold">Fett</option>
+                                                <option value="shadow">Mit Schatten</option>
+                                                <option value="outline">Mit Umrandung</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Font Family -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Schriftart</label>
+                                            <select class="form-select form-select-sm" id="subtitleFont" onchange="saveSubtitlePreferencesNow()">
+                                                <option value="sans-serif" selected>Sans-Serif</option>
+                                                <option value="serif">Serif</option>
+                                                <option value="monospace">Monospace</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Karaoke Mode -->
+                                        <div class="col-12 mt-2">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="karaokeMode" onchange="saveSubtitlePreferencesNow()">
+                                                <label class="form-check-label small" for="karaokeMode">
+                                                    <i class="fas fa-microphone me-1"></i>Karaoke-Modus (Wort-Hervorhebung)
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Title Overlay Settings -->
+                            <div class="mb-3" id="titleOverlaySection" style="display: none;">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="titleOverlayEnabled" onchange="toggleTitleOverlayOptions()">
+                                    <label class="form-check-label" for="titleOverlayEnabled">
+                                        <i class="fas fa-heading me-2"></i>Titel am Anfang einblenden
+                                    </label>
+                                </div>
+                                
+                                <div id="titleOverlayOptions" class="p-3 bg-light rounded" style="display: none;">
+                                    <div class="row g-2">
+                                        <!-- Duration -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Dauer: <span id="titleDurationValue">5</span>s</label>
+                                            <input type="range" class="form-range" id="titleDuration" 
+                                                   min="2" max="15" value="5" 
+                                                   oninput="document.getElementById('titleDurationValue').textContent = this.value"
+                                                   onchange="saveTitleOverlayPrefsNow()">
+                                        </div>
+                                        
+                                        <!-- Position -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Position</label>
+                                            <select class="form-select form-select-sm" id="titlePosition" onchange="saveTitleOverlayPrefsNow()">
+                                                <option value="top">Oben</option>
+                                                <option value="center" selected>Mitte</option>
+                                                <option value="bottom">Unten</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Font Size -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Größe</label>
+                                            <select class="form-select form-select-sm" id="titleFontSize" onchange="saveTitleOverlayPrefsNow()">
+                                                <option value="24px">Klein</option>
+                                                <option value="32px" selected>Mittel</option>
+                                                <option value="48px">Groß</option>
+                                                <option value="64px">Sehr Groß</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Text Color -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Textfarbe</label>
+                                            <select class="form-select form-select-sm" id="titleColor" onchange="saveTitleOverlayPrefsNow()">
+                                                <option value="white" selected>Weiß</option>
+                                                <option value="yellow">Gelb</option>
+                                                <option value="#00ffff">Cyan</option>
+                                                <option value="#ff6b6b">Rot</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Background -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Hintergrund</label>
+                                            <select class="form-select form-select-sm" id="titleBg" onchange="saveTitleOverlayPrefsNow()">
+                                                <option value="rgba(0,0,0,0.7)" selected>Dunkel</option>
+                                                <option value="rgba(0,0,0,0.4)">Halbtransparent</option>
+                                                <option value="transparent">Transparent</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Animation -->
+                                        <div class="col-6">
+                                            <label class="form-label small mb-1">Animation</label>
+                                            <select class="form-select form-select-sm" id="titleAnimation" onchange="saveTitleOverlayPrefsNow()">
+                                                <option value="fade" selected>Einblenden</option>
+                                                <option value="slide-down">Von oben</option>
+                                                <option value="slide-up">Von unten</option>
+                                                <option value="zoom">Zoom</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Upload Progress (initially hidden) -->
                             <div id="uploadProgressSection" class="mt-3" style="display: none;">
@@ -6906,12 +7077,16 @@ class StreamRecorderOptimized {
 
         document.getElementById('saveToServerBtn')?.addEventListener('click', () => {
             const customFilenameSection = document.getElementById('customFilenameSection');
+            const subtitleSection = document.getElementById('subtitleSection');
             const saveBtn = document.getElementById('saveToServerBtn');
             const cancelBtn = document.getElementById('cancelSaveBtn');
             
-            // First click: Show filename input
+            // First click: Show filename input, subtitle toggle, and title overlay
             if (customFilenameSection.style.display === 'none') {
                 customFilenameSection.style.display = 'block';
+                subtitleSection.style.display = 'block';
+                document.getElementById('titleOverlaySection').style.display = 'block';
+                loadTitleOverlayPreferences();
                 saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Jetzt speichern';
                 saveBtn.className = 'btn btn-success';
                 cancelBtn.style.display = 'inline-block';
@@ -6932,11 +7107,14 @@ class StreamRecorderOptimized {
 
         document.getElementById('cancelSaveBtn')?.addEventListener('click', () => {
             const customFilenameSection = document.getElementById('customFilenameSection');
+            const subtitleSection = document.getElementById('subtitleSection');
             const saveBtn = document.getElementById('saveToServerBtn');
             const cancelBtn = document.getElementById('cancelSaveBtn');
             
-            // Hide filename input and reset button
+            // Hide filename input, subtitle toggle, title overlay and reset button
             customFilenameSection.style.display = 'none';
+            subtitleSection.style.display = 'none';
+            document.getElementById('titleOverlaySection').style.display = 'none';
             saveBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Auf Server speichern';
             saveBtn.className = 'btn btn-primary';
             cancelBtn.style.display = 'none';
@@ -7151,6 +7329,44 @@ class StreamRecorderOptimized {
             }
 
             console.log('✅ Upload complete!', completeData);
+
+            // Check if subtitle generation is requested
+            const generateSubtitles = document.getElementById('generateSubtitles')?.checked;
+            
+            if (generateSubtitles && completeData.video_id) {
+                // Save subtitle preferences before generating
+                if (typeof saveSubtitlePreferencesNow === 'function') {
+                    saveSubtitlePreferencesNow();
+                }
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Untertitel werden erstellt...';
+                document.getElementById('uploadStatusText').innerHTML = '<i class="fas fa-closed-captioning me-2"></i>KI-Transkription läuft...';
+                
+                try {
+                    const subtitleResponse = await fetch('/streamrec/api/generate-subtitles/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCSRFToken()
+                        },
+                        body: JSON.stringify({
+                            video_id: completeData.video_id,
+                            language: 'de'
+                        })
+                    });
+                    
+                    const subtitleData = await subtitleResponse.json();
+                    if (subtitleData.success) {
+                        console.log('✅ Subtitles generated!', subtitleData);
+                        completeData.subtitles = subtitleData;
+                    } else {
+                        console.warn('⚠️ Subtitle generation failed:', subtitleData.error);
+                        completeData.subtitle_error = subtitleData.error;
+                    }
+                } catch (subError) {
+                    console.warn('⚠️ Subtitle generation error:', subError);
+                    completeData.subtitle_error = subError.message;
+                }
+            }
 
             // Success!
             showSuccess();
@@ -9892,5 +10108,139 @@ if (document.readyState === 'loading') {
 }
 
 console.log('✅ Performance Optimized StreamRec loaded');
+
+// ============ SUBTITLE STYLE OPTIONS ============
+
+function toggleSubtitleOptions() {
+    const checkbox = document.getElementById('generateSubtitles');
+    const optionsPanel = document.getElementById('subtitleStyleOptions');
+    
+    if (checkbox && optionsPanel) {
+        optionsPanel.style.display = checkbox.checked ? 'block' : 'none';
+        
+        // Load saved prefs when panel opens
+        if (checkbox.checked) {
+            loadSubtitlePreferences();
+        }
+    }
+}
+
+function saveSubtitlePreferencesNow() {
+    const prefs = getSubtitleSettings();
+    localStorage.setItem('subtitlePrefs', JSON.stringify(prefs));
+    console.log('Subtitle prefs saved:', prefs);
+    return prefs;
+}
+
+// ============ TITLE OVERLAY SETTINGS ============
+
+function toggleTitleOverlayOptions() {
+    const checkbox = document.getElementById('titleOverlayEnabled');
+    const optionsPanel = document.getElementById('titleOverlayOptions');
+    
+    if (checkbox && optionsPanel) {
+        optionsPanel.style.display = checkbox.checked ? 'block' : 'none';
+        saveTitleOverlayPrefsNow();
+    }
+}
+
+function getTitleOverlaySettings() {
+    return {
+        enabled: document.getElementById('titleOverlayEnabled')?.checked || false,
+        duration: parseInt(document.getElementById('titleDuration')?.value || '5'),
+        position: document.getElementById('titlePosition')?.value || 'center',
+        fontSize: document.getElementById('titleFontSize')?.value || '32px',
+        color: document.getElementById('titleColor')?.value || 'white',
+        bg: document.getElementById('titleBg')?.value || 'rgba(0,0,0,0.7)',
+        animation: document.getElementById('titleAnimation')?.value || 'fade'
+    };
+}
+
+function saveTitleOverlayPrefsNow() {
+    const prefs = getTitleOverlaySettings();
+    localStorage.setItem('titleOverlayPrefs', JSON.stringify(prefs));
+    console.log('Title overlay prefs saved:', prefs);
+    return prefs;
+}
+
+function loadTitleOverlayPreferences() {
+    const saved = localStorage.getItem('titleOverlayPrefs');
+    if (saved) {
+        try {
+            const prefs = JSON.parse(saved);
+            if (prefs.enabled !== undefined) {
+                document.getElementById('titleOverlayEnabled').checked = prefs.enabled;
+                document.getElementById('titleOverlayOptions').style.display = prefs.enabled ? 'block' : 'none';
+            }
+            if (prefs.duration) {
+                document.getElementById('titleDuration').value = prefs.duration;
+                document.getElementById('titleDurationValue').textContent = prefs.duration;
+            }
+            if (prefs.position) document.getElementById('titlePosition').value = prefs.position;
+            if (prefs.fontSize) document.getElementById('titleFontSize').value = prefs.fontSize;
+            if (prefs.color) document.getElementById('titleColor').value = prefs.color;
+            if (prefs.bg) document.getElementById('titleBg').value = prefs.bg;
+            if (prefs.animation) document.getElementById('titleAnimation').value = prefs.animation;
+        } catch (e) {
+            console.warn('Could not load title overlay prefs:', e);
+        }
+    }
+}
+
+function getSubtitleSettings() {
+    return {
+        size: document.getElementById('subtitleSize')?.value || 'medium',
+        position: parseInt(document.getElementById('subtitlePosition')?.value || '90'),
+        color: document.getElementById('subtitleColor')?.value || 'white',
+        bg: document.getElementById('subtitleBg')?.value || 'rgba(0,0,0,0.8)',
+        style: document.getElementById('subtitleFontStyle')?.value || 'normal',
+        font: document.getElementById('subtitleFont')?.value || 'sans-serif',
+        karaokeMode: document.getElementById('karaokeMode')?.checked || false
+    };
+}
+
+// Load saved subtitle preferences from localStorage
+function loadSubtitlePreferences() {
+    const saved = localStorage.getItem('subtitlePrefs');
+    if (saved) {
+        try {
+            const prefs = JSON.parse(saved);
+            if (prefs.size) document.getElementById('subtitleSize').value = prefs.size;
+            if (prefs.position !== undefined) {
+                document.getElementById('subtitlePosition').value = prefs.position;
+                document.getElementById('positionValue').textContent = prefs.position;
+            }
+            if (prefs.color) document.getElementById('subtitleColor').value = prefs.color;
+            if (prefs.bg) document.getElementById('subtitleBg').value = prefs.bg;
+            if (prefs.style) document.getElementById('subtitleFontStyle').value = prefs.style;
+            if (prefs.font) document.getElementById('subtitleFont').value = prefs.font;
+            if (prefs.karaokeMode) document.getElementById('karaokeMode').checked = prefs.karaokeMode;
+        } catch (e) {
+            console.warn('Could not load subtitle prefs:', e);
+        }
+    }
+}
+
+// Save subtitle preferences when changed
+document.addEventListener('DOMContentLoaded', () => {
+    // Load saved preferences when modal elements are created
+    const observer = new MutationObserver((mutations) => {
+        const subtitleSection = document.getElementById('subtitleStyleOptions');
+        if (subtitleSection) {
+            loadSubtitlePreferences();
+            
+            // Save on any change
+            subtitleSection.querySelectorAll('select, input').forEach(el => {
+                el.addEventListener('change', () => {
+                    const prefs = getSubtitleSettings();
+                    localStorage.setItem('subtitlePrefs', JSON.stringify(prefs));
+                });
+            });
+            
+            observer.disconnect();
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+});
 </script>
 {% endblock %}

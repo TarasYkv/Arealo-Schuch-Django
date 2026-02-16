@@ -1,4 +1,4 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, FileResponse, Http404, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods, require_POST, require_GET
@@ -18,8 +18,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress, ReadingListItem
-from .services import PDFService, TranslationService, ExplanationService
+from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress, ReadingListItem, PDFSummary
+from .services import PDFService, TranslationService, ExplanationService, SummaryService
 from core.models import StorageLog
 
 
@@ -37,11 +37,22 @@ def index(request):
     total_vocabulary = Vocabulary.objects.filter(user=request.user).count()
     learned_vocabulary = Vocabulary.objects.filter(user=request.user, is_learned=True).count()
 
+    # Alle einzigartigen Tags sammeln
+    all_tags = set()
+    for book in books:
+        if book.tags:
+            for tag in book.tags.split(','):
+                tag = tag.strip()
+                if tag:
+                    all_tags.add(tag)
+    all_tags = sorted(all_tags)
+
     context = {
         'books': books,
         'total_books': total_books,
         'total_vocabulary': total_vocabulary,
         'learned_vocabulary': learned_vocabulary,
+        'all_tags': all_tags,
     }
     return render(request, 'learnloom/index.html', context)
 
@@ -106,6 +117,34 @@ def notes_view(request, book_id):
         'notes': notes,
     }
     return render(request, 'learnloom/notes.html', context)
+
+
+@login_required
+def summary_view(request, book_id):
+    """Zusammenfassungs-Seite für Paper/Artikel"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    # Nur für Paper, Artikel und Sonstiges erlaubt
+    if book.category == 'book':
+        from django.contrib import messages
+        messages.warning(request, 'Zusammenfassungen sind nur für Paper, Artikel und Sonstiges verfügbar.')
+        return redirect('learnloom:index')
+    
+    # Prüfen ob bereits eine Zusammenfassung existiert
+    try:
+        summary = book.summary
+        has_summary = True
+    except PDFSummary.DoesNotExist:
+        summary = None
+        has_summary = False
+    
+    context = {
+        'book': book,
+        'summary': summary,
+        'has_summary': has_summary,
+        'sections_json': json.dumps(summary.sections if summary else [], cls=DjangoJSONEncoder),
+    }
+    return render(request, 'learnloom/summary.html', context)
 
 
 @login_required
@@ -194,6 +233,70 @@ def all_notes(request):
 # ============================================================================
 # PDF API
 # ============================================================================
+
+@login_required
+@require_POST
+def api_extract_title(request):
+    """Extrahiert den Titel aus einer PDF-Datei"""
+    if 'file' not in request.FILES:
+        return JsonResponse({'success': False, 'error': 'Keine Datei'}, status=400)
+
+    pdf_file = request.FILES['file']
+    
+    if not pdf_file.name.lower().endswith('.pdf'):
+        return JsonResponse({'success': False, 'error': 'Nur PDF-Dateien'}, status=400)
+
+    try:
+        pdf_service = PDFService()
+        title = pdf_service.extract_title(pdf_file)
+        
+        # Fallback auf Dateiname ohne Erweiterung
+        if not title:
+            title = pdf_file.name.rsplit('.', 1)[0]
+        
+        return JsonResponse({'success': True, 'title': title})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_add_online_article(request):
+    """Online-Artikel hinzufügen (nur URL, kein PDF)"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    title = data.get('title', '').strip()
+    url = data.get('url', '').strip()
+    tags = data.get('tags', '').strip()
+
+    if not title:
+        return JsonResponse({'success': False, 'error': 'Titel erforderlich'}, status=400)
+    if not url:
+        return JsonResponse({'success': False, 'error': 'URL erforderlich'}, status=400)
+
+    try:
+        book = PDFBook.objects.create(
+            user=request.user,
+            title=title,
+            url=url,
+            category='online',
+            tags=tags,
+            original_filename='',
+            file_size=0,
+            page_count=0,
+        )
+
+        return JsonResponse({
+            'success': True,
+            'book_id': str(book.id),
+            'title': book.title
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 @login_required
 @require_POST
@@ -480,6 +583,40 @@ def api_translate(request):
 
 
 @login_required
+@require_POST
+def api_translate_detailed(request):
+    """Detaillierte Übersetzung mit zusätzlichen Informationen"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    text = data.get('text', '').strip()
+    source_lang = data.get('source_lang', 'en')
+    target_lang = data.get('target_lang', 'de')
+    provider = data.get('provider', 'openai')
+
+    if not text:
+        return JsonResponse({'success': False, 'error': 'Text darf nicht leer sein'}, status=400)
+
+    try:
+        from .services import DetailedTranslationService
+        service = DetailedTranslationService(request.user)
+        result = service.translate_detailed(text, source_lang, target_lang, provider)
+
+        return JsonResponse({
+            'success': True,
+            'data': result,
+            'original_text': text,
+            'provider': provider,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Übersetzungsfehler: {str(e)}'}, status=500)
+
+
+@login_required
 @require_GET
 def api_get_highlights(request, book_id):
     """Markierungen für ein PDF abrufen"""
@@ -606,6 +743,85 @@ def api_explain(request):
 
 
 @login_required
+@require_POST
+def api_followup(request):
+    """Follow-up-Frage zu einer vorherigen Erklärung beantworten - mit vollem PDF-Kontext"""
+    from .services import FollowupService
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    question = data.get('question', '').strip()
+    conversation_history = data.get('conversation_history', [])
+    original_context = data.get('original_context', '')
+    book_id = data.get('book_id', '')
+    provider = data.get('provider', 'openai')
+
+    if not question:
+        return JsonResponse({'success': False, 'error': 'Keine Frage angegeben'}, status=400)
+
+    # Book laden wenn book_id angegeben
+    book = None
+    if book_id:
+        try:
+            book = PDFBook.objects.get(id=book_id, user=request.user)
+        except PDFBook.DoesNotExist:
+            pass  # Kein Problem, funktioniert auch ohne
+
+    try:
+        service = FollowupService(request.user)
+        answer = service.answer_followup(
+            question,
+            conversation_history,
+            original_context,
+            book=book,
+            provider=provider
+        )
+
+        return JsonResponse({
+            'success': True,
+            'answer': answer,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
+@login_required
+@require_POST
+def api_explain_image(request):
+    """Bild/Grafik erklären mit OpenAI Vision"""
+    from .services import ImageExplanationService
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    image_base64 = data.get('image', '').strip()
+    context = data.get('context', '')
+
+    if not image_base64:
+        return JsonResponse({'success': False, 'error': 'Kein Bild übergeben'}, status=400)
+
+    try:
+        service = ImageExplanationService(request.user)
+        explanation = service.explain_image(image_base64, context)
+
+        return JsonResponse({
+            'success': True,
+            'explanation': explanation,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Bild-Erklärungsfehler: {str(e)}'}, status=500)
+
+
+@login_required
 @require_GET
 def api_get_explanations(request, book_id):
     """Erklärungen für ein PDF abrufen"""
@@ -678,6 +894,202 @@ def api_delete_explanation(request, explanation_id):
     explanation = get_object_or_404(TextExplanation, id=explanation_id, user=request.user)
     explanation.delete()
     return JsonResponse({'success': True})
+
+
+# ============================================================================
+# Summary API
+# ============================================================================
+
+@login_required
+@require_GET
+def api_get_summary(request, book_id):
+    """Zusammenfassung für ein PDF abrufen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        summary = book.summary
+        return JsonResponse({
+            'success': True,
+            'has_summary': True,
+            'summary': {
+                'id': str(summary.id),
+                'short_summary': summary.short_summary,
+                'full_summary': summary.full_summary,
+                'sections': summary.sections,
+                'provider': summary.provider,
+                'language': summary.language,
+                'created_at': summary.created_at.isoformat(),
+            }
+        })
+    except PDFSummary.DoesNotExist:
+        return JsonResponse({
+            'success': True,
+            'has_summary': False,
+        })
+
+
+@login_required
+@require_POST
+def api_generate_summary(request, book_id):
+    """Zusammenfassung für ein PDF generieren"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    # Nur für Paper, Artikel und Sonstiges
+    if book.category == 'book':
+        return JsonResponse({
+            'success': False, 
+            'error': 'Zusammenfassungen sind nur für Paper, Artikel und Sonstiges verfügbar.'
+        }, status=400)
+    
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = {}
+    
+    provider = data.get('provider', 'openai')
+    language = data.get('language', 'de')
+    
+    try:
+        # Generiere Zusammenfassung
+        service = SummaryService(request.user)
+        result = service.generate_summary(book, provider=provider, language=language)
+        
+        # Speichere oder aktualisiere
+        summary, created = PDFSummary.objects.update_or_create(
+            book=book,
+            defaults={
+                'short_summary': result.get('short_summary', ''),
+                'full_summary': result.get('full_summary', ''),
+                'sections': result.get('sections', []),
+                'provider': provider,
+                'language': language,
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'summary': {
+                'id': str(summary.id),
+                'short_summary': summary.short_summary,
+                'full_summary': summary.full_summary,
+                'sections': summary.sections,
+                'provider': summary.provider,
+                'created_at': summary.created_at.isoformat(),
+            }
+        })
+        
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler bei Zusammenfassung: {str(e)}'}, status=500)
+
+
+@login_required
+@require_POST
+def api_delete_summary(request, book_id):
+    """Zusammenfassung löschen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        book.summary.delete()
+        return JsonResponse({'success': True})
+    except PDFSummary.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Keine Zusammenfassung vorhanden'}, status=404)
+
+
+@login_required
+@require_POST
+def api_summarize_section(request, book_id):
+    """Einzelnen Abschnitt zusammenfassen"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        start_page = data.get('start_page')
+        end_page = data.get('end_page')
+        section_title = data.get('title', 'Abschnitt')
+        section_index = data.get('section_index')
+        provider = data.get('provider', 'openai')
+        language = data.get('language', 'de')
+        
+        if not start_page or not end_page:
+            return JsonResponse({'success': False, 'error': 'Start- und Endseite erforderlich'}, status=400)
+        
+        # Zusammenfassung generieren
+        service = SummaryService(request.user)
+        summary_text = service.summarize_section(
+            book, 
+            start_page, 
+            end_page, 
+            section_title,
+            provider=provider,
+            language=language
+        )
+        
+        # Optional: In der bestehenden Zusammenfassung speichern
+        if section_index is not None:
+            try:
+                pdf_summary = book.summary
+                if pdf_summary.sections and section_index < len(pdf_summary.sections):
+                    pdf_summary.sections[section_index]['text'] = summary_text
+                    pdf_summary.save()
+            except PDFSummary.DoesNotExist:
+                pass  # Kein Problem, nur nicht speichern
+        
+        return JsonResponse({
+            'success': True,
+            'summary': summary_text
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
+# ============================================================================
+# PDF Chat API
+# ============================================================================
+
+@login_required
+@require_POST
+def api_pdf_chat(request, book_id):
+    """Chat mit PDF-Dokument - beantwortet Fragen zum Inhalt"""
+    from .services import PDFChatService
+    
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        question = data.get('question', '').strip()
+        conversation_history = data.get('conversation_history', [])
+        provider = data.get('provider', 'openai')
+        
+        if not question:
+            return JsonResponse({'success': False, 'error': 'Keine Frage angegeben'}, status=400)
+        
+        # Chat-Service aufrufen
+        service = PDFChatService(request.user)
+        answer = service.chat(
+            book,
+            question,
+            conversation_history=conversation_history,
+            provider=provider
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'answer': answer
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
 
 
 # ============================================================================

@@ -5,19 +5,262 @@
 {% block title %}{{ video.title }}{% endblock %}
 
 {% block content %}
+<style>
+    .title-overlay {
+        opacity: 0;
+        transition: opacity 0.5s ease-in-out;
+    }
+    .title-overlay-text {
+        animation: none;
+    }
+    @keyframes slideDown {
+        from { transform: translateY(-30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes zoomIn {
+        from { transform: scale(0.5); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+</style>
 <div class="container mt-4">
     <!-- Ad Banner -->
     {% show_ad_zone 'videos_detail_header' css_class='mb-4' %}
 
     <div class="row">
         <div class="col-md-8">
-            <h1>{{ video.title }}</h1>
+            <h1 class="text-center">{{ video.title }}</h1>
             
-            <div class="video-container mb-4">
-                <video controls class="w-100">
+            <div class="video-wrapper mb-4" style="display: flex; justify-content: center; min-height: 200px; align-items: center;">
+              <div class="video-container" style="position: relative;">
+                <video controls crossorigin="anonymous" id="mainVideo" style="max-height: 75vh; max-width: 100%; background: transparent;" onloadedmetadata="this.style.opacity='1'" onerror="this.style.opacity='1'">
                     <source src="{% url 'videos:stream' video.unique_id %}" type="video/mp4">
+                    {% if video.subtitle_file and video.subtitle_status == 'ready' %}
+                    <track kind="subtitles" src="{{ video.subtitle_file.url }}" srclang="{{ video.subtitle_language }}" label="Untertitel ({{ video.subtitle_language }})" default>
+                    {% endif %}
                     Your browser does not support the video tag.
                 </video>
+                
+                <!-- Title Overlay -->
+                <div id="titleOverlay" class="title-overlay" style="display: none; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 100; text-align: center; pointer-events: none;">
+                    <div id="titleOverlayText" class="title-overlay-text" style="display: inline-block; padding: 12px 24px; font-size: 28px; color: white; background-color: rgba(0,0,0,0.75); font-family: 'Segoe UI', sans-serif; font-weight: bold; border-radius: 6px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); max-width: 90%; word-wrap: break-word;">{{ video.title }}</div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Title Overlay & Subtitle Styling -->
+            <div class="mb-3">
+                <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#titleOverlayPanel">
+                        <i class="fas fa-heading me-1"></i>Titel-Einblendung
+                    </button>
+                    {% if video.subtitle_status == 'ready' %}
+                    <span class="badge bg-success"><i class="fas fa-closed-captioning me-1"></i>Untertitel verfügbar</span>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#subtitleStylePanel">
+                        <i class="fas fa-palette me-1"></i>Untertitel-Stil
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <!-- Title Overlay Settings Panel -->
+                <div class="collapse mb-3" id="titleOverlayPanel">
+                    <div class="card card-body bg-light">
+                        <h6 class="mb-3"><i class="fas fa-heading me-2"></i>Titel-Einblendung</h6>
+                        
+                        <div class="row g-3">
+                            <!-- Enable -->
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="titleOverlayEnabled" onchange="updateTitleOverlay()">
+                                    <label class="form-check-label" for="titleOverlayEnabled">
+                                        <strong>Titel am Anfang einblenden</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Duration -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Dauer: <span id="titleDurationValue">5</span> Sekunden</label>
+                                <input type="range" class="form-range" id="titleDuration" 
+                                       min="2" max="15" value="5" 
+                                       oninput="document.getElementById('titleDurationValue').textContent = this.value; updateTitleOverlay()">
+                            </div>
+                            
+                            <!-- Position -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Position</label>
+                                <select class="form-select form-select-sm" id="titlePosition" onchange="updateTitleOverlay()">
+                                    <option value="top">Oben</option>
+                                    <option value="center" selected>Mitte</option>
+                                    <option value="bottom">Unten</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Font Size -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Schriftgröße</label>
+                                <select class="form-select form-select-sm" id="titleFontSize" onchange="updateTitleOverlay()">
+                                    <option value="24px">Klein</option>
+                                    <option value="32px" selected>Mittel</option>
+                                    <option value="48px">Groß</option>
+                                    <option value="64px">Sehr Groß</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Text Color -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Textfarbe</label>
+                                <select class="form-select form-select-sm" id="titleColor" onchange="updateTitleOverlay()">
+                                    <option value="white" selected>Weiß</option>
+                                    <option value="yellow">Gelb</option>
+                                    <option value="#00ffff">Cyan</option>
+                                    <option value="#ff6b6b">Rot</option>
+                                    <option value="#4ecdc4">Türkis</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Background -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Hintergrund</label>
+                                <select class="form-select form-select-sm" id="titleBg" onchange="updateTitleOverlay()">
+                                    <option value="rgba(0,0,0,0.7)" selected>Dunkel</option>
+                                    <option value="rgba(0,0,0,0.4)">Halbtransparent</option>
+                                    <option value="transparent">Transparent</option>
+                                    <option value="rgba(0,0,128,0.7)">Blau</option>
+                                    <option value="linear-gradient(135deg, rgba(102,126,234,0.8), rgba(118,75,162,0.8))">Gradient</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Animation -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Animation</label>
+                                <select class="form-select form-select-sm" id="titleAnimation" onchange="updateTitleOverlay()">
+                                    <option value="fade" selected>Einblenden</option>
+                                    <option value="slide-down">Von oben</option>
+                                    <option value="slide-up">Von unten</option>
+                                    <option value="zoom">Zoom</option>
+                                    <option value="none">Keine</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-primary" onclick="previewTitleOverlay()">
+                                <i class="fas fa-eye me-1"></i>Vorschau
+                            </button>
+                            <button class="btn btn-sm btn-secondary ms-2" onclick="resetTitleOverlay()">
+                                <i class="fas fa-undo me-1"></i>Zurücksetzen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if video.subtitle_status == 'ready' %}
+                
+                <!-- Subtitle Style Panel -->
+                <div class="collapse mt-3" id="subtitleStylePanel">
+                    <div class="card card-body bg-light">
+                        <h6 class="mb-3"><i class="fas fa-sliders-h me-2"></i>Untertitel-Einstellungen</h6>
+                        
+                        <div class="row g-3">
+                            <!-- Font Size -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Schriftgröße</label>
+                                <select class="form-select form-select-sm" id="subtitleSize" onchange="updateSubtitleStyle()">
+                                    <option value="small">Klein</option>
+                                    <option value="medium" selected>Mittel</option>
+                                    <option value="large">Groß</option>
+                                    <option value="xlarge">Sehr Groß</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Position -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Position: <span id="positionValue">90</span>%</label>
+                                <input type="range" class="form-range" id="subtitlePosition" 
+                                       min="0" max="100" value="90" 
+                                       oninput="document.getElementById('positionValue').textContent = this.value; updateSubtitleStyle()">
+                                <div class="d-flex justify-content-between small text-muted">
+                                    <span>Oben (0)</span>
+                                    <span>Unten (100)</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Text Color -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Textfarbe</label>
+                                <select class="form-select form-select-sm" id="subtitleColor" onchange="updateSubtitleStyle()">
+                                    <option value="white" selected>Weiß</option>
+                                    <option value="yellow">Gelb</option>
+                                    <option value="cyan">Cyan</option>
+                                    <option value="lime">Grün</option>
+                                    <option value="pink">Pink</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Background -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Hintergrund</label>
+                                <select class="form-select form-select-sm" id="subtitleBg" onchange="updateSubtitleStyle()">
+                                    <option value="rgba(0,0,0,0.8)" selected>Dunkel</option>
+                                    <option value="rgba(0,0,0,0.5)">Halbtransparent</option>
+                                    <option value="transparent">Transparent</option>
+                                    <option value="rgba(0,0,128,0.8)">Blau</option>
+                                    <option value="rgba(128,0,0,0.8)">Rot</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Font Style -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Schriftstil</label>
+                                <select class="form-select form-select-sm" id="subtitleStyle" onchange="updateSubtitleStyle()">
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="bold">Fett</option>
+                                    <option value="shadow">Mit Schatten</option>
+                                    <option value="outline">Mit Umrandung</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Font Family -->
+                            <div class="col-md-6">
+                                <label class="form-label small">Schriftart</label>
+                                <select class="form-select form-select-sm" id="subtitleFont" onchange="updateSubtitleStyle()">
+                                    <option value="sans-serif" selected>Sans-Serif</option>
+                                    <option value="serif">Serif</option>
+                                    <option value="monospace">Monospace</option>
+                                    <option value="cursive">Kursiv</option>
+                                </select>
+                            </div>
+                            
+                            {% if video.subtitle_words_json and video.subtitle_words_json.name %}
+                            <!-- Karaoke Mode -->
+                            <div class="col-12 mt-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="karaokeMode" onchange="toggleKaraokeMode()">
+                                    <label class="form-check-label" for="karaokeMode">
+                                        <i class="fas fa-microphone me-2"></i><strong>Karaoke-Modus</strong> - Aktuelles Wort hervorheben
+                                    </label>
+                                </div>
+                                <div class="form-text">Das gerade gesprochene Wort wird fett markiert</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-3 text-end">
+                            <button class="btn btn-sm btn-secondary" onclick="resetSubtitleStyle()">
+                                <i class="fas fa-undo me-1"></i>Zurücksetzen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% elif video.subtitle_status == 'pending' %}
+                <span class="badge bg-warning"><i class="fas fa-spinner fa-spin me-1"></i>Untertitel werden erstellt...</span>
+                {% elif video.subtitle_status == 'failed' %}
+                <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Untertitel-Erstellung fehlgeschlagen</span>
+                {% endif %}
             </div>
                 
                 <div class="card mb-4">
@@ -115,6 +358,22 @@
                                 <i class="fas fa-external-link-alt me-1"></i>In neuem Tab
                             </a>
                         </div>
+                        
+                        <!-- Subtitle Generation -->
+                        <hr class="my-2">
+                        {% if video.subtitle_status == 'none' or video.subtitle_status == 'failed' %}
+                        <button type="button" class="btn btn-info btn-sm" id="generateSubtitlesBtn" onclick="generateSubtitles({{ video.id }})">
+                            <i class="fas fa-closed-captioning me-2"></i>Untertitel erstellen
+                        </button>
+                        <small class="text-muted text-center">Automatische Transkription via KI</small>
+                        {% elif video.subtitle_status == 'pending' %}
+                        <button type="button" class="btn btn-secondary btn-sm" disabled>
+                            <i class="fas fa-spinner fa-spin me-2"></i>Untertitel werden erstellt...
+                        </button>
+                        {% elif video.subtitle_status == 'ready' %}
+                        <span class="text-success text-center"><i class="fas fa-check-circle me-1"></i>Untertitel vorhanden</span>
+                        {% endif %}
+                        
                         <hr class="my-2">
                         <a href="{% url 'videos:list' %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-arrow-left me-2"></i>Zurück zur Liste
@@ -130,6 +389,86 @@
 </div>
 
 <script>
+function generateSubtitles(videoId) {
+    const btn = document.getElementById('generateSubtitlesBtn');
+    const originalContent = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Wird erstellt...';
+    btn.disabled = true;
+    
+    fetch('/streamrec/api/generate-subtitles/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            video_id: videoId,
+            language: 'de'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success and reload page to show subtitles
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>Fertig!';
+            btn.classList.remove('btn-info');
+            btn.classList.add('btn-success');
+            
+            // Show transcript preview if available
+            if (data.transcript) {
+                alert('Untertitel erfolgreich erstellt!\n\nTranskript-Vorschau:\n' + data.transcript.substring(0, 200) + '...');
+            }
+            
+            // Reload after 2 seconds to show the subtitles
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            btn.innerHTML = '<i class="fas fa-times me-2"></i>Fehler';
+            btn.classList.remove('btn-info');
+            btn.classList.add('btn-danger');
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                btn.innerHTML = originalContent;
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-info');
+                btn.disabled = false;
+            }, 3000);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        btn.innerHTML = '<i class="fas fa-times me-2"></i>Fehler';
+        btn.classList.remove('btn-info');
+        btn.classList.add('btn-danger');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalContent;
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-info');
+            btn.disabled = false;
+        }, 3000);
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 function copyToClipboard(elementId) {
     const element = document.getElementById(elementId);
     element.select();
@@ -203,6 +542,814 @@ function showFullscreenHint() {
             hint.remove();
         }
     }, 3000);
+}
+
+// ============ SUBTITLE STYLING ============
+
+function updateSubtitleStyle() {
+    const video = document.querySelector('video');
+    if (!video) return;
+    
+    const size = document.getElementById('subtitleSize')?.value || 'medium';
+    const position = parseInt(document.getElementById('subtitlePosition')?.value || '90');
+    const color = document.getElementById('subtitleColor')?.value || 'white';
+    const bg = document.getElementById('subtitleBg')?.value || 'rgba(0,0,0,0.8)';
+    const style = document.getElementById('subtitleStyle')?.value || 'normal';
+    const font = document.getElementById('subtitleFont')?.value || 'sans-serif';
+    
+    // Size mapping
+    const sizeMap = {
+        'small': '14px',
+        'medium': '18px',
+        'large': '24px',
+        'xlarge': '32px'
+    };
+    
+    // Build text shadow based on style
+    let textShadow = 'none';
+    let fontWeight = 'normal';
+    if (style === 'bold') {
+        fontWeight = 'bold';
+    } else if (style === 'shadow') {
+        textShadow = '2px 2px 4px rgba(0,0,0,0.9)';
+    } else if (style === 'outline') {
+        textShadow = '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000';
+    }
+    
+    // Create or update style element
+    let styleEl = document.getElementById('subtitleCustomStyle');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'subtitleCustomStyle';
+        document.head.appendChild(styleEl);
+    }
+    
+    // Calculate vertical position
+    // 0 = top (line: 0), 100 = bottom (line: auto/default ~90%)
+    // We use CSS transform to position the cue container
+    const topPercent = position;
+    
+    // CSS for video::cue (WebVTT styling)
+    // Note: position via line is limited, using transform workaround
+    styleEl.textContent = `
+        video::cue {
+            font-size: ${sizeMap[size]} !important;
+            color: ${color} !important;
+            background-color: ${bg} !important;
+            font-family: ${font} !important;
+            font-weight: ${fontWeight} !important;
+            text-shadow: ${textShadow} !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+        }
+        
+        /* Custom subtitle overlay positioning */
+        .video-container {
+            position: relative;
+        }
+        
+        .custom-subtitle-overlay {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: ${topPercent}%;
+            transform: translateY(-50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .custom-subtitle-text {
+            display: inline-block;
+            font-size: ${sizeMap[size]};
+            color: ${color};
+            background-color: ${bg};
+            font-family: ${font};
+            font-weight: ${fontWeight};
+            text-shadow: ${textShadow};
+            padding: 4px 12px;
+            border-radius: 4px;
+            max-width: 80%;
+        }
+    `;
+    
+    // Update position value display
+    const positionValueEl = document.getElementById('positionValue');
+    if (positionValueEl) positionValueEl.textContent = position;
+    
+    // Setup custom subtitle renderer if position is not default (90)
+    console.log('Checking if custom subtitle renderer needed. Position:', position, '(default is 90)');
+    if (position !== 90) {
+        console.log('Setting up custom subtitle renderer at position', position + '%');
+        setupCustomSubtitleRenderer(video, position, sizeMap[size], color, bg, font, fontWeight, textShadow);
+    } else {
+        console.log('Using native subtitle rendering (position is default 90)');
+        removeCustomSubtitleRenderer();
+    }
+    
+    // Save to localStorage
+    const prefs = { size, position, color, bg, style, font };
+    localStorage.setItem('subtitlePrefs', JSON.stringify(prefs));
+    
+    console.log('Subtitle style updated:', prefs);
+}
+
+function setupCustomSubtitleRenderer(video, position, fontSize, color, bg, font, fontWeight, textShadow) {
+    console.log('setupCustomSubtitleRenderer called with:', { position, fontSize, color, bg, font });
+    
+    // Remove existing
+    removeCustomSubtitleRenderer();
+    
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'customSubtitleOverlay';
+    overlay.className = 'custom-subtitle-overlay';
+    overlay.style.cssText = `
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: ${position}%;
+        transform: translateY(-50%);
+        text-align: center;
+        pointer-events: none;
+        z-index: 10;
+    `;
+    
+    const textEl = document.createElement('span');
+    textEl.className = 'custom-subtitle-text';
+    textEl.style.cssText = `
+        display: inline-block;
+        font-size: ${fontSize};
+        color: ${color};
+        background-color: ${bg};
+        font-family: ${font};
+        font-weight: ${fontWeight};
+        text-shadow: ${textShadow};
+        padding: 4px 12px;
+        border-radius: 4px;
+        max-width: 80%;
+    `;
+    overlay.appendChild(textEl);
+    
+    // Add to video container
+    const container = video.closest('.video-container');
+    if (container) {
+        container.style.position = 'relative';
+        container.appendChild(overlay);
+    }
+    
+    // Hide native subtitles, use custom renderer
+    const tracks = video.textTracks;
+    console.log('Found', tracks.length, 'text tracks initially');
+    
+    function attachTrackListeners() {
+        for (let i = 0; i < tracks.length; i++) {
+            const track = tracks[i];
+            console.log('Track', i, '- kind:', track.kind, 'mode:', track.mode, 'label:', track.label);
+            
+            if (track.kind === 'subtitles') {
+                track.mode = 'hidden';
+                console.log('Hiding native subtitles, attaching cuechange listener');
+                
+                track.oncuechange = function() {
+                    const cue = this.activeCues[0];
+                    const text = cue ? cue.text : '';
+                    console.log('Cue change:', text ? text.substring(0, 50) : '(empty)');
+                    textEl.textContent = text;
+                    overlay.style.display = cue ? 'block' : 'none';
+                };
+            }
+        }
+    }
+    
+    // Attach immediately if tracks exist
+    if (tracks.length > 0) {
+        attachTrackListeners();
+    }
+    
+    // Also listen for tracks being added later
+    tracks.addEventListener('addtrack', function(e) {
+        console.log('Track added:', e.track.kind, e.track.label);
+        // Immediately hide the new track
+        if (e.track.kind === 'subtitles') {
+            e.track.mode = 'hidden';
+        }
+        setTimeout(attachTrackListeners, 100); // Small delay to ensure track is ready
+    });
+    
+    // Also check periodically in case tracks load later
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+        checkCount++;
+        if (tracks.length > 0) {
+            console.log('Found tracks after', checkCount * 200, 'ms');
+            attachTrackListeners();
+            clearInterval(checkInterval);
+        }
+        if (checkCount > 25) { // Stop after 5 seconds
+            clearInterval(checkInterval);
+        }
+    }, 200);
+    
+    console.log('Custom subtitle renderer setup complete');
+}
+
+function removeCustomSubtitleRenderer() {
+    const overlay = document.getElementById('customSubtitleOverlay');
+    if (overlay) overlay.remove();
+    
+    // Restore native subtitles
+    const video = document.querySelector('video');
+    if (video) {
+        const tracks = video.textTracks;
+        for (let i = 0; i < tracks.length; i++) {
+            if (tracks[i].kind === 'subtitles') {
+                tracks[i].mode = 'showing';
+            }
+        }
+    }
+}
+
+function resetSubtitleStyle() {
+    // Reset all inputs to defaults
+    document.getElementById('subtitleSize').value = 'medium';
+    document.getElementById('subtitlePosition').value = 90;
+    document.getElementById('positionValue').textContent = '90';
+    document.getElementById('subtitleColor').value = 'white';
+    document.getElementById('subtitleBg').value = 'rgba(0,0,0,0.8)';
+    document.getElementById('subtitleStyle').value = 'normal';
+    document.getElementById('subtitleFont').value = 'sans-serif';
+    
+    // Remove custom renderer
+    removeCustomSubtitleRenderer();
+    
+    // Apply defaults
+    updateSubtitleStyle();
+    
+    // Clear localStorage
+    localStorage.removeItem('subtitlePrefs');
+}
+
+function loadSubtitlePrefs() {
+    const saved = localStorage.getItem('subtitlePrefs');
+    console.log('Loading subtitle prefs:', saved);
+    
+    if (saved) {
+        try {
+            const prefs = JSON.parse(saved);
+            console.log('Parsed subtitle prefs:', prefs);
+            
+            const sizeEl = document.getElementById('subtitleSize');
+            const positionEl = document.getElementById('subtitlePosition');
+            const positionValueEl = document.getElementById('positionValue');
+            const colorEl = document.getElementById('subtitleColor');
+            const bgEl = document.getElementById('subtitleBg');
+            const styleEl = document.getElementById('subtitleStyle');
+            const fontEl = document.getElementById('subtitleFont');
+            const karaokeEl = document.getElementById('karaokeMode');
+            
+            if (prefs.size && sizeEl) sizeEl.value = prefs.size;
+            if (prefs.position !== undefined && positionEl) {
+                positionEl.value = prefs.position;
+                if (positionValueEl) positionValueEl.textContent = prefs.position;
+            }
+            if (prefs.color && colorEl) colorEl.value = prefs.color;
+            if (prefs.bg && bgEl) bgEl.value = prefs.bg;
+            if (prefs.style && styleEl) styleEl.value = prefs.style;
+            if (prefs.font && fontEl) fontEl.value = prefs.font;
+            if (prefs.karaokeMode !== undefined && karaokeEl) karaokeEl.checked = prefs.karaokeMode;
+            
+            console.log('Subtitle prefs applied to form elements');
+            updateSubtitleStyle();
+        } catch (e) {
+            console.warn('Could not load subtitle prefs:', e);
+        }
+    } else {
+        console.log('No saved subtitle prefs found');
+    }
+}
+
+// Adjust video size based on aspect ratio
+function adjustVideoSize() {
+    const video = document.getElementById('mainVideo');
+    if (!video) return;
+    
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    
+    if (videoWidth && videoHeight) {
+        const aspectRatio = videoWidth / videoHeight;
+        const isPortrait = aspectRatio < 1;
+        
+        console.log('Video dimensions:', videoWidth, 'x', videoHeight, '- Aspect ratio:', aspectRatio.toFixed(2), '- Portrait:', isPortrait);
+        
+        if (isPortrait) {
+            // Portrait video: constrain by height, let width be auto
+            video.style.width = 'auto';
+            video.style.height = '75vh';
+            video.style.maxWidth = '100%';
+            video.style.maxHeight = '75vh';
+        } else {
+            // Landscape video: constrain by width, let height be auto
+            video.style.width = '100%';
+            video.style.height = 'auto';
+            video.style.maxHeight = '75vh';
+        }
+        
+        console.log('Video size adjusted for', isPortrait ? 'portrait' : 'landscape', 'mode');
+    }
+}
+
+// Load saved preferences on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing subtitle and title overlay...');
+    
+    // Adjust video size when metadata loads
+    const mainVideo = document.getElementById('mainVideo');
+    if (mainVideo) {
+        mainVideo.addEventListener('loadedmetadata', adjustVideoSize);
+        // Also try immediately in case already loaded
+        if (mainVideo.videoWidth) adjustVideoSize();
+    }
+    
+    // Load preferences first
+    loadSubtitlePrefs();
+    loadTitleOverlayPrefs();
+    
+    // Apply styles after a short delay to ensure elements exist
+    setTimeout(() => {
+        console.log('Applying subtitle style...');
+        updateSubtitleStyle();
+    }, 100);
+    
+    setTimeout(() => {
+        console.log('Initializing title overlay...');
+        initTitleOverlay();
+    }, 200);
+    
+    // Also reapply when video loads (for subtitle cues)
+    const video = document.getElementById('mainVideo');
+    if (video) {
+        video.addEventListener('loadedmetadata', function() {
+            console.log('Video metadata loaded, reapplying subtitle style...');
+            setTimeout(updateSubtitleStyle, 100);
+        });
+        
+        // Also watch for track changes
+        if (video.textTracks && video.textTracks.length > 0) {
+            for (let i = 0; i < video.textTracks.length; i++) {
+                video.textTracks[i].addEventListener('load', function() {
+                    console.log('Track loaded, reapplying subtitle style...');
+                    updateSubtitleStyle();
+                });
+            }
+        }
+    }
+});
+
+// ============ TITLE OVERLAY ============
+
+let titleOverlayTimeout = null;
+let titleOverlayShown = false;
+
+function updateTitleOverlay() {
+    const overlay = document.getElementById('titleOverlay');
+    const textEl = document.getElementById('titleOverlayText');
+    if (!overlay || !textEl) return;
+    
+    const enabled = document.getElementById('titleOverlayEnabled')?.checked;
+    const duration = parseInt(document.getElementById('titleDuration')?.value || '5');
+    const position = document.getElementById('titlePosition')?.value || 'center';
+    const fontSize = document.getElementById('titleFontSize')?.value || '32px';
+    const color = document.getElementById('titleColor')?.value || 'white';
+    const bg = document.getElementById('titleBg')?.value || 'rgba(0,0,0,0.7)';
+    const animation = document.getElementById('titleAnimation')?.value || 'fade';
+    
+    // Position styles
+    let positionStyle = '';
+    switch (position) {
+        case 'top':
+            positionStyle = 'top: 10%; bottom: auto; transform: translateX(-50%);';
+            break;
+        case 'center':
+            positionStyle = 'top: 50%; transform: translate(-50%, -50%);';
+            break;
+        case 'bottom':
+            positionStyle = 'bottom: 10%; top: auto; transform: translateX(-50%);';
+            break;
+    }
+    
+    // Apply styles
+    overlay.style.cssText = `
+        position: absolute;
+        left: 50%;
+        ${positionStyle}
+        z-index: 20;
+        text-align: center;
+        pointer-events: none;
+        display: none;
+    `;
+    
+    // Handle gradient backgrounds
+    let bgStyle = bg;
+    if (bg.startsWith('linear-gradient')) {
+        bgStyle = bg;
+    } else {
+        bgStyle = `background-color: ${bg}`;
+    }
+    
+    textEl.style.cssText = `
+        display: inline-block;
+        padding: 15px 30px;
+        font-size: ${fontSize};
+        color: ${color};
+        ${bg.startsWith('linear-gradient') ? 'background: ' + bg : 'background-color: ' + bg};
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        font-weight: bold;
+        border-radius: 8px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        max-width: 80%;
+    `;
+    
+    // Save preferences
+    const prefs = { enabled, duration, position, fontSize, color, bg, animation };
+    localStorage.setItem('titleOverlayPrefs', JSON.stringify(prefs));
+}
+
+function loadTitleOverlayPrefs() {
+    const saved = localStorage.getItem('titleOverlayPrefs');
+    console.log('Loading title overlay prefs:', saved);
+    
+    if (saved) {
+        try {
+            const prefs = JSON.parse(saved);
+            console.log('Parsed title overlay prefs:', prefs);
+            
+            const enabledEl = document.getElementById('titleOverlayEnabled');
+            const durationEl = document.getElementById('titleDuration');
+            const durationValueEl = document.getElementById('titleDurationValue');
+            const positionEl = document.getElementById('titlePosition');
+            const fontSizeEl = document.getElementById('titleFontSize');
+            const colorEl = document.getElementById('titleColor');
+            const bgEl = document.getElementById('titleBg');
+            const animationEl = document.getElementById('titleAnimation');
+            
+            if (prefs.enabled !== undefined && enabledEl) enabledEl.checked = prefs.enabled;
+            if (prefs.duration && durationEl) {
+                durationEl.value = prefs.duration;
+                if (durationValueEl) durationValueEl.textContent = prefs.duration;
+            }
+            if (prefs.position && positionEl) positionEl.value = prefs.position;
+            if (prefs.fontSize && fontSizeEl) fontSizeEl.value = prefs.fontSize;
+            if (prefs.color && colorEl) colorEl.value = prefs.color;
+            if (prefs.bg && bgEl) bgEl.value = prefs.bg;
+            if (prefs.animation && animationEl) animationEl.value = prefs.animation;
+            
+            // Apply to overlay element
+            updateTitleOverlay();
+            
+            console.log('Title overlay prefs applied. Enabled:', prefs.enabled);
+        } catch (e) {
+            console.warn('Could not load title overlay prefs:', e);
+        }
+    } else {
+        console.log('No saved title overlay prefs found');
+    }
+}
+
+function resetTitleOverlay() {
+    document.getElementById('titleOverlayEnabled').checked = false;
+    document.getElementById('titleDuration').value = 5;
+    document.getElementById('titleDurationValue').textContent = '5';
+    document.getElementById('titlePosition').value = 'center';
+    document.getElementById('titleFontSize').value = '32px';
+    document.getElementById('titleColor').value = 'white';
+    document.getElementById('titleBg').value = 'rgba(0,0,0,0.7)';
+    document.getElementById('titleAnimation').value = 'fade';
+    updateTitleOverlay();
+    localStorage.removeItem('titleOverlayPrefs');
+}
+
+function previewTitleOverlay() {
+    showTitleOverlay(true);
+}
+
+function showTitleOverlay(isPreview = false) {
+    const overlay = document.getElementById('titleOverlay');
+    
+    // Check enabled from checkbox OR localStorage
+    let enabled = document.getElementById('titleOverlayEnabled')?.checked;
+    if (!enabled) {
+        const saved = localStorage.getItem('titleOverlayPrefs');
+        if (saved) {
+            try {
+                const prefs = JSON.parse(saved);
+                enabled = prefs.enabled === true;
+            } catch (e) {}
+        }
+    }
+    
+    console.log('showTitleOverlay called. isPreview:', isPreview, 'enabled:', enabled, 'overlay exists:', !!overlay);
+    
+    if (!overlay || (!enabled && !isPreview)) {
+        console.log('Not showing overlay:', !overlay ? 'no overlay element' : 'not enabled');
+        return;
+    }
+    
+    const duration = parseInt(document.getElementById('titleDuration')?.value || '5') * 1000;
+    const animation = document.getElementById('titleAnimation')?.value || 'fade';
+    
+    // Clear any existing timeout
+    if (titleOverlayTimeout) {
+        clearTimeout(titleOverlayTimeout);
+    }
+    
+    // Reset animation
+    overlay.style.display = 'block';
+    overlay.style.opacity = '0';
+    overlay.style.transform = overlay.style.transform || 'translateX(-50%)';
+    
+    // Apply animation
+    setTimeout(() => {
+        switch (animation) {
+            case 'fade':
+                overlay.style.transition = 'opacity 0.5s ease-in-out';
+                overlay.style.opacity = '1';
+                break;
+            case 'slide-down':
+                overlay.style.transition = 'opacity 0.5s, transform 0.5s ease-out';
+                overlay.style.opacity = '1';
+                break;
+            case 'slide-up':
+                overlay.style.transition = 'opacity 0.5s, transform 0.5s ease-out';
+                overlay.style.opacity = '1';
+                break;
+            case 'zoom':
+                overlay.style.transition = 'opacity 0.5s, transform 0.5s ease-out';
+                overlay.style.opacity = '1';
+                overlay.querySelector('.title-overlay-text').style.transform = 'scale(1)';
+                break;
+            case 'none':
+                overlay.style.opacity = '1';
+                break;
+        }
+    }, 50);
+    
+    // Hide after duration
+    titleOverlayTimeout = setTimeout(() => {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 500);
+    }, duration);
+    
+    titleOverlayShown = true;
+}
+
+function initTitleOverlay() {
+    const video = document.getElementById('mainVideo');
+    if (!video) {
+        console.warn('initTitleOverlay: Video element not found');
+        return;
+    }
+    
+    // Apply current settings to overlay
+    updateTitleOverlay();
+    
+    // Check if enabled from localStorage
+    const savedPrefs = localStorage.getItem('titleOverlayPrefs');
+    let isEnabled = false;
+    if (savedPrefs) {
+        try {
+            const prefs = JSON.parse(savedPrefs);
+            isEnabled = prefs.enabled === true;
+            console.log('Title overlay enabled from prefs:', isEnabled);
+        } catch (e) {
+            console.warn('Could not parse title overlay prefs');
+        }
+    }
+    
+    // Show title on video play (only first time)
+    video.addEventListener('play', function() {
+        // Re-check enabled state from checkbox OR localStorage
+        const checkboxEnabled = document.getElementById('titleOverlayEnabled')?.checked;
+        const shouldShow = checkboxEnabled || isEnabled;
+        
+        console.log('Video play event. Checkbox enabled:', checkboxEnabled, 'Prefs enabled:', isEnabled, 'Should show:', shouldShow);
+        console.log('titleOverlayShown:', titleOverlayShown, 'currentTime:', video.currentTime);
+        
+        // Show if enabled and not yet shown and near start (within 2 seconds)
+        if (shouldShow && !titleOverlayShown && video.currentTime < 2.0) {
+            console.log('Showing title overlay...');
+            showTitleOverlay();
+        } else {
+            console.log('NOT showing title overlay. Reasons: shouldShow=', shouldShow, 'alreadyShown=', titleOverlayShown, 'currentTime=', video.currentTime);
+        }
+    });
+    
+    // Reset when video ends or is seeked to beginning
+    video.addEventListener('seeked', function() {
+        if (video.currentTime < 0.5) {
+            titleOverlayShown = false;
+            console.log('Title overlay reset (video seeked to start)');
+        }
+    });
+    
+    console.log('Title overlay initialized. Enabled:', isEnabled);
+}
+
+// ============ KARAOKE MODE ============
+
+let karaokeData = null;
+let karaokeInterval = null;
+
+async function toggleKaraokeMode() {
+    const enabled = document.getElementById('karaokeMode')?.checked;
+    const video = document.querySelector('video');
+    
+    if (enabled) {
+        await enableKaraokeMode(video);
+    } else {
+        disableKaraokeMode(video);
+    }
+}
+
+async function enableKaraokeMode(video) {
+    console.log('🎤 Enabling karaoke mode...');
+    
+    // Load word timestamps if not already loaded
+    if (!karaokeData) {
+        try {
+            const jsonUrl = '{% if video.subtitle_words_json and video.subtitle_words_json.name %}{{ video.subtitle_words_json.url }}{% endif %}';
+            console.log('🎤 JSON URL:', jsonUrl);
+            if (!jsonUrl) {
+                console.warn('🎤 No karaoke data available - JSON URL is empty');
+                alert('Karaoke-Daten nicht verfügbar. Bitte Untertitel neu generieren.');
+                document.getElementById('karaokeMode').checked = false;
+                return;
+            }
+            const response = await fetch(jsonUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            karaokeData = await response.json();
+            console.log('🎤 Karaoke data loaded:', karaokeData.words?.length, 'words,', karaokeData.segments?.length, 'segments');
+        } catch (e) {
+            console.error('🎤 Failed to load karaoke data:', e);
+            alert('Karaoke-Daten konnten nicht geladen werden: ' + e.message);
+            document.getElementById('karaokeMode').checked = false;
+            return;
+        }
+    }
+    
+    // Setup karaoke overlay
+    setupKaraokeOverlay(video);
+    console.log('🎤 Karaoke overlay created');
+    
+    // Start updating
+    karaokeInterval = setInterval(() => updateKaraokeDisplay(video), 50);
+    
+    // Also update on timeupdate for better sync
+    video.addEventListener('timeupdate', () => updateKaraokeDisplay(video));
+    console.log('🎤 Karaoke mode active!');
+}
+
+function disableKaraokeMode(video) {
+    console.log('🎤 Disabling karaoke mode...');
+    if (karaokeInterval) {
+        clearInterval(karaokeInterval);
+        karaokeInterval = null;
+    }
+    
+    const overlay = document.getElementById('karaokeOverlay');
+    if (overlay) overlay.remove();
+    
+    // Remove the CSS that hides VTT cues
+    const style = document.getElementById('karaokeHideVTT');
+    if (style) style.remove();
+    
+    // Restore normal subtitles
+    const tracks = video.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+        if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
+            tracks[i].mode = 'showing';
+        }
+    }
+}
+
+function setupKaraokeOverlay(video) {
+    // Remove existing
+    const existing = document.getElementById('karaokeOverlay');
+    if (existing) existing.remove();
+    
+    // Hide native subtitles
+    const tracks = video.textTracks;
+    console.log('🎤 Hiding', tracks.length, 'text tracks');
+    for (let i = 0; i < tracks.length; i++) {
+        console.log('🎤 Track', i, ':', tracks[i].kind, tracks[i].mode);
+        if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
+            tracks[i].mode = 'hidden';
+            console.log('🎤 Hidden track', i);
+        }
+    }
+    
+    // Also hide any VTT cue display via CSS
+    const style = document.createElement('style');
+    style.id = 'karaokeHideVTT';
+    style.textContent = 'video::cue { opacity: 0 !important; }';
+    document.head.appendChild(style);
+    
+    // Get current style settings
+    const size = document.getElementById('subtitleSize')?.value || 'medium';
+    const position = parseInt(document.getElementById('subtitlePosition')?.value || '90');
+    const color = document.getElementById('subtitleColor')?.value || 'white';
+    const bg = document.getElementById('subtitleBg')?.value || 'rgba(0,0,0,0.8)';
+    const font = document.getElementById('subtitleFont')?.value || 'sans-serif';
+    
+    const sizeMap = { 'small': '14px', 'medium': '18px', 'large': '24px', 'xlarge': '32px' };
+    
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'karaokeOverlay';
+    overlay.style.cssText = `
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: ${position}%;
+        transform: translateY(-50%);
+        text-align: center;
+        pointer-events: none;
+        z-index: 10;
+    `;
+    
+    const textEl = document.createElement('div');
+    textEl.id = 'karaokeText';
+    textEl.style.cssText = `
+        display: inline-block;
+        font-size: ${sizeMap[size]};
+        color: ${color};
+        background-color: ${bg};
+        font-family: ${font};
+        padding: 6px 14px;
+        border-radius: 4px;
+        max-width: 85%;
+        line-height: 1.5;
+    `;
+    overlay.appendChild(textEl);
+    
+    // Add to video container
+    const container = video.closest('.video-container');
+    if (container) {
+        container.style.position = 'relative';
+        container.appendChild(overlay);
+    }
+}
+
+function updateKaraokeDisplay(video) {
+    if (!karaokeData || !karaokeData.words) return;
+    
+    const currentTime = video.currentTime;
+    const textEl = document.getElementById('karaokeText');
+    if (!textEl) return;
+    
+    // Find current segment
+    const segments = karaokeData.segments || [];
+    let currentSegment = null;
+    for (const seg of segments) {
+        if (currentTime >= seg.start && currentTime <= seg.end) {
+            currentSegment = seg;
+            break;
+        }
+    }
+    
+    if (!currentSegment) {
+        textEl.innerHTML = '';
+        return;
+    }
+    
+    // Find words in current segment
+    const words = karaokeData.words || [];
+    const segmentWords = words.filter(w => 
+        w.start >= currentSegment.start - 0.1 && 
+        w.end <= currentSegment.end + 0.1
+    );
+    
+    // Build HTML with current word highlighted
+    let html = '';
+    for (const word of segmentWords) {
+        const isCurrent = currentTime >= word.start && currentTime <= word.end;
+        if (isCurrent) {
+            html += `<span style="font-weight: bold; color: yellow; text-shadow: 0 0 10px rgba(255,255,0,0.5);">${word.word}</span> `;
+        } else if (currentTime > word.end) {
+            // Already spoken - slightly dimmed
+            html += `<span style="opacity: 0.8;">${word.word}</span> `;
+        } else {
+            // Not yet spoken
+            html += `<span>${word.word}</span> `;
+        }
+    }
+    
+    textEl.innerHTML = html.trim();
 }
 </script>
 {% endblock %}

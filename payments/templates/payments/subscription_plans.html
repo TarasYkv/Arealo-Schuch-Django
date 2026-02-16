@@ -735,6 +735,20 @@
                         </div>
                     </div>
 
+                    <!-- Per-App Storage Breakdown -->
+                    <div class="card mb-4" id="perAppStorageCard">
+                        <div class="card-header bg-info text-white py-2">
+                            <h6 class="mb-0">
+                                <i class="fas fa-chart-pie me-2"></i> Speicher pro App
+                            </h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <div class="row" id="perAppStorageContainer">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Files Table -->
                     <div class="table-responsive">
                         <table class="table table-hover">
@@ -957,6 +971,53 @@ async function loadUserFiles() {
             const maxMB = {{ max_storage_mb|default:100 }};
             const available = maxMB - usedMB;
             document.getElementById('availableStorage').textContent = available.toFixed(2) + ' MB';
+
+            // Populate per-app storage breakdown
+            const perAppContainer = document.getElementById('perAppStorageContainer');
+            perAppContainer.innerHTML = '';
+            
+            const appIcons = {
+                'Videos': 'fas fa-video text-danger',
+                'Fileshare': 'fas fa-share-alt text-primary',
+                'Organization': 'fas fa-building text-success',
+                'Chat': 'fas fa-comments text-info',
+                'Streamrec': 'fas fa-microphone text-warning',
+                'Image Editor': 'fas fa-image text-purple',
+                'ImageForge': 'fas fa-magic text-pink',
+                'Ideopin': 'fab fa-pinterest text-danger',
+                'BlogPrep': 'fas fa-blog text-secondary',
+                'VSkript': 'fas fa-film text-dark',
+                'LearnLoom': 'fas fa-book text-primary',
+                'PDF Sucher': 'fas fa-file-pdf text-danger',
+                'Shopify': 'fas fa-shopping-cart text-success'
+            };
+
+            const totals = data.totals || {};
+            const sortedApps = Object.entries(totals).sort((a, b) => b[1].bytes - a[1].bytes);
+            
+            if (sortedApps.length > 0) {
+                sortedApps.forEach(([appName, appData]) => {
+                    const icon = appIcons[appName] || 'fas fa-folder text-secondary';
+                    const percentage = maxMB > 0 ? ((appData.mb / maxMB) * 100).toFixed(1) : 0;
+                    
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4 col-sm-6 mb-3';
+                    col.innerHTML = `
+                        <div class="d-flex align-items-center p-2 bg-light rounded">
+                            <i class="${icon} me-2 fs-5"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold small">${appName}</div>
+                                <div class="text-muted small">${appData.mb.toFixed(2)} MB</div>
+                            </div>
+                            <span class="badge bg-secondary">${percentage}%</span>
+                        </div>
+                    `;
+                    perAppContainer.appendChild(col);
+                });
+                document.getElementById('perAppStorageCard').style.display = 'block';
+            } else {
+                document.getElementById('perAppStorageCard').style.display = 'none';
+            }
 
             // Populate table
             const tbody = document.getElementById('filesTableBody');

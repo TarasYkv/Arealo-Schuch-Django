@@ -30,8 +30,9 @@ class PDFBook(models.Model):
 
     CATEGORY_CHOICES = [
         ('book', 'Buch'),
-        ('paper', 'Wissenschaftliches Paper'),
+        ('paper', 'Paper'),
         ('article', 'Artikel'),
+        ('online', 'Online-Artikel'),
         ('other', 'Sonstiges'),
     ]
     category = models.CharField(
@@ -58,6 +59,13 @@ class PDFBook(models.Model):
         verbose_name="Tags",
         help_text="Kommagetrennte Tags"
     )
+    url = models.URLField(
+        max_length=2000,
+        blank=True,
+        null=True,
+        verbose_name="URL",
+        help_text="URL für Online-Artikel"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Aktualisiert am")
@@ -82,6 +90,13 @@ class PDFBook(models.Model):
     def get_file_size_mb(self):
         """Gibt Dateigröße in MB zurück"""
         return self.file_size / (1024 * 1024)
+
+    @property
+    def tags_list(self):
+        """Gibt Tags als Liste zurück"""
+        if self.tags:
+            return [tag.strip() for tag in self.tags.split(',') if tag.strip()]
+        return []
 
 
 class PDFNote(models.Model):
@@ -325,6 +340,59 @@ class ReadingListItem(models.Model):
         return f"{self.title[:50]} ({self.get_status_display()})"
 
 
+class PDFSummary(models.Model):
+    """KI-generierte Zusammenfassung eines PDFs"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    book = models.OneToOneField(
+        PDFBook,
+        on_delete=models.CASCADE,
+        related_name='summary',
+        verbose_name="PDF-Buch"
+    )
+    
+    short_summary = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Kurze Zusammenfassung",
+        help_text="Kurze Zusammenfassung für das PDF-Viewer Panel (2-3 Sätze)"
+    )
+    full_summary = models.TextField(verbose_name="Vollständige Zusammenfassung")
+    sections = models.JSONField(
+        default=list,
+        verbose_name="Abschnitte",
+        help_text="Strukturierte Abschnitte mit Seitenreferenzen"
+    )
+    # Format: [{"title": "Introduction", "text": "...", "start_page": 1, "end_page": 3}, ...]
+    
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI'),
+        ('anthropic', 'Anthropic'),
+        ('gemini', 'Google Gemini'),
+    ]
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        default='openai',
+        verbose_name="KI-Provider"
+    )
+    
+    language = models.CharField(
+        max_length=10,
+        default='de',
+        verbose_name="Sprache"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Aktualisiert am")
+    
+    class Meta:
+        verbose_name = "PDF-Zusammenfassung"
+        verbose_name_plural = "PDF-Zusammenfassungen"
+    
+    def __str__(self):
+        return f"Summary: {self.book.title[:50]}"
+
+
 class ReadingProgress(models.Model):
     """Lesefortschritt pro PDF"""
     book = models.OneToOneField(
@@ -339,7 +407,7 @@ class ReadingProgress(models.Model):
         verbose_name="Scroll-Position",
         help_text="Scroll-Position in Prozent (0-100)"
     )
-    zoom_level = models.FloatField(default=1.0, verbose_name="Zoom-Stufe")
+    zoom_level = models.FloatField(default=1.75, verbose_name="Zoom-Stufe")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Aktualisiert am")
 
     class Meta:

@@ -98,6 +98,7 @@
                             <th>Prozent</th>
                             <th>Fortschritt</th>
                             <th>Premium</th>
+                            <th>Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -136,10 +137,15 @@
                                 <span class="badge bg-secondary">Free</span>
                                 {% endif %}
                             </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info" onclick="showStorageDetails({{ storage.user.id }}, '{{ storage.user.username }}')">
+                                    <i class="fas fa-chart-pie"></i>
+                                </button>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4">
+                            <td colspan="7" class="text-center text-muted py-4">
                                 Keine User gefunden
                             </td>
                         </tr>
@@ -183,4 +189,152 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Storage Details Modal -->
+<div class="modal fade" id="storageDetailsModal" tabindex="-1" aria-labelledby="storageDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="storageDetailsModalLabel">
+                    <i class="fas fa-chart-pie me-2"></i> Speicher-Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="storageDetailsLoading" class="text-center py-4">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Lädt...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Lade Details...</p>
+                </div>
+                <div id="storageDetailsContent" style="display: none;">
+                    <!-- User Info -->
+                    <div class="alert alert-light border mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <strong id="detailUsername">-</strong>
+                                <br>
+                                <small class="text-muted" id="detailEmail">-</small>
+                            </div>
+                            <div class="col-md-6 text-md-end">
+                                <div class="display-6 fw-bold" id="detailPercentage">0%</div>
+                                <small class="text-muted">
+                                    <span id="detailUsedMb">0</span> MB / <span id="detailMaxMb">100</span> MB
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Per-App Breakdown -->
+                    <h6 class="mb-3"><i class="fas fa-list me-2"></i> Speicher pro App</h6>
+                    <div class="row" id="storageDetailsApps">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div id="storageDetailsError" style="display: none;" class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span id="storageDetailsErrorMsg">Fehler beim Laden der Details.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function showStorageDetails(userId, username) {
+    const modal = new bootstrap.Modal(document.getElementById('storageDetailsModal'));
+    document.getElementById('storageDetailsModalLabel').innerHTML = `<i class="fas fa-chart-pie me-2"></i> Speicher-Details: ${username}`;
+    
+    // Show loading, hide content and error
+    document.getElementById('storageDetailsLoading').style.display = 'block';
+    document.getElementById('storageDetailsContent').style.display = 'none';
+    document.getElementById('storageDetailsError').style.display = 'none';
+    
+    modal.show();
+    
+    try {
+        const response = await fetch(`/payments/api/user-storage-detail/${userId}/`);
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update user info
+            document.getElementById('detailUsername').textContent = data.username;
+            document.getElementById('detailEmail').textContent = data.email;
+            document.getElementById('detailUsedMb').textContent = data.total_mb.toFixed(2);
+            document.getElementById('detailMaxMb').textContent = data.max_mb.toFixed(0);
+            
+            // Update percentage with color
+            const pctEl = document.getElementById('detailPercentage');
+            pctEl.textContent = data.percentage.toFixed(1) + '%';
+            pctEl.className = 'display-6 fw-bold';
+            if (data.percentage >= 90) {
+                pctEl.classList.add('text-danger');
+            } else if (data.percentage >= 75) {
+                pctEl.classList.add('text-warning');
+            } else {
+                pctEl.classList.add('text-success');
+            }
+            
+            // Populate apps
+            const appsContainer = document.getElementById('storageDetailsApps');
+            appsContainer.innerHTML = '';
+            
+            const apps = data.apps || {};
+            const appEntries = Object.entries(apps);
+            
+            if (appEntries.length > 0) {
+                appEntries.forEach(([appName, appData]) => {
+                    const pct = data.max_mb > 0 ? ((appData.mb / data.max_mb) * 100).toFixed(1) : 0;
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 mb-3';
+                    col.innerHTML = `
+                        <div class="card h-100 border-0 bg-light">
+                            <div class="card-body py-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="${appData.icon || 'fas fa-folder'} me-3 fs-4 text-primary"></i>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold">${appName}</div>
+                                        <small class="text-muted">${appData.count} Dateien</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-bold">${appData.mb.toFixed(2)} MB</div>
+                                        <small class="badge bg-secondary">${pct}%</small>
+                                    </div>
+                                </div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-primary" style="width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    appsContainer.appendChild(col);
+                });
+            } else {
+                appsContainer.innerHTML = `
+                    <div class="col-12">
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <p class="mb-0">Keine Dateien gespeichert</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Show content
+            document.getElementById('storageDetailsLoading').style.display = 'none';
+            document.getElementById('storageDetailsContent').style.display = 'block';
+        } else {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+    } catch (err) {
+        console.error('Error loading storage details:', err);
+        document.getElementById('storageDetailsLoading').style.display = 'none';
+        document.getElementById('storageDetailsErrorMsg').textContent = err.message;
+        document.getElementById('storageDetailsError').style.display = 'block';
+    }
+}
+</script>
 {% endblock %}

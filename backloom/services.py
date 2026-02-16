@@ -83,9 +83,44 @@ class SourceHealthCheck:
             'enabled': True,
         },
         'tiktok': {
-            'name': 'TikTok (Supadata)',
-            'test_url': 'https://api.supadata.ai/v1/tiktok/transcript',
+            'name': 'TikTok (Brave + Supadata)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
             'check_text': None,  # API check
+            'is_api': True,
+            'enabled': True,
+        },
+        'brave': {
+            'name': 'Brave Search API',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,  # API check
+            'is_api': True,
+            'enabled': True,
+        },
+        'reddit': {
+            'name': 'Reddit (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,  # API check
+            'is_api': True,
+            'enabled': True,
+        },
+        'pinterest': {
+            'name': 'Pinterest (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,
+            'is_api': True,
+            'enabled': True,
+        },
+        'quora': {
+            'name': 'Quora (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,
+            'is_api': True,
+            'enabled': True,
+        },
+        'medium': {
+            'name': 'Medium (via Brave)',
+            'test_url': 'https://api.search.brave.com/res/v1/web/search',
+            'check_text': None,
             'is_api': True,
             'enabled': True,
         },
@@ -106,11 +141,6 @@ class SourceHealthCheck:
         'ecosia': {
             'name': 'Ecosia',
             'reason': 'Benötigt JavaScript',
-            'enabled': False,
-        },
-        'reddit': {
-            'name': 'Reddit',
-            'reason': 'Blockiert (403)',
             'enabled': False,
         },
     }
@@ -174,38 +204,74 @@ class SourceHealthCheck:
                     result['message'] = f'HTTP {response.status_code}'
                 return result
 
-            # TikTok/Supadata API spezielle Behandlung
+            # TikTok: Benötigt Brave + Supadata API Keys
             if source.get('is_api') and source_key == 'tiktok':
-                api_key = None
+                brave_key = None
+                supadata_key = None
                 if user:
-                    api_key = getattr(user, 'supadata_api_key', None)
-                if not api_key:
+                    brave_key = getattr(user, 'brave_api_key', None)
+                    supadata_key = getattr(user, 'supadata_api_key', None)
+                
+                missing_keys = []
+                if not brave_key:
+                    missing_keys.append('Brave Search')
+                if not supadata_key:
+                    missing_keys.append('Supadata')
+                
+                if missing_keys:
                     result['status'] = 'warning'
-                    result['message'] = 'API-Key nicht konfiguriert'
+                    result['message'] = f'API-Key(s) nicht konfiguriert: {", ".join(missing_keys)}'
                     return result
 
-                # Test mit einer bekannten TikTok-URL
+                # Test Brave Search API
                 response = requests.get(
-                    'https://api.supadata.ai/v1/tiktok/transcript',
-                    params={'url': 'https://www.tiktok.com/@test/video/123'},
-                    headers={'x-api-key': api_key},
+                    'https://api.search.brave.com/res/v1/web/search',
+                    params={'q': 'test', 'count': 1},
+                    headers={'X-Subscription-Token': brave_key, 'Accept': 'application/json'},
                     timeout=10
                 )
                 result['response_time'] = round((time.time() - start_time) * 1000)
 
-                # 400/404 ist okay - bedeutet API funktioniert, Video existiert nur nicht
-                if response.status_code in [200, 400, 404]:
+                if response.status_code == 200:
                     result['status'] = 'ok'
-                    result['message'] = 'API funktioniert'
+                    result['message'] = 'Brave + Supadata konfiguriert'
                 elif response.status_code == 401:
                     result['status'] = 'error'
-                    result['message'] = 'API-Key ungültig'
-                elif response.status_code == 403:
-                    result['status'] = 'error'
-                    result['message'] = 'API-Key ungültig oder Quota überschritten'
+                    result['message'] = 'Brave API-Key ungültig'
+                elif response.status_code == 429:
+                    result['status'] = 'warning'
+                    result['message'] = 'Brave Rate-Limit erreicht'
                 else:
                     result['status'] = 'error'
-                    result['message'] = f'HTTP {response.status_code}'
+                    result['message'] = f'Brave HTTP {response.status_code}'
+                return result
+
+            # Brave Search API - nur Key-Check, kein API-Call um Quota zu sparen
+            if source.get('is_api') and source_key == 'brave':
+                api_key = None
+                if user:
+                    api_key = getattr(user, 'brave_api_key', None)
+                result['response_time'] = round((time.time() - start_time) * 1000)
+                if api_key and len(api_key) > 10:
+                    result['status'] = 'ok'
+                    result['message'] = 'API-Key konfiguriert'
+                else:
+                    result['status'] = 'warning'
+                    result['message'] = 'API-Key nicht konfiguriert'
+                return result
+
+            # Reddit, Pinterest, Quora, Medium (via Brave) - nur Key-Check, kein API-Call
+            if source.get('is_api') and source_key in ['reddit', 'pinterest', 'quora', 'medium']:
+                api_key = None
+                if user:
+                    api_key = getattr(user, 'brave_api_key', None)
+                result['response_time'] = round((time.time() - start_time) * 1000)
+                if api_key and len(api_key) > 10:
+                    result['status'] = 'ok'
+                    result['message'] = 'Brave API-Key konfiguriert'
+                else:
+                    result['status'] = 'warning'
+                    result['message'] = 'Brave API-Key nicht konfiguriert'
                 return result
 
             # Standard Scraping-Check
@@ -286,6 +352,9 @@ class BacklinkScraper:
             'duckduckgo': {'found': 0, 'status': 'pending'},
             'ecosia': {'found': 0, 'status': 'pending'},
             'reddit': {'found': 0, 'status': 'pending'},
+            'pinterest': {'found': 0, 'status': 'pending'},
+            'quora': {'found': 0, 'status': 'pending'},
+            'medium': {'found': 0, 'status': 'pending'},
             'youtube': {'found': 0, 'status': 'pending'},
             'tiktok': {'found': 0, 'status': 'pending'},
         }
@@ -460,11 +529,14 @@ class BacklinkScraper:
             api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
 
         if not api_key:
+            self.search.log_progress("  → Supadata: Kein API-Key")
             return None
+
+        video_id = video_url.split('/video/')[-1].split('?')[0][:12] if '/video/' in video_url else video_url[-20:]
 
         try:
             response = self.session.get(
-                'https://api.supadata.ai/v1/tiktok/transcript',
+                'https://api.supadata.ai/v1/transcript',
                 params={'url': video_url},
                 headers={'x-api-key': api_key},
                 timeout=15
@@ -477,14 +549,70 @@ class BacklinkScraper:
                 if content:
                     # Text zusammenfügen
                     full_text = ' '.join([seg.get('text', '') for seg in content])
+                    self.search.log_progress(f"  → {video_id}: Transkript OK ({len(full_text)} Zeichen)")
                     return full_text
+                else:
+                    # Response OK aber kein Content - zeige was wir bekommen haben
+                    self.search.log_progress(f"  → {video_id}: Kein Content (Keys: {list(data.keys())})")
             elif response.status_code == 404:
-                logger.debug(f"TikTok transcript not found for {video_url}")
+                self.search.log_progress(f"  → {video_id}: Keine Untertitel verfügbar (404)")
+            elif response.status_code == 401:
+                self.search.log_progress(f"  → {video_id}: API-Key ungültig (401)")
+            elif response.status_code == 429:
+                self.search.log_progress(f"  → {video_id}: Rate-Limit erreicht (429)")
             else:
-                logger.debug(f"TikTok API error {response.status_code} for {video_url}")
+                self.search.log_progress(f"  → {video_id}: HTTP {response.status_code}")
 
         except Exception as e:
-            logger.debug(f"TikTok transcript error for {video_url}: {e}")
+            self.search.log_progress(f"  → {video_id}: Fehler - {str(e)[:50]}")
+
+        return None
+
+    def _get_tiktok_metadata(self, video_url: str) -> Optional[Dict]:
+        """
+        Holt Metadaten eines TikTok-Videos über die Supadata Metadata API.
+        Gibt Description, Creator-Username und andere Infos zurück.
+        """
+        api_key = None
+        if self.search.triggered_by:
+            api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+
+        if not api_key:
+            return None
+
+        video_id = video_url.split('/video/')[-1].split('?')[0][:12] if '/video/' in video_url else video_url[-20:]
+
+        try:
+            response = self.session.get(
+                'https://api.supadata.ai/v1/metadata',
+                params={'url': video_url},
+                headers={'x-api-key': api_key},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                description = data.get('description', '') or ''
+                author = data.get('author', {})
+                username = author.get('username', '')
+                
+                if description or username:
+                    self.search.log_progress(f"  → {video_id}: Metadata OK (@{username}, {len(description)} Zeichen Desc)")
+                    return {
+                        'description': description,
+                        'username': username,
+                        'display_name': author.get('displayName', ''),
+                        'title': data.get('title', ''),
+                    }
+                else:
+                    self.search.log_progress(f"  → {video_id}: Metadata leer")
+            elif response.status_code == 404:
+                self.search.log_progress(f"  → {video_id}: Metadata nicht gefunden (404)")
+            else:
+                self.search.log_progress(f"  → {video_id}: Metadata HTTP {response.status_code}")
+
+        except Exception as e:
+            self.search.log_progress(f"  → {video_id}: Metadata Fehler - {str(e)[:50]}")
 
         return None
 
@@ -866,75 +994,88 @@ class BacklinkScraper:
         return results
 
     # ==================
-    # REDDIT SCRAPING
+    # ==================
+    # REDDIT SUCHE (via Brave Search API)
     # ==================
     def search_reddit(self, query: str, num_results: int = 20) -> List[Dict]:
         """
-        Durchsucht Reddit nach relevanten Diskussionen
-        Verwendet die alte Reddit-Version für einfacheres Scraping
+        Durchsucht Reddit nach relevanten Diskussionen via Brave Search API.
+        Verwendet site:reddit.com für gezielte Reddit-Suche.
         """
         results = []
         self.search.log_progress(f"Reddit-Suche: '{query}'")
 
+        # Brave API Key prüfen
+        brave_key = None
+        if self.search.triggered_by:
+            brave_key = getattr(self.search.triggered_by, 'brave_api_key', None)
+
+        if not brave_key:
+            self.search.log_progress("Reddit: Brave API-Key nicht konfiguriert")
+            self.source_stats['reddit']['status'] = 'warning'
+            return results
+
         try:
-            # Reddit-Suche (alte Version - stabiler für Scraping)
-            url = f"https://old.reddit.com/search?q={quote_plus(query)}&sort=new&t=year"
+            # Reddit-Suche via Brave (site:reddit.com)
+            search_query = f"site:reddit.com {query}"
+            brave_url = "https://api.search.brave.com/res/v1/web/search"
 
             response = self.session.get(
-                url,
-                headers=self._get_headers(),
+                brave_url,
+                params={
+                    'q': search_query,
+                    'count': min(num_results, 20),  # Brave max 20
+                    'country': 'de',
+                    'search_lang': 'de'
+                },
+                headers={
+                    'X-Subscription-Token': brave_key,
+                    'Accept': 'application/json'
+                },
                 timeout=15
             )
 
-            if response.status_code != 200:
-                self.search.log_progress(f"Reddit: HTTP {response.status_code}")
+            if response.status_code == 401:
+                self.search.log_progress("Reddit: Brave API-Key ungültig")
                 self.source_stats['reddit']['status'] = 'error'
                 return results
 
-            soup = BeautifulSoup(response.text, 'html.parser')
+            if response.status_code == 429:
+                self.search.log_progress("Reddit: Brave Rate-Limit erreicht")
+                self.source_stats['reddit']['status'] = 'error'
+                return results
 
-            # Mehrere Selektoren versuchen
-            selectors = [
-                'div.search-result',  # Standard old.reddit Format
-                'div.thing',  # Alternatives old.reddit Format
-                'div.search-result-link',  # Link-Container
-            ]
+            if response.status_code != 200:
+                self.search.log_progress(f"Reddit: Brave HTTP {response.status_code}")
+                self.source_stats['reddit']['status'] = 'error'
+                return results
 
-            found_containers = []
-            for selector in selectors:
-                containers = soup.select(selector)
-                if containers:
-                    found_containers = containers
-                    self.search.log_progress(f"Reddit: Verwende Selector '{selector}' ({len(containers)} Container)")
-                    break
+            data = response.json()
+            web_results = data.get('web', {}).get('results', [])
 
-            for result in found_containers:
+            self.search.log_progress(f"Reddit: Brave liefert {len(web_results)} Ergebnisse")
+
+            for item in web_results:
                 try:
-                    # Link finden
-                    link_elem = result.select_one('a.search-title') or result.select_one('a.title') or result.select_one('a[data-click-id="body"]')
-                    if not link_elem:
+                    url = item.get('url', '')
+                    title = item.get('title', '')
+                    description = item.get('description', '')
+
+                    # Nur Reddit-URLs
+                    if 'reddit.com' not in url:
                         continue
 
-                    href = link_elem.get('href', '')
-                    if href.startswith('/'):
-                        href = f"https://www.reddit.com{href}"
-                    elif href.startswith('//'):
-                        href = f"https:{href}"
-
-                    if not href.startswith('https://'):
-                        continue
-
-                    title = self._clean_text(link_elem.get_text())
-
-                    # Subreddit als Beschreibung
-                    subreddit_elem = result.select_one('a.search-subreddit-link') or result.select_one('a.subreddit')
-                    subreddit = subreddit_elem.get_text() if subreddit_elem else ''
-                    description = f"Subreddit: {subreddit}" if subreddit else ''
+                    # Subreddit aus URL extrahieren (z.B. /r/de/)
+                    subreddit = ''
+                    if '/r/' in url:
+                        parts = url.split('/r/')
+                        if len(parts) > 1:
+                            subreddit = 'r/' + parts[1].split('/')[0]
 
                     results.append({
-                        'url': href,
-                        'title': title,
-                        'description': description,
+                        'url': url,
+                        'title': sanitize_for_mysql(title),
+                        'description': sanitize_for_mysql(f"{subreddit}: {description}" if subreddit else description),
                         'source_type': SourceType.REDDIT
                     })
 
@@ -942,7 +1083,7 @@ class BacklinkScraper:
                         break
 
                 except Exception as e:
-                    logger.debug(f"Error parsing Reddit result: {e}")
+                    logger.debug(f"Error parsing Reddit/Brave result: {e}")
                     continue
 
             self.source_stats['reddit']['found'] = len(results)
@@ -953,6 +1094,119 @@ class BacklinkScraper:
             logger.error(f"Reddit search error: {e}")
             self.search.log_progress(f"Reddit-Fehler: {e}")
             self.source_stats['reddit']['status'] = 'error'
+
+        return results
+
+    # ==================
+    # PINTEREST SUCHE (via Brave)
+    # ==================
+    def search_pinterest(self, query: str, num_results: int = 20) -> List[Dict]:
+        """Durchsucht Pinterest via Brave Search API."""
+        return self._search_via_brave(query, 'pinterest.com', 'pinterest', SourceType.PINTEREST, num_results)
+
+    # ==================
+    # QUORA SUCHE (via Brave)
+    # ==================
+    def search_quora(self, query: str, num_results: int = 20) -> List[Dict]:
+        """Durchsucht Quora via Brave Search API."""
+        return self._search_via_brave(query, 'quora.com', 'quora', SourceType.QUORA, num_results)
+
+    # ==================
+    # MEDIUM SUCHE (via Brave)
+    # ==================
+    def search_medium(self, query: str, num_results: int = 20) -> List[Dict]:
+        """Durchsucht Medium via Brave Search API."""
+        return self._search_via_brave(query, 'medium.com', 'medium', SourceType.MEDIUM, num_results)
+
+    def _search_via_brave(self, query: str, site_domain: str, source_name: str, source_type, num_results: int = 20) -> List[Dict]:
+        """
+        Generische Suche via Brave Search API mit site:-Filter.
+        Wiederverwendbar für Pinterest, Quora, Medium, etc.
+        """
+        results = []
+        display_name = source_name.capitalize()
+        self.search.log_progress(f"{display_name}-Suche: '{query}'")
+
+        # Brave API Key prüfen
+        brave_key = None
+        if self.search.triggered_by:
+            brave_key = getattr(self.search.triggered_by, 'brave_api_key', None)
+
+        if not brave_key:
+            self.search.log_progress(f"{display_name}: Brave API-Key nicht konfiguriert")
+            self.source_stats[source_name]['status'] = 'warning'
+            return results
+
+        try:
+            search_query = f"site:{site_domain} {query}"
+            brave_url = "https://api.search.brave.com/res/v1/web/search"
+
+            response = self.session.get(
+                brave_url,
+                params={
+                    'q': search_query,
+                    'count': min(num_results, 20),
+                    'country': 'de',
+                    'search_lang': 'de'
+                },
+                headers={
+                    'X-Subscription-Token': brave_key,
+                    'Accept': 'application/json'
+                },
+                timeout=15
+            )
+
+            if response.status_code == 401:
+                self.search.log_progress(f"{display_name}: Brave API-Key ungültig")
+                self.source_stats[source_name]['status'] = 'error'
+                return results
+
+            if response.status_code == 429:
+                self.search.log_progress(f"{display_name}: Brave Rate-Limit erreicht")
+                self.source_stats[source_name]['status'] = 'error'
+                return results
+
+            if response.status_code != 200:
+                self.search.log_progress(f"{display_name}: Brave HTTP {response.status_code}")
+                self.source_stats[source_name]['status'] = 'error'
+                return results
+
+            data = response.json()
+            web_results = data.get('web', {}).get('results', [])
+
+            self.search.log_progress(f"{display_name}: Brave liefert {len(web_results)} Ergebnisse")
+
+            for item in web_results:
+                try:
+                    url = item.get('url', '')
+                    title = item.get('title', '')
+                    description = item.get('description', '')
+
+                    if site_domain not in url:
+                        continue
+
+                    results.append({
+                        'url': url,
+                        'title': sanitize_for_mysql(title),
+                        'description': sanitize_for_mysql(description),
+                        'source_type': source_type
+                    })
+
+                    if len(results) >= num_results:
+                        break
+
+                except Exception as e:
+                    logger.debug(f"Error parsing {display_name}/Brave result: {e}")
+                    continue
+
+            self.source_stats[source_name]['found'] = len(results)
+            self.source_stats[source_name]['status'] = 'ok' if results else 'warning'
+            self.search.log_progress(f"{display_name}: {len(results)} Ergebnisse gefunden")
+
+        except requests.RequestException as e:
+            logger.error(f"{display_name} search error: {e}")
+            self.search.log_progress(f"{display_name}-Fehler: {e}")
+            self.source_stats[source_name]['status'] = 'error'
 
         return results
 
@@ -1106,105 +1360,129 @@ class BacklinkScraper:
         return results
 
     # ==================
-    # TIKTOK SUCHE (via DuckDuckGo + Supadata)
+    # TIKTOK SUCHE (via Brave Search + Supadata)
     # ==================
-    def search_tiktok(self, query: str, num_results: int = 1) -> List[Dict]:
+    def search_tiktok(self, query: str, num_results: int = 10) -> List[Dict]:
         """
         Durchsucht TikTok-Videos nach relevanten Inhalten.
-        1. Findet TikTok-Videos via DuckDuckGo (site:tiktok.com)
+        1. Findet TikTok-Videos via Brave Search API (site:tiktok.com)
         2. Extrahiert Untertitel via Supadata API
         3. Sucht in Untertiteln nach URLs und Domain-Erwähnungen
         """
         results = []
         self.search.log_progress(f"TikTok-Suche: '{query}'")
 
-        # Supadata API Key prüfen
-        api_key = None
+        # API Keys prüfen
+        supadata_key = None
+        brave_key = None
         if self.search.triggered_by:
-            api_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+            supadata_key = getattr(self.search.triggered_by, 'supadata_api_key', None)
+            brave_key = getattr(self.search.triggered_by, 'brave_api_key', None)
 
-        if not api_key:
+        if not supadata_key:
             self.search.log_progress("TikTok: Supadata API-Key nicht konfiguriert")
             self.source_stats['tiktok']['status'] = 'warning'
             return results
 
+        if not brave_key:
+            self.search.log_progress("TikTok: Brave Search API-Key nicht konfiguriert")
+            self.source_stats['tiktok']['status'] = 'warning'
+            return results
+
         try:
-            # Schritt 1: TikTok-Videos via DuckDuckGo finden
+            # Schritt 1: TikTok-Videos via Brave Search API finden
             search_query = f"site:tiktok.com {query}"
-            url = f"https://html.duckduckgo.com/html/?q={quote_plus(search_query)}&kl=de-de"
+            brave_url = "https://api.search.brave.com/res/v1/web/search"
 
             response = self.session.get(
-                url,
-                headers=self._get_headers(),
+                brave_url,
+                params={
+                    'q': search_query,
+                    'count': 20,
+                    'country': 'de',
+                    'search_lang': 'de'
+                },
+                headers={
+                    'X-Subscription-Token': brave_key,
+                    'Accept': 'application/json'
+                },
                 timeout=15
             )
 
-            if response.status_code != 200:
-                self.search.log_progress(f"TikTok: DuckDuckGo HTTP {response.status_code}")
+            if response.status_code == 401:
+                self.search.log_progress("TikTok: Brave API-Key ungültig")
                 self.source_stats['tiktok']['status'] = 'error'
                 return results
 
-            soup = BeautifulSoup(response.text, 'html.parser')
+            if response.status_code == 429:
+                self.search.log_progress("TikTok: Brave API Rate-Limit erreicht")
+                self.source_stats['tiktok']['status'] = 'error'
+                return results
+
+            if response.status_code != 200:
+                self.search.log_progress(f"TikTok: Brave HTTP {response.status_code}")
+                self.source_stats['tiktok']['status'] = 'error'
+                return results
+
+            data = response.json()
+            web_pages = data.get('web', {}).get('results', [])
 
             # TikTok-Video-URLs extrahieren
             tiktok_urls = []
-            for result in soup.select('div.result'):
+            self.search.log_progress(f"TikTok: Brave Search {len(web_pages)} Ergebnisse")
+            
+            for page in web_pages:
                 try:
-                    link_elem = result.select_one('a.result__a') or result.select_one('a[href^="http"]')
-                    if not link_elem:
-                        continue
-
-                    href = link_elem.get('href', '')
-
-                    # DuckDuckGo-Weiterleitungs-Links bereinigen
-                    if '//duckduckgo.com/l/' in href:
-                        import urllib.parse as urlparse
-                        parsed = urlparse.urlparse(href)
-                        params = urlparse.parse_qs(parsed.query)
-                        if 'uddg' in params:
-                            href = urlparse.unquote(params['uddg'][0])
-
+                    href = page.get('url', '')
                     # Nur TikTok-Video-URLs (/@user/video/ID Format)
                     if 'tiktok.com' in href and '/video/' in href:
                         tiktok_urls.append(href)
-
-                    if len(tiktok_urls) >= num_results:
-                        break
+                        if len(tiktok_urls) >= num_results:
+                            break
                 except:
                     continue
 
             if not tiktok_urls:
-                self.search.log_progress("TikTok: Keine Videos gefunden")
+                self.search.log_progress(f"TikTok: Keine Videos mit /video/ gefunden")
                 self.source_stats['tiktok']['status'] = 'warning'
                 return results
 
-            self.search.log_progress(f"TikTok: {len(tiktok_urls)} Videos gefunden, extrahiere Untertitel...")
+            self.search.log_progress(f"TikTok: {len(tiktok_urls)} Videos gefunden, extrahiere Daten...")
 
-            # Schritt 2: Untertitel für jedes Video abrufen
+            # Schritt 2: Untertitel UND Metadata für jedes Video abrufen
             urls_found = 0
             domains_found = 0
 
             for video_url in tiktok_urls:
                 try:
+                    all_urls = set()
+                    all_domains = set()
+                    video_id = video_url.split('/video/')[-1].split('?')[0][:12] if '/video/' in video_url else video_url[-20:]
+
                     # Rate-Limit: 1 request/second (Supadata free tier)
                     time.sleep(1.5)
 
-                    # Untertitel abrufen
+                    # A) Untertitel abrufen (was im Video gesagt wird)
                     transcript_text = self._get_tiktok_transcript(video_url)
+                    if transcript_text:
+                        transcript_urls = self._extract_urls_from_text(transcript_text)
+                        all_urls.update(transcript_urls)
+                        transcript_domains = self._extract_domains_from_text(transcript_text)
+                        all_domains.update(transcript_domains)
 
-                    if not transcript_text:
-                        continue
+                    # Kurze Pause zwischen API-Aufrufen
+                    time.sleep(1.0)
 
-                    all_urls = set()
-                    all_domains = set()
-
-                    # URLs aus Untertitel extrahieren
-                    transcript_urls = self._extract_urls_from_text(transcript_text)
-                    all_urls.update(transcript_urls)
-
-                    # Domain-Erwähnungen aus Untertitel (z.B. "besucht example.de")
-                    transcript_domains = self._extract_domains_from_text(transcript_text)
-                    all_domains.update(transcript_domains)
+                    # B) Metadata abrufen (Video-Description mit Links)
+                    metadata = self._get_tiktok_metadata(video_url)
+                    if metadata:
+                        description = metadata.get('description', '')
+                        if description:
+                            # URLs aus Description extrahieren
+                            desc_urls = self._extract_urls_from_text(description)
+                            all_urls.update(desc_urls)
+                            desc_domains = self._extract_domains_from_text(description)
+                            all_domains.update(desc_domains)
 
                     # Domains die bereits als URLs gefunden wurden, entfernen
                     for url_item in all_urls:
@@ -1213,10 +1491,8 @@ class BacklinkScraper:
 
                     found_count = len(all_urls) + len(all_domains)
                     if found_count > 0:
-                        # Video-ID für Anzeige extrahieren
-                        video_id = video_url.split('/video/')[-1].split('?')[0] if '/video/' in video_url else video_url
                         self.search.log_progress(
-                            f"  TikTok {video_id[:12]}... → {len(all_urls)} URLs, {len(all_domains)} Domains"
+                            f"  TikTok {video_id}... → {len(all_urls)} URLs, {len(all_domains)} Domains"
                         )
 
                         # Vollständige URLs speichern
@@ -1239,7 +1515,7 @@ class BacklinkScraper:
                             })
                             domains_found += 1
 
-                    # Kurze Pause zwischen API-Aufrufen
+                    # Kurze Pause zwischen Videos
                     self._delay(0.5, 1.0)
 
                 except Exception as e:
@@ -1489,6 +1765,12 @@ class BacklinkScraper:
             source_names.append('DuckDuckGo')
         if 'reddit' in sources:
             source_names.append('Reddit')
+        if 'pinterest' in sources:
+            source_names.append('Pinterest')
+        if 'quora' in sources:
+            source_names.append('Quora')
+        if 'medium' in sources:
+            source_names.append('Medium')
         if 'youtube' in sources:
             source_names.append('YouTube')
         if 'tiktok' in sources:
@@ -1515,23 +1797,59 @@ class BacklinkScraper:
 
                 # DuckDuckGo (nur wenn ausgewählt)
                 if 'duckduckgo' in sources:
-                    self._delay(2, 4)
-                    all_results.extend(self.search_duckduckgo(query.query))
+                    try:
+                        self._delay(2, 4)
+                        all_results.extend(self.search_duckduckgo(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"DuckDuckGo-Fehler: {str(e)[:100]}")
 
                 # Reddit (nur wenn ausgewählt)
                 if 'reddit' in sources:
-                    self._delay(2, 4)
-                    all_results.extend(self.search_reddit(query.query))
+                    try:
+                        self._delay(2, 4)
+                        all_results.extend(self.search_reddit(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Reddit-Fehler: {str(e)[:100]}")
+
+                # Pinterest (nur wenn ausgewählt)
+                if 'pinterest' in sources:
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_pinterest(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Pinterest-Fehler: {str(e)[:100]}")
+
+                # Quora (nur wenn ausgewählt)
+                if 'quora' in sources:
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_quora(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Quora-Fehler: {str(e)[:100]}")
+
+                # Medium (nur wenn ausgewählt)
+                if 'medium' in sources:
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_medium(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"Medium-Fehler: {str(e)[:100]}")
 
                 # YouTube (nur wenn ausgewählt)
                 if 'youtube' in sources:
-                    self._delay(1, 2)
-                    all_results.extend(self.search_youtube(query.query))
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_youtube(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"YouTube-Fehler: {str(e)[:100]}")
 
                 # TikTok (nur wenn ausgewählt)
                 if 'tiktok' in sources:
-                    self._delay(1, 2)
-                    all_results.extend(self.search_tiktok(query.query))
+                    try:
+                        self._delay(1, 2)
+                        all_results.extend(self.search_tiktok(query.query))
+                    except Exception as e:
+                        self.search.log_progress(f"TikTok-Fehler: {str(e)[:100]}")
 
                 # Ergebnisse speichern
                 for result in all_results:
@@ -1583,19 +1901,45 @@ class BacklinkScraper:
 
 def run_backlink_search(user, sources: List[str] = None) -> BacklinkSearch:
     """
-    Startet eine neue Backlink-Suche
+    Startet eine neue Backlink-Suche (asynchron in einem Thread)
 
     Args:
         user: Der User der die Suche startet
         sources: Liste der zu verwendenden Quellen (duckduckgo, reddit, youtube)
                  Wenn None, werden alle aktiven Quellen verwendet
     """
+    import threading
+
     # Neue Suche erstellen
     search = BacklinkSearch.objects.create(triggered_by=user)
 
-    # Scraper starten mit ausgewählten Quellen
-    scraper = BacklinkScraper(search)
-    scraper.run(sources=sources)
+    def run_search_async():
+        """Führt die Suche in einem separaten Thread aus"""
+        try:
+            from django.db import connection
+            # Neue DB-Verbindung für den Thread
+            connection.close()
+
+            # Search-Objekt im neuen Thread frisch laden
+            fresh_search = BacklinkSearch.objects.get(pk=search.pk)
+            scraper = BacklinkScraper(fresh_search)
+            scraper.run(sources=sources)
+        except Exception as e:
+            logger.exception(f"Error in async backlink search: {e}")
+            # Search-Objekt neu laden und Fehler speichern
+            try:
+                from django.db import connection
+                connection.close()
+                search_obj = BacklinkSearch.objects.get(pk=search.pk)
+                search_obj.status = BacklinkSearchStatus.FAILED
+                search_obj.error_log = str(e)
+                search_obj.save()
+            except:
+                pass
+
+    # Suche in separatem Thread starten
+    thread = threading.Thread(target=run_search_async, daemon=True)
+    thread.start()
 
     return search
 

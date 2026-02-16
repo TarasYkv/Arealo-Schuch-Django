@@ -6,8 +6,336 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'learnloom/css/learnloom.css' %}?v={% now 'U' %}">
 <style>
-    body { overflow: hidden; }
+    body { overflow: hidden; margin: 0; padding: 0; }
     .navbar, footer { display: none !important; }
+
+    /* ========== FULL WIDTH OVERRIDE ========== */
+    html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+    }
+    /* Override base template container */
+    main.container {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* ========== 2-COLUMN GRID LAYOUT (Toolbar + PDF) ========== */
+    .pdf-viewer-grid {
+        display: grid;
+        grid-template-columns: 70px 1fr;
+        height: 100vh;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+    /* panel-open class no longer changes grid - panels are overlays now */
+    
+    /* Left Column - Toolbar */
+    .toolbar-column {
+        background: #f8f9fa;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 5px 15px 5px;
+        gap: 5px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        z-index: 1000;
+        position: relative;
+        transition: width 0.3s ease, padding 0.3s ease;
+        scrollbar-width: thin;
+        scrollbar-color: #ced4da transparent;
+    }
+    .toolbar-column::-webkit-scrollbar {
+        width: 4px;
+    }
+    .toolbar-column::-webkit-scrollbar-thumb {
+        background: #ced4da;
+        border-radius: 2px;
+    }
+    /* Toolbar collapsed state */
+    .toolbar-column.collapsed {
+        width: 16px !important;
+        min-width: 16px !important;
+        padding: 0 !important;
+        overflow: visible;
+        border: none;
+        background: transparent;
+    }
+    .toolbar-column.collapsed > *:not(.toolbar-toggle) {
+        display: none !important;
+    }
+    /* Toggle button - at top of toolbar, not scrolling */
+    .toolbar-toggle {
+        position: absolute;
+        top: 8px;
+        right: 3px;
+        z-index: 10;
+        width: 18px;
+        height: 18px;
+        background: #e9ecef;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        font-size: 0.5rem;
+        color: #6c757d;
+        transition: background 0.2s;
+    }
+    .toolbar-toggle:hover {
+        background: #dee2e6;
+        color: #212529;
+    }
+    .toolbar-toggle i {
+        font-size: 0.5rem;
+    }
+    /* When collapsed, show toggle at edge */
+    .toolbar-column.collapsed .toolbar-toggle {
+        position: fixed;
+        left: 0;
+        right: auto;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 40px;
+        border-radius: 0 4px 4px 0;
+        border-left: none;
+    }
+    /* Mobile: smaller buttons */
+    @media (max-width: 768px) {
+        .pdf-viewer-grid {
+            grid-template-columns: 46px 1fr;
+        }
+        .toolbar-column {
+            padding: 26px 3px 10px 3px;
+            gap: 3px;
+        }
+        .toolbar-column .btn {
+            width: 30px;
+            height: 30px;
+            font-size: 0.75rem;
+        }
+        .toolbar-column .zoom-input {
+            width: 34px;
+            font-size: 0.55rem;
+            padding: 2px;
+        }
+        .toolbar-column .page-info {
+            font-size: 0.55rem;
+        }
+        .toolbar-column .divider {
+            margin: 2px 0;
+            width: 24px;
+        }
+        .toolbar-toggle {
+            top: 5px;
+            width: 16px;
+            height: 16px;
+        }
+    }
+    /* Very small screens */
+    @media (max-width: 480px) {
+        .pdf-viewer-grid {
+            grid-template-columns: 40px 1fr;
+        }
+        .toolbar-column {
+            padding: 24px 2px 8px 2px;
+            gap: 2px;
+        }
+        .toolbar-column .btn {
+            width: 26px;
+            height: 26px;
+            font-size: 0.65rem;
+        }
+        .toolbar-column .zoom-input {
+            width: 30px;
+            font-size: 0.5rem;
+        }
+        .toolbar-toggle {
+            top: 4px;
+            width: 14px;
+            height: 14px;
+            font-size: 0.4rem;
+        }
+    }
+    .toolbar-column .btn {
+        border-radius: 50%;
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+    .toolbar-column .btn i {
+        color: inherit;
+        font-size: 1rem;
+    }
+    .toolbar-column .btn-outline-secondary i { color: #6c757d; }
+    .toolbar-column .btn-outline-primary i { color: #0d6efd; }
+    .toolbar-column .btn-outline-warning i { color: #ffc107; }
+    .toolbar-column .btn-outline-dark i { color: #212529; }
+    .toolbar-column .btn-info i { color: #fff; }
+    .toolbar-column .btn-secondary i { color: #fff; }
+    .toolbar-column .btn-warning i { color: #000; }
+    .toolbar-column .btn-success i { color: #fff; }
+    .toolbar-column .page-info {
+        font-size: 0.7rem;
+        text-align: center;
+        color: #6c757d;
+    }
+    .toolbar-column .zoom-input {
+        width: 42px;
+        font-size: 0.7rem;
+        text-align: center;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 3px;
+    }
+    .toolbar-column .divider {
+        width: 30px;
+        height: 1px;
+        background: #dee2e6;
+        margin: 5px 0;
+    }
+    .toolbar-column .reading-status-dropdown .btn {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        border-radius: 50%;
+    }
+    .toolbar-column .reading-status-dropdown .btn::after {
+        display: none; /* Hide dropdown arrow */
+    }
+    .toolbar-column .reading-status-dropdown {
+        position: relative;
+    }
+    .toolbar-column .reading-status-dropdown .dropdown-menu {
+        min-width: 180px;
+        z-index: 99999 !important;
+        position: fixed !important;
+        left: 80px !important;
+        transform: none !important;
+    }
+    
+    /* Middle Column - PDF */
+    .pdf-column {
+        background: #525659;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+    }
+    
+    /* Right Panel - OVERLAY (like reading list) */
+    .panel-column {
+        position: fixed;
+        right: -400px;
+        top: 0;
+        bottom: 0;
+        width: 400px;
+        background: white;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.15);
+        z-index: 1500;
+        display: flex;
+        flex-direction: column;
+        transition: right 0.3s ease;
+    }
+    .panel-column.open {
+        right: 0;
+    }
+    @media (max-width: 500px) {
+        .panel-column {
+            width: 100%;
+            right: -100%;
+        }
+    }
+    .panel-view {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .panel-column .panel-header {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .panel-column .panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+    }
+    /* Explanation panel specific - single scroll for chat */
+    #explanationView .panel-body {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    #explanationView .explanation-scroll-area {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-bottom: 10px;
+    }
+    #explanationView .explanation-selected-text-container {
+        flex-shrink: 0;
+    }
+    #explanationView .explanation-chat-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    #explanationView .explanation-input-section {
+        flex-shrink: 0;
+        margin-top: auto;
+        padding-top: 12px;
+    }
+    /* Chat message styles */
+    .chat-message {
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        max-width: 95%;
+    }
+    .chat-message.user {
+        background: #dbeafe;
+        color: #1e40af;
+        align-self: flex-end;
+    }
+    .chat-message.assistant {
+        background: #f0fdf4;
+        color: #166534;
+        align-self: flex-start;
+    }
 
     /* Loading Overlay */
     .loading-overlay {
@@ -78,7 +406,8 @@
         color: transparent;
         position: absolute;
         white-space: pre;
-        cursor: text;
+        /* Custom dark I-beam cursor for better visibility on white PDFs */
+        cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='24' viewBox='0 0 16 24'%3E%3Cpath d='M8 0 L8 24' stroke='white' stroke-width='4'/%3E%3Cpath d='M8 0 L8 24' stroke='%23333333' stroke-width='2'/%3E%3Cpath d='M4 0 L12 0' stroke='white' stroke-width='4'/%3E%3Cpath d='M4 0 L12 0' stroke='%23333333' stroke-width='2'/%3E%3Cpath d='M4 24 L12 24' stroke='white' stroke-width='4'/%3E%3Cpath d='M4 24 L12 24' stroke='%23333333' stroke-width='2'/%3E%3C/svg%3E") 8 12, text;
         transform-origin: 0% 0%;
     }
     .textLayer ::selection {
@@ -114,19 +443,40 @@
     /* Floating Action Buttons */
     .floating-action-btns {
         position: fixed;
-        z-index: 1000;
+        z-index: 99999;
         display: flex;
-        gap: 8px;
+        gap: 12px;
+        background: linear-gradient(135deg, #1e293b, #334155);
+        padding: 12px 20px;
+        border-radius: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
     .action-btn-floating {
-        padding: 8px 16px;
+        padding: 10px 18px;
         border-radius: 20px;
         border: none;
-        font-size: 0.9rem;
-        font-weight: 500;
+        font-size: 0.95rem;
+        font-weight: 600;
         cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         transition: all 0.2s ease;
+    }
+    /* TOUCH DEVICES: Fixed toolbar at bottom center */
+    @media (pointer: coarse) {
+        .floating-action-btns {
+            bottom: 30px !important;
+            left: 50% !important;
+            top: auto !important;
+            transform: translateX(-50%);
+            padding: 16px 28px;
+            border-radius: 40px;
+            gap: 16px;
+        }
+        .action-btn-floating {
+            padding: 14px 24px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+        }
     }
     .action-btn-floating:hover {
         transform: translateY(-2px);
@@ -214,19 +564,14 @@
         border-radius: 8px;
         padding: 10px;
         font-size: 0.9rem;
-        max-height: 80px;
-        overflow-y: auto;
         margin-top: 4px;
+        /* No individual scroll - part of main scroll area */
     }
     .explanation-chat-container {
-        flex: 1;
         display: flex;
         flex-direction: column;
-        min-height: 150px;
-        max-height: 350px;
-        overflow-y: auto;
         gap: 10px;
-        padding: 4px;
+        /* No individual scroll - part of main scroll area */
     }
     .explanation-popup.fullscreen .explanation-chat-container {
         max-height: none;
@@ -482,6 +827,88 @@
     .confirm-modal-buttons .btn-confirm.info:hover {
         background: #1d4ed8;
     }
+
+    /* Old Summary Panel CSS removed - using grid layout now */
+    .summary-loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6b7280;
+    }
+    .summary-text {
+        line-height: 1.7;
+        color: #374151;
+        font-size: 0.95rem;
+    }
+    .summary-section {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        border-left: 3px solid #3b82f6;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .summary-section:hover {
+        background: #f0f9ff;
+        transform: translateX(2px);
+    }
+    .summary-section-title {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 6px;
+    }
+    .summary-section-pages {
+        font-size: 0.8rem;
+        color: #3b82f6;
+        margin-bottom: 6px;
+    }
+    .summary-section-text {
+        font-size: 0.9rem;
+        color: #4b5563;
+        line-height: 1.6;
+        margin-top: 8px;
+        padding: 10px;
+        background: #f8fafc;
+        border-radius: 6px;
+        border-left: 3px solid #3b82f6;
+    }
+    .summary-section-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .summarizing-spinner {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+    .summary-generate-btn {
+        width: 100%;
+        padding: 12px;
+        margin-top: 16px;
+    }
+
+    /* Docked Explanation Panel */
+    .explanation-popup.docked {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        left: auto !important;
+        width: 400px !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        box-shadow: -4px 0 20px rgba(0,0,0,0.15) !important;
+        transform: none !important;
+    }
+    .explanation-popup.docked .explanation-popup-body {
+        flex: 1;
+        max-height: none;
+    }
+    .explanation-popup.docked .explanation-chat-container {
+        max-height: none;
+        flex: 1;
+    }
+
 </style>
 {% endblock %}
 
@@ -493,61 +920,266 @@
     <div class="loading-progress" id="loadingProgress"></div>
 </div>
 
-<!-- Back Button -->
-<a href="{% url 'learnloom:index' %}" class="btn btn-light position-fixed" style="top: 15px; left: 15px; z-index: 1200;">
-    <i class="bi bi-arrow-left me-2"></i>Zurück
-</a>
+<!-- ========== 3-COLUMN GRID LAYOUT ========== -->
+<div class="pdf-viewer-grid" id="pdfViewerGrid">
+    
+    <!-- LEFT COLUMN: Toolbar -->
+    <div class="toolbar-column" id="toolbarColumn">
+        <!-- Toggle button inside toolbar -->
+        <button class="toolbar-toggle" id="toolbarToggle" title="Toolbar ein-/ausblenden">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <a href="{% url 'learnloom:index' %}" class="btn btn-outline-secondary mb-3" title="Zurück">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        
+        <button class="btn btn-outline-secondary" id="prevPage" title="Vorherige Seite">
+            <i class="bi bi-chevron-up"></i>
+        </button>
+        <span class="page-info">
+            <span id="currentPage">1</span>/<span id="totalPages">-</span>
+        </span>
+        <button class="btn btn-outline-secondary" id="nextPage" title="Nächste Seite">
+            <i class="bi bi-chevron-down"></i>
+        </button>
 
-<!-- PDF Viewer Container -->
-<div class="pdf-viewer-container" id="pdfViewerContainer">
-    <div class="pdf-canvas-container" id="pdfCanvasContainer">
+        <div class="divider"></div>
+
+        <!-- Reading Status Dropdown -->
+        <div class="dropdown reading-status-dropdown">
+            <button class="btn btn-sm dropdown-toggle 
+                {% if book.reading_status == 'completed' %}btn-success
+                {% elif book.reading_status == 'reading' %}btn-warning
+                {% else %}btn-secondary{% endif %}" 
+                type="button" id="readingStatusBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Lesestatus">
+                {% if book.reading_status == 'completed' %}
+                    <i class="bi bi-bookmark-check-fill"></i>
+                {% elif book.reading_status == 'reading' %}
+                    <i class="bi bi-bookmark-star-fill"></i>
+                {% else %}
+                    <i class="bi bi-bookmark"></i>
+                {% endif %}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="readingStatusBtn">
+                <li><a class="dropdown-item {% if book.reading_status == 'unread' %}active{% endif %}" href="#" onclick="setReadingStatus('unread'); return false;">
+                    <i class="bi bi-bookmark me-2"></i>Noch nicht gelesen
+                </a></li>
+                <li><a class="dropdown-item {% if book.reading_status == 'reading' %}active{% endif %}" href="#" onclick="setReadingStatus('reading'); return false;">
+                    <i class="bi bi-bookmark-star-fill me-2"></i>Gerade dabei
+                </a></li>
+                <li><a class="dropdown-item {% if book.reading_status == 'completed' %}active{% endif %}" href="#" onclick="setReadingStatus('completed'); return false;">
+                    <i class="bi bi-bookmark-check-fill me-2"></i>Bereits gelesen
+                </a></li>
+            </ul>
+        </div>
+
+        <div class="divider"></div>
+
+        <button class="btn btn-outline-secondary" id="zoomOut" title="Verkleinern">
+            <i class="bi bi-zoom-out"></i>
+        </button>
+        <input type="text" class="zoom-input" id="zoomLevel" value="100%" title="Zoom">
+        <button class="btn btn-outline-secondary" id="zoomIn" title="Vergrößern">
+            <i class="bi bi-zoom-in"></i>
+        </button>
+
+        <div class="divider"></div>
+
+        <button class="btn btn-outline-dark" id="toggleFullscreen" title="Vollbild">
+            <i class="bi bi-fullscreen"></i>
+        </button>
+        <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
+            <i class="bi bi-sticky"></i>
+        </button>
+        <button class="btn btn-outline-warning" id="toggleMarkerMode" title="Marker">
+            <i class="bi bi-pin-map"></i>
+        </button>
+        <button class="btn btn-info" id="toggleSelectMode" title="Auswahl">
+            <i class="bi bi-bounding-box"></i>
+        </button>
+
+        <div class="divider"></div>
+
+        <button class="btn btn-outline-warning" id="toggleReadingList" title="Leseliste">
+            <i class="bi bi-list-check"></i>
+        </button>
+        <button class="btn btn-outline-info" id="toggleSummaryPanel" title="Zusammenfassung">
+            <i class="bi bi-file-text"></i>
+        </button>
+    </div>
+    
+    <!-- MIDDLE COLUMN: PDF -->
+    <div class="pdf-column" id="pdfCanvasContainer">
         <!-- Pages will be rendered here -->
     </div>
+    
+    <!-- RIGHT COLUMN: Panel (Summary OR Explanation) -->
+    <div class="panel-column" id="rightPanelColumn">
+        
+        <!-- SUMMARY VIEW -->
+        <div id="summaryView" class="panel-view">
+            <div class="panel-header">
+                <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Zusammenfassung</h5>
+                <button class="btn btn-sm btn-light" id="closeSummaryPanel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="panel-body" id="summaryPanelBody" style="display: flex; flex-direction: column; overflow: hidden;">
+                <!-- Scroll area for summary + chat -->
+                <div class="summary-scroll-area" id="summaryScrollArea" style="flex: 1; overflow-y: auto; min-height: 0;">
+                    <div class="summary-loading" id="summaryLoading">
+                        <i class="bi bi-hourglass-split" style="font-size: 2rem;"></i>
+                        <p class="mt-2">Lade Zusammenfassung...</p>
+                    </div>
+                    <div id="summaryContent" style="display: none;"></div>
+                    <div id="summaryEmpty" style="display: none;">
+                        <div class="text-center py-4">
+                            <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-3">Noch keine Zusammenfassung.</p>
+                            {% if book.category != 'book' %}
+                            <button class="btn btn-primary" id="generateSummaryBtn">
+                                <i class="bi bi-magic me-2"></i>Generieren
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- PDF Chat Container -->
+                    <div id="pdfChatContainer" class="pdf-chat-container" style="display: none; margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+                        <h6 class="text-muted mb-3"><i class="bi bi-chat-dots me-2"></i>Fragen zum Dokument</h6>
+                        <div id="pdfChatMessages" class="pdf-chat-messages" style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- Chat messages will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fixed input at bottom -->
+                <div class="pdf-chat-input-section" id="pdfChatInputSection" style="display: none; border-top: 1px solid #e5e7eb; padding-top: 12px; flex-shrink: 0; margin-top: auto;">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="pdfChatQuestion" placeholder="Frage zum Dokument stellen...">
+                        <button class="btn btn-primary" id="pdfChatSendBtn" title="Frage senden">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- EXPLANATION VIEW -->
+        <div id="explanationView" class="panel-view" style="display: none;">
+            <div class="panel-header" style="background: linear-gradient(135deg, #22c55e, #16a34a);">
+                <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Erklärung</h5>
+                <button class="btn btn-sm btn-light" id="closeExplanationPanel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="panel-body">
+                <!-- Single scroll area for selected text + chat -->
+                <div class="explanation-scroll-area">
+                    <div class="explanation-selected-text-container">
+                        <small class="text-muted">Ausgewählter Text:</small>
+                        <div class="explanation-selected-text" id="explanationSelectedText" 
+                             style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px;"></div>
+                    </div>
+                    <div class="explanation-chat-container" id="explanationChatContainer">
+                    </div>
+                </div>
+                <!-- Fixed input at bottom -->
+                <div class="explanation-input-section border-top">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="followupQuestion" placeholder="Weitere Frage...">
+                        <button class="btn btn-success" id="askFollowupBtn"><i class="bi bi-send"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- TRANSLATION VIEW -->
+        <div id="translationView" class="panel-view" style="display: none;">
+            <div class="panel-header" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
+                <h5 class="mb-0"><i class="bi bi-translate me-2"></i>Übersetzung</h5>
+                <button class="btn btn-sm btn-light" id="closeTranslationPanel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="panel-body" id="translationPanelBody">
+                <!-- Original Text (editable) -->
+                <div class="translation-original-section mb-3">
+                    <label class="form-label small text-muted mb-1">
+                        <i class="bi bi-pencil me-1"></i>Originaltext (editierbar)
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="translationOriginalInput" placeholder="Text eingeben...">
+                        <button class="btn btn-outline-secondary" id="speakOriginalBtn" title="Vorlesen">
+                            <i class="bi bi-volume-up"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="translationLoading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2 mb-0">Übersetze...</p>
+                </div>
+                
+                <!-- Translation Result -->
+                <div id="translationResult" style="display: none;">
+                    <!-- Main Translation -->
+                    <div class="translation-main-card mb-3 p-3 rounded" style="background: linear-gradient(135deg, #dbeafe, #eff6ff); border: 1px solid #93c5fd;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-primary" id="translationWordType">-</span>
+                            <span class="badge bg-secondary" id="translationDifficulty">-</span>
+                        </div>
+                        <h4 class="mb-1" id="translationMainText" style="color: #1e40af;"></h4>
+                        <small class="text-muted" id="translationPronunciation"></small>
+                        <button class="btn btn-sm btn-outline-primary mt-2" id="speakTranslationBtn">
+                            <i class="bi bi-volume-up me-1"></i>Anhören
+                        </button>
+                    </div>
+                    
+                    <!-- Examples -->
+                    <div class="translation-section mb-3" id="translationExamplesSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-chat-quote me-1"></i>Beispiele</h6>
+                        <ul class="list-unstyled mb-0" id="translationExamples"></ul>
+                    </div>
+                    
+                    <!-- Synonyms -->
+                    <div class="translation-section mb-3" id="translationSynonymsSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-arrow-repeat me-1"></i>Synonyme</h6>
+                        <div id="translationSynonyms"></div>
+                    </div>
+                    
+                    <!-- Antonyms -->
+                    <div class="translation-section mb-3" id="translationAntonymsSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-arrows-expand me-1"></i>Antonyme</h6>
+                        <div id="translationAntonyms"></div>
+                    </div>
+                    
+                    <!-- Context Note -->
+                    <div class="translation-section mb-3" id="translationContextSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Hinweis</h6>
+                        <p class="mb-0 small" id="translationContextNote" style="color: #4b5563;"></p>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="translation-actions border-top pt-3 mt-auto">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-grow-1" id="retranslateDetailedBtn">
+                            <i class="bi bi-translate me-1"></i>Übersetzen
+                        </button>
+                        <button class="btn btn-success" id="saveTranslationBtn" title="Als Vokabel speichern">
+                            <i class="bi bi-bookmark-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
 </div>
-
-<!-- Floating Toolbar - Vertical Left -->
-<div class="pdf-toolbar">
-    <button class="btn btn-outline-secondary" id="prevPage" title="Vorherige Seite">
-        <i class="bi bi-chevron-up"></i>
-    </button>
-    <span class="page-info">
-        <span id="currentPage">1</span>/<span id="totalPages">-</span>
-    </span>
-    <button class="btn btn-outline-secondary" id="nextPage" title="Nächste Seite">
-        <i class="bi bi-chevron-down"></i>
-    </button>
-
-    <div class="divider"></div>
-
-    <button class="btn btn-outline-secondary" id="zoomOut" title="Verkleinern">
-        <i class="bi bi-zoom-out"></i>
-    </button>
-    <input type="text" class="zoom-input" id="zoomLevel" value="100%" title="Zoom eingeben (z.B. 150)">
-    <button class="btn btn-outline-secondary" id="zoomIn" title="Vergrößern">
-        <i class="bi bi-zoom-in"></i>
-    </button>
-
-    <div class="divider"></div>
-
-    <button class="btn btn-outline-dark" id="toggleFullscreen" title="Vollbild">
-        <i class="bi bi-fullscreen"></i>
-    </button>
-    <button class="btn btn-outline-primary" id="toggleNotes" title="Notizen">
-        <i class="bi bi-sticky"></i>
-    </button>
-    <button class="btn btn-outline-warning" id="toggleMarkerMode" title="Notiz-Marker setzen">
-        <i class="bi bi-pin-map"></i>
-    </button>
-    <button class="btn btn-info" id="toggleSelectMode" title="Rechteck-Auswahl (Bereich markieren)">
-        <i class="bi bi-bounding-box"></i>
-    </button>
-
-    <div class="divider"></div>
-
-    <button class="btn btn-outline-warning" id="toggleReadingList" title="Leseliste">
-        <i class="bi bi-list-check"></i>
-    </button>
-</div>
+<!-- END 3-COLUMN GRID -->
 
 <!-- Selection Rectangle (drawn directly on PDF container) -->
 <div id="selectionRect" class="selection-rect"></div>
@@ -631,6 +1263,8 @@
     </div>
 </div>
 
+<!-- Old Summary Panel removed - now part of grid layout -->
+
 <!-- Translation Popup (hidden by default) -->
 <div class="translation-popup d-none" id="translationPopup">
     <div class="mb-2">
@@ -674,46 +1308,8 @@
     </button>
 </div>
 
-<!-- Explanation Popup (Draggable & Expandable) -->
-<div class="explanation-popup d-none" id="explanationPopup">
-    <div class="explanation-popup-header" id="explanationPopupHeader">
-        <span><i class="bi bi-lightbulb me-2 text-success"></i>Erklärung</span>
-        <div class="explanation-popup-controls">
-            <button class="btn-popup-control" id="toggleFullscreenBtn" title="Vollbild">
-                <i class="bi bi-arrows-fullscreen"></i>
-            </button>
-            <button class="btn-popup-control" id="closeExplanationPopup" title="Schließen">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-    </div>
-    <div class="explanation-popup-body">
-        <div class="explanation-selected-text-container">
-            <small class="text-muted">Ausgewählter Text:</small>
-            <div class="explanation-selected-text" id="explanationSelectedText"></div>
-        </div>
-
-        <!-- Single Chat Container -->
-        <div class="explanation-chat-container" id="explanationChatContainer">
-            <!-- All messages (initial explanation + follow-ups) go here -->
-        </div>
-
-        <!-- Input Section -->
-        <div class="explanation-input-section">
-            <div class="explanation-input-container">
-                <input type="text" class="form-control" id="followupQuestion" placeholder="Weitere Frage stellen..." />
-                <button class="btn btn-success" id="askFollowupBtn" title="Fragen">
-                    <i class="bi bi-send"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-    <div class="explanation-popup-footer">
-        <small class="text-muted" id="autoSaveHint" style="display: none;">
-            <i class="bi bi-check-circle text-success"></i> Automatisch gespeichert
-        </small>
-    </div>
-</div>
+<!-- Dummy element for backward compatibility with old JS references -->
+<div id="explanationPopup" class="d-none" style="display:none !important;"></div>
 
 <!-- Modern Confirmation Modal -->
 <div class="confirm-modal-backdrop" id="confirmModal">
@@ -748,6 +1344,7 @@ let highlights = {{ highlights_json|safe }};
 let explanations = {{ explanations_json|safe }};
 let isRendering = false;
 let renderQueue = [];
+let userHasZoomed = false; // Track if user manually zoomed
 
 // Initialize PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -847,6 +1444,7 @@ async function loadPDF() {
             url: pdfUrl,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
             cMapPacked: true,
+            withCredentials: true,  // Send session cookies with request
         });
 
         loadingTask.onProgress = function(progress) {
@@ -860,8 +1458,19 @@ async function loadPDF() {
         totalPages = pdfDoc.numPages;
         document.getElementById('totalPages').textContent = totalPages;
 
-        // Calculate optimal scale to fit width
-        await calculateOptimalScale();
+        // Check if user has a custom zoom saved (not the default 1.75)
+        const savedZoom = {{ progress.zoom_level }};
+        const isDefaultZoom = Math.abs(savedZoom - 1.75) < 0.01;
+        
+        if (isDefaultZoom) {
+            // First time or default: calculate optimal fit-to-width
+            await calculateOptimalScale();
+        } else {
+            // User has custom zoom saved: use it and mark as manually zoomed
+            scale = savedZoom;
+            userHasZoomed = true;
+            document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
+        }
 
         await renderAllPages();
         hideLoading();
@@ -890,26 +1499,32 @@ async function calculateOptimalScale() {
         const firstPage = await pdfDoc.getPage(1);
         const defaultViewport = firstPage.getViewport({ scale: 1.0 });
 
-        // Get available width: window minus padding (75px left + 60px right) and scrollbar
-        const availableWidth = window.innerWidth - 75 - 60 - 17;
+        // PDF-Spalte direkt messen (Grid macht das Layout automatisch)
+        const pdfColumn = document.getElementById('pdfCanvasContainer');
+        const columnWidth = pdfColumn.clientWidth;
+        
+        // Verfügbare Breite = Spaltenbreite minus Padding (40px total)
+        const availableWidth = columnWidth - 40;
 
-        // DEBUG - remove after testing
-        console.log('DEBUG:', {availableWidth, pdfWidth: defaultViewport.width, windowWidth: window.innerWidth});
+        console.log('calculateOptimalScale:', {
+            columnWidth,
+            availableWidth, 
+            pdfNaturalWidth: defaultViewport.width
+        });
 
         // Calculate scale to fit width
         const optimalScale = availableWidth / defaultViewport.width;
 
-        // Use exact scale (no rounding) for maximum width, clamp between 0.5 and 4
+        // Clamp between 0.5 and 4
         scale = Math.min(4, Math.max(0.5, optimalScale));
 
         // Update zoom display
         document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
 
-        console.log('Optimal scale calculated:', scale, '(' + Math.round(scale * 100) + '%)');
+        console.log('Scale set to:', Math.round(scale * 100) + '%');
     } catch (error) {
         console.error('Error calculating optimal scale:', error);
-        // Fallback to default scale
-        scale = 1.5;
+        scale = 1.75;
     }
 }
 
@@ -1060,6 +1675,7 @@ const zoomInput = document.getElementById('zoomLevel');
 function handleZoom(newScale) {
     scale = Math.min(4, Math.max(0.25, newScale)); // Clamp between 25% and 400%
     zoomInput.value = Math.round(scale * 100) + '%';
+    userHasZoomed = true; // User manually changed zoom
 
     // Debounce re-render
     if (zoomTimeout) clearTimeout(zoomTimeout);
@@ -1532,11 +2148,95 @@ const translationDiv = document.getElementById('popupTranslation');
 const explanationSelectedText = document.getElementById('explanationSelectedText');
 const explanationChatContainer = document.getElementById('explanationChatContainer');
 let selectedText = '';
-let selectionPosition = {};
+let selectionPosition = { x: window.innerWidth / 2, y: 100 };
 let currentTranslation = '';
 let currentExplanation = '';
 let contextBefore = '';
 let contextAfter = '';
+let selectionTimeout = null;
+let lastTouchPosition = { x: 0, y: 0 };
+
+// Track touch position for popup placement
+document.addEventListener('touchstart', (e) => {
+    if (e.touches[0]) {
+        lastTouchPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+    if (e.touches[0]) {
+        lastTouchPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+}, { passive: true });
+
+// Detect touch device
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+// Universal selection change handler - works on all devices
+document.addEventListener('selectionchange', () => {
+    // Clear any pending timeout
+    if (selectionTimeout) {
+        clearTimeout(selectionTimeout);
+    }
+    
+    // Longer delay on touch devices to let native menu appear first
+    const delay = isTouchDevice ? 600 : 300;
+    
+    // Debounce to wait for selection to stabilize
+    selectionTimeout = setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
+        
+        if (text.length > 0 && text.length < 1000) {
+            // Check if selection is within PDF container
+            const pdfContainer = document.getElementById('pdfCanvasContainer');
+            if (selection.anchorNode && pdfContainer.contains(selection.anchorNode)) {
+                selectedText = text;
+                
+                // Get selection rectangle for positioning
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                
+                // Use selection rect, fallback to last touch position
+                let posX, posY, rectBottom;
+                if (rect.width > 0) {
+                    posX = rect.left + rect.width / 2;
+                    posY = rect.top;
+                    rectBottom = rect.bottom;
+                } else {
+                    posX = lastTouchPosition.x;
+                    posY = lastTouchPosition.y;
+                    rectBottom = lastTouchPosition.y + 20;
+                }
+                
+                selectionPosition = { x: posX, y: posY };
+                
+                // Get surrounding context
+                const ctx = getSelectionContext();
+                contextBefore = ctx.before;
+                contextAfter = ctx.after;
+                
+                // Position buttons
+                if (isTouchDevice) {
+                    // Touch devices: CSS handles fixed bottom-center position
+                    // Just clear any inline styles and show
+                    actionButtons.style.left = '';
+                    actionButtons.style.top = '';
+                    actionButtons.style.transform = '';
+                } else {
+                    // Desktop: position near selection
+                    const btnX = Math.min(posX - 100, window.innerWidth - 250);
+                    const btnY = Math.max(posY - 60, 10);
+                    actionButtons.style.left = Math.max(10, btnX) + 'px';
+                    actionButtons.style.top = btnY + 'px';
+                }
+                
+                actionButtons.classList.remove('d-none');
+                console.log('LernLoom buttons shown, touch:', isTouchDevice);
+            }
+        }
+    }, delay);
+});
 
 // Get surrounding context from selection
 function getSelectionContext() {
@@ -1569,12 +2269,19 @@ function getSelectionContext() {
     return { before: '', after: '' };
 }
 
-// Hide action buttons on click elsewhere
+// Hide action buttons on click/touch elsewhere
 document.addEventListener('mousedown', (e) => {
     if (!actionButtons.contains(e.target) && !translationPopup.contains(e.target) && !explanationPopup.contains(e.target)) {
-        // Don't hide immediately - wait to see if it's a selection
+        actionButtons.classList.add('d-none');
     }
 });
+
+document.addEventListener('touchstart', (e) => {
+    if (!actionButtons.contains(e.target) && !translationPopup.contains(e.target) && !explanationPopup.contains(e.target)) {
+        // Hide buttons when starting a new touch (but selectionchange will show them again if selecting)
+        actionButtons.classList.add('d-none');
+    }
+}, { passive: true });
 
 document.addEventListener('mouseup', (e) => {
     // Ignore clicks inside popups or action buttons
@@ -1607,55 +2314,302 @@ document.addEventListener('mouseup', (e) => {
     }, 10);
 });
 
-// Translate Button Click - Open translation popup
-translateBtn.addEventListener('click', () => {
-    actionButtons.classList.add('d-none');
-    explanationPopup.classList.add('d-none');
+// Touch support for tablets - handle text selection on touch devices
+document.addEventListener('touchend', (e) => {
+    // Ignore touches inside popups or action buttons
+    if (translationPopup.contains(e.target) || explanationPopup.contains(e.target) ||
+        actionButtons.contains(e.target)) return;
 
-    // Position popup
-    const popupX = Math.min(selectionPosition.x, window.innerWidth - 320);
-    const popupY = Math.min(selectionPosition.y, window.innerHeight - 250);
-    translationPopup.style.left = popupX + 'px';
-    translationPopup.style.top = popupY + 'px';
-    translationPopup.classList.remove('d-none');
+    // Get touch position from the last touch point
+    const touch = e.changedTouches[0];
+    if (!touch) return;
 
-    // Set input value and reset translation
-    originalInput.value = selectedText;
-    translationDiv.innerHTML = '<span class="text-muted">Klicke auf "Übersetzen"</span>';
-    currentTranslation = '';
+    // Longer delay for touch - selection needs time to complete
+    setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
 
-    // Focus input for easy editing
-    originalInput.focus();
-    originalInput.select();
+        if (text.length > 0 && text.length < 1000) {
+            selectedText = text;
+            selectionPosition = { x: touch.clientX, y: touch.clientY };
+
+            // Get surrounding context
+            const ctx = getSelectionContext();
+            contextBefore = ctx.before;
+            contextAfter = ctx.after;
+
+            // Show action buttons near the selection
+            const btnX = Math.min(touch.clientX, window.innerWidth - 250);
+            const btnY = Math.max(touch.clientY - 70, 10); // More offset on touch for finger
+            actionButtons.style.left = btnX + 'px';
+            actionButtons.style.top = btnY + 'px';
+            actionButtons.classList.remove('d-none');
+        } else {
+            actionButtons.classList.add('d-none');
+        }
+    }, 150); // Longer delay for touch selection to complete
 });
 
-// Explain Button Click - Open explanation popup and fetch immediately
+// Translate Button Click - Open translation panel (new style like explanation)
+translateBtn.addEventListener('click', () => {
+    actionButtons.classList.add('d-none');
+    translationPopup.classList.add('d-none');
+
+    // Show translation view, hide other views
+    document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'flex';
+
+    // Open the panel overlay
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
+
+    // Set input value
+    document.getElementById('translationOriginalInput').value = selectedText;
+    
+    // Reset result display
+    document.getElementById('translationResult').style.display = 'none';
+    document.getElementById('translationLoading').style.display = 'none';
+
+    // Focus input
+    document.getElementById('translationOriginalInput').focus();
+    document.getElementById('translationOriginalInput').select();
+    
+    // Auto-translate immediately
+    fetchDetailedTranslation(selectedText);
+});
+
+// Close translation panel
+document.getElementById('closeTranslationPanel').addEventListener('click', () => {
+    document.getElementById('rightPanelColumn').classList.remove('open');
+    document.getElementById('translationView').style.display = 'none';
+    document.getElementById('summaryView').style.display = 'flex';
+});
+
+// Retranslate button
+document.getElementById('retranslateDetailedBtn').addEventListener('click', () => {
+    const text = document.getElementById('translationOriginalInput').value.trim();
+    if (text) {
+        fetchDetailedTranslation(text);
+    }
+});
+
+// Enter key in translation input
+document.getElementById('translationOriginalInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const text = e.target.value.trim();
+        if (text) {
+            fetchDetailedTranslation(text);
+        }
+    }
+});
+
+// Fetch detailed translation
+async function fetchDetailedTranslation(text) {
+    if (!text) return;
+    
+    // Show loading
+    document.getElementById('translationLoading').style.display = 'block';
+    document.getElementById('translationResult').style.display = 'none';
+    
+    try {
+        const response = await fetch('/learnloom/api/translate-detailed/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                text: text,
+                source_lang: 'en',
+                target_lang: 'de',
+                provider: 'openai'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            displayDetailedTranslation(result.data, text);
+            currentTranslation = result.data.translation;
+        } else {
+            document.getElementById('translationLoading').style.display = 'none';
+            alert('Übersetzungsfehler: ' + result.error);
+        }
+    } catch (error) {
+        document.getElementById('translationLoading').style.display = 'none';
+        alert('Fehler: ' + error.message);
+    }
+}
+
+// Display detailed translation result
+function displayDetailedTranslation(data, originalText) {
+    document.getElementById('translationLoading').style.display = 'none';
+    document.getElementById('translationResult').style.display = 'block';
+    
+    // Main translation
+    document.getElementById('translationMainText').textContent = data.translation || '-';
+    document.getElementById('translationWordType').textContent = data.word_type || 'Wort';
+    document.getElementById('translationDifficulty').textContent = data.difficulty || '-';
+    document.getElementById('translationPronunciation').textContent = data.pronunciation ? `/${data.pronunciation}/` : '';
+    
+    // Examples
+    const examplesSection = document.getElementById('translationExamplesSection');
+    const examplesList = document.getElementById('translationExamples');
+    if (data.examples && data.examples.length > 0) {
+        examplesSection.style.display = 'block';
+        examplesList.innerHTML = data.examples.map(ex => 
+            `<li class="mb-2 p-2 rounded" style="background: #f8fafc; border-left: 3px solid #3b82f6;">
+                <small>${ex}</small>
+            </li>`
+        ).join('');
+    } else {
+        examplesSection.style.display = 'none';
+    }
+    
+    // Synonyms
+    const synonymsSection = document.getElementById('translationSynonymsSection');
+    const synonymsDiv = document.getElementById('translationSynonyms');
+    if (data.synonyms && data.synonyms.length > 0) {
+        synonymsSection.style.display = 'block';
+        synonymsDiv.innerHTML = data.synonyms.map(s => 
+            `<span class="badge bg-light text-dark border me-1 mb-1">${s}</span>`
+        ).join('');
+    } else {
+        synonymsSection.style.display = 'none';
+    }
+    
+    // Antonyms
+    const antonymsSection = document.getElementById('translationAntonymsSection');
+    const antonymsDiv = document.getElementById('translationAntonyms');
+    if (data.antonyms && data.antonyms.length > 0) {
+        antonymsSection.style.display = 'block';
+        antonymsDiv.innerHTML = data.antonyms.map(a => 
+            `<span class="badge bg-light text-dark border me-1 mb-1">${a}</span>`
+        ).join('');
+    } else {
+        antonymsSection.style.display = 'none';
+    }
+    
+    // Context note
+    const contextSection = document.getElementById('translationContextSection');
+    const contextNote = document.getElementById('translationContextNote');
+    if (data.context_note) {
+        contextSection.style.display = 'block';
+        contextNote.textContent = data.context_note;
+    } else {
+        contextSection.style.display = 'none';
+    }
+}
+
+// Speak original text (English)
+document.getElementById('speakOriginalBtn').addEventListener('click', () => {
+    const text = document.getElementById('translationOriginalInput').value;
+    if (text && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        speechSynthesis.speak(utterance);
+    }
+});
+
+// Speak translation (German)
+document.getElementById('speakTranslationBtn').addEventListener('click', () => {
+    const text = document.getElementById('translationMainText').textContent;
+    if (text && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'de-DE';
+        speechSynthesis.speak(utterance);
+    }
+});
+
+// Save translation as vocabulary
+document.getElementById('saveTranslationBtn').addEventListener('click', async () => {
+    const original = document.getElementById('translationOriginalInput').value.trim();
+    const translation = document.getElementById('translationMainText').textContent.trim();
+    
+    if (!original || !translation || translation === '-') {
+        alert('Bitte erst übersetzen');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/learnloom/api/highlights/${bookId}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                original_text: original,
+                translated_text: translation,
+                page_number: currentPage,
+                position_data: {},
+                add_to_vocabulary: true
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Visual feedback
+            const btn = document.getElementById('saveTranslationBtn');
+            btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+            btn.classList.replace('btn-success', 'btn-outline-success');
+            setTimeout(() => {
+                btn.innerHTML = '<i class="bi bi-bookmark-plus"></i>';
+                btn.classList.replace('btn-outline-success', 'btn-success');
+            }, 2000);
+            
+            // Add highlight to local array and render
+            highlights.push({
+                id: data.highlight.id,
+                original_text: original,
+                translated_text: translation,
+                page_number: currentPage,
+                type: 'translation'
+            });
+            renderAllHighlights();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Speicherfehler: ' + error.message);
+    }
+});
+
+// Explain Button Click - Open right panel with explanation view
 explainBtn.addEventListener('click', () => {
     actionButtons.classList.add('d-none');
     translationPopup.classList.add('d-none');
 
-    // Reset fullscreen state
-    explanationPopup.classList.remove('fullscreen');
-    const fullscreenIcon = document.querySelector('#toggleFullscreenBtn i');
-    if (fullscreenIcon) fullscreenIcon.className = 'bi bi-arrows-fullscreen';
+    // Show explanation view, hide other views
+    document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
+    document.getElementById('explanationView').style.display = 'flex';
 
-    // Position popup
-    const popupX = Math.min(selectionPosition.x, window.innerWidth - 440);
-    const popupY = Math.min(selectionPosition.y, window.innerHeight - 400);
-    explanationPopup.style.left = Math.max(10, popupX) + 'px';
-    explanationPopup.style.top = Math.max(10, popupY) + 'px';
-    explanationPopup.classList.remove('d-none');
+    // Open the panel overlay
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
 
     // Set selected text
     explanationSelectedText.textContent = selectedText;
-    document.getElementById('autoSaveHint').style.display = 'none';
 
-    // Clear follow-up input
+    // Clear follow-up input and chat
     const followupInp = document.getElementById('followupQuestion');
     if (followupInp) followupInp.value = '';
 
     // Immediately fetch explanation
     fetchExplanation(selectedText);
+});
+
+// Close explanation panel
+document.getElementById('closeExplanationPanel').addEventListener('click', () => {
+    // Close the panel overlay
+    document.getElementById('rightPanelColumn').classList.remove('open');
+    // Switch back to summary view for next time
+    document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
+    document.getElementById('summaryView').style.display = 'flex';
 });
 
 // Translate function
@@ -1720,46 +2674,10 @@ document.getElementById('closePopup').addEventListener('click', () => {
 const followupInput = document.getElementById('followupQuestion');
 let conversationHistory = []; // Store conversation for context
 
-// Make popup draggable
+// Old draggable popup code removed - explanation is now in right panel
+// Keeping variables for backward compatibility with other code
 let isDragging = false;
 let dragStartX, dragStartY, popupStartX, popupStartY;
-
-const explanationHeader = document.getElementById('explanationPopupHeader');
-
-explanationHeader.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.btn-popup-control')) return; // Don't drag when clicking buttons
-    isDragging = true;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    const rect = explanationPopup.getBoundingClientRect();
-    popupStartX = rect.left;
-    popupStartY = rect.top;
-    explanationPopup.style.transition = 'none';
-});
-
-document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const deltaX = e.clientX - dragStartX;
-    const deltaY = e.clientY - dragStartY;
-    explanationPopup.style.left = (popupStartX + deltaX) + 'px';
-    explanationPopup.style.top = (popupStartY + deltaY) + 'px';
-});
-
-document.addEventListener('mouseup', () => {
-    isDragging = false;
-    explanationPopup.style.transition = 'all 0.3s ease';
-});
-
-// Fullscreen toggle
-document.getElementById('toggleFullscreenBtn').addEventListener('click', () => {
-    explanationPopup.classList.toggle('fullscreen');
-    const icon = document.querySelector('#toggleFullscreenBtn i');
-    if (explanationPopup.classList.contains('fullscreen')) {
-        icon.className = 'bi bi-fullscreen-exit';
-    } else {
-        icon.className = 'bi bi-arrows-fullscreen';
-    }
-});
 
 // Fetch Explanation (with auto-save)
 async function fetchExplanation(textToExplain) {
@@ -1797,6 +2715,9 @@ async function fetchExplanation(textToExplain) {
             explanationMsg.className = 'chat-message assistant';
             explanationMsg.textContent = data.explanation;
             explanationChatContainer.appendChild(explanationMsg);
+            
+            // Scroll to bottom
+            setTimeout(scrollExplanationToBottom, 100);
 
             // Store initial explanation in conversation
             conversationHistory.push({
@@ -1855,13 +2776,18 @@ async function autoSaveExplanation(textToSave, explanationText) {
             // Render explanation highlights
             renderAllExplanations();
 
-            // Show saved hint
-            document.getElementById('autoSaveHint').style.display = 'inline';
-
             console.log('Erklärung automatisch gespeichert');
         }
     } catch (error) {
         console.error('Fehler beim Auto-Speichern:', error);
+    }
+}
+
+// Helper: scroll explanation panel to bottom
+function scrollExplanationToBottom() {
+    const scrollArea = document.querySelector('#explanationView .explanation-scroll-area');
+    if (scrollArea) {
+        scrollArea.scrollTop = scrollArea.scrollHeight;
     }
 }
 
@@ -1886,35 +2812,32 @@ async function askFollowup() {
     explanationChatContainer.appendChild(loadingMsg);
 
     // Scroll to bottom
-    explanationChatContainer.scrollTop = explanationChatContainer.scrollHeight;
-
-    // Store question in conversation
-    conversationHistory.push({ role: 'user', content: question });
+    scrollExplanationToBottom();
 
     try {
-        // Build conversation context
-        const conversationContext = conversationHistory.map(msg =>
-            `${msg.role === 'user' ? 'Frage' : 'Antwort'}: ${msg.content}`
-        ).join('\n\n');
-
-        const response = await fetch('/learnloom/api/explain/', {
+        // Use dedicated followup endpoint that treats the input as a question
+        // Includes book_id for full PDF context
+        const response = await fetch('/learnloom/api/followup/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({
-                selected_text: question,
-                context_before: `Vorherige Unterhaltung:\n${conversationContext}\n\nUrsprünglicher Text: "${explanationSelectedText.textContent}"`,
-                context_after: contextAfter,
+                question: question,
+                conversation_history: conversationHistory,
+                original_context: explanationSelectedText.textContent,
+                book_id: bookId,
                 provider: 'openai'
             })
         });
 
         const data = await response.json();
         if (data.success) {
-            loadingMsg.textContent = data.explanation;
-            conversationHistory.push({ role: 'assistant', content: data.explanation });
+            loadingMsg.textContent = data.answer;
+            // Update conversation history
+            conversationHistory.push({ role: 'user', content: question });
+            conversationHistory.push({ role: 'assistant', content: data.answer });
         } else {
             loadingMsg.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
         }
@@ -1923,7 +2846,7 @@ async function askFollowup() {
     }
 
     // Scroll to bottom
-    explanationChatContainer.scrollTop = explanationChatContainer.scrollHeight;
+    scrollExplanationToBottom();
 }
 
 document.getElementById('askFollowupBtn').addEventListener('click', askFollowup);
@@ -1936,30 +2859,15 @@ followupInput.addEventListener('keypress', (e) => {
     }
 });
 
-// Close Explanation Popup
-function closeExplanationPopup() {
-    explanationPopup.classList.add('d-none');
-    explanationPopup.classList.remove('fullscreen');
-    document.querySelector('#toggleFullscreenBtn i').className = 'bi bi-arrows-fullscreen';
+// Old popup close code removed - explanation is now in right panel
+// Reset function for explanation state (used when switching views)
+function resetExplanationState() {
     currentExplanation = '';
     conversationHistory = [];
-    explanationChatContainer.innerHTML = '';
-    document.getElementById('autoSaveHint').style.display = 'none';
-}
-
-document.getElementById('closeExplanationPopup').addEventListener('click', closeExplanationPopup);
-
-// Close explanation popup when clicking outside
-document.addEventListener('click', (e) => {
-    if (explanationPopup.classList.contains('d-none')) return;
-
-    // Check if click is outside the popup
-    if (!explanationPopup.contains(e.target) &&
-        !actionButtons.contains(e.target) &&
-        !e.target.closest('#explainBtn')) {
-        closeExplanationPopup();
+    if (explanationChatContainer) {
+        explanationChatContainer.innerHTML = '';
     }
-});
+}
 
 // ============================================
 // Rectangle Selection Mode
@@ -2067,18 +2975,144 @@ document.addEventListener('mouseup', async (e) => {
         exitSelectMode();
 
         if (extractedText && extractedText.trim()) {
+            // Text found - open translation popup
             openTranslationPopup(extractedText, rect.left + rect.width/2, rect.top + rect.height);
         } else {
-            // Show popup with empty input for manual entry
-            openTranslationPopup('', rect.left + rect.width/2, rect.top + rect.height);
-            alert('Kein Text gefunden. Bitte manuell eingeben.');
+            // No text found - capture screenshot and explain image
+            console.log('No text found, capturing image for explanation...');
+            await captureAndExplainImage(rect);
         }
     } catch (error) {
-        console.error('Error extracting text:', error);
+        console.error('Error in selection handler:', error);
         exitSelectMode();
-        alert('Fehler bei der Textextraktion: ' + error.message);
+        alert('Fehler: ' + error.message);
     }
 });
+
+// Capture screenshot of selected area and send to Vision API for explanation
+async function captureAndExplainImage(screenRect) {
+    // Find which page(s) the selection is on
+    const pages = document.querySelectorAll('.pdf-page');
+    let targetPage = null;
+    let pageNum = 1;
+    
+    for (const page of pages) {
+        const pageRect = page.getBoundingClientRect();
+        // Check if selection overlaps with this page
+        if (screenRect.top < pageRect.bottom && screenRect.top + screenRect.height > pageRect.top) {
+            targetPage = page;
+            pageNum = parseInt(page.dataset.page);
+            break;
+        }
+    }
+    
+    if (!targetPage) {
+        alert('Keine Seite gefunden für die Auswahl.');
+        return;
+    }
+    
+    const canvas = targetPage.querySelector('canvas');
+    if (!canvas) {
+        alert('Canvas nicht gefunden.');
+        return;
+    }
+    
+    // Calculate relative position on the canvas
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+    
+    // Selection relative to canvas
+    const relLeft = Math.max(0, (screenRect.left - canvasRect.left) * scaleX);
+    const relTop = Math.max(0, (screenRect.top - canvasRect.top) * scaleY);
+    const relWidth = Math.min(screenRect.width * scaleX, canvas.width - relLeft);
+    const relHeight = Math.min(screenRect.height * scaleY, canvas.height - relTop);
+    
+    console.log('Canvas crop:', { relLeft, relTop, relWidth, relHeight });
+    
+    // Create a temporary canvas to crop the selection
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = relWidth;
+    tempCanvas.height = relHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // Draw the selected portion
+    tempCtx.drawImage(
+        canvas,
+        relLeft, relTop, relWidth, relHeight,  // Source rect
+        0, 0, relWidth, relHeight               // Destination rect
+    );
+    
+    // Convert to base64
+    const imageBase64 = tempCanvas.toDataURL('image/png');
+    console.log('Image captured, size:', imageBase64.length);
+    
+    // Show explanation view in right panel
+    document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
+    document.getElementById('explanationView').style.display = 'flex';
+    
+    // Open panel overlay
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
+    
+    // Set "selected text" to indicate it's an image
+    explanationSelectedText.innerHTML = '<i class="bi bi-image me-2"></i><em>Bild/Grafik aus Seite ' + pageNum + '</em>';
+    
+    // Show loading
+    explanationChatContainer.innerHTML = '<div class="chat-message assistant"><span class="spinner-border spinner-border-sm me-2"></span>Analysiere Bild...</div>';
+    conversationHistory = [];
+    
+    try {
+        const response = await fetch('/learnloom/api/explain-image/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                image: imageBase64,
+                context: `PDF: {{ book.title }} - Seite ${pageNum}`
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Store explanation for follow-up questions
+            currentExplanation = data.explanation;
+            
+            explanationChatContainer.innerHTML = '';
+            const explanationMsg = document.createElement('div');
+            explanationMsg.className = 'chat-message assistant';
+            explanationMsg.textContent = data.explanation;
+            explanationChatContainer.appendChild(explanationMsg);
+            
+            // Store in conversation
+            conversationHistory.push({
+                role: 'user',
+                content: '[Bild aus PDF]'
+            });
+            conversationHistory.push({
+                role: 'assistant',
+                content: data.explanation
+            });
+            
+            // Scroll to bottom
+            setTimeout(scrollExplanationToBottom, 100);
+        } else {
+            currentExplanation = '';
+            explanationChatContainer.innerHTML = `<div class="text-danger text-center py-3">
+                <i class="bi bi-exclamation-triangle me-2"></i>${data.error}
+            </div>`;
+        }
+    } catch (error) {
+        currentExplanation = '';
+        explanationChatContainer.innerHTML = `<div class="text-danger text-center py-3">
+            <i class="bi bi-exclamation-triangle me-2"></i>Fehler: ${error.message}
+        </div>`;
+    }
+}
 
 // Extract text from PDF region - find the SINGLE word closest to selection center
 async function extractTextFromRegion(screenRect) {
@@ -2148,16 +3182,23 @@ async function extractTextFromRegion(screenRect) {
 
 // Open translation popup with text
 function openTranslationPopup(text, x, y) {
-    translationPopup.style.left = Math.min(x, window.innerWidth - 320) + 'px';
-    translationPopup.style.top = Math.min(y + 10, window.innerHeight - 250) + 'px';
-    translationPopup.style.transform = '';
-    translationPopup.classList.remove('d-none');
-
-    originalInput.value = text;
-    translationDiv.innerHTML = '<span class="text-muted">Klicke auf "Übersetzen"</span>';
-    currentTranslation = '';
-    originalInput.focus();
-    originalInput.select();
+    // Now opens the panel instead of the old popup
+    document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'flex';
+    
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
+    
+    document.getElementById('translationOriginalInput').value = text;
+    document.getElementById('translationResult').style.display = 'none';
+    document.getElementById('translationLoading').style.display = 'none';
+    
+    document.getElementById('translationOriginalInput').focus();
+    document.getElementById('translationOriginalInput').select();
+    
+    // Auto-translate
+    fetchDetailedTranslation(text);
 }
 
 // Reset transform when closing popup
@@ -2558,6 +3599,412 @@ document.addEventListener('keydown', (e) => {
         translationPopup.classList.add('d-none');
         translateBtn.classList.add('d-none');
         notesPanel.classList.remove('open');
+    }
+});
+
+// ============================================
+// Summary Panel (3-Column Grid)
+// ============================================
+const pdfViewerGrid = document.getElementById('pdfViewerGrid');
+const pdfCanvasContainer = document.getElementById('pdfCanvasContainer');
+
+document.getElementById('toggleSummaryPanel').addEventListener('click', async () => {
+    // Ensure summary view is visible
+    document.getElementById('summaryView').style.display = 'flex';
+    document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
+    
+    const panelColumn = document.getElementById('rightPanelColumn');
+    const isOpen = panelColumn.classList.toggle('open');
+    if (isOpen) {
+        loadSummary();
+    }
+});
+
+document.getElementById('closeSummaryPanel').addEventListener('click', () => {
+    document.getElementById('rightPanelColumn').classList.remove('open');
+});
+
+// Funktion um PDF für verfügbaren Platz neu zu skalieren
+async function recalculateAndRender(panelWidth, forceRecalculate = false) {
+    if (!pdfDoc) return;
+    
+    // If user manually zoomed and not forcing, don't auto-adjust
+    if (userHasZoomed && !forceRecalculate) {
+        console.log('User has manually zoomed, skipping auto-fit');
+        return;
+    }
+    
+    try {
+        const firstPage = await pdfDoc.getPage(1);
+        const defaultViewport = firstPage.getViewport({ scale: 1.0 });
+        
+        // PDF-Spalte direkt messen (Grid macht das Layout)
+        const pdfColumn = document.getElementById('pdfCanvasContainer');
+        const columnWidth = pdfColumn.clientWidth;
+        
+        // Verfügbare Breite = Spaltenbreite minus Padding (40px total: 20px each side)
+        const availableWidth = columnWidth - 40;
+        
+        console.log('recalculateAndRender:', {
+            columnWidth,
+            availableWidth, 
+            pdfNaturalWidth: defaultViewport.width
+        });
+        
+        // Neue optimale Skalierung
+        const newScale = Math.min(4, Math.max(0.5, availableWidth / defaultViewport.width));
+        
+        scale = newScale;
+        userHasZoomed = false; // Reset nach Panel-Wechsel
+        document.getElementById('zoomLevel').value = Math.round(scale * 100) + '%';
+        
+        // Seiten neu rendern
+        await renderAllPages();
+    } catch (error) {
+        console.error('Error recalculating scale:', error);
+    }
+}
+
+async function loadSummary() {
+    const loading = document.getElementById('summaryLoading');
+    const content = document.getElementById('summaryContent');
+    const empty = document.getElementById('summaryEmpty');
+    
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    
+    try {
+        const response = await fetch(`/learnloom/api/summary/${bookId}/`);
+        const data = await response.json();
+        
+        loading.style.display = 'none';
+        
+        if (data.success && data.has_summary) {
+            content.style.display = 'block';
+            renderSummary(data.summary);
+        } else {
+            empty.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error loading summary:', error);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+    }
+}
+
+function renderSummary(summary) {
+    const content = document.getElementById('summaryContent');
+    
+    // Kurze Zusammenfassung verwenden (eigenes Feld)
+    const shortText = summary.short_summary || 'Keine Kurzzusammenfassung verfügbar.';
+    
+    let html = `
+        <div class="summary-text mb-3">${shortText}</div>
+        <a href="/learnloom/summary/${bookId}/" class="btn btn-outline-primary btn-sm mb-4">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Ausführliche Zusammenfassung
+        </a>
+    `;
+    
+    if (summary.sections && summary.sections.length > 0) {
+        html += '<h6 class="text-muted mb-3"><i class="bi bi-list-columns-reverse me-2"></i>Abschnitte</h6>';
+        summary.sections.forEach((section, index) => {
+            const hasText = section.text && section.text.trim().length > 0;
+            html += `
+                <div class="summary-section" data-section-index="${index}">
+                    <div class="summary-section-header" onclick="scrollToPage(${section.start_page})" style="cursor: pointer;">
+                        <div class="summary-section-title">${section.title}</div>
+                        <div class="summary-section-pages">
+                            <i class="bi bi-file-earmark me-1"></i>
+                            ${section.start_page === section.end_page ? 'Seite ' + section.start_page : 'Seite ' + section.start_page + '-' + section.end_page}
+                        </div>
+                    </div>
+                    <div class="summary-section-text" id="section-text-${index}" style="${hasText ? '' : 'display: none;'}">
+                        ${hasText ? section.text : ''}
+                    </div>
+                    <div class="summary-section-actions mt-2">
+                        <button class="btn btn-sm btn-outline-primary summarize-section-btn" 
+                                data-index="${index}"
+                                data-title="${section.title}"
+                                data-start="${section.start_page}"
+                                data-end="${section.end_page}"
+                                ${hasText ? 'style="display: none;"' : ''}>
+                            <i class="bi bi-magic me-1"></i>Zusammenfassen
+                        </button>
+                        <span class="summarizing-spinner d-none" id="spinner-${index}">
+                            <span class="spinner-border spinner-border-sm me-1"></span>Generiere...
+                        </span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    content.innerHTML = html;
+    
+    // Show PDF Chat UI when summary is loaded
+    showPdfChatUI();
+}
+
+// Generate Summary Button
+const generateBtn = document.getElementById('generateSummaryBtn');
+if (generateBtn) {
+    generateBtn.addEventListener('click', async () => {
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generiere...';
+        
+        try {
+            const response = await fetch(`/learnloom/api/summary/${bookId}/generate/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ provider: 'openai', language: 'de' })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                loadSummary();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (error) {
+            alert('Fehler beim Generieren: ' + error.message);
+        } finally {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-magic me-2"></i>Jetzt generieren';
+        }
+    });
+}
+
+// Section Summarize Buttons (event delegation)
+document.getElementById('summaryContent').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.summarize-section-btn');
+    if (!btn) return;
+    
+    const index = btn.dataset.index;
+    const title = btn.dataset.title;
+    const startPage = parseInt(btn.dataset.start);
+    const endPage = parseInt(btn.dataset.end);
+    
+    const spinner = document.getElementById(`spinner-${index}`);
+    const textDiv = document.getElementById(`section-text-${index}`);
+    
+    // UI: Loading state
+    btn.style.display = 'none';
+    spinner.classList.remove('d-none');
+    
+    try {
+        const response = await fetch(`/learnloom/api/summary/${bookId}/section/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                start_page: startPage,
+                end_page: endPage,
+                title: title,
+                section_index: parseInt(index),
+                provider: 'openai',
+                language: 'de'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            textDiv.textContent = data.summary;
+            textDiv.style.display = 'block';
+            spinner.classList.add('d-none');
+            // Button bleibt versteckt
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.style.display = '';
+            spinner.classList.add('d-none');
+        }
+    } catch (error) {
+        alert('Fehler beim Zusammenfassen: ' + error.message);
+        btn.style.display = '';
+        spinner.classList.add('d-none');
+    }
+});
+
+// Old dock explanation code removed - now using integrated panel layout
+
+// ============================================
+// Reading Status
+// ============================================
+async function setReadingStatus(status) {
+    try {
+        const response = await fetch(`/learnloom/api/pdf/${bookId}/reading-status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ status: status })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            const btn = document.getElementById('readingStatusBtn');
+            const dropdownItems = document.querySelectorAll('.reading-status-dropdown .dropdown-item');
+            
+            // Update button appearance
+            btn.className = 'btn btn-sm dropdown-toggle';
+            if (status === 'unread') {
+                btn.classList.add('btn-secondary');
+                btn.innerHTML = '<i class="bi bi-bookmark"></i>';
+            } else if (status === 'reading') {
+                btn.classList.add('btn-warning');
+                btn.innerHTML = '<i class="bi bi-bookmark-star-fill"></i>';
+            } else if (status === 'completed') {
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<i class="bi bi-bookmark-check-fill"></i>';
+            }
+            
+            // Update active state in dropdown
+            dropdownItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.textContent.includes('Noch nicht') && status === 'unread') item.classList.add('active');
+                if (item.textContent.includes('Gerade') && status === 'reading') item.classList.add('active');
+                if (item.textContent.includes('Bereits') && status === 'completed') item.classList.add('active');
+            });
+        }
+    } catch (error) {
+        console.error('Error updating reading status:', error);
+    }
+}
+
+// ============================================
+// Toolbar Toggle
+// ============================================
+const toolbarToggle = document.getElementById('toolbarToggle');
+const toolbarColumn = document.getElementById('toolbarColumn');
+
+toolbarToggle.addEventListener('click', () => {
+    const icon = toolbarToggle.querySelector('i');
+    toolbarColumn.classList.toggle('collapsed');
+    icon.className = toolbarColumn.classList.contains('collapsed') ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
+});
+
+// ============================================
+// PDF Chat Feature
+// ============================================
+let pdfChatHistory = []; // Store conversation history
+
+function showPdfChatUI() {
+    const chatContainer = document.getElementById('pdfChatContainer');
+    const inputSection = document.getElementById('pdfChatInputSection');
+    
+    if (chatContainer && inputSection) {
+        chatContainer.style.display = 'block';
+        inputSection.style.display = 'block';
+    }
+}
+
+function hidePdfChatUI() {
+    const chatContainer = document.getElementById('pdfChatContainer');
+    const inputSection = document.getElementById('pdfChatInputSection');
+    
+    if (chatContainer && inputSection) {
+        chatContainer.style.display = 'none';
+        inputSection.style.display = 'none';
+    }
+}
+
+function scrollSummaryToBottom() {
+    const scrollArea = document.getElementById('summaryScrollArea');
+    if (scrollArea) {
+        scrollArea.scrollTop = scrollArea.scrollHeight;
+    }
+}
+
+async function sendPdfChatMessage() {
+    const input = document.getElementById('pdfChatQuestion');
+    const messagesContainer = document.getElementById('pdfChatMessages');
+    const sendBtn = document.getElementById('pdfChatSendBtn');
+    
+    const question = input.value.trim();
+    if (!question) return;
+    
+    // Disable input while processing
+    input.disabled = true;
+    sendBtn.disabled = true;
+    
+    // Add user message to chat
+    const userMsg = document.createElement('div');
+    userMsg.className = 'chat-message user';
+    userMsg.textContent = question;
+    messagesContainer.appendChild(userMsg);
+    
+    // Clear input
+    input.value = '';
+    
+    // Add loading message
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'chat-message assistant';
+    loadingMsg.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Denke nach...';
+    messagesContainer.appendChild(loadingMsg);
+    
+    // Scroll to bottom
+    scrollSummaryToBottom();
+    
+    try {
+        const response = await fetch(`/learnloom/api/pdf/${bookId}/chat/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                question: question,
+                conversation_history: pdfChatHistory,
+                provider: 'openai'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update loading message with actual answer
+            loadingMsg.textContent = data.answer;
+            
+            // Store in conversation history
+            pdfChatHistory.push({ role: 'user', content: question });
+            pdfChatHistory.push({ role: 'assistant', content: data.answer });
+            
+            // Keep only last 10 messages in history
+            if (pdfChatHistory.length > 20) {
+                pdfChatHistory = pdfChatHistory.slice(-20);
+            }
+        } else {
+            loadingMsg.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${data.error}</span>`;
+        }
+    } catch (error) {
+        loadingMsg.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Fehler: ${error.message}</span>`;
+    } finally {
+        // Re-enable input
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+        
+        // Scroll to bottom
+        scrollSummaryToBottom();
+    }
+}
+
+// Event listeners for PDF Chat
+document.getElementById('pdfChatSendBtn').addEventListener('click', sendPdfChatMessage);
+
+document.getElementById('pdfChatQuestion').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        sendPdfChatMessage();
     }
 });
 

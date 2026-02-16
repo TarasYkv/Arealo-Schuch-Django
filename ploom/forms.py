@@ -39,8 +39,8 @@ class PLoomSettingsForm(forms.ModelForm):
                 ('claude-3-5-haiku-20241022', 'Claude 3.5 Haiku'),
                 ('claude-3-opus-20240229', 'Claude 3 Opus'),
                 # Google Gemini Modelle
-                ('gemini-2.0-flash-exp', 'Gemini 2.0 Flash (Neu)'),
-                ('gemini-2.0-flash-thinking-exp', 'Gemini 2.0 Flash Thinking'),
+                ('gemini-2.0-flash', 'Gemini 2.0 Flash'),
+                ('gemini-2.0-flash-lite', 'Gemini 2.0 Flash Lite'),
                 ('gemini-1.5-pro', 'Gemini 1.5 Pro'),
                 ('gemini-1.5-flash', 'Gemini 1.5 Flash'),
                 ('gemini-1.5-flash-8b', 'Gemini 1.5 Flash 8B'),

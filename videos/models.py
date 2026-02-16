@@ -242,6 +242,33 @@ class Video(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Subtitles (auto-generated via Whisper)
+    SUBTITLE_STATUS_CHOICES = [
+        ('none', 'Keine'),
+        ('pending', 'Wird erstellt...'),
+        ('ready', 'Verfügbar'),
+        ('failed', 'Fehlgeschlagen'),
+    ]
+    subtitle_file = models.FileField(
+        upload_to='videos/subtitles/',
+        blank=True,
+        null=True,
+        help_text="WebVTT Untertitel-Datei"
+    )
+    subtitle_words_json = models.FileField(
+        upload_to='videos/subtitles/',
+        blank=True,
+        null=True,
+        help_text="JSON mit Wort-Zeitstempeln für Karaoke-Modus"
+    )
+    subtitle_status = models.CharField(
+        max_length=20, 
+        choices=SUBTITLE_STATUS_CHOICES, 
+        default='none'
+    )
+    subtitle_language = models.CharField(max_length=10, default='de', blank=True)
+    transcript = models.TextField(blank=True, help_text="Vollständiges Transkript")
+
     # Social Media Posting
     social_platforms_posted = models.TextField(blank=True, help_text="Komma-getrennte Liste der Plattformen")
     social_posted_at = models.DateTimeField(null=True, blank=True)

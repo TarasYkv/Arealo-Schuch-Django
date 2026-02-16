@@ -249,6 +249,99 @@ def save_audio_recording(request):
 @login_required
 @csrf_exempt
 @require_http_methods(["POST"])
+def generate_subtitles(request):
+    """
+    Generate subtitles for an existing video using Whisper API
+    """
+    try:
+        data = json.loads(request.body)
+        video_id = data.get('video_id')
+        language = data.get('language', 'de')
+
+        if not video_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Video-ID angegeben'
+            }, status=400)
+
+        # Import here to avoid circular imports
+        from videos.models import Video
+        from streamrec.subtitle_service import create_subtitles_for_video
+        from django.core.files.base import ContentFile
+        import uuid
+
+        try:
+            video = Video.objects.get(id=video_id, user=request.user)
+        except Video.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Video nicht gefunden'
+            }, status=404)
+
+        # Mark as pending
+        video.subtitle_status = 'pending'
+        video.subtitle_language = language
+        video.save()
+
+        # Get video file path
+        video_path = video.video_file.path
+
+        # Generate subtitles
+        vtt_filename = f"subtitles_{uuid.uuid4()}.vtt"
+        vtt_path = os.path.join(settings.MEDIA_ROOT, 'videos', 'subtitles', vtt_filename)
+        os.makedirs(os.path.dirname(vtt_path), exist_ok=True)
+
+        result = create_subtitles_for_video(video_path, vtt_path, language, user=request.user)
+
+        if result['success']:
+            # Read the VTT file and save to model
+            with open(vtt_path, 'r', encoding='utf-8') as f:
+                vtt_content = f.read()
+
+            video.subtitle_file.save(vtt_filename, ContentFile(vtt_content.encode('utf-8')), save=False)
+            
+            # Check if word-level JSON was generated (for karaoke mode)
+            json_path = vtt_path.replace('.vtt', '_words.json')
+            if os.path.exists(json_path):
+                json_filename = vtt_filename.replace('.vtt', '_words.json')
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    json_content = f.read()
+                video.subtitle_words_json.save(json_filename, ContentFile(json_content.encode('utf-8')), save=False)
+                logger.info(f"Word timestamps saved for karaoke mode")
+            
+            video.subtitle_status = 'ready'
+            video.transcript = result.get('transcript', '')
+            video.save()
+
+            logger.info(f"Subtitles generated for video {video_id}")
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Untertitel erfolgreich erstellt',
+                'transcript': result.get('transcript', ''),
+                'segments': result.get('segments', 0),
+                'subtitle_url': video.subtitle_file.url if video.subtitle_file else None,
+                'has_karaoke': video.subtitle_words_json.name is not None and video.subtitle_words_json.name != ''
+            })
+        else:
+            video.subtitle_status = 'failed'
+            video.save()
+            return JsonResponse({
+                'success': False,
+                'error': result.get('message', 'Untertitel-Erstellung fehlgeschlagen')
+            }, status=500)
+
+    except Exception as e:
+        logger.exception(f"Subtitle generation error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
 def save_video_recording(request):
     """
     Save video recording to server and create Video object in database
@@ -317,14 +410,59 @@ def save_video_recording(request):
 
         logger.info(f"Video recording saved: {video.video_file.path} ({file_size} bytes) - Video ID: {video.id}")
 
-        return JsonResponse({
+        response_data = {
             'success': True,
             'message': 'Video-Aufnahme erfolgreich gespeichert',
             'filename': filename,
             'file_size': file_size,
             'video_id': video.id,
             'video_url': video.get_absolute_url()
-        })
+        }
+
+        # Optional: Generate subtitles if requested
+        generate_subs = data.get('generate_subtitles', False)
+        if generate_subs:
+            try:
+                from streamrec.subtitle_service import create_subtitles_for_video
+                import uuid as uuid_module
+                
+                video.subtitle_status = 'pending'
+                video.save()
+                
+                vtt_filename = f"subtitles_{uuid_module.uuid4()}.vtt"
+                vtt_path = os.path.join(settings.MEDIA_ROOT, 'videos', 'subtitles', vtt_filename)
+                os.makedirs(os.path.dirname(vtt_path), exist_ok=True)
+                
+                result = create_subtitles_for_video(video.video_file.path, vtt_path, 'de', user=request.user)
+                
+                if result['success']:
+                    with open(vtt_path, 'r', encoding='utf-8') as f:
+                        vtt_content = f.read()
+                    video.subtitle_file.save(vtt_filename, ContentFile(vtt_content.encode('utf-8')), save=False)
+                    video.subtitle_status = 'ready'
+                    video.transcript = result.get('transcript', '')
+                    video.save()
+                    response_data['subtitles'] = {
+                        'status': 'ready',
+                        'transcript': result.get('transcript', '')[:500]
+                    }
+                else:
+                    video.subtitle_status = 'failed'
+                    video.save()
+                    response_data['subtitles'] = {
+                        'status': 'failed',
+                        'error': result.get('message', 'Unknown error')
+                    }
+            except Exception as sub_error:
+                logger.error(f"Subtitle generation error: {sub_error}")
+                video.subtitle_status = 'failed'
+                video.save()
+                response_data['subtitles'] = {
+                    'status': 'failed',
+                    'error': str(sub_error)
+                }
+
+        return JsonResponse(response_data)
 
     except Exception as e:
         logger.error(f"Video save error: {e}")

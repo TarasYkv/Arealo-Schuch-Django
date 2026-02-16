@@ -26,11 +26,24 @@
         <h1 class="mb-4">{{ video.title }}</h1>
         
         <div class="mb-4">
-            <video controls>
+            <video controls crossorigin="anonymous">
                 <source src="{% url 'videos:stream' video.unique_id %}" type="video/mp4">
+                {% if video.subtitle_file and video.subtitle_status == 'ready' %}
+                <track kind="subtitles" src="{{ video.subtitle_file.url }}" srclang="{{ video.subtitle_language }}" label="Untertitel" default>
+                {% endif %}
                 Your browser does not support the video tag.
             </video>
         </div>
+        
+        {% if video.subtitle_status == 'ready' %}
+        <div class="mb-3">
+            <span class="badge bg-success">🔤 Untertitel verfügbar</span>
+        </div>
+        {% elif video.subtitle_status == 'pending' %}
+        <div class="mb-3">
+            <span class="badge bg-warning">⏳ Untertitel werden erstellt...</span>
+        </div>
+        {% endif %}
         
         {% if video.description %}
             <div class="card">
