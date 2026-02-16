@@ -332,6 +332,12 @@ MENU_STRUCTURE = {
                 'icon': 'bi bi-phone',
                 'auth_url_name': 'android_apk_manager:dashboard',
             },
+            {
+                'app_name': 'desktop_app_manager',
+                'label': 'Desktop App Manager',
+                'icon': 'bi bi-pc-display',
+                'auth_url_name': 'desktop_app_manager:dashboard',
+            },
         ],
     },
 }

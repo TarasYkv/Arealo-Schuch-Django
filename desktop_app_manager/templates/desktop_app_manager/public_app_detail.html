@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ app.name }} - Download{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'desktop_app_manager:public_app_list' %}">Desktop Apps</a></li>
+            <li class="breadcrumb-item active">{{ app.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- App Info -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-start">
+                        {% if app.icon %}
+                        <img src="{{ app.icon.url }}" alt="{{ app.name }}" class="rounded me-4" style="width: 100px; height: 100px; object-fit: cover;">
+                        {% else %}
+                        <div class="bg-primary rounded me-4 d-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">
+                            <i class="bi bi-pc-display" style="font-size: 3rem; color: white;"></i>
+                        </div>
+                        {% endif %}
+
+                        <div class="flex-grow-1">
+                            <h1 class="h2 mb-2">{{ app.name }}</h1>
+                            <p class="text-muted mb-3">
+                                <code>{{ app.app_identifier }}</code>
+                            </p>
+
+                            {% if app.description %}
+                            <p>{{ app.description }}</p>
+                            {% endif %}
+
+                            <div class="d-flex gap-3 mt-3">
+                                <div>
+                                    <i class="bi bi-download text-primary"></i>
+                                    <strong>{{ total_downloads }}</strong> Downloads
+                                </div>
+                                <div>
+                                    <i class="bi bi-person text-primary"></i>
+                                    {{ app.created_by.get_full_name|default:app.created_by.username }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screenshots -->
+            {% if screenshots %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-images me-2"></i>Screenshots</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        {% for screenshot in screenshots %}
+                        <div class="col-4 col-md-3">
+                            <img src="{{ screenshot.image.url }}"
+                                 class="img-fluid rounded shadow-sm"
+                                 alt="{{ screenshot.caption|default:'Screenshot' }}"
+                                 style="cursor: pointer; height: 150px; width: 100%; object-fit: contain; background: #f8f9fa;"
+                                 data-index="{{ forloop.counter0 }}"
+                                 onclick="openScreenshotModal({{ forloop.counter0 }})">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Versionen nach Channel -->
+            {% for channel, channel_versions in versions_by_channel.items %}
+            {% if channel_versions %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        {% if channel == 'production' %}
+                        <span class="badge bg-success">Production</span> Stabile Versionen
+                        {% elif channel == 'beta' %}
+                        <span class="badge bg-warning">Beta</span> Beta-Versionen
+                        {% else %}
+                        <span class="badge bg-info">Alpha</span> Alpha-Versionen
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for version in channel_versions %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        Version {{ version.version_name }} (Build {{ version.version_code }})
+                                        {% if version.is_latest %}
+                                        <span class="badge bg-primary">Neueste</span>
+                                        {% endif %}
+                                    </h6>
+
+                                    <p class="mb-2 small text-muted">
+                                        <i class="bi bi-calendar3"></i> {{ version.uploaded_at|date:"d.m.Y" }}
+                                        <span class="mx-2">|</span>
+                                        <i class="bi bi-hdd"></i> {{ version.file_size_mb|floatformat:1 }} MB
+                                        {% if version.min_windows_version %}
+                                        <span class="mx-2">|</span>
+                                        <i class="bi bi-windows"></i> Windows {{ version.min_windows_version }}+
+                                        {% endif %}
+                                        <span class="mx-2">|</span>
+                                        <i class="bi bi-download"></i> {{ version.download_count }} Downloads
+                                    </p>
+
+                                    {% if version.release_notes %}
+                                    <p class="mb-2 small">{{ version.release_notes }}</p>
+                                    {% endif %}
+                                </div>
+
+                                <div class="ms-3">
+                                    <a href="{% url 'desktop_app_manager:download-exe' version.id %}"
+                                       class="btn btn-primary">
+                                        <i class="bi bi-download"></i> Download
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {% if not versions_by_channel.production and not versions_by_channel.beta and not versions_by_channel.alpha %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-exclamation-circle" style="font-size: 3rem; color: #ffc107;"></i>
+                    <h5 class="mt-3">Noch keine Versionen verfuegbar</h5>
+                    <p class="text-muted">Bald verfuegbar!</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Installation -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Installation</h6>
+                </div>
+                <div class="card-body">
+                    <h6>Anleitung:</h6>
+                    <ol class="small">
+                        <li>EXE herunterladen</li>
+                        <li>Datei in gewuenschten Ordner verschieben</li>
+                        <li>EXE-Datei starten</li>
+                    </ol>
+
+                    <hr>
+
+                    <h6>Hinweis:</h6>
+                    <p class="small text-muted mb-0">
+                        Windows SmartScreen kann beim ersten Start eine Warnung anzeigen.
+                        Klicke auf "Weitere Informationen" und dann "Trotzdem ausfuehren".
+                    </p>
+                </div>
+            </div>
+
+            <!-- API Info -->
+            {% if versions_by_channel.production %}
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-code-square me-2"></i>API fuer Entwickler</h6>
+                </div>
+                <div class="card-body">
+                    <p class="small">Update-Check Endpunkt:</p>
+                    <code class="small d-block p-2 bg-light rounded">
+                        POST /desktop-apps/api/public/check-update/
+                    </code>
+
+                    <p class="small mt-3">Beispiel-Request:</p>
+                    <pre class="small bg-light p-2 rounded"><code>{
+  "app_identifier": "{{ app.app_identifier }}",
+  "current_version_code": 1,
+  "channel": "production"
+}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Screenshot Lightbox Modal -->
+{% if screenshots %}
+<div class="modal fade" id="screenshotModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white" id="screenshotModalTitle">Screenshot</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-0 position-relative" style="min-height: 400px;">
+                <button type="button" class="btn btn-light position-absolute start-0 top-50 translate-middle-y ms-2 rounded-circle shadow"
+                        onclick="navigateScreenshot(-1)" id="prevScreenshot" style="width: 50px; height: 50px; z-index: 10;">
+                    <i class="bi bi-chevron-left fs-4"></i>
+                </button>
+                <button type="button" class="btn btn-light position-absolute end-0 top-50 translate-middle-y me-2 rounded-circle shadow"
+                        onclick="navigateScreenshot(1)" id="nextScreenshot" style="width: 50px; height: 50px; z-index: 10;">
+                    <i class="bi bi-chevron-right fs-4"></i>
+                </button>
+
+                <div class="d-flex align-items-center justify-content-center" style="min-height: 400px;">
+                    <img src="" id="screenshotModalImage" class="img-fluid" alt="Screenshot"
+                         style="max-height: 70vh; object-fit: contain;">
+                </div>
+            </div>
+            <div class="modal-footer border-0 justify-content-center">
+                <span class="text-white-50" id="screenshotCounter">1 / 1</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const screenshots = [
+    {% for screenshot in screenshots %}
+    {
+        url: '{{ screenshot.image.url }}',
+        caption: '{{ screenshot.caption|default:"Screenshot"|escapejs }}'
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+let currentIndex = 0;
+
+function openScreenshotModal(index) {
+    currentIndex = index;
+    updateModalContent();
+    new bootstrap.Modal(document.getElementById('screenshotModal')).show();
+}
+
+function navigateScreenshot(direction) {
+    currentIndex += direction;
+    if (currentIndex < 0) currentIndex = screenshots.length - 1;
+    if (currentIndex >= screenshots.length) currentIndex = 0;
+    updateModalContent();
+}
+
+function updateModalContent() {
+    const screenshot = screenshots[currentIndex];
+    document.getElementById('screenshotModalImage').src = screenshot.url;
+    document.getElementById('screenshotModalTitle').textContent = screenshot.caption;
+    document.getElementById('screenshotCounter').textContent = `${currentIndex + 1} / ${screenshots.length}`;
+    document.getElementById('prevScreenshot').style.display = screenshots.length > 1 ? 'block' : 'none';
+    document.getElementById('nextScreenshot').style.display = screenshots.length > 1 ? 'block' : 'none';
+}
+
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('screenshotModal');
+    if (!modal.classList.contains('show')) return;
+    if (e.key === 'ArrowLeft') navigateScreenshot(-1);
+    if (e.key === 'ArrowRight') navigateScreenshot(1);
+    if (e.key === 'Escape') bootstrap.Modal.getInstance(modal).hide();
+});
+</script>
+{% endif %}
+{% endblock %}

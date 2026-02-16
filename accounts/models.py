@@ -202,6 +202,7 @@ class AppPermission(models.Model):
         ('linkloom', 'LinkLoom'),
         ('myprompter', 'MyPrompter'),
         ('android_apk_manager', 'APK Manager'),
+        ('desktop_app_manager', 'Desktop App Manager'),
         ('keyengine', 'KeyEngine'),
         ('ideopin', 'IdeoPin - Pinterest Generator'),
         ('imageforge', 'ImageForge - KI Bildgenerierung'),

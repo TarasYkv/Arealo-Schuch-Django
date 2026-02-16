@@ -500,6 +500,28 @@ App-Distribution ohne Bürokratie!''',
                     'Changelog-Support'
                 ]
             },
+            'desktop_app_manager': {
+                'title': 'Desktop App Manager - Desktop Apps verteilen',
+                'icon_class': 'bi bi-pc-display',
+                'short_description': 'Desktop-Anwendungen (EXE) hosten, verteilen und updaten',
+                'detailed_description': '''Das Problem: Desktop-Anwendungen an Nutzer zu verteilen und Updates bereitzustellen ist umständlich.
+
+Die Workloom-Lösung: Desktop App Manager ist dein privater Software-Store - lade EXEs hoch und verteile sie mit automatischer Update-Prüfung!
+
+So funktioniert's:
+1️⃣ EXE-Datei hochladen
+2️⃣ Beschreibung und Screenshots hinzufügen
+3️⃣ Download-Link teilen - Updates werden automatisch erkannt
+
+Software-Distribution mit Auto-Update!''',
+                'key_features': [
+                    'EXE-Upload',
+                    'Versionsverwaltung',
+                    'Auto-Update API',
+                    'Screenshot-Galerie',
+                    'Download-Statistiken'
+                ]
+            },
             'backloom': {
                 'title': 'BackLoom - RSS Feed Management',
                 'icon_class': 'bi bi-rss',

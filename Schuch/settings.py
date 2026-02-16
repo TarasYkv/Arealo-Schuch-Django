@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     'blogprep',
     'vskript',
     'android_apk_manager',
+    'desktop_app_manager',
     'linkloom',
     'backloom',
     'ploom',
