@@ -1094,6 +1094,88 @@
             </div>
         </div>
         
+        <!-- TRANSLATION VIEW -->
+        <div id="translationView" class="panel-view" style="display: none;">
+            <div class="panel-header" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
+                <h5 class="mb-0"><i class="bi bi-translate me-2"></i>Übersetzung</h5>
+                <button class="btn btn-sm btn-light" id="closeTranslationPanel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="panel-body" id="translationPanelBody">
+                <!-- Original Text (editable) -->
+                <div class="translation-original-section mb-3">
+                    <label class="form-label small text-muted mb-1">
+                        <i class="bi bi-pencil me-1"></i>Originaltext (editierbar)
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="translationOriginalInput" placeholder="Text eingeben...">
+                        <button class="btn btn-outline-secondary" id="speakOriginalBtn" title="Vorlesen">
+                            <i class="bi bi-volume-up"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="translationLoading" class="text-center py-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2 mb-0">Übersetze...</p>
+                </div>
+                
+                <!-- Translation Result -->
+                <div id="translationResult" style="display: none;">
+                    <!-- Main Translation -->
+                    <div class="translation-main-card mb-3 p-3 rounded" style="background: linear-gradient(135deg, #dbeafe, #eff6ff); border: 1px solid #93c5fd;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-primary" id="translationWordType">-</span>
+                            <span class="badge bg-secondary" id="translationDifficulty">-</span>
+                        </div>
+                        <h4 class="mb-1" id="translationMainText" style="color: #1e40af;"></h4>
+                        <small class="text-muted" id="translationPronunciation"></small>
+                        <button class="btn btn-sm btn-outline-primary mt-2" id="speakTranslationBtn">
+                            <i class="bi bi-volume-up me-1"></i>Anhören
+                        </button>
+                    </div>
+                    
+                    <!-- Examples -->
+                    <div class="translation-section mb-3" id="translationExamplesSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-chat-quote me-1"></i>Beispiele</h6>
+                        <ul class="list-unstyled mb-0" id="translationExamples"></ul>
+                    </div>
+                    
+                    <!-- Synonyms -->
+                    <div class="translation-section mb-3" id="translationSynonymsSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-arrow-repeat me-1"></i>Synonyme</h6>
+                        <div id="translationSynonyms"></div>
+                    </div>
+                    
+                    <!-- Antonyms -->
+                    <div class="translation-section mb-3" id="translationAntonymsSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-arrows-expand me-1"></i>Antonyme</h6>
+                        <div id="translationAntonyms"></div>
+                    </div>
+                    
+                    <!-- Context Note -->
+                    <div class="translation-section mb-3" id="translationContextSection">
+                        <h6 class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Hinweis</h6>
+                        <p class="mb-0 small" id="translationContextNote" style="color: #4b5563;"></p>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="translation-actions border-top pt-3 mt-auto">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-grow-1" id="retranslateDetailedBtn">
+                            <i class="bi bi-translate me-1"></i>Übersetzen
+                        </button>
+                        <button class="btn btn-success" id="saveTranslationBtn" title="Als Vokabel speichern">
+                            <i class="bi bi-bookmark-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
     </div>
     
 </div>
@@ -2268,26 +2350,231 @@ document.addEventListener('touchend', (e) => {
     }, 150); // Longer delay for touch selection to complete
 });
 
-// Translate Button Click - Open translation popup
+// Translate Button Click - Open translation panel (new style like explanation)
 translateBtn.addEventListener('click', () => {
     actionButtons.classList.add('d-none');
-    explanationPopup.classList.add('d-none');
+    translationPopup.classList.add('d-none');
 
-    // Position popup
-    const popupX = Math.min(selectionPosition.x, window.innerWidth - 320);
-    const popupY = Math.min(selectionPosition.y, window.innerHeight - 250);
-    translationPopup.style.left = popupX + 'px';
-    translationPopup.style.top = popupY + 'px';
-    translationPopup.classList.remove('d-none');
+    // Show translation view, hide other views
+    document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'flex';
 
-    // Set input value and reset translation
-    originalInput.value = selectedText;
-    translationDiv.innerHTML = '<span class="text-muted">Klicke auf "Übersetzen"</span>';
-    currentTranslation = '';
+    // Open the panel overlay
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
 
-    // Focus input for easy editing
-    originalInput.focus();
-    originalInput.select();
+    // Set input value
+    document.getElementById('translationOriginalInput').value = selectedText;
+    
+    // Reset result display
+    document.getElementById('translationResult').style.display = 'none';
+    document.getElementById('translationLoading').style.display = 'none';
+
+    // Focus input
+    document.getElementById('translationOriginalInput').focus();
+    document.getElementById('translationOriginalInput').select();
+    
+    // Auto-translate immediately
+    fetchDetailedTranslation(selectedText);
+});
+
+// Close translation panel
+document.getElementById('closeTranslationPanel').addEventListener('click', () => {
+    document.getElementById('rightPanelColumn').classList.remove('open');
+    document.getElementById('translationView').style.display = 'none';
+    document.getElementById('summaryView').style.display = 'flex';
+});
+
+// Retranslate button
+document.getElementById('retranslateDetailedBtn').addEventListener('click', () => {
+    const text = document.getElementById('translationOriginalInput').value.trim();
+    if (text) {
+        fetchDetailedTranslation(text);
+    }
+});
+
+// Enter key in translation input
+document.getElementById('translationOriginalInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const text = e.target.value.trim();
+        if (text) {
+            fetchDetailedTranslation(text);
+        }
+    }
+});
+
+// Fetch detailed translation
+async function fetchDetailedTranslation(text) {
+    if (!text) return;
+    
+    // Show loading
+    document.getElementById('translationLoading').style.display = 'block';
+    document.getElementById('translationResult').style.display = 'none';
+    
+    try {
+        const response = await fetch('/learnloom/api/translate-detailed/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                text: text,
+                source_lang: 'en',
+                target_lang: 'de',
+                provider: 'openai'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            displayDetailedTranslation(result.data, text);
+            currentTranslation = result.data.translation;
+        } else {
+            document.getElementById('translationLoading').style.display = 'none';
+            alert('Übersetzungsfehler: ' + result.error);
+        }
+    } catch (error) {
+        document.getElementById('translationLoading').style.display = 'none';
+        alert('Fehler: ' + error.message);
+    }
+}
+
+// Display detailed translation result
+function displayDetailedTranslation(data, originalText) {
+    document.getElementById('translationLoading').style.display = 'none';
+    document.getElementById('translationResult').style.display = 'block';
+    
+    // Main translation
+    document.getElementById('translationMainText').textContent = data.translation || '-';
+    document.getElementById('translationWordType').textContent = data.word_type || 'Wort';
+    document.getElementById('translationDifficulty').textContent = data.difficulty || '-';
+    document.getElementById('translationPronunciation').textContent = data.pronunciation ? `/${data.pronunciation}/` : '';
+    
+    // Examples
+    const examplesSection = document.getElementById('translationExamplesSection');
+    const examplesList = document.getElementById('translationExamples');
+    if (data.examples && data.examples.length > 0) {
+        examplesSection.style.display = 'block';
+        examplesList.innerHTML = data.examples.map(ex => 
+            `<li class="mb-2 p-2 rounded" style="background: #f8fafc; border-left: 3px solid #3b82f6;">
+                <small>${ex}</small>
+            </li>`
+        ).join('');
+    } else {
+        examplesSection.style.display = 'none';
+    }
+    
+    // Synonyms
+    const synonymsSection = document.getElementById('translationSynonymsSection');
+    const synonymsDiv = document.getElementById('translationSynonyms');
+    if (data.synonyms && data.synonyms.length > 0) {
+        synonymsSection.style.display = 'block';
+        synonymsDiv.innerHTML = data.synonyms.map(s => 
+            `<span class="badge bg-light text-dark border me-1 mb-1">${s}</span>`
+        ).join('');
+    } else {
+        synonymsSection.style.display = 'none';
+    }
+    
+    // Antonyms
+    const antonymsSection = document.getElementById('translationAntonymsSection');
+    const antonymsDiv = document.getElementById('translationAntonyms');
+    if (data.antonyms && data.antonyms.length > 0) {
+        antonymsSection.style.display = 'block';
+        antonymsDiv.innerHTML = data.antonyms.map(a => 
+            `<span class="badge bg-light text-dark border me-1 mb-1">${a}</span>`
+        ).join('');
+    } else {
+        antonymsSection.style.display = 'none';
+    }
+    
+    // Context note
+    const contextSection = document.getElementById('translationContextSection');
+    const contextNote = document.getElementById('translationContextNote');
+    if (data.context_note) {
+        contextSection.style.display = 'block';
+        contextNote.textContent = data.context_note;
+    } else {
+        contextSection.style.display = 'none';
+    }
+}
+
+// Speak original text (English)
+document.getElementById('speakOriginalBtn').addEventListener('click', () => {
+    const text = document.getElementById('translationOriginalInput').value;
+    if (text && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        speechSynthesis.speak(utterance);
+    }
+});
+
+// Speak translation (German)
+document.getElementById('speakTranslationBtn').addEventListener('click', () => {
+    const text = document.getElementById('translationMainText').textContent;
+    if (text && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'de-DE';
+        speechSynthesis.speak(utterance);
+    }
+});
+
+// Save translation as vocabulary
+document.getElementById('saveTranslationBtn').addEventListener('click', async () => {
+    const original = document.getElementById('translationOriginalInput').value.trim();
+    const translation = document.getElementById('translationMainText').textContent.trim();
+    
+    if (!original || !translation || translation === '-') {
+        alert('Bitte erst übersetzen');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/learnloom/api/highlights/${bookId}/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                original_text: original,
+                translated_text: translation,
+                page_number: currentPage,
+                position_data: {},
+                add_to_vocabulary: true
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Visual feedback
+            const btn = document.getElementById('saveTranslationBtn');
+            btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+            btn.classList.replace('btn-success', 'btn-outline-success');
+            setTimeout(() => {
+                btn.innerHTML = '<i class="bi bi-bookmark-plus"></i>';
+                btn.classList.replace('btn-outline-success', 'btn-success');
+            }, 2000);
+            
+            // Add highlight to local array and render
+            highlights.push({
+                id: data.highlight.id,
+                original_text: original,
+                translated_text: translation,
+                page_number: currentPage,
+                type: 'translation'
+            });
+            renderAllHighlights();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        alert('Speicherfehler: ' + error.message);
+    }
 });
 
 // Explain Button Click - Open right panel with explanation view
@@ -2295,8 +2582,9 @@ explainBtn.addEventListener('click', () => {
     actionButtons.classList.add('d-none');
     translationPopup.classList.add('d-none');
 
-    // Show explanation view, hide summary view
+    // Show explanation view, hide other views
     document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
     document.getElementById('explanationView').style.display = 'flex';
 
     // Open the panel overlay
@@ -2320,6 +2608,7 @@ document.getElementById('closeExplanationPanel').addEventListener('click', () =>
     document.getElementById('rightPanelColumn').classList.remove('open');
     // Switch back to summary view for next time
     document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
     document.getElementById('summaryView').style.display = 'flex';
 });
 
@@ -2760,6 +3049,7 @@ async function captureAndExplainImage(screenRect) {
     
     // Show explanation view in right panel
     document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
     document.getElementById('explanationView').style.display = 'flex';
     
     // Open panel overlay
@@ -2892,16 +3182,23 @@ async function extractTextFromRegion(screenRect) {
 
 // Open translation popup with text
 function openTranslationPopup(text, x, y) {
-    translationPopup.style.left = Math.min(x, window.innerWidth - 320) + 'px';
-    translationPopup.style.top = Math.min(y + 10, window.innerHeight - 250) + 'px';
-    translationPopup.style.transform = '';
-    translationPopup.classList.remove('d-none');
-
-    originalInput.value = text;
-    translationDiv.innerHTML = '<span class="text-muted">Klicke auf "Übersetzen"</span>';
-    currentTranslation = '';
-    originalInput.focus();
-    originalInput.select();
+    // Now opens the panel instead of the old popup
+    document.getElementById('summaryView').style.display = 'none';
+    document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'flex';
+    
+    const panelColumn = document.getElementById('rightPanelColumn');
+    panelColumn.classList.add('open');
+    
+    document.getElementById('translationOriginalInput').value = text;
+    document.getElementById('translationResult').style.display = 'none';
+    document.getElementById('translationLoading').style.display = 'none';
+    
+    document.getElementById('translationOriginalInput').focus();
+    document.getElementById('translationOriginalInput').select();
+    
+    // Auto-translate
+    fetchDetailedTranslation(text);
 }
 
 // Reset transform when closing popup
@@ -3315,6 +3612,7 @@ document.getElementById('toggleSummaryPanel').addEventListener('click', async ()
     // Ensure summary view is visible
     document.getElementById('summaryView').style.display = 'flex';
     document.getElementById('explanationView').style.display = 'none';
+    document.getElementById('translationView').style.display = 'none';
     
     const panelColumn = document.getElementById('rightPanelColumn');
     const isOpen = panelColumn.classList.toggle('open');

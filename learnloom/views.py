@@ -583,6 +583,40 @@ def api_translate(request):
 
 
 @login_required
+@require_POST
+def api_translate_detailed(request):
+    """Detaillierte Übersetzung mit zusätzlichen Informationen"""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+
+    text = data.get('text', '').strip()
+    source_lang = data.get('source_lang', 'en')
+    target_lang = data.get('target_lang', 'de')
+    provider = data.get('provider', 'openai')
+
+    if not text:
+        return JsonResponse({'success': False, 'error': 'Text darf nicht leer sein'}, status=400)
+
+    try:
+        from .services import DetailedTranslationService
+        service = DetailedTranslationService(request.user)
+        result = service.translate_detailed(text, source_lang, target_lang, provider)
+
+        return JsonResponse({
+            'success': True,
+            'data': result,
+            'original_text': text,
+            'provider': provider,
+        })
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Übersetzungsfehler: {str(e)}'}, status=500)
+
+
+@login_required
 @require_GET
 def api_get_highlights(request, book_id):
     """Markierungen für ein PDF abrufen"""

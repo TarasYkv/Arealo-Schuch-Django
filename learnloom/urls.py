@@ -29,6 +29,7 @@ urlpatterns = [
 
     # Translation API
     path('api/translate/', views.api_translate, name='api_translate'),
+    path('api/translate-detailed/', views.api_translate_detailed, name='api_translate_detailed'),
     path('api/highlights/<uuid:book_id>/', views.api_get_highlights, name='api_get_highlights'),
     path('api/highlights/<uuid:book_id>/save/', views.api_save_highlight, name='api_save_highlight'),
 

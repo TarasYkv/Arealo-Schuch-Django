@@ -277,6 +277,91 @@ class TranslationService:
             raise Exception(f"Anthropic API Fehler ({response.status_code}): {error_msg}")
 
 
+class DetailedTranslationService:
+    """Service für detaillierte Übersetzungen mit zusätzlichen Informationen"""
+
+    def __init__(self, user):
+        self.user = user
+
+    def translate_detailed(self, text, source_lang='en', target_lang='de', provider='openai'):
+        """
+        Übersetzt Text und liefert zusätzliche Informationen.
+
+        Returns:
+            dict: {
+                "translation": "Übersetzung",
+                "word_type": "noun/verb/adjective/...",
+                "pronunciation": "IPA oder phonetisch",
+                "examples": ["Beispielsatz 1", "Beispielsatz 2"],
+                "synonyms": ["Synonym1", "Synonym2"],
+                "context_note": "Hinweis zur Verwendung",
+                "difficulty": "A1/A2/B1/B2/C1/C2"
+            }
+        """
+        from naturmacher.utils.api_helpers import get_user_api_key
+        import json
+
+        api_key = get_user_api_key(self.user, provider)
+        if not api_key:
+            raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
+
+        source_name = self._get_language_name(source_lang)
+        target_name = self._get_language_name(target_lang)
+
+        model = getattr(self.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
+
+        prompt = f"""Übersetze "{text}" von {source_name} nach {target_name} und gib detaillierte Informationen.
+
+Antworte NUR mit diesem JSON-Format:
+{{
+    "translation": "Hauptübersetzung",
+    "word_type": "Wortart (z.B. Substantiv, Verb, Adjektiv, Adverb, Phrase)",
+    "pronunciation": "Aussprache in IPA oder phonetisch",
+    "examples": [
+        "Beispielsatz auf {source_name} - Übersetzung",
+        "Weiterer Beispielsatz - Übersetzung"
+    ],
+    "synonyms": ["Synonym1", "Synonym2", "Synonym3"],
+    "antonyms": ["Antonym1", "Antonym2"],
+    "context_note": "Wichtiger Hinweis zur Verwendung, Formalität, oder Besonderheiten",
+    "difficulty": "CEFR-Level (A1/A2/B1/B2/C1/C2)"
+}}
+
+Falls es sich um einen Satz oder eine Phrase handelt, passe die Felder entsprechend an (keine Wortart bei Sätzen, etc.)."""
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': model,
+                'messages': [
+                    {'role': 'user', 'content': prompt}
+                ],
+                'temperature': 0.3,
+                'max_tokens': 1000,
+                'response_format': {'type': 'json_object'}
+            },
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            content = response.json()['choices'][0]['message']['content']
+            return json.loads(content)
+        else:
+            error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            raise Exception(f"API Fehler: {error_msg}")
+
+    def _get_language_name(self, lang_code):
+        names = {
+            'en': 'Englisch', 'de': 'Deutsch', 'fr': 'Französisch',
+            'es': 'Spanisch', 'it': 'Italienisch', 'pt': 'Portugiesisch',
+        }
+        return names.get(lang_code, lang_code)
+
+
 class ImageExplanationService:
     """Service für Bild-Erklärungen via OpenAI Vision"""
 
