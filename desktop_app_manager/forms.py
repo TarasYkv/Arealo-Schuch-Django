@@ -38,7 +38,7 @@ class DesktopAppForm(forms.ModelForm):
             'app_identifier': 'App-Identifier',
             'description': 'Beschreibung',
             'icon': 'App-Icon (optional)',
-            'is_public': 'Oeffentlich (fuer alle downloadbar)',
+            'is_public': 'Öffentlich (für alle downloadbar)',
         }
         help_texts = {
             'app_identifier': 'Eindeutiger Bezeichner, z.B. pdf-marker',
@@ -92,7 +92,7 @@ class AppVersionForm(forms.ModelForm):
             }),
         }
         labels = {
-            'app': 'App auswaehlen',
+            'app': 'App auswählen',
             'version_name': 'Version Name',
             'version_code': 'Version Code (Build Number)',
             'exe_file': 'EXE-Datei',
@@ -100,13 +100,13 @@ class AppVersionForm(forms.ModelForm):
             'channel': 'Release Channel',
             'min_windows_version': 'Minimale Windows Version',
             'is_active': 'Version aktiv',
-            'is_current_for_channel': 'Als aktuelle Version fuer diesen Channel markieren',
+            'is_current_for_channel': 'Als aktuelle Version für diesen Channel markieren',
         }
         help_texts = {
-            'version_code': 'Muss hoeher sein als die vorherige Version! (Integer)',
+            'version_code': 'Muss höher sein als die vorherige Version! (Integer)',
             'channel': 'Production = Stabil, Beta = Test, Alpha = Experimental',
             'is_active': 'Inaktive Versionen werden nicht angezeigt',
-            'is_current_for_channel': 'Wird automatisch bei Update-Checks zurueckgegeben',
+            'is_current_for_channel': 'Wird automatisch bei Update-Checks zurückgegeben',
         }
 
     def __init__(self, *args, **kwargs):
@@ -135,7 +135,7 @@ class MultipleScreenshotForm(forms.Form):
             'accept': 'image/*',
         }),
         label='Screenshots hochladen',
-        help_text='Waehle bis zu 10 Bilder aus (PNG, JPG, WebP)',
+        help_text='Wähle bis zu 10 Bilder aus (PNG, JPG, WebP)',
         required=False
     )
 
@@ -145,4 +145,4 @@ class MultipleScreenshotForm(forms.Form):
 
         if app:
             remaining = 10 - AppScreenshot.objects.filter(app=app).count()
-            self.fields['screenshots'].help_text = f'Noch {remaining} Screenshots moeglich (max. 10)'
+            self.fields['screenshots'].help_text = f'Noch {remaining} Screenshots möglich (max. 10)'

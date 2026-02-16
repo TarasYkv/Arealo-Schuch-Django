@@ -212,7 +212,7 @@ def toggle_app_public(request, app_id):
     app.is_public = not app.is_public
     app.save(update_fields=['is_public'])
 
-    status_text = 'oeffentlich' if app.is_public else 'privat'
+    status_text = 'öffentlich' if app.is_public else 'privat'
     messages.success(request, f'App "{app.name}" ist jetzt {status_text}.')
 
     return redirect('desktop_app_manager:app_detail', app_id=app_id)
@@ -228,7 +228,7 @@ def delete_app(request, app_id):
     app_name = app.name
     app.delete()
 
-    messages.success(request, f'App "{app_name}" wurde erfolgreich geloescht.')
+    messages.success(request, f'App "{app_name}" wurde erfolgreich gelöscht.')
     return redirect('desktop_app_manager:dashboard')
 
 
@@ -327,7 +327,7 @@ def delete_version(request, version_id):
     version_name = version.version_name
     version.delete()
 
-    messages.success(request, f'Version {version_name} wurde geloescht.')
+    messages.success(request, f'Version {version_name} wurde gelöscht.')
     return redirect('desktop_app_manager:app_detail', app_id=app_id)
 
 
@@ -346,7 +346,7 @@ def upload_screenshots(request, app_id):
 
     files = request.FILES.getlist('screenshots')
     if not files:
-        messages.warning(request, 'Keine Dateien ausgewaehlt.')
+        messages.warning(request, 'Keine Dateien ausgewählt.')
         return redirect('desktop_app_manager:app_detail', app_id=app_id)
 
     uploaded_count = 0
@@ -369,7 +369,7 @@ def upload_screenshots(request, app_id):
     if uploaded_count > 0:
         messages.success(request, f'{uploaded_count} Screenshot(s) erfolgreich hochgeladen.')
     else:
-        messages.warning(request, 'Keine gueltigen Bilder gefunden.')
+        messages.warning(request, 'Keine gültigen Bilder gefunden.')
 
     return redirect('desktop_app_manager:app_detail', app_id=app_id)
 
@@ -384,7 +384,7 @@ def delete_screenshot(request, screenshot_id):
     app_id = screenshot.app.id
     screenshot.delete()
 
-    messages.success(request, 'Screenshot wurde geloescht.')
+    messages.success(request, 'Screenshot wurde gelöscht.')
     return redirect('desktop_app_manager:app_detail', app_id=app_id)
 
 

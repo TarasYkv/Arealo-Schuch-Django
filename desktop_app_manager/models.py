@@ -76,8 +76,8 @@ class DesktopApp(models.Model):
     # Visibility
     is_public = models.BooleanField(
         default=False,
-        verbose_name="Oeffentlich",
-        help_text="App fuer alle sichtbar machen"
+        verbose_name="Öffentlich",
+        help_text="App für alle sichtbar machen"
     )
 
     # Timestamps
@@ -115,7 +115,7 @@ class AppVersion(models.Model):
     # Channel Choices
     CHANNEL_CHOICES = [
         ('alpha', 'Alpha (Interne Tests)'),
-        ('beta', 'Beta (Oeffentliche Tests)'),
+        ('beta', 'Beta (Öffentliche Tests)'),
         ('production', 'Production (Stabile Version)'),
     ]
 
@@ -152,7 +152,7 @@ class AppVersion(models.Model):
     )
     file_size = models.BigIntegerField(
         default=0,
-        verbose_name="Dateigroesse (Bytes)"
+        verbose_name="Dateigröße (Bytes)"
     )
 
     # File Hash for integrity
@@ -190,18 +190,18 @@ class AppVersion(models.Model):
     is_active = models.BooleanField(
         default=True,
         verbose_name="Aktiv",
-        help_text="Nur aktive Versionen werden fuer Updates angeboten"
+        help_text="Nur aktive Versionen werden für Updates angeboten"
     )
     is_current_for_channel = models.BooleanField(
         default=False,
-        verbose_name="Aktuelle Version fuer Channel",
-        help_text="Markiert als aktuelle/empfohlene Version fuer diesen Channel"
+        verbose_name="Aktuelle Version für Channel",
+        help_text="Markiert als aktuelle/empfohlene Version für diesen Channel"
     )
 
     # Statistics
     download_count = models.IntegerField(
         default=0,
-        verbose_name="Download-Zaehler"
+        verbose_name="Download-Zähler"
     )
 
     # Timestamps

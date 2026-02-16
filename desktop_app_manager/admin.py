@@ -98,7 +98,7 @@ class AppVersionAdmin(admin.ModelAdmin):
         if obj.file_size:
             return f"{obj.file_size_mb:.2f} MB"
         return "-"
-    file_size_display.short_description = 'Dateigroesse'
+    file_size_display.short_description = 'Dateigröße'
 
     def mark_as_current(self, request, queryset):
         """Markiere ausgewaehlte Versionen als aktuelle fuer ihren Channel"""
