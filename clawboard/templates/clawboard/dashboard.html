@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Clawboard - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-robot me-2"></i>Clawboard
+            </h1>
+            <p class="text-muted mb-0">Dein Clawdbot Dashboard</p>
+        </div>
+        <div>
+            {% if active_connection %}
+                <span class="badge bg-{{ active_connection.status|default:'secondary' }} fs-6">
+                    <i class="bi bi-circle-fill me-1"></i>
+                    {{ active_connection.get_status_display|default:"Unbekannt" }}
+                </span>
+            {% else %}
+                <a href="{% url 'clawboard:connection_add' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>Verbindung hinzufügen
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not active_connection %}
+        <!-- Keine Verbindung -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-robot display-1 text-muted mb-3"></i>
+                <h4>Willkommen bei Clawboard!</h4>
+                <p class="text-muted mb-4">
+                    Verbinde dich mit deinem Clawdbot um loszulegen.
+                </p>
+                <a href="{% url 'clawboard:connection_add' %}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-plug me-2"></i>Erste Verbindung einrichten
+                </a>
+            </div>
+        </div>
+    {% else %}
+        <!-- Dashboard mit aktiver Verbindung -->
+        <div class="row g-4">
+            <!-- System Status -->
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-speedometer2 me-2"></i>System
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if system_status %}
+                            <!-- CPU -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small class="text-muted">CPU</small>
+                                    <small>{{ system_status.cpu|default:"-" }}%</small>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-primary" style="width: {{ system_status.cpu|default:0 }}%"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- RAM -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small class="text-muted">RAM</small>
+                                    <small>{{ system_status.ram_used|default:"-" }} / {{ system_status.ram_total|default:"-" }} MB</small>
+                                </div>
+                                {% if system_status.ram_total %}
+                                    {% widthratio system_status.ram_used system_status.ram_total 100 as ram_percent %}
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-success" style="width: {{ ram_percent }}%"></div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Disk -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small class="text-muted">Speicher</small>
+                                    <small>{{ system_status.disk_used|default:"-" }} / {{ system_status.disk_total|default:"-" }} GB</small>
+                                </div>
+                                {% if system_status.disk_total %}
+                                    {% widthratio system_status.disk_used system_status.disk_total 100 as disk_percent %}
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-warning" style="width: {{ disk_percent }}%"></div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <hr>
+                            <small class="text-muted">
+                                <i class="bi bi-clock me-1"></i>
+                                Zuletzt gesehen: {{ system_status.last_seen|default:"Nie"|timesince }} ago
+                            </small>
+                        {% else %}
+                            <p class="text-muted text-center my-4">
+                                <i class="bi bi-exclamation-circle me-1"></i>
+                                Keine System-Daten verfügbar
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Projekte -->
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-folder me-2"></i>Projekte
+                        </h5>
+                        <a href="{% url 'clawboard:project_list' %}" class="btn btn-sm btn-outline-primary">
+                            Alle
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if projects %}
+                            <ul class="list-group list-group-flush">
+                                {% for project in projects %}
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span style="color: {{ project.color }}">{{ project.icon|default:"📁" }}</span>
+                                            <a href="{% url 'clawboard:project_detail' project.pk %}" class="text-decoration-none ms-2">
+                                                {{ project.name }}
+                                            </a>
+                                        </div>
+                                        <span class="badge bg-{{ project.status }}">{{ project.get_status_display }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted text-center my-4">
+                                Noch keine Projekte
+                            </p>
+                        {% endif %}
+                        <a href="{% url 'clawboard:project_add' %}" class="btn btn-sm btn-outline-secondary w-100 mt-3">
+                            <i class="bi bi-plus me-1"></i>Neues Projekt
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Integrationen -->
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-plug me-2"></i>Integrationen
+                        </h5>
+                        <a href="{% url 'clawboard:integration_list' %}" class="btn btn-sm btn-outline-primary">
+                            Alle
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if integrations %}
+                            <div class="row g-2">
+                                {% for integration in integrations %}
+                                    <div class="col-6">
+                                        <div class="d-flex align-items-center p-2 rounded bg-light">
+                                            {% if integration.status == 'active' %}
+                                                <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                            {% elif integration.status == 'error' %}
+                                                <i class="bi bi-exclamation-circle-fill text-danger me-2"></i>
+                                            {% else %}
+                                                <i class="bi bi-dash-circle text-muted me-2"></i>
+                                            {% endif %}
+                                            <small>{{ integration.name }}</small>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted text-center my-4">
+                                Keine Integrationen konfiguriert
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Zweite Reihe: Konversationen & Tasks -->
+        <div class="row g-4 mt-2">
+            <!-- Letzte Konversationen -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-chat-dots me-2"></i>Letzte Konversationen
+                        </h5>
+                        <a href="{% url 'clawboard:conversation_list' %}" class="btn btn-sm btn-outline-primary">
+                            Alle
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_conversations %}
+                            <ul class="list-group list-group-flush">
+                                {% for conv in recent_conversations %}
+                                    <li class="list-group-item px-0">
+                                        <a href="{% url 'clawboard:conversation_detail' conv.pk %}" class="text-decoration-none">
+                                            <div class="d-flex justify-content-between">
+                                                <strong>{{ conv.title|default:"Untitled"|truncatechars:40 }}</strong>
+                                                <small class="text-muted">{{ conv.started_at|timesince }} ago</small>
+                                            </div>
+                                            <small class="text-muted">
+                                                {{ conv.message_count }} Nachrichten · {{ conv.channel|default:"unknown" }}
+                                            </small>
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted text-center my-4">
+                                Noch keine Konversationen
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Geplante Aufgaben -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-clock me-2"></i>Geplante Aufgaben
+                        </h5>
+                        <a href="{% url 'clawboard:task_list' %}" class="btn btn-sm btn-outline-primary">
+                            Alle
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if scheduled_tasks %}
+                            <ul class="list-group list-group-flush">
+                                {% for task in scheduled_tasks %}
+                                    <li class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>{{ task.name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ task.schedule }}</small>
+                                            </div>
+                                            <div class="text-end">
+                                                {% if task.next_run %}
+                                                    <small class="text-muted">Nächste: {{ task.next_run|date:"d.m. H:i" }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted text-center my-4">
+                                Keine geplanten Aufgaben
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Memory Browser Link -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm bg-light">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="bi bi-file-earmark-text me-2"></i>Memory Browser
+                            </h5>
+                            <p class="text-muted mb-0">Durchsuche und bearbeite deine .md Dateien</p>
+                        </div>
+                        <a href="{% url 'clawboard:memory_browser' %}" class="btn btn-primary">
+                            <i class="bi bi-folder2-open me-1"></i>Öffnen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% if active_connection %}
+<script>
+// Auto-refresh Status alle 30 Sekunden
+setInterval(function() {
+    fetch('{% url "clawboard:api_status" %}?connection={{ active_connection.pk }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // TODO: UI aktualisieren
+                console.log('Status:', data.status);
+            }
+        })
+        .catch(err => console.error('Status check failed:', err));
+}, 30000);
+</script>
+{% endif %}
+{% endblock %}

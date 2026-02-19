@@ -315,6 +315,12 @@ MENU_STRUCTURE = {
                 'icon': 'fas fa-link',
                 'auth_url_name': 'linkloom:dashboard',
             },
+            {
+                'app_name': 'clawboard',
+                'label': 'Clawboard',
+                'icon': 'bi bi-robot',
+                'auth_url_name': 'clawboard:dashboard',
+            },
             {'divider': True, 'label': 'Lernen'},
             {
                 'app_name': 'learnloom',

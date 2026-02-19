@@ -91,6 +91,7 @@ urlpatterns = [
     path('android-apps/', include('android_apk_manager.urls')),
     path('desktop-apps/', include('desktop_app_manager.urls')),
     path('learnloom/', include('learnloom.urls', namespace='learnloom')),
+    path('clawboard/', include('clawboard.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
 
     # SEO: Sitemap und robots.txt
