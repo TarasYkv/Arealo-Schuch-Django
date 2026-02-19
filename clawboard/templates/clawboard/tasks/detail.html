@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.name }} - Clawboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'clawboard:task_list' %}">Aufgaben</a></li>
+            <li class="breadcrumb-item active">{{ task.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0">
+            <h4 class="mb-0">
+                <i class="bi bi-clock-history me-2"></i>{{ task.name }}
+            </h4>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Zeitplan</dt>
+                <dd class="col-sm-9"><code>{{ task.schedule|default:"-" }}</code></dd>
+                
+                <dt class="col-sm-3">Status</dt>
+                <dd class="col-sm-9">
+                    {% if task.is_enabled %}
+                        <span class="badge bg-success">Aktiv</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inaktiv</span>
+                    {% endif %}
+                </dd>
+                
+                <dt class="col-sm-3">Nächste Ausführung</dt>
+                <dd class="col-sm-9">{{ task.next_run|date:"d.m.Y H:i"|default:"-" }}</dd>
+                
+                <dt class="col-sm-3">Letzte Ausführung</dt>
+                <dd class="col-sm-9">{{ task.last_run|date:"d.m.Y H:i"|default:"Noch nie" }}</dd>
+            </dl>
+            
+            {% if task.payload %}
+                <hr>
+                <h6>Payload</h6>
+                <pre class="bg-light p-3 rounded"><code>{{ task.payload }}</code></pre>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

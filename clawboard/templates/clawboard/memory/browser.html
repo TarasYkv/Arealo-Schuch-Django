@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Memory Browser - Clawboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
+                <li class="breadcrumb-item active">Memory Browser</li>
+            </ol>
+        </nav>
+        <h2 class="mb-0"><i class="bi bi-folder2-open me-2"></i>Memory Browser</h2>
+    </div>
+
+    <div class="row">
+        <!-- Dateiliste -->
+        <div class="col-12 col-md-4 col-lg-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Dateien</h6>
+                        {% if connections.count > 1 %}
+                            <select class="form-select form-select-sm w-auto" id="connectionSelect">
+                                {% for conn in connections %}
+                                    <option value="{{ conn.pk }}" {% if conn == connection %}selected{% endif %}>
+                                        {{ conn.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="list-group list-group-flush" id="fileList">
+                    {% if files %}
+                        {% for file in files %}
+                            <button type="button" 
+                                    class="list-group-item list-group-item-action file-item"
+                                    data-file-id="{{ file.pk }}">
+                                <i class="bi bi-file-earmark-text me-2"></i>
+                                {{ file.filename }}
+                            </button>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">
+                            Keine Dateien gefunden
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor -->
+        <div class="col-12 col-md-8 col-lg-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0" id="fileName">Datei auswählen...</h6>
+                    <button class="btn btn-sm btn-primary d-none" id="saveBtn">
+                        <i class="bi bi-save me-1"></i>Speichern
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <textarea id="editor" class="form-control border-0" 
+                              style="min-height: 500px; font-family: monospace; resize: vertical;"
+                              placeholder="Wähle eine Datei aus der Liste..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentFileId = null;
+
+document.querySelectorAll('.file-item').forEach(item => {
+    item.addEventListener('click', async function() {
+        const fileId = this.dataset.fileId;
+        
+        // Aktiven Status setzen
+        document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Datei laden
+        try {
+            const response = await fetch(`{% url 'clawboard:memory_file_view' %}?id=${fileId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('fileName').textContent = data.filename;
+                document.getElementById('editor').value = data.content;
+                document.getElementById('saveBtn').classList.remove('d-none');
+                currentFileId = fileId;
+            }
+        } catch (e) {
+            console.error('Fehler beim Laden:', e);
+        }
+    });
+});
+
+document.getElementById('saveBtn')?.addEventListener('click', async function() {
+    if (!currentFileId) return;
+    
+    const btn = this;
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('{% url "clawboard:memory_file_save" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                id: currentFileId,
+                content: document.getElementById('editor').value
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Gespeichert!';
+            setTimeout(() => {
+                btn.innerHTML = '<i class="bi bi-save me-1"></i>Speichern';
+            }, 2000);
+        }
+    } catch (e) {
+        console.error('Fehler beim Speichern:', e);
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+document.getElementById('connectionSelect')?.addEventListener('change', function() {
+    window.location.href = `?connection=${this.value}`;
+});
+</script>
+{% endblock %}

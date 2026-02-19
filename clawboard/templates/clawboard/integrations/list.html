@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Integrationen - Clawboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
+                <li class="breadcrumb-item active">Integrationen</li>
+            </ol>
+        </nav>
+        <h2 class="mb-0"><i class="bi bi-puzzle me-2"></i>Integrationen</h2>
+    </div>
+
+    {% if integrations %}
+        <div class="row g-4">
+            {% for integration in integrations %}
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                                    <i class="bi bi-{{ integration.icon|default:'plug' }} fs-4 text-primary"></i>
+                                </div>
+                                <div>
+                                    <h5 class="card-title mb-0">{{ integration.name }}</h5>
+                                    <small class="text-muted">{{ integration.integration_type }}</small>
+                                </div>
+                            </div>
+                            <p class="text-muted small">{{ integration.description|default:"-"|truncatechars:100 }}</p>
+                            <span class="badge bg-{% if integration.is_active %}success{% else %}secondary{% endif %}">
+                                {% if integration.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-puzzle display-1 text-muted mb-3"></i>
+                <h4>Keine Integrationen</h4>
+                <p class="text-muted">Integrationen werden vom Clawdbot Gateway synchronisiert.</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - Clawboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'clawboard:connection_list' %}">Verbindungen</a></li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 pt-4">
+                    <h4 class="mb-0">
+                        <i class="bi bi-plug me-2"></i>{{ title }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Name -->
+                        <div class="mb-3">
+                            <label for="id_name" class="form-label">Name *</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">Ein eindeutiger Name für diese Verbindung</div>
+                        </div>
+
+                        <!-- Gateway URL -->
+                        <div class="mb-3">
+                            <label for="id_gateway_url" class="form-label">Gateway URL *</label>
+                            {{ form.gateway_url }}
+                            {% if form.gateway_url.errors %}
+                                <div class="invalid-feedback d-block">{{ form.gateway_url.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">{{ form.gateway_url.help_text }}</div>
+                        </div>
+
+                        <!-- Gateway Token -->
+                        <div class="mb-3">
+                            <label for="id_gateway_token" class="form-label">Gateway Token *</label>
+                            {{ form.gateway_token }}
+                            {% if form.gateway_token.errors %}
+                                <div class="invalid-feedback d-block">{{ form.gateway_token.errors.0 }}</div>
+                            {% endif %}
+                            <div class="form-text">{{ form.gateway_token.help_text }}</div>
+                        </div>
+
+                        <!-- Aktiv -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="id_is_active">
+                                    Verbindung aktiv
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>Speichern
+                            </button>
+                            <a href="{% url 'clawboard:connection_list' %}" class="btn btn-outline-secondary">
+                                Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
