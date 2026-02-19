@@ -20,6 +20,10 @@ class ClawdbotConnection(models.Model):
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unknown', verbose_name="Status")
     
+    # Gateway-Info (vom Connector gesendet)
+    hostname = models.CharField(max_length=200, blank=True, verbose_name="Hostname")
+    gateway_version = models.CharField(max_length=50, blank=True, verbose_name="Gateway Version")
+    
     # System-Monitoring
     cpu_percent = models.FloatField(null=True, blank=True, verbose_name="CPU %")
     ram_used_mb = models.IntegerField(null=True, blank=True, verbose_name="RAM (MB)")

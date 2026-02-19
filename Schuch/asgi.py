@@ -20,13 +20,15 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Schuch.settings')
 django_asgi_app = get_asgi_application()
 
 import chat.routing
+import clawboard.routing
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AllowedHostsOriginValidator(
         AuthMiddlewareStack(
             URLRouter(
-                chat.routing.websocket_urlpatterns
+                chat.routing.websocket_urlpatterns +
+                clawboard.routing.websocket_urlpatterns
             )
         )
     ),
