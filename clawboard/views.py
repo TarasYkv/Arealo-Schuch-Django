@@ -1,8 +1,12 @@
+import json
+import os
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from .models import (
     ClawdbotConnection, Project, ProjectMemory,
     Conversation, ScheduledTask, MemoryFile, Integration
@@ -15,7 +19,7 @@ def dashboard(request):
     """Hauptdashboard mit Übersicht"""
     connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
     active_connection = connections.first()
-    
+
     context = {
         'connections': connections,
         'active_connection': active_connection,
@@ -24,7 +28,7 @@ def dashboard(request):
         'scheduled_tasks': ScheduledTask.objects.filter(connection__user=request.user, is_enabled=True)[:5],
         'integrations': Integration.objects.filter(connection__user=request.user) if active_connection else [],
     }
-    
+
     # System-Status falls aktive Connection
     if active_connection:
         context['system_status'] = {
@@ -36,7 +40,7 @@ def dashboard(request):
             'status': active_connection.status,
             'last_seen': active_connection.last_seen,
         }
-    
+
     return render(request, 'clawboard/dashboard.html', context)
 
 
@@ -62,7 +66,7 @@ def connection_add(request):
             return redirect('clawboard:connection_detail', pk=connection.pk)
     else:
         form = ClawdbotConnectionForm()
-    
+
     return render(request, 'clawboard/connections/form.html', {'form': form, 'title': 'Neue Verbindung'})
 
 
@@ -77,7 +81,7 @@ def connection_detail(request, pk):
 def connection_edit(request, pk):
     """Verbindung bearbeiten"""
     connection = get_object_or_404(ClawdbotConnection, pk=pk, user=request.user)
-    
+
     if request.method == 'POST':
         form = ClawdbotConnectionForm(request.POST, instance=connection)
         if form.is_valid():
@@ -86,9 +90,9 @@ def connection_edit(request, pk):
             return redirect('clawboard:connection_detail', pk=pk)
     else:
         form = ClawdbotConnectionForm(instance=connection)
-    
+
     return render(request, 'clawboard/connections/form.html', {
-        'form': form, 
+        'form': form,
         'connection': connection,
         'title': f'Verbindung bearbeiten: {connection.name}'
     })
@@ -98,13 +102,13 @@ def connection_edit(request, pk):
 def connection_delete(request, pk):
     """Verbindung löschen"""
     connection = get_object_or_404(ClawdbotConnection, pk=pk, user=request.user)
-    
+
     if request.method == 'POST':
         name = connection.name
         connection.delete()
         messages.success(request, f'Verbindung "{name}" wurde gelöscht.')
         return redirect('clawboard:connection_list')
-    
+
     return render(request, 'clawboard/connections/delete.html', {'connection': connection})
 
 
@@ -112,10 +116,10 @@ def connection_delete(request, pk):
 def connection_test(request, pk):
     """Verbindung testen (AJAX)"""
     connection = get_object_or_404(ClawdbotConnection, pk=pk, user=request.user)
-    
+
     # TODO: Tatsächliche Verbindung zum Gateway testen
     # Hier würde WebSocket oder HTTP Request zum Gateway gehen
-    
+
     return JsonResponse({
         'success': True,
         'status': 'online',
@@ -136,7 +140,7 @@ def project_list(request):
 def project_add(request):
     """Neues Projekt erstellen"""
     connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
-    
+
     if request.method == 'POST':
         form = ProjectForm(request.POST)
         form.fields['connection'].queryset = connections
@@ -147,7 +151,7 @@ def project_add(request):
     else:
         form = ProjectForm()
         form.fields['connection'].queryset = connections
-    
+
     return render(request, 'clawboard/projects/form.html', {'form': form, 'title': 'Neues Projekt'})
 
 
@@ -157,7 +161,7 @@ def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk, connection__user=request.user)
     memories = project.memories.all()[:20]
     conversations = project.conversations.all()[:10]
-    
+
     return render(request, 'clawboard/projects/detail.html', {
         'project': project,
         'memories': memories,
@@ -170,7 +174,7 @@ def project_edit(request, pk):
     """Projekt bearbeiten"""
     project = get_object_or_404(Project, pk=pk, connection__user=request.user)
     connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
-    
+
     if request.method == 'POST':
         form = ProjectForm(request.POST, instance=project)
         form.fields['connection'].queryset = connections
@@ -181,7 +185,7 @@ def project_edit(request, pk):
     else:
         form = ProjectForm(instance=project)
         form.fields['connection'].queryset = connections
-    
+
     return render(request, 'clawboard/projects/form.html', {
         'form': form,
         'project': project,
@@ -213,7 +217,7 @@ def memory_browser(request):
     connection_id = request.GET.get('connection')
     connection = None
     files = []
-    
+
     if connection_id:
         connection = get_object_or_404(ClawdbotConnection, pk=connection_id, user=request.user)
         files = MemoryFile.objects.filter(connection=connection)
@@ -222,7 +226,7 @@ def memory_browser(request):
         if connections.exists():
             connection = connections.first()
             files = MemoryFile.objects.filter(connection=connection)
-    
+
     return render(request, 'clawboard/memory/browser.html', {
         'connection': connection,
         'files': files,
@@ -235,7 +239,7 @@ def memory_file_view(request):
     """Memory-Datei Inhalt anzeigen (AJAX)"""
     file_id = request.GET.get('id')
     memory_file = get_object_or_404(MemoryFile, pk=file_id, connection__user=request.user)
-    
+
     return JsonResponse({
         'success': True,
         'filename': memory_file.filename,
@@ -250,18 +254,18 @@ def memory_file_save(request):
     """Memory-Datei speichern (AJAX)"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'POST required'})
-    
+
     import json
     data = json.loads(request.body)
     file_id = data.get('id')
     content = data.get('content', '')
-    
+
     memory_file = get_object_or_404(MemoryFile, pk=file_id, connection__user=request.user)
     memory_file.content = content
     memory_file.save()
-    
+
     # TODO: Sync zurück zum Clawdbot Gateway
-    
+
     return JsonResponse({
         'success': True,
         'message': 'Datei gespeichert',
@@ -299,12 +303,12 @@ def integration_list(request):
 def api_status(request):
     """System-Status abrufen (für Live-Updates)"""
     connection_id = request.GET.get('connection')
-    
+
     if not connection_id:
         return JsonResponse({'success': False, 'error': 'connection required'})
-    
+
     connection = get_object_or_404(ClawdbotConnection, pk=connection_id, user=request.user)
-    
+
     return JsonResponse({
         'success': True,
         'status': connection.status,
@@ -323,21 +327,213 @@ def api_status(request):
 def api_sync(request):
     """Daten mit Clawdbot synchronisieren"""
     connection_id = request.GET.get('connection')
-    
+
     if not connection_id:
         return JsonResponse({'success': False, 'error': 'connection required'})
-    
+
     connection = get_object_or_404(ClawdbotConnection, pk=connection_id, user=request.user)
-    
+
     # TODO: Tatsächliche Synchronisation implementieren
     # - Memory-Dateien vom Gateway abrufen
     # - Konversationen synchronisieren
     # - System-Status aktualisieren
-    
+
     connection.last_seen = timezone.now()
     connection.save()
-    
+
     return JsonResponse({
         'success': True,
         'message': 'Synchronisation gestartet',
+    })
+
+
+# === Connector HTTP Push API ===
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def api_connector_push(request):
+    """
+    HTTP Push Endpoint fuer den Connector.
+    Der Connector sendet System-Daten, Memory-Files etc. per HTTP POST.
+    Auth: Bearer Token im Authorization Header (= gateway_token)
+    """
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return JsonResponse(
+            {'error': 'Authorization header required (Bearer <token>)'},
+            status=401
+        )
+
+    token = auth_header[7:]
+
+    # Connection per Token finden
+    # EncryptedCharField unterstuetzt kein filter() - deshalb in Python vergleichen
+    connection = None
+    for conn in ClawdbotConnection.objects.filter(is_active=True):
+        if conn.gateway_token == token:
+            connection = conn
+            break
+
+    if not connection:
+        return JsonResponse({'error': 'Invalid token'}, status=401)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    # System-Info aktualisieren
+    system = data.get('system', {})
+    gateway = data.get('gateway', {})
+
+    connection.status = 'online'
+    connection.last_seen = timezone.now()
+
+    if system.get('cpu_percent') is not None:
+        connection.cpu_percent = system['cpu_percent']
+    if system.get('ram_used_mb') is not None:
+        connection.ram_used_mb = int(system['ram_used_mb'])
+    if system.get('ram_total_mb') is not None:
+        connection.ram_total_mb = int(system['ram_total_mb'])
+    if system.get('disk_used_gb') is not None:
+        connection.disk_used_gb = round(system['disk_used_gb'], 2)
+    if system.get('disk_total_gb') is not None:
+        connection.disk_total_gb = round(system['disk_total_gb'], 2)
+
+    if gateway.get('hostname'):
+        connection.hostname = gateway['hostname']
+    if gateway.get('version'):
+        connection.gateway_version = gateway['version']
+
+    connection.save()
+
+    # Memory-Dateien verarbeiten
+    for mf in data.get('memory_files', []):
+        if not mf.get('path'):
+            continue
+        MemoryFile.objects.update_or_create(
+            connection=connection,
+            path=mf['path'],
+            defaults={
+                'filename': mf.get('filename', os.path.basename(mf['path'])),
+                'content': mf.get('content', ''),
+                'size_bytes': mf.get('size', 0),
+            }
+        )
+
+    # Conversations verarbeiten
+    for conv in data.get('conversations', []):
+        if not conv.get('session_key'):
+            continue
+        Conversation.objects.update_or_create(
+            connection=connection,
+            session_key=conv['session_key'],
+            defaults={
+                'title': conv.get('title', ''),
+                'summary': conv.get('summary', ''),
+                'messages': conv.get('messages', []),
+                'message_count': conv.get('message_count', 0),
+                'total_tokens': conv.get('total_tokens', 0),
+                'total_cost': conv.get('total_cost', 0),
+                'channel': conv.get('channel', ''),
+                'started_at': conv.get('started_at', timezone.now()),
+            }
+        )
+
+    return JsonResponse({
+        'success': True,
+        'connection_id': connection.pk,
+    })
+
+
+@login_required
+def api_dashboard_refresh(request):
+    """Dashboard-Daten als JSON fuer AJAX-Refresh zurueckgeben"""
+    connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
+    active = connections.first()
+
+    if not active:
+        return JsonResponse({
+            'success': False,
+            'error': 'no_connection',
+        })
+
+    # Online-Status pruefen (letzter Push < 5 Minuten)
+    is_online = False
+    last_seen_display = 'Nie'
+    if active.last_seen:
+        age_seconds = (timezone.now() - active.last_seen).total_seconds()
+        is_online = age_seconds < 300
+        # Menschenlesbarer Zeitstempel
+        if age_seconds < 60:
+            last_seen_display = 'Gerade eben'
+        elif age_seconds < 3600:
+            minutes = int(age_seconds / 60)
+            last_seen_display = f'vor {minutes} Min.'
+        elif age_seconds < 86400:
+            hours = int(age_seconds / 3600)
+            last_seen_display = f'vor {hours} Std.'
+        else:
+            days = int(age_seconds / 86400)
+            last_seen_display = f'vor {days} Tagen'
+
+    projects = list(Project.objects.filter(
+        connection__user=request.user
+    ).values('pk', 'name', 'status', 'icon', 'color')[:5])
+
+    conversations_qs = Conversation.objects.filter(
+        connection__user=request.user
+    ).order_by('-started_at')[:5]
+    conversations = []
+    for conv in conversations_qs:
+        age = (timezone.now() - conv.started_at).total_seconds() if conv.started_at else 0
+        if age < 3600:
+            age_display = f'vor {int(age / 60)} Min.'
+        elif age < 86400:
+            age_display = f'vor {int(age / 3600)} Std.'
+        else:
+            age_display = f'vor {int(age / 86400)} Tagen'
+        conversations.append({
+            'pk': conv.pk,
+            'title': conv.title or 'Untitled',
+            'message_count': conv.message_count,
+            'channel': conv.channel or 'unknown',
+            'age_display': age_display,
+        })
+
+    tasks = list(ScheduledTask.objects.filter(
+        connection__user=request.user, is_enabled=True
+    ).values('pk', 'name', 'schedule', 'next_run')[:5])
+
+    integrations = list(Integration.objects.filter(
+        connection__user=request.user
+    ).values('pk', 'name', 'status', 'category'))
+
+    memory_count = MemoryFile.objects.filter(
+        connection__user=request.user
+    ).count()
+
+    return JsonResponse({
+        'success': True,
+        'connection': {
+            'id': active.pk,
+            'name': active.name,
+            'status': 'online' if is_online else active.status,
+            'hostname': active.hostname,
+            'last_seen': active.last_seen.isoformat() if active.last_seen else None,
+            'last_seen_display': last_seen_display,
+            'is_online': is_online,
+        },
+        'system': {
+            'cpu': active.cpu_percent,
+            'ram_used': active.ram_used_mb,
+            'ram_total': active.ram_total_mb,
+            'disk_used': active.disk_used_gb,
+            'disk_total': active.disk_total_gb,
+        },
+        'projects': projects,
+        'conversations': conversations,
+        'tasks': tasks,
+        'integrations': integrations,
+        'memory_count': memory_count,
     })

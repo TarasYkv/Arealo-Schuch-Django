@@ -13,17 +13,30 @@
             </h1>
             <p class="text-muted mb-0">Dein Clawdbot Dashboard</p>
         </div>
-        <div>
+        <div class="d-flex align-items-center gap-2">
             {% if active_connection %}
-                <span class="badge bg-{{ active_connection.status|default:'secondary' }} fs-6">
+                <button id="btn-refresh" class="btn btn-outline-primary" onclick="refreshDashboard()">
+                    <i class="bi bi-arrow-clockwise me-1" id="refresh-icon"></i>Aktualisieren
+                </button>
+                <span id="status-badge" class="badge bg-{{ active_connection.status|default:'secondary' }} fs-6">
                     <i class="bi bi-circle-fill me-1"></i>
-                    {{ active_connection.get_status_display|default:"Unbekannt" }}
+                    <span id="status-text">{{ active_connection.get_status_display|default:"Unbekannt" }}</span>
                 </span>
             {% else %}
                 <a href="{% url 'clawboard:connection_add' %}" class="btn btn-primary">
                     <i class="bi bi-plus-lg me-1"></i>Verbindung hinzufügen
                 </a>
             {% endif %}
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+        <div id="refresh-toast" class="toast align-items-center border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-message"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
         </div>
     </div>
 
@@ -50,64 +63,79 @@
                     <div class="card-header bg-transparent border-0">
                         <h5 class="card-title mb-0">
                             <i class="bi bi-speedometer2 me-2"></i>System
+                            {% if active_connection.hostname %}
+                                <small class="text-muted ms-2">{{ active_connection.hostname }}</small>
+                            {% endif %}
                         </h5>
                     </div>
-                    <div class="card-body">
-                        {% if system_status %}
+                    <div class="card-body" id="system-card">
+                        {% if system_status.cpu is not None %}
                             <!-- CPU -->
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between mb-1">
                                     <small class="text-muted">CPU</small>
-                                    <small>{{ system_status.cpu|default:"-" }}%</small>
+                                    <small id="cpu-value">{{ system_status.cpu|default:"-" }}%</small>
                                 </div>
                                 <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar bg-primary" style="width: {{ system_status.cpu|default:0 }}%"></div>
+                                    <div class="progress-bar bg-primary" id="cpu-bar" style="width: {{ system_status.cpu|default:0 }}%"></div>
                                 </div>
                             </div>
-                            
+
                             <!-- RAM -->
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between mb-1">
                                     <small class="text-muted">RAM</small>
-                                    <small>{{ system_status.ram_used|default:"-" }} / {{ system_status.ram_total|default:"-" }} MB</small>
+                                    <small id="ram-value">{{ system_status.ram_used|default:"-" }} / {{ system_status.ram_total|default:"-" }} MB</small>
                                 </div>
                                 {% if system_status.ram_total %}
                                     {% widthratio system_status.ram_used system_status.ram_total 100 as ram_percent %}
                                     <div class="progress" style="height: 8px;">
-                                        <div class="progress-bar bg-success" style="width: {{ ram_percent }}%"></div>
+                                        <div class="progress-bar bg-success" id="ram-bar" style="width: {{ ram_percent }}%"></div>
+                                    </div>
+                                {% else %}
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-success" id="ram-bar" style="width: 0%"></div>
                                     </div>
                                 {% endif %}
                             </div>
-                            
+
                             <!-- Disk -->
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between mb-1">
                                     <small class="text-muted">Speicher</small>
-                                    <small>{{ system_status.disk_used|default:"-" }} / {{ system_status.disk_total|default:"-" }} GB</small>
+                                    <small id="disk-value">{{ system_status.disk_used|default:"-" }} / {{ system_status.disk_total|default:"-" }} GB</small>
                                 </div>
                                 {% if system_status.disk_total %}
                                     {% widthratio system_status.disk_used system_status.disk_total 100 as disk_percent %}
                                     <div class="progress" style="height: 8px;">
-                                        <div class="progress-bar bg-warning" style="width: {{ disk_percent }}%"></div>
+                                        <div class="progress-bar bg-warning" id="disk-bar" style="width: {{ disk_percent }}%"></div>
+                                    </div>
+                                {% else %}
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-warning" id="disk-bar" style="width: 0%"></div>
                                     </div>
                                 {% endif %}
                             </div>
-                            
+
                             <hr>
-                            <small class="text-muted">
+                            <small class="text-muted" id="last-seen-text">
                                 <i class="bi bi-clock me-1"></i>
-                                Zuletzt gesehen: {{ system_status.last_seen|default:"Nie"|timesince }} ago
+                                Zuletzt gesehen: {% if system_status.last_seen %}{{ system_status.last_seen|timesince }}{% else %}Nie{% endif %}
                             </small>
                         {% else %}
-                            <p class="text-muted text-center my-4">
-                                <i class="bi bi-exclamation-circle me-1"></i>
-                                Keine System-Daten verfügbar
-                            </p>
+                            <div class="text-center my-4" id="system-empty">
+                                <i class="bi bi-cloud-slash display-4 text-muted"></i>
+                                <p class="text-muted mt-2 mb-1">Keine System-Daten</p>
+                                <small class="text-muted">
+                                    Starte den Connector auf deinem Rechner,<br>
+                                    damit Daten hier angezeigt werden.
+                                </small>
+                            </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
-            
+
             <!-- Projekte -->
             <div class="col-12 col-lg-4">
                 <div class="card border-0 shadow-sm h-100">
@@ -119,7 +147,7 @@
                             Alle
                         </a>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" id="projects-card">
                         {% if projects %}
                             <ul class="list-group list-group-flush">
                                 {% for project in projects %}
@@ -145,7 +173,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Integrationen -->
             <div class="col-12 col-lg-4">
                 <div class="card border-0 shadow-sm h-100">
@@ -157,7 +185,7 @@
                             Alle
                         </a>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" id="integrations-card">
                         {% if integrations %}
                             <div class="row g-2">
                                 {% for integration in integrations %}
@@ -184,7 +212,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Zweite Reihe: Konversationen & Tasks -->
         <div class="row g-4 mt-2">
             <!-- Letzte Konversationen -->
@@ -198,7 +226,7 @@
                             Alle
                         </a>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" id="conversations-card">
                         {% if recent_conversations %}
                             <ul class="list-group list-group-flush">
                                 {% for conv in recent_conversations %}
@@ -206,7 +234,7 @@
                                         <a href="{% url 'clawboard:conversation_detail' conv.pk %}" class="text-decoration-none">
                                             <div class="d-flex justify-content-between">
                                                 <strong>{{ conv.title|default:"Untitled"|truncatechars:40 }}</strong>
-                                                <small class="text-muted">{{ conv.started_at|timesince }} ago</small>
+                                                <small class="text-muted">{{ conv.started_at|timesince }}</small>
                                             </div>
                                             <small class="text-muted">
                                                 {{ conv.message_count }} Nachrichten · {{ conv.channel|default:"unknown" }}
@@ -223,7 +251,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Geplante Aufgaben -->
             <div class="col-12 col-lg-6">
                 <div class="card border-0 shadow-sm">
@@ -235,7 +263,7 @@
                             Alle
                         </a>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body" id="tasks-card">
                         {% if scheduled_tasks %}
                             <ul class="list-group list-group-flush">
                                 {% for task in scheduled_tasks %}
@@ -264,7 +292,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Memory Browser Link -->
         <div class="row mt-4">
             <div class="col-12">
@@ -283,23 +311,289 @@
                 </div>
             </div>
         </div>
+
+        <!-- Connector-Hilfe -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm" id="connector-help">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-info-circle text-primary me-3 fs-4"></i>
+                            <div>
+                                <h6 class="mb-1">Connector einrichten</h6>
+                                <p class="text-muted mb-2 small">
+                                    Damit Daten im Dashboard erscheinen, muss der Clawboard-Connector
+                                    auf deinem Rechner laufen. Er sendet System-Daten, Memory-Dateien
+                                    und Konversationen automatisch an dieses Dashboard.
+                                </p>
+                                <div class="d-flex gap-2">
+                                    <code class="small bg-dark text-light px-2 py-1 rounded">
+                                        python3 connector.py --mode http
+                                    </code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     {% endif %}
 </div>
 
 {% if active_connection %}
 <script>
-// Auto-refresh Status alle 30 Sekunden
-setInterval(function() {
-    fetch('{% url "clawboard:api_status" %}?connection={{ active_connection.pk }}')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // TODO: UI aktualisieren
-                console.log('Status:', data.status);
+const DASHBOARD_API = '{% url "clawboard:api_dashboard_refresh" %}';
+const CONNECTION_ID = {{ active_connection.pk }};
+
+function showToast(message, type) {
+    const toast = document.getElementById('refresh-toast');
+    const toastMsg = document.getElementById('toast-message');
+    toast.className = 'toast align-items-center border-0 text-white bg-' + (type || 'primary');
+    toastMsg.textContent = message;
+    const bsToast = new bootstrap.Toast(toast, {delay: 3000});
+    bsToast.show();
+}
+
+function setRefreshing(active) {
+    const btn = document.getElementById('btn-refresh');
+    const icon = document.getElementById('refresh-icon');
+    if (active) {
+        btn.disabled = true;
+        icon.classList.add('spin-animation');
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1 spin-animation" id="refresh-icon"></i>Laden...';
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1" id="refresh-icon"></i>Aktualisieren';
+    }
+}
+
+function updateStatusBadge(conn) {
+    const badge = document.getElementById('status-badge');
+    const text = document.getElementById('status-text');
+    if (conn.is_online) {
+        badge.className = 'badge bg-success fs-6';
+        text.textContent = 'Online';
+    } else if (conn.status === 'offline') {
+        badge.className = 'badge bg-secondary fs-6';
+        text.textContent = 'Offline';
+    } else {
+        badge.className = 'badge bg-warning fs-6';
+        text.textContent = conn.status || 'Unbekannt';
+    }
+}
+
+function updateSystemCard(system, conn) {
+    const card = document.getElementById('system-card');
+    const emptyState = document.getElementById('system-empty');
+
+    if (system.cpu !== null && system.cpu !== undefined) {
+        // System-Daten vorhanden - ggf. Empty-State entfernen
+        if (emptyState) {
+            // Karte komplett neu rendern mit Daten
+            card.innerHTML = buildSystemHTML(system, conn);
+        } else {
+            // Werte aktualisieren
+            const cpuVal = document.getElementById('cpu-value');
+            const cpuBar = document.getElementById('cpu-bar');
+            if (cpuVal) cpuVal.textContent = system.cpu + '%';
+            if (cpuBar) cpuBar.style.width = system.cpu + '%';
+
+            const ramVal = document.getElementById('ram-value');
+            const ramBar = document.getElementById('ram-bar');
+            if (ramVal) ramVal.textContent = (system.ram_used || '-') + ' / ' + (system.ram_total || '-') + ' MB';
+            if (ramBar && system.ram_total) ramBar.style.width = (system.ram_used / system.ram_total * 100) + '%';
+
+            const diskVal = document.getElementById('disk-value');
+            const diskBar = document.getElementById('disk-bar');
+            if (diskVal) diskVal.textContent = (system.disk_used || '-') + ' / ' + (system.disk_total || '-') + ' GB';
+            if (diskBar && system.disk_total) diskBar.style.width = (system.disk_used / system.disk_total * 100) + '%';
+
+            const lastSeen = document.getElementById('last-seen-text');
+            if (lastSeen) {
+                lastSeen.innerHTML = '<i class="bi bi-clock me-1"></i>Zuletzt gesehen: ' + conn.last_seen_display;
             }
-        })
-        .catch(err => console.error('Status check failed:', err));
-}, 30000);
+        }
+    }
+}
+
+function buildSystemHTML(system, conn) {
+    const ramPct = system.ram_total ? (system.ram_used / system.ram_total * 100).toFixed(0) : 0;
+    const diskPct = system.disk_total ? (system.disk_used / system.disk_total * 100).toFixed(0) : 0;
+    return `
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <small class="text-muted">CPU</small>
+                <small id="cpu-value">${system.cpu || 0}%</small>
+            </div>
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-primary" id="cpu-bar" style="width: ${system.cpu || 0}%"></div>
+            </div>
+        </div>
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <small class="text-muted">RAM</small>
+                <small id="ram-value">${system.ram_used || '-'} / ${system.ram_total || '-'} MB</small>
+            </div>
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-success" id="ram-bar" style="width: ${ramPct}%"></div>
+            </div>
+        </div>
+        <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+                <small class="text-muted">Speicher</small>
+                <small id="disk-value">${system.disk_used || '-'} / ${system.disk_total || '-'} GB</small>
+            </div>
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-warning" id="disk-bar" style="width: ${diskPct}%"></div>
+            </div>
+        </div>
+        <hr>
+        <small class="text-muted" id="last-seen-text">
+            <i class="bi bi-clock me-1"></i>
+            Zuletzt gesehen: ${conn.last_seen_display}
+        </small>
+    `;
+}
+
+function updateIntegrationsCard(integrations) {
+    const card = document.getElementById('integrations-card');
+    if (!card) return;
+
+    if (integrations.length === 0) {
+        card.innerHTML = '<p class="text-muted text-center my-4">Keine Integrationen konfiguriert</p>';
+        return;
+    }
+
+    let html = '<div class="row g-2">';
+    integrations.forEach(function(integ) {
+        let icon;
+        if (integ.status === 'active') {
+            icon = '<i class="bi bi-check-circle-fill text-success me-2"></i>';
+        } else if (integ.status === 'error') {
+            icon = '<i class="bi bi-exclamation-circle-fill text-danger me-2"></i>';
+        } else {
+            icon = '<i class="bi bi-dash-circle text-muted me-2"></i>';
+        }
+        html += `<div class="col-6"><div class="d-flex align-items-center p-2 rounded bg-light">${icon}<small>${integ.name}</small></div></div>`;
+    });
+    html += '</div>';
+    card.innerHTML = html;
+}
+
+function updateConversationsCard(conversations) {
+    const card = document.getElementById('conversations-card');
+    if (!card) return;
+
+    if (conversations.length === 0) {
+        card.innerHTML = '<p class="text-muted text-center my-4">Noch keine Konversationen</p>';
+        return;
+    }
+
+    let html = '<ul class="list-group list-group-flush">';
+    conversations.forEach(function(conv) {
+        const title = conv.title.length > 40 ? conv.title.substring(0, 37) + '...' : conv.title;
+        html += `
+            <li class="list-group-item px-0">
+                <a href="/clawboard/conversations/${conv.pk}/" class="text-decoration-none">
+                    <div class="d-flex justify-content-between">
+                        <strong>${title}</strong>
+                        <small class="text-muted">${conv.age_display}</small>
+                    </div>
+                    <small class="text-muted">${conv.message_count} Nachrichten &middot; ${conv.channel}</small>
+                </a>
+            </li>`;
+    });
+    html += '</ul>';
+    card.innerHTML = html;
+}
+
+function updateTasksCard(tasks) {
+    const card = document.getElementById('tasks-card');
+    if (!card) return;
+
+    if (tasks.length === 0) {
+        card.innerHTML = '<p class="text-muted text-center my-4">Keine geplanten Aufgaben</p>';
+        return;
+    }
+
+    let html = '<ul class="list-group list-group-flush">';
+    tasks.forEach(function(task) {
+        html += `
+            <li class="list-group-item px-0">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${task.name}</strong><br>
+                        <small class="text-muted">${task.schedule}</small>
+                    </div>
+                </div>
+            </li>`;
+    });
+    html += '</ul>';
+    card.innerHTML = html;
+}
+
+function refreshDashboard() {
+    setRefreshing(true);
+
+    fetch(DASHBOARD_API, {
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+        setRefreshing(false);
+
+        if (!data.success) {
+            showToast('Keine aktive Verbindung gefunden', 'warning');
+            return;
+        }
+
+        // Status-Badge aktualisieren
+        updateStatusBadge(data.connection);
+
+        // System-Karte aktualisieren
+        updateSystemCard(data.system, data.connection);
+
+        // Integrations aktualisieren
+        updateIntegrationsCard(data.integrations);
+
+        // Konversationen aktualisieren
+        updateConversationsCard(data.conversations);
+
+        // Tasks aktualisieren
+        updateTasksCard(data.tasks);
+
+        // Connector-Hilfe ausblenden wenn Daten da sind
+        const help = document.getElementById('connector-help');
+        if (help && data.connection.is_online) {
+            help.style.display = 'none';
+        }
+
+        if (data.connection.is_online) {
+            showToast('Dashboard aktualisiert', 'success');
+        } else if (data.connection.last_seen) {
+            showToast('Daten geladen (Connector offline seit ' + data.connection.last_seen_display + ')', 'warning');
+        } else {
+            showToast('Keine Daten vom Connector - starte den Connector auf deinem Rechner', 'warning');
+        }
+    })
+    .catch(function(err) {
+        setRefreshing(false);
+        showToast('Fehler beim Laden: ' + err.message, 'danger');
+    });
+}
+
+// Auto-refresh alle 60 Sekunden
+setInterval(refreshDashboard, 60000);
 </script>
+
+<style>
+.spin-animation {
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
 {% endif %}
 {% endblock %}
