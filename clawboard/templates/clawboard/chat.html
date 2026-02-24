@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}KI-Chat - Clawboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3" style="height: calc(100vh - 80px);">
+    <div class="row h-100 g-3">
+        <!-- Sidebar: Chat-Liste & Modelle -->
+        <div class="col-12 col-md-3">
+            <div class="card border-0 shadow-sm h-100 d-flex flex-column">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0"><i class="bi bi-chat-dots me-2"></i>KI-Chat</h5>
+                        <a href="{% url 'clawboard:dashboard' %}" class="btn btn-sm btn-outline-secondary" title="Zurueck zum Dashboard">
+                            <i class="bi bi-arrow-left"></i>
+                        </a>
+                    </div>
+                    <!-- Neuer Chat -->
+                    <button class="btn btn-primary w-100 mb-2" onclick="showNewChatModal()">
+                        <i class="bi bi-plus-lg me-1"></i>Neuer Chat
+                    </button>
+                </div>
+                <div class="card-body overflow-auto p-2" id="chat-list" style="flex: 1;">
+                    {% for chat in chats %}
+                        <a href="{% url 'clawboard:chat_detail' chat.pk %}"
+                           class="d-block p-2 mb-1 rounded text-decoration-none {% if active_chat and active_chat.pk == chat.pk %}bg-primary text-white{% else %}text-dark{% endif %}"
+                           style="{% if not active_chat or active_chat.pk != chat.pk %}background-color: #f8f9fa;{% endif %}"
+                           data-chat-id="{{ chat.pk }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="text-truncate me-2">
+                                    <strong class="small">{{ chat.title|default:"Neuer Chat"|truncatechars:30 }}</strong>
+                                    <br>
+                                    <small class="{% if active_chat and active_chat.pk == chat.pk %}text-white-50{% else %}text-muted{% endif %}">
+                                        {{ chat.get_provider_display }} - {{ chat.message_count }} Nachr.
+                                    </small>
+                                </div>
+                                <button class="btn btn-sm p-0 border-0 {% if active_chat and active_chat.pk == chat.pk %}text-white-50{% else %}text-muted{% endif %}"
+                                        onclick="event.preventDefault(); event.stopPropagation(); deleteChat({{ chat.pk }});"
+                                        title="Chat loeschen">
+                                    <i class="bi bi-trash small"></i>
+                                </button>
+                            </div>
+                        </a>
+                    {% empty %}
+                        <p class="text-muted text-center small mt-4">Noch keine Chats</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Verfuegbare Modelle -->
+                <div class="card-footer bg-transparent border-top pt-2 pb-2">
+                    <small class="text-muted d-block mb-1"><i class="bi bi-cpu me-1"></i>Verfuegbare Modelle:</small>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for model in available_models %}
+                            <span class="badge border px-2 py-1" style="background-color: #f0f0f0; color: #333; font-size: 0.7rem;">
+                                <i class="bi {{ model.icon }} me-1"></i>{{ model.name }}
+                            </span>
+                        {% empty %}
+                            <small class="text-muted">Keine API-Keys konfiguriert</small>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat-Bereich -->
+        <div class="col-12 col-md-9">
+            <div class="card border-0 shadow-sm h-100 d-flex flex-column">
+                {% if active_chat %}
+                    <!-- Chat Header -->
+                    <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0" id="chat-title">{{ active_chat.title|default:"Neuer Chat" }}</h6>
+                            <small class="text-muted">{{ active_chat.get_provider_display }} - {{ active_chat.model_name }}</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-light text-dark" id="msg-count">{{ active_chat.message_count }} Nachrichten</span>
+                        </div>
+                    </div>
+
+                    <!-- Messages -->
+                    <div class="card-body overflow-auto" id="messages-container" style="flex: 1;">
+                        {% for msg in active_chat.messages %}
+                            {% if msg.role == 'user' %}
+                                <div class="d-flex justify-content-end mb-3">
+                                    <div class="p-3 rounded-3" style="background-color: #0d6efd; color: white; max-width: 75%;">
+                                        <div class="small" style="white-space: pre-wrap;">{{ msg.content }}</div>
+                                    </div>
+                                </div>
+                            {% elif msg.role == 'assistant' %}
+                                <div class="d-flex justify-content-start mb-3">
+                                    <div class="p-3 rounded-3" style="background-color: #f0f0f0; max-width: 75%;">
+                                        <div class="small chat-response" style="white-space: pre-wrap;">{{ msg.content }}</div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <!-- Input -->
+                    <div class="card-footer bg-transparent border-top p-3">
+                        <form id="chat-form" onsubmit="sendMessage(event)">
+                            <div class="input-group">
+                                <textarea class="form-control" id="message-input" rows="2"
+                                          placeholder="Nachricht eingeben..." style="resize: none;"
+                                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendMessage(event);}"></textarea>
+                                <button class="btn btn-primary" type="submit" id="send-btn">
+                                    <i class="bi bi-send"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted mt-1 d-block">Enter = Senden, Shift+Enter = Neue Zeile</small>
+                        </form>
+                    </div>
+                {% else %}
+                    <!-- Kein Chat ausgewaehlt -->
+                    <div class="card-body d-flex align-items-center justify-content-center" style="flex: 1;">
+                        <div class="text-center">
+                            <i class="bi bi-chat-dots display-1 text-muted mb-3"></i>
+                            <h4 class="text-muted">Starte einen neuen Chat</h4>
+                            <p class="text-muted mb-4">
+                                Waehle ein KI-Modell und starte eine Konversation.
+                            </p>
+                            {% if available_models %}
+                                <button class="btn btn-primary btn-lg" onclick="showNewChatModal()">
+                                    <i class="bi bi-plus-lg me-2"></i>Neuer Chat
+                                </button>
+                            {% else %}
+                                <div class="alert alert-warning d-inline-block">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Konfiguriere zuerst API-Keys in deinem
+                                    <a href="/accounts/settings/">Profil</a>.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Neuer Chat -->
+<div class="modal fade" id="newChatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Neuer Chat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">KI-Modell waehlen</label>
+                    <select class="form-select" id="model-select">
+                        {% for model in available_models %}
+                            <option value="{{ model.provider }}|{{ model.id }}"
+                                    data-provider="{{ model.provider }}"
+                                    data-icon="{{ model.icon }}">
+                                {{ model.name }} ({{ model.description }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Titel (optional)</label>
+                    <input type="text" class="form-control" id="chat-title-input" placeholder="z.B. Python Hilfe...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="createChat()">
+                    <i class="bi bi-chat-dots me-1"></i>Chat starten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const CSRF_TOKEN = '{{ csrf_token }}';
+const CHAT_CREATE_API = '{% url "clawboard:api_chat_create" %}';
+const CHAT_SEND_API = '{% url "clawboard:api_chat_send" %}';
+{% if active_chat %}
+const ACTIVE_CHAT_ID = {{ active_chat.pk }};
+{% else %}
+const ACTIVE_CHAT_ID = null;
+{% endif %}
+
+// Scroll zum Ende
+function scrollToBottom() {
+    const container = document.getElementById('messages-container');
+    if (container) container.scrollTop = container.scrollHeight;
+}
+
+// Beim Laden scrollen
+document.addEventListener('DOMContentLoaded', scrollToBottom);
+
+function showNewChatModal() {
+    const modal = new bootstrap.Modal(document.getElementById('newChatModal'));
+    modal.show();
+}
+
+function createChat() {
+    const select = document.getElementById('model-select');
+    const title = document.getElementById('chat-title-input').value.trim();
+
+    if (!select.value) {
+        alert('Bitte ein Modell waehlen');
+        return;
+    }
+
+    const parts = select.value.split('|');
+    const provider = parts[0];
+    const model = parts[1];
+
+    fetch(CHAT_CREATE_API, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({provider: provider, model: model, title: title}),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            window.location.href = '/clawboard/chat/' + data.chat.id + '/';
+        } else {
+            alert(data.error || 'Fehler beim Erstellen');
+        }
+    })
+    .catch(function(err) { alert('Fehler: ' + err.message); });
+}
+
+function sendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('message-input');
+    const message = input.value.trim();
+    if (!message || !ACTIVE_CHAT_ID) return;
+
+    const sendBtn = document.getElementById('send-btn');
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    input.disabled = true;
+
+    // User-Nachricht sofort anzeigen
+    appendMessage('user', message);
+    input.value = '';
+
+    // Lade-Indikator
+    const loadingId = appendLoading();
+
+    fetch(CHAT_SEND_API, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN,
+        },
+        body: JSON.stringify({chat_id: ACTIVE_CHAT_ID, message: message}),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        removeLoading(loadingId);
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="bi bi-send"></i>';
+        input.disabled = false;
+        input.focus();
+
+        if (data.success) {
+            appendMessage('assistant', data.response);
+            // Titel aktualisieren
+            if (data.chat_title) {
+                const titleEl = document.getElementById('chat-title');
+                if (titleEl) titleEl.textContent = data.chat_title;
+            }
+            if (data.message_count) {
+                const countEl = document.getElementById('msg-count');
+                if (countEl) countEl.textContent = data.message_count + ' Nachrichten';
+            }
+        } else {
+            appendMessage('assistant', data.error || 'Fehler bei der KI-Antwort');
+        }
+    })
+    .catch(function(err) {
+        removeLoading(loadingId);
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="bi bi-send"></i>';
+        input.disabled = false;
+        appendMessage('assistant', 'Netzwerkfehler: ' + err.message);
+    });
+}
+
+function appendMessage(role, content) {
+    const container = document.getElementById('messages-container');
+    if (!container) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-flex mb-3 ' + (role === 'user' ? 'justify-content-end' : 'justify-content-start');
+
+    const bubble = document.createElement('div');
+    bubble.className = 'p-3 rounded-3';
+    bubble.style.maxWidth = '75%';
+
+    if (role === 'user') {
+        bubble.style.backgroundColor = '#0d6efd';
+        bubble.style.color = 'white';
+    } else {
+        bubble.style.backgroundColor = '#f0f0f0';
+    }
+
+    const text = document.createElement('div');
+    text.className = 'small';
+    text.style.whiteSpace = 'pre-wrap';
+    text.textContent = content;
+
+    bubble.appendChild(text);
+    wrapper.appendChild(bubble);
+    container.appendChild(wrapper);
+    scrollToBottom();
+}
+
+let loadingCounter = 0;
+function appendLoading() {
+    const container = document.getElementById('messages-container');
+    if (!container) return null;
+
+    const id = 'loading-' + (++loadingCounter);
+    const wrapper = document.createElement('div');
+    wrapper.id = id;
+    wrapper.className = 'd-flex justify-content-start mb-3';
+    wrapper.innerHTML = '<div class="p-3 rounded-3" style="background-color: #f0f0f0;"><div class="d-flex align-items-center"><span class="spinner-border spinner-border-sm me-2"></span><small class="text-muted">Denkt nach...</small></div></div>';
+    container.appendChild(wrapper);
+    scrollToBottom();
+    return id;
+}
+
+function removeLoading(id) {
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+function deleteChat(chatId) {
+    if (!confirm('Chat wirklich loeschen?')) return;
+
+    fetch('/clawboard/api/chat/' + chatId + '/delete/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': CSRF_TOKEN,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            if (ACTIVE_CHAT_ID === chatId) {
+                window.location.href = '/clawboard/chat/';
+            } else {
+                // Element aus der Liste entfernen
+                const el = document.querySelector('[data-chat-id="' + chatId + '"]');
+                if (el) el.remove();
+            }
+        }
+    })
+    .catch(function(err) { alert('Fehler: ' + err.message); });
+}
+</script>
+
+<style>
+.chat-response code {
+    background-color: #e9ecef;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.85em;
+}
+</style>
+{% endblock %}

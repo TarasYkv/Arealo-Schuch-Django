@@ -11,9 +11,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import (
     ClawdbotConnection, Project, ProjectMemory,
-    Conversation, ScheduledTask, MemoryFile, Integration, Skill
+    Conversation, ScheduledTask, MemoryFile, Integration, Skill,
+    ClawboardChat
 )
 from .forms import ClawdbotConnectionForm, ProjectForm
+from .services import get_available_models_for_user, call_ai_chat
 
 
 def _get_api_services(user):
@@ -67,6 +69,8 @@ def dashboard(request):
         'integrations': Integration.objects.filter(connection__user=request.user) if active_connection else [],
         'skills': Skill.objects.filter(connection__user=request.user) if active_connection else [],
         'api_services': _get_api_services(request.user),
+        'recent_chats': ClawboardChat.objects.filter(user=request.user)[:5],
+        'ai_models': get_available_models_for_user(request.user),
     }
 
     # System-Status falls aktive Connection
@@ -735,3 +739,142 @@ def api_dashboard_refresh(request):
         'skills': skills,
         'memory_count': memory_count,
     })
+
+
+# === KI Chat ===
+
+@login_required
+def chat_view(request, pk=None):
+    """KI-Chat Seite"""
+    chats = ClawboardChat.objects.filter(user=request.user)[:50]
+    available_models = get_available_models_for_user(request.user)
+
+    active_chat = None
+    if pk:
+        active_chat = get_object_or_404(ClawboardChat, pk=pk, user=request.user)
+
+    return render(request, 'clawboard/chat.html', {
+        'chats': chats,
+        'active_chat': active_chat,
+        'available_models': available_models,
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def api_chat_create(request):
+    """Neuen KI-Chat erstellen"""
+    data = json.loads(request.body)
+    provider = data.get('provider', 'openai')
+    model_name = data.get('model', 'gpt-4o-mini')
+    title = data.get('title', '')
+
+    chat = ClawboardChat.objects.create(
+        user=request.user,
+        provider=provider,
+        model_name=model_name,
+        title=title,
+    )
+
+    return JsonResponse({
+        'success': True,
+        'chat': {
+            'id': chat.pk,
+            'title': chat.title,
+            'provider': chat.provider,
+            'model_name': chat.model_name,
+        }
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def api_chat_send(request):
+    """Nachricht senden und KI-Antwort erhalten"""
+    data = json.loads(request.body)
+    chat_id = data.get('chat_id')
+    message = data.get('message', '').strip()
+
+    if not message:
+        return JsonResponse({'error': 'Nachricht darf nicht leer sein'}, status=400)
+
+    chat = get_object_or_404(ClawboardChat, pk=chat_id, user=request.user)
+
+    # User-Nachricht hinzufuegen
+    now_str = timezone.now().isoformat()
+    chat.messages.append({
+        'role': 'user',
+        'content': message,
+        'timestamp': now_str,
+    })
+
+    # Auto-Titel beim ersten Nachricht
+    if not chat.title and len(chat.messages) == 1:
+        chat.title = message[:80]
+
+    # KI aufrufen
+    try:
+        ai_response = call_ai_chat(
+            user=request.user,
+            provider=chat.provider,
+            model=chat.model_name,
+            messages=chat.messages,
+        )
+    except Exception as e:
+        # Fehlernachricht als System-Message
+        error_msg = f"Fehler: {str(e)}"
+        chat.messages.append({
+            'role': 'assistant',
+            'content': error_msg,
+            'timestamp': timezone.now().isoformat(),
+            'error': True,
+        })
+        chat.message_count = len([m for m in chat.messages if m['role'] in ('user', 'assistant')])
+        chat.save()
+        return JsonResponse({
+            'success': False,
+            'error': error_msg,
+            'chat_title': chat.title,
+        })
+
+    # KI-Antwort hinzufuegen
+    chat.messages.append({
+        'role': 'assistant',
+        'content': ai_response or '',
+        'timestamp': timezone.now().isoformat(),
+    })
+    chat.message_count = len([m for m in chat.messages if m['role'] in ('user', 'assistant')])
+    chat.save()
+
+    return JsonResponse({
+        'success': True,
+        'response': ai_response,
+        'chat_title': chat.title,
+        'message_count': chat.message_count,
+    })
+
+
+@login_required
+def api_chat_messages(request, pk):
+    """Nachrichten eines Chats laden"""
+    chat = get_object_or_404(ClawboardChat, pk=pk, user=request.user)
+    return JsonResponse({
+        'success': True,
+        'chat': {
+            'id': chat.pk,
+            'title': chat.title,
+            'provider': chat.provider,
+            'model_name': chat.model_name,
+            'messages': chat.messages,
+            'message_count': chat.message_count,
+        }
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def api_chat_delete(request, pk):
+    """Chat loeschen"""
+    chat = get_object_or_404(ClawboardChat, pk=pk, user=request.user)
+    chat.delete()
+    return JsonResponse({'success': True})

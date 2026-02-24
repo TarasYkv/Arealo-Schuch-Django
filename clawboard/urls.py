@@ -43,10 +43,20 @@ urlpatterns = [
     path('connector/cfg/<str:token>/', views.connector_config_token, name='connector_config_token'),
     path('connector/config/<int:pk>/', views.connector_download_config, name='connector_download_config'),
 
+    # KI Chat
+    path('chat/', views.chat_view, name='chat'),
+    path('chat/<int:pk>/', views.chat_view, name='chat_detail'),
+
     # API Endpoints
     path('api/status/', views.api_status, name='api_status'),
     path('api/sync/', views.api_sync, name='api_sync'),
     path('api/push/', views.api_connector_push, name='api_push'),
     path('api/dashboard/', views.api_dashboard_refresh, name='api_dashboard_refresh'),
     path('api/connector/restart/', views.api_connector_restart, name='api_connector_restart'),
+
+    # Chat API
+    path('api/chat/create/', views.api_chat_create, name='api_chat_create'),
+    path('api/chat/send/', views.api_chat_send, name='api_chat_send'),
+    path('api/chat/<int:pk>/messages/', views.api_chat_messages, name='api_chat_messages'),
+    path('api/chat/<int:pk>/delete/', views.api_chat_delete, name='api_chat_delete'),
 ]

@@ -271,3 +271,33 @@ class Skill(models.Model):
     def __str__(self):
         v = f" {self.version}" if self.version else ""
         return f"{self.name}{v}"
+
+
+class ClawboardChat(models.Model):
+    """KI-Chat im Clawboard"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='clawboard_chats')
+
+    title = models.CharField(max_length=200, blank=True, verbose_name="Titel")
+
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI'),
+        ('anthropic', 'Anthropic'),
+        ('gemini', 'Google Gemini'),
+    ]
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='openai', verbose_name="Provider")
+    model_name = models.CharField(max_length=100, verbose_name="Modell")
+
+    # Nachrichten als JSON: [{"role": "user"|"assistant"|"system", "content": "...", "timestamp": "..."}]
+    messages = models.JSONField(default=list, verbose_name="Nachrichten")
+    message_count = models.IntegerField(default=0, verbose_name="Anzahl Nachrichten")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "KI-Chat"
+        verbose_name_plural = "KI-Chats"
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.title or f"Chat {self.pk}"

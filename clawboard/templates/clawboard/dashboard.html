@@ -277,14 +277,92 @@
             </div>
         </div>
 
-        <!-- Dritte Reihe: Konversationen -->
+        <!-- Dritte Reihe: KI-Chat & Konversationen -->
+        <div class="row g-4 mt-2">
+            <!-- KI-Chat -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-chat-dots me-2"></i>KI-Chats
+                        </h5>
+                        <a href="{% url 'clawboard:chat' %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Oeffnen
+                        </a>
+                    </div>
+                    <div class="card-body" id="ai-chats-card">
+                        {% if recent_chats %}
+                            <ul class="list-group list-group-flush">
+                                {% for chat in recent_chats %}
+                                    <li class="list-group-item px-0">
+                                        <a href="{% url 'clawboard:chat_detail' chat.pk %}" class="text-decoration-none">
+                                            <div class="d-flex justify-content-between">
+                                                <strong>{{ chat.title|default:"Neuer Chat"|truncatechars:35 }}</strong>
+                                                <small class="text-muted">{{ chat.updated_at|timesince }}</small>
+                                            </div>
+                                            <small class="text-muted">
+                                                {{ chat.get_provider_display }} - {{ chat.model_name }} · {{ chat.message_count }} Nachr.
+                                            </small>
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted text-center my-3">
+                                Noch keine KI-Chats
+                            </p>
+                        {% endif %}
+                        <a href="{% url 'clawboard:chat' %}" class="btn btn-sm btn-outline-primary w-100 mt-2">
+                            <i class="bi bi-plus me-1"></i>Neuer Chat
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KI-Modelle -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-cpu me-2"></i>KI-Modelle
+                        </h5>
+                    </div>
+                    <div class="card-body" id="models-card">
+                        {% if ai_models %}
+                            <div class="row g-2">
+                                {% for model in ai_models %}
+                                    <div class="col-6">
+                                        <div class="d-flex align-items-center p-2 rounded" style="background-color: #f8f9fa;">
+                                            <i class="bi {{ model.icon }} me-2" style="color: #0d6efd;"></i>
+                                            <div>
+                                                <small class="d-block fw-bold">{{ model.name }}</small>
+                                                <small class="text-muted" style="font-size: 0.7rem;">{{ model.description }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center my-3">
+                                <p class="text-muted mb-2">Keine API-Keys konfiguriert</p>
+                                <a href="/accounts/settings/" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-gear me-1"></i>API-Keys einrichten
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vierte Reihe: Konversationen -->
         <div class="row g-4 mt-2">
             <!-- Letzte Konversationen -->
             <div class="col-12 col-lg-6">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-chat-dots me-2"></i>Letzte Konversationen
+                            <i class="bi bi-chat-left-text me-2"></i>Letzte Konversationen
                         </h5>
                         <a href="{% url 'clawboard:conversation_list' %}" class="btn btn-sm btn-outline-primary">
                             Alle
