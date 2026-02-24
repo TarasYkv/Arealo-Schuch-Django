@@ -57,6 +57,10 @@ urlpatterns = [
     # Chat API
     path('api/chat/create/', views.api_chat_create, name='api_chat_create'),
     path('api/chat/send/', views.api_chat_send, name='api_chat_send'),
+    path('api/chat/poll/', views.api_chat_poll, name='api_chat_poll'),
     path('api/chat/<int:pk>/messages/', views.api_chat_messages, name='api_chat_messages'),
     path('api/chat/<int:pk>/delete/', views.api_chat_delete, name='api_chat_delete'),
+
+    # Gateway API
+    path('api/gateway/models/', views.api_gateway_models, name='api_gateway_models'),
 ]

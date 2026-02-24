@@ -32,12 +32,18 @@
         {% endfor %}
     </div>
     <div class="cb-sidebar-footer">
-        <div class="cb-models-label"><i class="bi bi-cpu me-1"></i>Modelle</div>
+        <div class="cb-connector-status">
+            <i class="bi bi-circle-fill me-1 {% if connector_online %}text-success{% else %}text-danger{% endif %}" style="font-size:0.5rem;"></i>
+            <span style="font-size:0.7rem; color: #6c7086;">
+                Connector {% if connector_online %}Online{% else %}Offline{% endif %}
+            </span>
+        </div>
+        <div class="cb-models-label mt-2"><i class="bi bi-cloud me-1"></i>Gateway-Modelle</div>
         <div class="cb-models-list">
-            {% for model in available_models %}
+            {% for model in gateway_models %}
                 <span class="cb-model-badge"><i class="bi {{ model.icon }}"></i> {{ model.name }}</span>
             {% empty %}
-                <span class="cb-empty-hint small">Keine API-Keys</span>
+                <span class="cb-empty-hint small">Noch keine Modelle</span>
             {% endfor %}
         </div>
     </div>
@@ -49,7 +55,14 @@
         <div class="cb-main-header">
             <div>
                 <span class="cb-main-title" id="chat-title">{{ active_chat.title|default:"Neuer Chat" }}</span>
-                <span class="cb-main-model">{{ active_chat.get_provider_display }} &middot; {{ active_chat.model_name }}</span>
+                <span class="cb-main-model">
+                    {% if active_chat.chat_mode == 'gateway' %}
+                        <i class="bi bi-cloud me-1"></i>Gateway
+                    {% else %}
+                        <i class="bi bi-lightning me-1"></i>Direkt
+                    {% endif %}
+                    &middot; {{ active_chat.model_name }}
+                </span>
             </div>
             <span class="cb-msg-count" id="msg-count">{{ active_chat.message_count }} Nachrichten</span>
         </div>
@@ -81,16 +94,19 @@
         <div class="cb-empty-chat-state">
             <i class="bi bi-chat-dots display-1"></i>
             <h4>Starte einen neuen Chat</h4>
-            <p>Waehle ein KI-Modell und starte eine Konversation.</p>
-            {% if available_models %}
+            <p>Chat ueber deinen lokalen OpenClaw Gateway.</p>
+            {% if connector_online %}
                 <button class="cb-btn-start" onclick="showNewChatModal()">
                     <i class="bi bi-plus-lg me-2"></i>Neuer Chat
                 </button>
             {% else %}
                 <div class="cb-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    Konfiguriere zuerst API-Keys in deinem <a href="/accounts/settings/">Profil</a>.
+                    Connector ist offline. Starte den <a href="{% url 'clawboard:connector_setup' %}">Connector</a> auf deinem Rechner.
                 </div>
+                <button class="cb-btn-start mt-3" onclick="showNewChatModal()" style="opacity:0.7;">
+                    <i class="bi bi-plus-lg me-2"></i>Trotzdem starten
+                </button>
             {% endif %}
         </div>
     {% endif %}
@@ -107,16 +123,52 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <!-- Chat-Modus Toggle -->
                 <div class="mb-3">
-                    <label class="form-label">KI-Modell waehlen</label>
-                    <select class="form-select" id="model-select" style="background: #313244; color: #cdd6f4; border-color: #45475a;">
+                    <label class="form-label">Modus</label>
+                    <div class="cb-mode-toggle">
+                        <button type="button" class="cb-mode-btn active" data-mode="gateway" onclick="setChatMode('gateway')">
+                            <i class="bi bi-cloud me-1"></i>Gateway (OpenClaw)
+                        </button>
+                        <button type="button" class="cb-mode-btn" data-mode="direct" onclick="setChatMode('direct')">
+                            <i class="bi bi-lightning me-1"></i>Direkt (API Key)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Gateway-Modelle -->
+                <div class="mb-3" id="gateway-model-section">
+                    <label class="form-label">Gateway-Modell waehlen</label>
+                    <select class="form-select" id="gateway-model-select" style="background: #313244; color: #cdd6f4; border-color: #45475a;">
+                        {% for model in gateway_models %}
+                            <option value="gateway|{{ model.id }}">
+                                {{ model.name }} {% if model.provider %}({{ model.provider }}){% endif %}
+                            </option>
+                        {% empty %}
+                            <option value="" disabled selected>Keine Gateway-Modelle verfuegbar</option>
+                        {% endfor %}
+                    </select>
+                    {% if not connector_online %}
+                        <div class="form-text text-warning" style="font-size:0.75rem;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>Connector ist offline
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Direkte Modelle (versteckt by default) -->
+                <div class="mb-3 d-none" id="direct-model-section">
+                    <label class="form-label">API-Modell waehlen</label>
+                    <select class="form-select" id="direct-model-select" style="background: #313244; color: #cdd6f4; border-color: #45475a;">
                         {% for model in available_models %}
                             <option value="{{ model.provider }}|{{ model.id }}">
                                 {{ model.name }} ({{ model.description }})
                             </option>
+                        {% empty %}
+                            <option value="" disabled selected>Keine API-Keys konfiguriert</option>
                         {% endfor %}
                     </select>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label">Titel (optional)</label>
                     <input type="text" class="form-control" id="chat-title-input" placeholder="z.B. Python Hilfe..."
@@ -137,7 +189,11 @@
 const CSRF_TOKEN = '{{ csrf_token }}';
 const CHAT_CREATE_API = '{% url "clawboard:api_chat_create" %}';
 const CHAT_SEND_API = '{% url "clawboard:api_chat_send" %}';
+const CHAT_POLL_API = '{% url "clawboard:api_chat_poll" %}';
 {% if active_chat %}const ACTIVE_CHAT_ID = {{ active_chat.pk }};{% else %}const ACTIVE_CHAT_ID = null;{% endif %}
+{% if active_chat %}const ACTIVE_CHAT_MODE = '{{ active_chat.chat_mode }}';{% else %}const ACTIVE_CHAT_MODE = 'gateway';{% endif %}
+
+let selectedChatMode = 'gateway';
 
 function scrollToBottom() {
     const c = document.getElementById('messages-container');
@@ -147,15 +203,31 @@ document.addEventListener('DOMContentLoaded', scrollToBottom);
 
 function showNewChatModal() { new bootstrap.Modal(document.getElementById('newChatModal')).show(); }
 
+function setChatMode(mode) {
+    selectedChatMode = mode;
+    document.querySelectorAll('.cb-mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    document.getElementById('gateway-model-section').classList.toggle('d-none', mode !== 'gateway');
+    document.getElementById('direct-model-section').classList.toggle('d-none', mode !== 'direct');
+}
+
 function createChat() {
-    const select = document.getElementById('model-select');
+    let select, chatMode;
+    if (selectedChatMode === 'gateway') {
+        select = document.getElementById('gateway-model-select');
+        chatMode = 'gateway';
+    } else {
+        select = document.getElementById('direct-model-select');
+        chatMode = 'direct';
+    }
     const title = document.getElementById('chat-title-input').value.trim();
-    if (!select.value) return;
+    if (!select || !select.value) { alert('Bitte ein Modell waehlen'); return; }
     const parts = select.value.split('|');
     fetch(CHAT_CREATE_API, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-        body: JSON.stringify({provider: parts[0], model: parts[1], title: title}),
+        body: JSON.stringify({provider: parts[0], model: parts[1], title: title, chat_mode: chatMode}),
     })
     .then(r => r.json())
     .then(data => {
@@ -164,6 +236,14 @@ function createChat() {
     })
     .catch(err => alert('Fehler: ' + err.message));
 }
+
+const LOADING_TEXTS = [
+    'Sende an Gateway...',
+    'Warte auf Connector...',
+    'KI denkt nach...',
+    'Verarbeite Antwort...',
+    'Gleich fertig...',
+];
 
 function sendMessage(e) {
     e.preventDefault();
@@ -177,6 +257,7 @@ function sendMessage(e) {
     appendMessage('user', message);
     input.value = '';
     const loadingId = appendLoading();
+
     fetch(CHAT_SEND_API, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
@@ -184,26 +265,91 @@ function sendMessage(e) {
     })
     .then(r => r.json())
     .then(data => {
-        removeLoading(loadingId);
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="bi bi-send-fill"></i>';
-        input.disabled = false;
-        input.focus();
-        if (data.success) {
-            appendMessage('assistant', data.response);
-            if (data.chat_title) { const t = document.getElementById('chat-title'); if (t) t.textContent = data.chat_title; }
-            if (data.message_count) { const c = document.getElementById('msg-count'); if (c) c.textContent = data.message_count + ' Nachrichten'; }
+        if (data.pending && data.request_id) {
+            // Gateway-Modus: Polling starten
+            pollForResponse(data.request_id, loadingId, sendBtn, input);
         } else {
-            appendMessage('assistant', data.error || 'Fehler bei der KI-Antwort');
+            // Direkt-Modus: Sofortige Antwort
+            removeLoading(loadingId);
+            resetInput(sendBtn, input);
+            if (data.success) {
+                appendMessage('assistant', data.response);
+                updateChatInfo(data);
+            } else {
+                appendMessage('assistant', data.error || 'Fehler bei der KI-Antwort');
+            }
         }
     })
     .catch(err => {
         removeLoading(loadingId);
-        sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="bi bi-send-fill"></i>';
-        input.disabled = false;
+        resetInput(sendBtn, input);
         appendMessage('assistant', 'Netzwerkfehler: ' + err.message);
     });
+}
+
+function pollForResponse(requestId, loadingId, sendBtn, input) {
+    let pollCount = 0;
+    const maxPolls = 60; // 60 * 2s = 120s
+    let textIndex = 0;
+
+    const interval = setInterval(() => {
+        pollCount++;
+
+        // Loading-Text rotieren
+        if (pollCount % 3 === 0) {
+            textIndex = Math.min(textIndex + 1, LOADING_TEXTS.length - 1);
+            updateLoadingText(loadingId, LOADING_TEXTS[textIndex]);
+        }
+
+        if (pollCount > maxPolls) {
+            clearInterval(interval);
+            removeLoading(loadingId);
+            resetInput(sendBtn, input);
+            appendMessage('assistant', 'Timeout - keine Antwort vom Gateway nach 120 Sekunden.');
+            return;
+        }
+
+        fetch(CHAT_POLL_API + '?request_id=' + requestId, {
+            headers: {'X-CSRFToken': CSRF_TOKEN},
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'completed') {
+                clearInterval(interval);
+                removeLoading(loadingId);
+                resetInput(sendBtn, input);
+                appendMessage('assistant', data.response);
+                updateChatInfo(data);
+            } else if (data.status === 'error' || data.status === 'timeout') {
+                clearInterval(interval);
+                removeLoading(loadingId);
+                resetInput(sendBtn, input);
+                appendMessage('assistant', data.error || 'Fehler vom Gateway');
+            }
+            // queued/processing: weiter pollen
+        })
+        .catch(() => {
+            // Netzwerkfehler beim Poll - weiter versuchen
+        });
+    }, 2000);
+}
+
+function resetInput(sendBtn, input) {
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = '<i class="bi bi-send-fill"></i>';
+    input.disabled = false;
+    input.focus();
+}
+
+function updateChatInfo(data) {
+    if (data.chat_title) {
+        const t = document.getElementById('chat-title');
+        if (t) t.textContent = data.chat_title;
+    }
+    if (data.message_count) {
+        const c = document.getElementById('msg-count');
+        if (c) c.textContent = data.message_count + ' Nachrichten';
+    }
 }
 
 function appendMessage(role, content) {
@@ -227,10 +373,19 @@ function appendLoading() {
     const el = document.createElement('div');
     el.id = id;
     el.className = 'cb-msg cb-msg-ai';
-    el.innerHTML = '<div class="cb-msg-bubble cb-msg-bubble-ai"><span class="spinner-border spinner-border-sm me-2"></span>Denkt nach...</div>';
+    el.innerHTML = '<div class="cb-msg-bubble cb-msg-bubble-ai"><span class="spinner-border spinner-border-sm me-2"></span><span class="loading-text">Sende an Gateway...</span></div>';
     container.appendChild(el);
     scrollToBottom();
     return id;
+}
+
+function updateLoadingText(id, text) {
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el) {
+        const span = el.querySelector('.loading-text');
+        if (span) span.textContent = text;
+    }
 }
 
 function removeLoading(id) { if (id) { const el = document.getElementById(id); if (el) el.remove(); } }
@@ -354,6 +509,18 @@ function deleteChat(chatId) {
 .cb-chat-list::-webkit-scrollbar, .cb-messages::-webkit-scrollbar { width: 6px; }
 .cb-chat-list::-webkit-scrollbar-track, .cb-messages::-webkit-scrollbar-track { background: transparent; }
 .cb-chat-list::-webkit-scrollbar-thumb, .cb-messages::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+
+/* --- Mode Toggle --- */
+.cb-mode-toggle { display: flex; gap: 4px; }
+.cb-mode-btn {
+    flex: 1; padding: 8px 12px; background: #313244; color: #a6adc8;
+    border: 1px solid #45475a; border-radius: 8px; font-size: 0.8rem;
+    cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.cb-mode-btn:hover { background: #45475a; color: #cdd6f4; }
+.cb-mode-btn.active { background: #89b4fa22; color: #89b4fa; border-color: #89b4fa; }
+
+.cb-connector-status { padding: 4px 0; }
 
 @media (max-width: 768px) { .cb-sidebar { width: 200px; } }
 @media (max-width: 576px) { .cb-sidebar { display: none; } }

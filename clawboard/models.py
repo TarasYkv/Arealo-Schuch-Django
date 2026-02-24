@@ -27,6 +27,9 @@ class ClawdbotConnection(models.Model):
     # Pending Command (wird beim naechsten Push an Connector gesendet)
     pending_command = models.CharField(max_length=50, blank=True, verbose_name="Ausstehender Befehl")
 
+    # Dynamisches Push-Intervall (Sekunden) - wird bei aktivem Chat auf 3s gesetzt
+    push_interval_override = models.IntegerField(null=True, blank=True, verbose_name="Push-Intervall Override (s)")
+
     # System-Monitoring
     cpu_percent = models.FloatField(null=True, blank=True, verbose_name="CPU %")
     ram_used_mb = models.IntegerField(null=True, blank=True, verbose_name="RAM (MB)")
@@ -284,9 +287,16 @@ class ClawboardChat(models.Model):
         ('anthropic', 'Anthropic'),
         ('deepseek', 'DeepSeek'),
         ('gemini', 'Google Gemini'),
+        ('gateway', 'Gateway'),
     ]
-    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='openai', verbose_name="Provider")
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='gateway', verbose_name="Provider")
     model_name = models.CharField(max_length=100, verbose_name="Modell")
+
+    CHAT_MODE_CHOICES = [
+        ('gateway', 'Gateway (OpenClaw)'),
+        ('direct', 'Direkt (API Key)'),
+    ]
+    chat_mode = models.CharField(max_length=10, choices=CHAT_MODE_CHOICES, default='gateway', verbose_name="Chat-Modus")
 
     # Nachrichten als JSON: [{"role": "user"|"assistant"|"system", "content": "...", "timestamp": "..."}]
     messages = models.JSONField(default=list, verbose_name="Nachrichten")
@@ -302,3 +312,63 @@ class ClawboardChat(models.Model):
 
     def __str__(self):
         return self.title or f"Chat {self.pk}"
+
+
+class ChatMessageRequest(models.Model):
+    """Queue fuer Chat-Nachrichten die ueber den Gateway geroutet werden"""
+    chat = models.ForeignKey(ClawboardChat, on_delete=models.CASCADE, related_name='gateway_requests')
+    connection = models.ForeignKey(ClawdbotConnection, on_delete=models.CASCADE, related_name='chat_requests')
+
+    STATUS_CHOICES = [
+        ('queued', 'In Warteschlange'),
+        ('processing', 'Wird verarbeitet'),
+        ('completed', 'Abgeschlossen'),
+        ('error', 'Fehler'),
+        ('timeout', 'Timeout'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='queued', verbose_name="Status")
+
+    # Die vollstaendige Nachrichten-Historie fuer den AI-Call
+    request_messages = models.JSONField(verbose_name="Request Messages")
+    model_identifier = models.CharField(max_length=200, verbose_name="Modell-Identifier")
+
+    # Antwort vom Gateway
+    response_content = models.TextField(blank=True, verbose_name="Antwort")
+    error_message = models.TextField(blank=True, verbose_name="Fehlermeldung")
+
+    timeout_seconds = models.IntegerField(default=120, verbose_name="Timeout (s)")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    picked_up_at = models.DateTimeField(null=True, blank=True, verbose_name="Abgeholt am")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Abgeschlossen am")
+
+    class Meta:
+        verbose_name = "Chat-Request"
+        verbose_name_plural = "Chat-Requests"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Request {self.pk} ({self.status}) - {self.model_identifier}"
+
+
+class GatewayModelCache(models.Model):
+    """Verfuegbare KI-Modelle vom OpenClaw Gateway"""
+    connection = models.ForeignKey(ClawdbotConnection, on_delete=models.CASCADE, related_name='gateway_models')
+
+    model_id = models.CharField(max_length=200, verbose_name="Modell-ID")
+    model_name = models.CharField(max_length=200, verbose_name="Anzeigename")
+    provider = models.CharField(max_length=100, blank=True, verbose_name="Provider")
+    description = models.TextField(blank=True, verbose_name="Beschreibung")
+    is_available = models.BooleanField(default=True, verbose_name="Verfuegbar")
+
+    last_seen = models.DateTimeField(auto_now=True, verbose_name="Zuletzt gesehen")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Gateway-Modell"
+        verbose_name_plural = "Gateway-Modelle"
+        unique_together = ['connection', 'model_id']
+        ordering = ['provider', 'model_name']
+
+    def __str__(self):
+        return f"{self.model_name} ({self.provider})"

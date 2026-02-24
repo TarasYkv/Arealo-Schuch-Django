@@ -12,10 +12,10 @@ from django.views.decorators.http import require_http_methods
 from .models import (
     ClawdbotConnection, Project, ProjectMemory,
     Conversation, ScheduledTask, MemoryFile, Integration, Skill,
-    ClawboardChat
+    ClawboardChat, ChatMessageRequest, GatewayModelCache
 )
 from .forms import ClawdbotConnectionForm, ProjectForm
-from .services import get_available_models_for_user, call_ai_chat
+from .services import get_available_models_for_user, get_gateway_models_for_user, call_ai_chat
 
 
 def _get_api_services(user):
@@ -633,11 +633,66 @@ def api_connector_push(request):
             }
         )
 
+    # Chat-Antworten vom Connector verarbeiten
+    for chat_resp in data.get('chat_responses', []):
+        req_id = chat_resp.get('request_id')
+        if not req_id:
+            continue
+        try:
+            req = ChatMessageRequest.objects.get(pk=req_id, connection=connection)
+            if chat_resp.get('error'):
+                req.status = 'error'
+                req.error_message = emoji_re.sub('', chat_resp['error'])
+            else:
+                req.status = 'completed'
+                req.response_content = emoji_re.sub('', chat_resp.get('content', ''))
+            req.completed_at = timezone.now()
+            req.save()
+        except ChatMessageRequest.DoesNotExist:
+            pass
+
+    # Gateway-Modelle cachen
+    for gm in data.get('gateway_models', []):
+        if not gm.get('model_id'):
+            continue
+        GatewayModelCache.objects.update_or_create(
+            connection=connection,
+            model_id=gm['model_id'],
+            defaults={
+                'model_name': emoji_re.sub('', gm.get('model_name', gm['model_id'])),
+                'provider': gm.get('provider', ''),
+                'description': emoji_re.sub('', gm.get('description', '')),
+                'is_available': gm.get('is_available', True),
+            }
+        )
+
+    # Pending Chat-Requests fuer den Connector zusammenstellen
+    pending_requests = []
+    for req in ChatMessageRequest.objects.filter(
+        connection=connection, status='queued'
+    ).order_by('created_at'):
+        pending_requests.append({
+            'request_id': req.pk,
+            'model': req.model_identifier,
+            'messages': req.request_messages,
+        })
+        req.status = 'processing'
+        req.picked_up_at = timezone.now()
+        req.save(update_fields=['status', 'picked_up_at'])
+
     # Pending Command pruefen und mitschicken
     response_data = {
         'success': True,
         'connection_id': connection.pk,
     }
+
+    if pending_requests:
+        response_data['chat_requests'] = pending_requests
+
+    # Push-Intervall Override mitgeben
+    if connection.push_interval_override:
+        response_data['push_interval'] = connection.push_interval_override
+
     if connection.pending_command:
         response_data['command'] = connection.pending_command
         connection.pending_command = ''
@@ -770,6 +825,16 @@ def chat_view(request, pk=None):
     """KI-Chat Seite"""
     chats = ClawboardChat.objects.filter(user=request.user)[:50]
     available_models = get_available_models_for_user(request.user)
+    gateway_models = get_gateway_models_for_user(request.user)
+
+    # Connector-Status pruefen
+    active_connection = ClawdbotConnection.objects.filter(
+        user=request.user, is_active=True
+    ).first()
+    connector_online = False
+    if active_connection and active_connection.last_seen:
+        age = (timezone.now() - active_connection.last_seen).total_seconds()
+        connector_online = age < 300
 
     active_chat = None
     if pk:
@@ -779,6 +844,8 @@ def chat_view(request, pk=None):
         'chats': chats,
         'active_chat': active_chat,
         'available_models': available_models,
+        'gateway_models': gateway_models,
+        'connector_online': connector_online,
         'cb_active': 'chat',
     })
 
@@ -788,15 +855,17 @@ def chat_view(request, pk=None):
 def api_chat_create(request):
     """Neuen KI-Chat erstellen"""
     data = json.loads(request.body)
-    provider = data.get('provider', 'openai')
-    model_name = data.get('model', 'gpt-4o-mini')
+    provider = data.get('provider', 'gateway')
+    model_name = data.get('model', '')
     title = data.get('title', '')
+    chat_mode = data.get('chat_mode', 'gateway')
 
     chat = ClawboardChat.objects.create(
         user=request.user,
         provider=provider,
         model_name=model_name,
         title=title,
+        chat_mode=chat_mode,
     )
 
     return JsonResponse({
@@ -806,6 +875,7 @@ def api_chat_create(request):
             'title': chat.title,
             'provider': chat.provider,
             'model_name': chat.model_name,
+            'chat_mode': chat.chat_mode,
         }
     })
 
@@ -813,7 +883,7 @@ def api_chat_create(request):
 @login_required
 @require_http_methods(['POST'])
 def api_chat_send(request):
-    """Nachricht senden und KI-Antwort erhalten"""
+    """Nachricht senden - Gateway (async via Connector) oder Direkt (sofort)"""
     data = json.loads(request.body)
     chat_id = data.get('chat_id')
     message = data.get('message', '').strip()
@@ -835,7 +905,43 @@ def api_chat_send(request):
     if not chat.title and len(chat.messages) == 1:
         chat.title = message[:80]
 
-    # KI aufrufen
+    chat.message_count = len([m for m in chat.messages if m['role'] in ('user', 'assistant')])
+    chat.save()
+
+    # === Gateway-Modus: Request in Queue, Connector holt ab ===
+    if chat.chat_mode == 'gateway':
+        connection = ClawdbotConnection.objects.filter(
+            user=request.user, is_active=True
+        ).first()
+        if not connection:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein aktiver Connector verbunden. Bitte Connector starten.',
+            })
+
+        # API-Messages aufbereiten (ohne timestamps)
+        api_messages = [{'role': m['role'], 'content': m['content']} for m in chat.messages]
+
+        req = ChatMessageRequest.objects.create(
+            chat=chat,
+            connection=connection,
+            request_messages=api_messages,
+            model_identifier=chat.model_name,
+        )
+
+        # Push-Intervall auf 3s setzen fuer schnellere Abholung
+        connection.push_interval_override = 3
+        connection.save(update_fields=['push_interval_override'])
+
+        return JsonResponse({
+            'success': True,
+            'pending': True,
+            'request_id': req.pk,
+            'chat_title': chat.title,
+            'message': 'Nachricht an Gateway gesendet...',
+        })
+
+    # === Direkt-Modus: Sofortiger API-Call ===
     try:
         ai_response = call_ai_chat(
             user=request.user,
@@ -844,7 +950,6 @@ def api_chat_send(request):
             messages=chat.messages,
         )
     except Exception as e:
-        # Fehlernachricht als System-Message
         error_msg = f"Fehler: {str(e)}"
         chat.messages.append({
             'role': 'assistant',
@@ -860,7 +965,6 @@ def api_chat_send(request):
             'chat_title': chat.title,
         })
 
-    # KI-Antwort hinzufuegen
     chat.messages.append({
         'role': 'assistant',
         'content': ai_response or '',
@@ -874,6 +978,95 @@ def api_chat_send(request):
         'response': ai_response,
         'chat_title': chat.title,
         'message_count': chat.message_count,
+    })
+
+
+@login_required
+def api_chat_poll(request):
+    """Polling-Endpoint: Status eines Gateway-Chat-Requests abfragen"""
+    request_id = request.GET.get('request_id')
+    if not request_id:
+        return JsonResponse({'error': 'request_id required'}, status=400)
+
+    req = get_object_or_404(
+        ChatMessageRequest, pk=request_id, chat__user=request.user
+    )
+
+    # Timeout pruefen
+    if req.status == 'queued':
+        age = (timezone.now() - req.created_at).total_seconds()
+        if age > req.timeout_seconds:
+            req.status = 'timeout'
+            req.error_message = 'Timeout - keine Antwort vom Gateway'
+            req.save(update_fields=['status', 'error_message'])
+
+    result = {
+        'status': req.status,
+        'request_id': req.pk,
+    }
+
+    if req.status == 'completed':
+        # Antwort in den Chat einfuegen
+        chat = req.chat
+        chat.messages.append({
+            'role': 'assistant',
+            'content': req.response_content,
+            'timestamp': timezone.now().isoformat(),
+        })
+        chat.message_count = len([m for m in chat.messages if m['role'] in ('user', 'assistant')])
+        chat.save()
+
+        result['response'] = req.response_content
+        result['chat_title'] = chat.title
+        result['message_count'] = chat.message_count
+
+        # Push-Intervall zuruecksetzen
+        conn = req.connection
+        # Nur zuruecksetzen wenn keine weiteren offenen Requests
+        open_requests = ChatMessageRequest.objects.filter(
+            connection=conn, status__in=['queued', 'processing']
+        ).exclude(pk=req.pk).exists()
+        if not open_requests:
+            conn.push_interval_override = None
+            conn.save(update_fields=['push_interval_override'])
+
+    elif req.status == 'error':
+        # Fehler in den Chat einfuegen
+        chat = req.chat
+        chat.messages.append({
+            'role': 'assistant',
+            'content': f"Fehler: {req.error_message}",
+            'timestamp': timezone.now().isoformat(),
+            'error': True,
+        })
+        chat.message_count = len([m for m in chat.messages if m['role'] in ('user', 'assistant')])
+        chat.save()
+
+        result['error'] = req.error_message
+
+    elif req.status == 'timeout':
+        chat = req.chat
+        chat.messages.append({
+            'role': 'assistant',
+            'content': 'Timeout - der Gateway hat nicht rechtzeitig geantwortet.',
+            'timestamp': timezone.now().isoformat(),
+            'error': True,
+        })
+        chat.message_count = len([m for m in chat.messages if m['role'] in ('user', 'assistant')])
+        chat.save()
+
+        result['error'] = 'Timeout'
+
+    return JsonResponse(result)
+
+
+@login_required
+def api_gateway_models(request):
+    """Verfuegbare Gateway-Modelle abrufen"""
+    models = get_gateway_models_for_user(request.user)
+    return JsonResponse({
+        'success': True,
+        'models': models,
     })
 
 

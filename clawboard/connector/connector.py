@@ -88,6 +88,13 @@ class ClawboardConnector:
         self.running = True
         self.authenticated = False
 
+        # Gateway Chat Support
+        self.pending_chat_responses = []
+        self.cached_gateway_models = []
+        self.last_model_fetch = 0
+        self.model_fetch_interval = 300  # Alle 5 Minuten
+        self.current_push_interval = self.heartbeat_interval
+
         if not self.connection_token:
             raise ValueError("connection_token ist erforderlich!")
 
@@ -351,7 +358,126 @@ class ClawboardConnector:
 
         return projects[:20]  # Max 20 Projekte
 
-    def http_push(self) -> dict:
+    async def forward_to_gateway(self, model: str, messages: list) -> dict:
+        """Leitet einen Chat-Request an den lokalen OpenClaw Gateway weiter."""
+        if not websockets:
+            return {'error': 'websockets Paket nicht installiert'}
+
+        try:
+            async with websockets.connect(
+                self.gateway_url,
+                open_timeout=10,
+                close_timeout=5,
+            ) as gw_ws:
+                # Auth falls Token vorhanden
+                if self.gateway_token:
+                    await gw_ws.send(json.dumps({
+                        'type': 'auth',
+                        'token': self.gateway_token,
+                    }))
+                    auth_resp = await asyncio.wait_for(gw_ws.recv(), timeout=5)
+                    auth_data = json.loads(auth_resp)
+                    if not auth_data.get('success', True):
+                        return {'error': f"Gateway Auth fehlgeschlagen: {auth_data.get('error', 'unknown')}"}
+
+                # Chat-Request senden
+                await gw_ws.send(json.dumps({
+                    'type': 'chat',
+                    'model': model,
+                    'messages': messages,
+                }))
+
+                # Auf Antwort warten (max 120s)
+                response = await asyncio.wait_for(gw_ws.recv(), timeout=120)
+                data = json.loads(response)
+
+                if data.get('type') == 'chat_response':
+                    return {'content': data.get('content', '')}
+                elif data.get('error'):
+                    return {'error': data['error']}
+                else:
+                    return {'content': data.get('content', data.get('text', str(data)))}
+
+        except asyncio.TimeoutError:
+            return {'error': 'Gateway Timeout (120s)'}
+        except ConnectionRefusedError:
+            return {'error': f'Gateway nicht erreichbar: {self.gateway_url}'}
+        except Exception as e:
+            return {'error': f'Gateway Fehler: {str(e)}'}
+
+    async def process_chat_requests(self, chat_requests: list):
+        """Verarbeitet Chat-Requests vom Server und leitet sie an den Gateway weiter."""
+        for req in chat_requests:
+            request_id = req.get('request_id')
+            model = req.get('model', '')
+            messages = req.get('messages', [])
+
+            logger.info(f"Chat-Request #{request_id} -> Gateway ({model})")
+
+            result = await self.forward_to_gateway(model, messages)
+
+            response = {'request_id': request_id}
+            if 'error' in result:
+                response['error'] = result['error']
+                logger.warning(f"Chat-Request #{request_id} Fehler: {result['error']}")
+            else:
+                response['content'] = result.get('content', '')
+                logger.info(f"Chat-Request #{request_id} beantwortet ({len(response['content'])} Zeichen)")
+
+            self.pending_chat_responses.append(response)
+
+    async def collect_gateway_models(self) -> list:
+        """Holt verfuegbare Modelle vom OpenClaw Gateway."""
+        now = time.time()
+        if now - self.last_model_fetch < self.model_fetch_interval and self.cached_gateway_models:
+            return self.cached_gateway_models
+
+        # Manuelle Modelle aus Config als Fallback
+        manual = self.config.get('manual_models', [])
+
+        if not websockets:
+            return manual or self.cached_gateway_models
+
+        try:
+            async with websockets.connect(
+                self.gateway_url,
+                open_timeout=5,
+                close_timeout=3,
+            ) as gw_ws:
+                if self.gateway_token:
+                    await gw_ws.send(json.dumps({
+                        'type': 'auth',
+                        'token': self.gateway_token,
+                    }))
+                    await asyncio.wait_for(gw_ws.recv(), timeout=5)
+
+                await gw_ws.send(json.dumps({'type': 'list_models'}))
+                response = await asyncio.wait_for(gw_ws.recv(), timeout=10)
+                data = json.loads(response)
+
+                models = []
+                for m in data.get('models', []):
+                    models.append({
+                        'model_id': m.get('id', m.get('model_id', '')),
+                        'model_name': m.get('name', m.get('model_name', '')),
+                        'provider': m.get('provider', ''),
+                        'description': m.get('description', ''),
+                        'is_available': m.get('is_available', True),
+                    })
+
+                if models:
+                    self.cached_gateway_models = models
+                    self.last_model_fetch = now
+                    logger.info(f"{len(models)} Gateway-Modelle geladen")
+                    return models
+
+        except Exception as e:
+            logger.debug(f"Gateway-Modelle nicht abrufbar: {e}")
+
+        self.last_model_fetch = now
+        return manual or self.cached_gateway_models
+
+    def http_push(self, gateway_models=None) -> dict:
         """Daten per HTTP POST an Clawboard senden"""
         data = {
             'system': self.get_system_info(),
@@ -361,6 +487,15 @@ class ClawboardConnector:
             'integrations': self.collect_integrations(),
             'projects': self.collect_projects(),
         }
+
+        # Chat-Antworten mitsenden
+        if self.pending_chat_responses:
+            data['chat_responses'] = self.pending_chat_responses
+            self.pending_chat_responses = []
+
+        # Gateway-Modelle mitsenden
+        if gateway_models:
+            data['gateway_models'] = gateway_models
 
         body = json.dumps(data).encode('utf-8')
         req = urllib.request.Request(
@@ -409,27 +544,48 @@ class ClawboardConnector:
             os.execv(sys.executable, [sys.executable] + sys.argv)
 
     async def run_http(self):
-        """HTTP-basierter Push-Loop"""
+        """HTTP-basierter Push-Loop mit dynamischem Intervall und Chat-Support"""
         logger.info(f"HTTP Push Modus - Sende Daten an {self.push_url}")
         logger.info(f"Workspace: {self.workspace}")
-        logger.info(f"Intervall: {self.heartbeat_interval}s")
+        logger.info(f"Intervall: {self.heartbeat_interval}s (dynamisch bei Chat)")
 
         push_count = 0
         while self.running:
-            result = self.http_push()
+            # Gateway-Modelle periodisch abrufen
+            gateway_models = await self.collect_gateway_models()
+
+            result = self.http_push(gateway_models=gateway_models)
             push_count += 1
 
             if result and result.get('success'):
                 conn_id = result.get('connection_id', '?')
                 logger.info(f"Push #{push_count} erfolgreich (Connection: {conn_id})")
+
                 # Server-Befehle pruefen
                 cmd = result.get('command')
                 if cmd:
                     self.handle_command(cmd)
+
+                # Chat-Requests verarbeiten
+                chat_requests = result.get('chat_requests', [])
+                if chat_requests:
+                    logger.info(f"{len(chat_requests)} Chat-Request(s) empfangen")
+                    await self.process_chat_requests(chat_requests)
+                    # Sofort Extra-Push mit Antworten
+                    extra_result = self.http_push()
+                    if extra_result and extra_result.get('success'):
+                        logger.info("Chat-Antworten gesendet")
+
+                # Dynamisches Push-Intervall
+                server_interval = result.get('push_interval')
+                if server_interval:
+                    self.current_push_interval = server_interval
+                else:
+                    self.current_push_interval = self.heartbeat_interval
             else:
                 logger.warning(f"Push #{push_count} fehlgeschlagen")
 
-            await asyncio.sleep(self.heartbeat_interval)
+            await asyncio.sleep(self.current_push_interval)
 
     async def send_json(self, data: dict):
         """JSON an Workloom senden"""

@@ -88,6 +88,26 @@ def get_available_models_for_user(user):
     return models
 
 
+def get_gateway_models_for_user(user):
+    """Gibt verfuegbare Gateway-Modelle (via OpenClaw) fuer den User zurueck."""
+    from .models import GatewayModelCache, ClawdbotConnection
+
+    connections = ClawdbotConnection.objects.filter(user=user, is_active=True)
+    models = []
+    for conn in connections:
+        for gm in GatewayModelCache.objects.filter(connection=conn, is_available=True):
+            models.append({
+                'id': gm.model_id,
+                'name': gm.model_name,
+                'provider': gm.provider or 'gateway',
+                'description': gm.description,
+                'icon': 'bi-cloud',
+                'connection_id': conn.pk,
+                'connection_name': conn.name,
+            })
+    return models
+
+
 def call_ai_chat(user, provider: str, model: str, messages: List[Dict]) -> Optional[str]:
     """Ruft die KI-API auf und gibt die Antwort zurueck."""
     if provider == 'openai':
