@@ -37,6 +37,11 @@ urlpatterns = [
     # Integrations
     path('integrations/', views.integration_list, name='integration_list'),
 
+    # Connector Download
+    path('connector/', views.connector_setup, name='connector_setup'),
+    path('connector/download/', views.connector_download_script, name='connector_download_script'),
+    path('connector/config/<int:pk>/', views.connector_download_config, name='connector_download_config'),
+
     # API Endpoints
     path('api/status/', views.api_status, name='api_status'),
     path('api/sync/', views.api_sync, name='api_sync'),

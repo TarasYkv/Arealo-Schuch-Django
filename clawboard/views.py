@@ -2,7 +2,7 @@ import json
 import os
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -295,6 +295,58 @@ def integration_list(request):
     """Liste aller Integrationen"""
     integrations = Integration.objects.filter(connection__user=request.user)
     return render(request, 'clawboard/integrations/list.html', {'integrations': integrations})
+
+
+# === Connector Download ===
+
+@login_required
+def connector_setup(request):
+    """Connector Setup-Seite mit Download und Anleitung"""
+    connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
+    active_connection = connections.first()
+
+    return render(request, 'clawboard/connector/setup.html', {
+        'connections': connections,
+        'active_connection': active_connection,
+    })
+
+
+@login_required
+def connector_download_script(request):
+    """connector.py als Download bereitstellen"""
+    connector_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        'connector', 'connector.py'
+    )
+
+    with open(connector_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    response = HttpResponse(content, content_type='text/x-python')
+    response['Content-Disposition'] = 'attachment; filename="connector.py"'
+    return response
+
+
+@login_required
+def connector_download_config(request, pk):
+    """Generiert die Config-Datei mit vorausgefülltem Token für eine Connection"""
+    connection = get_object_or_404(ClawdbotConnection, pk=pk, user=request.user)
+
+    config = {
+        'push_url': 'https://www.workloom.de/clawboard/api/push/',
+        'workloom_url': 'wss://www.workloom.de/ws/clawboard/gateway/',
+        'connection_token': connection.gateway_token,
+        'gateway_url': 'ws://localhost:18789',
+        'gateway_token': '',
+        'heartbeat_interval': 30,
+        'reconnect_delay': 10,
+        'workspace': '~/clawd',
+    }
+
+    content = json.dumps(config, indent=2, ensure_ascii=False)
+    response = HttpResponse(content, content_type='application/json')
+    response['Content-Disposition'] = 'attachment; filename="clawboard-connector.json"'
+    return response
 
 
 # === API Endpoints ===
