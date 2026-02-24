@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
@@ -503,15 +504,18 @@ def api_connector_push(request):
     connection.save()
 
     # Memory-Dateien verarbeiten
+    # Emojis entfernen - MySQL utf8 unterstuetzt nur BMP (kein utf8mb4)
+    emoji_re = re.compile(r'[\U00010000-\U0010ffff]')
     for mf in data.get('memory_files', []):
         if not mf.get('path'):
             continue
+        content = emoji_re.sub('', mf.get('content', ''))
         MemoryFile.objects.update_or_create(
             connection=connection,
             path=mf['path'],
             defaults={
                 'filename': mf.get('filename', os.path.basename(mf['path'])),
-                'content': mf.get('content', ''),
+                'content': content,
                 'size_bytes': mf.get('size', 0),
             }
         )
@@ -524,8 +528,8 @@ def api_connector_push(request):
             connection=connection,
             session_key=conv['session_key'],
             defaults={
-                'title': conv.get('title', ''),
-                'summary': conv.get('summary', ''),
+                'title': emoji_re.sub('', conv.get('title', '')),
+                'summary': emoji_re.sub('', conv.get('summary', '')),
                 'messages': conv.get('messages', []),
                 'message_count': conv.get('message_count', 0),
                 'total_tokens': conv.get('total_tokens', 0),
