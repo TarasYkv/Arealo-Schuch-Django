@@ -174,7 +174,7 @@
                 </div>
             </div>
 
-            <!-- Integrationen -->
+            <!-- Integrationen & Services -->
             <div class="col-12 col-lg-4">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-header bg-transparent border-0">
@@ -183,8 +183,16 @@
                         </h5>
                     </div>
                     <div class="card-body" id="integrations-card">
-                        {% if integrations %}
+                        {% if api_services or integrations %}
                             <div class="row g-2">
+                                {% for svc in api_services %}
+                                    <div class="col-6">
+                                        <div class="d-flex align-items-center p-2 rounded bg-light">
+                                            <i class="bi {{ svc.icon }} text-success me-2"></i>
+                                            <small>{{ svc.name }}</small>
+                                        </div>
+                                    </div>
+                                {% endfor %}
                                 {% for integration in integrations %}
                                     <div class="col-6">
                                         <div class="d-flex align-items-center p-2 rounded bg-light">
@@ -196,7 +204,7 @@
                             </div>
                         {% else %}
                             <p class="text-muted text-center my-4">
-                                Wird automatisch erkannt
+                                Keine Integrationen konfiguriert
                             </p>
                         {% endif %}
                     </div>
@@ -218,9 +226,9 @@
                         {% if skills %}
                             <div class="d-flex flex-wrap gap-2">
                                 {% for skill in skills %}
-                                    <span class="badge bg-{% if skill.category == 'language' %}primary{% else %}secondary{% endif %} bg-opacity-10 text-{% if skill.category == 'language' %}primary{% else %}secondary{% endif %} border px-3 py-2">
+                                    <span class="badge border px-3 py-2" style="background-color: {% if skill.category == 'language' %}#e8f0fe{% else %}#f0f0f0{% endif %}; color: #333;">
                                         <i class="bi {{ skill.icon }} me-1"></i>{{ skill.name }}
-                                        {% if skill.version %}<small class="opacity-75 ms-1">{{ skill.version|truncatechars:30 }}</small>{% endif %}
+                                        {% if skill.version %}<small class="text-muted ms-1">{{ skill.version|truncatechars:30 }}</small>{% endif %}
                                     </span>
                                 {% endfor %}
                             </div>
@@ -465,17 +473,18 @@ function buildSystemHTML(system, conn) {
     `;
 }
 
-function updateIntegrationsCard(integrations) {
+function updateIntegrationsCard(integrations, apiServices) {
     const card = document.getElementById('integrations-card');
     if (!card) return;
 
-    if (integrations.length === 0) {
-        card.innerHTML = '<p class="text-muted text-center my-4">Wird automatisch erkannt</p>';
+    const all = (apiServices || []).concat(integrations || []);
+    if (all.length === 0) {
+        card.innerHTML = '<p class="text-muted text-center my-4">Keine Integrationen konfiguriert</p>';
         return;
     }
 
     let html = '<div class="row g-2">';
-    integrations.forEach(function(integ) {
+    all.forEach(function(integ) {
         const icon = integ.icon || 'bi-check-circle';
         html += `<div class="col-6"><div class="d-flex align-items-center p-2 rounded bg-light"><i class="bi ${icon} text-success me-2"></i><small>${integ.name}</small></div></div>`;
     });
@@ -494,10 +503,10 @@ function updateSkillsCard(skills) {
 
     let html = '<div class="d-flex flex-wrap gap-2">';
     skills.forEach(function(sk) {
-        const cls = sk.category === 'language' ? 'primary' : 'secondary';
+        const bg = sk.category === 'language' ? '#e8f0fe' : '#f0f0f0';
         const icon = sk.icon || 'bi-code-square';
-        const ver = sk.version ? `<small class="opacity-75 ms-1">${sk.version.substring(0, 30)}</small>` : '';
-        html += `<span class="badge bg-${cls} bg-opacity-10 text-${cls} border px-3 py-2"><i class="bi ${icon} me-1"></i>${sk.name}${ver}</span>`;
+        const ver = sk.version ? `<small class="text-muted ms-1">${sk.version.substring(0, 30)}</small>` : '';
+        html += `<span class="badge border px-3 py-2" style="background-color: ${bg}; color: #333;"><i class="bi ${icon} me-1"></i>${sk.name}${ver}</span>`;
     });
     html += '</div>';
     card.innerHTML = html;
@@ -577,7 +586,7 @@ function refreshDashboard() {
         updateSystemCard(data.system, data.connection);
 
         // Integrations aktualisieren
-        updateIntegrationsCard(data.integrations);
+        updateIntegrationsCard(data.integrations, data.api_services);
 
         // Skills aktualisieren
         updateSkillsCard(data.skills);

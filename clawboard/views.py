@@ -16,6 +16,42 @@ from .models import (
 from .forms import ClawdbotConnectionForm, ProjectForm
 
 
+def _get_api_services(user):
+    """Konfigurierte API-Services und Verknuepfungen aus User-Profil sammeln."""
+    services = []
+    api_checks = [
+        ('openai_api_key', 'OpenAI', 'bi-stars'),
+        ('anthropic_api_key', 'Anthropic', 'bi-robot'),
+        ('gemini_api_key', 'Google Gemini', 'bi-google'),
+        ('google_api_key', 'Google API', 'bi-google'),
+        ('youtube_api_key', 'YouTube', 'bi-youtube'),
+        ('brave_api_key', 'Brave Search', 'bi-search'),
+        ('bing_api_key', 'Bing Search', 'bi-search'),
+        ('ideogram_api_key', 'Ideogram', 'bi-image'),
+        ('supadata_api_key', 'Supadata (TikTok)', 'bi-tiktok'),
+        ('upload_post_api_key', 'Upload-Post', 'bi-upload'),
+    ]
+    for field, name, icon in api_checks:
+        if getattr(user, field, None):
+            services.append({'name': name, 'icon': icon, 'status': 'active'})
+
+    try:
+        from allauth.socialaccount.models import SocialAccount
+        if SocialAccount.objects.filter(user=user, provider='telegram').exists():
+            services.append({'name': 'Telegram', 'icon': 'bi-telegram', 'status': 'active'})
+    except Exception:
+        pass
+
+    try:
+        from mail_app.models import EmailAccount
+        if EmailAccount.objects.filter(user=user, is_active=True).exists():
+            services.append({'name': 'Zoho Mail', 'icon': 'bi-envelope', 'status': 'active'})
+    except Exception:
+        pass
+
+    return services
+
+
 @login_required
 def dashboard(request):
     """Hauptdashboard mit Übersicht"""
@@ -30,6 +66,7 @@ def dashboard(request):
         'scheduled_tasks': ScheduledTask.objects.filter(connection__user=request.user, is_enabled=True)[:5],
         'integrations': Integration.objects.filter(connection__user=request.user) if active_connection else [],
         'skills': Skill.objects.filter(connection__user=request.user) if active_connection else [],
+        'api_services': _get_api_services(request.user),
     }
 
     # System-Status falls aktive Connection
@@ -643,6 +680,9 @@ def api_dashboard_refresh(request):
         connection__user=request.user
     ).values('pk', 'name', 'category', 'version', 'icon'))
 
+    # API-Services aus User-Profil
+    api_services = _get_api_services(request.user)
+
     memory_count = MemoryFile.objects.filter(
         connection__user=request.user
     ).count()
@@ -669,6 +709,7 @@ def api_dashboard_refresh(request):
         'conversations': conversations,
         'tasks': tasks,
         'integrations': integrations,
+        'api_services': api_services,
         'skills': skills,
         'memory_count': memory_count,
     })
