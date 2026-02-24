@@ -177,13 +177,10 @@
             <!-- Integrationen -->
             <div class="col-12 col-lg-4">
                 <div class="card border-0 shadow-sm h-100">
-                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <div class="card-header bg-transparent border-0">
                         <h5 class="card-title mb-0">
                             <i class="bi bi-plug me-2"></i>Integrationen
                         </h5>
-                        <a href="{% url 'clawboard:integration_list' %}" class="btn btn-sm btn-outline-primary">
-                            Alle
-                        </a>
                     </div>
                     <div class="card-body" id="integrations-card">
                         {% if integrations %}
@@ -191,13 +188,7 @@
                                 {% for integration in integrations %}
                                     <div class="col-6">
                                         <div class="d-flex align-items-center p-2 rounded bg-light">
-                                            {% if integration.status == 'active' %}
-                                                <i class="bi bi-check-circle-fill text-success me-2"></i>
-                                            {% elif integration.status == 'error' %}
-                                                <i class="bi bi-exclamation-circle-fill text-danger me-2"></i>
-                                            {% else %}
-                                                <i class="bi bi-dash-circle text-muted me-2"></i>
-                                            {% endif %}
+                                            <i class="bi {{ integration.icon|default:'bi-check-circle' }} text-success me-2"></i>
                                             <small>{{ integration.name }}</small>
                                         </div>
                                     </div>
@@ -205,7 +196,7 @@
                             </div>
                         {% else %}
                             <p class="text-muted text-center my-4">
-                                Keine Integrationen konfiguriert
+                                Wird automatisch erkannt
                             </p>
                         {% endif %}
                     </div>
@@ -213,7 +204,69 @@
             </div>
         </div>
 
-        <!-- Zweite Reihe: Konversationen & Tasks -->
+        <!-- Zweite Reihe: Skills & Konversationen -->
+        <div class="row g-4 mt-2">
+            <!-- Skills -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-lightning me-2"></i>Skills
+                        </h5>
+                    </div>
+                    <div class="card-body" id="skills-card">
+                        {% if skills %}
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for skill in skills %}
+                                    <span class="badge bg-{% if skill.category == 'language' %}primary{% else %}secondary{% endif %} bg-opacity-10 text-{% if skill.category == 'language' %}primary{% else %}secondary{% endif %} border px-3 py-2">
+                                        <i class="bi {{ skill.icon }} me-1"></i>{{ skill.name }}
+                                        {% if skill.version %}<small class="opacity-75 ms-1">{{ skill.version|truncatechars:30 }}</small>{% endif %}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted text-center my-4">
+                                Wird automatisch erkannt
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Geplante Aufgaben -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-clock me-2"></i>Geplante Aufgaben
+                        </h5>
+                    </div>
+                    <div class="card-body" id="tasks-card">
+                        {% if scheduled_tasks %}
+                            <ul class="list-group list-group-flush">
+                                {% for task in scheduled_tasks %}
+                                    <li class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>{{ task.name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ task.schedule }}</small>
+                                            </div>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted text-center my-4">
+                                Keine geplanten Aufgaben
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dritte Reihe: Konversationen -->
         <div class="row g-4 mt-2">
             <!-- Letzte Konversationen -->
             <div class="col-12 col-lg-6">
@@ -246,46 +299,6 @@
                         {% else %}
                             <p class="text-muted text-center my-4">
                                 Noch keine Konversationen
-                            </p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Geplante Aufgaben -->
-            <div class="col-12 col-lg-6">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">
-                            <i class="bi bi-clock me-2"></i>Geplante Aufgaben
-                        </h5>
-                        <a href="{% url 'clawboard:task_list' %}" class="btn btn-sm btn-outline-primary">
-                            Alle
-                        </a>
-                    </div>
-                    <div class="card-body" id="tasks-card">
-                        {% if scheduled_tasks %}
-                            <ul class="list-group list-group-flush">
-                                {% for task in scheduled_tasks %}
-                                    <li class="list-group-item px-0">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <strong>{{ task.name }}</strong>
-                                                <br>
-                                                <small class="text-muted">{{ task.schedule }}</small>
-                                            </div>
-                                            <div class="text-end">
-                                                {% if task.next_run %}
-                                                    <small class="text-muted">Nächste: {{ task.next_run|date:"d.m. H:i" }}</small>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p class="text-muted text-center my-4">
-                                Keine geplanten Aufgaben
                             </p>
                         {% endif %}
                     </div>
@@ -457,21 +470,34 @@ function updateIntegrationsCard(integrations) {
     if (!card) return;
 
     if (integrations.length === 0) {
-        card.innerHTML = '<p class="text-muted text-center my-4">Keine Integrationen konfiguriert</p>';
+        card.innerHTML = '<p class="text-muted text-center my-4">Wird automatisch erkannt</p>';
         return;
     }
 
     let html = '<div class="row g-2">';
     integrations.forEach(function(integ) {
-        let icon;
-        if (integ.status === 'active') {
-            icon = '<i class="bi bi-check-circle-fill text-success me-2"></i>';
-        } else if (integ.status === 'error') {
-            icon = '<i class="bi bi-exclamation-circle-fill text-danger me-2"></i>';
-        } else {
-            icon = '<i class="bi bi-dash-circle text-muted me-2"></i>';
-        }
-        html += `<div class="col-6"><div class="d-flex align-items-center p-2 rounded bg-light">${icon}<small>${integ.name}</small></div></div>`;
+        const icon = integ.icon || 'bi-check-circle';
+        html += `<div class="col-6"><div class="d-flex align-items-center p-2 rounded bg-light"><i class="bi ${icon} text-success me-2"></i><small>${integ.name}</small></div></div>`;
+    });
+    html += '</div>';
+    card.innerHTML = html;
+}
+
+function updateSkillsCard(skills) {
+    const card = document.getElementById('skills-card');
+    if (!card) return;
+
+    if (!skills || skills.length === 0) {
+        card.innerHTML = '<p class="text-muted text-center my-4">Wird automatisch erkannt</p>';
+        return;
+    }
+
+    let html = '<div class="d-flex flex-wrap gap-2">';
+    skills.forEach(function(sk) {
+        const cls = sk.category === 'language' ? 'primary' : 'secondary';
+        const icon = sk.icon || 'bi-code-square';
+        const ver = sk.version ? `<small class="opacity-75 ms-1">${sk.version.substring(0, 30)}</small>` : '';
+        html += `<span class="badge bg-${cls} bg-opacity-10 text-${cls} border px-3 py-2"><i class="bi ${icon} me-1"></i>${sk.name}${ver}</span>`;
     });
     html += '</div>';
     card.innerHTML = html;
@@ -552,6 +578,9 @@ function refreshDashboard() {
 
         // Integrations aktualisieren
         updateIntegrationsCard(data.integrations);
+
+        // Skills aktualisieren
+        updateSkillsCard(data.skills);
 
         // Konversationen aktualisieren
         updateConversationsCard(data.conversations);

@@ -239,3 +239,32 @@ class Integration(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
+
+
+class Skill(models.Model):
+    """Erkannte Faehigkeit/Technologie auf dem verbundenen Rechner"""
+    connection = models.ForeignKey(ClawdbotConnection, on_delete=models.CASCADE, related_name='skills')
+
+    name = models.CharField(max_length=100, verbose_name="Name")
+    CATEGORY_CHOICES = [
+        ('language', 'Programmiersprache'),
+        ('tool', 'Tool'),
+        ('framework', 'Framework'),
+        ('runtime', 'Runtime'),
+    ]
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='tool', verbose_name="Kategorie")
+    version = models.CharField(max_length=100, blank=True, verbose_name="Version")
+    icon = models.CharField(max_length=50, blank=True, verbose_name="Icon")
+
+    detected_at = models.DateTimeField(auto_now=True, verbose_name="Erkannt am")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Skill"
+        verbose_name_plural = "Skills"
+        unique_together = ['connection', 'name']
+        ordering = ['category', 'name']
+
+    def __str__(self):
+        v = f" {self.version}" if self.version else ""
+        return f"{self.name}{v}"

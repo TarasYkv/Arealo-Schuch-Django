@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import (
     ClawdbotConnection, Project, ProjectMemory,
-    Conversation, ScheduledTask, MemoryFile, Integration
+    Conversation, ScheduledTask, MemoryFile, Integration, Skill
 )
 from .forms import ClawdbotConnectionForm, ProjectForm
 
@@ -29,6 +29,7 @@ def dashboard(request):
         'recent_conversations': Conversation.objects.filter(connection__user=request.user)[:5],
         'scheduled_tasks': ScheduledTask.objects.filter(connection__user=request.user, is_enabled=True)[:5],
         'integrations': Integration.objects.filter(connection__user=request.user) if active_connection else [],
+        'skills': Skill.objects.filter(connection__user=request.user) if active_connection else [],
     }
 
     # System-Status falls aktive Connection
@@ -539,6 +540,36 @@ def api_connector_push(request):
             }
         )
 
+    # Skills verarbeiten
+    for sk in data.get('skills', []):
+        if not sk.get('name'):
+            continue
+        Skill.objects.update_or_create(
+            connection=connection,
+            name=sk['name'],
+            defaults={
+                'category': sk.get('category', 'tool'),
+                'version': emoji_re.sub('', sk.get('version', '')),
+                'icon': sk.get('icon', ''),
+            }
+        )
+
+    # Integrations verarbeiten
+    for integ in data.get('integrations', []):
+        if not integ.get('name'):
+            continue
+        Integration.objects.update_or_create(
+            connection=connection,
+            name=integ['name'],
+            defaults={
+                'category': integ.get('category', 'cli'),
+                'status': integ.get('status', 'active'),
+                'icon': integ.get('icon', ''),
+                'notes': emoji_re.sub('', integ.get('version', '')),
+                'last_verified': timezone.now(),
+            }
+        )
+
     return JsonResponse({
         'success': True,
         'connection_id': connection.pk,
@@ -606,7 +637,11 @@ def api_dashboard_refresh(request):
 
     integrations = list(Integration.objects.filter(
         connection__user=request.user
-    ).values('pk', 'name', 'status', 'category'))
+    ).values('pk', 'name', 'status', 'category', 'icon', 'notes'))
+
+    skills = list(Skill.objects.filter(
+        connection__user=request.user
+    ).values('pk', 'name', 'category', 'version', 'icon'))
 
     memory_count = MemoryFile.objects.filter(
         connection__user=request.user
@@ -634,5 +669,6 @@ def api_dashboard_refresh(request):
         'conversations': conversations,
         'tasks': tasks,
         'integrations': integrations,
+        'skills': skills,
         'memory_count': memory_count,
     })

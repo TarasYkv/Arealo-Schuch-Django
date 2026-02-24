@@ -183,12 +183,87 @@ class ClawboardConnector:
 
         return files
 
+    def _detect_cmd(self, cmd, version_flag='--version') -> str:
+        """Versucht ein Kommando auszufuehren und gibt die Version zurueck."""
+        try:
+            result = subprocess.run(
+                [cmd, version_flag],
+                capture_output=True, text=True, timeout=5
+            )
+            output = (result.stdout or result.stderr).strip()
+            # Erste Zeile, maximal 100 Zeichen
+            return output.split('\n')[0][:100]
+        except Exception:
+            return ''
+
+    def collect_skills(self) -> list:
+        """Erkennt installierte Programmiersprachen/Runtimes."""
+        checks = [
+            ('Python', 'python3', '--version', 'language', 'bi-filetype-py'),
+            ('Node.js', 'node', '--version', 'language', 'bi-filetype-js'),
+            ('Go', 'go', 'version', 'language', 'bi-code-square'),
+            ('Rust', 'rustc', '--version', 'language', 'bi-gear-fill'),
+            ('Java', 'java', '--version', 'language', 'bi-filetype-java'),
+            ('Ruby', 'ruby', '--version', 'language', 'bi-gem'),
+            ('PHP', 'php', '--version', 'language', 'bi-filetype-php'),
+            ('GCC', 'gcc', '--version', 'tool', 'bi-cpu'),
+        ]
+        skills = []
+        for name, cmd, flag, category, icon in checks:
+            ver = self._detect_cmd(cmd, flag)
+            if ver:
+                skills.append({
+                    'name': name,
+                    'category': category,
+                    'version': ver,
+                    'icon': icon,
+                })
+        return skills
+
+    def collect_integrations(self) -> list:
+        """Erkennt installierte Developer-Tools."""
+        checks = [
+            ('Git', 'git', '--version', 'cli', 'bi-git'),
+            ('Docker', 'docker', '--version', 'cli', 'bi-box-seam'),
+            ('npm', 'npm', '--version', 'cli', 'bi-box'),
+            ('pip', 'pip3', '--version', 'cli', 'bi-box-arrow-down'),
+            ('curl', 'curl', '--version', 'cli', 'bi-globe'),
+            ('Make', 'make', '--version', 'cli', 'bi-tools'),
+        ]
+        integrations = []
+        for name, cmd, flag, category, icon in checks:
+            ver = self._detect_cmd(cmd, flag)
+            if ver:
+                integrations.append({
+                    'name': name,
+                    'category': category,
+                    'version': ver,
+                    'icon': icon,
+                    'status': 'active',
+                })
+
+        # SSH-Key vorhanden?
+        ssh_key = os.path.expanduser('~/.ssh/id_rsa')
+        ssh_key_ed = os.path.expanduser('~/.ssh/id_ed25519')
+        if os.path.exists(ssh_key) or os.path.exists(ssh_key_ed):
+            integrations.append({
+                'name': 'SSH Key',
+                'category': 'ssh',
+                'version': '',
+                'icon': 'bi-key',
+                'status': 'active',
+            })
+
+        return integrations
+
     def http_push(self) -> dict:
         """Daten per HTTP POST an Clawboard senden"""
         data = {
             'system': self.get_system_info(),
             'gateway': self.get_gateway_info(),
             'memory_files': self.collect_memory_files(),
+            'skills': self.collect_skills(),
+            'integrations': self.collect_integrations(),
         }
 
         body = json.dumps(data).encode('utf-8')
