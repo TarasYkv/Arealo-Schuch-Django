@@ -33,20 +33,60 @@
         </div>
     {% else %}
 
+    <!-- Erstinstallation -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <p class="mb-2">Öffne ein Terminal und gehe in deinen <code>openclaw</code> Ordner:</p>
-            <div class="bg-dark rounded p-2 mb-4">
-                <code class="text-light">cd ~/openclaw</code>
+            <h6 class="mb-3"><i class="bi bi-download me-2"></i>1. Dateien herunterladen</h6>
+            <p class="mb-2 text-muted small">Gehe in deinen <code>openclaw</code> Ordner und lade die Dateien herunter:</p>
+            <div class="bg-dark rounded p-2 mb-2">
+                <code class="text-light small">cd ~/openclaw</code>
             </div>
-
-            <p class="mb-2">Dann führe das aus:</p>
             <div class="bg-dark rounded p-3 position-relative">
                 <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2"
-                        onclick="copyCmd('cmd-run', this)">
+                        onclick="copyCmd('cmd-download', this)">
                     <i class="bi bi-clipboard me-1"></i>Kopieren
                 </button>
-                <code class="text-light d-block small" style="word-break: break-all; padding-right: 90px;" id="cmd-run">curl -sL "{{ script_url }}" -o connector.py && curl -sL "{{ config_url }}" -o config.json && python3 connector.py --config config.json</code>
+                <code class="text-light d-block small" style="word-break: break-all; padding-right: 90px;" id="cmd-download">curl -sL "{{ script_url }}" -o connector.py && curl -sL "{{ config_url }}" -o config.json</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- Im Hintergrund starten -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <h6 class="mb-3"><i class="bi bi-play-circle me-2"></i>2. Im Hintergrund starten</h6>
+            <p class="mb-2 text-muted small">Läuft weiter, auch wenn du das Terminal schließt:</p>
+            <div class="bg-dark rounded p-3 position-relative">
+                <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2"
+                        onclick="copyCmd('cmd-bg', this)">
+                    <i class="bi bi-clipboard me-1"></i>Kopieren
+                </button>
+                <code class="text-light d-block small" style="padding-right: 90px;" id="cmd-bg">nohup python3 connector.py --config config.json > connector.log 2>&1 &</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nützliche Befehle -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h6 class="text-muted mb-3"><i class="bi bi-terminal me-2"></i>Nützliche Befehle</h6>
+            <div class="mb-3">
+                <small class="text-muted d-block mb-1">Log ansehen:</small>
+                <div class="bg-dark rounded p-2">
+                    <code class="text-light small">tail -f ~/openclaw/connector.log</code>
+                </div>
+            </div>
+            <div class="mb-3">
+                <small class="text-muted d-block mb-1">Stoppen:</small>
+                <div class="bg-dark rounded p-2">
+                    <code class="text-light small">pkill -f "connector.py"</code>
+                </div>
+            </div>
+            <div>
+                <small class="text-muted d-block mb-1">Prüfen ob er läuft:</small>
+                <div class="bg-dark rounded p-2">
+                    <code class="text-light small">pgrep -af "connector.py"</code>
+                </div>
             </div>
         </div>
     </div>
