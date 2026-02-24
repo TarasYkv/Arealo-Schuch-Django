@@ -198,6 +198,7 @@ class ClawboardConnector:
             headers={
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {self.connection_token}',
+                'User-Agent': 'ClawboardConnector/1.0',
             },
             method='POST'
         )
