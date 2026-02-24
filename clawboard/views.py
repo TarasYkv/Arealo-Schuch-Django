@@ -24,6 +24,7 @@ def _get_api_services(user):
     api_checks = [
         ('openai_api_key', 'OpenAI', 'bi-stars'),
         ('anthropic_api_key', 'Anthropic', 'bi-robot'),
+        ('deepseek_api_key', 'DeepSeek', 'bi-braces'),
         ('gemini_api_key', 'Google Gemini', 'bi-google'),
         ('google_api_key', 'Google API', 'bi-google'),
         ('youtube_api_key', 'YouTube', 'bi-youtube'),

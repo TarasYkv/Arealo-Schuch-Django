@@ -282,6 +282,7 @@ class ClawboardChat(models.Model):
     PROVIDER_CHOICES = [
         ('openai', 'OpenAI'),
         ('anthropic', 'Anthropic'),
+        ('deepseek', 'DeepSeek'),
         ('gemini', 'Google Gemini'),
     ]
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='openai', verbose_name="Provider")
