@@ -320,6 +320,12 @@ MENU_STRUCTURE = {
                 'label': 'Clawboard',
                 'icon': 'bi bi-robot',
                 'auth_url_name': 'clawboard:dashboard',
+                'sub_items': [
+                    {'label': 'Dashboard', 'icon': 'bi bi-grid-1x2', 'url_name': 'clawboard:dashboard'},
+                    {'label': 'KI-Chat', 'icon': 'bi bi-chat-dots', 'url_name': 'clawboard:chat'},
+                    {'label': 'Memory', 'icon': 'bi bi-file-earmark-text', 'url_name': 'clawboard:memory_browser'},
+                    {'label': 'Connector', 'icon': 'bi bi-plug', 'url_name': 'clawboard:connector_setup'},
+                ],
             },
             {'divider': True, 'label': 'Lernen'},
             {
