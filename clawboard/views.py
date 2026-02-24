@@ -1,6 +1,7 @@
 import json
 import os
 from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
@@ -301,19 +302,31 @@ def integration_list(request):
 
 @login_required
 def connector_setup(request):
-    """Connector Setup-Seite mit Download und Anleitung"""
+    """Connector Setup-Seite - ein Befehl zum Kopieren"""
+    from django.core import signing
+
     connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
     active_connection = connections.first()
+
+    install_url = None
+    if active_connection:
+        install_token = signing.dumps(
+            {'pk': active_connection.pk},
+            salt='clawboard-install'
+        )
+        install_url = request.build_absolute_uri(
+            reverse('clawboard:connector_install_script', args=[install_token])
+        )
 
     return render(request, 'clawboard/connector/setup.html', {
         'connections': connections,
         'active_connection': active_connection,
+        'install_url': install_url,
     })
 
 
-@login_required
 def connector_download_script(request):
-    """connector.py als Download bereitstellen"""
+    """connector.py als Download (kein Login noetig - ist nur Code)"""
     connector_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         'connector', 'connector.py'
@@ -327,17 +340,90 @@ def connector_download_script(request):
     return response
 
 
+def connector_install_script(request, token):
+    """
+    Gibt ein Bash-Script zurueck das alles automatisch installiert.
+    Auth via signiertem Token (24h gueltig).
+    URL: curl -sL https://www.workloom.de/clawboard/connector/install/<token>/ | bash
+    """
+    from django.core import signing
+
+    try:
+        data = signing.loads(token, salt='clawboard-install', max_age=86400)
+    except (signing.BadSignature, signing.SignatureExpired):
+        return HttpResponse('echo "Fehler: Ungueltiger oder abgelaufener Link. '
+                            'Erstelle einen neuen unter https://www.workloom.de/clawboard/connector/"',
+                            content_type='text/plain')
+
+    try:
+        connection = ClawdbotConnection.objects.get(pk=data['pk'], is_active=True)
+    except ClawdbotConnection.DoesNotExist:
+        return HttpResponse('echo "Fehler: Verbindung nicht gefunden."',
+                            content_type='text/plain')
+
+    config = json.dumps({
+        'push_url': 'https://www.workloom.de/clawboard/api/push/',
+        'connection_token': connection.gateway_token,
+        'heartbeat_interval': 30,
+        'reconnect_delay': 10,
+        'workspace': '~/clawd',
+    }, indent=2, ensure_ascii=False)
+
+    download_url = request.build_absolute_uri('/clawboard/connector/download/')
+
+    script = f'''#!/bin/bash
+set -e
+
+DIR="$HOME/openclaw"
+echo ""
+echo "=== Clawboard Connector Installer ==="
+echo ""
+
+# Ordner erstellen
+mkdir -p "$DIR"
+echo "[1/4] Ordner $DIR erstellt"
+
+# connector.py herunterladen
+curl -sL "{download_url}" -o "$DIR/connector.py"
+echo "[2/4] connector.py heruntergeladen"
+
+# Config schreiben (Token ist bereits eingetragen)
+cat > "$DIR/config.json" << 'CONFIGEOF'
+{config}
+CONFIGEOF
+echo "[3/4] config.json geschrieben"
+
+# psutil installieren (optional, fuer System-Metriken)
+if python3 -c "import psutil" 2>/dev/null; then
+    echo "[4/4] psutil bereits installiert"
+else
+    echo "[4/4] Installiere psutil..."
+    pip install psutil -q 2>/dev/null || pip3 install psutil -q 2>/dev/null || echo "  (psutil konnte nicht installiert werden - System-Metriken nicht verfuegbar)"
+fi
+
+echo ""
+echo "=== Installation abgeschlossen ==="
+echo ""
+echo "Connector starten mit:"
+echo "  cd $DIR && python3 connector.py --config config.json"
+echo ""
+
+# Direkt starten
+cd "$DIR"
+python3 connector.py --config config.json
+'''
+
+    return HttpResponse(script, content_type='text/plain')
+
+
 @login_required
 def connector_download_config(request, pk):
-    """Generiert die Config-Datei mit vorausgefülltem Token für eine Connection"""
+    """Config-Datei mit vorausgefuelltem Token als Download"""
     connection = get_object_or_404(ClawdbotConnection, pk=pk, user=request.user)
 
     config = {
         'push_url': 'https://www.workloom.de/clawboard/api/push/',
-        'workloom_url': 'wss://www.workloom.de/ws/clawboard/gateway/',
         'connection_token': connection.gateway_token,
-        'gateway_url': 'ws://localhost:18789',
-        'gateway_token': '',
         'heartbeat_interval': 30,
         'reconnect_delay': 10,
         'workspace': '~/clawd',

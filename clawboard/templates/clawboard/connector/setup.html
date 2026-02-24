@@ -4,30 +4,27 @@
 {% block title %}Connector Setup - Clawboard{% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container py-4" style="max-width: 720px;">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1">
-                <i class="bi bi-download me-2"></i>Connector Setup
-            </h1>
-            <p class="text-muted mb-0">
-                <a href="{% url 'clawboard:dashboard' %}" class="text-decoration-none">
-                    <i class="bi bi-arrow-left me-1"></i>Zurück zum Dashboard
-                </a>
-            </p>
-        </div>
+    <div class="mb-4">
+        <p class="text-muted mb-2">
+            <a href="{% url 'clawboard:dashboard' %}" class="text-decoration-none">
+                <i class="bi bi-arrow-left me-1"></i>Zurück zum Dashboard
+            </a>
+        </p>
+        <h1 class="h3 mb-1">
+            <i class="bi bi-terminal me-2"></i>Connector Setup
+        </h1>
+        <p class="text-muted">Verbinde deinen Rechner mit dem Clawboard Dashboard.</p>
     </div>
 
     {% if not active_connection %}
-        <!-- Keine Verbindung -->
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5">
                 <i class="bi bi-exclamation-circle display-3 text-warning mb-3"></i>
                 <h4>Erst eine Verbindung erstellen</h4>
                 <p class="text-muted mb-4">
-                    Bevor du den Connector nutzen kannst, musst du eine Clawdbot-Verbindung anlegen.
-                    Diese enthält den Token, mit dem sich der Connector authentifiziert.
+                    Bevor du den Connector nutzen kannst, musst du eine Verbindung anlegen.
                 </p>
                 <a href="{% url 'clawboard:connection_add' %}" class="btn btn-primary btn-lg">
                     <i class="bi bi-plus-lg me-2"></i>Verbindung erstellen
@@ -36,223 +33,77 @@
         </div>
     {% else %}
 
-    <!-- Schritt 1: Download -->
+    <!-- Ein Befehl -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <div class="d-flex align-items-start">
-                <span class="badge bg-primary rounded-circle me-3 p-2 fs-5">1</span>
-                <div class="flex-grow-1">
-                    <h5 class="mb-2">Dateien herunterladen</h5>
-                    <p class="text-muted mb-3">
-                        Lade den Connector und die passende Config-Datei herunter.
-                        Die Config enthält deinen Token bereits - du musst nichts manuell eintragen.
-                    </p>
+            <h5 class="mb-3">Öffne ein Terminal auf deinem Rechner und führe diesen Befehl aus:</h5>
 
-                    <div class="row g-3">
-                        <!-- connector.py Download -->
-                        <div class="col-12 col-md-6">
-                            <div class="card bg-light border-0 h-100">
-                                <div class="card-body d-flex flex-column">
-                                    <div class="d-flex align-items-center mb-2">
-                                        <i class="bi bi-file-earmark-code text-primary fs-4 me-2"></i>
-                                        <div>
-                                            <strong>connector.py</strong>
-                                            <br><small class="text-muted">Das Connector-Script</small>
-                                        </div>
-                                    </div>
-                                    <a href="{% url 'clawboard:connector_download_script' %}"
-                                       class="btn btn-primary mt-auto">
-                                        <i class="bi bi-download me-1"></i>connector.py herunterladen
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
+            <div class="bg-dark rounded p-3 position-relative">
+                <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2"
+                        onclick="copyInstallCommand(this)">
+                    <i class="bi bi-clipboard me-1"></i>Kopieren
+                </button>
+                <code class="text-light d-block" style="word-break: break-all; padding-right: 90px;" id="install-cmd">curl -sL "{{ install_url }}" | bash</code>
+            </div>
 
-                        <!-- Config Download -->
-                        <div class="col-12 col-md-6">
-                            <div class="card bg-light border-0 h-100">
-                                <div class="card-body d-flex flex-column">
-                                    <div class="d-flex align-items-center mb-2">
-                                        <i class="bi bi-file-earmark-text text-success fs-4 me-2"></i>
-                                        <div>
-                                            <strong>clawboard-connector.json</strong>
-                                            <br><small class="text-muted">Config mit deinem Token</small>
-                                        </div>
-                                    </div>
-
-                                    {% if connections.count == 1 %}
-                                        <a href="{% url 'clawboard:connector_download_config' active_connection.pk %}"
-                                           class="btn btn-success mt-auto">
-                                            <i class="bi bi-download me-1"></i>Config herunterladen
-                                        </a>
-                                    {% else %}
-                                        <div class="mt-auto">
-                                            <label class="form-label small text-muted mb-1">Verbindung wählen:</label>
-                                            {% for conn in connections %}
-                                                <a href="{% url 'clawboard:connector_download_config' conn.pk %}"
-                                                   class="btn btn-sm btn-outline-success d-block mb-1">
-                                                    <i class="bi bi-download me-1"></i>{{ conn.name }}
-                                                </a>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Das lädt den Connector nach <code>~/openclaw/</code> herunter,
+                    richtet die Konfiguration ein und startet die Verbindung automatisch.
+                </small>
             </div>
         </div>
     </div>
 
-    <!-- Schritt 2: Einrichten -->
+    <!-- Was passiert -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
+            <h6 class="text-muted mb-3">Was der Befehl macht:</h6>
+            <div class="d-flex align-items-start mb-2">
+                <i class="bi bi-folder-plus text-primary me-2 mt-1"></i>
+                <span>Erstellt <code>~/openclaw/</code> auf deinem Rechner</span>
+            </div>
+            <div class="d-flex align-items-start mb-2">
+                <i class="bi bi-download text-primary me-2 mt-1"></i>
+                <span>Lädt <code>connector.py</code> und Konfiguration herunter</span>
+            </div>
+            <div class="d-flex align-items-start mb-2">
+                <i class="bi bi-gear text-primary me-2 mt-1"></i>
+                <span>Installiert <code>psutil</code> für System-Metriken</span>
+            </div>
             <div class="d-flex align-items-start">
-                <span class="badge bg-primary rounded-circle me-3 p-2 fs-5">2</span>
-                <div class="flex-grow-1">
-                    <h5 class="mb-2">Dateien platzieren</h5>
-                    <p class="text-muted mb-3">
-                        Lege beide Dateien in einen Ordner deiner Wahl. Die Config-Datei
-                        muss im selben Ordner liegen oder unter <code>~/.clawdbot/</code>.
-                    </p>
-
-                    <div class="bg-dark text-light rounded p-3 mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small class="text-muted">Empfohlene Ordnerstruktur</small>
-                        </div>
-<pre class="mb-0 text-light"><code>~/clawboard/
-├── connector.py
-└── clawboard-connector.json</code></pre>
-                    </div>
-
-                    <div class="bg-dark text-light rounded p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small class="text-muted">Oder mit Standard-Pfad</small>
-                        </div>
-<pre class="mb-0 text-light"><code># Config in Standard-Pfad legen (wird automatisch gefunden)
-mkdir -p ~/.clawdbot
-mv clawboard-connector.json ~/.clawdbot/</code></pre>
-                    </div>
-                </div>
+                <i class="bi bi-play-circle text-success me-2 mt-1"></i>
+                <span>Startet den Connector &mdash; Daten erscheinen sofort im Dashboard</span>
             </div>
         </div>
     </div>
 
-    <!-- Schritt 3: Optional psutil -->
-    <div class="card border-0 shadow-sm mb-4">
+    <!-- Erfolg -->
+    <div class="card border-0 shadow-sm border-start border-success border-3 mb-4">
         <div class="card-body">
-            <div class="d-flex align-items-start">
-                <span class="badge bg-primary rounded-circle me-3 p-2 fs-5">3</span>
-                <div class="flex-grow-1">
-                    <h5 class="mb-2">Optional: System-Metriken aktivieren</h5>
-                    <p class="text-muted mb-3">
-                        Installiere <code>psutil</code>, damit der Connector CPU, RAM und
-                        Speicherplatz-Daten senden kann.
-                    </p>
+            <h6 class="mb-1">So sieht es aus wenn es funktioniert:</h6>
+            <div class="bg-dark rounded p-3 mt-2">
+<pre class="mb-0 text-light small"><code>=== Clawboard Connector Installer ===
 
-                    <div class="bg-dark text-light rounded p-3">
-<pre class="mb-0 text-light"><code>pip install psutil</code></pre>
-                    </div>
-                </div>
+[1/4] Ordner ~/openclaw erstellt
+[2/4] connector.py heruntergeladen
+[3/4] config.json geschrieben
+[4/4] psutil bereits installiert
+
+=== Installation abgeschlossen ===
+
+Push #1 erfolgreich (Connection: {{ active_connection.pk }})</code></pre>
             </div>
         </div>
     </div>
 
-    <!-- Schritt 4: Starten -->
-    <div class="card border-0 shadow-sm mb-4">
+    <!-- Spaeter erneut starten -->
+    <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <div class="d-flex align-items-start">
-                <span class="badge bg-success rounded-circle me-3 p-2 fs-5">4</span>
-                <div class="flex-grow-1">
-                    <h5 class="mb-2">Connector starten</h5>
-                    <p class="text-muted mb-3">
-                        Starte den Connector - er sendet ab sofort alle 30 Sekunden
-                        Daten an dein Clawboard Dashboard.
-                    </p>
-
-                    <div class="bg-dark text-light rounded p-3 mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small class="text-muted">Wenn Config im selben Ordner liegt</small>
-                            <button class="btn btn-sm btn-outline-light" onclick="copyCommand(this, 'python3 connector.py --config clawboard-connector.json')">
-                                <i class="bi bi-clipboard me-1"></i>Kopieren
-                            </button>
-                        </div>
-<pre class="mb-0 text-light"><code>python3 connector.py --config clawboard-connector.json</code></pre>
-                    </div>
-
-                    <div class="bg-dark text-light rounded p-3 mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small class="text-muted">Wenn Config unter ~/.clawdbot/ liegt</small>
-                            <button class="btn btn-sm btn-outline-light" onclick="copyCommand(this, 'python3 connector.py')">
-                                <i class="bi bi-clipboard me-1"></i>Kopieren
-                            </button>
-                        </div>
-<pre class="mb-0 text-light"><code>python3 connector.py</code></pre>
-                    </div>
-
-                    <div class="bg-dark text-light rounded p-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small class="text-muted">Im Hintergrund laufen lassen</small>
-                            <button class="btn btn-sm btn-outline-light" onclick="copyCommand(this, 'nohup python3 connector.py --config clawboard-connector.json &')">
-                                <i class="bi bi-clipboard me-1"></i>Kopieren
-                            </button>
-                        </div>
-<pre class="mb-0 text-light"><code>nohup python3 connector.py --config clawboard-connector.json &</code></pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Erfolg-Hinweis -->
-    <div class="card border-0 shadow-sm border-start border-success border-3">
-        <div class="card-body">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-check-circle text-success fs-3 me-3"></i>
-                <div>
-                    <h6 class="mb-1">So erkennst du, dass es funktioniert</h6>
-                    <p class="text-muted mb-0">
-                        Im Terminal siehst du <code>Push #1 erfolgreich</code> und im
-                        <a href="{% url 'clawboard:dashboard' %}">Dashboard</a> erscheinen
-                        System-Daten, sobald der Connector läuft.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Config Vorschau -->
-    <div class="card border-0 shadow-sm mt-4">
-        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">
-                <i class="bi bi-gear me-2"></i>Config-Vorschau
-            </h5>
-            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#config-preview">
-                Anzeigen/Verbergen
-            </button>
-        </div>
-        <div class="collapse" id="config-preview">
-            <div class="card-body pt-0">
-                <p class="text-muted small mb-2">
-                    So sieht deine Config aus (Token ist vorausgefüllt):
-                </p>
-                <div class="bg-dark text-light rounded p-3">
-<pre class="mb-0 text-light"><code>{
-  "push_url": "https://www.workloom.de/clawboard/api/push/",
-  "connection_token": "{{ active_connection.gateway_token }}",
-  "heartbeat_interval": 30,
-  "reconnect_delay": 10,
-  "workspace": "~/clawd"
-}</code></pre>
-                </div>
-                <div class="mt-2">
-                    <small class="text-muted">
-                        <i class="bi bi-info-circle me-1"></i>
-                        <strong>workspace</strong> = Ordner in dem deine Memory-Dateien (.md) liegen.
-                        Der Connector liest .md Dateien aus <code>workspace/memory/</code> und sendet sie ans Dashboard.
-                    </small>
-                </div>
+            <h6 class="text-muted mb-2">Später erneut starten:</h6>
+            <div class="bg-dark rounded p-3">
+                <code class="text-light">cd ~/openclaw && python3 connector.py --config config.json</code>
             </div>
         </div>
     </div>
@@ -261,14 +112,15 @@ mv clawboard-connector.json ~/.clawdbot/</code></pre>
 </div>
 
 <script>
-function copyCommand(btn, text) {
-    navigator.clipboard.writeText(text).then(function() {
-        const original = btn.innerHTML;
+function copyInstallCommand(btn) {
+    const cmd = document.getElementById('install-cmd').textContent;
+    navigator.clipboard.writeText(cmd).then(function() {
+        const orig = btn.innerHTML;
         btn.innerHTML = '<i class="bi bi-check me-1"></i>Kopiert!';
         btn.classList.remove('btn-outline-light');
         btn.classList.add('btn-success');
         setTimeout(function() {
-            btn.innerHTML = original;
+            btn.innerHTML = orig;
             btn.classList.remove('btn-success');
             btn.classList.add('btn-outline-light');
         }, 2000);
