@@ -633,6 +633,21 @@ def api_connector_push(request):
             }
         )
 
+    # Scheduled Tasks verarbeiten
+    for task in data.get('scheduled_tasks', []):
+        if not task.get('cron_job_id'):
+            continue
+        ScheduledTask.objects.update_or_create(
+            connection=connection,
+            cron_job_id=task['cron_job_id'],
+            defaults={
+                'name': emoji_re.sub('', task.get('name', 'Unbekannt'))[:200],
+                'schedule': task.get('schedule', '')[:100],
+                'text': emoji_re.sub('', task.get('text', '')),
+                'is_enabled': task.get('is_enabled', True),
+            }
+        )
+
     # Chat-Antworten vom Connector verarbeiten
     for chat_resp in data.get('chat_responses', []):
         req_id = chat_resp.get('request_id')

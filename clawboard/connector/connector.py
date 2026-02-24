@@ -358,6 +358,186 @@ class ClawboardConnector:
 
         return projects[:20]  # Max 20 Projekte
 
+    def collect_conversations(self) -> list:
+        """Sammelt Konversationen aus dem Workspace."""
+        conversations = []
+
+        # 1. Clawdbot-Konversationen aus ~/.clawdbot/conversations/
+        conv_dirs = [
+            os.path.expanduser('~/.clawdbot/conversations'),
+            os.path.join(self.workspace, 'conversations'),
+            os.path.join(self.workspace, '.conversations'),
+        ]
+
+        for conv_dir in conv_dirs:
+            if not os.path.isdir(conv_dir):
+                continue
+            try:
+                for fname in sorted(os.listdir(conv_dir), reverse=True)[:20]:
+                    fpath = os.path.join(conv_dir, fname)
+                    if not os.path.isfile(fpath):
+                        continue
+
+                    if fname.endswith('.json'):
+                        try:
+                            with open(fpath, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                            conversations.append({
+                                'session_key': data.get('session_key', fname),
+                                'title': data.get('title', fname.replace('.json', '')),
+                                'summary': data.get('summary', ''),
+                                'messages': data.get('messages', [])[:5],
+                                'message_count': len(data.get('messages', [])),
+                                'total_tokens': data.get('total_tokens', 0),
+                                'total_cost': data.get('total_cost', 0),
+                                'channel': data.get('channel', 'local'),
+                                'started_at': data.get('started_at',
+                                    datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat()),
+                            })
+                        except Exception:
+                            pass
+
+                    elif fname.endswith('.jsonl'):
+                        # Transcript-Format (Claude Code Style)
+                        try:
+                            msg_count = 0
+                            first_line = None
+                            with open(fpath, 'r', encoding='utf-8') as f:
+                                for line in f:
+                                    msg_count += 1
+                                    if first_line is None:
+                                        first_line = line.strip()
+                            title = fname.replace('.jsonl', '')
+                            if first_line:
+                                try:
+                                    first = json.loads(first_line)
+                                    if first.get('content'):
+                                        title = str(first['content'])[:80]
+                                except Exception:
+                                    pass
+                            conversations.append({
+                                'session_key': fname,
+                                'title': title,
+                                'summary': '',
+                                'messages': [],
+                                'message_count': msg_count,
+                                'channel': 'local',
+                                'started_at': datetime.fromtimestamp(
+                                    os.path.getmtime(fpath)).isoformat(),
+                            })
+                        except Exception:
+                            pass
+            except Exception as e:
+                logger.debug(f"Konversationen aus {conv_dir}: {e}")
+
+        # 2. Claude Code Projekte als Konversationen
+        claude_dir = os.path.expanduser('~/.claude/projects')
+        if os.path.isdir(claude_dir):
+            try:
+                for project_dir in sorted(os.listdir(claude_dir), reverse=True)[:5]:
+                    project_path = os.path.join(claude_dir, project_dir)
+                    if not os.path.isdir(project_path):
+                        continue
+                    for fname in sorted(os.listdir(project_path), reverse=True)[:3]:
+                        if not fname.endswith('.jsonl'):
+                            continue
+                        fpath = os.path.join(project_path, fname)
+                        try:
+                            msg_count = sum(1 for _ in open(fpath, 'r', encoding='utf-8'))
+                            conversations.append({
+                                'session_key': f'claude-{project_dir}-{fname}',
+                                'title': f'Claude: {project_dir[:40]}',
+                                'summary': '',
+                                'messages': [],
+                                'message_count': msg_count,
+                                'channel': 'claude-code',
+                                'started_at': datetime.fromtimestamp(
+                                    os.path.getmtime(fpath)).isoformat(),
+                            })
+                        except Exception:
+                            pass
+            except Exception as e:
+                logger.debug(f"Claude-Konversationen: {e}")
+
+        return conversations[:20]
+
+    def collect_scheduled_tasks(self) -> list:
+        """Sammelt geplante Aufgaben (Crontab, Clawdbot-Tasks)."""
+        tasks = []
+
+        # 1. Crontab lesen
+        try:
+            result = subprocess.run(
+                ['crontab', '-l'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                for i, line in enumerate(result.stdout.strip().split('\n')):
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    parts = line.split(None, 5)
+                    if len(parts) >= 6:
+                        schedule = ' '.join(parts[:5])
+                        command = parts[5]
+                        tasks.append({
+                            'cron_job_id': f'cron-{i}',
+                            'name': command[:80],
+                            'schedule': schedule,
+                            'text': line,
+                            'is_enabled': True,
+                        })
+        except Exception as e:
+            logger.debug(f"Crontab lesen: {e}")
+
+        # 2. Clawdbot geplante Tasks aus Config
+        task_files = [
+            os.path.expanduser('~/.clawdbot/tasks.json'),
+            os.path.join(self.workspace, 'tasks.json'),
+            os.path.join(self.workspace, '.tasks.json'),
+        ]
+        for tf in task_files:
+            if not os.path.exists(tf):
+                continue
+            try:
+                with open(tf, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                for task in data if isinstance(data, list) else data.get('tasks', []):
+                    tasks.append({
+                        'cron_job_id': task.get('id', f'task-{len(tasks)}'),
+                        'name': task.get('name', task.get('title', 'Unbekannt')),
+                        'schedule': task.get('schedule', task.get('cron', '')),
+                        'text': task.get('text', task.get('description', '')),
+                        'is_enabled': task.get('enabled', True),
+                    })
+            except Exception as e:
+                logger.debug(f"Tasks aus {tf}: {e}")
+
+        # 3. Systemd Timer (Linux)
+        if platform.system() == 'Linux':
+            try:
+                result = subprocess.run(
+                    ['systemctl', '--user', 'list-timers', '--no-pager', '--plain'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    for line in result.stdout.strip().split('\n')[1:]:  # Header ueberspringen
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            unit_name = parts[-1] if parts[-1].endswith('.timer') else ''
+                            if unit_name:
+                                tasks.append({
+                                    'cron_job_id': f'systemd-{unit_name}',
+                                    'name': unit_name.replace('.timer', ''),
+                                    'schedule': 'systemd timer',
+                                    'text': line.strip(),
+                                    'is_enabled': True,
+                                })
+            except Exception:
+                pass
+
+        return tasks[:20]
+
     async def forward_to_gateway(self, model: str, messages: list) -> dict:
         """Leitet einen Chat-Request an den lokalen OpenClaw Gateway weiter."""
         if not websockets:
@@ -486,6 +666,8 @@ class ClawboardConnector:
             'skills': self.collect_skills(),
             'integrations': self.collect_integrations(),
             'projects': self.collect_projects(),
+            'conversations': self.collect_conversations(),
+            'scheduled_tasks': self.collect_scheduled_tasks(),
         }
 
         # Chat-Antworten mitsenden
