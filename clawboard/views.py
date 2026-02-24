@@ -309,6 +309,9 @@ def connector_setup(request):
     active_connection = connections.first()
 
     config_url = None
+    script_url = request.build_absolute_uri(
+        reverse('clawboard:connector_download_script')
+    )
     if active_connection:
         config_token = signing.dumps(
             {'pk': active_connection.pk},
@@ -322,6 +325,7 @@ def connector_setup(request):
         'connections': connections,
         'active_connection': active_connection,
         'config_url': config_url,
+        'script_url': script_url,
     })
 
 
