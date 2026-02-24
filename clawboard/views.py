@@ -308,20 +308,20 @@ def connector_setup(request):
     connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
     active_connection = connections.first()
 
-    install_url = None
+    config_url = None
     if active_connection:
-        install_token = signing.dumps(
+        config_token = signing.dumps(
             {'pk': active_connection.pk},
             salt='clawboard-install'
         )
-        install_url = request.build_absolute_uri(
-            reverse('clawboard:connector_install_script', args=[install_token])
+        config_url = request.build_absolute_uri(
+            reverse('clawboard:connector_config_token', args=[config_token])
         )
 
     return render(request, 'clawboard/connector/setup.html', {
         'connections': connections,
         'active_connection': active_connection,
-        'install_url': install_url,
+        'config_url': config_url,
     })
 
 
@@ -340,26 +340,21 @@ def connector_download_script(request):
     return response
 
 
-def connector_install_script(request, token):
-    """
-    Gibt ein Bash-Script zurueck das alles automatisch installiert.
-    Auth via signiertem Token (24h gueltig).
-    URL: curl -sL https://www.workloom.de/clawboard/connector/install/<token>/ | bash
-    """
+def connector_config_token(request, token):
+    """Config-JSON via signiertem Token (24h gueltig, kein Login noetig)."""
     from django.core import signing
 
     try:
         data = signing.loads(token, salt='clawboard-install', max_age=86400)
     except (signing.BadSignature, signing.SignatureExpired):
-        return HttpResponse('echo "Fehler: Ungueltiger oder abgelaufener Link. '
-                            'Erstelle einen neuen unter https://www.workloom.de/clawboard/connector/"',
-                            content_type='text/plain')
+        return HttpResponse('{"error": "Link abgelaufen oder ungueltig"}',
+                            content_type='application/json', status=403)
 
     try:
         connection = ClawdbotConnection.objects.get(pk=data['pk'], is_active=True)
     except ClawdbotConnection.DoesNotExist:
-        return HttpResponse('echo "Fehler: Verbindung nicht gefunden."',
-                            content_type='text/plain')
+        return HttpResponse('{"error": "Verbindung nicht gefunden"}',
+                            content_type='application/json', status=404)
 
     config = json.dumps({
         'push_url': 'https://www.workloom.de/clawboard/api/push/',
@@ -369,51 +364,9 @@ def connector_install_script(request, token):
         'workspace': '~/clawd',
     }, indent=2, ensure_ascii=False)
 
-    download_url = request.build_absolute_uri('/clawboard/connector/download/')
-
-    script = f'''#!/bin/bash
-set -e
-
-DIR="$HOME/openclaw"
-echo ""
-echo "=== Clawboard Connector Installer ==="
-echo ""
-
-# Ordner erstellen
-mkdir -p "$DIR"
-echo "[1/4] Ordner $DIR erstellt"
-
-# connector.py herunterladen
-curl -sL "{download_url}" -o "$DIR/connector.py"
-echo "[2/4] connector.py heruntergeladen"
-
-# Config schreiben (Token ist bereits eingetragen)
-cat > "$DIR/config.json" << 'CONFIGEOF'
-{config}
-CONFIGEOF
-echo "[3/4] config.json geschrieben"
-
-# psutil installieren (optional, fuer System-Metriken)
-if python3 -c "import psutil" 2>/dev/null; then
-    echo "[4/4] psutil bereits installiert"
-else
-    echo "[4/4] Installiere psutil..."
-    pip install psutil -q 2>/dev/null || pip3 install psutil -q 2>/dev/null || echo "  (psutil konnte nicht installiert werden - System-Metriken nicht verfuegbar)"
-fi
-
-echo ""
-echo "=== Installation abgeschlossen ==="
-echo ""
-echo "Connector starten mit:"
-echo "  cd $DIR && python3 connector.py --config config.json"
-echo ""
-
-# Direkt starten
-cd "$DIR"
-python3 connector.py --config config.json
-'''
-
-    return HttpResponse(script, content_type='text/plain')
+    response = HttpResponse(config, content_type='application/json')
+    response['Content-Disposition'] = 'attachment; filename="config.json"'
+    return response
 
 
 @login_required
