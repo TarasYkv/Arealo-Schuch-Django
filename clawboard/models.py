@@ -24,6 +24,9 @@ class ClawdbotConnection(models.Model):
     hostname = models.CharField(max_length=200, blank=True, verbose_name="Hostname")
     gateway_version = models.CharField(max_length=50, blank=True, verbose_name="Gateway Version")
     
+    # Pending Command (wird beim naechsten Push an Connector gesendet)
+    pending_command = models.CharField(max_length=50, blank=True, verbose_name="Ausstehender Befehl")
+
     # System-Monitoring
     cpu_percent = models.FloatField(null=True, blank=True, verbose_name="CPU %")
     ram_used_mb = models.IntegerField(null=True, blank=True, verbose_name="RAM (MB)")

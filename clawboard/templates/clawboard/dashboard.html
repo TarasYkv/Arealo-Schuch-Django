@@ -18,6 +18,9 @@
                 <button id="btn-refresh" class="btn btn-outline-primary" onclick="refreshDashboard()">
                     <i class="bi bi-arrow-clockwise me-1" id="refresh-icon"></i>Aktualisieren
                 </button>
+                <button class="btn btn-outline-warning" onclick="restartConnector()" title="Connector neu starten">
+                    <i class="bi bi-arrow-repeat me-1"></i>Neu starten
+                </button>
                 <span id="status-badge" class="badge bg-{{ active_connection.status|default:'secondary' }} fs-6">
                     <i class="bi bi-circle-fill me-1"></i>
                     <span id="status-text">{{ active_connection.get_status_display|default:"Unbekannt" }}</span>
@@ -361,7 +364,9 @@
 {% if active_connection %}
 <script>
 const DASHBOARD_API = '{% url "clawboard:api_dashboard_refresh" %}';
+const RESTART_API = '{% url "clawboard:api_connector_restart" %}';
 const CONNECTION_ID = {{ active_connection.pk }};
+const CSRF_TOKEN = '{{ csrf_token }}';
 
 function showToast(message, type) {
     const toast = document.getElementById('refresh-toast');
@@ -615,6 +620,23 @@ function refreshDashboard() {
         setRefreshing(false);
         showToast('Fehler beim Laden: ' + err.message, 'danger');
     });
+}
+
+function restartConnector() {
+    if (!confirm('Connector neu starten? Er lädt die neueste Version und startet sich neu.')) return;
+    fetch(RESTART_API, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToast('Neustart wird beim nächsten Push ausgeführt (max. 30s)', 'success');
+        } else {
+            showToast(data.error || 'Fehler', 'danger');
+        }
+    })
+    .catch(function(err) { showToast('Fehler: ' + err.message, 'danger'); });
 }
 
 // Auto-refresh alle 60 Sekunden

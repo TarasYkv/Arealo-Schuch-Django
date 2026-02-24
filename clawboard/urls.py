@@ -48,4 +48,5 @@ urlpatterns = [
     path('api/sync/', views.api_sync, name='api_sync'),
     path('api/push/', views.api_connector_push, name='api_push'),
     path('api/dashboard/', views.api_dashboard_refresh, name='api_dashboard_refresh'),
+    path('api/connector/restart/', views.api_connector_restart, name='api_connector_restart'),
 ]

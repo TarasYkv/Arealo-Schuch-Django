@@ -607,10 +607,32 @@ def api_connector_push(request):
             }
         )
 
-    return JsonResponse({
+    # Pending Command pruefen und mitschicken
+    response_data = {
         'success': True,
         'connection_id': connection.pk,
-    })
+    }
+    if connection.pending_command:
+        response_data['command'] = connection.pending_command
+        connection.pending_command = ''
+        connection.save(update_fields=['pending_command'])
+
+    return JsonResponse(response_data)
+
+
+@login_required
+@require_http_methods(['POST'])
+def api_connector_restart(request):
+    """Setzt einen Restart-Befehl fuer den Connector."""
+    connection = ClawdbotConnection.objects.filter(
+        user=request.user, is_active=True
+    ).first()
+    if not connection:
+        return JsonResponse({'error': 'Keine aktive Verbindung'}, status=404)
+
+    connection.pending_command = 'restart'
+    connection.save(update_fields=['pending_command'])
+    return JsonResponse({'success': True, 'message': 'Neustart wird beim nächsten Push ausgeführt'})
 
 
 @login_required

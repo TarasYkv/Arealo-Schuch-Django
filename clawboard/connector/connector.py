@@ -290,6 +290,28 @@ class ClawboardConnector:
             logger.error(f"HTTP Push Fehler: {e}")
             return None
 
+    def handle_command(self, command: str):
+        """Server-Befehl verarbeiten."""
+        logger.info(f"Server-Befehl empfangen: {command}")
+        if command == 'restart':
+            logger.info("Neustart angefordert - lade Dateien neu und starte...")
+            # connector.py und config.json neu herunterladen
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            base_url = self.push_url.rsplit('/api/', 1)[0]
+            dl_url = base_url + '/connector/download/'
+            try:
+                req = urllib.request.Request(dl_url, headers={'User-Agent': 'ClawboardConnector/1.0'})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    new_script = resp.read()
+                with open(os.path.join(script_dir, 'connector.py'), 'wb') as f:
+                    f.write(new_script)
+                logger.info("connector.py aktualisiert")
+            except Exception as e:
+                logger.warning(f"connector.py Download fehlgeschlagen: {e}")
+            # Prozess neustarten
+            logger.info("Starte Prozess neu...")
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+
     async def run_http(self):
         """HTTP-basierter Push-Loop"""
         logger.info(f"HTTP Push Modus - Sende Daten an {self.push_url}")
@@ -304,6 +326,10 @@ class ClawboardConnector:
             if result and result.get('success'):
                 conn_id = result.get('connection_id', '?')
                 logger.info(f"Push #{push_count} erfolgreich (Connection: {conn_id})")
+                # Server-Befehle pruefen
+                cmd = result.get('command')
+                if cmd:
+                    self.handle_command(cmd)
             else:
                 logger.warning(f"Push #{push_count} fehlgeschlagen")
 
