@@ -1,135 +1,132 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 
 {% block title %}Memory Browser - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container-fluid py-4">
-    <div class="mb-4">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-                <li class="breadcrumb-item active">Memory Browser</li>
-            </ol>
-        </nav>
-        <h2 class="mb-0"><i class="bi bi-folder2-open me-2"></i>Memory Browser</h2>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <span class="current">Memory Browser</span>
+        </div>
+        <h1 class="cb-page-title"><i class="bi bi-folder2-open me-2"></i>Memory Browser</h1>
+    </div>
+    {% if connections.count > 1 %}
+        <select class="cb-form-input cb-form-select" id="connectionSelect" style="width: auto; max-width: 200px;">
+            {% for conn in connections %}
+                <option value="{{ conn.pk }}" {% if conn == connection %}selected{% endif %}>{{ conn.name }}</option>
+            {% endfor %}
+        </select>
+    {% endif %}
+</div>
+
+<div style="display: grid; grid-template-columns: 260px 1fr; gap: 16px;">
+    <!-- Dateiliste -->
+    <div class="cb-card" style="height: fit-content; max-height: calc(100vh - 180px); overflow-y: auto;">
+        <div class="cb-card-header">
+            <h6><i class="bi bi-files me-2"></i>Dateien</h6>
+        </div>
+        <div id="fileList">
+            {% if files %}
+                {% for file in files %}
+                    <div class="cb-file-item" data-file-id="{{ file.pk }}" onclick="loadFile(this)">
+                        <i class="bi bi-file-earmark-text me-2" style="color: #6c7086;"></i>
+                        <span>{{ file.filename }}</span>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding: 20px; text-align: center; color: #6c7086; font-size: 0.82rem;">
+                    Keine Dateien gefunden
+                </div>
+            {% endif %}
+        </div>
     </div>
 
-    <div class="row">
-        <!-- Dateiliste -->
-        <div class="col-12 col-md-4 col-lg-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Dateien</h6>
-                        {% if connections.count > 1 %}
-                            <select class="form-select form-select-sm w-auto" id="connectionSelect">
-                                {% for conn in connections %}
-                                    <option value="{{ conn.pk }}" {% if conn == connection %}selected{% endif %}>
-                                        {{ conn.name }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="list-group list-group-flush" id="fileList">
-                    {% if files %}
-                        {% for file in files %}
-                            <button type="button" 
-                                    class="list-group-item list-group-item-action file-item"
-                                    data-file-id="{{ file.pk }}">
-                                <i class="bi bi-file-earmark-text me-2"></i>
-                                {{ file.filename }}
-                            </button>
-                        {% endfor %}
-                    {% else %}
-                        <div class="list-group-item text-muted">
-                            Keine Dateien gefunden
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
+    <!-- Editor -->
+    <div class="cb-card" style="height: fit-content;">
+        <div class="cb-card-header">
+            <h6 id="fileName"><i class="bi bi-file-earmark me-2"></i>Datei auswaehlen...</h6>
+            <button class="cb-btn cb-btn-primary cb-btn-sm" id="saveBtn" style="display: none;" onclick="saveFile()">
+                <i class="bi bi-save me-1"></i>Speichern
+            </button>
         </div>
-
-        <!-- Editor -->
-        <div class="col-12 col-md-8 col-lg-9">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0" id="fileName">Datei auswählen...</h6>
-                    <button class="btn btn-sm btn-primary d-none" id="saveBtn">
-                        <i class="bi bi-save me-1"></i>Speichern
-                    </button>
-                </div>
-                <div class="card-body p-0">
-                    <textarea id="editor" class="form-control border-0" 
-                              style="min-height: 500px; font-family: monospace; resize: vertical;"
-                              placeholder="Wähle eine Datei aus der Liste..."></textarea>
-                </div>
-            </div>
+        <div style="padding: 0;">
+            <textarea id="editor" class="cb-editor-textarea"
+                      placeholder="Waehle eine Datei aus der Liste..."></textarea>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block cb_extra_style %}
+<style>
+.cb-file-item {
+    display: flex; align-items: center; padding: 8px 16px; cursor: pointer;
+    color: #cdd6f4; font-size: 0.82rem; border-bottom: 1px solid #313244;
+    transition: background 0.1s;
+}
+.cb-file-item:last-child { border-bottom: none; }
+.cb-file-item:hover { background: #313244; }
+.cb-file-item.active { background: #89b4fa22; color: #89b4fa; }
+
+.cb-editor-textarea {
+    width: 100%; min-height: 500px; padding: 16px;
+    background: #11111b; color: #cdd6f4; border: none; resize: vertical;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem;
+    line-height: 1.6;
+}
+.cb-editor-textarea:focus { outline: none; }
+.cb-editor-textarea::placeholder { color: #45475a; }
+
+@media (max-width: 768px) {
+    .cb-page-header + div { grid-template-columns: 1fr !important; }
+}
+</style>
+{% endblock %}
+
+{% block cb_extra_script %}
 <script>
 let currentFileId = null;
 
-document.querySelectorAll('.file-item').forEach(item => {
-    item.addEventListener('click', async function() {
-        const fileId = this.dataset.fileId;
-        
-        // Aktiven Status setzen
-        document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
-        this.classList.add('active');
-        
-        // Datei laden
-        try {
-            const response = await fetch(`{% url 'clawboard:memory_file_view' %}?id=${fileId}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                document.getElementById('fileName').textContent = data.filename;
-                document.getElementById('editor').value = data.content;
-                document.getElementById('saveBtn').classList.remove('d-none');
-                currentFileId = fileId;
-            }
-        } catch (e) {
-            console.error('Fehler beim Laden:', e);
-        }
-    });
-});
+function loadFile(el) {
+    const fileId = el.dataset.fileId;
+    document.querySelectorAll('.cb-file-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
 
-document.getElementById('saveBtn')?.addEventListener('click', async function() {
+    fetch(`{% url 'clawboard:memory_file_view' %}?id=${fileId}`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('fileName').innerHTML = '<i class="bi bi-file-earmark-text me-2"></i>' + data.filename;
+            document.getElementById('editor').value = data.content;
+            document.getElementById('saveBtn').style.display = '';
+            currentFileId = fileId;
+        }
+    })
+    .catch(e => console.error('Fehler beim Laden:', e));
+}
+
+function saveFile() {
     if (!currentFileId) return;
-    
-    const btn = this;
+    const btn = document.getElementById('saveBtn');
     btn.disabled = true;
-    
-    try {
-        const response = await fetch('{% url "clawboard:memory_file_save" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                id: currentFileId,
-                content: document.getElementById('editor').value
-            })
-        });
-        
-        const data = await response.json();
+
+    fetch('{% url "clawboard:memory_file_save" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({id: currentFileId, content: document.getElementById('editor').value})
+    })
+    .then(r => r.json())
+    .then(data => {
         if (data.success) {
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Gespeichert!';
-            setTimeout(() => {
-                btn.innerHTML = '<i class="bi bi-save me-1"></i>Speichern';
-            }, 2000);
+            setTimeout(() => { btn.innerHTML = '<i class="bi bi-save me-1"></i>Speichern'; }, 2000);
         }
-    } catch (e) {
-        console.error('Fehler beim Speichern:', e);
-    } finally {
-        btn.disabled = false;
-    }
-});
+    })
+    .catch(e => console.error('Fehler:', e))
+    .finally(() => { btn.disabled = false; });
+}
 
 document.getElementById('connectionSelect')?.addEventListener('change', function() {
     window.location.href = `?connection=${this.value}`;

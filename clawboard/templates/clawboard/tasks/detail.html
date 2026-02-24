@@ -1,50 +1,45 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 
 {% block title %}{{ task.name }} - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:task_list' %}">Aufgaben</a></li>
-            <li class="breadcrumb-item active">{{ task.name }}</li>
-        </ol>
-    </nav>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <a href="{% url 'clawboard:task_list' %}">Aufgaben</a>
+            <span class="separator">/</span>
+            <span class="current">{{ task.name }}</span>
+        </div>
+        <h1 class="cb-page-title"><i class="bi bi-clock-history me-2"></i>{{ task.name }}</h1>
+    </div>
+    {% if task.is_enabled %}
+        <span class="cb-badge cb-badge-green" style="font-size: 0.85rem; padding: 6px 14px;">Aktiv</span>
+    {% else %}
+        <span class="cb-badge cb-badge-gray" style="font-size: 0.85rem; padding: 6px 14px;">Inaktiv</span>
+    {% endif %}
+</div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0">
-            <h4 class="mb-0">
-                <i class="bi bi-clock-history me-2"></i>{{ task.name }}
-            </h4>
-        </div>
-        <div class="card-body">
-            <dl class="row">
-                <dt class="col-sm-3">Zeitplan</dt>
-                <dd class="col-sm-9"><code>{{ task.schedule|default:"-" }}</code></dd>
-                
-                <dt class="col-sm-3">Status</dt>
-                <dd class="col-sm-9">
-                    {% if task.is_enabled %}
-                        <span class="badge bg-success">Aktiv</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Inaktiv</span>
-                    {% endif %}
-                </dd>
-                
-                <dt class="col-sm-3">Nächste Ausführung</dt>
-                <dd class="col-sm-9">{{ task.next_run|date:"d.m.Y H:i"|default:"-" }}</dd>
-                
-                <dt class="col-sm-3">Letzte Ausführung</dt>
-                <dd class="col-sm-9">{{ task.last_run|date:"d.m.Y H:i"|default:"Noch nie" }}</dd>
-            </dl>
-            
-            {% if task.payload %}
-                <hr>
-                <h6>Payload</h6>
-                <pre class="bg-light p-3 rounded"><code>{{ task.payload }}</code></pre>
-            {% endif %}
-        </div>
+<div class="cb-card" style="max-width: 600px;">
+    <div class="cb-card-body">
+        <dl class="cb-dl">
+            <dt>Zeitplan</dt>
+            <dd><code>{{ task.schedule|default:"-" }}</code></dd>
+            <dt>Naechste Ausfuehrung</dt>
+            <dd>{{ task.next_run|date:"d.m.Y H:i"|default:"-" }}</dd>
+            <dt>Letzte Ausfuehrung</dt>
+            <dd>{{ task.last_run|date:"d.m.Y H:i"|default:"Noch nie" }}</dd>
+        </dl>
+
+        {% if task.payload %}
+            <div style="margin-top: 16px;">
+                <span class="cb-form-label">Payload</span>
+                <div class="cb-code-block">
+                    <code>{{ task.payload }}</code>
+                </div>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

@@ -1,41 +1,38 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 
 {% block title %}Konversationen - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <div class="mb-4">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-                <li class="breadcrumb-item active">Konversationen</li>
-            </ol>
-        </nav>
-        <h2 class="mb-0"><i class="bi bi-chat-dots me-2"></i>Konversationen</h2>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <span class="current">Konversationen</span>
+        </div>
+        <h1 class="cb-page-title"><i class="bi bi-chat-dots me-2"></i>Konversationen</h1>
     </div>
+</div>
 
-    {% if conversations %}
-        <div class="list-group">
+{% if conversations %}
+    <div class="cb-card">
+        <div class="cb-card-body">
             {% for conv in conversations %}
-                <a href="{% url 'clawboard:conversation_detail' conv.pk %}" class="list-group-item list-group-item-action">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">{{ conv.title|default:"Konversation" }}</h6>
-                            <small class="text-muted">{{ conv.channel|default:"" }} • {{ conv.created_at|timesince }} ago</small>
-                        </div>
-                        <span class="badge bg-secondary">{{ conv.message_count|default:0 }} Nachrichten</span>
+                <a href="{% url 'clawboard:conversation_detail' conv.pk %}" class="cb-list-item">
+                    <div>
+                        <span class="cb-list-title">{{ conv.title|default:"Konversation" }}</span>
+                        <span class="cb-list-meta">{{ conv.channel|default:"" }} &middot; {{ conv.created_at|timesince }}</span>
                     </div>
+                    <span class="cb-badge cb-badge-gray">{{ conv.message_count|default:0 }} Nachrichten</span>
                 </a>
             {% endfor %}
         </div>
-    {% else %}
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-chat-dots display-1 text-muted mb-3"></i>
-                <h4>Keine Konversationen</h4>
-                <p class="text-muted">Konversationen werden automatisch synchronisiert.</p>
-            </div>
-        </div>
-    {% endif %}
-</div>
+    </div>
+{% else %}
+    <div class="cb-empty-state">
+        <i class="bi bi-chat-dots display-1"></i>
+        <h4>Keine Konversationen</h4>
+        <p>Konversationen werden automatisch synchronisiert.</p>
+    </div>
+{% endif %}
 {% endblock %}

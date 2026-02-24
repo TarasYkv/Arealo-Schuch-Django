@@ -1,83 +1,58 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 {% load static %}
 
 {% block title %}{{ title }} - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-12 col-md-8 col-lg-6">
-            <!-- Breadcrumb -->
-            <nav aria-label="breadcrumb" class="mb-4">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-                    <li class="breadcrumb-item"><a href="{% url 'clawboard:connection_list' %}">Verbindungen</a></li>
-                    <li class="breadcrumb-item active">{{ title }}</li>
-                </ol>
-            </nav>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <a href="{% url 'clawboard:connection_list' %}">Verbindungen</a>
+            <span class="separator">/</span>
+            <span class="current">{{ title }}</span>
+        </div>
+        <h1 class="cb-page-title"><i class="bi bi-plug me-2"></i>{{ title }}</h1>
+    </div>
+</div>
 
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 pt-4">
-                    <h4 class="mb-0">
-                        <i class="bi bi-plug me-2"></i>{{ title }}
-                    </h4>
-                </div>
-                <div class="card-body">
-                    <form method="post" novalidate>
-                        {% csrf_token %}
-                        
-                        <!-- Name -->
-                        <div class="mb-3">
-                            <label for="id_name" class="form-label">Name *</label>
-                            {{ form.name }}
-                            {% if form.name.errors %}
-                                <div class="invalid-feedback d-block">{{ form.name.errors.0 }}</div>
-                            {% endif %}
-                            <div class="form-text">Ein eindeutiger Name für diese Verbindung</div>
-                        </div>
-
-                        <!-- Gateway URL -->
-                        <div class="mb-3">
-                            <label for="id_gateway_url" class="form-label">Gateway URL *</label>
-                            {{ form.gateway_url }}
-                            {% if form.gateway_url.errors %}
-                                <div class="invalid-feedback d-block">{{ form.gateway_url.errors.0 }}</div>
-                            {% endif %}
-                            <div class="form-text">{{ form.gateway_url.help_text }}</div>
-                        </div>
-
-                        <!-- Gateway Token -->
-                        <div class="mb-3">
-                            <label for="id_gateway_token" class="form-label">Gateway Token *</label>
-                            {{ form.gateway_token }}
-                            {% if form.gateway_token.errors %}
-                                <div class="invalid-feedback d-block">{{ form.gateway_token.errors.0 }}</div>
-                            {% endif %}
-                            <div class="form-text">{{ form.gateway_token.help_text }}</div>
-                        </div>
-
-                        <!-- Aktiv -->
-                        <div class="mb-4">
-                            <div class="form-check">
-                                {{ form.is_active }}
-                                <label class="form-check-label" for="id_is_active">
-                                    Verbindung aktiv
-                                </label>
+<div style="max-width: 600px;">
+    <div class="cb-card">
+        <div class="cb-card-body">
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="cb-form-group">
+                        <label for="{{ field.id_for_label }}" class="cb-form-label">{{ field.label }}</label>
+                        {% if field.field.widget.input_type == 'checkbox' %}
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                                       {% if field.value %}checked{% endif %}
+                                       style="width: 18px; height: 18px; accent-color: #89b4fa;">
+                                <span style="color: #a6adc8; font-size: 0.82rem;">{{ field.label }}</span>
                             </div>
-                        </div>
-
-                        <!-- Buttons -->
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-lg me-1"></i>Speichern
-                            </button>
-                            <a href="{% url 'clawboard:connection_list' %}" class="btn btn-outline-secondary">
-                                Abbrechen
-                            </a>
-                        </div>
-                    </form>
+                        {% else %}
+                            <input type="{{ field.field.widget.input_type|default:'text' }}"
+                                   name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                                   value="{{ field.value|default:'' }}" class="cb-form-input"
+                                   placeholder="{{ field.field.widget.attrs.placeholder|default:'' }}">
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="cb-form-error">{{ field.errors.0 }}</div>
+                        {% endif %}
+                        {% if field.help_text %}
+                            <div class="cb-form-help">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                <div style="display: flex; gap: 8px; margin-top: 20px;">
+                    <button type="submit" class="cb-btn cb-btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Speichern
+                    </button>
+                    <a href="{% url 'clawboard:connection_list' %}" class="cb-btn cb-btn-outline">Abbrechen</a>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>

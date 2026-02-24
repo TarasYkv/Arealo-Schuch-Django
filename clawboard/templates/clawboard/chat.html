@@ -1,142 +1,104 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 {% load static %}
 
 {% block title %}KI-Chat - Clawboard{% endblock %}
 
-{% block content %}
-<div class="clawboard-chat-wrapper">
-    <!-- Linke Navigation: Bereiche -->
-    <div class="cb-nav">
-        <a href="{% url 'clawboard:dashboard' %}" class="cb-nav-btn" title="Dashboard">
-            <i class="bi bi-grid-1x2-fill"></i>
-            <span>Dashboard</span>
-        </a>
-        <a href="{% url 'clawboard:chat' %}" class="cb-nav-btn active" title="KI-Chat">
-            <i class="bi bi-chat-dots-fill"></i>
-            <span>Chat</span>
-        </a>
-        <a href="{% url 'clawboard:memory_browser' %}" class="cb-nav-btn" title="Memory">
-            <i class="bi bi-file-earmark-text"></i>
-            <span>Memory</span>
-        </a>
-        <a href="{% url 'clawboard:project_list' %}" class="cb-nav-btn" title="Projekte">
-            <i class="bi bi-folder"></i>
-            <span>Projekte</span>
-        </a>
-        <a href="{% url 'clawboard:connector_setup' %}" class="cb-nav-btn" title="Connector">
-            <i class="bi bi-plug"></i>
-            <span>Connector</span>
-        </a>
-        <a href="{% url 'clawboard:integration_list' %}" class="cb-nav-btn" title="Integrationen">
-            <i class="bi bi-puzzle"></i>
-            <span>Services</span>
-        </a>
+{% block cb_body %}
+<!-- Chat-Sidebar -->
+<div class="cb-sidebar">
+    <div class="cb-sidebar-header">
+        <h6><i class="bi bi-chat-dots me-2"></i>Chats</h6>
+        <button class="cb-btn-new" onclick="showNewChatModal()">
+            <i class="bi bi-plus-lg"></i>
+        </button>
     </div>
-
-    <!-- Chat-Sidebar: Chats & Modelle -->
-    <div class="cb-sidebar">
-        <div class="cb-sidebar-header">
-            <h6><i class="bi bi-chat-dots me-2"></i>Chats</h6>
-            <button class="cb-btn-new" onclick="showNewChatModal()">
-                <i class="bi bi-plus-lg"></i>
-            </button>
-        </div>
-
-        <div class="cb-chat-list" id="chat-list">
-            {% for chat in chats %}
-                <a href="{% url 'clawboard:chat_detail' chat.pk %}"
-                   class="cb-chat-item {% if active_chat and active_chat.pk == chat.pk %}active{% endif %}"
-                   data-chat-id="{{ chat.pk }}">
-                    <div class="cb-chat-item-content">
-                        <div class="cb-chat-title">{{ chat.title|default:"Neuer Chat"|truncatechars:28 }}</div>
-                        <div class="cb-chat-meta">{{ chat.get_provider_display }} &middot; {{ chat.message_count }} Nachr.</div>
-                    </div>
-                    <button class="cb-chat-delete"
-                            onclick="event.preventDefault(); event.stopPropagation(); deleteChat({{ chat.pk }});"
-                            title="Loeschen">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                </a>
+    <div class="cb-chat-list" id="chat-list">
+        {% for chat in chats %}
+            <a href="{% url 'clawboard:chat_detail' chat.pk %}"
+               class="cb-chat-item {% if active_chat and active_chat.pk == chat.pk %}active{% endif %}"
+               data-chat-id="{{ chat.pk }}">
+                <div class="cb-chat-item-content">
+                    <div class="cb-chat-title">{{ chat.title|default:"Neuer Chat"|truncatechars:28 }}</div>
+                    <div class="cb-chat-meta">{{ chat.get_provider_display }} &middot; {{ chat.message_count }} Nachr.</div>
+                </div>
+                <button class="cb-chat-delete"
+                        onclick="event.preventDefault(); event.stopPropagation(); deleteChat({{ chat.pk }});"
+                        title="Loeschen">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </a>
+        {% empty %}
+            <div class="cb-empty-hint">Noch keine Chats</div>
+        {% endfor %}
+    </div>
+    <div class="cb-sidebar-footer">
+        <div class="cb-models-label"><i class="bi bi-cpu me-1"></i>Modelle</div>
+        <div class="cb-models-list">
+            {% for model in available_models %}
+                <span class="cb-model-badge"><i class="bi {{ model.icon }}"></i> {{ model.name }}</span>
             {% empty %}
-                <div class="cb-empty-hint">Noch keine Chats</div>
+                <span class="cb-empty-hint small">Keine API-Keys</span>
             {% endfor %}
         </div>
-
-        <div class="cb-sidebar-footer">
-            <div class="cb-models-label"><i class="bi bi-cpu me-1"></i>Modelle</div>
-            <div class="cb-models-list">
-                {% for model in available_models %}
-                    <span class="cb-model-badge">
-                        <i class="bi {{ model.icon }}"></i> {{ model.name }}
-                    </span>
-                {% empty %}
-                    <span class="cb-empty-hint small">Keine API-Keys</span>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Haupt-Chat-Bereich -->
-    <div class="cb-main">
-        {% if active_chat %}
-            <!-- Header -->
-            <div class="cb-main-header">
-                <div>
-                    <span class="cb-main-title" id="chat-title">{{ active_chat.title|default:"Neuer Chat" }}</span>
-                    <span class="cb-main-model">{{ active_chat.get_provider_display }} &middot; {{ active_chat.model_name }}</span>
-                </div>
-                <span class="cb-msg-count" id="msg-count">{{ active_chat.message_count }} Nachrichten</span>
-            </div>
-
-            <!-- Messages -->
-            <div class="cb-messages" id="messages-container">
-                {% for msg in active_chat.messages %}
-                    {% if msg.role == 'user' %}
-                        <div class="cb-msg cb-msg-user">
-                            <div class="cb-msg-bubble cb-msg-bubble-user">{{ msg.content }}</div>
-                        </div>
-                    {% elif msg.role == 'assistant' %}
-                        <div class="cb-msg cb-msg-ai">
-                            <div class="cb-msg-bubble cb-msg-bubble-ai">{{ msg.content }}</div>
-                        </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-
-            <!-- Input -->
-            <div class="cb-input-area">
-                <form id="chat-form" onsubmit="sendMessage(event)" class="cb-input-form">
-                    <textarea class="cb-textarea" id="message-input" rows="2"
-                              placeholder="Nachricht eingeben..."
-                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendMessage(event);}"></textarea>
-                    <button class="cb-send-btn" type="submit" id="send-btn">
-                        <i class="bi bi-send-fill"></i>
-                    </button>
-                </form>
-                <div class="cb-input-hint">Enter = Senden &middot; Shift+Enter = Neue Zeile</div>
-            </div>
-        {% else %}
-            <!-- Empty State -->
-            <div class="cb-empty-state">
-                <i class="bi bi-chat-dots display-1"></i>
-                <h4>Starte einen neuen Chat</h4>
-                <p>Waehle ein KI-Modell und starte eine Konversation.</p>
-                {% if available_models %}
-                    <button class="cb-btn-start" onclick="showNewChatModal()">
-                        <i class="bi bi-plus-lg me-2"></i>Neuer Chat
-                    </button>
-                {% else %}
-                    <div class="cb-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Konfiguriere zuerst API-Keys in deinem <a href="/accounts/settings/">Profil</a>.
-                    </div>
-                {% endif %}
-            </div>
-        {% endif %}
     </div>
 </div>
 
+<!-- Haupt-Chat-Bereich -->
+<div class="cb-main">
+    {% if active_chat %}
+        <div class="cb-main-header">
+            <div>
+                <span class="cb-main-title" id="chat-title">{{ active_chat.title|default:"Neuer Chat" }}</span>
+                <span class="cb-main-model">{{ active_chat.get_provider_display }} &middot; {{ active_chat.model_name }}</span>
+            </div>
+            <span class="cb-msg-count" id="msg-count">{{ active_chat.message_count }} Nachrichten</span>
+        </div>
+        <div class="cb-messages" id="messages-container">
+            {% for msg in active_chat.messages %}
+                {% if msg.role == 'user' %}
+                    <div class="cb-msg cb-msg-user">
+                        <div class="cb-msg-bubble cb-msg-bubble-user">{{ msg.content }}</div>
+                    </div>
+                {% elif msg.role == 'assistant' %}
+                    <div class="cb-msg cb-msg-ai">
+                        <div class="cb-msg-bubble cb-msg-bubble-ai">{{ msg.content }}</div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="cb-input-area">
+            <form id="chat-form" onsubmit="sendMessage(event)" class="cb-input-form">
+                <textarea class="cb-textarea" id="message-input" rows="2"
+                          placeholder="Nachricht eingeben..."
+                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendMessage(event);}"></textarea>
+                <button class="cb-send-btn" type="submit" id="send-btn">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </form>
+            <div class="cb-input-hint">Enter = Senden &middot; Shift+Enter = Neue Zeile</div>
+        </div>
+    {% else %}
+        <div class="cb-empty-chat-state">
+            <i class="bi bi-chat-dots display-1"></i>
+            <h4>Starte einen neuen Chat</h4>
+            <p>Waehle ein KI-Modell und starte eine Konversation.</p>
+            {% if available_models %}
+                <button class="cb-btn-start" onclick="showNewChatModal()">
+                    <i class="bi bi-plus-lg me-2"></i>Neuer Chat
+                </button>
+            {% else %}
+                <div class="cb-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Konfiguriere zuerst API-Keys in deinem <a href="/accounts/settings/">Profil</a>.
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
 <!-- Modal: Neuer Chat -->
+{% block cb_extra_script %}
 <div class="modal fade" id="newChatModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content" style="background: #1e1e2e; color: #cdd6f4; border: 1px solid #45475a;">
@@ -175,11 +137,7 @@
 const CSRF_TOKEN = '{{ csrf_token }}';
 const CHAT_CREATE_API = '{% url "clawboard:api_chat_create" %}';
 const CHAT_SEND_API = '{% url "clawboard:api_chat_send" %}';
-{% if active_chat %}
-const ACTIVE_CHAT_ID = {{ active_chat.pk }};
-{% else %}
-const ACTIVE_CHAT_ID = null;
-{% endif %}
+{% if active_chat %}const ACTIVE_CHAT_ID = {{ active_chat.pk }};{% else %}const ACTIVE_CHAT_ID = null;{% endif %}
 
 function scrollToBottom() {
     const c = document.getElementById('messages-container');
@@ -187,15 +145,12 @@ function scrollToBottom() {
 }
 document.addEventListener('DOMContentLoaded', scrollToBottom);
 
-function showNewChatModal() {
-    new bootstrap.Modal(document.getElementById('newChatModal')).show();
-}
+function showNewChatModal() { new bootstrap.Modal(document.getElementById('newChatModal')).show(); }
 
 function createChat() {
     const select = document.getElementById('model-select');
     const title = document.getElementById('chat-title-input').value.trim();
     if (!select.value) return;
-
     const parts = select.value.split('|');
     fetch(CHAT_CREATE_API, {
         method: 'POST',
@@ -215,16 +170,13 @@ function sendMessage(e) {
     const input = document.getElementById('message-input');
     const message = input.value.trim();
     if (!message || !ACTIVE_CHAT_ID) return;
-
     const sendBtn = document.getElementById('send-btn');
     sendBtn.disabled = true;
     sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     input.disabled = true;
-
     appendMessage('user', message);
     input.value = '';
     const loadingId = appendLoading();
-
     fetch(CHAT_SEND_API, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
@@ -237,17 +189,10 @@ function sendMessage(e) {
         sendBtn.innerHTML = '<i class="bi bi-send-fill"></i>';
         input.disabled = false;
         input.focus();
-
         if (data.success) {
             appendMessage('assistant', data.response);
-            if (data.chat_title) {
-                const t = document.getElementById('chat-title');
-                if (t) t.textContent = data.chat_title;
-            }
-            if (data.message_count) {
-                const c = document.getElementById('msg-count');
-                if (c) c.textContent = data.message_count + ' Nachrichten';
-            }
+            if (data.chat_title) { const t = document.getElementById('chat-title'); if (t) t.textContent = data.chat_title; }
+            if (data.message_count) { const c = document.getElementById('msg-count'); if (c) c.textContent = data.message_count + ' Nachrichten'; }
         } else {
             appendMessage('assistant', data.error || 'Fehler bei der KI-Antwort');
         }
@@ -264,14 +209,11 @@ function sendMessage(e) {
 function appendMessage(role, content) {
     const container = document.getElementById('messages-container');
     if (!container) return;
-
     const msg = document.createElement('div');
     msg.className = 'cb-msg ' + (role === 'user' ? 'cb-msg-user' : 'cb-msg-ai');
-
     const bubble = document.createElement('div');
     bubble.className = 'cb-msg-bubble ' + (role === 'user' ? 'cb-msg-bubble-user' : 'cb-msg-bubble-ai');
     bubble.textContent = content;
-
     msg.appendChild(bubble);
     container.appendChild(msg);
     scrollToBottom();
@@ -291,9 +233,7 @@ function appendLoading() {
     return id;
 }
 
-function removeLoading(id) {
-    if (id) { const el = document.getElementById(id); if (el) el.remove(); }
-}
+function removeLoading(id) { if (id) { const el = document.getElementById(id); if (el) el.remove(); } }
 
 function deleteChat(chatId) {
     if (!confirm('Chat loeschen?')) return;
@@ -310,100 +250,35 @@ function deleteChat(chatId) {
     });
 }
 </script>
+{% endblock %}
 
+{% block cb_extra_style %}
 <style>
-/* ===== Dark Chat Layout ===== */
-.clawboard-chat-wrapper {
-    display: flex;
-    height: calc(100vh - 70px);
-    background: #11111b;
-    margin: -1rem -0.75rem;
-    overflow: hidden;
-}
-
-/* --- Linke Navigation --- */
-.cb-nav {
-    width: 72px;
-    background: #181825;
-    border-right: 1px solid #313244;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 0;
-    gap: 4px;
-    flex-shrink: 0;
-}
-.cb-nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 56px;
-    padding: 8px 4px;
-    border-radius: 10px;
-    color: #6c7086;
-    text-decoration: none;
-    font-size: 0.65rem;
-    transition: all 0.15s;
-    gap: 3px;
-}
-.cb-nav-btn i { font-size: 1.2rem; }
-.cb-nav-btn:hover { background: #313244; color: #cdd6f4; }
-.cb-nav-btn.active { background: #89b4fa22; color: #89b4fa; }
+/* Chat needs full-height without overflow */
+.cb-wrapper { overflow: hidden; }
 
 /* --- Chat-Sidebar --- */
 .cb-sidebar {
-    width: 260px;
-    background: #1e1e2e;
-    border-right: 1px solid #313244;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
+    width: 260px; background: #1e1e2e; border-right: 1px solid #313244;
+    display: flex; flex-direction: column; flex-shrink: 0;
 }
 .cb-sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 14px 10px;
-    border-bottom: 1px solid #313244;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 14px 10px; border-bottom: 1px solid #313244;
 }
-.cb-sidebar-header h6 {
-    margin: 0;
-    color: #cdd6f4;
-    font-size: 0.9rem;
-}
+.cb-sidebar-header h6 { margin: 0; color: #cdd6f4; font-size: 0.9rem; }
 .cb-btn-new {
-    background: #89b4fa;
-    color: #1e1e2e;
-    border: none;
-    border-radius: 8px;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 700;
-    transition: background 0.15s;
+    background: #89b4fa; color: #1e1e2e; border: none; border-radius: 8px;
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 0.9rem; font-weight: 700; transition: background 0.15s;
 }
 .cb-btn-new:hover { background: #b4d0fb; }
 
-.cb-chat-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-}
+.cb-chat-list { flex: 1; overflow-y: auto; padding: 8px; }
 .cb-chat-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    border-radius: 8px;
-    color: #a6adc8;
-    text-decoration: none;
-    margin-bottom: 2px;
-    transition: background 0.1s;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-radius: 8px; color: #a6adc8; text-decoration: none;
+    margin-bottom: 2px; transition: background 0.1s;
 }
 .cb-chat-item:hover { background: #313244; color: #cdd6f4; }
 .cb-chat-item.active { background: #89b4fa22; color: #89b4fa; }
@@ -417,162 +292,70 @@ function deleteChat(chatId) {
 .cb-chat-item:hover .cb-chat-delete { opacity: 1; }
 .cb-chat-delete:hover { color: #f38ba8; }
 
-.cb-sidebar-footer {
-    padding: 10px 14px;
-    border-top: 1px solid #313244;
-}
+.cb-sidebar-footer { padding: 10px 14px; border-top: 1px solid #313244; }
 .cb-models-label { font-size: 0.7rem; color: #6c7086; margin-bottom: 6px; }
 .cb-models-list { display: flex; flex-wrap: wrap; gap: 4px; }
-.cb-model-badge {
-    font-size: 0.6rem;
-    padding: 3px 7px;
-    border-radius: 6px;
-    background: #313244;
-    color: #a6adc8;
-}
-
+.cb-model-badge { font-size: 0.6rem; padding: 3px 7px; border-radius: 6px; background: #313244; color: #a6adc8; }
 .cb-empty-hint { text-align: center; color: #6c7086; font-size: 0.8rem; padding: 20px 0; }
 
 /* --- Haupt-Chat-Bereich --- */
-.cb-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #11111b;
-    min-width: 0;
-}
+.cb-main { flex: 1; display: flex; flex-direction: column; background: #11111b; min-width: 0; }
 .cb-main-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px;
-    border-bottom: 1px solid #313244;
-    background: #1e1e2e;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px; border-bottom: 1px solid #313244; background: #1e1e2e;
 }
 .cb-main-title { color: #cdd6f4; font-weight: 600; font-size: 0.95rem; }
 .cb-main-model { color: #6c7086; font-size: 0.75rem; margin-left: 10px; }
 .cb-msg-count { font-size: 0.7rem; color: #6c7086; background: #313244; padding: 4px 10px; border-radius: 12px; }
 
 /* --- Messages --- */
-.cb-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
+.cb-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .cb-msg { display: flex; }
 .cb-msg-user { justify-content: flex-end; }
 .cb-msg-ai { justify-content: flex-start; }
-.cb-msg-bubble {
-    max-width: 70%;
-    padding: 10px 14px;
-    border-radius: 14px;
-    font-size: 0.88rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-.cb-msg-bubble-user {
-    background: #89b4fa;
-    color: #1e1e2e;
-    border-bottom-right-radius: 4px;
-}
-.cb-msg-bubble-ai {
-    background: #313244;
-    color: #cdd6f4;
-    border-bottom-left-radius: 4px;
-}
+.cb-msg-bubble { max-width: 70%; padding: 10px 14px; border-radius: 14px; font-size: 0.88rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.cb-msg-bubble-user { background: #89b4fa; color: #1e1e2e; border-bottom-right-radius: 4px; }
+.cb-msg-bubble-ai { background: #313244; color: #cdd6f4; border-bottom-left-radius: 4px; }
 
 /* --- Input --- */
-.cb-input-area {
-    padding: 12px 20px 10px;
-    border-top: 1px solid #313244;
-    background: #1e1e2e;
-}
+.cb-input-area { padding: 12px 20px 10px; border-top: 1px solid #313244; background: #1e1e2e; }
 .cb-input-form { display: flex; gap: 8px; }
 .cb-textarea {
-    flex: 1;
-    background: #313244;
-    border: 1px solid #45475a;
-    border-radius: 12px;
-    color: #cdd6f4;
-    padding: 10px 14px;
-    font-size: 0.88rem;
-    resize: none;
-    outline: none;
-    font-family: inherit;
+    flex: 1; background: #313244; border: 1px solid #45475a; border-radius: 12px;
+    color: #cdd6f4; padding: 10px 14px; font-size: 0.88rem; resize: none; outline: none; font-family: inherit;
 }
 .cb-textarea:focus { border-color: #89b4fa; }
 .cb-textarea::placeholder { color: #6c7086; }
 .cb-send-btn {
-    background: #89b4fa;
-    color: #1e1e2e;
-    border: none;
-    border-radius: 12px;
-    width: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 1.1rem;
-    transition: background 0.15s;
+    background: #89b4fa; color: #1e1e2e; border: none; border-radius: 12px;
+    width: 44px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1.1rem; transition: background 0.15s;
 }
 .cb-send-btn:hover { background: #b4d0fb; }
 .cb-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cb-input-hint { text-align: center; font-size: 0.65rem; color: #45475a; margin-top: 6px; }
 
-/* --- Empty State --- */
-.cb-empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #6c7086;
-    gap: 8px;
+/* --- Chat Empty State --- */
+.cb-empty-chat-state {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #6c7086; gap: 8px;
 }
-.cb-empty-state h4 { color: #a6adc8; }
+.cb-empty-chat-state h4 { color: #a6adc8; }
 .cb-btn-start {
-    background: #89b4fa;
-    color: #1e1e2e;
-    border: none;
-    border-radius: 12px;
-    padding: 12px 28px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: background 0.15s;
+    background: #89b4fa; color: #1e1e2e; border: none; border-radius: 12px;
+    padding: 12px 28px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    margin-top: 10px; transition: background 0.15s;
 }
 .cb-btn-start:hover { background: #b4d0fb; }
-.cb-warning {
-    background: #45475a;
-    color: #f9e2af;
-    padding: 12px 20px;
-    border-radius: 10px;
-    margin-top: 10px;
-}
+.cb-warning { background: #45475a; color: #f9e2af; padding: 12px 20px; border-radius: 10px; margin-top: 10px; }
 .cb-warning a { color: #89b4fa; }
 
 /* --- Scrollbar --- */
-.cb-chat-list::-webkit-scrollbar,
-.cb-messages::-webkit-scrollbar { width: 6px; }
-.cb-chat-list::-webkit-scrollbar-track,
-.cb-messages::-webkit-scrollbar-track { background: transparent; }
-.cb-chat-list::-webkit-scrollbar-thumb,
-.cb-messages::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+.cb-chat-list::-webkit-scrollbar, .cb-messages::-webkit-scrollbar { width: 6px; }
+.cb-chat-list::-webkit-scrollbar-track, .cb-messages::-webkit-scrollbar-track { background: transparent; }
+.cb-chat-list::-webkit-scrollbar-thumb, .cb-messages::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
 
-/* --- Responsive --- */
-@media (max-width: 768px) {
-    .cb-nav { width: 52px; }
-    .cb-nav-btn span { display: none; }
-    .cb-nav-btn { width: 40px; padding: 8px; }
-    .cb-sidebar { width: 200px; }
-}
-@media (max-width: 576px) {
-    .cb-sidebar { display: none; }
-}
+@media (max-width: 768px) { .cb-sidebar { width: 200px; } }
+@media (max-width: 576px) { .cb-sidebar { display: none; } }
 </style>
 {% endblock %}

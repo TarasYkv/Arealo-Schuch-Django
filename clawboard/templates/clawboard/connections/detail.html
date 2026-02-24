@@ -1,159 +1,120 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 {% load static %}
 
 {% block title %}{{ connection.name }} - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <!-- Breadcrumb -->
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:connection_list' %}">Verbindungen</a></li>
-            <li class="breadcrumb-item active">{{ connection.name }}</li>
-        </ol>
-    </nav>
-
-    <div class="row g-4">
-        <!-- Hauptinfo -->
-        <div class="col-12 col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">
-                        <i class="bi bi-hdd-network me-2"></i>{{ connection.name }}
-                    </h4>
-                    <span class="badge bg-{% if connection.status == 'online' %}success{% elif connection.status == 'offline' %}danger{% else %}secondary{% endif %} fs-6">
-                        {{ connection.get_status_display|default:"Unbekannt" }}
-                    </span>
-                </div>
-                <div class="card-body">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-4">Gateway URL</dt>
-                        <dd class="col-sm-8"><code>{{ connection.gateway_url }}</code></dd>
-                        
-                        <dt class="col-sm-4">Status</dt>
-                        <dd class="col-sm-8">
-                            {% if connection.is_active %}
-                                <span class="badge bg-success">Aktiv</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Inaktiv</span>
-                            {% endif %}
-                        </dd>
-                        
-                        <dt class="col-sm-4">Zuletzt gesehen</dt>
-                        <dd class="col-sm-8">
-                            {% if connection.last_seen %}
-                                {{ connection.last_seen|timesince }} ago
-                            {% else %}
-                                Noch nie
-                            {% endif %}
-                        </dd>
-                        
-                        <dt class="col-sm-4">Erstellt</dt>
-                        <dd class="col-sm-8">{{ connection.created_at|date:"d.m.Y H:i" }}</dd>
-                    </dl>
-                </div>
-                <div class="card-footer bg-transparent">
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-primary" id="testConnection">
-                            <i class="bi bi-wifi me-1"></i>Verbindung testen
-                        </button>
-                        <a href="{% url 'clawboard:connection_edit' connection.pk %}" class="btn btn-outline-secondary">
-                            <i class="bi bi-pencil me-1"></i>Bearbeiten
-                        </a>
-                        <a href="{% url 'clawboard:connection_delete' connection.pk %}" class="btn btn-outline-danger">
-                            <i class="bi bi-trash me-1"></i>Löschen
-                        </a>
-                    </div>
-                </div>
-            </div>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <a href="{% url 'clawboard:connection_list' %}">Verbindungen</a>
+            <span class="separator">/</span>
+            <span class="current">{{ connection.name }}</span>
         </div>
+        <h1 class="cb-page-title"><i class="bi bi-hdd-network me-2"></i>{{ connection.name }}</h1>
+    </div>
+    <span class="cb-badge {% if connection.status == 'online' %}cb-badge-green{% elif connection.status == 'offline' %}cb-badge-red{% else %}cb-badge-gray{% endif %}" style="font-size: 0.85rem; padding: 6px 14px;">
+        {{ connection.get_status_display|default:"Unbekannt" }}
+    </span>
+</div>
 
-        <!-- System Status -->
-        <div class="col-12 col-lg-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0">
-                    <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>System Status</h5>
-                </div>
-                <div class="card-body">
-                    {% if connection.cpu_percent %}
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span>CPU</span>
-                                <span>{{ connection.cpu_percent|floatformat:1 }}%</span>
-                            </div>
-                            <div class="progress" style="height: 8px;">
-                                <div class="progress-bar" style="width: {{ connection.cpu_percent }}%"></div>
-                            </div>
-                        </div>
+<div class="cb-grid">
+    <!-- Hauptinfo -->
+    <div class="cb-card">
+        <div class="cb-card-header">
+            <h6><i class="bi bi-info-circle me-2"></i>Details</h6>
+        </div>
+        <div class="cb-card-body">
+            <dl class="cb-dl">
+                <dt>Gateway URL</dt>
+                <dd><code>{{ connection.gateway_url }}</code></dd>
+                <dt>Status</dt>
+                <dd>
+                    {% if connection.is_active %}
+                        <span class="cb-badge cb-badge-green">Aktiv</span>
+                    {% else %}
+                        <span class="cb-badge cb-badge-gray">Inaktiv</span>
                     {% endif %}
-                    
-                    {% if connection.ram_total_mb %}
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span>RAM</span>
-                                <span>{{ connection.ram_used_mb|floatformat:0 }} / {{ connection.ram_total_mb|floatformat:0 }} MB</span>
-                            </div>
-                            <div class="progress" style="height: 8px;">
-                                {% widthratio connection.ram_used_mb connection.ram_total_mb 100 as ram_percent %}
-                                <div class="progress-bar" style="width: {{ ram_percent }}%"></div>
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    {% if connection.disk_total_gb %}
-                        <div class="mb-0">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span>Disk</span>
-                                <span>{{ connection.disk_used_gb|floatformat:1 }} / {{ connection.disk_total_gb|floatformat:1 }} GB</span>
-                            </div>
-                            <div class="progress" style="height: 8px;">
-                                {% widthratio connection.disk_used_gb connection.disk_total_gb 100 as disk_percent %}
-                                <div class="progress-bar" style="width: {{ disk_percent }}%"></div>
-                            </div>
-                        </div>
-                    {% endif %}
-                    
-                    {% if not connection.cpu_percent and not connection.ram_total_mb %}
-                        <p class="text-muted mb-0">Keine System-Daten verfügbar</p>
-                    {% endif %}
-                </div>
+                </dd>
+                <dt>Zuletzt gesehen</dt>
+                <dd>{% if connection.last_seen %}{{ connection.last_seen|timesince }}{% else %}Noch nie{% endif %}</dd>
+                <dt>Erstellt</dt>
+                <dd>{{ connection.created_at|date:"d.m.Y H:i" }}</dd>
+                {% if connection.hostname %}
+                    <dt>Hostname</dt>
+                    <dd>{{ connection.hostname }}</dd>
+                {% endif %}
+            </dl>
+            <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button type="button" class="cb-btn cb-btn-primary" id="testConnection">
+                    <i class="bi bi-wifi me-1"></i>Testen
+                </button>
+                <a href="{% url 'clawboard:connection_edit' connection.pk %}" class="cb-btn cb-btn-outline">
+                    <i class="bi bi-pencil me-1"></i>Bearbeiten
+                </a>
+                <a href="{% url 'clawboard:connection_delete' connection.pk %}" class="cb-btn cb-btn-danger">
+                    <i class="bi bi-trash me-1"></i>Loeschen
+                </a>
             </div>
         </div>
     </div>
-</div>
 
+    <!-- System Status -->
+    <div class="cb-card">
+        <div class="cb-card-header">
+            <h6><i class="bi bi-speedometer2 me-2"></i>System Status</h6>
+        </div>
+        <div class="cb-card-body">
+            {% if connection.cpu_percent %}
+                <div class="cb-meter">
+                    <div class="cb-meter-label"><span>CPU</span><span>{{ connection.cpu_percent|floatformat:1 }}%</span></div>
+                    <div class="cb-progress"><div class="cb-progress-bar cb-bar-blue" style="width: {{ connection.cpu_percent }}%"></div></div>
+                </div>
+            {% endif %}
+            {% if connection.ram_total_mb %}
+                <div class="cb-meter">
+                    <div class="cb-meter-label"><span>RAM</span><span>{{ connection.ram_used_mb|floatformat:0 }} / {{ connection.ram_total_mb|floatformat:0 }} MB</span></div>
+                    <div class="cb-progress">
+                        {% widthratio connection.ram_used_mb connection.ram_total_mb 100 as ram_pct %}
+                        <div class="cb-progress-bar cb-bar-green" style="width: {{ ram_pct }}%"></div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if connection.disk_total_gb %}
+                <div class="cb-meter">
+                    <div class="cb-meter-label"><span>Disk</span><span>{{ connection.disk_used_gb|floatformat:1 }} / {{ connection.disk_total_gb|floatformat:1 }} GB</span></div>
+                    <div class="cb-progress">
+                        {% widthratio connection.disk_used_gb connection.disk_total_gb 100 as disk_pct %}
+                        <div class="cb-progress-bar cb-bar-yellow" style="width: {{ disk_pct }}%"></div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if not connection.cpu_percent and not connection.ram_total_mb %}
+                <div class="cb-card-empty small"><p>Keine System-Daten verfuegbar</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block cb_extra_script %}
 <script>
 document.getElementById('testConnection')?.addEventListener('click', async function() {
     const btn = this;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Teste...';
-    
     try {
-        const response = await fetch('{% url "clawboard:connection_test" connection.pk %}');
-        const data = await response.json();
-        
-        if (data.success) {
-            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Verbunden!';
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-success');
-        } else {
-            btn.innerHTML = '<i class="bi bi-x-lg me-1"></i>Fehler';
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-danger');
-        }
+        const r = await fetch('{% url "clawboard:connection_test" connection.pk %}');
+        const data = await r.json();
+        btn.innerHTML = data.success ? '<i class="bi bi-check-lg me-1"></i>Verbunden!' : '<i class="bi bi-x-lg me-1"></i>Fehler';
+        btn.style.background = data.success ? '#a6e3a1' : '#f38ba8';
     } catch (e) {
         btn.innerHTML = '<i class="bi bi-x-lg me-1"></i>Fehler';
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-danger');
+        btn.style.background = '#f38ba8';
     }
-    
-    setTimeout(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-wifi me-1"></i>Verbindung testen';
-        btn.classList.remove('btn-success', 'btn-danger');
-        btn.classList.add('btn-primary');
-    }, 3000);
+    setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-wifi me-1"></i>Testen'; btn.style.background = ''; }, 3000);
 });
 </script>
 {% endblock %}

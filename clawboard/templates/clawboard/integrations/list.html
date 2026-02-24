@@ -1,51 +1,43 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 
 {% block title %}Integrationen - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <div class="mb-4">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-                <li class="breadcrumb-item active">Integrationen</li>
-            </ol>
-        </nav>
-        <h2 class="mb-0"><i class="bi bi-puzzle me-2"></i>Integrationen</h2>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <span class="current">Integrationen</span>
+        </div>
+        <h1 class="cb-page-title"><i class="bi bi-puzzle me-2"></i>Integrationen</h1>
     </div>
-
-    {% if integrations %}
-        <div class="row g-4">
-            {% for integration in integrations %}
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
-                                    <i class="bi bi-{{ integration.icon|default:'plug' }} fs-4 text-primary"></i>
-                                </div>
-                                <div>
-                                    <h5 class="card-title mb-0">{{ integration.name }}</h5>
-                                    <small class="text-muted">{{ integration.integration_type }}</small>
-                                </div>
-                            </div>
-                            <p class="text-muted small">{{ integration.description|default:"-"|truncatechars:100 }}</p>
-                            <span class="badge bg-{% if integration.is_active %}success{% else %}secondary{% endif %}">
-                                {% if integration.is_active %}Aktiv{% else %}Inaktiv{% endif %}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-puzzle display-1 text-muted mb-3"></i>
-                <h4>Keine Integrationen</h4>
-                <p class="text-muted">Integrationen werden vom Clawdbot Gateway synchronisiert.</p>
-            </div>
-        </div>
-    {% endif %}
 </div>
+
+{% if integrations %}
+    <div class="cb-grid">
+        {% for integration in integrations %}
+            <div class="cb-card">
+                <div class="cb-card-body" style="display: flex; align-items: center; gap: 14px;">
+                    <div style="width: 44px; height: 44px; border-radius: 10px; background: #89b4fa22; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="bi bi-{{ integration.icon|default:'plug' }}" style="font-size: 1.2rem; color: #89b4fa;"></i>
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <span class="cb-list-title">{{ integration.name }}</span>
+                        <span class="cb-list-meta">{{ integration.category|default:"" }}{% if integration.notes %} &middot; {{ integration.notes|truncatechars:40 }}{% endif %}</span>
+                    </div>
+                    <span class="cb-badge {% if integration.status == 'active' %}cb-badge-green{% else %}cb-badge-gray{% endif %}">
+                        {% if integration.status == 'active' %}Aktiv{% else %}Inaktiv{% endif %}
+                    </span>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="cb-empty-state">
+        <i class="bi bi-puzzle display-1"></i>
+        <h4>Keine Integrationen</h4>
+        <p>Integrationen werden vom Connector automatisch erkannt.</p>
+    </div>
+{% endif %}
 {% endblock %}

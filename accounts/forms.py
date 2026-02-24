@@ -59,10 +59,12 @@ class CustomAuthenticationForm(AuthenticationForm):
 class ApiKeyForm(forms.ModelForm):
     class Meta:
         model = CustomUser
-        fields = ['openai_api_key', 'anthropic_api_key']
+        fields = ['openai_api_key', 'anthropic_api_key', 'deepseek_api_key', 'gemini_api_key']
         widgets = {
             'openai_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Ihr OpenAI API Key'}),
             'anthropic_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Ihr Anthropic API Key'}),
+            'deepseek_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Ihr DeepSeek API Key'}),
+            'gemini_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Ihr Gemini API Key'}),
         }
 
 

@@ -1,40 +1,44 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 
 {% block title %}Konversation - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:conversation_list' %}">Konversationen</a></li>
-            <li class="breadcrumb-item active">{{ conversation.title|default:"Konversation" }}</li>
-        </ol>
-    </nav>
-
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0">
-            <h4 class="mb-0">
-                <i class="bi bi-chat-dots me-2"></i>{{ conversation.title|default:"Konversation" }}
-            </h4>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <a href="{% url 'clawboard:conversation_list' %}">Konversationen</a>
+            <span class="separator">/</span>
+            <span class="current">{{ conversation.title|default:"Konversation"|truncatechars:40 }}</span>
         </div>
-        <div class="card-body">
-            <dl class="row">
-                <dt class="col-sm-3">Channel</dt>
-                <dd class="col-sm-9">{{ conversation.channel|default:"-" }}</dd>
-                
-                <dt class="col-sm-3">Erstellt</dt>
-                <dd class="col-sm-9">{{ conversation.created_at|date:"d.m.Y H:i" }}</dd>
-            </dl>
-            
-            {% if conversation.messages_data %}
-                <hr>
-                <h5>Nachrichten</h5>
-                <div class="border rounded p-3 bg-light" style="max-height: 500px; overflow-y: auto;">
-                    <pre class="mb-0" style="white-space: pre-wrap;">{{ conversation.messages_data }}</pre>
-                </div>
-            {% endif %}
-        </div>
+        <h1 class="cb-page-title"><i class="bi bi-chat-dots me-2"></i>{{ conversation.title|default:"Konversation" }}</h1>
     </div>
 </div>
+
+<div class="cb-card" style="margin-bottom: 16px;">
+    <div class="cb-card-body">
+        <dl class="cb-dl">
+            <dt>Channel</dt>
+            <dd>{{ conversation.channel|default:"-" }}</dd>
+            <dt>Erstellt</dt>
+            <dd>{{ conversation.created_at|date:"d.m.Y H:i" }}</dd>
+            <dt>Nachrichten</dt>
+            <dd>{{ conversation.message_count|default:0 }}</dd>
+        </dl>
+    </div>
+</div>
+
+{% if conversation.messages %}
+    <div class="cb-card">
+        <div class="cb-card-header">
+            <h6><i class="bi bi-chat-left-text me-2"></i>Nachrichten</h6>
+        </div>
+        <div class="cb-card-body">
+            <div style="max-height: 500px; overflow-y: auto; background: #11111b; border-radius: 8px; padding: 16px;">
+                <pre style="white-space: pre-wrap; color: #cdd6f4; font-size: 0.82rem; font-family: monospace; margin: 0;">{{ conversation.messages|truncatechars:10000 }}</pre>
+            </div>
+        </div>
+    </div>
+{% endif %}
 {% endblock %}

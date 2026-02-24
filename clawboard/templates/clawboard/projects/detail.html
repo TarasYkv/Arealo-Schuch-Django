@@ -1,59 +1,73 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 
 {% block title %}{{ project.name }} - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'clawboard:project_list' %}">Projekte</a></li>
-            <li class="breadcrumb-item active">{{ project.name }}</li>
-        </ol>
-    </nav>
-
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-            <h4 class="mb-0">
-                <span class="me-2">{{ project.icon|default:"📁" }}</span>
-                {{ project.name }}
-            </h4>
-            <a href="{% url 'clawboard:project_edit' project.pk %}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-pencil me-1"></i>Bearbeiten
-            </a>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <a href="{% url 'clawboard:project_list' %}">Projekte</a>
+            <span class="separator">/</span>
+            <span class="current">{{ project.name }}</span>
         </div>
-        <div class="card-body">
+        <h1 class="cb-page-title">{{ project.icon|default:"" }} {{ project.name }}</h1>
+    </div>
+    <a href="{% url 'clawboard:project_edit' project.pk %}" class="cb-btn cb-btn-outline">
+        <i class="bi bi-pencil me-1"></i>Bearbeiten
+    </a>
+</div>
+
+<div class="cb-grid">
+    <div class="cb-card">
+        <div class="cb-card-header">
+            <h6><i class="bi bi-info-circle me-2"></i>Details</h6>
+            <span class="cb-badge cb-badge-{% if project.status == 'active' %}green{% elif project.status == 'archived' %}gray{% else %}blue{% endif %}">
+                {{ project.get_status_display|default:"Unbekannt" }}
+            </span>
+        </div>
+        <div class="cb-card-body">
             {% if project.description %}
-                <p>{{ project.description }}</p>
+                <p style="color: #a6adc8; font-size: 0.85rem; margin-bottom: 16px;">{{ project.description }}</p>
             {% endif %}
-            
-            <dl class="row">
-                <dt class="col-sm-3">Status</dt>
-                <dd class="col-sm-9">
-                    <span class="badge bg-{{ project.status|default:'secondary' }}">
-                        {{ project.get_status_display|default:"Unbekannt" }}
-                    </span>
-                </dd>
-                
-                <dt class="col-sm-3">Verbindung</dt>
-                <dd class="col-sm-9">{{ project.connection.name }}</dd>
-                
+            <dl class="cb-dl">
+                <dt>Verbindung</dt>
+                <dd>{{ project.connection.name }}</dd>
                 {% if project.memory_path %}
-                    <dt class="col-sm-3">Memory Path</dt>
-                    <dd class="col-sm-9"><code>{{ project.memory_path }}</code></dd>
+                    <dt>Memory Path</dt>
+                    <dd><code>{{ project.memory_path }}</code></dd>
                 {% endif %}
             </dl>
         </div>
     </div>
 
     {% if memories %}
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-header bg-transparent border-0">
-                <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>Memories</h5>
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-journal-text me-2"></i>Memories</h6>
             </div>
-            <div class="list-group list-group-flush">
+            <div class="cb-card-body">
                 {% for memory in memories %}
-                    <div class="list-group-item">{{ memory }}</div>
+                    <div class="cb-list-item">
+                        <span class="cb-list-title">{{ memory }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if conversations %}
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-chat-left-text me-2"></i>Konversationen</h6>
+            </div>
+            <div class="cb-card-body">
+                {% for conv in conversations %}
+                    <a href="{% url 'clawboard:conversation_detail' conv.pk %}" class="cb-list-item">
+                        <span class="cb-list-title">{{ conv.title|default:"Konversation" }}</span>
+                        <span class="cb-list-time">{{ conv.created_at|timesince }}</span>
+                    </a>
                 {% endfor %}
             </div>
         </div>

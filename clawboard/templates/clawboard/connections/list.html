@@ -1,81 +1,67 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 {% load static %}
 
 {% block title %}Verbindungen - Clawboard{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="{% url 'clawboard:dashboard' %}">Clawboard</a></li>
-                    <li class="breadcrumb-item active">Verbindungen</li>
-                </ol>
-            </nav>
-            <h2 class="mb-0">
-                <i class="bi bi-plug me-2"></i>Verbindungen
-            </h2>
+{% block cb_page %}
+<div class="cb-page-header">
+    <div>
+        <div class="cb-breadcrumb">
+            <a href="{% url 'clawboard:dashboard' %}">Clawboard</a>
+            <span class="separator">/</span>
+            <span class="current">Verbindungen</span>
         </div>
-        <a href="{% url 'clawboard:connection_add' %}" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Neue Verbindung
-        </a>
+        <h1 class="cb-page-title"><i class="bi bi-plug me-2"></i>Verbindungen</h1>
     </div>
+    <a href="{% url 'clawboard:connection_add' %}" class="cb-btn cb-btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Neue Verbindung
+    </a>
+</div>
 
-    {% if connections %}
-        <div class="row g-4">
-            {% for conn in connections %}
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h5 class="card-title mb-0">
-                                    <i class="bi bi-hdd-network me-2"></i>{{ conn.name }}
-                                </h5>
-                                <span class="badge bg-{% if conn.status == 'online' %}success{% elif conn.status == 'offline' %}danger{% else %}secondary{% endif %}">
-                                    {{ conn.get_status_display|default:"Unbekannt" }}
-                                </span>
-                            </div>
-                            
-                            <p class="text-muted small mb-2">
-                                <i class="bi bi-link-45deg me-1"></i>{{ conn.gateway_url|truncatechars:40 }}
-                            </p>
-                            
-                            {% if conn.last_seen %}
-                                <p class="text-muted small mb-0">
-                                    <i class="bi bi-clock me-1"></i>Zuletzt: {{ conn.last_seen|timesince }} ago
-                                </p>
-                            {% endif %}
-                        </div>
-                        <div class="card-footer bg-transparent border-0 pt-0">
-                            <div class="btn-group btn-group-sm w-100">
-                                <a href="{% url 'clawboard:connection_detail' conn.pk %}" class="btn btn-outline-primary">
-                                    <i class="bi bi-eye"></i> Details
-                                </a>
-                                <a href="{% url 'clawboard:connection_edit' conn.pk %}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-pencil"></i> Bearbeiten
-                                </a>
-                                <a href="{% url 'clawboard:connection_delete' conn.pk %}" class="btn btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
-                        </div>
+{% if connections %}
+    <div class="cb-grid">
+        {% for conn in connections %}
+            <div class="cb-card">
+                <div class="cb-card-header">
+                    <h6><i class="bi bi-hdd-network me-2"></i>{{ conn.name }}</h6>
+                    <span class="cb-badge {% if conn.status == 'online' %}cb-badge-green{% elif conn.status == 'offline' %}cb-badge-red{% else %}cb-badge-gray{% endif %}">
+                        {{ conn.get_status_display|default:"Unbekannt" }}
+                    </span>
+                </div>
+                <div class="cb-card-body">
+                    {% if conn.gateway_url %}
+                        <p style="color: #6c7086; font-size: 0.78rem; margin-bottom: 4px;">
+                            <i class="bi bi-link-45deg me-1"></i>{{ conn.gateway_url|truncatechars:40 }}
+                        </p>
+                    {% endif %}
+                    {% if conn.last_seen %}
+                        <p style="color: #6c7086; font-size: 0.78rem; margin-bottom: 12px;">
+                            <i class="bi bi-clock me-1"></i>Zuletzt: {{ conn.last_seen|timesince }}
+                        </p>
+                    {% endif %}
+                    <div style="display: flex; gap: 6px;">
+                        <a href="{% url 'clawboard:connection_detail' conn.pk %}" class="cb-btn cb-btn-outline cb-btn-sm">
+                            <i class="bi bi-eye me-1"></i>Details
+                        </a>
+                        <a href="{% url 'clawboard:connection_edit' conn.pk %}" class="cb-btn cb-btn-outline cb-btn-sm">
+                            <i class="bi bi-pencil me-1"></i>Bearbeiten
+                        </a>
+                        <a href="{% url 'clawboard:connection_delete' conn.pk %}" class="cb-btn cb-btn-danger cb-btn-sm">
+                            <i class="bi bi-trash"></i>
+                        </a>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-                <i class="bi bi-plug display-1 text-muted mb-3"></i>
-                <h4>Keine Verbindungen</h4>
-                <p class="text-muted mb-4">Erstelle deine erste Clawdbot-Verbindung.</p>
-                <a href="{% url 'clawboard:connection_add' %}" class="btn btn-primary">
-                    <i class="bi bi-plus-lg me-2"></i>Verbindung hinzufügen
-                </a>
             </div>
-        </div>
-    {% endif %}
-</div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="cb-empty-state">
+        <i class="bi bi-plug display-1"></i>
+        <h4>Keine Verbindungen</h4>
+        <p>Erstelle deine erste Clawdbot-Verbindung.</p>
+        <a href="{% url 'clawboard:connection_add' %}" class="cb-btn cb-btn-primary">
+            <i class="bi bi-plus-lg me-2"></i>Verbindung hinzufuegen
+        </a>
+    </div>
+{% endif %}
 {% endblock %}

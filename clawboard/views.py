@@ -86,6 +86,7 @@ def dashboard(request):
             'last_seen': active_connection.last_seen,
         }
 
+    context['cb_active'] = 'dashboard'
     return render(request, 'clawboard/dashboard.html', context)
 
 
@@ -95,7 +96,7 @@ def dashboard(request):
 def connection_list(request):
     """Liste aller Clawdbot-Verbindungen"""
     connections = ClawdbotConnection.objects.filter(user=request.user)
-    return render(request, 'clawboard/connections/list.html', {'connections': connections})
+    return render(request, 'clawboard/connections/list.html', {'connections': connections, 'cb_active': 'connector'})
 
 
 @login_required
@@ -112,14 +113,14 @@ def connection_add(request):
     else:
         form = ClawdbotConnectionForm()
 
-    return render(request, 'clawboard/connections/form.html', {'form': form, 'title': 'Neue Verbindung'})
+    return render(request, 'clawboard/connections/form.html', {'form': form, 'title': 'Neue Verbindung', 'cb_active': 'connector'})
 
 
 @login_required
 def connection_detail(request, pk):
     """Verbindungsdetails anzeigen"""
     connection = get_object_or_404(ClawdbotConnection, pk=pk, user=request.user)
-    return render(request, 'clawboard/connections/detail.html', {'connection': connection})
+    return render(request, 'clawboard/connections/detail.html', {'connection': connection, 'cb_active': 'connector'})
 
 
 @login_required
@@ -139,7 +140,8 @@ def connection_edit(request, pk):
     return render(request, 'clawboard/connections/form.html', {
         'form': form,
         'connection': connection,
-        'title': f'Verbindung bearbeiten: {connection.name}'
+        'title': f'Verbindung bearbeiten: {connection.name}',
+        'cb_active': 'connector',
     })
 
 
@@ -154,7 +156,7 @@ def connection_delete(request, pk):
         messages.success(request, f'Verbindung "{name}" wurde gelöscht.')
         return redirect('clawboard:connection_list')
 
-    return render(request, 'clawboard/connections/delete.html', {'connection': connection})
+    return render(request, 'clawboard/connections/delete.html', {'connection': connection, 'cb_active': 'connector'})
 
 
 @login_required
@@ -178,7 +180,7 @@ def connection_test(request, pk):
 def project_list(request):
     """Liste aller Projekte"""
     projects = Project.objects.filter(connection__user=request.user)
-    return render(request, 'clawboard/projects/list.html', {'projects': projects})
+    return render(request, 'clawboard/projects/list.html', {'projects': projects, 'cb_active': 'projects'})
 
 
 @login_required
@@ -197,7 +199,7 @@ def project_add(request):
         form = ProjectForm()
         form.fields['connection'].queryset = connections
 
-    return render(request, 'clawboard/projects/form.html', {'form': form, 'title': 'Neues Projekt'})
+    return render(request, 'clawboard/projects/form.html', {'form': form, 'title': 'Neues Projekt', 'cb_active': 'projects'})
 
 
 @login_required
@@ -211,6 +213,7 @@ def project_detail(request, pk):
         'project': project,
         'memories': memories,
         'conversations': conversations,
+        'cb_active': 'projects',
     })
 
 
@@ -234,7 +237,8 @@ def project_edit(request, pk):
     return render(request, 'clawboard/projects/form.html', {
         'form': form,
         'project': project,
-        'title': f'Projekt bearbeiten: {project.name}'
+        'title': f'Projekt bearbeiten: {project.name}',
+        'cb_active': 'projects',
     })
 
 
@@ -244,14 +248,14 @@ def project_edit(request, pk):
 def conversation_list(request):
     """Liste aller Konversationen"""
     conversations = Conversation.objects.filter(connection__user=request.user)
-    return render(request, 'clawboard/conversations/list.html', {'conversations': conversations})
+    return render(request, 'clawboard/conversations/list.html', {'conversations': conversations, 'cb_active': 'dashboard'})
 
 
 @login_required
 def conversation_detail(request, pk):
     """Konversation anzeigen"""
     conversation = get_object_or_404(Conversation, pk=pk, connection__user=request.user)
-    return render(request, 'clawboard/conversations/detail.html', {'conversation': conversation})
+    return render(request, 'clawboard/conversations/detail.html', {'conversation': conversation, 'cb_active': 'dashboard'})
 
 
 # === Memory Browser ===
@@ -276,6 +280,7 @@ def memory_browser(request):
         'connection': connection,
         'files': files,
         'connections': ClawdbotConnection.objects.filter(user=request.user),
+        'cb_active': 'memory',
     })
 
 
@@ -323,14 +328,14 @@ def memory_file_save(request):
 def task_list(request):
     """Liste aller geplanten Aufgaben"""
     tasks = ScheduledTask.objects.filter(connection__user=request.user)
-    return render(request, 'clawboard/tasks/list.html', {'tasks': tasks})
+    return render(request, 'clawboard/tasks/list.html', {'tasks': tasks, 'cb_active': 'dashboard'})
 
 
 @login_required
 def task_detail(request, pk):
     """Aufgaben-Details"""
     task = get_object_or_404(ScheduledTask, pk=pk, connection__user=request.user)
-    return render(request, 'clawboard/tasks/detail.html', {'task': task})
+    return render(request, 'clawboard/tasks/detail.html', {'task': task, 'cb_active': 'dashboard'})
 
 
 # === Integrations ===
@@ -339,7 +344,7 @@ def task_detail(request, pk):
 def integration_list(request):
     """Liste aller Integrationen"""
     integrations = Integration.objects.filter(connection__user=request.user)
-    return render(request, 'clawboard/integrations/list.html', {'integrations': integrations})
+    return render(request, 'clawboard/integrations/list.html', {'integrations': integrations, 'cb_active': 'services'})
 
 
 # === Connector Download ===
@@ -370,6 +375,7 @@ def connector_setup(request):
         'active_connection': active_connection,
         'config_url': config_url,
         'script_url': script_url,
+        'cb_active': 'connector',
     })
 
 
@@ -582,6 +588,21 @@ def api_connector_push(request):
             }
         )
 
+    # Projekte verarbeiten
+    for proj in data.get('projects', []):
+        if not proj.get('name'):
+            continue
+        Project.objects.update_or_create(
+            connection=connection,
+            name=proj['name'],
+            defaults={
+                'description': f"Auto-erkannt: {proj.get('type', 'unknown')} Projekt",
+                'icon': proj.get('icon', ''),
+                'status': 'active',
+                'memory_path': proj.get('path', ''),
+            }
+        )
+
     # Skills verarbeiten
     for sk in data.get('skills', []):
         if not sk.get('name'):
@@ -758,6 +779,7 @@ def chat_view(request, pk=None):
         'chats': chats,
         'active_chat': active_chat,
         'available_models': available_models,
+        'cb_active': 'chat',
     })
 
 

@@ -30,24 +30,33 @@ DEEPSEEK_AVAILABLE = OPENAI_AVAILABLE
 # Verfuegbare Modelle pro Provider
 AVAILABLE_MODELS = {
     'openai': [
-        {'id': 'gpt-4o', 'name': 'GPT-4o', 'description': 'Leistungsstark & schnell'},
+        {'id': 'gpt-4.1', 'name': 'GPT-4.1', 'description': 'Neuestes Flaggschiff'},
+        {'id': 'gpt-4.1-mini', 'name': 'GPT-4.1 Mini', 'description': 'Schnell & guenstig'},
+        {'id': 'gpt-4.1-nano', 'name': 'GPT-4.1 Nano', 'description': 'Extrem schnell'},
+        {'id': 'gpt-4o', 'name': 'GPT-4o', 'description': 'Multimodal'},
         {'id': 'gpt-4o-mini', 'name': 'GPT-4o Mini', 'description': 'Guenstig & schnell'},
+        {'id': 'o3', 'name': 'o3', 'description': 'Reasoning-Modell'},
+        {'id': 'o3-mini', 'name': 'o3-mini', 'description': 'Schnelles Reasoning'},
+        {'id': 'o4-mini', 'name': 'o4-mini', 'description': 'Neues Reasoning'},
         {'id': 'gpt-4-turbo', 'name': 'GPT-4 Turbo', 'description': 'Stark & vielseitig'},
         {'id': 'gpt-3.5-turbo', 'name': 'GPT-3.5 Turbo', 'description': 'Schnell & guenstig'},
     ],
     'anthropic': [
         {'id': 'claude-opus-4-20250514', 'name': 'Claude Opus 4', 'description': 'Top-Tier'},
         {'id': 'claude-sonnet-4-20250514', 'name': 'Claude Sonnet 4', 'description': 'Stark & schnell'},
+        {'id': 'claude-3-7-sonnet-20250219', 'name': 'Claude 3.7 Sonnet', 'description': 'Extended Thinking'},
         {'id': 'claude-3-5-sonnet-20241022', 'name': 'Claude 3.5 Sonnet', 'description': 'Premium'},
         {'id': 'claude-3-5-haiku-20241022', 'name': 'Claude 3.5 Haiku', 'description': 'Schnell & guenstig'},
         {'id': 'claude-3-opus-20240229', 'name': 'Claude 3 Opus', 'description': 'Stark'},
         {'id': 'claude-3-haiku-20240307', 'name': 'Claude 3 Haiku', 'description': 'Sehr guenstig'},
     ],
     'deepseek': [
-        {'id': 'deepseek-chat', 'name': 'DeepSeek Chat', 'description': 'Allround-Chat'},
-        {'id': 'deepseek-reasoner', 'name': 'DeepSeek Reasoner', 'description': 'Logik & Mathematik'},
+        {'id': 'deepseek-chat', 'name': 'DeepSeek V3', 'description': 'Allround-Chat'},
+        {'id': 'deepseek-reasoner', 'name': 'DeepSeek R1', 'description': 'Logik & Mathematik'},
     ],
     'gemini': [
+        {'id': 'gemini-2.5-pro-preview-05-06', 'name': 'Gemini 2.5 Pro', 'description': 'Neuestes Flaggschiff'},
+        {'id': 'gemini-2.5-flash-preview-05-20', 'name': 'Gemini 2.5 Flash', 'description': 'Schnell & stark'},
         {'id': 'gemini-2.0-flash', 'name': 'Gemini 2.0 Flash', 'description': 'Schnell'},
         {'id': 'gemini-2.0-flash-lite', 'name': 'Gemini 2.0 Flash Lite', 'description': 'Sehr guenstig'},
         {'id': 'gemini-1.5-pro', 'name': 'Gemini 1.5 Pro', 'description': 'Leistungsstark'},

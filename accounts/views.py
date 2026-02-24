@@ -957,6 +957,24 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Ideogram API-Key ein.')
 
+        elif action == 'update_anthropic':
+            anthropic_key = request.POST.get('anthropic_api_key', '').strip()
+            if anthropic_key:
+                user.anthropic_api_key = anthropic_key
+                user.save()
+                messages.success(request, 'Anthropic API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Anthropic API-Key ein.')
+
+        elif action == 'update_deepseek':
+            deepseek_key = request.POST.get('deepseek_api_key', '').strip()
+            if deepseek_key:
+                user.deepseek_api_key = deepseek_key
+                user.save()
+                messages.success(request, 'DeepSeek API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen DeepSeek API-Key ein.')
+
         elif action == 'update_gemini':
             gemini_key = request.POST.get('gemini_api_key', '').strip()
             if gemini_key:
@@ -1008,6 +1026,8 @@ def neue_api_einstellungen_view(request):
 
         elif action == 'clear_keys':
             user.openai_api_key = ''
+            user.anthropic_api_key = ''
+            user.deepseek_api_key = ''
             user.youtube_api_key = ''
             user.ideogram_api_key = ''
             user.gemini_api_key = ''
@@ -1052,11 +1072,15 @@ def neue_api_einstellungen_view(request):
     context = {
         'user': user,
         'openai_key_masked': '••••••••' + user.openai_api_key[-4:] if user.openai_api_key and len(user.openai_api_key) > 4 else '',
+        'anthropic_key_masked': '••••••••' + user.anthropic_api_key[-4:] if user.anthropic_api_key and len(user.anthropic_api_key) > 4 else '',
+        'deepseek_key_masked': '••••••••' + user.deepseek_api_key[-4:] if user.deepseek_api_key and len(user.deepseek_api_key) > 4 else '',
         'youtube_key_masked': '••••••••' + user.youtube_api_key[-4:] if user.youtube_api_key and len(user.youtube_api_key) > 4 else '',
         'ideogram_key_masked': '••••••••' + user.ideogram_api_key[-4:] if user.ideogram_api_key and len(user.ideogram_api_key) > 4 else '',
         'gemini_key_masked': '••••••••' + user.gemini_api_key[-4:] if user.gemini_api_key and len(user.gemini_api_key) > 4 else '',
         'upload_post_key_masked': '••••••••' + user.upload_post_api_key[-4:] if user.upload_post_api_key and len(user.upload_post_api_key) > 4 else '',
         'openai_configured': bool(user.openai_api_key),
+        'anthropic_configured': bool(user.anthropic_api_key),
+        'deepseek_configured': bool(user.deepseek_api_key),
         'youtube_configured': bool(user.youtube_api_key),
         'ideogram_configured': bool(user.ideogram_api_key),
         'gemini_configured': bool(user.gemini_api_key),

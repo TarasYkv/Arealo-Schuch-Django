@@ -1,319 +1,293 @@
-{% extends "base.html" %}
+{% extends "clawboard/base_dark.html" %}
 {% load static %}
 
 {% block title %}Clawboard - Dashboard{% endblock %}
 
-{% block content %}
-<div class="cb-wrapper">
-    <!-- Linke Navigation -->
-    <div class="cb-nav">
-        <a href="{% url 'clawboard:dashboard' %}" class="cb-nav-btn active" title="Dashboard">
-            <i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span>
-        </a>
-        <a href="{% url 'clawboard:chat' %}" class="cb-nav-btn" title="KI-Chat">
-            <i class="bi bi-chat-dots-fill"></i><span>Chat</span>
-        </a>
-        <a href="{% url 'clawboard:memory_browser' %}" class="cb-nav-btn" title="Memory">
-            <i class="bi bi-file-earmark-text"></i><span>Memory</span>
-        </a>
-        <a href="{% url 'clawboard:project_list' %}" class="cb-nav-btn" title="Projekte">
-            <i class="bi bi-folder"></i><span>Projekte</span>
-        </a>
-        <a href="{% url 'clawboard:connector_setup' %}" class="cb-nav-btn" title="Connector">
-            <i class="bi bi-plug"></i><span>Connector</span>
-        </a>
-        <a href="{% url 'clawboard:integration_list' %}" class="cb-nav-btn" title="Integrationen">
-            <i class="bi bi-puzzle"></i><span>Services</span>
-        </a>
+{% block cb_page %}
+<!-- Header -->
+<div class="cb-header">
+    <div>
+        <h1 class="cb-title"><i class="bi bi-robot me-2"></i>Clawboard</h1>
+        <span class="cb-subtitle">Dein Clawdbot Dashboard</span>
     </div>
-
-    <!-- Haupt-Content -->
-    <div class="cb-content">
-        <!-- Header -->
-        <div class="cb-header">
-            <div>
-                <h1 class="cb-title"><i class="bi bi-robot me-2"></i>Clawboard</h1>
-                <span class="cb-subtitle">Dein Clawdbot Dashboard</span>
-            </div>
-            <div class="cb-header-actions">
-                {% if active_connection %}
-                    <button id="btn-refresh" class="cb-btn cb-btn-outline" onclick="refreshDashboard()">
-                        <i class="bi bi-arrow-clockwise me-1" id="refresh-icon"></i>Aktualisieren
-                    </button>
-                    <button class="cb-btn cb-btn-warn" onclick="restartConnector()" title="Connector neu starten">
-                        <i class="bi bi-arrow-repeat me-1"></i>Neu starten
-                    </button>
-                    <span id="status-badge" class="cb-status-badge {% if active_connection.status == 'online' %}online{% else %}offline{% endif %}">
-                        <i class="bi bi-circle-fill me-1"></i>
-                        <span id="status-text">{{ active_connection.get_status_display|default:"Unbekannt" }}</span>
-                    </span>
-                {% else %}
-                    <a href="{% url 'clawboard:connection_add' %}" class="cb-btn cb-btn-primary">
-                        <i class="bi bi-plus-lg me-1"></i>Verbindung hinzufuegen
-                    </a>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Toast -->
-        <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
-            <div id="refresh-toast" class="toast align-items-center border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body" id="toast-message"></div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        </div>
-
-        {% if not active_connection %}
-            <!-- Keine Verbindung -->
-            <div class="cb-empty-state">
-                <i class="bi bi-robot display-1"></i>
-                <h4>Willkommen bei Clawboard!</h4>
-                <p>Verbinde dich mit deinem Clawdbot um loszulegen.</p>
-                <a href="{% url 'clawboard:connection_add' %}" class="cb-btn cb-btn-primary cb-btn-lg">
-                    <i class="bi bi-plug me-2"></i>Erste Verbindung einrichten
-                </a>
-            </div>
+    <div class="cb-header-actions">
+        {% if active_connection %}
+            <button id="btn-refresh" class="cb-btn cb-btn-outline" onclick="refreshDashboard()">
+                <i class="bi bi-arrow-clockwise me-1" id="refresh-icon"></i>Aktualisieren
+            </button>
+            <button class="cb-btn cb-btn-warn" onclick="restartConnector()" title="Connector neu starten">
+                <i class="bi bi-arrow-repeat me-1"></i>Neu starten
+            </button>
+            <span id="status-badge" class="cb-status-badge {% if active_connection.status == 'online' %}online{% else %}offline{% endif %}">
+                <i class="bi bi-circle-fill me-1"></i>
+                <span id="status-text">{{ active_connection.get_status_display|default:"Unbekannt" }}</span>
+            </span>
         {% else %}
-            <div class="cb-grid">
-                <!-- System Status -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-speedometer2 me-2"></i>System</h6>
-                        {% if active_connection.hostname %}
-                            <span class="cb-card-badge">{{ active_connection.hostname }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="cb-card-body" id="system-card">
-                        {% if system_status.cpu is not None %}
-                            <div class="cb-meter">
-                                <div class="cb-meter-label"><span>CPU</span><span id="cpu-value">{{ system_status.cpu|default:"-" }}%</span></div>
-                                <div class="cb-progress"><div class="cb-progress-bar cb-bar-blue" id="cpu-bar" style="width: {{ system_status.cpu|default:0 }}%"></div></div>
-                            </div>
-                            <div class="cb-meter">
-                                <div class="cb-meter-label"><span>RAM</span><span id="ram-value">{{ system_status.ram_used|default:"-" }} / {{ system_status.ram_total|default:"-" }} MB</span></div>
-                                <div class="cb-progress">
-                                    {% if system_status.ram_total %}{% widthratio system_status.ram_used system_status.ram_total 100 as ram_percent %}{% endif %}
-                                    <div class="cb-progress-bar cb-bar-green" id="ram-bar" style="width: {{ ram_percent|default:0 }}%"></div>
-                                </div>
-                            </div>
-                            <div class="cb-meter">
-                                <div class="cb-meter-label"><span>Speicher</span><span id="disk-value">{{ system_status.disk_used|default:"-" }} / {{ system_status.disk_total|default:"-" }} GB</span></div>
-                                <div class="cb-progress">
-                                    {% if system_status.disk_total %}{% widthratio system_status.disk_used system_status.disk_total 100 as disk_percent %}{% endif %}
-                                    <div class="cb-progress-bar cb-bar-yellow" id="disk-bar" style="width: {{ disk_percent|default:0 }}%"></div>
-                                </div>
-                            </div>
-                            <div class="cb-card-footer-info" id="last-seen-text">
-                                <i class="bi bi-clock me-1"></i>
-                                Zuletzt gesehen: {% if system_status.last_seen %}{{ system_status.last_seen|timesince }}{% else %}Nie{% endif %}
-                            </div>
-                        {% else %}
-                            <div class="cb-card-empty" id="system-empty">
-                                <i class="bi bi-cloud-slash"></i>
-                                <p>Keine System-Daten</p>
-                                <small>Starte den Connector auf deinem Rechner</small>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Projekte -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-folder me-2"></i>Projekte</h6>
-                        <a href="{% url 'clawboard:project_list' %}" class="cb-link">Alle</a>
-                    </div>
-                    <div class="cb-card-body" id="projects-card">
-                        {% if projects %}
-                            {% for project in projects %}
-                                <a href="{% url 'clawboard:project_detail' project.pk %}" class="cb-list-item">
-                                    <span>{{ project.icon|default:"" }} {{ project.name }}</span>
-                                    <span class="cb-tag">{{ project.get_status_display }}</span>
-                                </a>
-                            {% endfor %}
-                        {% else %}
-                            <div class="cb-card-empty small"><p>Noch keine Projekte</p></div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Integrationen -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-plug me-2"></i>Integrationen</h6>
-                    </div>
-                    <div class="cb-card-body" id="integrations-card">
-                        {% if api_services or integrations %}
-                            <div class="cb-badge-grid">
-                                {% for svc in api_services %}
-                                    <div class="cb-integ-item">
-                                        <i class="bi {{ svc.icon }} cb-integ-icon"></i>
-                                        <span>{{ svc.name }}</span>
-                                    </div>
-                                {% endfor %}
-                                {% for integration in integrations %}
-                                    <div class="cb-integ-item">
-                                        <i class="bi {{ integration.icon|default:'bi-check-circle' }} cb-integ-icon"></i>
-                                        <span>{{ integration.name }}</span>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="cb-card-empty small"><p>Keine Integrationen</p></div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Skills -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-lightning me-2"></i>Skills</h6>
-                    </div>
-                    <div class="cb-card-body" id="skills-card">
-                        {% if skills %}
-                            <div class="cb-skills-wrap">
-                                {% for skill in skills %}
-                                    <span class="cb-skill {% if skill.category == 'language' %}cb-skill-lang{% endif %}">
-                                        <i class="bi {{ skill.icon }} me-1"></i>{{ skill.name }}
-                                        {% if skill.version %}<small>{{ skill.version|truncatechars:20 }}</small>{% endif %}
-                                    </span>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="cb-card-empty small"><p>Wird automatisch erkannt</p></div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- KI-Chats -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-chat-dots me-2"></i>KI-Chats</h6>
-                        <a href="{% url 'clawboard:chat' %}" class="cb-link">Oeffnen</a>
-                    </div>
-                    <div class="cb-card-body" id="ai-chats-card">
-                        {% if recent_chats %}
-                            {% for chat in recent_chats %}
-                                <a href="{% url 'clawboard:chat_detail' chat.pk %}" class="cb-list-item">
-                                    <div>
-                                        <span class="cb-list-title">{{ chat.title|default:"Neuer Chat"|truncatechars:30 }}</span>
-                                        <span class="cb-list-meta">{{ chat.get_provider_display }} &middot; {{ chat.message_count }} Nachr.</span>
-                                    </div>
-                                    <span class="cb-list-time">{{ chat.updated_at|timesince }}</span>
-                                </a>
-                            {% endfor %}
-                        {% else %}
-                            <div class="cb-card-empty small"><p>Noch keine KI-Chats</p></div>
-                        {% endif %}
-                        <a href="{% url 'clawboard:chat' %}" class="cb-btn cb-btn-outline cb-btn-sm cb-btn-block">
-                            <i class="bi bi-plus me-1"></i>Neuer Chat
-                        </a>
-                    </div>
-                </div>
-
-                <!-- KI-Modelle -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-cpu me-2"></i>KI-Modelle</h6>
-                    </div>
-                    <div class="cb-card-body" id="models-card">
-                        {% if ai_models %}
-                            <div class="cb-badge-grid">
-                                {% for model in ai_models %}
-                                    <div class="cb-integ-item">
-                                        <i class="bi {{ model.icon }} cb-model-icon"></i>
-                                        <div>
-                                            <span class="cb-model-name">{{ model.name }}</span>
-                                            <span class="cb-model-desc">{{ model.description }}</span>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="cb-card-empty small">
-                                <p>Keine API-Keys konfiguriert</p>
-                                <a href="/accounts/settings/" class="cb-link">API-Keys einrichten</a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Geplante Aufgaben -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-clock me-2"></i>Geplante Aufgaben</h6>
-                    </div>
-                    <div class="cb-card-body" id="tasks-card">
-                        {% if scheduled_tasks %}
-                            {% for task in scheduled_tasks %}
-                                <div class="cb-list-item">
-                                    <div>
-                                        <span class="cb-list-title">{{ task.name }}</span>
-                                        <span class="cb-list-meta">{{ task.schedule }}</span>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="cb-card-empty small"><p>Keine geplanten Aufgaben</p></div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Konversationen -->
-                <div class="cb-card">
-                    <div class="cb-card-header">
-                        <h6><i class="bi bi-chat-left-text me-2"></i>Konversationen</h6>
-                        <a href="{% url 'clawboard:conversation_list' %}" class="cb-link">Alle</a>
-                    </div>
-                    <div class="cb-card-body" id="conversations-card">
-                        {% if recent_conversations %}
-                            {% for conv in recent_conversations %}
-                                <a href="{% url 'clawboard:conversation_detail' conv.pk %}" class="cb-list-item">
-                                    <div>
-                                        <span class="cb-list-title">{{ conv.title|default:"Untitled"|truncatechars:35 }}</span>
-                                        <span class="cb-list-meta">{{ conv.message_count }} Nachrichten &middot; {{ conv.channel|default:"unknown" }}</span>
-                                    </div>
-                                    <span class="cb-list-time">{{ conv.started_at|timesince }}</span>
-                                </a>
-                            {% endfor %}
-                        {% else %}
-                            <div class="cb-card-empty small"><p>Noch keine Konversationen</p></div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Memory Browser -->
-                <div class="cb-card cb-card-wide">
-                    <div class="cb-card-body cb-card-row">
-                        <div>
-                            <h6 class="cb-card-row-title"><i class="bi bi-file-earmark-text me-2"></i>Memory Browser</h6>
-                            <span class="cb-card-row-sub">Durchsuche und bearbeite deine .md Dateien</span>
-                        </div>
-                        <a href="{% url 'clawboard:memory_browser' %}" class="cb-btn cb-btn-primary">
-                            <i class="bi bi-folder2-open me-1"></i>Oeffnen
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Connector-Hilfe -->
-                <div class="cb-card cb-card-wide" id="connector-help">
-                    <div class="cb-card-body cb-card-row">
-                        <div>
-                            <h6 class="cb-card-row-title"><i class="bi bi-cloud-download me-2"></i>Connector einrichten</h6>
-                            <span class="cb-card-row-sub">Lade den Connector herunter, damit System-Daten hier erscheinen.</span>
-                        </div>
-                        <a href="{% url 'clawboard:connector_setup' %}" class="cb-btn cb-btn-primary">
-                            <i class="bi bi-download me-1"></i>Setup
-                        </a>
-                    </div>
-                </div>
-            </div>
+            <a href="{% url 'clawboard:connection_add' %}" class="cb-btn cb-btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Verbindung hinzufuegen
+            </a>
         {% endif %}
     </div>
 </div>
 
+<!-- Toast -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+    <div id="refresh-toast" class="toast align-items-center border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body" id="toast-message"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+{% if not active_connection %}
+    <div class="cb-empty-state">
+        <i class="bi bi-robot display-1"></i>
+        <h4>Willkommen bei Clawboard!</h4>
+        <p>Verbinde dich mit deinem Clawdbot um loszulegen.</p>
+        <a href="{% url 'clawboard:connection_add' %}" class="cb-btn cb-btn-primary cb-btn-lg">
+            <i class="bi bi-plug me-2"></i>Erste Verbindung einrichten
+        </a>
+    </div>
+{% else %}
+    <div class="cb-grid">
+        <!-- System Status -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-speedometer2 me-2"></i>System</h6>
+                {% if active_connection.hostname %}
+                    <span class="cb-card-badge">{{ active_connection.hostname }}</span>
+                {% endif %}
+            </div>
+            <div class="cb-card-body" id="system-card">
+                {% if system_status.cpu is not None %}
+                    <div class="cb-meter">
+                        <div class="cb-meter-label"><span>CPU</span><span id="cpu-value">{{ system_status.cpu|default:"-" }}%</span></div>
+                        <div class="cb-progress"><div class="cb-progress-bar cb-bar-blue" id="cpu-bar" style="width: {{ system_status.cpu|default:0 }}%"></div></div>
+                    </div>
+                    <div class="cb-meter">
+                        <div class="cb-meter-label"><span>RAM</span><span id="ram-value">{{ system_status.ram_used|default:"-" }} / {{ system_status.ram_total|default:"-" }} MB</span></div>
+                        <div class="cb-progress">
+                            {% if system_status.ram_total %}{% widthratio system_status.ram_used system_status.ram_total 100 as ram_percent %}{% endif %}
+                            <div class="cb-progress-bar cb-bar-green" id="ram-bar" style="width: {{ ram_percent|default:0 }}%"></div>
+                        </div>
+                    </div>
+                    <div class="cb-meter">
+                        <div class="cb-meter-label"><span>Speicher</span><span id="disk-value">{{ system_status.disk_used|default:"-" }} / {{ system_status.disk_total|default:"-" }} GB</span></div>
+                        <div class="cb-progress">
+                            {% if system_status.disk_total %}{% widthratio system_status.disk_used system_status.disk_total 100 as disk_percent %}{% endif %}
+                            <div class="cb-progress-bar cb-bar-yellow" id="disk-bar" style="width: {{ disk_percent|default:0 }}%"></div>
+                        </div>
+                    </div>
+                    <div class="cb-card-footer-info" id="last-seen-text">
+                        <i class="bi bi-clock me-1"></i>
+                        Zuletzt gesehen: {% if system_status.last_seen %}{{ system_status.last_seen|timesince }}{% else %}Nie{% endif %}
+                    </div>
+                {% else %}
+                    <div class="cb-card-empty" id="system-empty">
+                        <i class="bi bi-cloud-slash"></i>
+                        <p>Keine System-Daten</p>
+                        <small>Starte den Connector auf deinem Rechner</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Projekte -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-folder me-2"></i>Projekte</h6>
+                <a href="{% url 'clawboard:project_list' %}" class="cb-link">Alle</a>
+            </div>
+            <div class="cb-card-body" id="projects-card">
+                {% if projects %}
+                    {% for project in projects %}
+                        <a href="{% url 'clawboard:project_detail' project.pk %}" class="cb-list-item">
+                            <span>{{ project.icon|default:"" }} {{ project.name }}</span>
+                            <span class="cb-tag">{{ project.get_status_display }}</span>
+                        </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="cb-card-empty small"><p>Noch keine Projekte</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Integrationen -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-plug me-2"></i>Integrationen</h6>
+            </div>
+            <div class="cb-card-body" id="integrations-card">
+                {% if api_services or integrations %}
+                    <div class="cb-badge-grid">
+                        {% for svc in api_services %}
+                            <div class="cb-integ-item">
+                                <i class="bi {{ svc.icon }} cb-integ-icon"></i>
+                                <span>{{ svc.name }}</span>
+                            </div>
+                        {% endfor %}
+                        {% for integration in integrations %}
+                            <div class="cb-integ-item">
+                                <i class="bi {{ integration.icon|default:'bi-check-circle' }} cb-integ-icon"></i>
+                                <span>{{ integration.name }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="cb-card-empty small"><p>Keine Integrationen</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Skills -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-lightning me-2"></i>Skills</h6>
+            </div>
+            <div class="cb-card-body" id="skills-card">
+                {% if skills %}
+                    <div class="cb-skills-wrap">
+                        {% for skill in skills %}
+                            <span class="cb-skill {% if skill.category == 'language' %}cb-skill-lang{% endif %}">
+                                <i class="bi {{ skill.icon }} me-1"></i>{{ skill.name }}
+                                {% if skill.version %}<small>{{ skill.version|truncatechars:20 }}</small>{% endif %}
+                            </span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="cb-card-empty small"><p>Wird automatisch erkannt</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- KI-Chats -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-chat-dots me-2"></i>KI-Chats</h6>
+                <a href="{% url 'clawboard:chat' %}" class="cb-link">Oeffnen</a>
+            </div>
+            <div class="cb-card-body" id="ai-chats-card">
+                {% if recent_chats %}
+                    {% for chat in recent_chats %}
+                        <a href="{% url 'clawboard:chat_detail' chat.pk %}" class="cb-list-item">
+                            <div>
+                                <span class="cb-list-title">{{ chat.title|default:"Neuer Chat"|truncatechars:30 }}</span>
+                                <span class="cb-list-meta">{{ chat.get_provider_display }} &middot; {{ chat.message_count }} Nachr.</span>
+                            </div>
+                            <span class="cb-list-time">{{ chat.updated_at|timesince }}</span>
+                        </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="cb-card-empty small"><p>Noch keine KI-Chats</p></div>
+                {% endif %}
+                <a href="{% url 'clawboard:chat' %}" class="cb-btn cb-btn-outline cb-btn-sm cb-btn-block">
+                    <i class="bi bi-plus me-1"></i>Neuer Chat
+                </a>
+            </div>
+        </div>
+
+        <!-- KI-Modelle -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-cpu me-2"></i>KI-Modelle</h6>
+            </div>
+            <div class="cb-card-body" id="models-card">
+                {% if ai_models %}
+                    <div class="cb-badge-grid">
+                        {% for model in ai_models %}
+                            <div class="cb-integ-item">
+                                <i class="bi {{ model.icon }} cb-model-icon"></i>
+                                <div>
+                                    <span class="cb-model-name">{{ model.name }}</span>
+                                    <span class="cb-model-desc">{{ model.description }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="cb-card-empty small">
+                        <p>Keine API-Keys konfiguriert</p>
+                        <a href="/accounts/settings/" class="cb-link">API-Keys einrichten</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Geplante Aufgaben -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-clock me-2"></i>Geplante Aufgaben</h6>
+            </div>
+            <div class="cb-card-body" id="tasks-card">
+                {% if scheduled_tasks %}
+                    {% for task in scheduled_tasks %}
+                        <div class="cb-list-item">
+                            <div>
+                                <span class="cb-list-title">{{ task.name }}</span>
+                                <span class="cb-list-meta">{{ task.schedule }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="cb-card-empty small"><p>Keine geplanten Aufgaben</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Konversationen -->
+        <div class="cb-card">
+            <div class="cb-card-header">
+                <h6><i class="bi bi-chat-left-text me-2"></i>Konversationen</h6>
+                <a href="{% url 'clawboard:conversation_list' %}" class="cb-link">Alle</a>
+            </div>
+            <div class="cb-card-body" id="conversations-card">
+                {% if recent_conversations %}
+                    {% for conv in recent_conversations %}
+                        <a href="{% url 'clawboard:conversation_detail' conv.pk %}" class="cb-list-item">
+                            <div>
+                                <span class="cb-list-title">{{ conv.title|default:"Untitled"|truncatechars:35 }}</span>
+                                <span class="cb-list-meta">{{ conv.message_count }} Nachrichten &middot; {{ conv.channel|default:"unknown" }}</span>
+                            </div>
+                            <span class="cb-list-time">{{ conv.started_at|timesince }}</span>
+                        </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="cb-card-empty small"><p>Noch keine Konversationen</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Memory Browser -->
+        <div class="cb-card cb-card-wide">
+            <div class="cb-card-body cb-card-row">
+                <div>
+                    <h6 class="cb-card-row-title"><i class="bi bi-file-earmark-text me-2"></i>Memory Browser</h6>
+                    <span class="cb-card-row-sub">Durchsuche und bearbeite deine .md Dateien</span>
+                </div>
+                <a href="{% url 'clawboard:memory_browser' %}" class="cb-btn cb-btn-primary">
+                    <i class="bi bi-folder2-open me-1"></i>Oeffnen
+                </a>
+            </div>
+        </div>
+
+        <!-- Connector-Hilfe -->
+        <div class="cb-card cb-card-wide" id="connector-help">
+            <div class="cb-card-body cb-card-row">
+                <div>
+                    <h6 class="cb-card-row-title"><i class="bi bi-cloud-download me-2"></i>Connector einrichten</h6>
+                    <span class="cb-card-row-sub">Lade den Connector herunter, damit System-Daten hier erscheinen.</span>
+                </div>
+                <a href="{% url 'clawboard:connector_setup' %}" class="cb-btn cb-btn-primary">
+                    <i class="bi bi-download me-1"></i>Setup
+                </a>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block cb_extra_script %}
 {% if active_connection %}
 <script>
 const DASHBOARD_API = '{% url "clawboard:api_dashboard_refresh" %}';
@@ -354,25 +328,23 @@ function updateStatusBadge(conn) {
 
 function updateSystemCard(system, conn) {
     const card = document.getElementById('system-card');
-    const empty = document.getElementById('system-empty');
     if (system.cpu === null || system.cpu === undefined) return;
-
     const ramPct = system.ram_total ? (system.ram_used / system.ram_total * 100).toFixed(0) : 0;
     const diskPct = system.disk_total ? (system.disk_used / system.disk_total * 100).toFixed(0) : 0;
     card.innerHTML = `
         <div class="cb-meter">
-            <div class="cb-meter-label"><span>CPU</span><span id="cpu-value">${system.cpu}%</span></div>
-            <div class="cb-progress"><div class="cb-progress-bar cb-bar-blue" id="cpu-bar" style="width:${system.cpu}%"></div></div>
+            <div class="cb-meter-label"><span>CPU</span><span>${system.cpu}%</span></div>
+            <div class="cb-progress"><div class="cb-progress-bar cb-bar-blue" style="width:${system.cpu}%"></div></div>
         </div>
         <div class="cb-meter">
-            <div class="cb-meter-label"><span>RAM</span><span id="ram-value">${system.ram_used||'-'} / ${system.ram_total||'-'} MB</span></div>
-            <div class="cb-progress"><div class="cb-progress-bar cb-bar-green" id="ram-bar" style="width:${ramPct}%"></div></div>
+            <div class="cb-meter-label"><span>RAM</span><span>${system.ram_used||'-'} / ${system.ram_total||'-'} MB</span></div>
+            <div class="cb-progress"><div class="cb-progress-bar cb-bar-green" style="width:${ramPct}%"></div></div>
         </div>
         <div class="cb-meter">
-            <div class="cb-meter-label"><span>Speicher</span><span id="disk-value">${system.disk_used||'-'} / ${system.disk_total||'-'} GB</span></div>
-            <div class="cb-progress"><div class="cb-progress-bar cb-bar-yellow" id="disk-bar" style="width:${diskPct}%"></div></div>
+            <div class="cb-meter-label"><span>Speicher</span><span>${system.disk_used||'-'} / ${system.disk_total||'-'} GB</span></div>
+            <div class="cb-progress"><div class="cb-progress-bar cb-bar-yellow" style="width:${diskPct}%"></div></div>
         </div>
-        <div class="cb-card-footer-info" id="last-seen-text">
+        <div class="cb-card-footer-info">
             <i class="bi bi-clock me-1"></i>Zuletzt gesehen: ${conn.last_seen_display}
         </div>`;
 }
@@ -454,178 +426,4 @@ function restartConnector() {
 setInterval(refreshDashboard, 60000);
 </script>
 {% endif %}
-
-<style>
-/* ===== Clawboard Dark Theme ===== */
-.cb-wrapper {
-    display: flex;
-    min-height: calc(100vh - 70px);
-    background: #11111b;
-    margin: -1rem -0.75rem;
-}
-
-/* --- Navigation --- */
-.cb-nav {
-    width: 72px;
-    background: #181825;
-    border-right: 1px solid #313244;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 0;
-    gap: 4px;
-    flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    height: calc(100vh - 70px);
-}
-.cb-nav-btn {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    width: 56px; padding: 8px 4px; border-radius: 10px; color: #6c7086;
-    text-decoration: none; font-size: 0.65rem; transition: all 0.15s; gap: 3px;
-}
-.cb-nav-btn i { font-size: 1.2rem; }
-.cb-nav-btn:hover { background: #313244; color: #cdd6f4; }
-.cb-nav-btn.active { background: #89b4fa22; color: #89b4fa; }
-
-/* --- Content --- */
-.cb-content { flex: 1; padding: 20px 24px; overflow-y: auto; min-width: 0; }
-
-/* --- Header --- */
-.cb-header {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
-}
-.cb-title { font-size: 1.4rem; font-weight: 700; color: #cdd6f4; margin: 0; }
-.cb-subtitle { font-size: 0.8rem; color: #6c7086; }
-.cb-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-/* --- Buttons --- */
-.cb-btn {
-    display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 8px;
-    font-size: 0.82rem; font-weight: 500; border: none; cursor: pointer; text-decoration: none; transition: all 0.15s;
-}
-.cb-btn-primary { background: #89b4fa; color: #1e1e2e; }
-.cb-btn-primary:hover { background: #b4d0fb; color: #1e1e2e; }
-.cb-btn-outline { background: transparent; color: #89b4fa; border: 1px solid #45475a; }
-.cb-btn-outline:hover { background: #313244; color: #89b4fa; border-color: #89b4fa; }
-.cb-btn-warn { background: transparent; color: #f9e2af; border: 1px solid #45475a; }
-.cb-btn-warn:hover { background: #313244; border-color: #f9e2af; }
-.cb-btn-lg { padding: 12px 24px; font-size: 1rem; }
-.cb-btn-sm { padding: 5px 12px; font-size: 0.75rem; }
-.cb-btn-block { width: 100%; justify-content: center; margin-top: 10px; }
-
-.cb-status-badge {
-    display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 20px;
-    font-size: 0.78rem; font-weight: 600;
-}
-.cb-status-badge.online { background: #a6e3a122; color: #a6e3a1; }
-.cb-status-badge.offline { background: #45475a; color: #6c7086; }
-
-/* --- Grid --- */
-.cb-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-}
-.cb-card-wide { grid-column: 1 / -1; }
-
-/* --- Card --- */
-.cb-card {
-    background: #1e1e2e;
-    border: 1px solid #313244;
-    border-radius: 12px;
-    overflow: hidden;
-}
-.cb-card-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-bottom: 1px solid #313244;
-}
-.cb-card-header h6 { margin: 0; color: #cdd6f4; font-size: 0.88rem; }
-.cb-card-badge { font-size: 0.65rem; color: #6c7086; background: #313244; padding: 3px 8px; border-radius: 6px; }
-.cb-card-body { padding: 14px 16px; }
-.cb-card-empty { text-align: center; color: #6c7086; padding: 16px 0; }
-.cb-card-empty i { font-size: 2rem; display: block; margin-bottom: 8px; }
-.cb-card-footer-info { margin-top: 12px; padding-top: 10px; border-top: 1px solid #313244; font-size: 0.75rem; color: #6c7086; }
-
-/* --- Card Row (Memory, Connector) --- */
-.cb-card-row {
-    display: flex; justify-content: space-between; align-items: center; gap: 16px;
-}
-.cb-card-row-title { margin: 0; color: #cdd6f4; font-size: 0.9rem; }
-.cb-card-row-sub { font-size: 0.75rem; color: #6c7086; }
-
-/* --- Link --- */
-.cb-link { color: #89b4fa; font-size: 0.78rem; text-decoration: none; }
-.cb-link:hover { color: #b4d0fb; text-decoration: underline; }
-
-/* --- List Items --- */
-.cb-list-item {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 0; border-bottom: 1px solid #313244; text-decoration: none; color: #cdd6f4;
-    transition: background 0.1s;
-}
-.cb-list-item:last-child { border-bottom: none; }
-.cb-list-item:hover { color: #89b4fa; }
-.cb-list-title { display: block; font-size: 0.82rem; font-weight: 500; }
-.cb-list-meta { display: block; font-size: 0.7rem; color: #6c7086; }
-.cb-list-time { font-size: 0.68rem; color: #6c7086; white-space: nowrap; }
-.cb-tag { font-size: 0.65rem; background: #313244; color: #a6adc8; padding: 2px 8px; border-radius: 6px; }
-
-/* --- Meters --- */
-.cb-meter { margin-bottom: 14px; }
-.cb-meter-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.78rem; color: #a6adc8; }
-.cb-progress { height: 6px; background: #313244; border-radius: 3px; overflow: hidden; }
-.cb-progress-bar { height: 100%; border-radius: 3px; transition: width 0.4s; }
-.cb-bar-blue { background: #89b4fa; }
-.cb-bar-green { background: #a6e3a1; }
-.cb-bar-yellow { background: #f9e2af; }
-
-/* --- Integrations / Models Grid --- */
-.cb-badge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.cb-integ-item {
-    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-    background: #313244; border-radius: 8px; font-size: 0.78rem; color: #cdd6f4;
-}
-.cb-integ-icon { color: #a6e3a1; font-size: 0.9rem; }
-.cb-model-icon { color: #89b4fa; font-size: 0.9rem; }
-.cb-model-name { display: block; font-size: 0.78rem; font-weight: 500; }
-.cb-model-desc { display: block; font-size: 0.6rem; color: #6c7086; }
-
-/* --- Skills --- */
-.cb-skills-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
-.cb-skill {
-    display: inline-flex; align-items: center; gap: 2px;
-    padding: 4px 10px; border-radius: 8px; font-size: 0.75rem;
-    background: #313244; color: #cdd6f4;
-}
-.cb-skill small { color: #6c7086; margin-left: 4px; font-size: 0.65rem; }
-.cb-skill-lang { background: #89b4fa22; color: #89b4fa; }
-
-/* --- Empty State --- */
-.cb-empty-state {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 60vh; color: #6c7086; gap: 8px; text-align: center;
-}
-.cb-empty-state h4 { color: #a6adc8; }
-
-/* --- Scrollbar --- */
-.cb-content::-webkit-scrollbar { width: 6px; }
-.cb-content::-webkit-scrollbar-track { background: transparent; }
-.cb-content::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
-
-/* --- Animations --- */
-.spin-animation { animation: spin 1s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-/* --- Responsive --- */
-@media (max-width: 768px) {
-    .cb-nav { width: 52px; }
-    .cb-nav-btn span { display: none; }
-    .cb-nav-btn { width: 40px; padding: 8px; }
-    .cb-content { padding: 14px; }
-    .cb-grid { grid-template-columns: 1fr; }
-    .cb-header { flex-direction: column; align-items: flex-start; }
-}
-</style>
 {% endblock %}

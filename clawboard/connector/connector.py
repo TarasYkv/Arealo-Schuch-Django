@@ -197,8 +197,9 @@ class ClawboardConnector:
             return ''
 
     def collect_skills(self) -> list:
-        """Erkennt installierte Programmiersprachen/Runtimes."""
+        """Erkennt installierte Programmiersprachen/Runtimes/Tools."""
         checks = [
+            # Programmiersprachen
             ('Python', 'python3', '--version', 'language', 'bi-filetype-py'),
             ('Node.js', 'node', '--version', 'language', 'bi-filetype-js'),
             ('Go', 'go', 'version', 'language', 'bi-code-square'),
@@ -206,7 +207,36 @@ class ClawboardConnector:
             ('Java', 'java', '--version', 'language', 'bi-filetype-java'),
             ('Ruby', 'ruby', '--version', 'language', 'bi-gem'),
             ('PHP', 'php', '--version', 'language', 'bi-filetype-php'),
+            ('TypeScript', 'tsc', '--version', 'language', 'bi-filetype-tsx'),
+            ('Perl', 'perl', '--version', 'language', 'bi-code'),
+            ('Lua', 'lua', '-v', 'language', 'bi-code'),
+            ('Swift', 'swift', '--version', 'language', 'bi-code-slash'),
+            ('Kotlin', 'kotlin', '-version', 'language', 'bi-code-slash'),
+            ('Scala', 'scala', '-version', 'language', 'bi-code-slash'),
+            ('Dart', 'dart', '--version', 'language', 'bi-code-slash'),
+            ('Elixir', 'elixir', '--version', 'language', 'bi-droplet'),
+            ('Haskell', 'ghc', '--version', 'language', 'bi-code'),
+            # Compiler & Build-Tools
             ('GCC', 'gcc', '--version', 'tool', 'bi-cpu'),
+            ('Clang', 'clang', '--version', 'tool', 'bi-cpu'),
+            ('CMake', 'cmake', '--version', 'tool', 'bi-tools'),
+            ('Gradle', 'gradle', '--version', 'tool', 'bi-tools'),
+            ('Maven', 'mvn', '--version', 'tool', 'bi-tools'),
+            ('.NET', 'dotnet', '--version', 'tool', 'bi-microsoft'),
+            # Container & Cloud
+            ('Docker', 'docker', '--version', 'tool', 'bi-box-seam'),
+            ('Docker Compose', 'docker-compose', '--version', 'tool', 'bi-boxes'),
+            ('Podman', 'podman', '--version', 'tool', 'bi-box-seam'),
+            ('kubectl', 'kubectl', 'version --client --short', 'tool', 'bi-cloud'),
+            ('Terraform', 'terraform', '--version', 'tool', 'bi-cloud-arrow-up'),
+            ('Ansible', 'ansible', '--version', 'tool', 'bi-gear'),
+            # Paket-Manager
+            ('pip', 'pip3', '--version', 'tool', 'bi-box-arrow-down'),
+            ('npm', 'npm', '--version', 'tool', 'bi-box'),
+            ('yarn', 'yarn', '--version', 'tool', 'bi-box'),
+            ('pnpm', 'pnpm', '--version', 'tool', 'bi-box'),
+            ('cargo', 'cargo', '--version', 'tool', 'bi-box'),
+            ('Homebrew', 'brew', '--version', 'tool', 'bi-cup-straw'),
         ]
         skills = []
         for name, cmd, flag, category, icon in checks:
@@ -221,14 +251,26 @@ class ClawboardConnector:
         return skills
 
     def collect_integrations(self) -> list:
-        """Erkennt installierte Developer-Tools."""
+        """Erkennt installierte Developer-Tools und Services."""
         checks = [
-            ('Git', 'git', '--version', 'cli', 'bi-git'),
-            ('Docker', 'docker', '--version', 'cli', 'bi-box-seam'),
-            ('npm', 'npm', '--version', 'cli', 'bi-box'),
-            ('pip', 'pip3', '--version', 'cli', 'bi-box-arrow-down'),
+            ('Git', 'git', '--version', 'vcs', 'bi-git'),
             ('curl', 'curl', '--version', 'cli', 'bi-globe'),
-            ('Make', 'make', '--version', 'cli', 'bi-tools'),
+            ('wget', 'wget', '--version', 'cli', 'bi-download'),
+            ('Make', 'make', '--version', 'build', 'bi-tools'),
+            ('nginx', 'nginx', '-v', 'server', 'bi-server'),
+            ('Apache', 'apache2', '-v', 'server', 'bi-server'),
+            ('PostgreSQL', 'psql', '--version', 'database', 'bi-database'),
+            ('MySQL', 'mysql', '--version', 'database', 'bi-database'),
+            ('Redis', 'redis-cli', '--version', 'database', 'bi-database'),
+            ('MongoDB', 'mongod', '--version', 'database', 'bi-database'),
+            ('SQLite', 'sqlite3', '--version', 'database', 'bi-database'),
+            ('tmux', 'tmux', '-V', 'cli', 'bi-terminal'),
+            ('screen', 'screen', '--version', 'cli', 'bi-terminal'),
+            ('htop', 'htop', '--version', 'cli', 'bi-speedometer'),
+            ('jq', 'jq', '--version', 'cli', 'bi-braces'),
+            ('ffmpeg', 'ffmpeg', '-version', 'media', 'bi-film'),
+            ('ImageMagick', 'convert', '--version', 'media', 'bi-image'),
+            ('pandoc', 'pandoc', '--version', 'cli', 'bi-file-earmark-text'),
         ]
         integrations = []
         for name, cmd, flag, category, icon in checks:
@@ -256,6 +298,59 @@ class ClawboardConnector:
 
         return integrations
 
+    def collect_projects(self) -> list:
+        """Erkennt Projekte im Workspace (Git-Repos, package.json etc.)."""
+        projects = []
+        workspace = self.workspace
+        if not os.path.isdir(workspace):
+            return projects
+
+        # Direkte Unterordner des Workspace durchsuchen
+        try:
+            for item in os.listdir(workspace):
+                item_path = os.path.join(workspace, item)
+                if not os.path.isdir(item_path) or item.startswith('.'):
+                    continue
+
+                project = {'name': item, 'path': item_path, 'type': 'unknown', 'icon': ''}
+
+                # Git-Repo?
+                if os.path.isdir(os.path.join(item_path, '.git')):
+                    project['type'] = 'git'
+                    project['icon'] = 'bi-git'
+
+                # Sprache/Framework erkennen
+                if os.path.exists(os.path.join(item_path, 'package.json')):
+                    project['type'] = 'nodejs'
+                    project['icon'] = 'bi-filetype-js'
+                elif os.path.exists(os.path.join(item_path, 'requirements.txt')) or \
+                     os.path.exists(os.path.join(item_path, 'setup.py')) or \
+                     os.path.exists(os.path.join(item_path, 'pyproject.toml')):
+                    project['type'] = 'python'
+                    project['icon'] = 'bi-filetype-py'
+                elif os.path.exists(os.path.join(item_path, 'Cargo.toml')):
+                    project['type'] = 'rust'
+                    project['icon'] = 'bi-gear-fill'
+                elif os.path.exists(os.path.join(item_path, 'go.mod')):
+                    project['type'] = 'go'
+                    project['icon'] = 'bi-code-square'
+                elif os.path.exists(os.path.join(item_path, 'pom.xml')) or \
+                     os.path.exists(os.path.join(item_path, 'build.gradle')):
+                    project['type'] = 'java'
+                    project['icon'] = 'bi-filetype-java'
+                elif os.path.exists(os.path.join(item_path, 'Gemfile')):
+                    project['type'] = 'ruby'
+                    project['icon'] = 'bi-gem'
+                elif os.path.exists(os.path.join(item_path, 'Dockerfile')):
+                    project['type'] = 'docker'
+                    project['icon'] = 'bi-box-seam'
+
+                projects.append(project)
+        except Exception as e:
+            logger.warning(f"Fehler beim Scannen des Workspace: {e}")
+
+        return projects[:20]  # Max 20 Projekte
+
     def http_push(self) -> dict:
         """Daten per HTTP POST an Clawboard senden"""
         data = {
@@ -264,6 +359,7 @@ class ClawboardConnector:
             'memory_files': self.collect_memory_files(),
             'skills': self.collect_skills(),
             'integrations': self.collect_integrations(),
+            'projects': self.collect_projects(),
         }
 
         body = json.dumps(data).encode('utf-8')
