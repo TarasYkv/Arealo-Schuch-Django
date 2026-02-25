@@ -20,6 +20,7 @@ Konfiguration (~/.clawdbot/clawboard-connector.json):
     "connection_token": "dein-token-von-workloom",
     "gateway_url": "ws://localhost:18789",
     "gateway_token": "dein-lokaler-gateway-token",
+    "openclaw_token": "",
     "heartbeat_interval": 30,
     "reconnect_delay": 10,
     "workspace": "~/clawd"
@@ -80,6 +81,7 @@ class ClawboardConnector:
         self.connection_token = config.get('connection_token')
         self.gateway_url = config.get('gateway_url', 'ws://localhost:18789')
         self.gateway_token = config.get('gateway_token')
+        self.openclaw_token = config.get('openclaw_token', '')
         self.heartbeat_interval = config.get('heartbeat_interval', 30)
         self.reconnect_delay = config.get('reconnect_delay', 10)
         self.workspace = os.path.expanduser(config.get('workspace', '~/clawd'))
@@ -564,8 +566,8 @@ class ClawboardConnector:
             'Content-Type': 'application/json',
             'User-Agent': 'ClawboardConnector/1.0',
         }
-        if self.gateway_token:
-            headers['Authorization'] = f'Bearer {self.gateway_token}'
+        if self.openclaw_token:
+            headers['Authorization'] = f'Bearer {self.openclaw_token}'
 
         req = urllib.request.Request(
             endpoint,
@@ -593,7 +595,7 @@ class ClawboardConnector:
             if e.code == 404:
                 return {'error': 'Gateway /v1/chat/completions nicht verfuegbar. Aktiviere: openclaw config set gateway.http.endpoints.chatCompletions.enabled true'}
             elif e.code == 401:
-                return {'error': 'Gateway Auth fehlgeschlagen. Pruefe gateway_token in der Config.'}
+                return {'error': 'Gateway Auth fehlgeschlagen. Pruefe openclaw_token in der Config.'}
             return {'error': f'Gateway HTTP {e.code}: {error_body[:200]}'}
         except urllib.error.URLError as e:
             return {'error': f'Gateway nicht erreichbar ({endpoint}): {e.reason}'}
@@ -636,8 +638,8 @@ class ClawboardConnector:
         headers = {
             'User-Agent': 'ClawboardConnector/1.0',
         }
-        if self.gateway_token:
-            headers['Authorization'] = f'Bearer {self.gateway_token}'
+        if self.openclaw_token:
+            headers['Authorization'] = f'Bearer {self.openclaw_token}'
 
         req = urllib.request.Request(endpoint, headers=headers, method='GET')
 
@@ -1049,6 +1051,7 @@ def load_config(config_path: str = None) -> dict:
             'connection_token': 'DEIN-TOKEN-HIER',
             'gateway_url': 'ws://localhost:18789',
             'gateway_token': '',
+            'openclaw_token': '',
             'heartbeat_interval': 30,
             'reconnect_delay': 10,
             'workspace': '~/clawd',

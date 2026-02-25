@@ -413,6 +413,8 @@ def connector_config_token(request, token):
     config = json.dumps({
         'push_url': 'https://www.workloom.de/clawboard/api/push/',
         'connection_token': connection.gateway_token,
+        'gateway_url': 'ws://localhost:18789',
+        'openclaw_token': '',
         'heartbeat_interval': 30,
         'reconnect_delay': 10,
         'workspace': '~/clawd',
@@ -431,6 +433,8 @@ def connector_download_config(request, pk):
     config = {
         'push_url': 'https://www.workloom.de/clawboard/api/push/',
         'connection_token': connection.gateway_token,
+        'gateway_url': 'ws://localhost:18789',
+        'openclaw_token': '',
         'heartbeat_interval': 30,
         'reconnect_delay': 10,
         'workspace': '~/clawd',
