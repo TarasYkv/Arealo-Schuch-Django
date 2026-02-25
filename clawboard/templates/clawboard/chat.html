@@ -138,18 +138,44 @@
 
                 <!-- Gateway-Modelle -->
                 <div class="mb-3" id="gateway-model-section">
-                    <label class="form-label">Gateway-Modell waehlen</label>
-                    <select class="form-select" id="gateway-model-select" style="background: #313244; color: #cdd6f4; border-color: #45475a;">
-                        {% for model in gateway_models %}
-                            <option value="gateway|{{ model.id }}">
-                                {{ model.name }} {% if model.provider %}({{ model.provider }}){% endif %}
-                            </option>
-                        {% empty %}
-                            <option value="" disabled selected>Keine Gateway-Modelle verfuegbar</option>
-                        {% endfor %}
-                    </select>
+                    <label class="form-label">Gateway-Modell</label>
+                    {% if gateway_models %}
+                        <select class="form-select mb-2" id="gateway-model-select" style="background: #313244; color: #cdd6f4; border-color: #45475a;">
+                            {% for model in gateway_models %}
+                                <option value="gateway|{{ model.id }}">
+                                    {{ model.name }} {% if model.provider %}({{ model.provider }}){% endif %}
+                                </option>
+                            {% endfor %}
+                            <option value="custom">Anderes Modell eingeben...</option>
+                        </select>
+                    {% endif %}
+                    <input type="text" class="form-control {% if gateway_models %}d-none{% endif %}" id="gateway-model-input"
+                           placeholder="z.B. gpt-4o, claude-sonnet-4-20250514, llama3..."
+                           list="gateway-model-suggestions"
+                           style="background: #313244; color: #cdd6f4; border-color: #45475a;">
+                    <datalist id="gateway-model-suggestions">
+                        <option value="gpt-4o">
+                        <option value="gpt-4o-mini">
+                        <option value="gpt-4.1">
+                        <option value="gpt-4.1-mini">
+                        <option value="claude-sonnet-4-20250514">
+                        <option value="claude-opus-4-20250514">
+                        <option value="claude-3-5-sonnet-20241022">
+                        <option value="deepseek-chat">
+                        <option value="deepseek-reasoner">
+                        <option value="gemini-2.5-pro-preview-05-06">
+                        <option value="gemini-2.5-flash-preview-05-20">
+                        <option value="llama3-70b">
+                        <option value="mistral-large-latest">
+                        <option value="qwen2.5-72b">
+                    </datalist>
+                    {% if not gateway_models %}
+                        <div class="form-text" style="font-size:0.75rem; color: #6c7086;">
+                            <i class="bi bi-info-circle me-1"></i>Modell-ID eingeben die dein Gateway unterstuetzt
+                        </div>
+                    {% endif %}
                     {% if not connector_online %}
-                        <div class="form-text text-warning" style="font-size:0.75rem;">
+                        <div class="form-text text-warning mt-1" style="font-size:0.75rem;">
                             <i class="bi bi-exclamation-triangle me-1"></i>Connector ist offline
                         </div>
                     {% endif %}
@@ -212,22 +238,56 @@ function setChatMode(mode) {
     document.getElementById('direct-model-section').classList.toggle('d-none', mode !== 'direct');
 }
 
-function createChat() {
-    let select, chatMode;
-    if (selectedChatMode === 'gateway') {
-        select = document.getElementById('gateway-model-select');
-        chatMode = 'gateway';
-    } else {
-        select = document.getElementById('direct-model-select');
-        chatMode = 'direct';
+// Gateway-Select: "Anderes Modell" zeigt Input-Feld
+document.addEventListener('DOMContentLoaded', function() {
+    const gwSelect = document.getElementById('gateway-model-select');
+    const gwInput = document.getElementById('gateway-model-input');
+    if (gwSelect && gwInput) {
+        gwSelect.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                gwInput.classList.remove('d-none');
+                gwInput.focus();
+            } else {
+                gwInput.classList.add('d-none');
+            }
+        });
     }
+});
+
+function createChat() {
+    let provider, modelName, chatMode;
     const title = document.getElementById('chat-title-input').value.trim();
-    if (!select || !select.value) { alert('Bitte ein Modell waehlen'); return; }
-    const parts = select.value.split('|');
+
+    if (selectedChatMode === 'gateway') {
+        chatMode = 'gateway';
+        provider = 'gateway';
+        const gwSelect = document.getElementById('gateway-model-select');
+        const gwInput = document.getElementById('gateway-model-input');
+
+        if (gwSelect && gwSelect.value && gwSelect.value !== 'custom') {
+            // Aus Select gewaehlt
+            const parts = gwSelect.value.split('|');
+            provider = parts[0];
+            modelName = parts[1];
+        } else if (gwInput) {
+            // Manuell eingegeben
+            modelName = gwInput.value.trim();
+        }
+
+        if (!modelName) { alert('Bitte ein Modell eingeben oder waehlen'); return; }
+    } else {
+        chatMode = 'direct';
+        const select = document.getElementById('direct-model-select');
+        if (!select || !select.value) { alert('Bitte ein Modell waehlen'); return; }
+        const parts = select.value.split('|');
+        provider = parts[0];
+        modelName = parts[1];
+    }
+
     fetch(CHAT_CREATE_API, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-        body: JSON.stringify({provider: parts[0], model: parts[1], title: title, chat_mode: chatMode}),
+        body: JSON.stringify({provider: provider, model: modelName, title: title, chat_mode: chatMode}),
     })
     .then(r => r.json())
     .then(data => {
