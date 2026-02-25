@@ -7,7 +7,7 @@ class ClawdbotConnectionForm(forms.ModelForm):
     
     class Meta:
         model = ClawdbotConnection
-        fields = ['name', 'gateway_url', 'gateway_token', 'is_active']
+        fields = ['name', 'gateway_url', 'gateway_token', 'openclaw_token', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -21,6 +21,11 @@ class ClawdbotConnectionForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Gateway Token aus clawdbot.json'
             }),
+            'openclaw_token': forms.PasswordInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'openclaw config get gateway.auth.token',
+                'autocomplete': 'off',
+            }, render_value=True),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
             }),
@@ -28,6 +33,7 @@ class ClawdbotConnectionForm(forms.ModelForm):
         help_texts = {
             'gateway_url': 'WebSocket URL deines Clawdbot Gateway (aus clawdbot.json)',
             'gateway_token': 'Das gatewayToken aus deiner clawdbot.json Konfiguration',
+            'openclaw_token': 'OpenClaw API Token: openclaw config get gateway.auth.token',
         }
 
 

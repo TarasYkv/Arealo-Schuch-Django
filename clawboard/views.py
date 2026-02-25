@@ -708,6 +708,10 @@ def api_connector_push(request):
     if pending_requests:
         response_data['chat_requests'] = pending_requests
 
+    # OpenClaw Token mitgeben (vom Server konfiguriert)
+    if connection.openclaw_token:
+        response_data['openclaw_token'] = connection.openclaw_token
+
     # Push-Intervall Override mitgeben
     if connection.push_interval_override:
         response_data['push_interval'] = connection.push_interval_override

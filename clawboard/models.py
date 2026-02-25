@@ -27,6 +27,10 @@ class ClawdbotConnection(models.Model):
     # Pending Command (wird beim naechsten Push an Connector gesendet)
     pending_command = models.CharField(max_length=50, blank=True, verbose_name="Ausstehender Befehl")
 
+    # OpenClaw Gateway API Token (fuer /v1/chat/completions etc.)
+    openclaw_token = EncryptedCharField(max_length=500, blank=True, default='', verbose_name="OpenClaw API Token",
+                                        help_text="Token fuer die OpenClaw HTTP API (openclaw config get gateway.auth.token)")
+
     # Dynamisches Push-Intervall (Sekunden) - wird bei aktivem Chat auf 3s gesetzt
     push_interval_override = models.IntegerField(null=True, blank=True, verbose_name="Push-Intervall Override (s)")
 

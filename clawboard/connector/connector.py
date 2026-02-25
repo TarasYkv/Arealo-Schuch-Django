@@ -812,6 +812,12 @@ class ClawboardConnector:
                 if cmd:
                     self.handle_command(cmd)
 
+                # OpenClaw Token vom Server uebernehmen
+                server_token = result.get('openclaw_token', '')
+                if server_token and server_token != self.openclaw_token:
+                    self.openclaw_token = server_token
+                    logger.info("OpenClaw Token vom Server aktualisiert")
+
                 # Chat-Requests verarbeiten
                 chat_requests = result.get('chat_requests', [])
                 if chat_requests:
