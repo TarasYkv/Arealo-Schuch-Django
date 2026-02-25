@@ -81,7 +81,7 @@ class ClawboardConnector:
         self.connection_token = config.get('connection_token')
         self.gateway_url = config.get('gateway_url', 'ws://localhost:18789')
         self.gateway_token = config.get('gateway_token')
-        self.openclaw_token = config.get('openclaw_token', '')
+        self.openclaw_token = config.get('openclaw_token', '') or self._detect_openclaw_token()
         self.heartbeat_interval = config.get('heartbeat_interval', 30)
         self.reconnect_delay = config.get('reconnect_delay', 10)
         self.workspace = os.path.expanduser(config.get('workspace', '~/clawd'))
@@ -99,6 +99,54 @@ class ClawboardConnector:
 
         if not self.connection_token:
             raise ValueError("connection_token ist erforderlich!")
+
+        if self.openclaw_token:
+            logger.info("OpenClaw Token konfiguriert")
+        else:
+            logger.info("Kein OpenClaw Token - Gateway-Requests ohne Auth")
+
+    def _detect_openclaw_token(self) -> str:
+        """Versucht den OpenClaw Gateway Token automatisch zu finden."""
+        # 1. Umgebungsvariable
+        env_token = os.environ.get('OPENCLAW_GATEWAY_TOKEN', '')
+        if env_token:
+            logger.info("OpenClaw Token aus OPENCLAW_GATEWAY_TOKEN geladen")
+            return env_token
+
+        # 2. OpenClaw Config-Datei (~/.openclaw/openclaw.json)
+        config_paths = [
+            os.path.expanduser('~/.openclaw/openclaw.json'),
+            os.path.expanduser('~/.clawdbot/config.json'),
+        ]
+        for cfg_path in config_paths:
+            try:
+                if os.path.exists(cfg_path):
+                    with open(cfg_path, 'r') as f:
+                        data = json.load(f)
+                    # gateway.auth.token
+                    token = (data.get('gateway', {}).get('auth', {}).get('token', '')
+                             or data.get('gatewayToken', '')
+                             or data.get('gateway_token', ''))
+                    if token and not token.startswith('$'):
+                        logger.info(f"OpenClaw Token aus {cfg_path} geladen")
+                        return token
+            except Exception:
+                pass
+
+        # 3. openclaw CLI
+        try:
+            result = subprocess.run(
+                ['openclaw', 'config', 'get', 'gateway.auth.token'],
+                capture_output=True, text=True, timeout=5
+            )
+            token = result.stdout.strip()
+            if token and result.returncode == 0 and token != 'null' and token != '""':
+                logger.info("OpenClaw Token via CLI geladen")
+                return token
+        except Exception:
+            pass
+
+        return ''
 
     def get_system_info(self) -> dict:
         """System-Metriken sammeln"""
