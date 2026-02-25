@@ -538,50 +538,65 @@ class ClawboardConnector:
 
         return tasks[:20]
 
+    def _get_gateway_http_url(self) -> str:
+        """Wandelt die Gateway-URL in eine HTTP-URL um."""
+        url = self.gateway_url
+        # ws://localhost:18789 -> http://localhost:18789
+        if url.startswith('ws://'):
+            url = 'http://' + url[5:]
+        elif url.startswith('wss://'):
+            url = 'https://' + url[6:]
+        return url.rstrip('/')
+
     async def forward_to_gateway(self, model: str, messages: list) -> dict:
-        """Leitet einen Chat-Request an den lokalen OpenClaw Gateway weiter."""
-        if not websockets:
-            return {'error': 'websockets Paket nicht installiert'}
+        """Leitet einen Chat-Request an den OpenClaw Gateway weiter (OpenAI-kompatible HTTP API)."""
+        base_url = self._get_gateway_http_url()
+        endpoint = f'{base_url}/v1/chat/completions'
+
+        # OpenAI-kompatibles Request-Format
+        payload = {
+            'model': model or 'openclaw',
+            'messages': messages,
+        }
+
+        body = json.dumps(payload).encode('utf-8')
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'ClawboardConnector/1.0',
+        }
+        if self.gateway_token:
+            headers['Authorization'] = f'Bearer {self.gateway_token}'
+
+        req = urllib.request.Request(
+            endpoint,
+            data=body,
+            headers=headers,
+            method='POST'
+        )
 
         try:
-            async with websockets.connect(
-                self.gateway_url,
-                open_timeout=10,
-                close_timeout=5,
-            ) as gw_ws:
-                # Auth falls Token vorhanden
-                if self.gateway_token:
-                    await gw_ws.send(json.dumps({
-                        'type': 'auth',
-                        'token': self.gateway_token,
-                    }))
-                    auth_resp = await asyncio.wait_for(gw_ws.recv(), timeout=5)
-                    auth_data = json.loads(auth_resp)
-                    if not auth_data.get('success', True):
-                        return {'error': f"Gateway Auth fehlgeschlagen: {auth_data.get('error', 'unknown')}"}
+            with urllib.request.urlopen(req, timeout=120) as response:
+                data = json.loads(response.read().decode('utf-8'))
 
-                # Chat-Request senden
-                await gw_ws.send(json.dumps({
-                    'type': 'chat',
-                    'model': model,
-                    'messages': messages,
-                }))
-
-                # Auf Antwort warten (max 120s)
-                response = await asyncio.wait_for(gw_ws.recv(), timeout=120)
-                data = json.loads(response)
-
-                if data.get('type') == 'chat_response':
-                    return {'content': data.get('content', '')}
+                # OpenAI-Format: choices[0].message.content
+                if 'choices' in data and data['choices']:
+                    content = data['choices'][0].get('message', {}).get('content', '')
+                    return {'content': content}
                 elif data.get('error'):
-                    return {'error': data['error']}
+                    return {'error': str(data['error'])}
                 else:
-                    return {'content': data.get('content', data.get('text', str(data)))}
+                    return {'content': str(data)}
 
-        except asyncio.TimeoutError:
-            return {'error': 'Gateway Timeout (120s)'}
-        except ConnectionRefusedError:
-            return {'error': f'Gateway nicht erreichbar: {self.gateway_url}'}
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8', errors='replace')
+            logger.error(f"Gateway HTTP Fehler {e.code}: {error_body[:200]}")
+            if e.code == 404:
+                return {'error': 'Gateway /v1/chat/completions nicht verfuegbar. Aktiviere: openclaw config set gateway.http.endpoints.chatCompletions.enabled true'}
+            elif e.code == 401:
+                return {'error': 'Gateway Auth fehlgeschlagen. Pruefe gateway_token in der Config.'}
+            return {'error': f'Gateway HTTP {e.code}: {error_body[:200]}'}
+        except urllib.error.URLError as e:
+            return {'error': f'Gateway nicht erreichbar ({endpoint}): {e.reason}'}
         except Exception as e:
             return {'error': f'Gateway Fehler: {str(e)}'}
 
@@ -607,7 +622,7 @@ class ClawboardConnector:
             self.pending_chat_responses.append(response)
 
     async def collect_gateway_models(self) -> list:
-        """Holt verfuegbare Modelle vom OpenClaw Gateway."""
+        """Holt verfuegbare Modelle vom OpenClaw Gateway (HTTP API)."""
         now = time.time()
         if now - self.last_model_fetch < self.model_fetch_interval and self.cached_gateway_models:
             return self.cached_gateway_models
@@ -615,34 +630,31 @@ class ClawboardConnector:
         # Manuelle Modelle aus Config als Fallback
         manual = self.config.get('manual_models', [])
 
-        if not websockets:
-            return manual or self.cached_gateway_models
+        base_url = self._get_gateway_http_url()
+        endpoint = f'{base_url}/v1/models'
+
+        headers = {
+            'User-Agent': 'ClawboardConnector/1.0',
+        }
+        if self.gateway_token:
+            headers['Authorization'] = f'Bearer {self.gateway_token}'
+
+        req = urllib.request.Request(endpoint, headers=headers, method='GET')
 
         try:
-            async with websockets.connect(
-                self.gateway_url,
-                open_timeout=5,
-                close_timeout=3,
-            ) as gw_ws:
-                if self.gateway_token:
-                    await gw_ws.send(json.dumps({
-                        'type': 'auth',
-                        'token': self.gateway_token,
-                    }))
-                    await asyncio.wait_for(gw_ws.recv(), timeout=5)
-
-                await gw_ws.send(json.dumps({'type': 'list_models'}))
-                response = await asyncio.wait_for(gw_ws.recv(), timeout=10)
-                data = json.loads(response)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode('utf-8'))
 
                 models = []
-                for m in data.get('models', []):
+                # OpenAI-Format: data[] mit id, owned_by etc.
+                for m in data.get('data', data.get('models', [])):
+                    model_id = m.get('id', '')
                     models.append({
-                        'model_id': m.get('id', m.get('model_id', '')),
-                        'model_name': m.get('name', m.get('model_name', '')),
-                        'provider': m.get('provider', ''),
+                        'model_id': model_id,
+                        'model_name': m.get('name', model_id),
+                        'provider': m.get('owned_by', m.get('provider', '')),
                         'description': m.get('description', ''),
-                        'is_available': m.get('is_available', True),
+                        'is_available': True,
                     })
 
                 if models:
@@ -651,6 +663,8 @@ class ClawboardConnector:
                     logger.info(f"{len(models)} Gateway-Modelle geladen")
                     return models
 
+        except urllib.error.HTTPError as e:
+            logger.debug(f"Gateway /v1/models HTTP {e.code}")
         except Exception as e:
             logger.debug(f"Gateway-Modelle nicht abrufbar: {e}")
 
