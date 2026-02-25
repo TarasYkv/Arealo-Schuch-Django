@@ -357,6 +357,13 @@ def connector_setup(request):
     connections = ClawdbotConnection.objects.filter(user=request.user, is_active=True)
     active_connection = connections.first()
 
+    token_saved = False
+    if request.method == 'POST' and active_connection:
+        openclaw_token = request.POST.get('openclaw_token', '')
+        active_connection.openclaw_token = openclaw_token
+        active_connection.save(update_fields=['openclaw_token'])
+        token_saved = True
+
     config_url = None
     script_url = request.build_absolute_uri(
         reverse('clawboard:connector_download_script')
@@ -375,6 +382,7 @@ def connector_setup(request):
         'active_connection': active_connection,
         'config_url': config_url,
         'script_url': script_url,
+        'token_saved': token_saved,
         'cb_active': 'connector',
     })
 

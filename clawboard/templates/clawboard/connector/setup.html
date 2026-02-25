@@ -32,6 +32,39 @@
         </div>
     {% else %}
 
+    <!-- OpenClaw Token -->
+    <div class="cb-card" style="margin-bottom: 16px;">
+        <div class="cb-card-header">
+            <h6><i class="bi bi-key me-2"></i>OpenClaw Gateway Token</h6>
+        </div>
+        <div class="cb-card-body">
+            <p style="color: #6c7086; font-size: 0.82rem; margin-bottom: 8px;">
+                Token fuer die OpenClaw HTTP API. Findest du mit: <code style="color: #89b4fa;">openclaw config get gateway.auth.token</code>
+            </p>
+            <form method="post" action="{% url 'clawboard:connector_setup' %}" id="openclaw-token-form">
+                {% csrf_token %}
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="password" name="openclaw_token" id="openclaw_token"
+                           value="{{ active_connection.openclaw_token|default:'' }}"
+                           class="cb-form-input" style="flex: 1;"
+                           placeholder="OpenClaw Gateway Token hier eintragen"
+                           autocomplete="off">
+                    <button type="button" onclick="toggleTokenVisibility()" class="cb-btn cb-btn-outline" style="padding: 6px 10px;" title="Token anzeigen/verbergen">
+                        <i class="bi bi-eye" id="token-eye-icon"></i>
+                    </button>
+                    <button type="submit" class="cb-btn cb-btn-primary" style="white-space: nowrap;">
+                        <i class="bi bi-check-lg me-1"></i>Speichern
+                    </button>
+                </div>
+            </form>
+            {% if token_saved %}
+            <div style="color: #a6e3a1; font-size: 0.82rem; margin-top: 8px;">
+                <i class="bi bi-check-circle me-1"></i>Token gespeichert! Der Connector uebernimmt ihn automatisch beim naechsten Push.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Schritt 1: Download -->
     <div class="cb-card" style="margin-bottom: 16px;">
         <div class="cb-card-header">
@@ -93,6 +126,17 @@
 
 {% block cb_extra_script %}
 <script>
+function toggleTokenVisibility() {
+    const input = document.getElementById('openclaw_token');
+    const icon = document.getElementById('token-eye-icon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
 function copyCmd(id, btn) {
     const cmd = document.getElementById(id).textContent;
     navigator.clipboard.writeText(cmd).then(function() {
