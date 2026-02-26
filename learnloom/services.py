@@ -881,10 +881,51 @@ Regeln:
         else:
             return self._generate_summary_anthropic(full_text, system_prompt, api_key)
 
+    @staticmethod
+    def _parse_json_robust(content):
+        """Robustes JSON-Parsing mit Fallbacks für abgeschnittene/fehlerhafte Antworten."""
+        import json, re
+        # 1. Direkt versuchen
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            pass
+        # 2. JSON-Block extrahieren (```json ... ```)
+        code_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', content)
+        if code_match:
+            try:
+                return json.loads(code_match.group(1))
+            except json.JSONDecodeError:
+                pass
+        # 3. Äußerstes JSON-Objekt finden
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        if json_match:
+            try:
+                return json.loads(json_match.group())
+            except json.JSONDecodeError:
+                pass
+        # 4. Abgeschnittenes JSON reparieren - fehlende Klammern schließen
+        if json_match:
+            broken = json_match.group()
+            # Offene Strings schließen, dann Arrays/Objects
+            broken = broken.rstrip()
+            if broken.count('"') % 2 == 1:
+                broken += '"'
+            # Fehlende schließende Klammern zählen und anhängen
+            open_brackets = broken.count('[') - broken.count(']')
+            open_braces = broken.count('{') - broken.count('}')
+            broken += ']' * max(0, open_brackets)
+            broken += '}' * max(0, open_braces)
+            try:
+                return json.loads(broken)
+            except json.JSONDecodeError:
+                pass
+        raise ValueError(f"Kein gültiges JSON in Antwort (Länge: {len(content)} Zeichen)")
+
     def _generate_summary_openai(self, text, system_prompt, api_key):
         import json
         model = getattr(self.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
-        
+
         response = requests.post(
             'https://api.openai.com/v1/chat/completions',
             headers={
@@ -898,24 +939,22 @@ Regeln:
                     {'role': 'user', 'content': f'Dokument:\n\n{text}'}
                 ],
                 'temperature': 0.3,
-                'max_tokens': 8000,
+                'max_tokens': 16000,
                 'response_format': {'type': 'json_object'}
             },
-            timeout=120
+            timeout=180
         )
-        
+
         if response.status_code == 200:
             content = response.json()['choices'][0]['message']['content']
-            return json.loads(content)
+            return self._parse_json_robust(content)
         else:
             error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
             raise Exception(f"OpenAI Fehler: {error_msg}")
 
     def _generate_summary_anthropic(self, text, system_prompt, api_key):
-        import json
-        import re
         model = getattr(self.user, 'preferred_anthropic_model', None) or 'claude-3-5-sonnet-20241022'
-        
+
         response = requests.post(
             'https://api.anthropic.com/v1/messages',
             headers={
@@ -925,7 +964,7 @@ Regeln:
             },
             json={
                 'model': model,
-                'max_tokens': 8000,
+                'max_tokens': 16000,
                 'system': system_prompt,
                 'messages': [
                     {'role': 'user', 'content': f'Dokument:\n\n{text}'}
@@ -933,33 +972,22 @@ Regeln:
             },
             timeout=180
         )
-        
+
         if response.status_code == 200:
             content = response.json()['content'][0]['text']
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                json_match = re.search(r'\{[\s\S]*\}', content)
-                if json_match:
-                    return json.loads(json_match.group())
-                raise ValueError("Kein gültiges JSON in Antwort")
+            return self._parse_json_robust(content)
         else:
             error_msg = response.json().get('error', {}).get('message', 'Fehler')
             raise Exception(f"Anthropic Fehler: {error_msg}")
 
     def _generate_summary_gemini(self, text, system_prompt, api_key):
         """Zusammenfassung mit Google Gemini generieren"""
-        import json
-        import re
-        
         model = getattr(self.user, 'preferred_gemini_model', None) or 'gemini-2.0-flash'
-        
-        # Gemini API URL
+
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-        
-        # Kombiniere System-Prompt und User-Prompt
+
         full_prompt = f"{system_prompt}\n\nDokument:\n\n{text}"
-        
+
         response = requests.post(
             url,
             headers={'Content-Type': 'application/json'},
@@ -967,23 +995,16 @@ Regeln:
                 'contents': [{'parts': [{'text': full_prompt}]}],
                 'generationConfig': {
                     'temperature': 0.3,
-                    'maxOutputTokens': 8000,
+                    'maxOutputTokens': 16000,
                 }
             },
             timeout=180
         )
-        
+
         if response.status_code == 200:
             result = response.json()
             content = result['candidates'][0]['content']['parts'][0]['text']
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                # Versuche JSON aus der Antwort zu extrahieren
-                json_match = re.search(r'\{[\s\S]*\}', content)
-                if json_match:
-                    return json.loads(json_match.group())
-                raise ValueError("Kein gültiges JSON in Gemini-Antwort")
+            return self._parse_json_robust(content)
         else:
             error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
             raise Exception(f"Gemini Fehler: {error_msg}")
