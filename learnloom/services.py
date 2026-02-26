@@ -822,6 +822,8 @@ class SummaryService:
             raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
         
         # PDF-Text extrahieren (Referenzen am Ende ausschließen)
+        if not book.file:
+            raise ValueError("Dieses Dokument hat keine PDF-Datei. Zusammenfassung kann nicht generiert werden.")
         book.file.seek(0)
         pages = self.extract_full_text(book.file, exclude_references=True)
 
