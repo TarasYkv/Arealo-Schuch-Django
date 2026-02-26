@@ -848,15 +848,16 @@ WICHTIG: Dies ist KEINE klassische Zusammenfassung! Du sollst den Inhalt möglic
 - Der Kern des Inhalts muss immer sehr genau reproduziert werden - keine Vereinfachung oder Verallgemeinerung der Kernaussagen
 - Fachbegriffe, Zahlen, Definitionen und spezifische Ergebnisse exakt übernehmen
 - Ziel: Jemand der nur diese Wiedergabe liest, kennt den tatsächlichen Inhalt des Dokuments genau
+- KEINE feste Wortbegrenzung! Die Länge jedes Abschnitts richtet sich nach dem Umfang und der Dichte des Originalabschnitts. Ein inhaltlich dichter Abschnitt braucht mehr Text, ein kurzer Abschnitt weniger. Nichts Wichtiges weglassen!
 
 Antworte NUR mit diesem JSON-Format:
 {{
-    "short_summary": "Kurze Kernaussage in 2-3 Sätzen (max. 60 Wörter). Was ist der zentrale Inhalt?",
-    "full_summary": "Sehr ausführliche, inhaltlich genaue Wiedergabe des gesamten Dokuments (1000-2000 Wörter). Alle wichtigen Inhalte, Argumente, Methoden, Daten und Schlussfolgerungen präzise wiedergeben. Keine wichtigen Details weglassen.",
+    "short_summary": "Kurze Kernaussage in 2-3 Sätzen. Was ist der zentrale Inhalt?",
+    "full_summary": "Ausführliche, inhaltlich genaue Wiedergabe des gesamten Dokuments. Alle wichtigen Inhalte, Argumente, Methoden, Daten und Schlussfolgerungen präzise wiedergeben. Keine wichtigen Details weglassen. Länge proportional zum Dokumentumfang.",
     "sections": [
         {{
             "title": "Abschnittstitel (orientiert an der Originalstruktur des Dokuments)",
-            "text": "Genaue inhaltliche Wiedergabe dieses Abschnitts (200-400 Wörter). Alle Kernaussagen, Daten und Argumente präzise reproduzieren.",
+            "text": "Genaue inhaltliche Wiedergabe dieses Abschnitts. Länge proportional zum Originalabschnitt - so lang wie nötig, um alle wichtigen Inhalte präzise wiederzugeben.",
             "start_page": 1,
             "end_page": 2
         }}
@@ -870,7 +871,8 @@ Regeln:
 4. Seitenzahlen aus [Seite X] Markierungen entnehmen
 5. 5-10 Abschnitte erstellen, orientiert an der Originalstruktur des Dokuments
 6. Inhaltlich exakt, wissenschaftlich korrekt, verständlich formuliert
-7. Spezifische Zahlen, Ergebnisse und Fachbegriffe immer beibehalten"""
+7. Spezifische Zahlen, Ergebnisse und Fachbegriffe immer beibehalten
+8. KEINE feste Wortanzahl - Länge richtet sich nach dem Inhalt. Wichtige Abschnitte ausführlich, weniger wichtige kürzer"""
 
         if provider == 'openai':
             return self._generate_summary_openai(full_text, system_prompt, api_key)
