@@ -839,17 +839,24 @@ class SummaryService:
 
         lang_name = "Deutsch" if language == 'de' else "English"
 
-        system_prompt = f"""Du bist ein Experte für wissenschaftliche Texte. Erstelle eine ausführliche, strukturierte Zusammenfassung auf {lang_name}.
+        system_prompt = f"""Du bist ein Experte für wissenschaftliche Texte. Erstelle eine komprimierte, aber inhaltlich genaue Wiedergabe des Dokuments auf {lang_name}.
 Ignoriere Literaturverzeichnis, Referenzen und Quellenangaben am Ende des Dokuments.
+
+WICHTIG: Dies ist KEINE klassische Zusammenfassung! Du sollst den Inhalt möglichst genau und vollständig wiedergeben - nur in komprimierter Form.
+- Kernaussagen, Argumente, Methoden, Daten und Ergebnisse müssen inhaltlich präzise und detailliert wiedergegeben werden
+- Weniger relevante Teile (Einleitungsfloskeln, Wiederholungen, Fülltext) dürfen stärker komprimiert werden
+- Der Kern des Inhalts muss immer sehr genau reproduziert werden - keine Vereinfachung oder Verallgemeinerung der Kernaussagen
+- Fachbegriffe, Zahlen, Definitionen und spezifische Ergebnisse exakt übernehmen
+- Ziel: Jemand der nur diese Wiedergabe liest, kennt den tatsächlichen Inhalt des Dokuments genau
 
 Antworte NUR mit diesem JSON-Format:
 {{
-    "short_summary": "Sehr kurze Zusammenfassung in 2-3 Sätzen (max. 50 Wörter). Worum geht es im Kern?",
-    "full_summary": "Sehr ausführliche Zusammenfassung des gesamten Dokuments (800-1500 Wörter). Erkläre die wichtigsten Konzepte, Methoden, Ergebnisse und Schlussfolgerungen detailliert.",
+    "short_summary": "Kurze Kernaussage in 2-3 Sätzen (max. 60 Wörter). Was ist der zentrale Inhalt?",
+    "full_summary": "Sehr ausführliche, inhaltlich genaue Wiedergabe des gesamten Dokuments (1000-2000 Wörter). Alle wichtigen Inhalte, Argumente, Methoden, Daten und Schlussfolgerungen präzise wiedergeben. Keine wichtigen Details weglassen.",
     "sections": [
         {{
-            "title": "Abschnittstitel",
-            "text": "Detaillierte Zusammenfassung dieses Abschnitts (150-300 Wörter)",
+            "title": "Abschnittstitel (orientiert an der Originalstruktur des Dokuments)",
+            "text": "Genaue inhaltliche Wiedergabe dieses Abschnitts (200-400 Wörter). Alle Kernaussagen, Daten und Argumente präzise reproduzieren.",
             "start_page": 1,
             "end_page": 2
         }}
@@ -858,11 +865,12 @@ Antworte NUR mit diesem JSON-Format:
 
 Regeln:
 1. NUR valides JSON ausgeben
-2. short_summary: Kernaussage in 2-3 Sätzen für schnellen Überblick
-3. full_summary: Ausführliche Zusammenfassung mit allen Details
+2. short_summary: Zentrale Kernaussage des Dokuments
+3. full_summary: Vollständige, inhaltlich genaue Wiedergabe - keine Vereinfachung der Kernpunkte
 4. Seitenzahlen aus [Seite X] Markierungen entnehmen
-5. 5-10 Abschnitte erstellen je nach Dokumentstruktur
-6. Wissenschaftlich korrekt aber verständlich zusammenfassen"""
+5. 5-10 Abschnitte erstellen, orientiert an der Originalstruktur des Dokuments
+6. Inhaltlich exakt, wissenschaftlich korrekt, verständlich formuliert
+7. Spezifische Zahlen, Ergebnisse und Fachbegriffe immer beibehalten"""
 
         if provider == 'openai':
             return self._generate_summary_openai(full_text, system_prompt, api_key)
