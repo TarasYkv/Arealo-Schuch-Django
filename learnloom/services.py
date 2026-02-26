@@ -884,14 +884,27 @@ Regeln:
             return self._generate_summary_anthropic(full_text, system_prompt, api_key)
 
     @staticmethod
+    def _clean_json_string(text):
+        """Bereinigt problematische Zeichen in JSON-Strings."""
+        import re
+        # Steuerzeichen entfernen (außer \n, \r, \t die JSON erlaubt)
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+        return text
+
+    @staticmethod
     def _parse_json_robust(content):
         """Robustes JSON-Parsing mit Fallbacks für abgeschnittene/fehlerhafte Antworten."""
         import json, re
+
+        # Steuerzeichen bereinigen
+        content = SummaryService._clean_json_string(content)
+
         # 1. Direkt versuchen
         try:
             return json.loads(content)
         except json.JSONDecodeError:
             pass
+
         # 2. JSON-Block extrahieren (```json ... ```)
         code_match = re.search(r'```(?:json)?\s*([\s\S]*?)```', content)
         if code_match:
@@ -899,29 +912,46 @@ Regeln:
                 return json.loads(code_match.group(1))
             except json.JSONDecodeError:
                 pass
+
         # 3. Äußerstes JSON-Objekt finden
         json_match = re.search(r'\{[\s\S]*\}', content)
         if json_match:
+            candidate = json_match.group()
             try:
-                return json.loads(json_match.group())
-            except json.JSONDecodeError:
-                pass
-        # 4. Abgeschnittenes JSON reparieren - fehlende Klammern schließen
-        if json_match:
-            broken = json_match.group()
-            # Offene Strings schließen, dann Arrays/Objects
-            broken = broken.rstrip()
-            if broken.count('"') % 2 == 1:
-                broken += '"'
-            # Fehlende schließende Klammern zählen und anhängen
-            open_brackets = broken.count('[') - broken.count(']')
-            open_braces = broken.count('{') - broken.count('}')
-            broken += ']' * max(0, open_brackets)
-            broken += '}' * max(0, open_braces)
-            try:
-                return json.loads(broken)
-            except json.JSONDecodeError:
-                pass
+                return json.loads(candidate)
+            except json.JSONDecodeError as e:
+                # 4. Versuche das Problem an der Fehlerstelle zu beheben
+                error_pos = e.pos if hasattr(e, 'pos') else None
+
+                # 5. Abgeschnittenes JSON reparieren
+                broken = candidate.rstrip()
+                # Letztes unvollständiges Key-Value-Paar entfernen
+                # z.B. abgebrochen mitten in einem String
+                last_complete = max(broken.rfind('",'), broken.rfind('"],'), broken.rfind('"}'))
+                if last_complete > len(broken) * 0.5:
+                    broken = broken[:last_complete + 1]
+                # Fehlende Klammern schließen
+                open_brackets = broken.count('[') - broken.count(']')
+                open_braces = broken.count('{') - broken.count('}')
+                broken += ']' * max(0, open_brackets)
+                broken += '}' * max(0, open_braces)
+                try:
+                    return json.loads(broken)
+                except json.JSONDecodeError:
+                    pass
+
+                # 6. Aggressiver: alles nach dem letzten vollständigen Abschnitt abschneiden
+                # Suche letztes "}," oder "}" vor einem "]"
+                sections_end = broken.rfind('}]')
+                if sections_end > 0:
+                    broken2 = broken[:sections_end + 2]
+                    open_braces2 = broken2.count('{') - broken2.count('}')
+                    broken2 += '}' * max(0, open_braces2)
+                    try:
+                        return json.loads(broken2)
+                    except json.JSONDecodeError:
+                        pass
+
         raise ValueError(f"Kein gültiges JSON in Antwort (Länge: {len(content)} Zeichen)")
 
     def _generate_summary_openai(self, text, system_prompt, api_key):
