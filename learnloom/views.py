@@ -18,8 +18,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress, ReadingListItem, PDFSummary
-from .services import PDFService, TranslationService, ExplanationService, SummaryService
+from .models import PDFBook, PDFNote, TranslationHighlight, TextExplanation, Vocabulary, ReadingProgress, ReadingListItem, PDFSummary, PDFAudioSummary
+from .services import PDFService, TranslationService, ExplanationService, SummaryService, AudioSummaryService
 from core.models import StorageLog
 
 
@@ -30,7 +30,7 @@ from core.models import StorageLog
 @login_required
 def index(request):
     """Kachelübersicht aller PDFs des Users"""
-    books = PDFBook.objects.filter(user=request.user)
+    books = PDFBook.objects.filter(user=request.user).select_related('summary')
 
     # Statistiken
     total_books = books.count()
@@ -954,6 +954,13 @@ def api_generate_summary(request, book_id):
         service = SummaryService(request.user)
         result = service.generate_summary(book, provider=provider, language=language)
         
+        # Alte Audio-Dateien löschen bei Regenerierung
+        try:
+            old_summary = book.summary
+            AudioSummaryService.delete_audio_for_summary(old_summary)
+        except PDFSummary.DoesNotExist:
+            pass
+
         # Speichere oder aktualisiere
         summary, created = PDFSummary.objects.update_or_create(
             book=book,
@@ -989,9 +996,12 @@ def api_generate_summary(request, book_id):
 def api_delete_summary(request, book_id):
     """Zusammenfassung löschen"""
     book = get_object_or_404(PDFBook, id=book_id, user=request.user)
-    
+
     try:
-        book.summary.delete()
+        summary = book.summary
+        # Audio-Dateien löschen
+        AudioSummaryService.delete_audio_for_summary(summary)
+        summary.delete()
         return JsonResponse({'success': True})
     except PDFSummary.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Keine Zusammenfassung vorhanden'}, status=404)
@@ -1047,6 +1057,85 @@ def api_summarize_section(request, book_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
+# ============================================================================
+# Audio Summary API
+# ============================================================================
+
+@login_required
+@require_POST
+def api_generate_audio(request, book_id):
+    """Audio für einen Abschnitt oder Kurzzusammenfassung generieren"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        summary = book.summary
+    except PDFSummary.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Keine Zusammenfassung vorhanden'}, status=404)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    audio_type = data.get('audio_type', 'section')
+    section_index = data.get('section_index', 0)
+    voice = data.get('voice', 'alloy')
+
+    try:
+        service = AudioSummaryService(request.user)
+
+        if audio_type == 'short':
+            audio = service.generate_short_audio(summary, voice=voice)
+        else:
+            audio = service.generate_section_audio(summary, section_index, voice=voice)
+
+        return JsonResponse({
+            'success': True,
+            'audio': {
+                'id': str(audio.id),
+                'url': audio.audio_file.url,
+                'audio_type': audio.audio_type,
+                'section_index': audio.section_index,
+                'text_length': audio.text_length,
+            }
+        })
+
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Audio-Fehler: {str(e)}'}, status=500)
+
+
+@login_required
+@require_GET
+def api_get_audio_status(request, book_id):
+    """Liste aller existierenden Audio-Dateien für ein PDF"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        summary = book.summary
+    except PDFSummary.DoesNotExist:
+        return JsonResponse({'success': True, 'audio_files': [], 'total_sections': 0})
+
+    audio_files = PDFAudioSummary.objects.filter(summary=summary)
+
+    return JsonResponse({
+        'success': True,
+        'total_sections': len(summary.sections) if summary.sections else 0,
+        'audio_files': [
+            {
+                'id': str(a.id),
+                'url': a.audio_file.url,
+                'audio_type': a.audio_type,
+                'section_index': a.section_index,
+                'voice': a.voice,
+                'text_length': a.text_length,
+            }
+            for a in audio_files
+        ]
+    })
 
 
 # ============================================================================

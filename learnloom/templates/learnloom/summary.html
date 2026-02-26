@@ -244,23 +244,48 @@
             <div class="sections-title">
                 <i class="bi bi-list-columns-reverse text-primary"></i>
                 Abschnitte
+                <button class="btn btn-sm btn-outline-primary ms-auto" onclick="playAllSections()" id="playAllBtn">
+                    <i class="bi bi-play-fill me-1"></i>Alle anhören
+                </button>
+                <button class="btn btn-sm btn-outline-danger ms-2 d-none" onclick="stopAudio()" id="stopAudioBtn">
+                    <i class="bi bi-stop-fill me-1"></i>Stopp
+                </button>
             </div>
-            
+
+            <!-- Audio Progress Bar -->
+            <div class="summary-audio-progress d-none" id="audioProgressContainer">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-volume-up text-primary"></i>
+                    <span class="small fw-bold" id="audioProgressTitle">Abschnitt wird abgespielt...</span>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar bg-primary" id="audioProgressBar" style="width: 0%"></div>
+                </div>
+            </div>
+
             <div id="sectionsContainer">
                 {% for section in summary.sections %}
-                <div class="section-card" onclick="jumpToPage({{ section.start_page }})">
+                <div class="section-card" data-section-index="{{ forloop.counter0 }}">
                     <div class="section-header">
                         <span class="section-title">{{ section.title }}</span>
-                        <span class="section-pages">
-                            {% if section.start_page == section.end_page %}
-                            Seite {{ section.start_page }}
-                            {% else %}
-                            Seite {{ section.start_page }}-{{ section.end_page }}
-                            {% endif %}
-                        </span>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-outline-primary section-audio-btn"
+                                    onclick="event.stopPropagation(); playSectionAudio({{ forloop.counter0 }})"
+                                    title="Abschnitt anhören"
+                                    data-section-index="{{ forloop.counter0 }}">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                            <span class="section-pages" onclick="jumpToPage({{ section.start_page }})">
+                                {% if section.start_page == section.end_page %}
+                                Seite {{ section.start_page }}
+                                {% else %}
+                                Seite {{ section.start_page }}-{{ section.end_page }}
+                                {% endif %}
+                            </span>
+                        </div>
                     </div>
                     <div class="section-text">{{ section.text }}</div>
-                    <div class="section-jump">
+                    <div class="section-jump" onclick="jumpToPage({{ section.start_page }})">
                         <i class="bi bi-arrow-right-circle"></i>
                         Im PDF anzeigen
                     </div>
@@ -346,6 +371,9 @@
         </div>
     </div>
 </div>
+
+<!-- Hidden Audio Player -->
+<audio id="summaryAudioPlayer" style="display:none;"></audio>
 
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay" style="display: none;">
@@ -443,6 +471,186 @@ async function regenerateSummary() {
 function jumpToPage(pageNumber) {
     // Zum PDF-Viewer navigieren mit Seitenzahl
     window.location.href = `/learnloom/view/${bookId}/?page=${pageNumber}`;
+}
+
+// ============================================================================
+// Audio Player Functions
+// ============================================================================
+
+const audioPlayer = document.getElementById('summaryAudioPlayer');
+const sectionsData = JSON.parse('{{ sections_json|escapejs }}');
+let currentSectionIndex = -1;
+let isPlayingAll = false;
+let isAudioPlaying = false;
+
+function setSectionBtnState(index, state) {
+    const btn = document.querySelector(`.section-audio-btn[data-section-index="${index}"]`);
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+
+    if (state === 'playing') {
+        icon.className = 'bi bi-pause-fill';
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-outline-primary');
+    } else if (state === 'loading') {
+        icon.className = 'bi bi-hourglass-split';
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-outline-primary');
+    } else {
+        icon.className = 'bi bi-play-fill';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    }
+}
+
+function resetAllSectionBtns() {
+    document.querySelectorAll('.section-audio-btn').forEach(btn => {
+        const icon = btn.querySelector('i');
+        icon.className = 'bi bi-play-fill';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+    });
+}
+
+function highlightActiveSection(index) {
+    document.querySelectorAll('.section-card').forEach(card => {
+        card.classList.remove('section-card-active');
+    });
+    if (index >= 0) {
+        const card = document.querySelector(`.section-card[data-section-index="${index}"]`);
+        if (card) {
+            card.classList.add('section-card-active');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+}
+
+function showAudioProgress(show) {
+    const container = document.getElementById('audioProgressContainer');
+    const stopBtn = document.getElementById('stopAudioBtn');
+    const playAllBtn = document.getElementById('playAllBtn');
+
+    if (show) {
+        container.classList.remove('d-none');
+        stopBtn.classList.remove('d-none');
+        playAllBtn.classList.add('d-none');
+    } else {
+        container.classList.add('d-none');
+        stopBtn.classList.add('d-none');
+        playAllBtn.classList.remove('d-none');
+    }
+}
+
+function updateAudioProgress(current, total, title) {
+    const bar = document.getElementById('audioProgressBar');
+    const titleEl = document.getElementById('audioProgressTitle');
+    const percent = total > 0 ? ((current + 1) / total) * 100 : 0;
+    bar.style.width = percent + '%';
+    titleEl.textContent = title || `Abschnitt ${current + 1} von ${total}`;
+}
+
+async function playSectionAudio(index) {
+    // Wenn gleicher Abschnitt: Pause/Resume
+    if (currentSectionIndex === index && isAudioPlaying) {
+        audioPlayer.pause();
+        isAudioPlaying = false;
+        setSectionBtnState(index, 'idle');
+        return;
+    }
+
+    if (currentSectionIndex === index && !isAudioPlaying && audioPlayer.src) {
+        audioPlayer.play();
+        isAudioPlaying = true;
+        setSectionBtnState(index, 'playing');
+        return;
+    }
+
+    // Stoppe vorheriges Audio
+    audioPlayer.pause();
+    audioPlayer.src = '';
+    resetAllSectionBtns();
+
+    currentSectionIndex = index;
+    setSectionBtnState(index, 'loading');
+    highlightActiveSection(index);
+
+    if (isPlayingAll) {
+        const title = sectionsData[index]?.title || `Abschnitt ${index + 1}`;
+        updateAudioProgress(index, sectionsData.length, title);
+    }
+
+    try {
+        const response = await fetch(`/learnloom/api/audio/${bookId}/generate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                audio_type: 'section',
+                section_index: index,
+                voice: 'alloy'
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error);
+        }
+
+        audioPlayer.src = data.audio.url;
+        audioPlayer.play();
+        isAudioPlaying = true;
+        setSectionBtnState(index, 'playing');
+
+        audioPlayer.onended = () => {
+            isAudioPlaying = false;
+            setSectionBtnState(index, 'idle');
+
+            // Wenn "Alle anhören" aktiv: nächsten Abschnitt
+            if (isPlayingAll && index + 1 < sectionsData.length) {
+                playSectionAudio(index + 1);
+            } else {
+                // Fertig
+                isPlayingAll = false;
+                showAudioProgress(false);
+                highlightActiveSection(-1);
+                currentSectionIndex = -1;
+            }
+        };
+
+    } catch (error) {
+        console.error('Audio-Fehler:', error);
+        alert('Audio-Generierung fehlgeschlagen: ' + error.message);
+        setSectionBtnState(index, 'idle');
+        isAudioPlaying = false;
+        isPlayingAll = false;
+        showAudioProgress(false);
+    }
+}
+
+function playAllSections() {
+    if (sectionsData.length === 0) {
+        alert('Keine Abschnitte vorhanden.');
+        return;
+    }
+
+    isPlayingAll = true;
+    showAudioProgress(true);
+    const title = sectionsData[0]?.title || 'Abschnitt 1';
+    updateAudioProgress(0, sectionsData.length, title);
+    playSectionAudio(0);
+}
+
+function stopAudio() {
+    audioPlayer.pause();
+    audioPlayer.src = '';
+    isAudioPlaying = false;
+    isPlayingAll = false;
+    resetAllSectionBtns();
+    showAudioProgress(false);
+    highlightActiveSection(-1);
+    currentSectionIndex = -1;
 }
 </script>
 {% endblock %}

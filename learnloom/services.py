@@ -735,17 +735,53 @@ class SummaryService:
     def __init__(self, user):
         self.user = user
 
-    def extract_full_text(self, pdf_file):
+    @staticmethod
+    def _is_reference_page(text):
+        """
+        Erkennt ob eine Seite hauptsächlich Referenzen/Literaturverzeichnis enthält.
+        """
+        import re
+
+        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        if not lines:
+            return False
+
+        # Prüfe ob Überschrift eine Referenz-Überschrift ist
+        first_lines = ' '.join(lines[:3]).lower()
+        ref_headers = [
+            'references', 'bibliography', 'literatur', 'literaturverzeichnis',
+            'quellenverzeichnis', 'works cited', 'citations', 'bibliographie',
+            'literaturangaben', 'quellen',
+        ]
+        has_ref_header = any(h in first_lines for h in ref_headers)
+
+        # Zähle typische Referenz-Muster in den Zeilen
+        ref_patterns = re.compile(
+            r'(doi[:\s]|et\s+al[\.,]|\[\d+\]|pp\.\s*\d|Vol\.\s*\d|'
+            r'https?://|ISBN|ISSN|\(\d{4}\)\.?\s|arXiv:)',
+            re.IGNORECASE
+        )
+        ref_line_count = sum(1 for l in lines if ref_patterns.search(l))
+        ref_ratio = ref_line_count / len(lines) if lines else 0
+
+        # Seite ist Referenz wenn: Header + beliebige Muster ODER >40% Referenz-Muster
+        return (has_ref_header and ref_ratio > 0.1) or ref_ratio > 0.4
+
+    def extract_full_text(self, pdf_file, exclude_references=False):
         """
         Extrahiert den gesamten Text aus einem PDF mit Seitenzuordnung.
-        
+
+        Args:
+            pdf_file: Django File-Objekt
+            exclude_references: Wenn True, werden Referenz-Seiten am Ende entfernt.
+
         Returns:
             list: [{"page": 1, "text": "..."}, ...]
         """
         try:
             pdf_bytes = pdf_file.read()
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            
+
             pages = []
             for i, page in enumerate(doc):
                 text = page.get_text().strip()
@@ -754,8 +790,14 @@ class SummaryService:
                         "page": i + 1,
                         "text": text
                     })
-            
+
             doc.close()
+
+            # Referenz-Seiten von hinten entfernen
+            if exclude_references and pages:
+                while pages and self._is_reference_page(pages[-1]['text']):
+                    pages.pop()
+
             return pages
         except Exception as e:
             print(f"Fehler bei Textextraktion: {e}")
@@ -779,25 +821,26 @@ class SummaryService:
         if not api_key:
             raise ValueError(f"Kein API-Key für {provider} konfiguriert.")
         
-        # PDF-Text extrahieren
+        # PDF-Text extrahieren (Referenzen am Ende ausschließen)
         book.file.seek(0)
-        pages = self.extract_full_text(book.file)
-        
+        pages = self.extract_full_text(book.file, exclude_references=True)
+
         if not pages:
             raise ValueError("Konnte keinen Text aus dem PDF extrahieren.")
-        
+
         # Text zusammenfügen mit Seitenmarkierungen
         full_text = ""
         for p in pages:
             full_text += f"\n\n[Seite {p['page']}]\n{p['text']}"
-        
+
         # Text kürzen wenn zu lang
         if len(full_text) > 50000:
             full_text = full_text[:50000] + "\n\n[... Text gekürzt ...]"
-        
+
         lang_name = "Deutsch" if language == 'de' else "English"
-        
+
         system_prompt = f"""Du bist ein Experte für wissenschaftliche Texte. Erstelle eine ausführliche, strukturierte Zusammenfassung auf {lang_name}.
+Ignoriere Literaturverzeichnis, Referenzen und Quellenangaben am Ende des Dokuments.
 
 Antworte NUR mit diesem JSON-Format:
 {{
@@ -1246,7 +1289,7 @@ Dokumentinhalt:
         """Chat mit Google Gemini API"""
         model = getattr(self.user, 'preferred_gemini_model', None) or 'gemini-2.0-flash'
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-        
+
         # Kontext und Konversation zusammenbauen
         context_text = f"""Du bist ein hilfreicher Assistent, der Fragen zu einem PDF-Dokument beantwortet.
 Beantworte die Fragen basierend auf dem Dokumentinhalt. Wenn die Antwort nicht im Dokument steht, sage das ehrlich.
@@ -1255,16 +1298,16 @@ Antworte auf Deutsch, klar und präzise.
 
 Dokumentinhalt:
 {pdf_context}"""
-        
+
         # Vorherige Konversation als Text
         history_text = ""
         if conversation_history:
             for msg in conversation_history[-10:]:
                 role = "Nutzer" if msg.get('role') == 'user' else "Assistent"
                 history_text += f"\n{role}: {msg.get('content', '')}"
-        
+
         full_prompt = f"{context_text}\n\nBisherige Konversation:{history_text}\n\nNutzer: {question}\n\nAssistent:"
-        
+
         response = requests.post(
             url,
             headers={'Content-Type': 'application/json'},
@@ -1277,9 +1320,168 @@ Dokumentinhalt:
             },
             timeout=60
         )
-        
+
         if response.status_code == 200:
             return response.json()['candidates'][0]['content']['parts'][0]['text'].strip()
         else:
             error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
             raise Exception(f"Gemini Fehler: {error_msg}")
+
+
+class AudioSummaryService:
+    """Service für TTS-Audio-Generierung von PDF-Zusammenfassungen"""
+
+    MAX_TTS_CHARS = 4096  # OpenAI TTS Limit
+
+    def __init__(self, user):
+        self.user = user
+
+    def generate_section_audio(self, summary, section_index, voice='alloy'):
+        """
+        Generiert Audio für einen bestimmten Abschnitt der Zusammenfassung.
+        Gibt gecachte Version zurück wenn vorhanden.
+        """
+        from .models import PDFAudioSummary
+
+        # Check Cache
+        existing = PDFAudioSummary.objects.filter(
+            summary=summary,
+            audio_type='section',
+            section_index=section_index,
+            voice=voice
+        ).first()
+
+        if existing:
+            return existing
+
+        # Abschnitt-Text holen
+        sections = summary.sections or []
+        if section_index < 0 or section_index >= len(sections):
+            raise ValueError(f"Ungültiger Abschnitts-Index: {section_index}")
+
+        section = sections[section_index]
+        text = section.get('text', '')
+        title = section.get('title', '')
+
+        if not text:
+            raise ValueError("Abschnitt hat keinen Text.")
+
+        # Titel voranstellen für besseren Audio-Fluss
+        full_text = f"{title}. {text}" if title else text
+
+        # Text kürzen wenn nötig
+        if len(full_text) > self.MAX_TTS_CHARS:
+            full_text = full_text[:self.MAX_TTS_CHARS - 3] + "..."
+
+        # TTS API aufrufen
+        audio_content = self._call_tts_api(full_text, voice)
+
+        # Speichern
+        from django.core.files.base import ContentFile
+        audio_file = ContentFile(
+            audio_content,
+            name=f"section_{summary.book.id}_{section_index}.mp3"
+        )
+
+        audio_summary = PDFAudioSummary.objects.create(
+            summary=summary,
+            audio_type='section',
+            section_index=section_index,
+            audio_file=audio_file,
+            voice=voice,
+            text_length=len(full_text),
+        )
+
+        return audio_summary
+
+    def generate_short_audio(self, summary, voice='alloy'):
+        """
+        Generiert Audio für die Kurzzusammenfassung.
+        Gibt gecachte Version zurück wenn vorhanden.
+        """
+        from .models import PDFAudioSummary
+
+        # Check Cache
+        existing = PDFAudioSummary.objects.filter(
+            summary=summary,
+            audio_type='short',
+            voice=voice
+        ).first()
+
+        if existing:
+            return existing
+
+        text = summary.short_summary
+        if not text:
+            raise ValueError("Keine Kurzzusammenfassung vorhanden.")
+
+        if len(text) > self.MAX_TTS_CHARS:
+            text = text[:self.MAX_TTS_CHARS - 3] + "..."
+
+        audio_content = self._call_tts_api(text, voice)
+
+        from django.core.files.base import ContentFile
+        audio_file = ContentFile(
+            audio_content,
+            name=f"short_{summary.book.id}.mp3"
+        )
+
+        audio_summary = PDFAudioSummary.objects.create(
+            summary=summary,
+            audio_type='short',
+            section_index=None,
+            audio_file=audio_file,
+            voice=voice,
+            text_length=len(text),
+        )
+
+        return audio_summary
+
+    def _call_tts_api(self, text, voice='alloy'):
+        """
+        Ruft die OpenAI TTS API auf.
+
+        Returns:
+            bytes: MP3 Audio-Daten
+        """
+        from naturmacher.utils.api_helpers import get_user_api_key
+
+        api_key = get_user_api_key(self.user, 'openai')
+        if not api_key:
+            raise ValueError("Kein OpenAI API-Key konfiguriert. "
+                           "Bitte in den Account-Einstellungen hinterlegen.")
+
+        response = requests.post(
+            'https://api.openai.com/v1/audio/speech',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'tts-1',
+                'input': text,
+                'voice': voice,
+                'response_format': 'mp3',
+            },
+            timeout=120
+        )
+
+        if response.status_code == 200:
+            return response.content
+        else:
+            try:
+                error_msg = response.json().get('error', {}).get('message', 'Unbekannter Fehler')
+            except Exception:
+                error_msg = f"HTTP {response.status_code}"
+            raise Exception(f"OpenAI TTS Fehler: {error_msg}")
+
+    @staticmethod
+    def delete_audio_for_summary(summary):
+        """Löscht alle Audio-Dateien einer Zusammenfassung von Disk und DB."""
+        from .models import PDFAudioSummary
+
+        audio_files = PDFAudioSummary.objects.filter(summary=summary)
+        for audio in audio_files:
+            if audio.audio_file:
+                audio.audio_file.delete(save=False)
+        audio_files.delete()

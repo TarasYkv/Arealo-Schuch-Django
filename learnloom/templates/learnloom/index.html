@@ -234,6 +234,15 @@
                     <span class="badge bg-{{ book.category|default:'book' }} position-absolute top-0 end-0 m-2">
                         {{ book.get_category_display }}
                     </span>
+                    <!-- Audio Play Button (nur Paper/Artikel mit Summary) -->
+                    {% if book.category != 'book' and book.category != 'online' %}
+                    <button class="audio-play-btn position-absolute"
+                            data-book-id="{{ book.id }}"
+                            onclick="event.stopPropagation(); playBookAudio('{{ book.id }}')"
+                            title="Zusammenfassung anhören">
+                        <i class="bi bi-play-fill"></i>
+                    </button>
+                    {% endif %}
                     <!-- Reading Status Badge -->
                     <span class="badge reading-status-badge position-absolute top-0 start-0 m-2
                         {% if book.reading_status == 'completed' %}bg-success
@@ -338,6 +347,9 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Global Audio Player -->
+<audio id="globalAudioPlayer" style="display:none;"></audio>
 
 <!-- Upload Modal -->
 <div class="modal fade" id="uploadModal" tabindex="-1">
@@ -1366,6 +1378,175 @@ async function deleteReadingListItem(itemId) {
         alert('Fehler beim Löschen: ' + error.message);
     }
 }
+
+// ============================================================================
+// Audio Player Functions
+// ============================================================================
+
+const audioPlayer = document.getElementById('globalAudioPlayer');
+let currentAudioBookId = null;
+let currentSectionIndex = 0;
+let totalSections = 0;
+let isAudioPlaying = false;
+
+function getAudioBtn(bookId) {
+    return document.querySelector(`.audio-play-btn[data-book-id="${bookId}"]`);
+}
+
+function setAudioBtnState(bookId, state) {
+    const btn = getAudioBtn(bookId);
+    if (!btn) return;
+
+    const icon = btn.querySelector('i');
+    btn.classList.remove('playing', 'loading');
+
+    if (state === 'playing') {
+        icon.className = 'bi bi-pause-fill';
+        btn.classList.add('playing');
+    } else if (state === 'loading') {
+        icon.className = 'bi bi-hourglass-split';
+        btn.classList.add('loading');
+    } else {
+        icon.className = 'bi bi-play-fill';
+    }
+}
+
+function resetAllAudioBtns() {
+    document.querySelectorAll('.audio-play-btn').forEach(btn => {
+        btn.querySelector('i').className = 'bi bi-play-fill';
+        btn.classList.remove('playing', 'loading');
+        // Fortschrittsbalken entfernen
+        const progress = btn.closest('.book-thumbnail')?.querySelector('.audio-progress-bar');
+        if (progress) progress.remove();
+    });
+}
+
+async function playBookAudio(bookId) {
+    // Wenn gerade dieses Buch spielt: Pause/Resume
+    if (currentAudioBookId === bookId && isAudioPlaying) {
+        audioPlayer.pause();
+        isAudioPlaying = false;
+        setAudioBtnState(bookId, 'idle');
+        return;
+    }
+
+    if (currentAudioBookId === bookId && !isAudioPlaying && audioPlayer.src) {
+        audioPlayer.play();
+        isAudioPlaying = true;
+        setAudioBtnState(bookId, 'playing');
+        return;
+    }
+
+    // Neues Buch: Altes stoppen
+    if (currentAudioBookId && currentAudioBookId !== bookId) {
+        audioPlayer.pause();
+        audioPlayer.src = '';
+        resetAllAudioBtns();
+    }
+
+    currentAudioBookId = bookId;
+    currentSectionIndex = 0;
+
+    // Zuerst Status holen um Anzahl Sections zu kennen
+    try {
+        const statusResp = await fetch(`/learnloom/api/audio/${bookId}/status/`);
+        const statusData = await statusResp.json();
+        totalSections = statusData.total_sections || 0;
+
+        if (totalSections === 0) {
+            alert('Keine Zusammenfassung vorhanden. Bitte zuerst eine Zusammenfassung generieren.');
+            currentAudioBookId = null;
+            return;
+        }
+
+        // Fortschrittsbalken erstellen
+        const thumb = getAudioBtn(bookId)?.closest('.book-thumbnail');
+        if (thumb && !thumb.querySelector('.audio-progress-bar')) {
+            const bar = document.createElement('div');
+            bar.className = 'audio-progress-bar';
+            bar.innerHTML = '<div class="audio-progress-fill"></div>';
+            thumb.appendChild(bar);
+        }
+
+        // Ersten Abschnitt abspielen
+        await playSection(bookId, 0);
+
+    } catch (error) {
+        console.error('Audio-Fehler:', error);
+        setAudioBtnState(bookId, 'idle');
+        currentAudioBookId = null;
+    }
+}
+
+async function playSection(bookId, sectionIndex) {
+    if (sectionIndex >= totalSections) {
+        // Alle Abschnitte abgespielt
+        isAudioPlaying = false;
+        setAudioBtnState(bookId, 'idle');
+        currentAudioBookId = null;
+        currentSectionIndex = 0;
+        return;
+    }
+
+    currentSectionIndex = sectionIndex;
+    setAudioBtnState(bookId, 'loading');
+
+    // Fortschrittsbalken aktualisieren
+    updateProgressBar(bookId, sectionIndex, totalSections);
+
+    try {
+        const response = await fetch(`/learnloom/api/audio/${bookId}/generate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                audio_type: 'section',
+                section_index: sectionIndex,
+                voice: 'alloy'
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error);
+        }
+
+        audioPlayer.src = data.audio.url;
+        audioPlayer.play();
+        isAudioPlaying = true;
+        setAudioBtnState(bookId, 'playing');
+
+        // Bei Ende: nächsten Abschnitt
+        audioPlayer.onended = () => {
+            playSection(bookId, sectionIndex + 1);
+        };
+
+    } catch (error) {
+        console.error('Audio-Generierung fehlgeschlagen:', error);
+        alert('Audio-Generierung fehlgeschlagen: ' + error.message);
+        setAudioBtnState(bookId, 'idle');
+        isAudioPlaying = false;
+        currentAudioBookId = null;
+    }
+}
+
+function updateProgressBar(bookId, current, total) {
+    const thumb = getAudioBtn(bookId)?.closest('.book-thumbnail');
+    const fill = thumb?.querySelector('.audio-progress-fill');
+    if (fill) {
+        const percent = total > 0 ? ((current + 1) / total) * 100 : 0;
+        fill.style.width = percent + '%';
+    }
+}
+
+// Cleanup wenn Audio natürlich endet oder Player gestoppt wird
+audioPlayer.addEventListener('pause', () => {
+    if (currentAudioBookId && !audioPlayer.ended) {
+        // Nur Pause (nicht Ende)
+    }
+});
 
 // ============================================================================
 // Reading Status Functions

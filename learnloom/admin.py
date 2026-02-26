@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import PDFBook, PDFNote, TranslationHighlight, Vocabulary, ReadingProgress
+from .models import PDFBook, PDFNote, TranslationHighlight, Vocabulary, ReadingProgress, PDFAudioSummary
 
 
 @admin.register(PDFBook)
@@ -58,3 +58,11 @@ class ReadingProgressAdmin(admin.ModelAdmin):
     list_filter = ['updated_at']
     search_fields = ['book__title']
     readonly_fields = ['updated_at']
+
+
+@admin.register(PDFAudioSummary)
+class PDFAudioSummaryAdmin(admin.ModelAdmin):
+    list_display = ['summary', 'audio_type', 'section_index', 'voice', 'text_length', 'created_at']
+    list_filter = ['audio_type', 'voice', 'created_at']
+    search_fields = ['summary__book__title']
+    readonly_fields = ['id', 'created_at']

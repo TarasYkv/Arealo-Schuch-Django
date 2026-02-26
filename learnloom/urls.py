@@ -47,6 +47,10 @@ urlpatterns = [
     path('api/summary/<uuid:book_id>/delete/', views.api_delete_summary, name='api_delete_summary'),
     path('api/summary/<uuid:book_id>/section/', views.api_summarize_section, name='api_summarize_section'),
 
+    # Audio Summary API
+    path('api/audio/<uuid:book_id>/generate/', views.api_generate_audio, name='api_generate_audio'),
+    path('api/audio/<uuid:book_id>/status/', views.api_get_audio_status, name='api_get_audio_status'),
+
     # PDF Chat API
     path('api/pdf/<uuid:book_id>/chat/', views.api_pdf_chat, name='api_pdf_chat'),
 

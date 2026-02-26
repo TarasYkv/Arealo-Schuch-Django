@@ -393,6 +393,65 @@ class PDFSummary(models.Model):
         return f"Summary: {self.book.title[:50]}"
 
 
+class PDFAudioSummary(models.Model):
+    """Audio-Version einer PDF-Zusammenfassung (TTS)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    summary = models.ForeignKey(
+        PDFSummary,
+        on_delete=models.CASCADE,
+        related_name='audio_files',
+        verbose_name="Zusammenfassung"
+    )
+
+    AUDIO_TYPE_CHOICES = [
+        ('short', 'Kurzzusammenfassung'),
+        ('section', 'Abschnitt'),
+    ]
+    audio_type = models.CharField(
+        max_length=10,
+        choices=AUDIO_TYPE_CHOICES,
+        verbose_name="Audio-Typ"
+    )
+    section_index = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Abschnitts-Index",
+        help_text="Index des Abschnitts (null für short)"
+    )
+    audio_file = models.FileField(
+        upload_to='learnloom/audio/',
+        verbose_name="Audio-Datei"
+    )
+
+    VOICE_CHOICES = [
+        ('alloy', 'Alloy'),
+        ('echo', 'Echo'),
+        ('fable', 'Fable'),
+        ('onyx', 'Onyx'),
+        ('nova', 'Nova'),
+        ('shimmer', 'Shimmer'),
+    ]
+    voice = models.CharField(
+        max_length=20,
+        choices=VOICE_CHOICES,
+        default='alloy',
+        verbose_name="TTS-Stimme"
+    )
+    text_length = models.PositiveIntegerField(default=0, verbose_name="Textlänge (Zeichen)")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+
+    class Meta:
+        unique_together = ['summary', 'audio_type', 'section_index']
+        ordering = ['audio_type', 'section_index']
+        verbose_name = "Audio-Zusammenfassung"
+        verbose_name_plural = "Audio-Zusammenfassungen"
+
+    def __str__(self):
+        if self.audio_type == 'section' and self.section_index is not None:
+            return f"Audio Abschnitt {self.section_index}: {self.summary.book.title[:30]}"
+        return f"Audio Kurz: {self.summary.book.title[:30]}"
+
+
 class ReadingProgress(models.Model):
     """Lesefortschritt pro PDF"""
     book = models.OneToOneField(
