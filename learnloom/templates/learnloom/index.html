@@ -175,7 +175,10 @@
     <!-- Filter -->
     <div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
         <span class="text-muted me-2"><i class="bi bi-funnel me-1"></i>Filter:</span>
-        <button class="btn btn-sm btn-primary filter-btn active" data-filter="all">
+        <button class="btn btn-sm btn-primary filter-btn active" data-filter="active">
+            <i class="bi bi-eye me-1"></i>Aktiv
+        </button>
+        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="all">
             Alle <span class="badge bg-light text-dark ms-1">{{ books|length }}</span>
         </button>
         <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="unread">
@@ -1290,7 +1293,7 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         });
         this.classList.add('active');
         this.classList.remove('btn-outline-secondary', 'btn-outline-warning', 'btn-outline-success');
-        if (filter === 'all') this.classList.add('btn-primary');
+        if (filter === 'all' || filter === 'active') this.classList.add('btn-primary');
         else if (filter === 'reading') this.classList.add('btn-warning');
         else if (filter === 'completed') this.classList.add('btn-success');
         else this.classList.add('btn-secondary');
@@ -1301,15 +1304,22 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 });
 
 // Current filters state
-let currentStatusFilter = 'all';
+let currentStatusFilter = 'active';
 let currentTagFilter = 'all';
 
 function applyFilters() {
     document.querySelectorAll('.book-col').forEach(col => {
-        const statusMatch = currentStatusFilter === 'all' || col.dataset.status === currentStatusFilter;
+        let statusMatch;
+        if (currentStatusFilter === 'all') {
+            statusMatch = true;
+        } else if (currentStatusFilter === 'active') {
+            statusMatch = col.dataset.status !== 'completed';
+        } else {
+            statusMatch = col.dataset.status === currentStatusFilter;
+        }
         const tags = col.dataset.tags.toLowerCase();
         const tagMatch = currentTagFilter === 'all' || tags.includes(currentTagFilter.toLowerCase());
-        
+
         if (statusMatch && tagMatch) {
             col.style.display = '';
         } else {
@@ -1317,6 +1327,9 @@ function applyFilters() {
         }
     });
 }
+
+// Apply default filter on page load (hide completed)
+applyFilters();
 
 // Tag Filter
 document.querySelectorAll('.tag-filter-item').forEach(item => {
