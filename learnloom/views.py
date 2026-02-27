@@ -1233,8 +1233,10 @@ def api_pdf_chat(request, book_id):
 @login_required
 @require_POST
 def api_chat_audio(request, book_id):
-    """Chat-Frage beantworten und Antwort als MP3-Audio zurückgeben"""
+    """Sprach-Frage beantworten (PDF-bezogen oder allgemein) und Antwort als MP3-Audio zurückgeben"""
+    import requests as http_requests
     from .services import PDFChatService, AudioSummaryService
+    from naturmacher.utils.api_helpers import get_user_api_key
 
     book = get_object_or_404(PDFBook, id=book_id, user=request.user)
 
@@ -1246,15 +1248,90 @@ def api_chat_audio(request, book_id):
         if not question:
             return JsonResponse({'success': False, 'error': 'Keine Frage angegeben'}, status=400)
 
-        # 1. Frage beantworten via PDFChatService
-        chat_service = PDFChatService(request.user)
-        answer = chat_service.chat(book, question, provider='openai')
+        # PDF-Kontext optional laden (kurz, für Kontext)
+        pdf_context = ""
+        summary_context = ""
+        try:
+            chat_service = PDFChatService(request.user)
+            pdf_context = chat_service.get_pdf_context(book, max_chars=15000)
+        except Exception:
+            pass
+        try:
+            if hasattr(book, 'summary') and book.summary and book.summary.full_summary:
+                summary_context = f"\n\nZusammenfassung:\n{book.summary.full_summary}"
+        except Exception:
+            pass
 
-        # 2. Antwort als TTS-Audio generieren
+        # System-Prompt: PDF-Kontext + allgemeine Fragen erlaubt
+        book_title = book.title or 'Unbekannt'
+        system_prompt = (
+            f"Du bist ein hilfreicher Sprach-Assistent. Der Benutzer hört gerade ein Dokument "
+            f"als Audio an: \"{book_title}\".\n\n"
+            f"Beantworte die Frage des Benutzers. Wenn die Frage sich auf das Dokument bezieht, "
+            f"nutze den Dokumentinhalt unten. Wenn es eine allgemeine Frage ist, beantworte sie "
+            f"mit deinem Wissen — du bist nicht auf das Dokument beschränkt.\n\n"
+            f"Antworte auf Deutsch, klar, präzise und in gesprochener Sprache (die Antwort wird "
+            f"als Audio vorgelesen). Vermeide Markdown-Formatierung, Aufzählungszeichen und "
+            f"Sonderzeichen. Halte dich kurz (max. 3-4 Sätze)."
+            f"{summary_context}\n\nDokumentinhalt:\n{pdf_context}" if pdf_context else
+            f"Du bist ein hilfreicher Sprach-Assistent. Der Benutzer hört gerade ein Dokument "
+            f"als Audio an: \"{book_title}\".\n\n"
+            f"Beantworte die Frage des Benutzers mit deinem allgemeinen Wissen.\n\n"
+            f"Antworte auf Deutsch, klar, präzise und in gesprochener Sprache (die Antwort wird "
+            f"als Audio vorgelesen). Vermeide Markdown-Formatierung, Aufzählungszeichen und "
+            f"Sonderzeichen. Halte dich kurz (max. 3-4 Sätze)."
+        )
+
+        # Antwort generieren — OpenAI bevorzugt, Gemini als Fallback
+        answer = None
+        openai_key = get_user_api_key(request.user, 'openai')
+        gemini_key = getattr(request.user, 'gemini_api_key', None)
+        if gemini_key:
+            gemini_key = gemini_key.strip() or None
+
+        if openai_key:
+            model = getattr(request.user, 'preferred_openai_model', None) or 'gpt-4o-mini'
+            resp = http_requests.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers={'Authorization': f'Bearer {openai_key}', 'Content-Type': 'application/json'},
+                json={
+                    'model': model,
+                    'messages': [
+                        {'role': 'system', 'content': system_prompt},
+                        {'role': 'user', 'content': question},
+                    ],
+                    'temperature': 0.6,
+                    'max_tokens': 500,
+                },
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                answer = resp.json()['choices'][0]['message']['content'].strip()
+            else:
+                error_msg = resp.json().get('error', {}).get('message', resp.text[:200])
+                raise Exception(f"OpenAI: {error_msg}")
+
+        elif gemini_key:
+            resp = http_requests.post(
+                f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}',
+                headers={'Content-Type': 'application/json'},
+                json={
+                    'contents': [{'parts': [{'text': f"{system_prompt}\n\nFrage: {question}"}]}],
+                    'generationConfig': {'temperature': 0.6, 'maxOutputTokens': 500},
+                },
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                answer = resp.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+            else:
+                raise Exception(f"Gemini Fehler: {resp.text[:200]}")
+        else:
+            raise ValueError("Kein API-Key konfiguriert (OpenAI oder Gemini). Bitte in den Account-Einstellungen hinterlegen.")
+
+        # Antwort als TTS-Audio generieren
         audio_service = AudioSummaryService(request.user)
         audio_bytes = audio_service._call_tts_api(answer, voice=voice)
 
-        # 3. MP3 als Base64 + Antworttext zurückgeben
         audio_b64 = base64.b64encode(audio_bytes).decode('ascii')
         return JsonResponse({
             'success': True,
