@@ -1444,16 +1444,18 @@ class AudioSummaryService:
         """
         from .models import PDFAudioSummary
 
-        # Check Cache
+        # Check Cache — gleiche Stimme = zurückgeben, andere Stimme = ersetzen
         existing = PDFAudioSummary.objects.filter(
             summary=summary,
             audio_type='section',
             section_index=section_index,
-            voice=voice
         ).first()
 
         if existing:
-            return existing
+            if existing.voice == voice:
+                return existing
+            # Andere Stimme gewählt → alten Eintrag löschen
+            existing.delete()
 
         # Abschnitt-Text holen
         sections = summary.sections or []
@@ -1502,15 +1504,16 @@ class AudioSummaryService:
         """
         from .models import PDFAudioSummary
 
-        # Check Cache
+        # Check Cache — gleiche Stimme = zurückgeben, andere Stimme = ersetzen
         existing = PDFAudioSummary.objects.filter(
             summary=summary,
             audio_type='short',
-            voice=voice
         ).first()
 
         if existing:
-            return existing
+            if existing.voice == voice:
+                return existing
+            existing.delete()
 
         text = summary.short_summary
         if not text:
