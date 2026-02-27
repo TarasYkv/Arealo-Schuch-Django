@@ -1574,80 +1574,61 @@ async function playBookAudio(bookId) {
     setAudioBtnState(bookId, 'loading');
 
     try {
-        // 1. Status abrufen: Welche Audios sind schon gecacht? Wie viele Abschnitte gibt es?
+        // Schon im Cache? Direkt abspielen
+        if (audioCache[bookId] && audioCache[bookId].sections[0]) {
+            totalSections = audioCache[bookId].total;
+            showNavButtons(bookId, true);
+            setupProgressBar(bookId);
+            playSection(bookId, 0);
+            generateRemainingInBackground(bookId, 1);
+            return;
+        }
+
+        // 1. Sofort Abschnitt 0 generieren - kein Status-Check vorher!
+        const firstAudio = await generateSingleSection(bookId, 0);
+
+        // Cache initialisieren (total wird gleich vom Status aktualisiert)
         if (!audioCache[bookId]) {
-            const statusResp = await fetch(`/learnloom/api/audio/${bookId}/status/`);
-            const statusData = await statusResp.json();
+            audioCache[bookId] = { total: 1, sections: {} };
+        }
+        audioCache[bookId].sections[0] = firstAudio;
 
-            if (!statusData.success || statusData.total_sections === 0) {
-                // Keine Zusammenfassung → generate-all als Fallback (erstellt auch Summary)
-                const fallbackResp = await fetch(`/learnloom/api/audio/${bookId}/generate-all/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken,
-                    },
-                    body: JSON.stringify({ voice: 'alloy' })
-                });
-                const fallbackData = await fallbackResp.json();
-                if (!fallbackData.success) throw new Error(fallbackData.error);
+        // 2. Sofort abspielen!
+        showNavButtons(bookId, true);
+        setupProgressBar(bookId);
+        playSection(bookId, 0);
 
-                if (fallbackData.total_sections === 0) {
-                    alert('Keine Zusammenfassung vorhanden. Bitte zuerst eine Zusammenfassung generieren.');
-                    currentAudioBookId = null;
-                    setAudioBtnState(bookId, 'idle');
-                    return;
-                }
-
-                // Alle sind schon generiert, in Cache packen
-                audioCache[bookId] = { total: fallbackData.total_sections, sections: {} };
-                for (const af of fallbackData.audio_files) {
-                    audioCache[bookId].sections[af.section_index] = af;
-                }
-                totalSections = fallbackData.total_sections;
-            } else {
-                // Status hat total_sections und evtl. schon gecachte Dateien
-                audioCache[bookId] = { total: statusData.total_sections, sections: {} };
+        // 3. Parallel: Status holen um total_sections zu erfahren, dann Rest generieren
+        fetch(`/learnloom/api/audio/${bookId}/status/`).then(r => r.json()).then(statusData => {
+            if (statusData.success && statusData.total_sections > 0) {
+                audioCache[bookId].total = statusData.total_sections;
+                totalSections = statusData.total_sections;
+                // Bereits gecachte Dateien übernehmen
                 for (const af of statusData.audio_files) {
-                    if (af.audio_type === 'section' && af.section_index !== null) {
+                    if (af.audio_type === 'section' && af.section_index !== null && !audioCache[bookId].sections[af.section_index]) {
                         audioCache[bookId].sections[af.section_index] = af;
                     }
                 }
-                totalSections = statusData.total_sections;
+                // Rest im Hintergrund generieren
+                generateRemainingInBackground(bookId, 1);
             }
-        } else {
-            totalSections = audioCache[bookId].total;
-        }
-
-        // 2. Ersten Abschnitt sofort generieren falls noch nicht im Cache
-        if (!audioCache[bookId].sections[0]) {
-            const firstAudio = await generateSingleSection(bookId, 0);
-            audioCache[bookId].sections[0] = firstAudio;
-        }
-
-        // Nav-Buttons anzeigen
-        showNavButtons(bookId, true);
-
-        // Fortschrittsbalken erstellen
-        const thumb = getAudioBtn(bookId)?.closest('.book-thumbnail');
-        if (thumb && !thumb.querySelector('.audio-progress-bar')) {
-            const bar = document.createElement('div');
-            bar.className = 'audio-progress-bar';
-            bar.innerHTML = '<div class="audio-progress-fill"></div>';
-            thumb.appendChild(bar);
-        }
-
-        // 3. Sofort abspielen!
-        playSection(bookId, 0);
-
-        // 4. Rest im Hintergrund generieren (ab Index 1)
-        generateRemainingInBackground(bookId, 1);
+        });
 
     } catch (error) {
         console.error('Audio-Fehler:', error);
         alert('Audio-Fehler: ' + error.message);
         setAudioBtnState(bookId, 'idle');
         currentAudioBookId = null;
+    }
+}
+
+function setupProgressBar(bookId) {
+    const thumb = getAudioBtn(bookId)?.closest('.book-thumbnail');
+    if (thumb && !thumb.querySelector('.audio-progress-bar')) {
+        const bar = document.createElement('div');
+        bar.className = 'audio-progress-bar';
+        bar.innerHTML = '<div class="audio-progress-fill"></div>';
+        thumb.appendChild(bar);
     }
 }
 
