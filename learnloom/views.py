@@ -8,6 +8,7 @@ from django.db import IntegrityError
 from django.core.serializers.json import DjangoJSONEncoder
 import json
 import io
+import base64
 
 # PDF Generation
 from reportlab.lib import colors
@@ -1221,6 +1222,46 @@ def api_pdf_chat(request, book_id):
             'answer': answer
         })
         
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler: {str(e)}'}, status=500)
+
+
+@login_required
+@require_POST
+def api_chat_audio(request, book_id):
+    """Chat-Frage beantworten und Antwort als MP3-Audio zurückgeben"""
+    from .services import PDFChatService, AudioSummaryService
+
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        data = json.loads(request.body)
+        question = data.get('question', '').strip()
+        voice = data.get('voice', 'alloy')
+
+        if not question:
+            return JsonResponse({'success': False, 'error': 'Keine Frage angegeben'}, status=400)
+
+        # 1. Frage beantworten via PDFChatService
+        chat_service = PDFChatService(request.user)
+        answer = chat_service.chat(book, question, provider='openai')
+
+        # 2. Antwort als TTS-Audio generieren
+        audio_service = AudioSummaryService(request.user)
+        audio_bytes = audio_service._call_tts_api(answer, voice=voice)
+
+        # 3. MP3 als Base64 + Antworttext zurückgeben
+        audio_b64 = base64.b64encode(audio_bytes).decode('ascii')
+        return JsonResponse({
+            'success': True,
+            'answer_text': answer,
+            'audio_url': f'data:audio/mp3;base64,{audio_b64}'
+        })
+
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
     except ValueError as e:

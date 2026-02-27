@@ -399,6 +399,38 @@
 
 <!-- Global Audio Player -->
 <audio id="globalAudioPlayer" style="display:none;"></audio>
+<audio id="answerAudioPlayer" style="display:none;"></audio>
+
+<!-- Floating Frage-Button (nur sichtbar wenn Audio läuft) -->
+<div id="voiceQuestionBtn" class="voice-question-fab" style="display:none;" onclick="toggleVoiceQuestion()">
+    <i class="bi bi-mic-fill voice-question-icon"></i>
+    <span class="voice-question-label">Frage</span>
+</div>
+
+<!-- Voice Question Status Overlay -->
+<div id="voiceQuestionOverlay" class="voice-question-overlay" style="display:none;">
+    <div class="voice-question-card">
+        <div class="voice-question-status">
+            <div id="vqListening" style="display:none;">
+                <div class="vq-mic-pulse"><i class="bi bi-mic-fill"></i></div>
+                <p class="mb-1">Ich h&ouml;re zu...</p>
+                <small class="text-muted">Stelle deine Frage oder sage &quot;Weiter&quot; zum Fortsetzen</small>
+            </div>
+            <div id="vqProcessing" style="display:none;">
+                <div class="spinner-border text-primary mb-2" role="status"></div>
+                <p class="mb-1" id="vqTranscript"></p>
+                <small class="text-muted">Antwort wird generiert...</small>
+            </div>
+            <div id="vqAnswering" style="display:none;">
+                <div class="vq-speaker-pulse"><i class="bi bi-volume-up-fill"></i></div>
+                <p class="mb-1" id="vqAnswerText"></p>
+            </div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" onclick="stopVoiceQuestion()">
+            <i class="bi bi-x-lg me-1"></i>Schlie&szlig;en
+        </button>
+    </div>
+</div>
 
 <!-- Upload Modal -->
 <div class="modal fade" id="uploadModal" tabindex="-1">
@@ -1930,5 +1962,231 @@ async function setReadingStatus(bookId, status) {
         alert('Fehler beim Aktualisieren: ' + error.message);
     }
 }
+
+// ============================================================================
+// Voice Question Mode (Sprach-Fragen während Audio-Wiedergabe)
+// ============================================================================
+
+const answerPlayer = document.getElementById('answerAudioPlayer');
+let voiceQuestionActive = false;
+let speechRecognition = null;
+let vqState = 'IDLE'; // IDLE, ASKING, PROCESSING, ANSWERING
+
+// Floating-Button ein-/ausblenden wenn Audio läuft
+function updateVoiceQuestionButton() {
+    const fab = document.getElementById('voiceQuestionBtn');
+    if (!fab) return;
+    // Nur anzeigen wenn Audio läuft UND SpeechRecognition verfügbar
+    const hasSpeech = ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+    fab.style.display = (isAudioPlaying && currentAudioBookId && hasSpeech) ? 'flex' : 'none';
+    // Im Frage-Modus: andere Darstellung
+    if (voiceQuestionActive) {
+        fab.classList.add('active');
+    } else {
+        fab.classList.remove('active');
+    }
+}
+
+// SpeechRecognition initialisieren
+function initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+
+    const recognition = new SpeechRecognition();
+    const lang = getAudioLanguage();
+    recognition.lang = lang === 'en' ? 'en-US' : 'de-DE';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.trim();
+        handleVoiceResult(transcript);
+    };
+
+    recognition.onerror = (event) => {
+        console.warn('SpeechRecognition Fehler:', event.error);
+        if (event.error === 'no-speech' && voiceQuestionActive) {
+            // Kein Spracheingabe erkannt - erneut zuhören
+            startListening();
+        } else if (event.error !== 'aborted') {
+            showVqState('listening');
+            startListening();
+        }
+    };
+
+    recognition.onend = () => {
+        // Nur neu starten wenn wir im ASKING-Status sind
+        if (vqState === 'ASKING' && voiceQuestionActive) {
+            startListening();
+        }
+    };
+
+    return recognition;
+}
+
+function toggleVoiceQuestion() {
+    if (voiceQuestionActive) {
+        stopVoiceQuestion();
+    } else {
+        startVoiceQuestion();
+    }
+}
+
+function startVoiceQuestion() {
+    if (!currentAudioBookId) return;
+
+    voiceQuestionActive = true;
+    vqState = 'ASKING';
+
+    // Audio pausieren
+    audioPlayer.pause();
+    isAudioPlaying = false;
+    setAudioBtnState(currentAudioBookId, 'idle');
+
+    // UI zeigen
+    document.getElementById('voiceQuestionOverlay').style.display = 'flex';
+    showVqState('listening');
+    updateVoiceQuestionButton();
+
+    // SpeechRecognition starten
+    speechRecognition = initSpeechRecognition();
+    if (speechRecognition) {
+        startListening();
+    }
+}
+
+function startListening() {
+    if (!speechRecognition || !voiceQuestionActive) return;
+    try {
+        speechRecognition.start();
+    } catch (e) {
+        // Bereits gestartet - ignorieren
+    }
+}
+
+function stopVoiceQuestion() {
+    voiceQuestionActive = false;
+    vqState = 'IDLE';
+
+    // SpeechRecognition stoppen
+    if (speechRecognition) {
+        try { speechRecognition.abort(); } catch (e) {}
+        speechRecognition = null;
+    }
+
+    // Antwort-Audio stoppen
+    answerPlayer.pause();
+    answerPlayer.src = '';
+
+    // Overlay ausblenden
+    document.getElementById('voiceQuestionOverlay').style.display = 'none';
+    updateVoiceQuestionButton();
+
+    // Haupt-Audio fortsetzen
+    if (currentAudioBookId && audioPlayer.src) {
+        audioPlayer.play();
+        isAudioPlaying = true;
+        setAudioBtnState(currentAudioBookId, 'playing');
+        updateVoiceQuestionButton();
+    }
+}
+
+function handleVoiceResult(transcript) {
+    if (!transcript) {
+        startListening();
+        return;
+    }
+
+    const lower = transcript.toLowerCase();
+    // Befehle zum Fortsetzen erkennen
+    const resumeCommands = ['play', 'abspielen', 'weiter', 'fortsetzen', 'continue', 'resume', 'stopp', 'stop', 'schließen'];
+    if (resumeCommands.some(cmd => lower.includes(cmd))) {
+        stopVoiceQuestion();
+        return;
+    }
+
+    // Frage an API senden
+    sendVoiceQuestion(transcript);
+}
+
+async function sendVoiceQuestion(question) {
+    vqState = 'PROCESSING';
+    showVqState('processing', question);
+
+    // SpeechRecognition während der Verarbeitung stoppen
+    if (speechRecognition) {
+        try { speechRecognition.abort(); } catch (e) {}
+    }
+
+    try {
+        const voice = getAudioVoice();
+        const response = await fetch(`/learnloom/api/pdf/${currentAudioBookId}/chat-audio/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ question, voice })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+
+        // Antwort als Audio abspielen
+        vqState = 'ANSWERING';
+        showVqState('answering', data.answer_text);
+
+        answerPlayer.src = data.audio_url;
+        answerPlayer.play();
+
+        answerPlayer.onended = () => {
+            if (!voiceQuestionActive) return;
+            // Nach Antwort: wieder zuhören
+            vqState = 'ASKING';
+            showVqState('listening');
+            speechRecognition = initSpeechRecognition();
+            startListening();
+        };
+
+    } catch (error) {
+        console.error('Chat-Audio Fehler:', error);
+        // Bei Fehler: wieder zuhören
+        vqState = 'ASKING';
+        showVqState('listening');
+        speechRecognition = initSpeechRecognition();
+        startListening();
+    }
+}
+
+function showVqState(state, text) {
+    document.getElementById('vqListening').style.display = state === 'listening' ? 'block' : 'none';
+    document.getElementById('vqProcessing').style.display = state === 'processing' ? 'block' : 'none';
+    document.getElementById('vqAnswering').style.display = state === 'answering' ? 'block' : 'none';
+
+    if (state === 'processing' && text) {
+        document.getElementById('vqTranscript').textContent = `"${text}"`;
+    }
+    if (state === 'answering' && text) {
+        // Antwort kürzen wenn zu lang
+        const short = text.length > 200 ? text.substring(0, 200) + '...' : text;
+        document.getElementById('vqAnswerText').textContent = short;
+    }
+}
+
+// Floating-Button bei Audio-Events aktualisieren
+const _origSetAudioBtnState = typeof setAudioBtnState === 'function' ? setAudioBtnState : null;
+if (_origSetAudioBtnState) {
+    const _wrappedSetAudioBtnState = setAudioBtnState;
+    setAudioBtnState = function(bookId, state) {
+        _wrappedSetAudioBtnState(bookId, state);
+        setTimeout(updateVoiceQuestionButton, 50);
+    };
+}
+
+// Initial prüfen
+document.addEventListener('DOMContentLoaded', updateVoiceQuestionButton);
 </script>
 {% endblock %}
