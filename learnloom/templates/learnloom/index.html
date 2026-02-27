@@ -1673,6 +1673,9 @@ async function playSection(bookId, sectionIndex) {
     isAudioPlaying = true;
     setAudioBtnState(bookId, 'playing');
 
+    // Media Session API - Lockscreen/Notification Controls
+    updateMediaSession(bookId, sectionIndex, cache.total);
+
     audioPlayer.onended = () => {
         if (sectionIndex + 1 < cache.total) {
             playSection(bookId, sectionIndex + 1);
@@ -1684,6 +1687,48 @@ async function playSection(bookId, sectionIndex) {
             currentSectionIndex = 0;
         }
     };
+}
+
+function updateMediaSession(bookId, sectionIndex, total) {
+    if (!('mediaSession' in navigator)) return;
+
+    // Buchtitel aus der Card holen
+    const card = document.querySelector(`.book-card[data-book-id="${bookId}"]`);
+    const title = card?.querySelector('.card-title')?.textContent?.trim() || 'LearnLoom Audio';
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: `${title} - Abschnitt ${sectionIndex + 1}/${total}`,
+        artist: 'LearnLoom',
+        album: title,
+    });
+
+    // Vorheriger Abschnitt
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (currentAudioBookId && currentSectionIndex > 0) {
+            playSection(currentAudioBookId, currentSectionIndex - 1);
+        }
+    });
+
+    // Nächster Abschnitt
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        if (currentAudioBookId && audioCache[currentAudioBookId] &&
+            currentSectionIndex + 1 < audioCache[currentAudioBookId].total) {
+            playSection(currentAudioBookId, currentSectionIndex + 1);
+        }
+    });
+
+    // Play/Pause
+    navigator.mediaSession.setActionHandler('play', () => {
+        audioPlayer.play();
+        isAudioPlaying = true;
+        if (currentAudioBookId) setAudioBtnState(currentAudioBookId, 'playing');
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+        audioPlayer.pause();
+        isAudioPlaying = false;
+        if (currentAudioBookId) setAudioBtnState(currentAudioBookId, 'idle');
+    });
 }
 
 function prevSection(bookId) {
