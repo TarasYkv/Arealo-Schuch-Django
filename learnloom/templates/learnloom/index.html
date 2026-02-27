@@ -575,6 +575,17 @@
                     <input type="file" id="batchFileInput" accept=".pdf" multiple class="d-none">
                 </div>
                 
+                <!-- Titel-Extraktion Ladebalken -->
+                <div id="batchExtractProgress" class="d-none mt-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        <small class="text-muted" id="batchExtractText">Titel werden erkannt...</small>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-info progress-bar-striped progress-bar-animated" id="batchExtractBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+
                 <!-- Liste der ausgewählten PDFs -->
                 <div id="batchFilesList" class="d-none">
                     <h6 class="mb-3"><i class="bi bi-list-ul me-2"></i>Ausgewählte PDFs (<span id="batchFilesCount">0</span>)</h6>
@@ -1069,13 +1080,22 @@ batchFileInput.addEventListener('change', (e) => {
 });
 
 async function addBatchFiles(files) {
-    for (const file of files) {
-        // Titel extrahieren
+    const extractProgress = document.getElementById('batchExtractProgress');
+    const extractBar = document.getElementById('batchExtractBar');
+    const extractText = document.getElementById('batchExtractText');
+    const total = files.length;
+
+    extractProgress.classList.remove('d-none');
+    extractBar.style.width = '0%';
+    extractText.textContent = `Titel werden erkannt... (0/${total})`;
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         const formData = new FormData();
         formData.append('file', file);
-        
+
         let title = file.name.replace('.pdf', '').replace(/_/g, ' ');
-        
+
         try {
             const response = await fetch('{% url "learnloom:api_extract_title" %}', {
                 method: 'POST',
@@ -1089,15 +1109,20 @@ async function addBatchFiles(files) {
         } catch (e) {
             console.error('Titel-Extraktion fehlgeschlagen:', e);
         }
-        
+
         batchFiles.push({
             file: file,
             title: title,
             category: 'paper',
             tags: ''
         });
+
+        const percent = Math.round(((i + 1) / total) * 100);
+        extractBar.style.width = percent + '%';
+        extractText.textContent = `Titel werden erkannt... (${i + 1}/${total})`;
     }
-    
+
+    extractProgress.classList.add('d-none');
     renderBatchFiles();
 }
 
