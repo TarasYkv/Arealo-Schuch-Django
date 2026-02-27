@@ -209,6 +209,24 @@
             <i class="bi bi-tag me-1"></i><span id="activeTagName"></span>
             <button type="button" class="btn-close btn-close-white ms-2" style="font-size: 0.6rem;" onclick="clearTagFilter()"></button>
         </span>
+
+        <!-- Audio Settings -->
+        <div class="d-flex gap-2 ms-auto align-items-center">
+            <i class="bi bi-mic text-muted" title="TTS-Stimme"></i>
+            <select id="audioVoice" class="form-select form-select-sm" style="width: auto;" title="TTS-Stimme">
+                <option value="alloy">Alloy</option>
+                <option value="echo">Echo</option>
+                <option value="fable">Fable</option>
+                <option value="onyx">Onyx</option>
+                <option value="nova">Nova</option>
+                <option value="shimmer">Shimmer</option>
+            </select>
+            <i class="bi bi-globe text-muted" title="Audio-Sprache"></i>
+            <select id="audioLanguage" class="form-select form-select-sm" style="width: auto;" title="Audio-Sprache">
+                <option value="de">DE</option>
+                <option value="en">EN</option>
+            </select>
+        </div>
     </div>
 
     <!-- PDF Kacheln -->
@@ -691,6 +709,38 @@
 {% block extra_js %}
 <script>
 const csrfToken = '{{ csrf_token }}';
+
+// ============================================================================
+// Audio Settings (localStorage)
+// ============================================================================
+
+function getAudioVoice() {
+    return document.getElementById('audioVoice')?.value || localStorage.getItem('ll_voice') || 'alloy';
+}
+
+function getAudioLanguage() {
+    return document.getElementById('audioLanguage')?.value || localStorage.getItem('ll_lang') || 'de';
+}
+
+// Beim Laden: gespeicherte Werte setzen
+(function initAudioSettings() {
+    const voiceSelect = document.getElementById('audioVoice');
+    const langSelect = document.getElementById('audioLanguage');
+    const savedVoice = localStorage.getItem('ll_voice');
+    const savedLang = localStorage.getItem('ll_lang');
+
+    if (voiceSelect && savedVoice) voiceSelect.value = savedVoice;
+    if (langSelect && savedLang) langSelect.value = savedLang;
+
+    voiceSelect?.addEventListener('change', function() {
+        localStorage.setItem('ll_voice', this.value);
+        audioCache = {}; // Andere Stimme = neue Audios nötig
+    });
+    langSelect?.addEventListener('change', function() {
+        localStorage.setItem('ll_lang', this.value);
+        audioCache = {}; // Andere Sprache = neue Audios nötig
+    });
+})();
 
 // Initialize Bootstrap tooltips for full title on hover
 document.addEventListener('DOMContentLoaded', function() {
@@ -1501,7 +1551,8 @@ function resetAllAudioBtns() {
 }
 
 // Einzelnen Abschnitt generieren (oder aus Cache holen)
-async function generateSingleSection(bookId, sectionIndex, voice = 'alloy') {
+async function generateSingleSection(bookId, sectionIndex, voice) {
+    voice = voice || getAudioVoice();
     const response = await fetch(`/learnloom/api/audio/${bookId}/generate/`, {
         method: 'POST',
         headers: {
@@ -1516,7 +1567,8 @@ async function generateSingleSection(bookId, sectionIndex, voice = 'alloy') {
 }
 
 // Restliche Abschnitte im Hintergrund generieren
-async function generateRemainingInBackground(bookId, startIndex, voice = 'alloy') {
+async function generateRemainingInBackground(bookId, startIndex, voice) {
+    voice = voice || getAudioVoice();
     const cache = audioCache[bookId];
     if (!cache) return;
 
