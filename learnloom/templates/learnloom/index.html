@@ -1657,46 +1657,57 @@ async function playBookAudio(bookId) {
     currentSectionIndex = 0;
     setAudioBtnState(bookId, 'loading');
 
+    const voice = getAudioVoice();
+
     try {
-        // Schon im Cache? Direkt abspielen
-        if (audioCache[bookId] && audioCache[bookId].sections[0]) {
+        // Im JS-Cache mit richtiger Stimme? Sofort abspielen
+        if (audioCache[bookId] && audioCache[bookId].sections[0] && audioCache[bookId].voice === voice) {
             totalSections = audioCache[bookId].total;
             showNavButtons(bookId, true);
             setupProgressBar(bookId);
             playSection(bookId, 0);
-            generateRemainingInBackground(bookId, 1);
+            generateRemainingInBackground(bookId, 1, voice);
             return;
         }
 
-        // 1. Sofort Abschnitt 0 generieren - kein Status-Check vorher!
-        const firstAudio = await generateSingleSection(bookId, 0);
+        // Status + Abschnitt 0 PARALLEL starten
+        const [statusData, firstAudioGenerated] = await Promise.allSettled([
+            fetch(`/learnloom/api/audio/${bookId}/status/`).then(r => r.json()),
+            generateSingleSection(bookId, 0, voice),
+        ]);
 
-        // Cache initialisieren (total wird gleich vom Status aktualisiert)
-        if (!audioCache[bookId]) {
-            audioCache[bookId] = { total: 1, sections: {} };
+        // Cache initialisieren
+        const statusOk = statusData.status === 'fulfilled' && statusData.value.success;
+        const total = statusOk ? statusData.value.total_sections : 1;
+        audioCache[bookId] = { total, sections: {}, voice };
+        totalSections = total;
+
+        // Server-gecachte Audio-Dateien übernehmen (gleiche Stimme)
+        if (statusOk) {
+            for (const af of statusData.value.audio_files) {
+                if (af.audio_type === 'section' && af.section_index !== null && af.voice === voice) {
+                    audioCache[bookId].sections[af.section_index] = af;
+                }
+            }
         }
-        audioCache[bookId].sections[0] = firstAudio;
 
-        // 2. Sofort abspielen!
+        // Abschnitt 0: generiertes Audio übernehmen (überschreibt ggf. Server-Cache)
+        if (firstAudioGenerated.status === 'fulfilled') {
+            audioCache[bookId].sections[0] = firstAudioGenerated.value;
+        }
+
+        // Haben wir Abschnitt 0?
+        if (!audioCache[bookId].sections[0]) {
+            throw new Error('Abschnitt 0 konnte nicht geladen werden');
+        }
+
+        // Sofort abspielen!
         showNavButtons(bookId, true);
         setupProgressBar(bookId);
         playSection(bookId, 0);
 
-        // 3. Parallel: Status holen um total_sections zu erfahren, dann Rest generieren
-        fetch(`/learnloom/api/audio/${bookId}/status/`).then(r => r.json()).then(statusData => {
-            if (statusData.success && statusData.total_sections > 0) {
-                audioCache[bookId].total = statusData.total_sections;
-                totalSections = statusData.total_sections;
-                // Bereits gecachte Dateien übernehmen
-                for (const af of statusData.audio_files) {
-                    if (af.audio_type === 'section' && af.section_index !== null && !audioCache[bookId].sections[af.section_index]) {
-                        audioCache[bookId].sections[af.section_index] = af;
-                    }
-                }
-                // Rest im Hintergrund generieren
-                generateRemainingInBackground(bookId, 1);
-            }
-        });
+        // Sofort Abschnitt 1 im Hintergrund starten (ohne Verzögerung)
+        generateRemainingInBackground(bookId, 1, voice);
 
     } catch (error) {
         console.error('Audio-Fehler:', error);
