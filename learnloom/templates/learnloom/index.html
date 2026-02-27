@@ -1160,41 +1160,52 @@ function removeBatchFile(index) {
 async function startBatchUpload() {
     const progressBar = document.getElementById('batchUploadProgress');
     const progressBarInner = progressBar.querySelector('.progress-bar');
-    
+
     progressBar.classList.remove('d-none');
     batchUploadBtn.disabled = true;
-    
+
     let uploaded = 0;
+    let failed = 0;
     const total = batchFiles.length;
-    
+
     for (const item of batchFiles) {
         const formData = new FormData();
         formData.append('file', item.file);
         formData.append('title', item.title);
         formData.append('category', item.category);
         formData.append('tags', item.tags);
-        
+
         try {
-            await fetch('{% url "learnloom:api_upload" %}', {
+            const resp = await fetch('{% url "learnloom:api_upload" %}', {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken },
                 body: formData
             });
+            if (!resp.ok) {
+                failed++;
+                console.error('Upload fehlgeschlagen:', item.file.name, resp.status);
+            }
         } catch (e) {
+            failed++;
             console.error('Upload fehlgeschlagen:', item.file.name, e);
         }
-        
+
         uploaded++;
         const percent = Math.round((uploaded / total) * 100);
         progressBarInner.style.width = percent + '%';
         progressBarInner.textContent = `${uploaded}/${total} (${percent}%)`;
     }
-    
+
     // Fertig
+    if (failed > 0) {
+        progressBarInner.classList.remove('bg-primary');
+        progressBarInner.classList.add('bg-warning');
+        progressBarInner.textContent = `${total - failed}/${total} erfolgreich`;
+    }
     setTimeout(() => {
         bootstrap.Modal.getInstance(document.getElementById('batchUploadModal')).hide();
         location.reload();
-    }, 500);
+    }, failed > 0 ? 2000 : 500);
 }
 
 // Reset batch files when modal closes

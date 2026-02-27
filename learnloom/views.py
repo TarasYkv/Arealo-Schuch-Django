@@ -317,6 +317,10 @@ def api_upload_pdf(request):
     tags = request.POST.get('tags', '')
 
     try:
+        # DB-Verbindung sicherstellen (bei Batch-Uploads kann Connection verloren gehen)
+        from django.db import connection
+        connection.ensure_connection()
+
         # PDF-Informationen extrahieren
         pdf_service = PDFService()
         page_count = pdf_service.get_page_count(pdf_file)
