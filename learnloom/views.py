@@ -1109,6 +1109,52 @@ def api_generate_audio(request, book_id):
 
 
 @login_required
+@require_POST
+def api_generate_all_audio(request, book_id):
+    """Alle Audio-Abschnitte auf einmal generieren (Batch)"""
+    book = get_object_or_404(PDFBook, id=book_id, user=request.user)
+
+    try:
+        summary = book.summary
+    except PDFSummary.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Keine Zusammenfassung vorhanden'}, status=404)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    voice = data.get('voice', 'alloy')
+    sections = summary.sections or []
+
+    if not sections:
+        return JsonResponse({'success': False, 'error': 'Keine Abschnitte vorhanden'}, status=400)
+
+    service = AudioSummaryService(request.user)
+    audio_files = []
+    errors = []
+
+    for i in range(len(sections)):
+        try:
+            audio = service.generate_section_audio(summary, i, voice=voice)
+            audio_files.append({
+                'id': str(audio.id),
+                'url': audio.audio_file.url,
+                'section_index': audio.section_index,
+                'text_length': audio.text_length,
+            })
+        except Exception as e:
+            errors.append({'section_index': i, 'error': str(e)})
+
+    return JsonResponse({
+        'success': True,
+        'audio_files': audio_files,
+        'total_sections': len(sections),
+        'errors': errors,
+    })
+
+
+@login_required
 @require_GET
 def api_get_audio_status(request, book_id):
     """Liste aller existierenden Audio-Dateien für ein PDF"""

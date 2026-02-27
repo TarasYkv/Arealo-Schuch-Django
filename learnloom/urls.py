@@ -49,6 +49,7 @@ urlpatterns = [
 
     # Audio Summary API
     path('api/audio/<uuid:book_id>/generate/', views.api_generate_audio, name='api_generate_audio'),
+    path('api/audio/<uuid:book_id>/generate-all/', views.api_generate_all_audio, name='api_generate_all_audio'),
     path('api/audio/<uuid:book_id>/status/', views.api_get_audio_status, name='api_get_audio_status'),
 
     # PDF Chat API
