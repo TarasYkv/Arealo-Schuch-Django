@@ -409,6 +409,16 @@
 <audio id="globalAudioPlayer" style="display:none;"></audio>
 <audio id="answerAudioPlayer" style="display:none;"></audio>
 
+<!-- Relevanz-Bewertung Popup -->
+<div id="relevancePopup" class="relevance-popup-overlay" style="display:none;" onclick="if(event.target===this)closeRelevancePopup()">
+    <div class="relevance-popup-card">
+        <h5><i class="bi bi-star me-2"></i>Wie relevant war dieses PDF?</h5>
+        <p class="text-muted mb-3" id="relevancePopupTitle"></p>
+        <div class="relevance-popup-options" id="relevancePopupOptions"></div>
+        <button class="btn btn-sm btn-outline-secondary mt-3" onclick="closeRelevancePopup()">Überspringen</button>
+    </div>
+</div>
+
 <!-- Floating Frage-Button (nur sichtbar wenn Audio läuft) -->
 <div id="voiceQuestionBtn" class="voice-question-fab" style="display:none;" onclick="toggleVoiceQuestion()">
     <i class="bi bi-mic-fill voice-question-icon"></i>
@@ -1935,6 +1945,34 @@ async function setRelevance(bookId, value) {
 // Reading Status Functions
 // ============================================================================
 
+// Relevanz-Bewertung Popup
+function showRelevancePopup(bookId, title) {
+    const popup = document.getElementById('relevancePopup');
+    const titleEl = document.getElementById('relevancePopupTitle');
+    const optionsEl = document.getElementById('relevancePopupOptions');
+
+    titleEl.textContent = title;
+    optionsEl.innerHTML = '';
+
+    for (let i = 1; i <= 10; i++) {
+        const cls = i <= 3 ? 'rp-low' : i <= 6 ? 'rp-mid' : 'rp-high';
+        const btn = document.createElement('button');
+        btn.className = `relevance-popup-btn ${cls}`;
+        btn.textContent = i;
+        btn.onclick = () => {
+            setRelevance(bookId, i);
+            closeRelevancePopup();
+        };
+        optionsEl.appendChild(btn);
+    }
+
+    popup.style.display = 'flex';
+}
+
+function closeRelevancePopup() {
+    document.getElementById('relevancePopup').style.display = 'none';
+}
+
 // Dropdown z-index: book-col nach vorne bringen wenn Dropdown offen
 document.addEventListener('shown.bs.dropdown', function(e) {
     const col = e.target.closest('.book-col');
@@ -1994,9 +2032,10 @@ async function setReadingStatus(bookId, status) {
                     col.dataset.status = status;
                 }
 
-                // Bei "completed": Relevanz-Bewertung automatisch einblenden
+                // Bei "completed": Relevanz-Bewertung Popup einblenden
                 if (status === 'completed') {
-                    setTimeout(() => toggleRelevanceDropdown(bookId), 300);
+                    const title = card.querySelector('.card-title')?.textContent || '';
+                    setTimeout(() => showRelevancePopup(bookId, title), 300);
                 }
             }
         } else {
