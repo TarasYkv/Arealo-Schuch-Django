@@ -431,6 +431,8 @@ def api_update_metadata(request, book_id):
         book.category = data['category']
     if 'tags' in data:
         book.tags = data['tags']
+    if 'relevance' in data:
+        book.relevance = max(0, min(10, int(data['relevance'])))
 
     book.save()
 

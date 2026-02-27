@@ -59,6 +59,11 @@ class PDFBook(models.Model):
         verbose_name="Tags",
         help_text="Kommagetrennte Tags"
     )
+    relevance = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Relevanz",
+        help_text="0 = nicht bewertet, 1-10 = Bewertung"
+    )
     url = models.URLField(
         max_length=2000,
         blank=True,

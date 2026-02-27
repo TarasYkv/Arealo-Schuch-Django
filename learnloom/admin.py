@@ -4,10 +4,11 @@ from .models import PDFBook, PDFNote, TranslationHighlight, Vocabulary, ReadingP
 
 @admin.register(PDFBook)
 class PDFBookAdmin(admin.ModelAdmin):
-    list_display = ['title', 'user', 'category', 'page_count', 'file_size_display', 'created_at', 'last_opened_at']
-    list_filter = ['category', 'created_at', 'user']
+    list_display = ['title', 'user', 'category', 'relevance', 'page_count', 'file_size_display', 'created_at', 'last_opened_at']
+    list_filter = ['category', 'relevance', 'created_at', 'user']
     search_fields = ['title', 'original_filename', 'tags', 'user__username']
     readonly_fields = ['id', 'file_size', 'page_count', 'created_at', 'updated_at']
+    list_editable = ['relevance']
     date_hierarchy = 'created_at'
 
     def file_size_display(self, obj):
