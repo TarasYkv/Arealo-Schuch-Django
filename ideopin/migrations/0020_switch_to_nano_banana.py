@@ -26,7 +26,7 @@ def revert_to_pro(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ideopin', '0019_fix_ideogram_fields'),
+        ('ideopin', '0019_alter_pinproject_pin_count'),
     ]
 
     operations = [
