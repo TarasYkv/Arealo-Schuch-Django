@@ -26,7 +26,7 @@ def revert_to_pro(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('blogprep', '0046_blogprepproject_diagram_code_and_more'),
+        ('blogprep', '0006_add_custom_update_days'),
     ]
 
     operations = [
