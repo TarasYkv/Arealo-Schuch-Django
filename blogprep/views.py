@@ -102,6 +102,8 @@ def log_generation(project, step, provider, model, prompt, response, success=Tru
 @login_required
 def project_list(request):
     """Zeigt alle BlogPrep-Projekte des Users"""
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    
     all_projects = list(BlogPrepProject.objects.filter(user=request.user).order_by('-created_at'))
     settings = get_user_settings(request.user)
 
@@ -152,11 +154,23 @@ def project_list(request):
     else:
         projects = all_projects
 
+    # Pagination - 20 Cards pro Seite
+    paginator = Paginator(projects, 20)
+    page = request.GET.get('page', 1)
+    try:
+        projects_page = paginator.page(page)
+    except PageNotAnInteger:
+        projects_page = paginator.page(1)
+    except EmptyPage:
+        projects_page = paginator.page(paginator.num_pages)
+
     context = {
-        'projects': projects,
+        'projects': projects_page,
         'settings': settings,
         'stats': stats,
-        'current_filter': filter_type
+        'current_filter': filter_type,
+        'paginator': paginator,
+        'page_obj': projects_page,
     }
     return render(request, 'blogprep/project_list.html', context)
 
