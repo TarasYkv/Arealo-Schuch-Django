@@ -31,7 +31,9 @@ from core.models import StorageLog
 @login_required
 def index(request):
     """Kachelübersicht aller PDFs des Users"""
-    books = PDFBook.objects.filter(user=request.user).select_related('summary')
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    
+    books = PDFBook.objects.filter(user=request.user).select_related('summary').order_by('-created_at')
 
     # Statistiken
     total_books = books.count()
@@ -48,12 +50,24 @@ def index(request):
                     all_tags.add(tag)
     all_tags = sorted(all_tags)
 
+    # Pagination - 20 Cards pro Seite
+    paginator = Paginator(books, 20)
+    page = request.GET.get('page', 1)
+    try:
+        books_page = paginator.page(page)
+    except PageNotAnInteger:
+        books_page = paginator.page(1)
+    except EmptyPage:
+        books_page = paginator.page(paginator.num_pages)
+
     context = {
-        'books': books,
+        'books': books_page,
         'total_books': total_books,
         'total_vocabulary': total_vocabulary,
         'learned_vocabulary': learned_vocabulary,
         'all_tags': all_tags,
+        'paginator': paginator,
+        'page_obj': books_page,
     }
     return render(request, 'learnloom/index.html', context)
 
