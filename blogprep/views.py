@@ -103,59 +103,47 @@ def log_generation(project, step, provider, model, prompt, response, success=Tru
 def project_list(request):
     """Zeigt alle BlogPrep-Projekte des Users"""
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-    
-    all_projects = list(BlogPrepProject.objects.filter(user=request.user).order_by('-created_at'))
-    settings = get_user_settings(request.user)
-
-    # Update-Status für alle Projekte berechnen (vor Filter, für Statistik)
+    from django.db.models import Count, Q
     from django.utils import timezone
+    
+    settings = get_user_settings(request.user)
     today = timezone.now().date()
     warning_days = settings.update_reminder_warning_days or 270
     critical_days = settings.update_reminder_critical_days or 365
-
-    outdated_count = 0
-    for project in all_projects:
-        project.update_status = None
-        project.age_days = 0
-        if project.status in ['completed', 'published']:
-            age = (today - project.created_at.date()).days
-            project.age_days = age
-            # Projektspezifische Einstellung hat Priorität
-            if project.custom_update_days:
-                if age >= project.custom_update_days:
-                    project.update_status = 'critical'
-                    outdated_count += 1
-            else:
-                # Globale Einstellungen verwenden
-                if age >= critical_days:
-                    project.update_status = 'critical'
-                    outdated_count += 1
-                elif age >= warning_days:
-                    project.update_status = 'warning'
-                    outdated_count += 1
-
-    # Statistiken (immer auf Basis aller Projekte)
+    
+    # Basis QuerySet
+    base_qs = BlogPrepProject.objects.filter(user=request.user)
+    
+    # Statistiken via DB-Aggregation (schnell!)
     stats = {
-        'total': len(all_projects),
-        'in_progress': len([p for p in all_projects if p.status not in ['completed', 'published']]),
-        'completed': len([p for p in all_projects if p.status == 'completed']),
-        'published': len([p for p in all_projects if p.status == 'published']),
-        'outdated': outdated_count
+        'total': base_qs.count(),
+        'in_progress': base_qs.exclude(status__in=['completed', 'published']).count(),
+        'completed': base_qs.filter(status='completed').count(),
+        'published': base_qs.filter(status='published').count(),
+        'outdated': 0  # Wird unten berechnet falls nötig
     }
 
-    # Filter anwenden
+    # Filter anwenden (als QuerySet, nicht Liste!)
     filter_type = request.GET.get('filter', 'all')
     if filter_type == 'exported':
-        projects = [p for p in all_projects if p.status in ['completed', 'published']]
+        projects_qs = base_qs.filter(status__in=['completed', 'published'])
     elif filter_type == 'not_exported':
-        projects = [p for p in all_projects if p.status not in ['completed', 'published']]
+        projects_qs = base_qs.exclude(status__in=['completed', 'published'])
     elif filter_type == 'outdated':
-        projects = [p for p in all_projects if p.update_status in ['warning', 'critical']]
+        # Für outdated müssen wir nach Datum filtern
+        from datetime import timedelta
+        critical_date = today - timedelta(days=critical_days)
+        projects_qs = base_qs.filter(
+            status__in=['completed', 'published'],
+            created_at__date__lte=critical_date
+        )
     else:
-        projects = all_projects
+        projects_qs = base_qs
+    
+    projects_qs = projects_qs.order_by('-created_at')
 
     # Pagination - 20 Cards pro Seite
-    paginator = Paginator(projects, 20)
+    paginator = Paginator(projects_qs, 20)
     page = request.GET.get('page', 1)
     try:
         projects_page = paginator.page(page)
@@ -163,6 +151,22 @@ def project_list(request):
         projects_page = paginator.page(1)
     except EmptyPage:
         projects_page = paginator.page(paginator.num_pages)
+    
+    # Update-Status nur für aktuelle Seite berechnen (max 20 Projekte)
+    for project in projects_page:
+        project.update_status = None
+        project.age_days = 0
+        if project.status in ['completed', 'published']:
+            age = (today - project.created_at.date()).days
+            project.age_days = age
+            if project.custom_update_days:
+                if age >= project.custom_update_days:
+                    project.update_status = 'critical'
+            else:
+                if age >= critical_days:
+                    project.update_status = 'critical'
+                elif age >= warning_days:
+                    project.update_status = 'warning'
 
     context = {
         'projects': projects_page,
