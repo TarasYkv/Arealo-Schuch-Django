@@ -262,12 +262,14 @@ def settings_view(request):
 
     # Text-Modell-Choices für Template
     model_choices = {
+        'deepseek': BlogPrepSettings.DEEPSEEK_MODEL_CHOICES,
         'openai': BlogPrepSettings.OPENAI_MODEL_CHOICES,
         'gemini': BlogPrepSettings.GEMINI_MODEL_CHOICES,
     }
 
     # Modell-Beschreibungen
     model_descriptions = {
+        'deepseek': BlogPrepSettings.DEEPSEEK_MODEL_DESCRIPTIONS,
         'openai': BlogPrepSettings.OPENAI_MODEL_DESCRIPTIONS,
         'gemini': BlogPrepSettings.GEMINI_MODEL_DESCRIPTIONS,
     }

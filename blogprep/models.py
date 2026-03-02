@@ -62,30 +62,39 @@ class BlogPrepSettings(models.Model):
 
     # KI-Einstellungen für Text
     AI_PROVIDER_CHOICES = [
+        ('deepseek', 'DeepSeek'),
         ('openai', 'OpenAI'),
         ('gemini', 'Google Gemini'),
     ]
     ai_provider = models.CharField(
         max_length=20,
         choices=AI_PROVIDER_CHOICES,
-        default='openai',
+        default='deepseek',
         verbose_name='KI-Anbieter (Text)'
     )
 
-    # OpenAI Modelle (Stand: Dezember 2025)
+    # DeepSeek Modelle (Stand: März 2026) - GÜNSTIGSTER ANBIETER!
+    DEEPSEEK_MODEL_CHOICES = [
+        ('deepseek-chat', 'DeepSeek V3.2'),
+        ('deepseek-reasoner', 'DeepSeek Reasoner'),
+    ]
+    DEEPSEEK_MODEL_DESCRIPTIONS = {
+        'deepseek-chat': 'Beste Preis-Leistung! $0.28/1M Input, $0.42/1M Output, 128K Context',
+        'deepseek-reasoner': 'Mit Thinking-Mode für komplexe Aufgaben',
+    }
+
+    # OpenAI Modelle (Stand: März 2026)
     OPENAI_MODEL_CHOICES = [
         ('gpt-4.1', 'GPT-4.1'),
         ('gpt-4.1-mini', 'GPT-4.1 Mini'),
-        ('gpt-4o', 'GPT-4o'),
+        ('gpt-4.1-nano', 'GPT-4.1 Nano'),
         ('gpt-4o-mini', 'GPT-4o Mini'),
-        ('o4-mini', 'o4-mini'),
     ]
     OPENAI_MODEL_DESCRIPTIONS = {
-        'gpt-4.1': 'Neuestes Modell, 1M Context, beste Coding-Performance',
-        'gpt-4.1-mini': 'Schnell & günstig, übertrifft GPT-4o, 83% günstiger',
-        'gpt-4o': 'Bewährt, multimodal, 128K Context',
-        'gpt-4o-mini': 'Günstig & schnell, ideal für einfache Aufgaben',
-        'o4-mini': 'Reasoning-Modell für komplexe Logik',
+        'gpt-4.1': 'Flagship, 1M Context, beste Qualität ($2/$8 per 1M)',
+        'gpt-4.1-mini': 'Gute Balance aus Preis & Qualität ($0.40/$1.60 per 1M)',
+        'gpt-4.1-nano': 'Ultra-günstig ($0.10/$0.40 per 1M)',
+        'gpt-4o-mini': 'Günstig & schnell ($0.15/$0.60 per 1M)',
     }
 
     # Gemini Modelle (Stand: Dezember 2025)
@@ -102,7 +111,7 @@ class BlogPrepSettings(models.Model):
 
     ai_model = models.CharField(
         max_length=50,
-        default='gpt-4o',
+        default='deepseek-chat',
         verbose_name='KI-Modell'
     )
 

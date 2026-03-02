@@ -62,8 +62,8 @@ class VideoService:
             self.provider = settings.ai_provider
             self.model = settings.ai_model
         else:
-            self.provider = 'openai'
-            self.model = 'gpt-4o'
+            self.provider = 'deepseek'
+            self.model = 'deepseek-chat'
 
         # Clients initialisieren
         self._init_clients()
@@ -71,10 +71,17 @@ class VideoService:
     def _init_clients(self):
         """Initialisiert die API-Clients basierend auf Provider"""
         self.openai_client = None
+        self.deepseek_client = None
         self.gemini_model = None
         self.anthropic_client = None
 
-        if self.provider == 'openai' and OPENAI_AVAILABLE and self.user.openai_api_key:
+        if self.provider == 'deepseek' and OPENAI_AVAILABLE and self.user.deepseek_api_key:
+            # DeepSeek nutzt OpenAI-kompatible API
+            self.deepseek_client = OpenAI(
+                api_key=self.user.deepseek_api_key,
+                base_url="https://api.deepseek.com"
+            )
+        elif self.provider == 'openai' and OPENAI_AVAILABLE and self.user.openai_api_key:
             self.openai_client = OpenAI(api_key=self.user.openai_api_key)
         elif self.provider == 'gemini' and GENAI_AVAILABLE and self.user.gemini_api_key:
             genai.configure(api_key=self.user.gemini_api_key)
@@ -87,7 +94,21 @@ class VideoService:
         start_time = time.time()
 
         try:
-            if self.provider == 'openai' and self.openai_client:
+            if self.provider == 'deepseek' and self.deepseek_client:
+                response = self.deepseek_client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=max_tokens,
+                    temperature=temperature
+                )
+                content = response.choices[0].message.content.strip()
+                tokens_in = response.usage.prompt_tokens if response.usage else 0
+                tokens_out = response.usage.completion_tokens if response.usage else 0
+
+            elif self.provider == 'openai' and self.openai_client:
                 response = self.openai_client.chat.completions.create(
                     model=self.model,
                     messages=[
