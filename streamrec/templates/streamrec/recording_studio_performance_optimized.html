@@ -5047,6 +5047,17 @@ class StreamRecorderOptimized {
         try {
             this.updateStatus('camera', 'Kamera wird gestartet...', 'info');
 
+            // 🔧 FIX: Alte Kamera stoppen bevor neue gestartet wird
+            const existingStream = this.streams.get('camera');
+            if (existingStream) {
+                console.log('🔄 Stoppe alte Kamera vor Wechsel...');
+                existingStream.getTracks().forEach(track => track.stop());
+                this.streams.delete('camera');
+                this.cleanupVideoElement('camera');
+                this.removeStreamThumbnail('camera');
+                // streamOrder behalten für Position!
+            }
+
             // Get selected camera device
             const cameraSelect = document.getElementById('cameraSelect');
             const videoDeviceId = cameraSelect ? cameraSelect.value : undefined;
