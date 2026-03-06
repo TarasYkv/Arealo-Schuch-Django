@@ -1810,7 +1810,12 @@ async function playBookAudio(bookId) {
 
         // Haben wir Abschnitt 0?
         if (!audioCache[bookId].sections[0]) {
-            throw new Error('Abschnitt 0 konnte nicht geladen werden');
+            // Bessere Fehlermeldung: zeige den echten Grund
+            if (firstAudioGenerated.status === 'rejected') {
+                const reason = firstAudioGenerated.reason?.message || firstAudioGenerated.reason || 'Unbekannter Fehler';
+                throw new Error(reason);
+            }
+            throw new Error('Audio konnte nicht generiert werden. Bitte erst eine Zusammenfassung erstellen.');
         }
 
         // Sofort abspielen!
