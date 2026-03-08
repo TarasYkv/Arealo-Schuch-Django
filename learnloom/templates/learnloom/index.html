@@ -175,7 +175,10 @@
     <!-- Filter -->
     <div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
         <span class="text-muted me-2"><i class="bi bi-funnel me-1"></i>Filter:</span>
-        <button class="btn btn-sm btn-primary filter-btn active" data-filter="active">
+        <button class="btn btn-sm btn-primary filter-btn active" data-filter="unrated">
+            <i class="bi bi-star me-1"></i>Unbewertet
+        </button>
+        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="active">
             <i class="bi bi-eye me-1"></i>Aktiv
         </button>
         <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="all">
@@ -236,7 +239,7 @@
     {% if books %}
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-4" id="booksGrid">
         {% for book in books %}
-        <div class="col book-col" data-status="{{ book.reading_status }}" data-tags="{{ book.tags|default:'' }}">
+        <div class="col book-col" data-status="{{ book.reading_status }}" data-tags="{{ book.tags|default:'' }}" data-relevance="{{ book.relevance }}">
             <div class="card h-100 book-card border-0 shadow-sm" data-book-id="{{ book.id }}">
                 <!-- Thumbnail -->
                 <div class="book-thumbnail position-relative">
@@ -1387,7 +1390,7 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         });
         this.classList.add('active');
         this.classList.remove('btn-outline-secondary', 'btn-outline-warning', 'btn-outline-success');
-        if (filter === 'all' || filter === 'active') this.classList.add('btn-primary');
+        if (filter === 'all' || filter === 'active' || filter === 'unrated') this.classList.add('btn-primary');
         else if (filter === 'reading') this.classList.add('btn-warning');
         else if (filter === 'completed') this.classList.add('btn-success');
         else this.classList.add('btn-secondary');
@@ -1398,7 +1401,7 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 });
 
 // Current filters state
-let currentStatusFilter = 'active';
+let currentStatusFilter = 'unrated';
 let currentTagFilter = 'all';
 
 function applyFilters() {
@@ -1408,6 +1411,9 @@ function applyFilters() {
             statusMatch = true;
         } else if (currentStatusFilter === 'active') {
             statusMatch = col.dataset.status !== 'completed';
+        } else if (currentStatusFilter === 'unrated') {
+            // Unbewertet: relevance == 0
+            statusMatch = col.dataset.relevance === '0';
         } else {
             statusMatch = col.dataset.status === currentStatusFilter;
         }
