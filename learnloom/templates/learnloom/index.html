@@ -172,38 +172,44 @@
         </div>
     </div>
 
-    <!-- Filter -->
+    <!-- Filter (serverseitig) -->
     <div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
         <span class="text-muted me-2"><i class="bi bi-funnel me-1"></i>Filter:</span>
-        <button class="btn btn-sm btn-primary filter-btn active" data-filter="unrated">
-            <i class="bi bi-star me-1"></i>Unbewertet
-        </button>
-        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="active">
-            <i class="bi bi-eye me-1"></i>Aktiv
-        </button>
-        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="all">
-            Alle <span class="badge bg-light text-dark ms-1">{{ books|length }}</span>
-        </button>
-        <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="unread">
-            <i class="bi bi-circle me-1"></i>Ungelesen
-        </button>
-        <button class="btn btn-sm btn-outline-warning filter-btn" data-filter="reading">
-            <i class="bi bi-book-half me-1"></i>Dabei
-        </button>
-        <button class="btn btn-sm btn-outline-success filter-btn" data-filter="completed">
-            <i class="bi bi-check-circle-fill me-1"></i>Gelesen
-        </button>
+        <a href="?filter=unrated{% if current_tag %}&tag={{ current_tag }}{% endif %}" 
+           class="btn btn-sm {% if current_filter == 'unrated' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-star me-1"></i>Unbewertet <span class="badge bg-light text-dark ms-1">{{ unrated_count }}</span>
+        </a>
+        <a href="?filter=active{% if current_tag %}&tag={{ current_tag }}{% endif %}" 
+           class="btn btn-sm {% if current_filter == 'active' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-eye me-1"></i>Bewertet <span class="badge bg-light text-dark ms-1">{{ rated_count }}</span>
+        </a>
+        <a href="?filter=all{% if current_tag %}&tag={{ current_tag }}{% endif %}" 
+           class="btn btn-sm {% if current_filter == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+            Alle <span class="badge bg-light text-dark ms-1">{{ total_books }}</span>
+        </a>
+        <a href="?filter=unread{% if current_tag %}&tag={{ current_tag }}{% endif %}" 
+           class="btn btn-sm {% if current_filter == 'unread' %}btn-outline-secondary{% else %}btn-outline-secondary{% endif %}">
+            <i class="bi bi-circle me-1"></i>Ungelesen <span class="badge bg-light text-dark ms-1">{{ unread_count }}</span>
+        </a>
+        <a href="?filter=reading{% if current_tag %}&tag={{ current_tag }}{% endif %}" 
+           class="btn btn-sm {% if current_filter == 'reading' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+            <i class="bi bi-book-half me-1"></i>Dabei <span class="badge bg-light text-dark ms-1">{{ reading_count }}</span>
+        </a>
+        <a href="?filter=completed{% if current_tag %}&tag={{ current_tag }}{% endif %}" 
+           class="btn btn-sm {% if current_filter == 'completed' %}btn-success{% else %}btn-outline-success{% endif %}">
+            <i class="bi bi-check-circle-fill me-1"></i>Gelesen <span class="badge bg-light text-dark ms-1">{{ completed_count }}</span>
+        </a>
         
         <!-- Tag Filter -->
         <div class="dropdown ms-3">
             <button class="btn btn-sm btn-outline-info dropdown-toggle" type="button" id="tagFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-tags me-1"></i>Tags
+                <i class="bi bi-tags me-1"></i>Tags{% if current_tag %}: {{ current_tag }}{% endif %}
             </button>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="tagFilterDropdown" style="max-height: 300px; overflow-y: auto;">
-                <li><a class="dropdown-item tag-filter-item active" href="#" data-tag="all"><i class="bi bi-grid me-2"></i>Alle Tags</a></li>
+                <li><a class="dropdown-item {% if not current_tag %}active{% endif %}" href="?filter={{ current_filter }}"><i class="bi bi-grid me-2"></i>Alle Tags</a></li>
                 <li><hr class="dropdown-divider"></li>
                 {% for tag in all_tags %}
-                <li><a class="dropdown-item tag-filter-item" href="#" data-tag="{{ tag }}"><i class="bi bi-tag me-2"></i>{{ tag }}</a></li>
+                <li><a class="dropdown-item {% if current_tag == tag %}active{% endif %}" href="?filter={{ current_filter }}&tag={{ tag }}"><i class="bi bi-tag me-2"></i>{{ tag }}</a></li>
                 {% empty %}
                 <li><span class="dropdown-item text-muted">Keine Tags vorhanden</span></li>
                 {% endfor %}
@@ -211,7 +217,18 @@
         </div>
         
         <!-- Active Tag Badge -->
-        <span id="activeTagBadge" class="badge bg-info d-none">
+        {% if current_tag %}
+        <span class="badge bg-info">
+            <i class="bi bi-tag me-1"></i>{{ current_tag }}
+            <a href="?filter={{ current_filter }}" class="btn-close btn-close-white ms-2" style="font-size: 0.6rem;"></a>
+        </span>
+        {% endif %}
+        
+        <!-- Gefilterte Anzahl -->
+        <span class="text-muted ms-auto">{{ filtered_count }} von {{ total_books }} PDFs</span>
+        
+        <!-- ALTE Active Tag Badge entfernt -->
+        <span id="activeTagBadge" class="d-none">
             <i class="bi bi-tag me-1"></i><span id="activeTagName"></span>
             <button type="button" class="btn-close btn-close-white ms-2" style="font-size: 0.6rem;" onclick="clearTagFilter()"></button>
         </span>
@@ -400,12 +417,12 @@
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page=1">
+                <a class="page-link" href="?page=1&filter={{ current_filter }}{% if current_tag %}&tag={{ current_tag }}{% endif %}">
                     <i class="bi bi-chevron-double-left"></i>
                 </a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&filter={{ current_filter }}{% if current_tag %}&tag={{ current_tag }}{% endif %}">
                     <i class="bi bi-chevron-left"></i>
                 </a>
             </li>
@@ -416,19 +433,19 @@
                 <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    <a class="page-link" href="?page={{ num }}&filter={{ current_filter }}{% if current_tag %}&tag={{ current_tag }}{% endif %}">{{ num }}</a>
                 </li>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&filter={{ current_filter }}{% if current_tag %}&tag={{ current_tag }}{% endif %}">
                     <i class="bi bi-chevron-right"></i>
                 </a>
             </li>
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&filter={{ current_filter }}{% if current_tag %}&tag={{ current_tag }}{% endif %}">
                     <i class="bi bi-chevron-double-right"></i>
                 </a>
             </li>
@@ -1373,121 +1390,26 @@ async function deleteBook(bookId) {
     }
 }
 
-// Filter Books
-document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const filter = this.dataset.filter;
-        
-        // Update current status filter BEFORE applying
-        currentStatusFilter = filter;
+// Filter Books - JETZT SERVERSEITIG (alte JS-Filterlogik entfernt)
+// Filter-Buttons sind jetzt Links mit URL-Parametern (?filter=xxx&tag=yyy)
+// Die Pagination funktioniert korrekt mit gefilterten Ergebnissen
 
-        // Update active button
-        document.querySelectorAll('.filter-btn').forEach(b => {
-            b.classList.remove('active', 'btn-primary', 'btn-secondary', 'btn-warning', 'btn-success');
-            b.classList.add('btn-outline-secondary');
-            if (b.dataset.filter === 'reading') b.classList.replace('btn-outline-secondary', 'btn-outline-warning');
-            if (b.dataset.filter === 'completed') b.classList.replace('btn-outline-secondary', 'btn-outline-success');
-        });
-        this.classList.add('active');
-        this.classList.remove('btn-outline-secondary', 'btn-outline-warning', 'btn-outline-success');
-        if (filter === 'all' || filter === 'active' || filter === 'unrated') this.classList.add('btn-primary');
-        else if (filter === 'reading') this.classList.add('btn-warning');
-        else if (filter === 'completed') this.classList.add('btn-success');
-        else this.classList.add('btn-secondary');
+// Tag Filter - JETZT SERVERSEITIG
+// Tag-Filter sind jetzt Links mit URL-Parametern (?filter=xxx&tag=yyy)
+// Alte JS-Filterlogik entfernt
 
-        // Filter books (respecting both status and tag filters)
-        applyFilters();
-    });
-});
-
-// Current filters state
-let currentStatusFilter = 'unrated';
-let currentTagFilter = 'all';
-
-function applyFilters() {
-    document.querySelectorAll('.book-col').forEach(col => {
-        let statusMatch;
-        if (currentStatusFilter === 'all') {
-            statusMatch = true;
-        } else if (currentStatusFilter === 'active') {
-            statusMatch = col.dataset.status !== 'completed';
-        } else if (currentStatusFilter === 'unrated') {
-            // Unbewertet: relevance == 0
-            statusMatch = col.dataset.relevance === '0';
-        } else {
-            statusMatch = col.dataset.status === currentStatusFilter;
-        }
-        const tags = col.dataset.tags.toLowerCase();
-        const tagMatch = currentTagFilter === 'all' || tags.includes(currentTagFilter.toLowerCase());
-
-        if (statusMatch && tagMatch) {
-            col.style.display = '';
-        } else {
-            col.style.display = 'none';
-        }
-    });
-}
-
-// Apply default filter on page load (hide completed)
-applyFilters();
-
-// Tag Filter
-document.querySelectorAll('.tag-filter-item').forEach(item => {
-    item.addEventListener('click', function(e) {
-        e.preventDefault();
-        const tag = this.dataset.tag;
-        currentTagFilter = tag;
-        
-        // Update active state
-        document.querySelectorAll('.tag-filter-item').forEach(i => i.classList.remove('active'));
-        this.classList.add('active');
-        
-        // Show/hide active tag badge
-        const badge = document.getElementById('activeTagBadge');
-        const tagName = document.getElementById('activeTagName');
-        if (tag === 'all') {
-            badge.classList.add('d-none');
-        } else {
-            badge.classList.remove('d-none');
-            tagName.textContent = tag;
-        }
-        
-        applyFilters();
-    });
-});
-
-// Click on tag badge in card to filter
+// Click on tag badge in card to filter (navigiert zur gefilterten URL)
 document.querySelectorAll('.tag-badge').forEach(badge => {
     badge.addEventListener('click', function(e) {
         e.stopPropagation();
         const tag = this.dataset.tag;
-        currentTagFilter = tag;
-        
-        // Update dropdown active state
-        document.querySelectorAll('.tag-filter-item').forEach(i => {
-            i.classList.remove('active');
-            if (i.dataset.tag === tag) i.classList.add('active');
-        });
-        
-        // Show active tag badge
-        const activeBadge = document.getElementById('activeTagBadge');
-        const tagName = document.getElementById('activeTagName');
-        activeBadge.classList.remove('d-none');
-        tagName.textContent = tag;
-        
-        applyFilters();
+        // Hole aktuellen Filter aus URL oder Default
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentFilter = urlParams.get('filter') || 'unrated';
+        // Navigiere zur gefilterten URL
+        window.location.href = `?filter=${currentFilter}&tag=${encodeURIComponent(tag)}`;
     });
 });
-
-function clearTagFilter() {
-    currentTagFilter = 'all';
-    document.getElementById('activeTagBadge').classList.add('d-none');
-    document.querySelectorAll('.tag-filter-item').forEach(i => {
-        i.classList.remove('active');
-        if (i.dataset.tag === 'all') i.classList.add('active');
-    });
-    applyFilters();
-}
 
 // ============================================================================
 // Reading List Functions

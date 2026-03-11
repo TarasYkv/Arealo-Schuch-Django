@@ -33,16 +33,24 @@ def index(request):
     """Kachelübersicht aller PDFs des Users"""
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
     
-    books = PDFBook.objects.filter(user=request.user).select_related('summary').order_by('-created_at')
+    # Basis-Queryset
+    all_books = PDFBook.objects.filter(user=request.user).select_related('summary').order_by('-created_at')
 
-    # Statistiken
-    total_books = books.count()
+    # Statistiken (immer über ALLE Bücher)
+    total_books = all_books.count()
     total_vocabulary = Vocabulary.objects.filter(user=request.user).count()
     learned_vocabulary = Vocabulary.objects.filter(user=request.user, is_learned=True).count()
+    
+    # Zähler für Filter-Badges
+    unrated_count = all_books.filter(relevance=0).count()
+    rated_count = all_books.filter(relevance__gt=0).count()
+    unread_count = all_books.filter(reading_status='unread').count()
+    reading_count = all_books.filter(reading_status='reading').count()
+    completed_count = all_books.filter(reading_status='completed').count()
 
-    # Alle einzigartigen Tags sammeln
+    # Alle einzigartigen Tags sammeln (über alle Bücher)
     all_tags = set()
-    for book in books:
+    for book in all_books:
         if book.tags:
             for tag in book.tags.split(','):
                 tag = tag.strip()
@@ -50,7 +58,31 @@ def index(request):
                     all_tags.add(tag)
     all_tags = sorted(all_tags)
 
-    # Pagination - 20 Cards pro Seite
+    # Filter aus URL-Parameter lesen (Default: unrated)
+    status_filter = request.GET.get('filter', 'unrated')
+    tag_filter = request.GET.get('tag', '')
+    
+    # Serverseitige Filterung anwenden
+    books = all_books
+    
+    if status_filter == 'unrated':
+        books = books.filter(relevance=0)
+    elif status_filter == 'active':
+        # Aktiv = bewertet (relevance > 0)
+        books = books.filter(relevance__gt=0)
+    elif status_filter == 'unread':
+        books = books.filter(reading_status='unread')
+    elif status_filter == 'reading':
+        books = books.filter(reading_status='reading')
+    elif status_filter == 'completed':
+        books = books.filter(reading_status='completed')
+    # 'all' = keine Filterung
+    
+    # Tag-Filter anwenden
+    if tag_filter and tag_filter != 'all':
+        books = books.filter(tags__icontains=tag_filter)
+
+    # Pagination - 20 Cards pro Seite (auf gefilterte Queryset!)
     paginator = Paginator(books, 20)
     page = request.GET.get('page', 1)
     try:
@@ -68,6 +100,16 @@ def index(request):
         'all_tags': all_tags,
         'paginator': paginator,
         'page_obj': books_page,
+        # Filter-Status für Template
+        'current_filter': status_filter,
+        'current_tag': tag_filter,
+        # Zähler für Filter-Badges
+        'unrated_count': unrated_count,
+        'rated_count': rated_count,
+        'unread_count': unread_count,
+        'reading_count': reading_count,
+        'completed_count': completed_count,
+        'filtered_count': books.count(),
     }
     return render(request, 'learnloom/index.html', context)
 
