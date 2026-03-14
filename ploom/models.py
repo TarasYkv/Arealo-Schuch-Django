@@ -131,6 +131,28 @@ class PLoomSettings(models.Model):
         blank=True,
         verbose_name="Standard-Tags"
     )
+    default_product_category = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Standard-Produktkategorie ID",
+        help_text="Shopify Taxonomy Category ID"
+    )
+    default_product_category_name = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Standard-Produktkategorie",
+        help_text="z.B. 'Haus & Garten > Pflanztöpfe'"
+    )
+    default_collection_id = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Standard-Collection ID"
+    )
+    default_collection_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Standard-Collection Name"
+    )
     image_generation_model = models.CharField(
         max_length=50,
         default='gemini-2.5-flash-image',

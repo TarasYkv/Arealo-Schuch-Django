@@ -150,6 +150,28 @@
                             {{ form.default_tags }}
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">Produktkategorie</label>
+                            {{ form.default_product_category }}
+                            <div class="input-group">
+                                {{ form.default_product_category_name }}
+                                <button type="button" class="btn btn-outline-secondary" id="btn-select-category">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Shopify Taxonomy Kategorie</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Collection</label>
+                            {{ form.default_collection_id }}
+                            <div class="input-group">
+                                {{ form.default_collection_name }}
+                                <button type="button" class="btn btn-outline-secondary" id="btn-select-collection">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Standard-Collection für neue Produkte</small>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Shopify Template Suffix</label>
                             {{ form.default_template_suffix }}
                         </div>
@@ -158,8 +180,32 @@
                             {{ form.komplettset_description }}
                         </div>
                         <div class="mb-0">
-                            <label class="form-label">Standard-Metafelder (JSON)</label>
+                            <label class="form-label">Standard-Metafelder</label>
                             {{ form.default_metafields_config }}
+                            <div id="metafields-ui" class="mt-2">
+                                <div id="metafields-rows"></div>
+                                <div class="row g-2 mt-1">
+                                    <div class="col-5">
+                                        <div class="input-group input-group-sm">
+                                            <select class="form-select" id="metafield-def-select">
+                                                <option value="">-- Metafeld wahlen --</option>
+                                            </select>
+                                            <button type="button" class="btn btn-outline-secondary" id="btn-load-metafield-defs" title="Laden">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-5">
+                                        <input type="text" class="form-control form-control-sm" id="new-metafield-value" placeholder="Wert">
+                                    </div>
+                                    <div class="col-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="addMetafield()">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">Metafelder die bei jedem neuen Workflow-Produkt gesetzt werden</small>
                         </div>
                     </div>
                 </div>
@@ -304,6 +350,140 @@ document.getElementById('reusable-image-form').addEventListener('submit', functi
         } else {
             alert('Fehler: ' + JSON.stringify(data.errors || ''));
         }
+    });
+});
+
+// Kategorie-Auswahl
+document.getElementById('btn-select-category').addEventListener('click', function() {
+    fetch('{% url "ploom:api_shopify_categories" %}')
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return alert('Fehler beim Laden der Kategorien');
+        const categories = data.categories || [];
+        let html = '<div class="list-group" style="max-height:400px;overflow-y:auto">';
+        categories.forEach(c => {
+            html += `<button type="button" class="list-group-item list-group-item-action" onclick="selectCategory('${c.id}','${(c.full_name||c.name).replace(/'/g,"\\'")}')">
+                ${c.full_name || c.name}</button>`;
+        });
+        html += '</div>';
+        showPickerModal('Produktkategorie wählen', html);
+    });
+});
+
+function selectCategory(id, name) {
+    document.getElementById('id_default_product_category').value = id;
+    document.getElementById('id_default_product_category_name').value = name;
+    closePickerModal();
+}
+
+// Collection-Auswahl
+document.getElementById('btn-select-collection').addEventListener('click', function() {
+    fetch('{% url "ploom:api_shopify_collections" %}')
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return alert('Fehler beim Laden der Collections');
+        const collections = data.collections || [];
+        let html = '<div class="list-group" style="max-height:400px;overflow-y:auto">';
+        collections.forEach(c => {
+            html += `<button type="button" class="list-group-item list-group-item-action" onclick="selectCollection('${c.id}','${(c.title||c.name).replace(/'/g,"\\'")}')">
+                ${c.title || c.name}</button>`;
+        });
+        html += '</div>';
+        showPickerModal('Collection wählen', html);
+    });
+});
+
+function selectCollection(id, name) {
+    document.getElementById('id_default_collection_id').value = id;
+    document.getElementById('id_default_collection_name').value = name;
+    closePickerModal();
+}
+
+// Picker-Modal Helpers
+function showPickerModal(title, content) {
+    let modal = document.getElementById('picker-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'picker-modal';
+        modal.className = 'modal fade';
+        modal.innerHTML = `<div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"></div></div></div>`;
+        document.body.appendChild(modal);
+    }
+    modal.querySelector('.modal-title').textContent = title;
+    modal.querySelector('.modal-body').innerHTML = content;
+    new bootstrap.Modal(modal).show();
+}
+
+function closePickerModal() {
+    const modal = document.getElementById('picker-modal');
+    if (modal) bootstrap.Modal.getInstance(modal)?.hide();
+}
+
+// Metafelder UI
+let metafieldsData = {};
+try {
+    const rawVal = document.getElementById('id_default_metafields_config').value;
+    if (rawVal) metafieldsData = JSON.parse(rawVal);
+} catch(e) {}
+renderMetafields();
+
+function renderMetafields() {
+    const container = document.getElementById('metafields-rows');
+    container.innerHTML = '';
+    for (const [key, value] of Object.entries(metafieldsData)) {
+        const row = document.createElement('div');
+        row.className = 'row g-2 mb-1 align-items-center';
+        row.innerHTML = `
+            <div class="col-5"><input type="text" class="form-control form-control-sm" value="${key}" readonly></div>
+            <div class="col-5"><input type="text" class="form-control form-control-sm" value="${value}" onchange="updateMetafield('${key}', this.value)"></div>
+            <div class="col-2"><button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeMetafield('${key}')"><i class="bi bi-trash"></i></button></div>`;
+        container.appendChild(row);
+    }
+    syncMetafieldsJson();
+}
+
+function addMetafield() {
+    const select = document.getElementById('metafield-def-select');
+    const key = select.value || prompt('Metafeld-Key eingeben (z.B. custom.material):');
+    const value = document.getElementById('new-metafield-value').value;
+    if (!key) return;
+    metafieldsData[key] = value;
+    document.getElementById('new-metafield-value').value = '';
+    renderMetafields();
+}
+
+function updateMetafield(key, value) {
+    metafieldsData[key] = value;
+    syncMetafieldsJson();
+}
+
+function removeMetafield(key) {
+    delete metafieldsData[key];
+    renderMetafields();
+}
+
+function syncMetafieldsJson() {
+    document.getElementById('id_default_metafields_config').value = JSON.stringify(metafieldsData);
+}
+
+// Metafeld-Definitionen laden
+document.getElementById('btn-load-metafield-defs').addEventListener('click', function() {
+    fetch('{% url "ploom:api_shopify_metafields" %}')
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+        const select = document.getElementById('metafield-def-select');
+        select.innerHTML = '<option value="">-- Metafeld wahlen --</option>';
+        (data.definitions || []).forEach(d => {
+            const key = d.namespace + '.' + d.key;
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = `${key} (${d.type || ''})`;
+            select.appendChild(opt);
+        });
     });
 });
 

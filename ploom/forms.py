@@ -16,6 +16,8 @@ class PLoomSettingsForm(forms.ModelForm):
             'default_compare_price_topf', 'default_compare_price_komplett',
             'default_metafields_config', 'default_template_suffix',
             'default_vendor', 'default_product_type', 'default_tags',
+            'default_product_category', 'default_product_category_name',
+            'default_collection_id', 'default_collection_name',
             'image_generation_model', 'komplettset_description',
         ]
         widgets = {
@@ -36,6 +38,10 @@ class PLoomSettingsForm(forms.ModelForm):
             'default_vendor': forms.TextInput(attrs={'class': 'form-control'}),
             'default_product_type': forms.TextInput(attrs={'class': 'form-control'}),
             'default_tags': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'default_product_category': forms.HiddenInput(),
+            'default_product_category_name': forms.TextInput(attrs={'class': 'form-control', 'readonly': True, 'placeholder': 'Kategorie auswählen...'}),
+            'default_collection_id': forms.HiddenInput(),
+            'default_collection_name': forms.TextInput(attrs={'class': 'form-control', 'readonly': True, 'placeholder': 'Collection auswählen...'}),
             'image_generation_model': forms.Select(attrs={'class': 'form-select'}),
             'komplettset_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'z.B. Bio-Erde + Samen + Anleitung + Baumwollbeutel'}),
         }
@@ -79,10 +85,8 @@ class PLoomSettingsForm(forms.ModelForm):
             choices=image_model_choices
         )
 
-        # Metafelder als Textarea
-        self.fields['default_metafields_config'].widget = forms.Textarea(
-            attrs={'class': 'form-control font-monospace', 'rows': 4, 'placeholder': '{"key": "value"}'}
-        )
+        # Metafelder als Hidden (UI wird per JS generiert)
+        self.fields['default_metafields_config'].widget = forms.HiddenInput()
 
 
 class WorkflowStartForm(forms.Form):
