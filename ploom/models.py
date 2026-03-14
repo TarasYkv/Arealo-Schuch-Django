@@ -540,7 +540,7 @@ class PLoomProductImage(models.Model):
     @property
     def image_url(self):
         """Gibt die Bild-URL zurück, je nach Quelle"""
-        if self.source == 'upload' and self.image:
+        if self.source in ('upload', 'gemini_workflow') and self.image:
             return self.image.url
         elif self.source == 'imageforge_generation' and self.imageforge_generation:
             return self.imageforge_generation.generated_image.url if self.imageforge_generation.generated_image else None

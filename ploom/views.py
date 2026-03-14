@@ -1804,6 +1804,7 @@ def api_workflow_create_product(request, session_id):
                 compare_at_price=compare_topf,
                 weight=product.weight,
                 weight_unit=product.weight_unit,
+                inventory_quantity=100,
                 position=0,
             )
 
@@ -1816,6 +1817,7 @@ def api_workflow_create_product(request, session_id):
                 compare_at_price=compare_komplett,
                 weight=product.weight,
                 weight_unit=product.weight_unit,
+                inventory_quantity=100,
                 position=1,
             )
 
