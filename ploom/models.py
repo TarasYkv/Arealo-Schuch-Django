@@ -897,6 +897,12 @@ class PLoomWorkflowSession(models.Model):
     selected_scenes = models.JSONField(default=list, blank=True, verbose_name="Ausgewählte Szenen")
 
     # Step 3: Bilder
+    base_pot_image_path = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Basis-Topf Bildpfad",
+        help_text="Pfad zum generierten Basis-Topf-Bild (wird als Referenz für alle Szenen verwendet)"
+    )
     generated_images = models.JSONField(
         default=list,
         blank=True,

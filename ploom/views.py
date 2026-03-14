@@ -1628,8 +1628,46 @@ def api_workflow_save_scenes(request, session_id):
 
 @login_required
 @require_POST
+def api_workflow_generate_base_pot(request, session_id):
+    """Generiert (oder regeneriert) das Basis-Topf-Referenzbild"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    try:
+        from .services.image_service import PLoomImageService
+        img_service = PLoomImageService(request.user)
+
+        result = img_service.generate_base_pot(
+            engraving_text=session.selected_text,
+        )
+
+        if result.get('success') and result.get('image_data'):
+            base_filename = f"basistopf_{session.keyword}"
+            base_filename = "".join(c for c in base_filename if c.isalnum() or c in '_-')
+            base_path = img_service.save_generated_image(result['image_data'], base_filename)
+            session.base_pot_image_path = base_path
+            session.save(update_fields=['base_pot_image_path', 'updated_at'])
+
+            return JsonResponse({
+                'success': True,
+                'image_path': base_path,
+            })
+        else:
+            return JsonResponse({'success': False, 'error': result.get('error', 'Basis-Topf Generierung fehlgeschlagen')})
+
+    except Exception as e:
+        logger.error(f"Base pot generation failed: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
 def api_workflow_generate_image(request, session_id):
-    """Generiert EIN Bild für eine Szene + Variante"""
+    """Generiert EIN Bild für eine Szene + Variante.
+
+    2-Schritt-Prozess:
+    1. Wenn noch kein Basis-Topf existiert, wird dieser zuerst generiert
+    2. Dann wird das Szenen-Bild mit dem Basis-Topf als Referenz generiert
+    """
     session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
 
     data = json.loads(request.body)
@@ -1641,10 +1679,29 @@ def api_workflow_generate_image(request, session_id):
         from .services.image_service import PLoomImageService
         img_service = PLoomImageService(request.user)
 
+        # Schritt 1: Basis-Topf generieren (einmal pro Session)
+        if not session.base_pot_image_path:
+            logger.info(f"Generating base pot for session {session_id}")
+            base_result = img_service.generate_base_pot(
+                engraving_text=session.selected_text,
+            )
+            if base_result.get('success') and base_result.get('image_data'):
+                base_filename = f"basistopf_{session.keyword}"
+                base_filename = "".join(c for c in base_filename if c.isalnum() or c in '_-')
+                base_path = img_service.save_generated_image(base_result['image_data'], base_filename)
+                session.base_pot_image_path = base_path
+                session.save(update_fields=['base_pot_image_path', 'updated_at'])
+                logger.info(f"Base pot saved: {base_path}")
+            else:
+                logger.warning(f"Base pot generation failed: {base_result.get('error')}")
+                # Weiter ohne Basis-Topf (Fallback)
+
+        # Schritt 2: Szenen-Bild generieren mit Basis-Topf als Referenz
         result = img_service.generate_pot_image(
             engraving_text=session.selected_text,
             scene_description=scene_description,
             variant_type=variant_type,
+            base_pot_image_path=session.base_pot_image_path or None,
         )
 
         if result.get('success') and result.get('image_data'):
@@ -1677,6 +1734,7 @@ def api_workflow_generate_image(request, session_id):
                 'success': True,
                 'image_path': image_path,
                 'image_url': image_url,
+                'has_base_pot': bool(session.base_pot_image_path),
             })
         else:
             return JsonResponse({'success': False, 'error': result.get('error', 'Bildgenerierung fehlgeschlagen')})

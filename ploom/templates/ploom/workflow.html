@@ -206,15 +206,44 @@
                 </button>
             </div>
             <div class="card-body">
+                <!-- Basis-Topf Referenz -->
+                <div class="mb-4 p-3 border rounded" id="base-pot-section">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><i class="bi bi-flower1 me-1"></i>Basis-Topf (Referenzbild)</h6>
+                        <button class="btn btn-outline-primary btn-sm" onclick="regenerateBasePot()" id="btn-regen-base">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Neu generieren
+                        </button>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Wird automatisch beim ersten Bild erstellt und als Referenz fur alle weiteren Szenen verwendet.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-3 col-6" id="base-pot-preview">
+                            <div class="image-card">
+                                <div class="image-placeholder" id="base-pot-placeholder">
+                                    <div class="text-center">
+                                        <i class="bi bi-flower1 display-6"></i>
+                                        <br><small>Wird automatisch erstellt</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Bild-Typ Auswahl -->
                 <div class="mb-4 p-3 bg-light rounded">
                     <h6 class="mb-3"><i class="bi bi-grid-3x3-gap me-1"></i>Bild-Typen auswahlen</h6>
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <p class="fw-bold text-muted small mb-2">Spezial</p>
+                            <div id="image-types-special"></div>
+                        </div>
+                        <div class="col-md-4">
                             <p class="fw-bold text-muted small mb-2">Mit Menschen</p>
                             <div id="image-types-people"></div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <p class="fw-bold text-muted small mb-2">Ohne Menschen</p>
                             <div id="image-types-no-people"></div>
                         </div>
@@ -423,7 +452,8 @@ let selectedScenes = {{ session.selected_scenes|safe|default:"[]" }};
 let generatedImages = {{ session.generated_images|safe|default:"[]" }};
 let altTexts = {{ session.auto_alt_texts|safe|default:"[]" }};
 let selectedReusableIds = [];
-let selectedImageTypes = ['lifestyle', 'topf_nur', 'nahaufnahme']; // Standard-Auswahl
+let selectedImageTypes = ['design', 'lifestyle', 'topf_nur', 'nahaufnahme']; // Standard-Auswahl
+let basePotImagePath = '{{ session.base_pot_image_path|default:""|escapejs }}';
 
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', function() {
@@ -441,15 +471,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // === IMAGE TYPE SELECTION ===
 function buildImageTypeCheckboxes() {
+    const specialContainer = document.getElementById('image-types-special');
     const peopleContainer = document.getElementById('image-types-people');
     const noPeopleContainer = document.getElementById('image-types-no-people');
-    if (!peopleContainer || !noPeopleContainer) return;
+    if (!peopleContainer || !noPeopleContainer || !specialContainer) return;
 
+    specialContainer.innerHTML = '';
     peopleContainer.innerHTML = '';
     noPeopleContainer.innerHTML = '';
 
     for (const [key, config] of Object.entries(IMAGE_TYPES)) {
-        const container = config.category === 'Mit Menschen' ? peopleContainer : noPeopleContainer;
+        let container;
+        if (config.category === 'Spezial') container = specialContainer;
+        else if (config.category === 'Mit Menschen') container = peopleContainer;
+        else container = noPeopleContainer;
+
         const checked = selectedImageTypes.includes(key) ? 'checked' : '';
         const div = document.createElement('div');
         div.className = 'form-check mb-1';
@@ -459,6 +495,9 @@ function buildImageTypeCheckboxes() {
             <label class="form-check-label small" for="imgtype-${key}">${config.label}</label>`;
         container.appendChild(div);
     }
+
+    // Basis-Topf Vorschau aktualisieren
+    updateBasePotPreview();
 }
 
 function toggleImageType(key, checked) {
@@ -468,6 +507,50 @@ function toggleImageType(key, checked) {
         selectedImageTypes = selectedImageTypes.filter(t => t !== key);
     }
     buildImagesGrid();
+}
+
+function updateBasePotPreview() {
+    const container = document.getElementById('base-pot-preview');
+    if (!container) return;
+    if (basePotImagePath) {
+        container.innerHTML = `
+            <div class="image-card selected">
+                <img src="${MEDIA_URL}${basePotImagePath}" alt="Basis-Topf" style="aspect-ratio:1;object-fit:cover;width:100%;">
+                <div class="p-2"><small class="text-success"><i class="bi bi-check-circle me-1"></i>Referenz aktiv</small></div>
+            </div>`;
+    }
+}
+
+async function regenerateBasePot() {
+    const btn = document.getElementById('btn-regen-base');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generiere...';
+
+    const placeholder = document.getElementById('base-pot-placeholder');
+    if (placeholder) {
+        placeholder.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
+    }
+
+    try {
+        // Base pot wird beim nächsten generate-image automatisch erstellt
+        // Wir setzen den Pfad zurück und generieren ein Dummy-Bild
+        const resp = await fetch(`/ploom/api/workflow/${SESSION_ID}/generate-base-pot/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+        });
+        const data = await resp.json();
+        if (data.success) {
+            basePotImagePath = data.image_path;
+            updateBasePotPreview();
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannt'));
+        }
+    } catch (e) {
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Neu generieren';
 }
 
 // === STEP NAVIGATION ===

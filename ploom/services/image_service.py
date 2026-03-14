@@ -1,6 +1,10 @@
 """
 P-Loom Image Service für Gravur-Workflow Bildgenerierung
 Wrapper um GeminiImageService mit spezialisierten Prompts für Blumentopf-Gravuren
+
+2-Schritt-Prozess für konsistente Bilder:
+1. Basis-Topf generieren (Topf + Gravur auf neutralem Hintergrund)
+2. Szenen-Bilder generieren mit dem Basis-Topf als Referenz
 """
 import base64
 import logging
@@ -15,6 +19,13 @@ logger = logging.getLogger(__name__)
 
 # Verfügbare Bild-Typen für den Workflow
 IMAGE_TYPES = {
+    # Spezial-Typen
+    'design': {
+        'label': 'Design (weißer Hintergrund)',
+        'category': 'Spezial',
+        'prompt': 'Nur der Gravur-Text auf reinweißem Hintergrund. Elegante Typografie, kein Topf, kein Hintergrund, nur der Text. Zentriert, gut lesbar, hohe Auflösung.',
+        'is_design_only': True,
+    },
     # Mit Menschen
     'lifestyle': {
         'label': 'Lifestyle',
@@ -96,7 +107,12 @@ IMAGE_TYPES = {
 
 
 class PLoomImageService:
-    """Service für Gravur-Workflow Bildgenerierung"""
+    """Service für Gravur-Workflow Bildgenerierung
+
+    2-Schritt-Prozess:
+    1. generate_base_pot() — Topf + Gravur auf neutralem Hintergrund (wird als Referenz gespeichert)
+    2. generate_pot_image() — Szene mit dem Referenz-Topf
+    """
 
     def __init__(self, user):
         self.user = user
@@ -111,14 +127,39 @@ class PLoomImageService:
             if api_key:
                 self.gemini_service = GeminiImageService(api_key=api_key)
 
-    def generate_pot_image(self, engraving_text: str, scene_description: str, variant_type: str = 'komplett') -> dict:
-        """
-        Generiert ein Blumentopf-Produktbild mit Gravur.
+    def _get_pot_description(self):
+        """Gibt die Topf-Beschreibung aus den Settings zurück"""
+        pot_desc = 'runder Keramik-Blumentopf, cremeweiß, matte Oberfläche, ca. 14cm Durchmesser, 12cm hoch'
+        if self.settings and self.settings.pot_description:
+            pot_desc = self.settings.pot_description
+        return pot_desc
 
-        Args:
-            engraving_text: Der Gravur-Text auf dem Topf
-            scene_description: Beschreibung der Szene/Hintergrund
-            variant_type: Bild-Typ aus IMAGE_TYPES
+    def _get_engraving_style(self):
+        """Gibt den Gravur-Stil aus den Settings zurück"""
+        style = 'elegante Schreibschrift'
+        if self.settings and self.settings.engraving_style:
+            style = self.settings.engraving_style
+        return style
+
+    def _get_model(self):
+        """Gibt das Bildgenerierungs-Modell zurück"""
+        if self.settings and self.settings.image_generation_model:
+            return self.settings.image_generation_model
+        return None
+
+    def _get_reference_image(self):
+        """Gibt den Pfad zum Settings-Referenzbild zurück"""
+        if self.settings and self.settings.reference_image:
+            try:
+                return self.settings.reference_image.path
+            except Exception:
+                pass
+        return None
+
+    def generate_base_pot(self, engraving_text: str) -> dict:
+        """
+        SCHRITT 1: Generiert den Basis-Topf mit Gravur auf neutralem Hintergrund.
+        Dieses Bild dient als Referenz für alle weiteren Szenen-Bilder.
 
         Returns:
             dict mit 'success', 'image_data' (base64) oder 'error'
@@ -126,58 +167,144 @@ class PLoomImageService:
         if not self.gemini_service:
             return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
 
-        # Gravur-Stil aus Settings
-        engraving_style = 'elegante Schreibschrift'
-        if self.settings and self.settings.engraving_style:
-            engraving_style = self.settings.engraving_style
-
-        # Topf-Beschreibung aus Settings (für Konsistenz über alle Bilder)
-        pot_desc = 'runder Keramik-Blumentopf, cremeweiß, matte Oberfläche, ca. 14cm Durchmesser, 12cm hoch'
-        if self.settings and self.settings.pot_description:
-            pot_desc = self.settings.pot_description
-
-        # Buchstabiere den Gravur-Text für Genauigkeit
+        pot_desc = self._get_pot_description()
+        engraving_style = self._get_engraving_style()
         spelled_text = spell_out_text(engraving_text)
 
-        # Basis-Topf-Beschreibung (identisch für ALLE Bilder → Konsistenz)
-        pot_identity = (
-            f"WICHTIG - Der Blumentopf muss auf JEDEM Bild IDENTISCH aussehen: "
-            f"{pot_desc}. "
-            f"Auf dem Topf ist in {engraving_style} die Gravur {spelled_text} eingraviert. "
-            f"Die Gravur ist in den Ton eingeritzt/eingraviert (nicht aufgemalt). "
-            f"Der Topf ist ein kleiner Blumentopf — im Verhältnis zu einer erwachsenen Person "
-            f"passt er bequem in eine Hand oder auf eine Handfläche."
+        prompt = (
+            f"Erstelle ein professionelles Produktfoto eines einzelnen Blumentopfs auf reinweißem Hintergrund. "
+            f"\n\nDER TOPF: {pot_desc}. "
+            f"\n\nDIE GRAVUR: Auf der Vorderseite des Topfs ist in {engraving_style} der Text {spelled_text} eingraviert. "
+            f"Die Gravur ist in den Ton eingeritzt (nicht aufgemalt, nicht aufgedruckt). "
+            f"Die Buchstaben sind leicht vertieft und heben sich durch Licht/Schatten vom Topf ab. "
+            f"Der Text '{engraving_text}' muss EXAKT und vollständig lesbar sein. "
+            f"\n\nFOTO-STIL: Reinweißer Hintergrund, professionelle Studio-Beleuchtung, "
+            f"leichter Schatten unter dem Topf, kein anderes Objekt im Bild. "
+            f"Frontalansicht, Gravur direkt zur Kamera. Quadratisches Format."
         )
 
-        # Szenen-Prompt aus IMAGE_TYPES
-        image_type_config = IMAGE_TYPES.get(variant_type)
-        if image_type_config:
-            scene_prompt = image_type_config['prompt']
-        else:
-            scene_prompt = scene_description
+        try:
+            result = self.gemini_service.generate_image(
+                prompt=prompt,
+                reference_image=self._get_reference_image(),
+                width=1024,
+                height=1024,
+                model=self._get_model(),
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Base pot generation failed: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def generate_design_image(self, engraving_text: str) -> dict:
+        """
+        Generiert nur den Gravur-Text auf weißem Hintergrund (für Download).
+
+        Returns:
+            dict mit 'success', 'image_data' (base64) oder 'error'
+        """
+        if not self.gemini_service:
+            return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
+
+        engraving_style = self._get_engraving_style()
+        spelled_text = spell_out_text(engraving_text)
 
         prompt = (
-            f"{pot_identity} "
-            f"\n\nSzene: {scene_prompt} "
-            f"\n\nSzenen-Kontext: {scene_description}. "
-            f"\n\nBildanforderungen: Professionelles Produktfoto, hohe Qualität, "
-            f"professionelle Beleuchtung, warme einladende Atmosphäre. "
-            f"Die Gravur '{engraving_text}' muss klar lesbar sein. "
-            f"Quadratisches Format."
+            f"Erstelle ein Bild mit NUR Text auf reinweißem Hintergrund. "
+            f"Der Text lautet: {spelled_text}. "
+            f"Schriftstil: {engraving_style}. "
+            f"Der Text ist zentriert, elegant, groß und gut lesbar. "
+            f"Kein Topf, keine Dekoration, nur der Text '{engraving_text}' auf weißem Hintergrund. "
+            f"Quadratisches Format, hohe Auflösung."
         )
 
-        # Referenzbild aus Settings
-        reference_image = None
-        if self.settings and self.settings.reference_image:
-            try:
-                reference_image = self.settings.reference_image.path
-            except Exception:
-                pass
+        try:
+            result = self.gemini_service.generate_image(
+                prompt=prompt,
+                width=1024,
+                height=1024,
+                model=self._get_model(),
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Design image generation failed: {e}")
+            return {'success': False, 'error': str(e)}
 
-        # Modell aus Settings
-        model = None
-        if self.settings and self.settings.image_generation_model:
-            model = self.settings.image_generation_model
+    def generate_pot_image(self, engraving_text: str, scene_description: str,
+                           variant_type: str = 'komplett', base_pot_image_path: str = None) -> dict:
+        """
+        SCHRITT 2: Generiert ein Szenen-Bild mit dem Topf.
+        Verwendet das Basis-Topf-Bild als Referenz für Konsistenz.
+
+        Args:
+            engraving_text: Der Gravur-Text auf dem Topf
+            scene_description: Beschreibung der Szene/Hintergrund
+            variant_type: Bild-Typ aus IMAGE_TYPES
+            base_pot_image_path: Pfad zum Basis-Topf-Bild (für Referenz)
+
+        Returns:
+            dict mit 'success', 'image_data' (base64) oder 'error'
+        """
+        if not self.gemini_service:
+            return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
+
+        # Design-only Typ
+        image_type_config = IMAGE_TYPES.get(variant_type, {})
+        if image_type_config.get('is_design_only'):
+            return self.generate_design_image(engraving_text)
+
+        pot_desc = self._get_pot_description()
+        engraving_style = self._get_engraving_style()
+        spelled_text = spell_out_text(engraving_text)
+
+        # Szenen-Prompt
+        scene_prompt = image_type_config.get('prompt', scene_description) if image_type_config else scene_description
+
+        # Referenzbild: Basis-Topf hat Priorität, dann Settings-Referenzbild
+        reference_image = None
+        if base_pot_image_path:
+            from django.conf import settings as django_settings
+            full_path = os.path.join(django_settings.MEDIA_ROOT, base_pot_image_path)
+            if os.path.exists(full_path):
+                reference_image = full_path
+                logger.info(f"Using base pot as reference: {full_path}")
+
+        if not reference_image:
+            reference_image = self._get_reference_image()
+
+        # Prompt mit Referenz auf Basis-Topf
+        if base_pot_image_path:
+            prompt = (
+                f"Erstelle ein Produktfoto. Das Referenzbild zeigt den EXAKTEN Blumentopf, "
+                f"den du in der neuen Szene verwenden sollst. "
+                f"Übernimm den Topf GENAU so wie er im Referenzbild aussieht — "
+                f"gleiche Form, Farbe, Größe, Gravur. Verändere den Topf NICHT. "
+                f"\n\nDer Topf hat die Gravur '{engraving_text}' in {engraving_style}. "
+                f"Die Gravur muss EXAKT wie im Referenzbild aussehen. "
+                f"\n\nGrößenverhältnis: Der Topf ist klein, ca. 14cm hoch — "
+                f"passt bequem in eine Erwachsenen-Hand. "
+                f"\n\nNEUE SZENE: {scene_prompt} "
+                f"\n\nSzenen-Kontext: {scene_description}. "
+                f"\n\nBildanforderungen: Professionelles Produktfoto, hohe Qualität, "
+                f"professionelle Beleuchtung, warme Atmosphäre. "
+                f"Die Gravur '{engraving_text}' muss klar lesbar sein. "
+                f"Quadratisches Format."
+            )
+        else:
+            # Fallback ohne Basis-Topf (wie bisher)
+            prompt = (
+                f"WICHTIG - Der Blumentopf muss auf JEDEM Bild IDENTISCH aussehen: "
+                f"{pot_desc}. "
+                f"Auf dem Topf ist in {engraving_style} die Gravur {spelled_text} eingraviert. "
+                f"Die Gravur ist in den Ton eingeritzt (nicht aufgemalt). "
+                f"Der Topf ist ein kleiner Blumentopf — passt bequem in eine Hand. "
+                f"\n\nSzene: {scene_prompt} "
+                f"\n\nSzenen-Kontext: {scene_description}. "
+                f"\n\nBildanforderungen: Professionelles Produktfoto, hohe Qualität, "
+                f"professionelle Beleuchtung, warme Atmosphäre. "
+                f"Die Gravur '{engraving_text}' muss klar lesbar sein. "
+                f"Quadratisches Format."
+            )
 
         try:
             result = self.gemini_service.generate_image(
@@ -185,7 +312,7 @@ class PLoomImageService:
                 reference_image=reference_image,
                 width=1024,
                 height=1024,
-                model=model,
+                model=self._get_model(),
             )
             return result
         except Exception as e:
