@@ -415,3 +415,120 @@ Achte besonders auf:
                 logger.error(f"Could not parse all SEO JSON: {result}")
                 return None
         return None
+
+    def generate_engraving_suggestions(self, keyword: str, count: int = 12) -> list:
+        """Generiert kreative Gravur-Text Vorschläge für Blumentöpfe"""
+        system_prompt = """Du bist Spezialist für personalisierte Gravur-Texte auf Blumentöpfen.
+Generiere kreative, emotionale Gravur-Texte die auf einen Blumentopf graviert werden.
+
+Regeln:
+- Kurz und prägnant (max 5 Worte pro Text)
+- Emotional und persönlich
+- Passend für Gravur auf Keramik
+- Mix aus verschiedenen Stilen (romantisch, humorvoll, inspirierend)
+- Deutsch
+
+Antworte NUR als JSON-Array mit Strings, z.B.: ["Text 1", "Text 2", ...]"""
+
+        user_prompt = f"Generiere {count} kreative Gravur-Texte zum Thema '{keyword}'."
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        result = self._call_ai(messages)
+        if result:
+            try:
+                result = result.strip()
+                if "```json" in result:
+                    result = result.split("```json")[1].split("```")[0]
+                elif "```" in result:
+                    result = result.split("```")[1].split("```")[0]
+                result = result.strip()
+                data = json.loads(result)
+                if isinstance(data, list):
+                    return data[:count]
+            except json.JSONDecodeError:
+                logger.error(f"Could not parse engraving suggestions JSON: {result}")
+        return []
+
+    def generate_scene_suggestions(self, keyword: str, count: int = 8) -> list:
+        """Generiert Hintergrund-Szenen Vorschläge für Produktfotos"""
+        system_prompt = """Du bist Spezialist für Produktfotografie-Szenen.
+Schlage Hintergrund-Szenen für Produktfotos eines gravierten Blumentopfs vor.
+Jede Szene soll eine junge Frau als Model zeigen.
+
+Regeln:
+- Szene passend zum Thema
+- Natürliche, warme Atmosphäre
+- Jede Szene mit einer jungen Frau die den Topf hält/präsentiert
+- Verschiedene Settings (Innen, Außen, Jahreszeiten)
+- Detaillierte Beschreibung für KI-Bildgenerierung
+
+Antworte NUR als JSON-Array mit Objekten: [{"title": "...", "description": "..."}]"""
+
+        user_prompt = f"Schlage {count} Hintergrund-Szenen für Produktfotos eines gravierten Blumentopfs zum Thema '{keyword}' vor."
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        result = self._call_ai(messages)
+        if result:
+            try:
+                result = result.strip()
+                if "```json" in result:
+                    result = result.split("```json")[1].split("```")[0]
+                elif "```" in result:
+                    result = result.split("```")[1].split("```")[0]
+                result = result.strip()
+                data = json.loads(result)
+                if isinstance(data, list):
+                    return data[:count]
+            except json.JSONDecodeError:
+                logger.error(f"Could not parse scene suggestions JSON: {result}")
+        return []
+
+    def generate_alt_texts(self, keyword: str, scenes: list, engraving_text: str) -> list:
+        """Generiert Alt-Texte für Produktbilder"""
+        system_prompt = """Du bist SEO-Experte für E-Commerce Bildoptimierung.
+Erstelle beschreibende Alt-Texte für Produktbilder eines gravierten Blumentopfs.
+
+Regeln:
+- Max 125 Zeichen pro Alt-Text
+- Beschreibend und keyword-reich
+- Natürliche Sprache
+- Deutsch
+
+Antworte NUR als JSON-Array mit Strings."""
+
+        scenes_text = "\n".join([f"- {s.get('title', s) if isinstance(s, dict) else s}" for s in scenes])
+        user_prompt = f"""Keyword: {keyword}
+Gravur-Text: {engraving_text}
+Szenen:
+{scenes_text}
+
+Erstelle einen Alt-Text pro Szene (für je 2 Varianten: Nur Topf und Komplettset)."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        result = self._call_ai(messages)
+        if result:
+            try:
+                result = result.strip()
+                if "```json" in result:
+                    result = result.split("```json")[1].split("```")[0]
+                elif "```" in result:
+                    result = result.split("```")[1].split("```")[0]
+                result = result.strip()
+                data = json.loads(result)
+                if isinstance(data, list):
+                    return data
+            except json.JSONDecodeError:
+                logger.error(f"Could not parse alt texts JSON: {result}")
+        return []

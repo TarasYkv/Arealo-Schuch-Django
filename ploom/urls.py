@@ -67,4 +67,20 @@ urlpatterns = [
 
     # Tests (nur Superuser)
     path('tests/', views.run_tests, name='run_tests'),
+
+    # Gravur-Workflow
+    path('workflow/', views.workflow_start, name='workflow_start'),
+    path('workflow/<uuid:session_id>/', views.workflow_step, name='workflow_step'),
+    path('api/workflow/<uuid:session_id>/generate-texts/', views.api_workflow_generate_texts, name='api_workflow_generate_texts'),
+    path('api/workflow/<uuid:session_id>/save-texts/', views.api_workflow_save_texts, name='api_workflow_save_texts'),
+    path('api/workflow/<uuid:session_id>/generate-scenes/', views.api_workflow_generate_scenes, name='api_workflow_generate_scenes'),
+    path('api/workflow/<uuid:session_id>/save-scenes/', views.api_workflow_save_scenes, name='api_workflow_save_scenes'),
+    path('api/workflow/<uuid:session_id>/generate-image/', views.api_workflow_generate_image, name='api_workflow_generate_image'),
+    path('api/workflow/<uuid:session_id>/generate-content/', views.api_workflow_generate_content, name='api_workflow_generate_content'),
+    path('api/workflow/<uuid:session_id>/save-content/', views.api_workflow_save_content, name='api_workflow_save_content'),
+    path('api/workflow/<uuid:session_id>/create-product/', views.api_workflow_create_product, name='api_workflow_create_product'),
+
+    # Wiederverwendbare Bilder
+    path('api/reusable-images/', views.api_reusable_image_upload, name='api_reusable_image_upload'),
+    path('api/reusable-images/<int:pk>/delete/', views.api_reusable_image_delete, name='api_reusable_image_delete'),
 ]

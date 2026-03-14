@@ -47,6 +47,101 @@ class PLoomSettings(models.Model):
         default='du',
         verbose_name="Schreibstil"
     )
+    # Gravur-Workflow Einstellungen
+    reference_image = models.ImageField(
+        upload_to='ploom/settings/reference/',
+        blank=True,
+        null=True,
+        verbose_name="Referenz-Blumentopf Foto"
+    )
+    example_engraving_image = models.ImageField(
+        upload_to='ploom/settings/engraving/',
+        blank=True,
+        null=True,
+        verbose_name="Beispiel-Gravur Foto"
+    )
+    engraving_style = models.CharField(
+        max_length=200,
+        default='elegante Schreibschrift',
+        blank=True,
+        verbose_name="Gravur-Stil"
+    )
+    default_weight = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Standard-Gewicht"
+    )
+    default_weight_unit = models.CharField(
+        max_length=5,
+        choices=[('kg', 'kg'), ('g', 'g'), ('lb', 'lb'), ('oz', 'oz')],
+        default='kg',
+        verbose_name="Gewichtseinheit"
+    )
+    default_price_topf = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Preis Nur Topf"
+    )
+    default_price_komplett = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Preis Komplettset"
+    )
+    default_compare_price_topf = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Vergleichspreis Topf"
+    )
+    default_compare_price_komplett = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Vergleichspreis Komplett"
+    )
+    default_metafields_config = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Standard-Metafelder"
+    )
+    default_template_suffix = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Shopify Template Suffix"
+    )
+    default_vendor = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Standard-Hersteller"
+    )
+    default_product_type = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Standard-Produkttyp"
+    )
+    default_tags = models.TextField(
+        blank=True,
+        verbose_name="Standard-Tags"
+    )
+    image_generation_model = models.CharField(
+        max_length=50,
+        default='gemini-2.5-flash-image',
+        verbose_name="Bildgenerierungs-Modell"
+    )
+    komplettset_description = models.TextField(
+        blank=True,
+        verbose_name="Komplettset-Beschreibung",
+        help_text="Was ist im Komplettset enthalten?"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -344,6 +439,7 @@ class PLoomProductImage(models.Model):
         ('imageforge_mockup', 'ImageForge Mockup'),
         ('upload', 'Eigener Upload'),
         ('external_url', 'Externe URL (Shopify/CDN)'),
+        ('gemini_workflow', 'Gravur-Workflow Generierung'),
     ]
 
     product = models.ForeignKey(
@@ -698,3 +794,101 @@ class PLoomFavoritePrice(models.Model):
         """Erhöht den Verwendungszähler"""
         self.usage_count += 1
         self.save(update_fields=['usage_count'])
+
+
+class PLoomReusableImage(models.Model):
+    """Wiederverwendbare Bilder für mehrere Produkte"""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ploom_reusable_images'
+    )
+    image = models.ImageField(
+        upload_to='ploom/reusable/',
+        verbose_name="Bild"
+    )
+    title = models.CharField(max_length=100, verbose_name="Titel")
+    description = models.CharField(max_length=255, blank=True, verbose_name="Beschreibung")
+    usage_count = models.PositiveIntegerField(default=0, verbose_name="Verwendungen")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Wiederverwendbares Bild"
+        verbose_name_plural = "Wiederverwendbare Bilder"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+
+class PLoomWorkflowSession(models.Model):
+    """Speichert den Gravur-Workflow Fortschritt"""
+
+    STEP_CHOICES = [
+        ('step1', 'Gravur-Text'),
+        ('step2', 'Szenen-Auswahl'),
+        ('step3', 'Bildgenerierung'),
+        ('step4', 'Inhalte & SEO'),
+        ('step5', 'Review'),
+        ('completed', 'Abgeschlossen'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ploom_workflow_sessions'
+    )
+    keyword = models.CharField(max_length=200, verbose_name="Theme/Keyword")
+    current_step = models.CharField(
+        max_length=20,
+        choices=STEP_CHOICES,
+        default='step1',
+        verbose_name="Aktueller Schritt"
+    )
+
+    # Step 1: Gravur-Texte
+    suggested_texts = models.JSONField(default=list, blank=True, verbose_name="Vorgeschlagene Texte")
+    selected_text = models.CharField(max_length=300, blank=True, verbose_name="Ausgewählter Text")
+
+    # Step 2: Szenen
+    suggested_scenes = models.JSONField(default=list, blank=True, verbose_name="Vorgeschlagene Szenen")
+    selected_scenes = models.JSONField(default=list, blank=True, verbose_name="Ausgewählte Szenen")
+
+    # Step 3: Bilder
+    generated_images = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Generierte Bilder",
+        help_text="[{scene, image_path, is_variant, variant_type, selected}]"
+    )
+
+    # Step 4: Inhalte & SEO
+    auto_title = models.CharField(max_length=255, blank=True, verbose_name="Auto-Titel")
+    auto_description = models.TextField(blank=True, verbose_name="Auto-Beschreibung")
+    auto_seo_title = models.CharField(max_length=70, blank=True, verbose_name="SEO-Titel")
+    auto_seo_description = models.CharField(max_length=160, blank=True, verbose_name="SEO-Beschreibung")
+    auto_tags = models.TextField(blank=True, verbose_name="Tags")
+    auto_alt_texts = models.JSONField(default=list, blank=True, verbose_name="Alt-Texte")
+
+    # Ergebnis
+    product = models.ForeignKey(
+        PLoomProduct,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='workflow_sessions',
+        verbose_name="Erstelltes Produkt"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Workflow-Session"
+        verbose_name_plural = "Workflow-Sessions"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Workflow '{self.keyword}' ({self.get_current_step_display()})"

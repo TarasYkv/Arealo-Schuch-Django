@@ -1,0 +1,859 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Workflow: {{ session.keyword }} - P-Loom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'ploom/css/style.css' %}?v={% now 'U' %}">
+<style>
+.step-indicator { display: flex; gap: 0; margin-bottom: 2rem; }
+.step-indicator .step {
+    flex: 1; text-align: center; padding: 12px 8px;
+    background: #f8f9fa; border-bottom: 3px solid #dee2e6;
+    color: #6c757d; font-size: 0.85rem; cursor: pointer;
+    transition: all 0.2s;
+}
+.step-indicator .step.active { background: #fff; border-bottom-color: #0d6efd; color: #0d6efd; font-weight: 600; }
+.step-indicator .step.completed { background: #f0fdf4; border-bottom-color: #22c55e; color: #22c55e; }
+.step-indicator .step:first-child { border-radius: 8px 0 0 0; }
+.step-indicator .step:last-child { border-radius: 0 8px 0 0; }
+
+.text-card {
+    cursor: pointer; border: 2px solid #dee2e6; border-radius: 8px;
+    padding: 12px 16px; transition: all 0.2s; text-align: center;
+}
+.text-card:hover { border-color: #0d6efd; background: #f0f7ff; }
+.text-card.selected { border-color: #0d6efd; background: #e7f1ff; }
+
+.scene-card { border: 2px solid #dee2e6; border-radius: 8px; padding: 16px; transition: all 0.2s; }
+.scene-card:hover { border-color: #0d6efd; }
+.scene-card.selected { border-color: #0d6efd; background: #e7f1ff; }
+
+.image-card { border: 2px solid #dee2e6; border-radius: 8px; overflow: hidden; position: relative; }
+.image-card.selected { border-color: #0d6efd; }
+.image-card img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.image-card .image-overlay {
+    position: absolute; top: 8px; right: 8px;
+    display: flex; gap: 4px;
+}
+.image-placeholder {
+    width: 100%; aspect-ratio: 1; background: #f8f9fa;
+    display: flex; align-items: center; justify-content: center;
+    color: #adb5bd;
+}
+
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+
+.char-counter { font-size: 0.8rem; }
+.char-counter.warning { color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-stars me-2 text-primary"></i>{{ session.keyword }}
+                    </h1>
+                    <small class="text-muted">Gravur-Workflow</small>
+                </div>
+                <a href="{% url 'ploom:workflow_start' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Zuruck
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step" data-step="step1">1. Gravur-Text</div>
+        <div class="step" data-step="step2">2. Szenen</div>
+        <div class="step" data-step="step3">3. Bilder</div>
+        <div class="step" data-step="step4">4. Inhalte & SEO</div>
+        <div class="step" data-step="step5">5. Review</div>
+    </div>
+
+    <!-- ============ STEP 1: Gravur-Text ============ -->
+    <div class="step-panel" id="panel-step1">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Gravur-Text auswahlen</h5>
+                <button class="btn btn-primary btn-sm" id="btn-generate-texts" onclick="generateTexts()">
+                    <i class="bi bi-magic me-1"></i>Vorschlage generieren
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="texts-loading" class="text-center py-4 d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2">Generiere Gravur-Texte...</p>
+                </div>
+                <div id="texts-grid" class="row g-3">
+                    {% for text in session.suggested_texts %}
+                    <div class="col-md-4 col-6">
+                        <div class="text-card {% if text == session.selected_text %}selected{% endif %}"
+                             onclick="selectText(this, '{{ text|escapejs }}')">
+                            {{ text }}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12 text-center py-4 text-muted" id="texts-empty">
+                        Klicke auf "Vorschlage generieren" um Gravur-Texte zu erhalten
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-3">
+                    <label class="form-label fw-bold">Oder eigenen Text eingeben:</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="custom-text"
+                               placeholder="Eigenen Gravur-Text eingeben..."
+                               value="{{ session.selected_text }}" maxlength="300">
+                        <button class="btn btn-outline-primary" onclick="selectCustomText()">Ubernehmen</button>
+                    </div>
+                </div>
+
+                <div class="mt-3 text-end">
+                    <button class="btn btn-primary" id="btn-next-step1" onclick="saveTexts()" disabled>
+                        Weiter <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ STEP 2: Szenen ============ -->
+    <div class="step-panel" id="panel-step2">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Hintergrund-Szenen auswahlen</h5>
+                <button class="btn btn-primary btn-sm" id="btn-generate-scenes" onclick="generateScenes()">
+                    <i class="bi bi-magic me-1"></i>Szenen generieren
+                </button>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Wahle 3-5 Szenen fur die Produktfotos aus.</p>
+                <div id="scenes-loading" class="text-center py-4 d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2">Generiere Szenen-Vorschlage...</p>
+                </div>
+                <div id="scenes-grid" class="row g-3">
+                    {% for scene in session.suggested_scenes %}
+                    <div class="col-md-6">
+                        <div class="scene-card {% if scene in session.selected_scenes %}selected{% endif %}"
+                             onclick="toggleScene(this, {{ forloop.counter0 }})">
+                            <div class="form-check">
+                                <input class="form-check-input scene-checkbox" type="checkbox"
+                                       {% if scene in session.selected_scenes %}checked{% endif %}>
+                                <label class="form-check-label fw-bold">{{ scene.title }}</label>
+                            </div>
+                            <p class="text-muted small mb-0 mt-1">{{ scene.description }}</p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12 text-center py-4 text-muted" id="scenes-empty">
+                        Klicke auf "Szenen generieren"
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mt-3 d-flex justify-content-between">
+                    <button class="btn btn-outline-secondary" onclick="goToStep('step1')">
+                        <i class="bi bi-arrow-left me-1"></i>Zuruck
+                    </button>
+                    <button class="btn btn-primary" id="btn-next-step2" onclick="saveScenes()" disabled>
+                        Weiter <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ STEP 3: Bildgenerierung ============ -->
+    <div class="step-panel" id="panel-step3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Bilder generieren</h5>
+                <button class="btn btn-primary btn-sm" onclick="generateAllImages()">
+                    <i class="bi bi-images me-1"></i>Alle generieren
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="progress d-none" id="image-progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">
+                            <span id="image-progress-text">0/0</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="images-grid" class="row g-3">
+                    <!-- Wird per JS aufgebaut -->
+                </div>
+
+                {% if reusable_images %}
+                <hr>
+                <h6>Wiederverwendbare Bilder</h6>
+                <div class="row g-3" id="reusable-images-grid">
+                    {% for img in reusable_images %}
+                    <div class="col-md-2 col-4">
+                        <div class="image-card" onclick="toggleReusableImage(this, {{ img.id }})">
+                            <img src="{{ img.image.url }}" alt="{{ img.title }}">
+                            <div class="p-2">
+                                <small class="text-muted">{{ img.title }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="mt-3 d-flex justify-content-between">
+                    <button class="btn btn-outline-secondary" onclick="goToStep('step2')">
+                        <i class="bi bi-arrow-left me-1"></i>Zuruck
+                    </button>
+                    <button class="btn btn-primary" id="btn-next-step3" onclick="goToStep('step4'); generateContent();">
+                        Weiter <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ STEP 4: Inhalte & SEO ============ -->
+    <div class="step-panel" id="panel-step4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Inhalte & SEO</h5>
+                <button class="btn btn-outline-primary btn-sm" onclick="generateContent()">
+                    <i class="bi bi-magic me-1"></i>Alle neu generieren
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="content-loading" class="text-center py-4 d-none">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2">Generiere Inhalte & SEO-Daten...</p>
+                </div>
+                <div id="content-form">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Produkttitel</label>
+                        <input type="text" class="form-control" id="content-title" maxlength="255"
+                               value="{{ session.auto_title }}">
+                        <div class="char-counter text-end mt-1">
+                            <span id="title-count">0</span>/255
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Beschreibung (HTML)</label>
+                        <textarea class="form-control font-monospace" id="content-description" rows="8">{{ session.auto_description }}</textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">SEO-Titel</label>
+                            <input type="text" class="form-control" id="content-seo-title" maxlength="70"
+                                   value="{{ session.auto_seo_title }}">
+                            <div class="char-counter text-end mt-1">
+                                <span id="seo-title-count">0</span>/70
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">SEO-Beschreibung</label>
+                            <textarea class="form-control" id="content-seo-description" rows="3" maxlength="160">{{ session.auto_seo_description }}</textarea>
+                            <div class="char-counter text-end mt-1">
+                                <span id="seo-desc-count">0</span>/160
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tags</label>
+                        <input type="text" class="form-control" id="content-tags" value="{{ session.auto_tags }}"
+                               placeholder="tag1, tag2, tag3">
+                    </div>
+
+                    <div class="mb-3" id="alt-texts-section">
+                        <label class="form-label fw-bold">Alt-Texte fur Bilder</label>
+                        <div id="alt-texts-list">
+                            <!-- Wird per JS aufgebaut -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex justify-content-between">
+                    <button class="btn btn-outline-secondary" onclick="goToStep('step3')">
+                        <i class="bi bi-arrow-left me-1"></i>Zuruck
+                    </button>
+                    <button class="btn btn-primary" onclick="saveContent()">
+                        Weiter <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ STEP 5: Review ============ -->
+    <div class="step-panel" id="panel-step5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Review & Produkt erstellen</h5>
+            </div>
+            <div class="card-body">
+                <!-- Bilder-Vorschau -->
+                <h6>Ausgewahlte Bilder</h6>
+                <div class="row g-2 mb-4" id="review-images"></div>
+
+                <!-- Texte -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Titel</h6>
+                        <p id="review-title" class="fw-medium"></p>
+                        <h6>SEO-Titel</h6>
+                        <p id="review-seo-title" class="text-muted small"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Tags</h6>
+                        <p id="review-tags"></p>
+                        <h6>SEO-Beschreibung</h6>
+                        <p id="review-seo-description" class="text-muted small"></p>
+                    </div>
+                </div>
+
+                <!-- Preise & Varianten -->
+                <h6>Varianten & Preise</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <label class="form-label">Preis Nur Topf</label>
+                        <input type="number" class="form-control" id="review-price-topf" step="0.01"
+                               value="{{ settings_obj.default_price_topf|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Vergleichspreis Topf</label>
+                        <input type="number" class="form-control" id="review-compare-topf" step="0.01"
+                               value="{{ settings_obj.default_compare_price_topf|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Preis Komplettset</label>
+                        <input type="number" class="form-control" id="review-price-komplett" step="0.01"
+                               value="{{ settings_obj.default_price_komplett|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Vergleichspreis Komplett</label>
+                        <input type="number" class="form-control" id="review-compare-komplett" step="0.01"
+                               value="{{ settings_obj.default_compare_price_komplett|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Gewicht</label>
+                        <input type="number" class="form-control" id="review-weight" step="0.01"
+                               value="{{ settings_obj.default_weight|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex justify-content-between">
+                    <button class="btn btn-outline-secondary" onclick="goToStep('step4')">
+                        <i class="bi bi-arrow-left me-1"></i>Zuruck
+                    </button>
+                    <button class="btn btn-success btn-lg" id="btn-create-product" onclick="createProduct()">
+                        <i class="bi bi-check-lg me-2"></i>Produkt erstellen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Session-Daten
+const SESSION_ID = '{{ session.id }}';
+const CSRF_TOKEN = '{{ csrf_token }}';
+const MEDIA_URL = '{{ MEDIA_URL }}';
+
+// State
+let currentStep = '{{ session.current_step }}';
+let selectedText = '{{ session.selected_text|escapejs }}';
+let suggestedScenes = {{ session.suggested_scenes|safe|default:"[]" }};
+let selectedScenes = {{ session.selected_scenes|safe|default:"[]" }};
+let generatedImages = {{ session.generated_images|safe|default:"[]" }};
+let altTexts = {{ session.auto_alt_texts|safe|default:"[]" }};
+let selectedReusableIds = [];
+
+// === INITIALIZATION ===
+document.addEventListener('DOMContentLoaded', function() {
+    goToStep(currentStep);
+    updateCharCounters();
+    if (selectedText) document.getElementById('btn-next-step1').disabled = false;
+    updateSceneButtons();
+    buildImagesGrid();
+    buildAltTextsUI();
+});
+
+// === STEP NAVIGATION ===
+function goToStep(step) {
+    currentStep = step;
+    document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + step).classList.add('active');
+
+    const steps = ['step1','step2','step3','step4','step5'];
+    const currentIdx = steps.indexOf(step);
+    document.querySelectorAll('.step-indicator .step').forEach((el, i) => {
+        el.classList.remove('active','completed');
+        if (i < currentIdx) el.classList.add('completed');
+        else if (i === currentIdx) el.classList.add('active');
+    });
+
+    if (step === 'step5') populateReview();
+}
+
+// === STEP 1: GRAVUR-TEXTE ===
+function generateTexts() {
+    const btn = document.getElementById('btn-generate-texts');
+    const loading = document.getElementById('texts-loading');
+    const grid = document.getElementById('texts-grid');
+    const empty = document.getElementById('texts-empty');
+
+    btn.disabled = true;
+    loading.classList.remove('d-none');
+    if (empty) empty.style.display = 'none';
+
+    fetch(`/ploom/api/workflow/${SESSION_ID}/generate-texts/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+    })
+    .then(r => r.json())
+    .then(data => {
+        loading.classList.add('d-none');
+        btn.disabled = false;
+        if (data.success) {
+            grid.innerHTML = '';
+            data.texts.forEach(text => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 col-6';
+                col.innerHTML = `<div class="text-card" onclick="selectText(this, '${text.replace(/'/g, "\\'")}')">${text}</div>`;
+                grid.appendChild(col);
+            });
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannt'));
+        }
+    });
+}
+
+function selectText(el, text) {
+    document.querySelectorAll('.text-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedText = text;
+    document.getElementById('custom-text').value = text;
+    document.getElementById('btn-next-step1').disabled = false;
+}
+
+function selectCustomText() {
+    const text = document.getElementById('custom-text').value.trim();
+    if (text) {
+        selectedText = text;
+        document.querySelectorAll('.text-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById('btn-next-step1').disabled = false;
+    }
+}
+
+function saveTexts() {
+    if (!selectedText) return;
+    fetch(`/ploom/api/workflow/${SESSION_ID}/save-texts/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+        body: JSON.stringify({selected_text: selectedText})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) goToStep('step2');
+    });
+}
+
+// === STEP 2: SZENEN ===
+function generateScenes() {
+    const btn = document.getElementById('btn-generate-scenes');
+    const loading = document.getElementById('scenes-loading');
+    const grid = document.getElementById('scenes-grid');
+
+    btn.disabled = true;
+    loading.classList.remove('d-none');
+
+    fetch(`/ploom/api/workflow/${SESSION_ID}/generate-scenes/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+    })
+    .then(r => r.json())
+    .then(data => {
+        loading.classList.add('d-none');
+        btn.disabled = false;
+        if (data.success) {
+            suggestedScenes = data.scenes;
+            selectedScenes = [];
+            grid.innerHTML = '';
+            data.scenes.forEach((scene, i) => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6';
+                col.innerHTML = `
+                    <div class="scene-card" onclick="toggleScene(this, ${i})">
+                        <div class="form-check">
+                            <input class="form-check-input scene-checkbox" type="checkbox">
+                            <label class="form-check-label fw-bold">${scene.title}</label>
+                        </div>
+                        <p class="text-muted small mb-0 mt-1">${scene.description}</p>
+                    </div>`;
+                grid.appendChild(col);
+            });
+            updateSceneButtons();
+        }
+    });
+}
+
+function toggleScene(el, index) {
+    const cb = el.querySelector('.scene-checkbox');
+    cb.checked = !cb.checked;
+    el.classList.toggle('selected', cb.checked);
+
+    const scene = suggestedScenes[index];
+    if (cb.checked) {
+        if (!selectedScenes.find(s => s.title === scene.title)) {
+            selectedScenes.push(scene);
+        }
+    } else {
+        selectedScenes = selectedScenes.filter(s => s.title !== scene.title);
+    }
+    updateSceneButtons();
+}
+
+function updateSceneButtons() {
+    const btn = document.getElementById('btn-next-step2');
+    if (btn) btn.disabled = selectedScenes.length < 1;
+}
+
+function saveScenes() {
+    fetch(`/ploom/api/workflow/${SESSION_ID}/save-scenes/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+        body: JSON.stringify({selected_scenes: selectedScenes})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            buildImagesGrid();
+            goToStep('step3');
+        }
+    });
+}
+
+// === STEP 3: BILDGENERIERUNG ===
+function buildImagesGrid() {
+    const grid = document.getElementById('images-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    selectedScenes.forEach((scene, si) => {
+        ['topf_nur', 'komplett'].forEach(variant => {
+            const existing = generatedImages.find(
+                img => img.scene_index === si && img.variant_type === variant
+            );
+            const variantLabel = variant === 'topf_nur' ? 'Nur Topf' : 'Komplettset';
+
+            const col = document.createElement('div');
+            col.className = 'col-md-3 col-6';
+            col.id = `img-cell-${si}-${variant}`;
+
+            let imgContent;
+            if (existing && existing.image_path) {
+                imgContent = `
+                    <div class="image-card ${existing.selected !== false ? 'selected' : ''}" data-scene="${si}" data-variant="${variant}">
+                        <img src="${MEDIA_URL}${existing.image_path}" alt="${scene.title} - ${variantLabel}">
+                        <div class="image-overlay">
+                            <button class="btn btn-sm btn-light" onclick="event.stopPropagation(); toggleImageSelection(${si}, '${variant}', this)" title="Auswahlen">
+                                <i class="bi bi-${existing.selected !== false ? 'check-circle-fill text-primary' : 'circle'}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-light" onclick="event.stopPropagation(); regenerateImage(${si}, '${variant}')" title="Neu generieren">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
+                        <div class="p-2">
+                            <small class="text-muted">${scene.title} - ${variantLabel}</small>
+                        </div>
+                    </div>`;
+            } else {
+                imgContent = `
+                    <div class="image-card" data-scene="${si}" data-variant="${variant}">
+                        <div class="image-placeholder" id="placeholder-${si}-${variant}">
+                            <div class="text-center">
+                                <i class="bi bi-image display-6"></i>
+                                <br><small>${variantLabel}</small>
+                            </div>
+                        </div>
+                        <div class="p-2">
+                            <small class="text-muted">${scene.title} - ${variantLabel}</small>
+                        </div>
+                    </div>`;
+            }
+            col.innerHTML = imgContent;
+            grid.appendChild(col);
+        });
+    });
+}
+
+async function generateAllImages() {
+    const total = selectedScenes.length * 2;
+    let completed = 0;
+    const progress = document.getElementById('image-progress');
+    const progressBar = progress.querySelector('.progress-bar');
+    const progressText = document.getElementById('image-progress-text');
+    progress.classList.remove('d-none');
+
+    for (let si = 0; si < selectedScenes.length; si++) {
+        for (const variant of ['topf_nur', 'komplett']) {
+            // Skip wenn bereits vorhanden
+            const existing = generatedImages.find(
+                img => img.scene_index === si && img.variant_type === variant
+            );
+            if (existing && existing.image_path) {
+                completed++;
+                const pct = Math.round(completed / total * 100);
+                progressBar.style.width = pct + '%';
+                progressText.textContent = `${completed}/${total}`;
+                continue;
+            }
+
+            await generateSingleImage(si, variant);
+            completed++;
+            const pct = Math.round(completed / total * 100);
+            progressBar.style.width = pct + '%';
+            progressText.textContent = `${completed}/${total}`;
+        }
+    }
+
+    setTimeout(() => progress.classList.add('d-none'), 2000);
+}
+
+async function generateSingleImage(sceneIndex, variantType) {
+    const scene = selectedScenes[sceneIndex];
+    const placeholder = document.getElementById(`placeholder-${sceneIndex}-${variantType}`);
+    if (placeholder) {
+        placeholder.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
+    }
+
+    try {
+        const resp = await fetch(`/ploom/api/workflow/${SESSION_ID}/generate-image/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                scene_index: sceneIndex,
+                variant_type: variantType,
+                scene_description: scene.description,
+            })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            // Update local state
+            generatedImages = generatedImages.filter(
+                img => !(img.scene_index === sceneIndex && img.variant_type === variantType)
+            );
+            generatedImages.push({
+                scene_index: sceneIndex,
+                scene_description: scene.description,
+                variant_type: variantType,
+                image_path: data.image_path,
+                selected: true,
+            });
+            buildImagesGrid();
+        } else {
+            if (placeholder) {
+                placeholder.innerHTML = `<div class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i><br><small>${data.error || 'Fehler'}</small></div>`;
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function regenerateImage(sceneIndex, variantType) {
+    // Entferne existierendes Bild
+    generatedImages = generatedImages.filter(
+        img => !(img.scene_index === sceneIndex && img.variant_type === variantType)
+    );
+    buildImagesGrid();
+    generateSingleImage(sceneIndex, variantType);
+}
+
+function toggleImageSelection(sceneIndex, variantType, btn) {
+    const img = generatedImages.find(
+        i => i.scene_index === sceneIndex && i.variant_type === variantType
+    );
+    if (img) {
+        img.selected = !img.selected;
+        buildImagesGrid();
+    }
+}
+
+function toggleReusableImage(el, id) {
+    el.classList.toggle('selected');
+    const idx = selectedReusableIds.indexOf(id);
+    if (idx >= 0) selectedReusableIds.splice(idx, 1);
+    else selectedReusableIds.push(id);
+}
+
+// === STEP 4: INHALTE & SEO ===
+function generateContent() {
+    const loading = document.getElementById('content-loading');
+    loading.classList.remove('d-none');
+
+    fetch(`/ploom/api/workflow/${SESSION_ID}/generate-content/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+    })
+    .then(r => r.json())
+    .then(data => {
+        loading.classList.add('d-none');
+        if (data.success) {
+            document.getElementById('content-title').value = data.title || '';
+            document.getElementById('content-description').value = data.description || '';
+            document.getElementById('content-seo-title').value = data.seo_title || '';
+            document.getElementById('content-seo-description').value = data.seo_description || '';
+            document.getElementById('content-tags').value = data.tags || '';
+            altTexts = data.alt_texts || [];
+            buildAltTextsUI();
+            updateCharCounters();
+        }
+    });
+}
+
+function buildAltTextsUI() {
+    const container = document.getElementById('alt-texts-list');
+    if (!container) return;
+    container.innerHTML = '';
+    const images = generatedImages.filter(img => img.selected !== false);
+    images.forEach((img, i) => {
+        const altText = altTexts[i] || '';
+        const div = document.createElement('div');
+        div.className = 'mb-2';
+        const label = img.variant_type === 'topf_nur' ? 'Nur Topf' : 'Komplettset';
+        div.innerHTML = `
+            <div class="input-group input-group-sm">
+                <span class="input-group-text">${i + 1}. ${label}</span>
+                <input type="text" class="form-control alt-text-input" value="${altText}" maxlength="125" data-index="${i}">
+            </div>`;
+        container.appendChild(div);
+    });
+}
+
+function updateCharCounters() {
+    const fields = [
+        {input: 'content-title', counter: 'title-count', max: 255},
+        {input: 'content-seo-title', counter: 'seo-title-count', max: 70},
+        {input: 'content-seo-description', counter: 'seo-desc-count', max: 160},
+    ];
+    fields.forEach(f => {
+        const el = document.getElementById(f.input);
+        const counter = document.getElementById(f.counter);
+        if (el && counter) {
+            const update = () => {
+                const len = el.value.length;
+                counter.textContent = len;
+                counter.parentElement.classList.toggle('warning', len > f.max);
+            };
+            el.addEventListener('input', update);
+            update();
+        }
+    });
+}
+
+function saveContent() {
+    // Alt-Texte sammeln
+    const altTextInputs = document.querySelectorAll('.alt-text-input');
+    altTexts = Array.from(altTextInputs).map(el => el.value);
+
+    fetch(`/ploom/api/workflow/${SESSION_ID}/save-content/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            title: document.getElementById('content-title').value,
+            description: document.getElementById('content-description').value,
+            seo_title: document.getElementById('content-seo-title').value,
+            seo_description: document.getElementById('content-seo-description').value,
+            tags: document.getElementById('content-tags').value,
+            alt_texts: altTexts,
+            generated_images: generatedImages,
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) goToStep('step5');
+    });
+}
+
+// === STEP 5: REVIEW ===
+function populateReview() {
+    document.getElementById('review-title').textContent = document.getElementById('content-title').value;
+    document.getElementById('review-seo-title').textContent = document.getElementById('content-seo-title').value;
+    document.getElementById('review-seo-description').textContent = document.getElementById('content-seo-description').value;
+    document.getElementById('review-tags').textContent = document.getElementById('content-tags').value;
+
+    // Bilder
+    const container = document.getElementById('review-images');
+    container.innerHTML = '';
+    generatedImages.filter(img => img.selected !== false).forEach(img => {
+        const col = document.createElement('div');
+        col.className = 'col-md-2 col-4';
+        col.innerHTML = `<img src="${MEDIA_URL}${img.image_path}" class="img-fluid rounded" style="aspect-ratio:1;object-fit:cover;width:100%">`;
+        container.appendChild(col);
+    });
+}
+
+function createProduct() {
+    const btn = document.getElementById('btn-create-product');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Erstelle Produkt...';
+
+    // Alt-Texte nochmal sammeln
+    const altTextInputs = document.querySelectorAll('.alt-text-input');
+    const finalAltTexts = Array.from(altTextInputs).map(el => el.value);
+
+    fetch(`/ploom/api/workflow/${SESSION_ID}/create-product/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF_TOKEN, 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            title: document.getElementById('content-title').value,
+            description: document.getElementById('content-description').value,
+            seo_title: document.getElementById('content-seo-title').value,
+            seo_description: document.getElementById('content-seo-description').value,
+            tags: document.getElementById('content-tags').value,
+            alt_texts: finalAltTexts,
+            generated_images: generatedImages.filter(img => img.selected !== false),
+            reusable_image_ids: selectedReusableIds,
+            price_topf: document.getElementById('review-price-topf').value || null,
+            compare_price_topf: document.getElementById('review-compare-topf').value || null,
+            price_komplett: document.getElementById('review-price-komplett').value || null,
+            compare_price_komplett: document.getElementById('review-compare-komplett').value || null,
+            weight: document.getElementById('review-weight').value || null,
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.redirect_url;
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannt'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Produkt erstellen';
+        }
+    });
+}
+
+// Step indicator click
+document.querySelectorAll('.step-indicator .step').forEach(el => {
+    el.addEventListener('click', function() {
+        goToStep(this.dataset.step);
+    });
+});
+</script>
+{% endblock %}

@@ -1,5 +1,6 @@
 from django import forms
-from .models import PLoomSettings, ProductTheme, PLoomProduct, PLoomProductVariant
+from .models import PLoomSettings, ProductTheme, PLoomProduct, PLoomProductVariant, PLoomReusableImage
+from ideopin.gemini_service import GeminiImageService
 
 
 class PLoomSettingsForm(forms.ModelForm):
@@ -7,12 +8,36 @@ class PLoomSettingsForm(forms.ModelForm):
 
     class Meta:
         model = PLoomSettings
-        fields = ['default_store', 'ai_provider', 'ai_model', 'writing_style']
+        fields = [
+            'default_store', 'ai_provider', 'ai_model', 'writing_style',
+            'reference_image', 'example_engraving_image', 'engraving_style',
+            'default_weight', 'default_weight_unit',
+            'default_price_topf', 'default_price_komplett',
+            'default_compare_price_topf', 'default_compare_price_komplett',
+            'default_metafields_config', 'default_template_suffix',
+            'default_vendor', 'default_product_type', 'default_tags',
+            'image_generation_model', 'komplettset_description',
+        ]
         widgets = {
             'default_store': forms.Select(attrs={'class': 'form-select'}),
             'ai_provider': forms.Select(attrs={'class': 'form-select'}),
             'ai_model': forms.Select(attrs={'class': 'form-select'}),
             'writing_style': forms.Select(attrs={'class': 'form-select'}),
+            'reference_image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'example_engraving_image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'engraving_style': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'z.B. elegante Schreibschrift'}),
+            'default_weight': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'default_weight_unit': forms.Select(attrs={'class': 'form-select'}),
+            'default_price_topf': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'default_price_komplett': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'default_compare_price_topf': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'default_compare_price_komplett': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'default_template_suffix': forms.TextInput(attrs={'class': 'form-control'}),
+            'default_vendor': forms.TextInput(attrs={'class': 'form-control'}),
+            'default_product_type': forms.TextInput(attrs={'class': 'form-control'}),
+            'default_tags': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'image_generation_model': forms.Select(attrs={'class': 'form-select'}),
+            'komplettset_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'z.B. Bio-Erde + Samen + Anleitung + Baumwollbeutel'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -46,6 +71,44 @@ class PLoomSettingsForm(forms.ModelForm):
                 ('gemini-1.5-flash-8b', 'Gemini 1.5 Flash 8B'),
             ]
         )
+
+        # Bildgenerierungs-Modell Choices
+        image_model_choices = [(k, v) for k, v in GeminiImageService.AVAILABLE_MODELS.items()]
+        self.fields['image_generation_model'].widget = forms.Select(
+            attrs={'class': 'form-select'},
+            choices=image_model_choices
+        )
+
+        # Metafelder als Textarea
+        self.fields['default_metafields_config'].widget = forms.Textarea(
+            attrs={'class': 'form-control font-monospace', 'rows': 4, 'placeholder': '{"key": "value"}'}
+        )
+
+
+class WorkflowStartForm(forms.Form):
+    """Formular zum Starten eines Gravur-Workflows"""
+    keyword = forms.CharField(
+        max_length=200,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'z.B. Muttertag, Hochzeit, Geburtstag...',
+            'autofocus': True,
+        }),
+        label="Theme/Keyword"
+    )
+
+
+class ReusableImageForm(forms.ModelForm):
+    """Formular für wiederverwendbare Bilder"""
+
+    class Meta:
+        model = PLoomReusableImage
+        fields = ['image', 'title', 'description']
+        widgets = {
+            'image': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Bildtitel'}),
+            'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Optionale Beschreibung'}),
+        }
 
 
 class ProductThemeForm(forms.ModelForm):

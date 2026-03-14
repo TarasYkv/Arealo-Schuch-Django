@@ -24,11 +24,11 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-6">
-            <form id="settings-form" method="post">
-                {% csrf_token %}
-
+    <form id="settings-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-lg-6">
+                <!-- Shopify -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-header bg-white">
                         <h5 class="mb-0"><i class="bi bi-shop me-2 text-muted"></i>Shopify</h5>
@@ -42,6 +42,7 @@
                     </div>
                 </div>
 
+                <!-- KI-Einstellungen -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-header bg-white">
                         <h5 class="mb-0"><i class="bi bi-robot me-2 text-muted"></i>KI-Einstellungen</h5>
@@ -63,31 +64,194 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-check-lg me-2"></i>Speichern
-                </button>
-            </form>
+                <!-- Gravur-Workflow Referenz-Bilder -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-image me-2 text-muted"></i>Gravur-Workflow: Referenzbilder</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Referenz-Blumentopf Foto</label>
+                            {% if settings_obj.reference_image %}
+                            <div class="mb-2">
+                                <img src="{{ settings_obj.reference_image.url }}" class="img-thumbnail" style="max-height: 120px;">
+                            </div>
+                            {% endif %}
+                            {{ form.reference_image }}
+                            <small class="text-muted">Wird als Basis-Referenz für die Bildgenerierung verwendet</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Beispiel-Gravur Foto</label>
+                            {% if settings_obj.example_engraving_image %}
+                            <div class="mb-2">
+                                <img src="{{ settings_obj.example_engraving_image.url }}" class="img-thumbnail" style="max-height: 120px;">
+                            </div>
+                            {% endif %}
+                            {{ form.example_engraving_image }}
+                            <small class="text-muted">Beispiel für den gewünschten Gravur-Stil</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Gravur-Stil Beschreibung</label>
+                            {{ form.engraving_style }}
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Bildgenerierungs-Modell</label>
+                            {{ form.image_generation_model }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <!-- Gravur-Workflow Preise -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-currency-euro me-2 text-muted"></i>Gravur-Workflow: Preise & Produkt</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Preis Nur Topf</label>
+                                {{ form.default_price_topf }}
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Vergleichspreis Topf</label>
+                                {{ form.default_compare_price_topf }}
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Preis Komplettset</label>
+                                {{ form.default_price_komplett }}
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Vergleichspreis Komplett</label>
+                                {{ form.default_compare_price_komplett }}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Standard-Gewicht</label>
+                                {{ form.default_weight }}
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Gewichtseinheit</label>
+                                {{ form.default_weight_unit }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Hersteller</label>
+                            {{ form.default_vendor }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Produkttyp</label>
+                            {{ form.default_product_type }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Standard-Tags</label>
+                            {{ form.default_tags }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Shopify Template Suffix</label>
+                            {{ form.default_template_suffix }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Komplettset-Beschreibung</label>
+                            {{ form.komplettset_description }}
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Standard-Metafelder (JSON)</label>
+                            {{ form.default_metafields_config }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hinweise -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="bi bi-info-circle me-2 text-muted"></i>Hinweise</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>KI-Anbieter</h6>
+                        <p class="small text-muted">
+                            Für die KI-Textgenerierung wird ein API-Key benötigt.
+                            Konfiguriere deinen API-Key in den
+                            <a href="{% url 'accounts:neue_api_einstellungen' %}">Account-Einstellungen</a>.
+                        </p>
+                        <h6>Schreibstil</h6>
+                        <ul class="small text-muted">
+                            <li><strong>Du-Anrede:</strong> Locker, freundlich, modern</li>
+                            <li><strong>Sie-Anrede:</strong> Professionell, höflich, seriös</li>
+                            <li><strong>Neutral:</strong> Ohne direkte Anrede</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0"><i class="bi bi-info-circle me-2 text-muted"></i>Hinweise</h5>
+        <div class="mb-4">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-2"></i>Speichern
+            </button>
+        </div>
+    </form>
+
+    <!-- Wiederverwendbare Bilder -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-images me-2 text-muted"></i>Wiederverwendbare Bilder</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#reusable-upload-form">
+                        <i class="bi bi-plus-lg me-1"></i>Bild hinzufügen
+                    </button>
                 </div>
                 <div class="card-body">
-                    <h6>KI-Anbieter</h6>
-                    <p class="small text-muted">
-                        Für die KI-Textgenerierung wird ein API-Key benötigt.
-                        Konfiguriere deinen API-Key in den
-                        <a href="{% url 'accounts:neue_api_einstellungen' %}">Account-Einstellungen</a>.
-                    </p>
+                    <!-- Upload-Formular -->
+                    <div class="collapse mb-3" id="reusable-upload-form">
+                        <form id="reusable-image-form" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label">Bild</label>
+                                    <input type="file" class="form-control" name="image" accept="image/*" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Titel</label>
+                                    <input type="text" class="form-control" name="title" required placeholder="Bildtitel">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Beschreibung</label>
+                                    <input type="text" class="form-control" name="description" placeholder="Optional">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-primary w-100">Hochladen</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
 
-                    <h6>Schreibstil</h6>
-                    <ul class="small text-muted">
-                        <li><strong>Du-Anrede:</strong> Locker, freundlich, modern</li>
-                        <li><strong>Sie-Anrede:</strong> Professionell, höflich, seriös</li>
-                        <li><strong>Neutral:</strong> Ohne direkte Anrede</li>
-                    </ul>
+                    <!-- Bilder-Grid -->
+                    <div class="row g-3" id="reusable-images-list">
+                        {% for img in reusable_images %}
+                        <div class="col-md-2 col-4" id="reusable-img-{{ img.id }}">
+                            <div class="card h-100">
+                                <img src="{{ img.image.url }}" class="card-img-top" style="aspect-ratio:1;object-fit:cover;">
+                                <div class="card-body p-2">
+                                    <small class="fw-medium">{{ img.title }}</small>
+                                    <br><small class="text-muted">{{ img.usage_count }}x verwendet</small>
+                                </div>
+                                <div class="card-footer p-1 text-center">
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteReusableImage({{ img.id }})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center py-3 text-muted" id="no-reusable-images">
+                            Noch keine wiederverwendbaren Bilder
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -97,12 +261,13 @@
 
 {% block extra_js %}
 <script>
+// Settings-Form mit Datei-Upload
 document.getElementById('settings-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const form = this;
     const formData = new FormData(form);
 
-    fetch(form.action, {
+    fetch(form.action || window.location.href, {
         method: 'POST',
         body: formData,
         headers: {
@@ -113,10 +278,52 @@ document.getElementById('settings-form').addEventListener('submit', function(e) 
     .then(data => {
         if (data.success) {
             alert('Einstellungen gespeichert!');
+            location.reload();
         } else {
-            alert('Fehler beim Speichern');
+            alert('Fehler beim Speichern: ' + JSON.stringify(data.errors || ''));
         }
     });
 });
+
+// Wiederverwendbares Bild hochladen
+document.getElementById('reusable-image-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch('{% url "ploom:api_reusable_image_upload" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Fehler: ' + JSON.stringify(data.errors || ''));
+        }
+    });
+});
+
+function deleteReusableImage(id) {
+    if (!confirm('Bild wirklich löschen?')) return;
+
+    fetch(`/ploom/api/reusable-images/${id}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const el = document.getElementById('reusable-img-' + id);
+            if (el) el.remove();
+        }
+    });
+}
 </script>
 {% endblock %}

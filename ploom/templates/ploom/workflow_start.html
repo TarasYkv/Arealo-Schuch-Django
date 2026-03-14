@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Gravur-Workflow - P-Loom{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-stars me-2 text-primary"></i>Gravur-Workflow
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0 small">
+                            <li class="breadcrumb-item"><a href="{% url 'ploom:dashboard' %}">P-Loom</a></li>
+                            <li class="breadcrumb-item active">Gravur-Workflow</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Neues Produkt erstellen</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Gib ein Thema oder Keyword ein und der Workflow generiert automatisch
+                        Gravur-Texte, Szenen, Bilder, Titel, Beschreibung und SEO-Daten.
+                    </p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Theme / Keyword</label>
+                            {{ form.keyword }}
+                            <small class="text-muted">z.B. Muttertag, Hochzeit, Geburtstag, Valentinstag</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-arrow-right me-2"></i>Workflow starten
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {% if recent_sessions %}
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Offene Workflows</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for s in recent_sessions %}
+                        <a href="{% url 'ploom:workflow_step' s.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-medium">{{ s.keyword }}</div>
+                                    <small class="text-muted">{{ s.get_current_step_display }} &bull; {{ s.created_at|date:"d.m.Y H:i" }}</small>
+                                </div>
+                                <span class="badge bg-info">{{ s.get_current_step_display }}</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

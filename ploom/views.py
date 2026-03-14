@@ -9,13 +9,16 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Max
 from django.utils import timezone
 
+from django.db import transaction
+
 from .models import (
     PLoomSettings, ProductTheme, PLoomProduct,
-    PLoomProductImage, PLoomProductVariant, PLoomHistory, PLoomFavoritePrice
+    PLoomProductImage, PLoomProductVariant, PLoomHistory, PLoomFavoritePrice,
+    PLoomReusableImage, PLoomWorkflowSession
 )
 from .forms import (
     PLoomSettingsForm, ProductThemeForm, PLoomProductForm,
-    PLoomProductVariantForm, ImageUploadForm
+    PLoomProductVariantForm, ImageUploadForm, WorkflowStartForm, ReusableImageForm
 )
 
 logger = logging.getLogger(__name__)
@@ -57,14 +60,23 @@ def settings_view(request):
     settings_obj, created = PLoomSettings.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
-        form = PLoomSettingsForm(request.POST, instance=settings_obj, user=request.user)
+        form = PLoomSettingsForm(request.POST, request.FILES, instance=settings_obj, user=request.user)
         if form.is_valid():
             form.save()
-            return JsonResponse({'success': True, 'message': 'Einstellungen gespeichert'})
-        return JsonResponse({'success': False, 'errors': form.errors})
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': 'Einstellungen gespeichert'})
+            messages.success(request, 'Einstellungen gespeichert')
+            return redirect('ploom:settings')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'errors': form.errors})
 
     form = PLoomSettingsForm(instance=settings_obj, user=request.user)
-    return render(request, 'ploom/settings.html', {'form': form})
+    reusable_images = PLoomReusableImage.objects.filter(user=request.user)
+    return render(request, 'ploom/settings.html', {
+        'form': form,
+        'settings_obj': settings_obj,
+        'reusable_images': reusable_images,
+    })
 
 
 # ============================================================================
@@ -1486,3 +1498,423 @@ def run_tests(request):
         return JsonResponse(results)
 
     return render(request, 'ploom/tests.html', {'results': results})
+
+
+# ============================================================================
+# Gravur-Workflow
+# ============================================================================
+
+@login_required
+def workflow_start(request):
+    """Startet einen neuen Gravur-Workflow"""
+    if request.method == 'POST':
+        form = WorkflowStartForm(request.POST)
+        if form.is_valid():
+            session = PLoomWorkflowSession.objects.create(
+                user=request.user,
+                keyword=form.cleaned_data['keyword'],
+                current_step='step1',
+            )
+            return redirect('ploom:workflow_step', session_id=session.id)
+    else:
+        form = WorkflowStartForm()
+
+    recent_sessions = PLoomWorkflowSession.objects.filter(
+        user=request.user
+    ).exclude(current_step='completed')[:5]
+
+    return render(request, 'ploom/workflow_start.html', {
+        'form': form,
+        'recent_sessions': recent_sessions,
+    })
+
+
+@login_required
+def workflow_step(request, session_id):
+    """Zeigt den aktuellen Workflow-Schritt"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+    settings_obj = PLoomSettings.objects.filter(user=request.user).first()
+    reusable_images = PLoomReusableImage.objects.filter(user=request.user)
+
+    return render(request, 'ploom/workflow.html', {
+        'session': session,
+        'settings_obj': settings_obj,
+        'reusable_images': reusable_images,
+    })
+
+
+@login_required
+@require_POST
+def api_workflow_generate_texts(request, session_id):
+    """Generiert Gravur-Text Vorschläge"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    try:
+        from .services.ai_service import PLoomAIService
+        ai_service = PLoomAIService(request.user)
+        suggestions = ai_service.generate_engraving_suggestions(session.keyword)
+
+        session.suggested_texts = suggestions
+        session.save(update_fields=['suggested_texts', 'updated_at'])
+
+        return JsonResponse({'success': True, 'texts': suggestions})
+    except Exception as e:
+        logger.error(f"Text generation failed: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def api_workflow_save_texts(request, session_id):
+    """Speichert den ausgewählten Gravur-Text"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    data = json.loads(request.body)
+    selected_text = data.get('selected_text', '')
+
+    if not selected_text:
+        return JsonResponse({'success': False, 'error': 'Kein Text ausgewählt'})
+
+    session.selected_text = selected_text
+    session.current_step = 'step2'
+    session.save(update_fields=['selected_text', 'current_step', 'updated_at'])
+
+    return JsonResponse({'success': True, 'current_step': 'step2'})
+
+
+@login_required
+@require_POST
+def api_workflow_generate_scenes(request, session_id):
+    """Generiert Szenen-Vorschläge"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    try:
+        from .services.ai_service import PLoomAIService
+        ai_service = PLoomAIService(request.user)
+        suggestions = ai_service.generate_scene_suggestions(session.keyword)
+
+        session.suggested_scenes = suggestions
+        session.save(update_fields=['suggested_scenes', 'updated_at'])
+
+        return JsonResponse({'success': True, 'scenes': suggestions})
+    except Exception as e:
+        logger.error(f"Scene generation failed: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def api_workflow_save_scenes(request, session_id):
+    """Speichert die ausgewählten Szenen"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    data = json.loads(request.body)
+    selected_scenes = data.get('selected_scenes', [])
+
+    if len(selected_scenes) < 1:
+        return JsonResponse({'success': False, 'error': 'Mindestens 1 Szene auswählen'})
+
+    session.selected_scenes = selected_scenes
+    session.current_step = 'step3'
+    session.save(update_fields=['selected_scenes', 'current_step', 'updated_at'])
+
+    return JsonResponse({'success': True, 'current_step': 'step3'})
+
+
+@login_required
+@require_POST
+def api_workflow_generate_image(request, session_id):
+    """Generiert EIN Bild für eine Szene + Variante"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    data = json.loads(request.body)
+    scene_index = data.get('scene_index', 0)
+    variant_type = data.get('variant_type', 'komplett')
+    scene_description = data.get('scene_description', '')
+
+    try:
+        from .services.image_service import PLoomImageService
+        img_service = PLoomImageService(request.user)
+
+        result = img_service.generate_pot_image(
+            engraving_text=session.selected_text,
+            scene_description=scene_description,
+            variant_type=variant_type,
+        )
+
+        if result.get('success') and result.get('image_data'):
+            filename = f"gravur_{session.keyword}_{scene_index}_{variant_type}"
+            filename = "".join(c for c in filename if c.isalnum() or c in '_-')
+            image_path = img_service.save_generated_image(result['image_data'], filename)
+
+            # In Session speichern
+            images = session.generated_images or []
+            image_entry = {
+                'scene_index': scene_index,
+                'scene_description': scene_description,
+                'variant_type': variant_type,
+                'image_path': image_path,
+                'selected': True,
+            }
+            # Existierendes Bild für gleiche Szene+Variante ersetzen
+            images = [
+                img for img in images
+                if not (img.get('scene_index') == scene_index and img.get('variant_type') == variant_type)
+            ]
+            images.append(image_entry)
+            session.generated_images = images
+            session.save(update_fields=['generated_images', 'updated_at'])
+
+            from django.conf import settings as django_settings
+            image_url = f"{django_settings.MEDIA_URL}{image_path}"
+
+            return JsonResponse({
+                'success': True,
+                'image_path': image_path,
+                'image_url': image_url,
+            })
+        else:
+            return JsonResponse({'success': False, 'error': result.get('error', 'Bildgenerierung fehlgeschlagen')})
+
+    except Exception as e:
+        logger.error(f"Image generation failed: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def api_workflow_generate_content(request, session_id):
+    """Generiert Titel, Beschreibung, SEO-Daten und Alt-Texte"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    try:
+        from .services.ai_service import PLoomAIService
+        ai_service = PLoomAIService(request.user)
+
+        # SEO Content generieren
+        seo_content = ai_service.generate_all_seo_content(
+            keyword=f"Gravierter Blumentopf {session.keyword} - {session.selected_text}"
+        )
+
+        if seo_content:
+            session.auto_title = seo_content.get('title', '')
+            session.auto_description = seo_content.get('description', '')
+            session.auto_seo_title = seo_content.get('seo_title', '')
+            session.auto_seo_description = seo_content.get('seo_description', '')
+            session.auto_tags = seo_content.get('tags', '')
+
+        # Alt-Texte generieren
+        selected_scenes = session.selected_scenes or []
+        if selected_scenes and session.selected_text:
+            alt_texts = ai_service.generate_alt_texts(
+                keyword=session.keyword,
+                scenes=selected_scenes,
+                engraving_text=session.selected_text,
+            )
+            session.auto_alt_texts = alt_texts
+
+        session.current_step = 'step4'
+        session.save()
+
+        return JsonResponse({
+            'success': True,
+            'title': session.auto_title,
+            'description': session.auto_description,
+            'seo_title': session.auto_seo_title,
+            'seo_description': session.auto_seo_description,
+            'tags': session.auto_tags,
+            'alt_texts': session.auto_alt_texts,
+            'current_step': 'step4',
+        })
+    except Exception as e:
+        logger.error(f"Content generation failed: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
+def api_workflow_save_content(request, session_id):
+    """Speichert manuell bearbeitete Inhalte"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    data = json.loads(request.body)
+
+    session.auto_title = data.get('title', session.auto_title)
+    session.auto_description = data.get('description', session.auto_description)
+    session.auto_seo_title = data.get('seo_title', session.auto_seo_title)
+    session.auto_seo_description = data.get('seo_description', session.auto_seo_description)
+    session.auto_tags = data.get('tags', session.auto_tags)
+    session.auto_alt_texts = data.get('alt_texts', session.auto_alt_texts)
+
+    # Auch Bilder-Auswahl updaten
+    if 'generated_images' in data:
+        session.generated_images = data['generated_images']
+
+    session.current_step = 'step5'
+    session.save()
+
+    return JsonResponse({'success': True, 'current_step': 'step5'})
+
+
+@login_required
+@require_POST
+def api_workflow_create_product(request, session_id):
+    """Erstellt PLoomProduct + Varianten + Bilder aus der Workflow-Session"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+    settings_obj = PLoomSettings.objects.filter(user=request.user).first()
+
+    data = json.loads(request.body)
+
+    try:
+        with transaction.atomic():
+            # 1. PLoomProduct erstellen
+            product = PLoomProduct.objects.create(
+                user=request.user,
+                title=data.get('title', session.auto_title),
+                description=data.get('description', session.auto_description),
+                seo_title=data.get('seo_title', session.auto_seo_title),
+                seo_description=data.get('seo_description', session.auto_seo_description),
+                tags=data.get('tags', session.auto_tags),
+                vendor=settings_obj.default_vendor if settings_obj else '',
+                product_type=settings_obj.default_product_type if settings_obj else '',
+                weight=data.get('weight') or (settings_obj.default_weight if settings_obj else None),
+                weight_unit=(settings_obj.default_weight_unit if settings_obj else 'kg'),
+                template_suffix=(settings_obj.default_template_suffix if settings_obj else ''),
+                product_metafields=(settings_obj.default_metafields_config if settings_obj else {}),
+                shopify_store=(settings_obj.default_store if settings_obj else None),
+                status='draft',
+            )
+
+            # 2. Varianten erstellen
+            price_topf = data.get('price_topf') or (settings_obj.default_price_topf if settings_obj else None)
+            price_komplett = data.get('price_komplett') or (settings_obj.default_price_komplett if settings_obj else None)
+            compare_topf = data.get('compare_price_topf') or (settings_obj.default_compare_price_topf if settings_obj else None)
+            compare_komplett = data.get('compare_price_komplett') or (settings_obj.default_compare_price_komplett if settings_obj else None)
+
+            variant_topf = PLoomProductVariant.objects.create(
+                product=product,
+                title='Nur Topf',
+                option1_name='Variante',
+                option1_value='Nur Topf',
+                price=price_topf,
+                compare_at_price=compare_topf,
+                weight=product.weight,
+                weight_unit=product.weight_unit,
+                position=0,
+            )
+
+            variant_komplett = PLoomProductVariant.objects.create(
+                product=product,
+                title='Komplettset',
+                option1_name='Variante',
+                option1_value='Komplettset',
+                price=price_komplett,
+                compare_at_price=compare_komplett,
+                weight=product.weight,
+                weight_unit=product.weight_unit,
+                position=1,
+            )
+
+            # Hauptprodukt-Preis auf den günstigeren setzen
+            if price_topf:
+                product.price = price_topf
+                product.compare_at_price = compare_topf
+                product.save(update_fields=['price', 'compare_at_price'])
+
+            # 3. Bilder erstellen
+            generated_images = data.get('generated_images', session.generated_images or [])
+            alt_texts = data.get('alt_texts', session.auto_alt_texts or [])
+            position = 0
+
+            for i, img in enumerate(generated_images):
+                if not img.get('selected', True):
+                    continue
+
+                image_path = img.get('image_path', '')
+                variant_type = img.get('variant_type', '')
+                alt_text = alt_texts[i] if i < len(alt_texts) else ''
+
+                # Varianten-ID zuweisen
+                variant_id = ''
+                if variant_type == 'topf_nur':
+                    variant_id = str(variant_topf.id)
+                elif variant_type == 'komplett':
+                    variant_id = str(variant_komplett.id)
+
+                product_image = PLoomProductImage(
+                    product=product,
+                    source='gemini_workflow',
+                    alt_text=alt_text,
+                    position=position,
+                    is_featured=(position == 0),
+                    variant_id=variant_id,
+                )
+
+                if image_path:
+                    product_image.image = image_path
+                product_image.save()
+                position += 1
+
+            # Wiederverwendbare Bilder hinzufügen
+            reusable_image_ids = data.get('reusable_image_ids', [])
+            for rid in reusable_image_ids:
+                try:
+                    reusable = PLoomReusableImage.objects.get(id=rid, user=request.user)
+                    PLoomProductImage.objects.create(
+                        product=product,
+                        source='upload',
+                        image=reusable.image,
+                        alt_text=reusable.title,
+                        position=position,
+                    )
+                    reusable.usage_count += 1
+                    reusable.save(update_fields=['usage_count'])
+                    position += 1
+                except PLoomReusableImage.DoesNotExist:
+                    pass
+
+            # 4. Session abschließen
+            session.current_step = 'completed'
+            session.product = product
+            session.save(update_fields=['current_step', 'product', 'updated_at'])
+
+        return JsonResponse({
+            'success': True,
+            'product_id': str(product.id),
+            'redirect_url': f'/ploom/products/{product.id}/edit/',
+        })
+
+    except Exception as e:
+        logger.error(f"Product creation failed: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+# ============================================================================
+# Wiederverwendbare Bilder API
+# ============================================================================
+
+@login_required
+@require_POST
+def api_reusable_image_upload(request):
+    """Lädt ein wiederverwendbares Bild hoch"""
+    form = ReusableImageForm(request.POST, request.FILES)
+    if form.is_valid():
+        img = form.save(commit=False)
+        img.user = request.user
+        img.save()
+        return JsonResponse({
+            'success': True,
+            'id': img.id,
+            'title': img.title,
+            'image_url': img.image.url,
+        })
+    return JsonResponse({'success': False, 'errors': form.errors})
+
+
+@login_required
+@require_POST
+def api_reusable_image_delete(request, pk):
+    """Löscht ein wiederverwendbares Bild"""
+    img = get_object_or_404(PLoomReusableImage, id=pk, user=request.user)
+    img.delete()
+    return JsonResponse({'success': True})
