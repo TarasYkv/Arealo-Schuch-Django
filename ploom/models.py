@@ -175,6 +175,12 @@ class PLoomSettings(models.Model):
                   "Z.B.: 'Runder Keramik-Blumentopf, Durchmesser 14cm, Höhe 12cm, cremeweiß, "
                   "matte Oberfläche, handgetöpfert, mit Drainageloch'"
     )
+    video_url = models.URLField(
+        max_length=500,
+        blank=True,
+        verbose_name="Video-Link",
+        help_text="Link zu einem Produktvideo (z.B. YouTube, Vimeo). Wird bei Produkterstellung übernommen."
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
