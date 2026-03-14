@@ -60,6 +60,13 @@ class PLoomImageService:
                 f"{spelled_text} in {engraving_style}. "
                 f"Der Topf steht allein, ohne Zubehör."
             )
+        elif variant_type == 'lifestyle':
+            product_desc = (
+                f"Lifestyle-Produktfoto: Eine junge Frau hält einen gravierten Keramik-Blumentopf "
+                f"mit der Gravur {spelled_text} in {engraving_style}. "
+                f"Natürliche, entspannte Pose. Der Topf ist bepflanzt mit einer grünen Pflanze. "
+                f"Authentisch, warm, wie ein Instagram-Foto."
+            )
         else:
             komplett_desc = "Bio-Erde, Samen, Anleitung und Baumwollbeutel"
             if self.settings and self.settings.komplettset_description:
