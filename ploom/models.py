@@ -168,6 +168,13 @@ class PLoomSettings(models.Model):
         verbose_name="Produktbeschreibungs-Kontext",
         help_text="Informationen über das Produkt, Material, Herstellung, USPs etc. — wird als Basis für KI-generierte Beschreibungen verwendet"
     )
+    pot_description = models.TextField(
+        blank=True,
+        verbose_name="Topf-Beschreibung für Bildgenerierung",
+        help_text="Detaillierte Beschreibung des Blumentopfs (Größe, Form, Farbe, Material). "
+                  "Z.B.: 'Runder Keramik-Blumentopf, Durchmesser 14cm, Höhe 12cm, cremeweiß, "
+                  "matte Oberfläche, handgetöpfert, mit Drainageloch'"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

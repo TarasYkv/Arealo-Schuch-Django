@@ -118,7 +118,7 @@ class PLoomImageService:
         Args:
             engraving_text: Der Gravur-Text auf dem Topf
             scene_description: Beschreibung der Szene/Hintergrund
-            variant_type: 'topf_nur' oder 'komplett'
+            variant_type: Bild-Typ aus IMAGE_TYPES
 
         Returns:
             dict mit 'success', 'image_data' (base64) oder 'error'
@@ -131,38 +131,39 @@ class PLoomImageService:
         if self.settings and self.settings.engraving_style:
             engraving_style = self.settings.engraving_style
 
+        # Topf-Beschreibung aus Settings (für Konsistenz über alle Bilder)
+        pot_desc = 'runder Keramik-Blumentopf, cremeweiß, matte Oberfläche, ca. 14cm Durchmesser, 12cm hoch'
+        if self.settings and self.settings.pot_description:
+            pot_desc = self.settings.pot_description
+
         # Buchstabiere den Gravur-Text für Genauigkeit
         spelled_text = spell_out_text(engraving_text)
 
-        # Prompt bauen aus IMAGE_TYPES
+        # Basis-Topf-Beschreibung (identisch für ALLE Bilder → Konsistenz)
+        pot_identity = (
+            f"WICHTIG - Der Blumentopf muss auf JEDEM Bild IDENTISCH aussehen: "
+            f"{pot_desc}. "
+            f"Auf dem Topf ist in {engraving_style} die Gravur {spelled_text} eingraviert. "
+            f"Die Gravur ist in den Ton eingeritzt/eingraviert (nicht aufgemalt). "
+            f"Der Topf ist ein kleiner Blumentopf — im Verhältnis zu einer erwachsenen Person "
+            f"passt er bequem in eine Hand oder auf eine Handfläche."
+        )
+
+        # Szenen-Prompt aus IMAGE_TYPES
         image_type_config = IMAGE_TYPES.get(variant_type)
         if image_type_config:
-            product_desc = (
-                f"Handgefertigter Keramik-Blumentopf mit der Gravur {spelled_text} in {engraving_style}. "
-                f"{image_type_config['prompt']}"
-            )
-        elif variant_type == 'komplett':
-            komplett_desc = "Bio-Erde, Samen, Anleitung und Baumwollbeutel"
-            if self.settings and self.settings.komplettset_description:
-                komplett_desc = self.settings.komplettset_description
-            product_desc = (
-                f"Ein wunderschöner handgefertigter Keramik-Blumentopf mit der Gravur "
-                f"{spelled_text} in {engraving_style}. "
-                f"Daneben sichtbar: {komplett_desc}."
-            )
+            scene_prompt = image_type_config['prompt']
         else:
-            product_desc = (
-                f"Ein wunderschöner handgefertigter Keramik-Blumentopf mit der Gravur "
-                f"{spelled_text} in {engraving_style}."
-            )
+            scene_prompt = scene_description
 
         prompt = (
-            f"Produktfoto, professionelle Beleuchtung, hohe Qualität. "
-            f"{product_desc} "
-            f"Szene: {scene_description}. "
-            f"Die Gravur muss klar lesbar sein. "
-            f"Warme, einladende Atmosphäre. "
-            f"Quadratisches Format, weißer/heller Hintergrund-Akzent."
+            f"{pot_identity} "
+            f"\n\nSzene: {scene_prompt} "
+            f"\n\nSzenen-Kontext: {scene_description}. "
+            f"\n\nBildanforderungen: Professionelles Produktfoto, hohe Qualität, "
+            f"professionelle Beleuchtung, warme einladende Atmosphäre. "
+            f"Die Gravur '{engraving_text}' muss klar lesbar sein. "
+            f"Quadratisches Format."
         )
 
         # Referenzbild aus Settings
