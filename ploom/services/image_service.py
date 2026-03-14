@@ -158,8 +158,9 @@ class PLoomImageService:
 
     def generate_base_pot(self, engraving_text: str) -> dict:
         """
-        SCHRITT 1: Generiert den Basis-Topf mit Gravur auf neutralem Hintergrund.
-        Dieses Bild dient als Referenz für alle weiteren Szenen-Bilder.
+        SCHRITT 1: Nimmt das Referenz-Blumentopf-Foto aus den Einstellungen
+        und fügt die Gravur darauf hinzu. Dieses Bild dient als Referenz
+        für alle weiteren Szenen-Bilder.
 
         Returns:
             dict mit 'success', 'image_data' (base64) oder 'error'
@@ -167,26 +168,31 @@ class PLoomImageService:
         if not self.gemini_service:
             return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
 
-        pot_desc = self._get_pot_description()
+        reference_image = self._get_reference_image()
+        if not reference_image:
+            return {'success': False, 'error': 'Kein Referenz-Blumentopf Foto in den Einstellungen hinterlegt. '
+                    'Bitte zuerst unter Einstellungen ein Referenzbild hochladen.'}
+
         engraving_style = self._get_engraving_style()
         spelled_text = spell_out_text(engraving_text)
 
         prompt = (
-            f"Erstelle ein professionelles Produktfoto eines einzelnen Blumentopfs auf reinweißem Hintergrund. "
-            f"\n\nDER TOPF: {pot_desc}. "
-            f"\n\nDIE GRAVUR: Auf der Vorderseite des Topfs ist in {engraving_style} der Text {spelled_text} eingraviert. "
-            f"Die Gravur ist in den Ton eingeritzt (nicht aufgemalt, nicht aufgedruckt). "
+            f"Das beigefügte Bild zeigt einen echten Blumentopf. "
+            f"Nimm GENAU DIESEN Topf — gleiche Form, Farbe, Größe, Material, Perspektive — "
+            f"und füge auf der Vorderseite eine Gravur hinzu. "
+            f"\n\nDIE GRAVUR: Der Text {spelled_text} in {engraving_style}. "
+            f"Die Gravur ist in den Ton eingeritzt/eingraviert (nicht aufgemalt, nicht aufgedruckt). "
             f"Die Buchstaben sind leicht vertieft und heben sich durch Licht/Schatten vom Topf ab. "
             f"Der Text '{engraving_text}' muss EXAKT und vollständig lesbar sein. "
-            f"\n\nFOTO-STIL: Reinweißer Hintergrund, professionelle Studio-Beleuchtung, "
-            f"leichter Schatten unter dem Topf, kein anderes Objekt im Bild. "
-            f"Frontalansicht, Gravur direkt zur Kamera. Quadratisches Format."
+            f"\n\nWICHTIG: Verändere den Topf selbst NICHT. Behalte den weißen/neutralen Hintergrund. "
+            f"Füge NUR die Gravur hinzu, alles andere bleibt identisch zum Originalbild. "
+            f"Quadratisches Format."
         )
 
         try:
             result = self.gemini_service.generate_image(
                 prompt=prompt,
-                reference_image=self._get_reference_image(),
+                reference_image=reference_image,
                 width=1024,
                 height=1024,
                 model=self._get_model(),
