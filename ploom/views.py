@@ -1536,10 +1536,15 @@ def workflow_step(request, session_id):
     settings_obj = PLoomSettings.objects.filter(user=request.user).first()
     reusable_images = PLoomReusableImage.objects.filter(user=request.user)
 
+    from .services.image_service import IMAGE_TYPES
+    import json
+    image_types_json = json.dumps(IMAGE_TYPES, ensure_ascii=False)
+
     return render(request, 'ploom/workflow.html', {
         'session': session,
         'settings_obj': settings_obj,
         'reusable_images': reusable_images,
+        'image_types_json': image_types_json,
     })
 
 

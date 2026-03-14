@@ -13,6 +13,87 @@ from ideopin.gemini_service import GeminiImageService, spell_out_text
 
 logger = logging.getLogger(__name__)
 
+# Verfügbare Bild-Typen für den Workflow
+IMAGE_TYPES = {
+    # Mit Menschen
+    'lifestyle': {
+        'label': 'Lifestyle',
+        'category': 'Mit Menschen',
+        'prompt': 'Lifestyle-Produktfoto: Eine junge Frau hält den gravierten Blumentopf, natürliche entspannte Pose. Der Topf ist bepflanzt mit einer grünen Pflanze. Authentisch, warm, wie ein Instagram-Foto.',
+    },
+    'geschenk_uebergabe': {
+        'label': 'Geschenk-Übergabe',
+        'category': 'Mit Menschen',
+        'prompt': 'Eine Person überreicht einer anderen den gravierten Blumentopf als Geschenk. Freudige Gesichter, emotionaler Moment. Schöne Verpackung oder Schleife sichtbar.',
+    },
+    'balkon': {
+        'label': 'Balkon/Terrasse',
+        'category': 'Mit Menschen',
+        'prompt': 'Eine junge Frau auf einem sonnigen Balkon oder einer Terrasse, arrangiert den gravierten Blumentopf zwischen anderen Pflanzen. Urbanes Garten-Feeling, grüne Oase.',
+    },
+    'kuechenfenster': {
+        'label': 'Küchenfenster',
+        'category': 'Mit Menschen',
+        'prompt': 'Eine junge Frau stellt den gravierten Blumentopf liebevoll auf die Fensterbank in einer hellen, modernen Küche. Warmes Tageslicht fällt durch das Fenster.',
+    },
+    'garten': {
+        'label': 'Garten',
+        'category': 'Mit Menschen',
+        'prompt': 'Eine junge Frau kniet in einem schönen Garten und pflanzt eine Pflanze in den gravierten Blumentopf. Natürliche Umgebung, Erde, grüne Pflanzen.',
+    },
+    'selfie': {
+        'label': 'Selfie-Style',
+        'category': 'Mit Menschen',
+        'prompt': 'Eine junge Frau zeigt den gravierten Blumentopf stolz in die Kamera, nah, Selfie-Perspektive. Strahlendes Lächeln, der Topf und die Gravur sind gut sichtbar.',
+    },
+    'paar': {
+        'label': 'Paar-Moment',
+        'category': 'Mit Menschen',
+        'prompt': 'Ein junges Pärchen schaut gemeinsam den gravierten Blumentopf an. Romantischer, intimer Moment. Warme Beleuchtung.',
+    },
+    'unboxing': {
+        'label': 'Auspacken/Unboxing',
+        'category': 'Mit Menschen',
+        'prompt': 'Eine Person packt den gravierten Blumentopf aus einer hübschen Geschenkbox aus. Überraschungsmoment, Freude im Gesicht. Verpackungsmaterial sichtbar.',
+    },
+    # Ohne Menschen
+    'topf_nur': {
+        'label': 'Nur Topf',
+        'category': 'Ohne Menschen',
+        'prompt': 'Der gravierte Blumentopf allein auf einem cleanen, hellen Hintergrund. Professionelles Produktfoto, keine Ablenkung.',
+    },
+    'nahaufnahme': {
+        'label': 'Nahaufnahme Gravur',
+        'category': 'Ohne Menschen',
+        'prompt': 'Extreme Nahaufnahme / Close-up der Gravur auf dem Keramik-Blumentopf. Die Buchstaben und die Textur der Keramik sind scharf und detailliert sichtbar. Makro-Stil.',
+    },
+    'flatlay': {
+        'label': 'Flatlay',
+        'category': 'Ohne Menschen',
+        'prompt': 'Flatlay von oben fotografiert: Der gravierte Blumentopf auf einer schönen Unterlage (Holz oder Marmor), dekorativ arrangiert mit Pflanzen, Erde, kleinen Werkzeugen.',
+    },
+    'fensterbank': {
+        'label': 'Fensterbank',
+        'category': 'Ohne Menschen',
+        'prompt': 'Der gravierte Blumentopf bepflanzt auf einer hellen Fensterbank. Warmes Tageslicht, Vorhänge, gemütliche Atmosphäre. Die Gravur ist gut lesbar.',
+    },
+    'tisch': {
+        'label': 'Tisch-Arrangement',
+        'category': 'Ohne Menschen',
+        'prompt': 'Der gravierte Blumentopf als Deko-Element auf einem schön gedeckten Tisch. Kerzen, Servietten, stilvoll arrangiert.',
+    },
+    'geschenk': {
+        'label': 'Geschenk',
+        'category': 'Ohne Menschen',
+        'prompt': 'Der gravierte Blumentopf hübsch verpackt mit Schleife und Geschenkpapier, bereit zum Verschenken. Festliche, einladende Atmosphäre.',
+    },
+    'natur': {
+        'label': 'Natur',
+        'category': 'Ohne Menschen',
+        'prompt': 'Der gravierte Blumentopf draußen in der Natur. Moos, Holz, Steine, natürliche Umgebung. Rustikal und organisch.',
+    },
+}
+
 
 class PLoomImageService:
     """Service für Gravur-Workflow Bildgenerierung"""
@@ -53,21 +134,14 @@ class PLoomImageService:
         # Buchstabiere den Gravur-Text für Genauigkeit
         spelled_text = spell_out_text(engraving_text)
 
-        # Prompt bauen
-        if variant_type == 'topf_nur':
+        # Prompt bauen aus IMAGE_TYPES
+        image_type_config = IMAGE_TYPES.get(variant_type)
+        if image_type_config:
             product_desc = (
-                f"Ein wunderschöner handgefertigter Keramik-Blumentopf mit der Gravur "
-                f"{spelled_text} in {engraving_style}. "
-                f"Der Topf steht allein, ohne Zubehör."
+                f"Handgefertigter Keramik-Blumentopf mit der Gravur {spelled_text} in {engraving_style}. "
+                f"{image_type_config['prompt']}"
             )
-        elif variant_type == 'lifestyle':
-            product_desc = (
-                f"Lifestyle-Produktfoto: Eine junge Frau hält einen gravierten Keramik-Blumentopf "
-                f"mit der Gravur {spelled_text} in {engraving_style}. "
-                f"Natürliche, entspannte Pose. Der Topf ist bepflanzt mit einer grünen Pflanze. "
-                f"Authentisch, warm, wie ein Instagram-Foto."
-            )
-        else:
+        elif variant_type == 'komplett':
             komplett_desc = "Bio-Erde, Samen, Anleitung und Baumwollbeutel"
             if self.settings and self.settings.komplettset_description:
                 komplett_desc = self.settings.komplettset_description
@@ -75,6 +149,11 @@ class PLoomImageService:
                 f"Ein wunderschöner handgefertigter Keramik-Blumentopf mit der Gravur "
                 f"{spelled_text} in {engraving_style}. "
                 f"Daneben sichtbar: {komplett_desc}."
+            )
+        else:
+            product_desc = (
+                f"Ein wunderschöner handgefertigter Keramik-Blumentopf mit der Gravur "
+                f"{spelled_text} in {engraving_style}."
             )
 
         prompt = (

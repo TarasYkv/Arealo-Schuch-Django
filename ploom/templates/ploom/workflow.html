@@ -182,6 +182,21 @@
                 </button>
             </div>
             <div class="card-body">
+                <!-- Bild-Typ Auswahl -->
+                <div class="mb-4 p-3 bg-light rounded">
+                    <h6 class="mb-3"><i class="bi bi-grid-3x3-gap me-1"></i>Bild-Typen auswahlen</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="fw-bold text-muted small mb-2">Mit Menschen</p>
+                            <div id="image-types-people"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="fw-bold text-muted small mb-2">Ohne Menschen</p>
+                            <div id="image-types-no-people"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mb-3">
                     <div class="progress d-none" id="image-progress">
                         <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">
@@ -373,6 +388,9 @@ const SESSION_ID = '{{ session.id }}';
 const CSRF_TOKEN = '{{ csrf_token }}';
 const MEDIA_URL = '{{ MEDIA_URL }}';
 
+// Bild-Typen aus Backend
+const IMAGE_TYPES = {{ image_types_json|safe }};
+
 // State
 let currentStep = '{{ session.current_step }}';
 let selectedText = '{{ session.selected_text|escapejs }}';
@@ -381,9 +399,11 @@ let selectedScenes = {{ session.selected_scenes|safe|default:"[]" }};
 let generatedImages = {{ session.generated_images|safe|default:"[]" }};
 let altTexts = {{ session.auto_alt_texts|safe|default:"[]" }};
 let selectedReusableIds = [];
+let selectedImageTypes = ['lifestyle', 'topf_nur', 'nahaufnahme']; // Standard-Auswahl
 
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', function() {
+    buildImageTypeCheckboxes();
     goToStep(currentStep);
     updateCharCounters();
     if (selectedText) document.getElementById('btn-next-step1').disabled = false;
@@ -391,6 +411,37 @@ document.addEventListener('DOMContentLoaded', function() {
     buildImagesGrid();
     buildAltTextsUI();
 });
+
+// === IMAGE TYPE SELECTION ===
+function buildImageTypeCheckboxes() {
+    const peopleContainer = document.getElementById('image-types-people');
+    const noPeopleContainer = document.getElementById('image-types-no-people');
+    if (!peopleContainer || !noPeopleContainer) return;
+
+    peopleContainer.innerHTML = '';
+    noPeopleContainer.innerHTML = '';
+
+    for (const [key, config] of Object.entries(IMAGE_TYPES)) {
+        const container = config.category === 'Mit Menschen' ? peopleContainer : noPeopleContainer;
+        const checked = selectedImageTypes.includes(key) ? 'checked' : '';
+        const div = document.createElement('div');
+        div.className = 'form-check mb-1';
+        div.innerHTML = `
+            <input class="form-check-input image-type-cb" type="checkbox" id="imgtype-${key}" value="${key}" ${checked}
+                   onchange="toggleImageType('${key}', this.checked)">
+            <label class="form-check-label small" for="imgtype-${key}">${config.label}</label>`;
+        container.appendChild(div);
+    }
+}
+
+function toggleImageType(key, checked) {
+    if (checked) {
+        if (!selectedImageTypes.includes(key)) selectedImageTypes.push(key);
+    } else {
+        selectedImageTypes = selectedImageTypes.filter(t => t !== key);
+    }
+    buildImagesGrid();
+}
 
 // === STEP NAVIGATION ===
 function goToStep(step) {
@@ -548,20 +599,35 @@ function saveScenes() {
 }
 
 // === STEP 3: BILDGENERIERUNG ===
+function getImageTypeLabel(key) {
+    return IMAGE_TYPES[key] ? IMAGE_TYPES[key].label : key;
+}
+
 function buildImagesGrid() {
     const grid = document.getElementById('images-grid');
     if (!grid) return;
     grid.innerHTML = '';
 
+    if (selectedImageTypes.length === 0) {
+        grid.innerHTML = '<div class="col-12 text-center text-muted py-4">Bitte mindestens einen Bild-Typ auswahlen</div>';
+        return;
+    }
+
     selectedScenes.forEach((scene, si) => {
-        ['topf_nur', 'komplett', 'lifestyle'].forEach(variant => {
+        // Szene-Überschrift
+        const header = document.createElement('div');
+        header.className = 'col-12';
+        header.innerHTML = `<h6 class="mt-2 mb-1 text-muted"><i class="bi bi-camera me-1"></i>${scene.title}</h6>`;
+        grid.appendChild(header);
+
+        selectedImageTypes.forEach(variant => {
             const existing = generatedImages.find(
                 img => img.scene_index === si && img.variant_type === variant
             );
-            const variantLabel = variant === 'topf_nur' ? 'Nur Topf' : variant === 'lifestyle' ? 'Lifestyle' : 'Komplettset';
+            const variantLabel = getImageTypeLabel(variant);
 
             const col = document.createElement('div');
-            col.className = 'col-md-4 col-6';
+            col.className = 'col-md-3 col-6';
             col.id = `img-cell-${si}-${variant}`;
 
             let imgContent;
@@ -578,7 +644,7 @@ function buildImagesGrid() {
                             </button>
                         </div>
                         <div class="p-2">
-                            <small class="text-muted">${scene.title} - ${variantLabel}</small>
+                            <small class="text-muted">${variantLabel}</small>
                         </div>
                     </div>`;
             } else {
@@ -591,7 +657,7 @@ function buildImagesGrid() {
                             </div>
                         </div>
                         <div class="p-2">
-                            <small class="text-muted">${scene.title} - ${variantLabel}</small>
+                            <small class="text-muted">${variantLabel}</small>
                         </div>
                     </div>`;
             }
@@ -602,7 +668,7 @@ function buildImagesGrid() {
 }
 
 async function generateAllImages() {
-    const total = selectedScenes.length * 2;
+    const total = selectedScenes.length * selectedImageTypes.length;
     let completed = 0;
     const progress = document.getElementById('image-progress');
     const progressBar = progress.querySelector('.progress-bar');
@@ -610,7 +676,7 @@ async function generateAllImages() {
     progress.classList.remove('d-none');
 
     for (let si = 0; si < selectedScenes.length; si++) {
-        for (const variant of ['topf_nur', 'komplett', 'lifestyle']) {
+        for (const variant of selectedImageTypes) {
             // Skip wenn bereits vorhanden
             const existing = generatedImages.find(
                 img => img.scene_index === si && img.variant_type === variant
@@ -736,7 +802,7 @@ function buildAltTextsUI() {
         const altText = altTexts[i] || '';
         const div = document.createElement('div');
         div.className = 'mb-2';
-        const label = img.variant_type === 'topf_nur' ? 'Nur Topf' : img.variant_type === 'lifestyle' ? 'Lifestyle' : 'Komplettset';
+        const label = getImageTypeLabel(img.variant_type);
         div.innerHTML = `
             <div class="input-group input-group-sm">
                 <span class="input-group-text">${i + 1}. ${label}</span>
