@@ -336,7 +336,7 @@ Antworte NUR mit den Tags, komma-getrennt, ohne Erklärungen."""
             result = ", ".join(tags[:10])  # Max 10 Tags
         return result
 
-    def generate_all_seo_content(self, keyword: str, language: str = "de") -> Optional[Dict[str, str]]:
+    def generate_all_seo_content(self, keyword: str, language: str = "de", context: str = "") -> Optional[Dict[str, str]]:
         """Generiert alle SEO-optimierten Inhalte auf einmal"""
         style_instruction = self._get_style_instruction()
 
@@ -363,8 +363,16 @@ Antworte NUR im JSON-Format mit folgender Struktur:
     "tags": "keyword1, keyword2, keyword3 (5-8 relevante Tags, komma-getrennt)"
 }}"""
 
-        user_prompt = f"""Haupt-Keyword: {keyword}
+        context_block = ""
+        if context:
+            context_block = f"""
 
+Nutze folgende Produkt-Informationen als Basis für die Beschreibung:
+{context}
+"""
+
+        user_prompt = f"""Haupt-Keyword: {keyword}
+{context_block}
 Erstelle jetzt alle SEO-optimierten Texte für dieses Produkt.
 Achte besonders auf:
 1. Das Keyword soll natürlich in allen Texten vorkommen

@@ -1691,9 +1691,14 @@ def api_workflow_generate_content(request, session_id):
         from .services.ai_service import PLoomAIService
         ai_service = PLoomAIService(request.user)
 
+        # Produkt-Kontext aus Settings laden
+        settings_obj = PLoomSettings.objects.filter(user=request.user).first()
+        description_context = settings_obj.product_description_context if settings_obj else ''
+
         # SEO Content generieren
         seo_content = ai_service.generate_all_seo_content(
-            keyword=f"Gravierter Blumentopf {session.keyword} - {session.selected_text}"
+            keyword=f"Gravierter Blumentopf {session.keyword} - {session.selected_text}",
+            context=description_context,
         )
 
         if seo_content:

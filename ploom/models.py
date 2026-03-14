@@ -163,6 +163,11 @@ class PLoomSettings(models.Model):
         verbose_name="Komplettset-Beschreibung",
         help_text="Was ist im Komplettset enthalten?"
     )
+    product_description_context = models.TextField(
+        blank=True,
+        verbose_name="Produktbeschreibungs-Kontext",
+        help_text="Informationen über das Produkt, Material, Herstellung, USPs etc. — wird als Basis für KI-generierte Beschreibungen verwendet"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

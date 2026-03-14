@@ -19,6 +19,7 @@ class PLoomSettingsForm(forms.ModelForm):
             'default_product_category', 'default_product_category_name',
             'default_collection_id', 'default_collection_name',
             'image_generation_model', 'komplettset_description',
+            'product_description_context',
         ]
         widgets = {
             'default_store': forms.Select(attrs={'class': 'form-select'}),
@@ -44,6 +45,7 @@ class PLoomSettingsForm(forms.ModelForm):
             'default_collection_name': forms.TextInput(attrs={'class': 'form-control', 'readonly': True, 'placeholder': 'Collection auswählen...'}),
             'image_generation_model': forms.Select(attrs={'class': 'form-select'}),
             'komplettset_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'z.B. Bio-Erde + Samen + Anleitung + Baumwollbeutel'}),
+            'product_description_context': forms.Textarea(attrs={'class': 'form-control', 'rows': 8, 'placeholder': 'z.B. Handgefertigter Keramik-Blumentopf aus regionaler Produktion. Material: Hochwertige Keramik, frostbeständig. Gravur per Laser, individuell personalisierbar. Durchmesser 14cm, Höhe 12cm. Inkl. Drainageloch. Perfekt als Geschenk...'}),
         }
 
     def __init__(self, *args, **kwargs):
