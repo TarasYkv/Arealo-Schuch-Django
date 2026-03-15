@@ -318,8 +318,16 @@ class PLoomShopifyService:
                 logger.warning(f"Error uploading image: {e}")
                 continue
 
+    def _is_external_video_url(self, url: str) -> bool:
+        """Prüft ob die URL ein YouTube/Vimeo Link ist (einzige von Shopify unterstützte externe Video-Quellen)"""
+        url_lower = url.lower()
+        return any(s in url_lower for s in ['youtube.com', 'youtu.be', 'vimeo.com'])
+
     def _upload_product_videos(self, product_id: str, images: list) -> None:
-        """Lädt Videos zu einem Produkt via GraphQL hoch (YouTube/Vimeo als externe Videos)"""
+        """Lädt Videos zu einem Produkt hoch.
+        - YouTube/Vimeo: direkt als EXTERNAL_VIDEO
+        - MP4/andere: Staged Upload → VIDEO
+        """
         videos = [img for img in images if img.is_video]
         if not videos:
             return
@@ -333,54 +341,156 @@ class PLoomShopifyService:
                 if not video_url:
                     continue
 
-                mutation = """
-                mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-                    productCreateMedia(productId: $productId, media: $media) {
-                        media {
-                            alt
-                            mediaContentType
-                            status
-                        }
-                        mediaUserErrors {
-                            field
-                            message
-                        }
-                        product {
-                            id
-                        }
-                    }
-                }
-                """
-
-                variables = {
-                    "productId": product_gid,
-                    "media": [{
-                        "originalSource": video_url,
-                        "alt": video.alt_text or "Produktvideo",
-                        "mediaContentType": "EXTERNAL_VIDEO",
-                    }]
-                }
-
-                response = self._make_request(
-                    'POST',
-                    graphql_url,
-                    json={"query": mutation, "variables": variables},
-                    timeout=30
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    errors = data.get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
-                    if errors:
-                        logger.warning(f"Video upload errors: {errors}")
-                    else:
-                        logger.info(f"Video uploaded successfully: {video_url}")
+                if self._is_external_video_url(video_url):
+                    # YouTube/Vimeo → EXTERNAL_VIDEO
+                    self._upload_external_video(graphql_url, product_gid, video_url, video.alt_text)
                 else:
-                    logger.warning(f"Video upload failed: {response.status_code} - {response.text}")
+                    # MP4/andere → Staged Upload Workflow
+                    self._upload_video_via_staged(graphql_url, product_gid, video_url, video.alt_text)
 
             except Exception as e:
                 logger.warning(f"Error uploading video: {e}")
                 continue
+
+    def _upload_external_video(self, graphql_url: str, product_gid: str, video_url: str, alt_text: str) -> None:
+        """Lädt YouTube/Vimeo Video als EXTERNAL_VIDEO hoch"""
+        mutation = """
+        mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+            productCreateMedia(productId: $productId, media: $media) {
+                media { alt mediaContentType status }
+                mediaUserErrors { field message }
+            }
+        }
+        """
+        variables = {
+            "productId": product_gid,
+            "media": [{"originalSource": video_url, "alt": alt_text or "Produktvideo", "mediaContentType": "EXTERNAL_VIDEO"}]
+        }
+        response = self._make_request('POST', graphql_url, json={"query": mutation, "variables": variables}, timeout=30)
+        if response.status_code == 200:
+            errors = response.json().get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
+            if errors:
+                logger.warning(f"External video upload errors: {errors}")
+            else:
+                logger.info(f"External video uploaded: {video_url}")
+        else:
+            logger.warning(f"External video upload failed: {response.status_code}")
+
+    def _upload_video_via_staged(self, graphql_url: str, product_gid: str, video_url: str, alt_text: str) -> None:
+        """Lädt ein Video via Staged Upload hoch (für MP4/nicht-YouTube/Vimeo URLs)"""
+        import os
+        import tempfile
+
+        logger.info(f"Starting staged video upload for: {video_url}")
+
+        # 1. Video herunterladen
+        try:
+            video_response = requests.get(video_url, timeout=120, stream=True)
+            video_response.raise_for_status()
+            video_data = video_response.content
+            file_size = len(video_data)
+            logger.info(f"Video downloaded: {file_size} bytes")
+        except Exception as e:
+            logger.warning(f"Could not download video from {video_url}: {e}")
+            return
+
+        # Dateiname aus URL extrahieren
+        filename = os.path.basename(video_url.split('?')[0]) or 'product_video.mp4'
+        mime_type = 'video/mp4'
+        if filename.endswith('.webm'):
+            mime_type = 'video/webm'
+        elif filename.endswith('.mov'):
+            mime_type = 'video/quicktime'
+
+        # 2. Staged Upload erstellen
+        staged_mutation = """
+        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+            stagedUploadsCreate(input: $input) {
+                stagedTargets {
+                    url
+                    resourceUrl
+                    parameters { name value }
+                }
+                userErrors { field message }
+            }
+        }
+        """
+        staged_variables = {
+            "input": [{
+                "resource": "VIDEO",
+                "filename": filename,
+                "mimeType": mime_type,
+                "fileSize": str(file_size),
+                "httpMethod": "POST"
+            }]
+        }
+
+        response = self._make_request('POST', graphql_url, json={"query": staged_mutation, "variables": staged_variables}, timeout=30)
+        if response.status_code != 200:
+            logger.warning(f"Staged upload creation failed: {response.status_code}")
+            return
+
+        staged_data = response.json()
+        staged_errors = staged_data.get('data', {}).get('stagedUploadsCreate', {}).get('userErrors', [])
+        if staged_errors:
+            logger.warning(f"Staged upload errors: {staged_errors}")
+            return
+
+        targets = staged_data.get('data', {}).get('stagedUploadsCreate', {}).get('stagedTargets', [])
+        if not targets:
+            logger.warning("No staged upload targets returned")
+            return
+
+        target = targets[0]
+        upload_url = target['url']
+        resource_url = target['resourceUrl']
+        parameters = target.get('parameters', [])
+
+        logger.info(f"Staged upload URL: {upload_url}, resourceUrl: {resource_url}")
+
+        # 3. Video zum Staging-URL hochladen (multipart form)
+        try:
+            form_data = {}
+            for param in parameters:
+                form_data[param['name']] = (None, param['value'])
+
+            # Video als 'file' Parameter hinzufügen
+            form_data['file'] = (filename, video_data, mime_type)
+
+            upload_response = requests.post(upload_url, files=form_data, timeout=300)
+            logger.info(f"Staged upload response: {upload_response.status_code}")
+
+            if upload_response.status_code not in [200, 201, 204]:
+                logger.warning(f"Staged upload failed: {upload_response.status_code} - {upload_response.text[:500]}")
+                return
+        except Exception as e:
+            logger.warning(f"Staged upload POST failed: {e}")
+            return
+
+        # 4. Video dem Produkt zuweisen via productCreateMedia
+        create_mutation = """
+        mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+            productCreateMedia(productId: $productId, media: $media) {
+                media { alt mediaContentType status }
+                mediaUserErrors { field message }
+            }
+        }
+        """
+        create_variables = {
+            "productId": product_gid,
+            "media": [{"originalSource": resource_url, "alt": alt_text or "Produktvideo", "mediaContentType": "VIDEO"}]
+        }
+
+        response = self._make_request('POST', graphql_url, json={"query": create_mutation, "variables": create_variables}, timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            errors = data.get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
+            if errors:
+                logger.warning(f"Video productCreateMedia errors: {errors}")
+            else:
+                logger.info(f"Video successfully attached to product via staged upload")
+        else:
+            logger.warning(f"productCreateMedia failed: {response.status_code}")
 
     def _set_product_metafields(self, product_id: str, metafields: Dict) -> None:
         """Setzt Metafelder für ein Produkt"""
