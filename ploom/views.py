@@ -1758,10 +1758,26 @@ def api_workflow_generate_content(request, session_id):
         settings_obj = PLoomSettings.objects.filter(user=request.user).first()
         description_context = settings_obj.product_description_context if settings_obj else ''
 
-        # SEO Content generieren
+        # SEO Content generieren mit besserem Kontext
+        seo_keyword = f"Personalisierter Blumentopf mit Gravur '{session.selected_text}' - Thema: {session.keyword}"
+        seo_context = (
+            f"PRODUKT: Handgefertigter Keramik-Blumentopf mit individueller Gravur.\n"
+            f"GRAVUR-TEXT: {session.selected_text}\n"
+            f"THEMA/ANLASS: {session.keyword}\n"
+            f"VARIANTEN: 'Nur Topf' und 'Komplettset' (Topf + Bio-Erde + Samen + Anleitung + Baumwollbeutel)\n\n"
+            f"SEO-ANWEISUNGEN:\n"
+            f"- Titel: Hauptkeyword 'Blumentopf mit Gravur' + Anlass/Thema + emotionaler Nutzen. "
+            f"Format z.B.: 'Blumentopf mit Gravur «{session.selected_text}» | Personalisiertes Geschenk zum {session.keyword}'\n"
+            f"- Beschreibung: Vorteile betonen (personalisiert, handgemacht, einzigartig), "
+            f"Anlass nennen, beide Varianten beschreiben\n"
+            f"- Tags: Gravur, personalisiert, Geschenk, {session.keyword}, Blumentopf, Keramik\n"
+        )
+        if description_context:
+            seo_context += f"\nWEITERE PRODUKT-INFORMATIONEN:\n{description_context}"
+
         seo_content = ai_service.generate_all_seo_content(
-            keyword=f"Gravierter Blumentopf {session.keyword} - {session.selected_text}",
-            context=description_context,
+            keyword=seo_keyword,
+            context=seo_context,
         )
 
         if seo_content:

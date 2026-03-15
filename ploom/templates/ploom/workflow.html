@@ -452,7 +452,7 @@ let selectedScenes = {{ session.selected_scenes|safe|default:"[]" }};
 let generatedImages = {{ session.generated_images|safe|default:"[]" }};
 let altTexts = {{ session.auto_alt_texts|safe|default:"[]" }};
 let selectedReusableIds = [];
-let selectedImageTypes = ['design', 'lifestyle', 'topf_nur', 'nahaufnahme']; // Standard-Auswahl
+let selectedImageTypes = ['lifestyle', 'topf_nur', 'nahaufnahme', 'topf_gravur', 'design']; // Standard-Auswahl
 let basePotImagePath = '{{ session.base_pot_image_path|default:""|escapejs }}';
 
 // === INITIALIZATION ===
@@ -771,9 +771,13 @@ function buildImagesGrid() {
         grid.appendChild(header);
 
         // Design immer am Ende sortieren
+        const specialTypes = ['topf_gravur', 'design'];
         const sortedTypes = [...selectedImageTypes].sort((a, b) => {
-            if (a === 'design') return 1;
-            if (b === 'design') return -1;
+            const aIdx = specialTypes.indexOf(a);
+            const bIdx = specialTypes.indexOf(b);
+            if (aIdx >= 0 && bIdx >= 0) return aIdx - bIdx;
+            if (aIdx >= 0) return 1;
+            if (bIdx >= 0) return -1;
             return 0;
         });
 
@@ -832,9 +836,13 @@ async function generateAllImages() {
     const progressText = document.getElementById('image-progress-text');
     progress.classList.remove('d-none');
 
+    const specialGenTypes = ['topf_gravur', 'design'];
     const genOrder = [...selectedImageTypes].sort((a, b) => {
-        if (a === 'design') return 1;
-        if (b === 'design') return -1;
+        const aIdx = specialGenTypes.indexOf(a);
+        const bIdx = specialGenTypes.indexOf(b);
+        if (aIdx >= 0 && bIdx >= 0) return aIdx - bIdx;
+        if (aIdx >= 0) return 1;
+        if (bIdx >= 0) return -1;
         return 0;
     });
 

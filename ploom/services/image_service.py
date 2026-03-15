@@ -97,6 +97,12 @@ IMAGE_TYPES = {
         'prompt': 'Der gravierte Blumentopf draußen in der Natur. Moos, Holz, Steine, natürliche Umgebung. Rustikal und organisch.',
     },
     # Spezial-Typen (am Ende der Reihe)
+    'topf_gravur': {
+        'label': 'Topf + Gravur (Referenzbild)',
+        'category': 'Spezial',
+        'prompt': '',
+        'is_base_pot': True,
+    },
     'design': {
         'label': 'Design (weißer Hintergrund)',
         'category': 'Spezial',
@@ -254,10 +260,15 @@ class PLoomImageService:
         if not self.gemini_service:
             return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
 
-        # Design-only Typ
         image_type_config = IMAGE_TYPES.get(variant_type, {})
+
+        # Design-only Typ (nur Text auf weißem Hintergrund)
         if image_type_config.get('is_design_only'):
             return self.generate_design_image(engraving_text)
+
+        # Topf + Gravur (Referenzbild mit nur der Gravur geändert)
+        if image_type_config.get('is_base_pot'):
+            return self.generate_base_pot(engraving_text)
 
         pot_desc = self._get_pot_description()
         engraving_style = self._get_engraving_style()
