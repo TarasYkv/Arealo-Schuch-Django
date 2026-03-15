@@ -426,19 +426,30 @@ Achte besonders auf:
 
     def generate_engraving_suggestions(self, keyword: str, count: int = 12) -> list:
         """Generiert kreative Gravur-Text Vorschläge für Blumentöpfe"""
-        system_prompt = """Du bist Spezialist für personalisierte Gravur-Texte auf Blumentöpfen.
-Generiere kreative, emotionale Gravur-Texte die auf einen Blumentopf graviert werden.
+        system_prompt = """Du bist Spezialist für tiefgründige, emotionale Gravur-Texte auf personalisierten Blumentöpfen, die als Geschenk überreicht werden.
 
-Regeln:
-- Kurz und prägnant (max 5 Worte pro Text)
-- Emotional und persönlich
-- Passend für Gravur auf Keramik
-- Mix aus verschiedenen Stilen (romantisch, humorvoll, inspirierend)
+Deine Texte sollen:
+- TIEFSINNIG und BEDEUTUNGSVOLL sein — keine oberflächlichen Floskeln
+- EMOTIONAL berühren — der Beschenkte soll beim Lesen einen Moment innehalten
+- Als GESCHENK geeignet sein — Wertschätzung, Liebe, Verbundenheit ausdrücken
+- Eine METAPHER zwischen Pflanze/Wachstum und der Beziehung/dem Anlass herstellen
+- Kurz und prägnant (2-5 Worte pro Text, max 6 Worte)
 - Deutsch
+
+Stilrichtungen mischen:
+- Poetisch-philosophisch ("Wurzeln der Liebe", "Wo du blühst, bin ich Zuhause")
+- Herzlich-persönlich ("Für dich wächst mein Herz", "Dein Lächeln lässt mich blühen")
+- Tiefgründig-metaphorisch ("Gemeinsam Wurzeln schlagen", "Liebe braucht nur Licht")
+- Dankbar-wertschätzend ("Du bist mein Sonnenschein", "Danke, dass du blühst")
+
+VERMEIDE:
+- Generische Sprüche wie "Alles Gute" oder "Viel Glück"
+- Humor oder Witze — der Ton soll warmherzig und ernst gemeint sein
+- Zu lange oder komplizierte Formulierungen
 
 Antworte NUR als JSON-Array mit Strings, z.B.: ["Text 1", "Text 2", ...]"""
 
-        user_prompt = f"Generiere {count} kreative Gravur-Texte zum Thema '{keyword}'."
+        user_prompt = f"Generiere {count} tiefgründige, emotionale Gravur-Texte zum Thema '{keyword}'. Jeder Text soll als Geschenk-Gravur auf einem Blumentopf berühren und Bedeutung haben."
 
         messages = [
             {"role": "system", "content": system_prompt},
