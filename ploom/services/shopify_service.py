@@ -206,6 +206,7 @@ class PLoomShopifyService:
                 images = list(ploom_product.images.all())
                 if images:
                     self._upload_product_images(shopify_product_id, images, variant_id_map)
+                    self._upload_product_videos(shopify_product_id, images)
 
                 # Metafelder setzen
                 logger.info(f"Product metafields value: {ploom_product.product_metafields}")
@@ -243,6 +244,11 @@ class PLoomShopifyService:
 
         for i, image in enumerate(images):
             try:
+                # Videos überspringen — werden separat via GraphQL hochgeladen
+                if image.is_video:
+                    logger.info(f"Skipping video in image upload: {image.image_url}")
+                    continue
+
                 image_url = image.image_url
                 if not image_url:
                     continue
@@ -304,6 +310,70 @@ class PLoomShopifyService:
 
             except Exception as e:
                 logger.warning(f"Error uploading image: {e}")
+                continue
+
+    def _upload_product_videos(self, product_id: str, images: list) -> None:
+        """Lädt Videos zu einem Produkt via GraphQL hoch (YouTube/Vimeo als externe Videos)"""
+        videos = [img for img in images if img.is_video]
+        if not videos:
+            return
+
+        graphql_url = f"{self.base_url}/graphql.json"
+        product_gid = f"gid://shopify/Product/{product_id}"
+
+        for video in videos:
+            try:
+                video_url = video.image_url
+                if not video_url:
+                    continue
+
+                mutation = """
+                mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+                    productCreateMedia(productId: $productId, media: $media) {
+                        media {
+                            alt
+                            mediaContentType
+                            status
+                        }
+                        mediaUserErrors {
+                            field
+                            message
+                        }
+                        product {
+                            id
+                        }
+                    }
+                }
+                """
+
+                variables = {
+                    "productId": product_gid,
+                    "media": [{
+                        "originalSource": video_url,
+                        "alt": video.alt_text or "Produktvideo",
+                        "mediaContentType": "EXTERNAL_VIDEO",
+                    }]
+                }
+
+                response = self._make_request(
+                    'POST',
+                    graphql_url,
+                    json={"query": mutation, "variables": variables},
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    errors = data.get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
+                    if errors:
+                        logger.warning(f"Video upload errors: {errors}")
+                    else:
+                        logger.info(f"Video uploaded successfully: {video_url}")
+                else:
+                    logger.warning(f"Video upload failed: {response.status_code} - {response.text}")
+
+            except Exception as e:
+                logger.warning(f"Error uploading video: {e}")
                 continue
 
     def _set_product_metafields(self, product_id: str, metafields: Dict) -> None:
