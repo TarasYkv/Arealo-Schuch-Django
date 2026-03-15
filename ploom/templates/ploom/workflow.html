@@ -117,30 +117,6 @@
                     </div>
                 </div>
 
-                <!-- Gravur-Vorschau auf schwarzem Hintergrund -->
-                <div class="mt-4 d-none" id="engraving-preview-section">
-                    <label class="form-label fw-bold">Gravur-Vorschau</label>
-                    <div class="d-flex align-items-start gap-3">
-                        <canvas id="engraving-canvas" width="800" height="400"
-                                style="max-width: 400px; width: 100%; border-radius: 8px; border: 1px solid #dee2e6;"></canvas>
-                        <div>
-                            <button class="btn btn-sm btn-success" onclick="downloadEngravingPreview()">
-                                <i class="bi bi-download me-1"></i>Herunterladen
-                            </button>
-                            <div class="mt-2">
-                                <label class="form-label small text-muted mb-1">Schriftart</label>
-                                <select class="form-select form-select-sm" id="engraving-font" onchange="renderEngravingPreview()" style="width: 160px;">
-                                    <option value="Georgia">Georgia (Serif)</option>
-                                    <option value="'Brush Script MT', cursive">Schreibschrift</option>
-                                    <option value="'Times New Roman', serif">Times New Roman</option>
-                                    <option value="Arial, sans-serif">Arial</option>
-                                    <option value="'Courier New', monospace">Courier</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="mt-3 text-end">
                     <button class="btn btn-primary" id="btn-next-step1" onclick="saveTexts()" disabled>
                         Weiter <i class="bi bi-arrow-right ms-1"></i>
@@ -483,7 +459,6 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCharCounters();
     if (selectedText) {
         document.getElementById('btn-next-step1').disabled = false;
-        renderEngravingPreview();
     }
     updateSceneButtons();
     buildImagesGrid();
@@ -642,46 +617,7 @@ function selectCustomText() {
         selectedText = text;
         document.querySelectorAll('.text-card').forEach(c => c.classList.remove('selected'));
         document.getElementById('btn-next-step1').disabled = false;
-        renderEngravingPreview();
     }
-}
-
-// === GRAVUR-VORSCHAU ===
-function renderEngravingPreview() {
-    if (!selectedText) return;
-    const section = document.getElementById('engraving-preview-section');
-    section.classList.remove('d-none');
-
-    const canvas = document.getElementById('engraving-canvas');
-    const ctx = canvas.getContext('2d');
-    const fontFamily = document.getElementById('engraving-font').value;
-
-    // Schwarzer Hintergrund
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Text zentriert in Weiß
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Schriftgröße dynamisch anpassen
-    let fontSize = 60;
-    ctx.font = `${fontSize}px ${fontFamily}`;
-    while (ctx.measureText(selectedText).width > canvas.width * 0.85 && fontSize > 16) {
-        fontSize -= 2;
-        ctx.font = `${fontSize}px ${fontFamily}`;
-    }
-
-    ctx.fillText(selectedText, canvas.width / 2, canvas.height / 2);
-}
-
-function downloadEngravingPreview() {
-    const canvas = document.getElementById('engraving-canvas');
-    const link = document.createElement('a');
-    link.download = `gravur_${selectedText.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_')}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
 }
 
 function saveTexts() {
