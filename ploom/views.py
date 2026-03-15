@@ -1760,7 +1760,37 @@ def api_workflow_generate_image(request, session_id):
                 logger.warning(f"Base pot generation failed: {base_result.get('error')}")
                 # Weiter ohne Basis-Topf (Fallback)
 
-        # Schritt 2: Szenen-Bild generieren mit Basis-Topf als Referenz
+        # topf_gravur: Basis-Topf wiederverwenden statt neu zu generieren
+        if variant_type == 'topf_gravur' and session.base_pot_image_path:
+            from django.conf import settings as django_settings
+            image_path = session.base_pot_image_path
+            image_url = f"{django_settings.MEDIA_URL}{image_path}"
+
+            # In Session speichern
+            images = session.generated_images or []
+            image_entry = {
+                'scene_index': scene_index,
+                'scene_description': 'Topf + Gravur (Referenzbild)',
+                'variant_type': variant_type,
+                'image_path': image_path,
+                'selected': True,
+            }
+            images = [
+                img for img in images
+                if not (img.get('scene_index') == scene_index and img.get('variant_type') == variant_type)
+            ]
+            images.append(image_entry)
+            session.generated_images = images
+            session.save(update_fields=['generated_images', 'updated_at'])
+
+            return JsonResponse({
+                'success': True,
+                'image_path': image_path,
+                'image_url': image_url,
+                'has_base_pot': True,
+            })
+
+        # Szenen-Bild generieren mit Basis-Topf als Referenz
         result = img_service.generate_pot_image(
             engraving_text=session.selected_text,
             scene_description=scene_description,
