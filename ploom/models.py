@@ -578,7 +578,11 @@ class PLoomProductImage(models.Model):
     def is_video(self):
         """Prüft ob es sich um ein Video handelt"""
         url = self.image_url or ''
-        return any(ext in url.lower() for ext in ['.mp4', '.webm', '.mov', '.avi', '/videos/'])
+        url_lower = url.lower()
+        return any(s in url_lower for s in [
+            '.mp4', '.webm', '.mov', '.avi', '/videos/',
+            'youtube.com', 'youtu.be', 'vimeo.com',
+        ])
 
     def save(self, *args, **kwargs):
         # Wenn dieses Bild als Hauptbild gesetzt wird, andere zurücksetzen

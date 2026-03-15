@@ -232,7 +232,16 @@
                                 {% for image in images %}
                                 <div class="col-md-3 col-4 draggable-image" data-id="{{ image.id }}" draggable="true">
                                     <div class="position-relative ploom-image-item {% if image.is_featured %}is-featured{% endif %}">
+                                        {% if image.is_video %}
+                                        <div class="d-flex align-items-center justify-content-center rounded" style="aspect-ratio: 1; background: #1a1a2e;">
+                                            <div class="text-center text-white">
+                                                <i class="bi bi-play-circle display-4"></i>
+                                                <br><small>Video</small>
+                                            </div>
+                                        </div>
+                                        {% else %}
                                         <img src="{{ image.image_url }}" class="img-fluid rounded">
+                                        {% endif %}
                                         {% if image.is_featured %}
                                         <span class="badge bg-primary position-absolute top-0 start-0 m-1">Hauptbild</span>
                                         {% endif %}
@@ -242,9 +251,15 @@
                                         </span>
                                         {% endif %}
                                         <div class="ploom-image-actions">
+                                            {% if image.is_video %}
+                                            <a href="{{ image.image_url }}" target="_blank" class="btn btn-sm btn-success" title="Video offnen">
+                                                <i class="bi bi-play-fill"></i>
+                                            </a>
+                                            {% else %}
                                             <a href="{{ image.image_url }}" download class="btn btn-sm btn-success" title="Herunterladen">
                                                 <i class="bi bi-download"></i>
                                             </a>
+                                            {% endif %}
                                             <button type="button" class="btn btn-sm btn-light btn-set-featured" data-id="{{ image.id }}" title="Als Hauptbild">
                                                 <i class="bi bi-star{% if image.is_featured %}-fill{% endif %}"></i>
                                             </button>
