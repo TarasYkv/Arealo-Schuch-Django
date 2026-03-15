@@ -377,13 +377,43 @@ class PLoomShopifyService:
             logger.warning(f"External video upload failed: {response.status_code}")
 
     def _upload_video_via_staged(self, graphql_url: str, product_gid: str, video_url: str, alt_text: str) -> None:
-        """Lädt ein Video via Staged Upload hoch (für MP4/nicht-YouTube/Vimeo URLs)"""
-        import os
-        import tempfile
+        """Lädt ein Video via Staged Upload hoch (für MP4/Shopify CDN URLs).
 
+        Workflow:
+        1. Erst Direkt-Versuch: productCreateMedia mit VIDEO + URL als originalSource
+        2. Falls das fehlschlägt: Video herunterladen → stagedUploadsCreate → hochladen → productCreateMedia
+        """
+        import os
+
+        alt = alt_text or "Produktvideo"
+
+        # --- Versuch 1: Direkt mit URL als originalSource ---
+        logger.info(f"Trying direct VIDEO upload with URL: {video_url}")
+        create_mutation = """
+        mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+            productCreateMedia(productId: $productId, media: $media) {
+                media { alt mediaContentType status }
+                mediaUserErrors { field message }
+            }
+        }
+        """
+        direct_variables = {
+            "productId": product_gid,
+            "media": [{"originalSource": video_url, "alt": alt, "mediaContentType": "VIDEO"}]
+        }
+        response = self._make_request('POST', graphql_url, json={"query": create_mutation, "variables": direct_variables}, timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            errors = data.get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
+            if not errors:
+                logger.info(f"Direct VIDEO upload succeeded: {video_url}")
+                return
+            logger.info(f"Direct VIDEO upload failed: {errors}, trying staged upload...")
+
+        # --- Versuch 2: Staged Upload Workflow ---
         logger.info(f"Starting staged video upload for: {video_url}")
 
-        # 1. Video herunterladen
+        # 2a. Video herunterladen
         try:
             video_response = requests.get(video_url, timeout=120, stream=True)
             video_response.raise_for_status()
@@ -394,7 +424,6 @@ class PLoomShopifyService:
             logger.warning(f"Could not download video from {video_url}: {e}")
             return
 
-        # Dateiname aus URL extrahieren
         filename = os.path.basename(video_url.split('?')[0]) or 'product_video.mp4'
         mime_type = 'video/mp4'
         if filename.endswith('.webm'):
@@ -402,7 +431,7 @@ class PLoomShopifyService:
         elif filename.endswith('.mov'):
             mime_type = 'video/quicktime'
 
-        # 2. Staged Upload erstellen
+        # 2b. Staged Upload erstellen
         staged_mutation = """
         mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
             stagedUploadsCreate(input: $input) {
@@ -448,13 +477,12 @@ class PLoomShopifyService:
 
         logger.info(f"Staged upload URL: {upload_url}, resourceUrl: {resource_url}")
 
-        # 3. Video zum Staging-URL hochladen (multipart form)
+        # 2c. Video zum Staging-URL hochladen (multipart form)
         try:
             form_data = {}
             for param in parameters:
                 form_data[param['name']] = (None, param['value'])
 
-            # Video als 'file' Parameter hinzufügen
             form_data['file'] = (filename, video_data, mime_type)
 
             upload_response = requests.post(upload_url, files=form_data, timeout=300)
@@ -467,21 +495,13 @@ class PLoomShopifyService:
             logger.warning(f"Staged upload POST failed: {e}")
             return
 
-        # 4. Video dem Produkt zuweisen via productCreateMedia
-        create_mutation = """
-        mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-            productCreateMedia(productId: $productId, media: $media) {
-                media { alt mediaContentType status }
-                mediaUserErrors { field message }
-            }
-        }
-        """
-        create_variables = {
+        # 2d. Video dem Produkt zuweisen
+        staged_create_variables = {
             "productId": product_gid,
-            "media": [{"originalSource": resource_url, "alt": alt_text or "Produktvideo", "mediaContentType": "VIDEO"}]
+            "media": [{"originalSource": resource_url, "alt": alt, "mediaContentType": "VIDEO"}]
         }
 
-        response = self._make_request('POST', graphql_url, json={"query": create_mutation, "variables": create_variables}, timeout=30)
+        response = self._make_request('POST', graphql_url, json={"query": create_mutation, "variables": staged_create_variables}, timeout=30)
         if response.status_code == 200:
             data = response.json()
             errors = data.get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
