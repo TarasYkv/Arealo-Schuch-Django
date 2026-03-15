@@ -381,7 +381,7 @@ class PLoomProduct(models.Model):
         help_text="Wenn aktiviert, wird der Bestand in Shopify verfolgt"
     )
     inventory_quantity = models.IntegerField(
-        default=0,
+        default=100,
         verbose_name="Bestand"
     )
 
@@ -674,7 +674,7 @@ class PLoomProductVariant(models.Model):
         help_text="EAN, UPC, etc."
     )
     inventory_quantity = models.IntegerField(
-        default=0,
+        default=100,
         verbose_name="Lagerbestand"
     )
     inventory_policy = models.CharField(
