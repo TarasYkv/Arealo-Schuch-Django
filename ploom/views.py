@@ -1881,7 +1881,7 @@ def api_workflow_generate_content(request, session_id):
             "Beginne mit einem kurzen, bildlichen Szenario",
             "Beginne mit der Bedeutung des Gravur-Textes",
             "Beginne mit dem Anlass und warum dieses Geschenk perfekt dafür ist",
-            "Beginne mit einem überraschenden Fakt über personalisierte Geschenke",
+            "Beginne mit einem überraschenden Fakt über besondere Geschenke mit Gravur",
         ]
         chosen_angle = random.choice(story_angles)
         chosen_opening = random.choice(opening_styles)
@@ -1917,16 +1917,16 @@ def api_workflow_generate_content(request, session_id):
             f"- Erzähle eine spezifische Geschichte rund um {session.selected_text} und {session.keyword}\n"
             f"- Erkläre, was den Gravur-Text besonders macht und warum er zum Anlass passt\n"
             f"- Beschreibe BEIDE Varianten (Nur Topf / Komplettset) mit konkreten Details\n"
-            f"- Verwende semantische Keywords: gravierter Blumentopf, personalisiertes Geschenk, "
+            f"- Verwende semantische Keywords: gravierter Blumentopf, Geschenk mit Gravur, "
             f"Keramik-Topf mit Gravur, {session.keyword} Geschenkidee\n\n"
 
             f"### SEO ###\n"
             f"- SEO-Titel: max 60 Zeichen, beginnt mit 'Gravierter Blumentopf {session.keyword}' — "
             f"kurze, keyword-reiche Version des Haupttitels (NICHT identisch zum Produkttitel!)\n"
             f"- Meta-Beschreibung: max 155 Zeichen mit Call-to-Action und Keywords: "
-            f"gravierter Blumentopf, personalisiertes Geschenk, {session.keyword}\n"
+            f"gravierter Blumentopf, Geschenk mit Gravur, {session.keyword}\n"
             f"- Tags: spezifisch für diesen Anlass, kommagetrennt, z.B.: "
-            f"Geschenk {session.keyword}, Gravierter Blumentopf, Personalisiertes Geschenk, "
+            f"Geschenk {session.keyword}, Gravierter Blumentopf, Blumentopf mit Gravur, "
             f"{session.keyword} Geschenkidee, Blumentopf mit Gravur\n"
         )
         if description_context:
