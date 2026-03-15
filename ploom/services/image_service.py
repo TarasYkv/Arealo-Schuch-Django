@@ -230,8 +230,9 @@ class PLoomImageService:
         engraving_style = self._get_engraving_style()
         spelled_text = spell_out_text(engraving_text)
 
-        # Szenen-Prompt
-        scene_prompt = image_type_config.get('prompt', scene_description) if image_type_config else scene_description
+        # Bild-Typ-Prompt (z.B. "Lifestyle: Eine junge Frau hält den Topf...")
+        image_type_prompt = image_type_config.get('prompt', '') if image_type_config else ''
+        image_type_label = image_type_config.get('label', variant_type) if image_type_config else variant_type
 
         # Referenzbild: Basis-Topf hat Priorität, dann Settings-Referenzbild
         reference_image = None
@@ -248,32 +249,36 @@ class PLoomImageService:
         # Prompt mit Referenz auf Basis-Topf
         if base_pot_image_path:
             prompt = (
-                f"Erstelle ein Produktfoto. Das Referenzbild zeigt den EXAKTEN Blumentopf, "
-                f"den du in der neuen Szene verwenden sollst. "
-                f"Übernimm den Topf GENAU so wie er im Referenzbild aussieht — "
-                f"gleiche Form, Farbe, Größe, Gravur. Verändere den Topf NICHT. "
+                f"Erstelle ein Produktfoto vom Typ '{image_type_label}'. "
+                f"Das Referenzbild zeigt den EXAKTEN Blumentopf, "
+                f"den du verwenden sollst — gleiche Form, Farbe, Größe, Gravur. "
                 f"\n\nDer Topf hat die Gravur '{engraving_text}' in {engraving_style}. "
-                f"Die Gravur muss EXAKT wie im Referenzbild aussehen. "
                 f"\n\nGrößenverhältnis: Der Topf ist klein, ca. 14cm hoch — "
                 f"passt bequem in eine Erwachsenen-Hand. "
-                f"\n\nNEUE SZENE: {scene_prompt} "
-                f"\n\nSzenen-Kontext: {scene_description}. "
-                f"\n\nBildanforderungen: Professionelles Produktfoto, hohe Qualität, "
+                f"\n\n### BILD-TYP (WICHTIGSTE ANWEISUNG — bestimmt Komposition und Stil): ###"
+                f"\n{image_type_prompt}"
+                f"\n\n### THEMATISCHER KONTEXT (Stimmung/Umgebung): ###"
+                f"\n{scene_description}"
+                f"\n\n### TECHNISCHE ANFORDERUNGEN: ###"
+                f"\nProfessionelles Produktfoto, hohe Qualität, "
                 f"professionelle Beleuchtung, warme Atmosphäre. "
                 f"Die Gravur '{engraving_text}' muss klar lesbar sein. "
                 f"Quadratisches Format."
             )
         else:
-            # Fallback ohne Basis-Topf (wie bisher)
+            # Fallback ohne Basis-Topf
             prompt = (
-                f"WICHTIG - Der Blumentopf muss auf JEDEM Bild IDENTISCH aussehen: "
-                f"{pot_desc}. "
+                f"Erstelle ein Produktfoto vom Typ '{image_type_label}'. "
+                f"WICHTIG - Der Blumentopf muss so aussehen: {pot_desc}. "
                 f"Auf dem Topf ist in {engraving_style} die Gravur {spelled_text} eingraviert. "
                 f"Die Gravur ist in den Ton eingeritzt (nicht aufgemalt). "
                 f"Der Topf ist ein kleiner Blumentopf — passt bequem in eine Hand. "
-                f"\n\nSzene: {scene_prompt} "
-                f"\n\nSzenen-Kontext: {scene_description}. "
-                f"\n\nBildanforderungen: Professionelles Produktfoto, hohe Qualität, "
+                f"\n\n### BILD-TYP (WICHTIGSTE ANWEISUNG — bestimmt Komposition und Stil): ###"
+                f"\n{image_type_prompt}"
+                f"\n\n### THEMATISCHER KONTEXT (Stimmung/Umgebung): ###"
+                f"\n{scene_description}"
+                f"\n\n### TECHNISCHE ANFORDERUNGEN: ###"
+                f"\nProfessionelles Produktfoto, hohe Qualität, "
                 f"professionelle Beleuchtung, warme Atmosphäre. "
                 f"Die Gravur '{engraving_text}' muss klar lesbar sein. "
                 f"Quadratisches Format."
