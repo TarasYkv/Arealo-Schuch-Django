@@ -431,7 +431,7 @@ Achte besonders auf:
             'name': 'Emotionale Sprüche',
             'icon': 'bi-heart-fill',
             'icon_color': 'text-danger',
-            'count': 5,
+            'count': 8,
             'description': (
                 "- TIEFSINNIG und BEDEUTUNGSVOLL — keine oberflächlichen Floskeln\n"
                 "- EMOTIONAL berühren — der Beschenkte soll beim Lesen einen Moment innehalten\n"
@@ -445,7 +445,7 @@ Achte besonders auf:
             'name': 'Humorvolle Sprüche',
             'icon': 'bi-emoji-laughing-fill',
             'icon_color': 'text-warning',
-            'count': 5,
+            'count': 8,
             'description': (
                 "- WITZIG und CHARMANT — bringt den Beschenkten zum Schmunzeln\n"
                 "- Wortspiele mit Pflanzen/Blumen/Wachstum sind ideal\n"
@@ -459,7 +459,7 @@ Achte besonders auf:
             'name': 'Motivierende Sprüche',
             'icon': 'bi-lightning-fill',
             'icon_color': 'text-success',
-            'count': 4,
+            'count': 8,
             'description': (
                 "- INSPIRIEREND und AUFBAUEND — gibt Kraft und Zuversicht\n"
                 "- Ermutigt zum Wachsen, Weitermachen, Neubeginn\n"
@@ -472,7 +472,7 @@ Achte besonders auf:
             'name': 'Weise Sprüche',
             'icon': 'bi-book-fill',
             'icon_color': 'text-info',
-            'count': 4,
+            'count': 8,
             'description': (
                 "- PHILOSOPHISCH und TIEFGRÜNDIG — Lebensweisheiten\n"
                 "- Sprichwort-artig, zeitlos, universell wahr\n"
@@ -485,7 +485,7 @@ Achte besonders auf:
             'name': 'Freche Sprüche',
             'icon': 'bi-chat-quote-fill',
             'icon_color': 'text-primary',
-            'count': 4,
+            'count': 8,
             'description': (
                 "- FRECH und SCHLAGFERTIG — direkt und selbstbewusst\n"
                 "- Frecher als Humor, aber liebevoll\n"
@@ -498,7 +498,7 @@ Achte besonders auf:
             'name': 'Kurz & Prägnant',
             'icon': 'bi-lightning-charge-fill',
             'icon_color': 'text-dark',
-            'count': 4,
+            'count': 8,
             'description': (
                 "- MINIMALISTISCH — nur 1-2 Worte\n"
                 "- Kraftvoll durch Kürze\n"
@@ -511,7 +511,7 @@ Achte besonders auf:
             'name': 'Romantische Sprüche',
             'icon': 'bi-suit-heart-fill',
             'icon_color': 'text-danger',
-            'count': 4,
+            'count': 8,
             'description': (
                 "- ROMANTISCH und ZÄRTLICH — für Partner, Hochzeit, Valentinstag\n"
                 "- Liebe und Zweisamkeit ausdrückend\n"
