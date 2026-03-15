@@ -424,32 +424,49 @@ Achte besonders auf:
                 return None
         return None
 
-    def generate_engraving_suggestions(self, keyword: str, count: int = 12) -> list:
-        """Generiert kreative Gravur-Text Vorschläge für Blumentöpfe"""
-        system_prompt = """Du bist Spezialist für tiefgründige, emotionale Gravur-Texte auf personalisierten Blumentöpfen, die als Geschenk überreicht werden.
+    def generate_engraving_suggestions(self, keyword: str, count: int = 16) -> list:
+        """Generiert kreative Gravur-Text Vorschläge für Blumentöpfe (emotional + humorvoll)"""
+        emotional_count = count // 2 + count % 2  # Mehrheit emotional
+        humor_count = count // 2
 
-Deine Texte sollen:
-- TIEFSINNIG und BEDEUTUNGSVOLL sein — keine oberflächlichen Floskeln
+        system_prompt = f"""Du bist Spezialist für kreative Gravur-Texte auf Blumentöpfen, die als Geschenk überreicht werden.
+
+Generiere ZWEI Kategorien von Gravur-Texten:
+
+### KATEGORIE 1: EMOTIONALE SPRÜCHE ({emotional_count} Stück) ###
+- TIEFSINNIG und BEDEUTUNGSVOLL — keine oberflächlichen Floskeln
 - EMOTIONAL berühren — der Beschenkte soll beim Lesen einen Moment innehalten
-- Als GESCHENK geeignet sein — Wertschätzung, Liebe, Verbundenheit ausdrücken
-- Eine METAPHER zwischen Pflanze/Wachstum und der Beziehung/dem Anlass herstellen
-- Kurz und prägnant (2-5 Worte pro Text, max 6 Worte)
-- Deutsch
+- Wertschätzung, Liebe, Verbundenheit ausdrücken
+- Metapher zwischen Pflanze/Wachstum und der Beziehung/dem Anlass
 
-Stilrichtungen mischen:
+Stilrichtungen:
 - Poetisch-philosophisch ("Wurzeln der Liebe", "Wo du blühst, bin ich Zuhause")
 - Herzlich-persönlich ("Für dich wächst mein Herz", "Dein Lächeln lässt mich blühen")
 - Tiefgründig-metaphorisch ("Gemeinsam Wurzeln schlagen", "Liebe braucht nur Licht")
 - Dankbar-wertschätzend ("Du bist mein Sonnenschein", "Danke, dass du blühst")
 
-VERMEIDE:
-- Generische Sprüche wie "Alles Gute" oder "Viel Glück"
-- Humor oder Witze — der Ton soll warmherzig und ernst gemeint sein
-- Zu lange oder komplizierte Formulierungen
+### KATEGORIE 2: HUMORVOLLE SPRÜCHE ({humor_count} Stück) ###
+- WITZIG und CHARMANT — bringt den Beschenkten zum Schmunzeln
+- Thematisch passend zum Anlass/zur Zielgruppe
+- Wortspiele mit Pflanzen/Blumen/Wachstum sind ideal
+- Liebevoll-frech, nicht beleidigend
+- Alltagshumor der zum Thema passt
+
+Beispiele für humorvolle Gravuren:
+- Zum Thema Mama: "Mama weiß alles. Wenn nicht, googelt sie."
+- Zum Thema Gärtner: "Ich rede mit Pflanzen. Die hören wenigstens zu."
+- Zum Thema Lehrer: "Danke fürs Gießen kleiner Köpfe"
+- Zum Thema Büro: "Überlebt mehr als meine Motivation"
+
+### ALLGEMEINE REGELN ###
+- Kurz und prägnant (2-6 Worte pro Text)
+- Deutsch
+- VERMEIDE generische Sprüche wie "Alles Gute" oder "Viel Glück"
+- Zuerst die emotionalen, dann die humorvollen Sprüche
 
 Antworte NUR als JSON-Array mit Strings, z.B.: ["Text 1", "Text 2", ...]"""
 
-        user_prompt = f"Generiere {count} tiefgründige, emotionale Gravur-Texte zum Thema '{keyword}'. Jeder Text soll als Geschenk-Gravur auf einem Blumentopf berühren und Bedeutung haben."
+        user_prompt = f"Generiere {count} Gravur-Texte zum Thema '{keyword}': {emotional_count} emotionale und {humor_count} humorvolle. Jeder Text soll als Geschenk-Gravur auf einem Blumentopf funktionieren."
 
         messages = [
             {"role": "system", "content": system_prompt},
