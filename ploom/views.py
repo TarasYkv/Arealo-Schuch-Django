@@ -256,6 +256,16 @@ def product_edit(request, product_id):
     images = product.images.all()
     themes = ProductTheme.objects.filter(user=request.user)
 
+    # Design-Motiv aus Workflow-Session laden (Text auf weißem Hintergrund)
+    design_image_url = None
+    workflow_session = product.workflow_sessions.first()
+    if workflow_session and workflow_session.generated_images:
+        for img in workflow_session.generated_images:
+            if img.get('variant_type') == 'design' and img.get('image_path'):
+                from django.conf import settings as django_settings
+                design_image_url = f"{django_settings.MEDIA_URL}{img['image_path']}"
+                break
+
     context = {
         'form': form,
         'product': product,
@@ -263,6 +273,7 @@ def product_edit(request, product_id):
         'images': images,
         'themes': themes,
         'is_new': False,
+        'design_image_url': design_image_url,
     }
     return render(request, 'ploom/product_create.html', context)
 
