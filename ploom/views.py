@@ -1906,15 +1906,11 @@ def api_workflow_generate_content(request, session_id):
             f"{chosen_opening}\n\n"
 
             f"### TITEL (EXAKTES FORMAT - KEINE ABWEICHUNG!) ###\n"
-            f"- Format: 'Geschenk {session.keyword} - Gravierter Blumentopf {session.selected_text}'\n"
-            f"- Der Titel beginnt IMMER mit 'Geschenk [Anlass/Zielgruppe]'\n"
-            f"- Dann folgt ' - Gravierter Blumentopf'\n"
-            f"- Dann der Gravur-Spruch OHNE Anführungszeichen, OHNE Klammern, OHNE « »\n"
-            f"- Beispiele:\n"
-            f"  'Geschenk Imker - Gravierter Blumentopf Bienen machen glücklich'\n"
-            f"  'Geschenk Mama - Gravierter Blumentopf Für immer in meinem Herzen'\n"
-            f"  'Geschenk Hochzeit - Gravierter Blumentopf Gemeinsam wachsen'\n"
-            f"- KEINE Sonderzeichen wie « » oder | im Titel\n\n"
+            f"- Der Titel lautet EXAKT: 'Geschenk {session.keyword} - Gravierter Blumentopf {session.selected_text}'\n"
+            f"- NIEMALS abkürzen, NIEMALS mit '...' abschneiden, IMMER vollständig ausschreiben!\n"
+            f"- Der komplette Gravur-Spruch '{session.selected_text}' muss im Titel stehen\n"
+            f"- KEINE Sonderzeichen wie « » | oder Anführungszeichen im Titel\n"
+            f"- Der Titel enthält die wichtigsten SEO-Keywords: Geschenk, {session.keyword}, Gravierter Blumentopf\n\n"
 
             f"### BESCHREIBUNG ###\n"
             f"- 150-250 Wörter, HTML-formatiert (<p>, <ul>, <li>, <strong>)\n"
@@ -1925,9 +1921,13 @@ def api_workflow_generate_content(request, session_id):
             f"Keramik-Topf mit Gravur, {session.keyword} Geschenkidee\n\n"
 
             f"### SEO ###\n"
-            f"- SEO-Titel max 60 Zeichen, Keyword 'Blumentopf mit Gravur' am Anfang\n"
-            f"- Meta-Beschreibung max 155 Zeichen mit Call-to-Action\n"
-            f"- Tags: spezifisch für diesen Anlass, nicht generisch\n"
+            f"- SEO-Titel: max 60 Zeichen, beginnt mit 'Gravierter Blumentopf {session.keyword}' — "
+            f"kurze, keyword-reiche Version des Haupttitels (NICHT identisch zum Produkttitel!)\n"
+            f"- Meta-Beschreibung: max 155 Zeichen mit Call-to-Action und Keywords: "
+            f"gravierter Blumentopf, personalisiertes Geschenk, {session.keyword}\n"
+            f"- Tags: spezifisch für diesen Anlass, kommagetrennt, z.B.: "
+            f"Geschenk {session.keyword}, Gravierter Blumentopf, Personalisiertes Geschenk, "
+            f"{session.keyword} Geschenkidee, Blumentopf mit Gravur\n"
         )
         if description_context:
             seo_context += f"\nWEITERE PRODUKT-INFORMATIONEN:\n{description_context}"
