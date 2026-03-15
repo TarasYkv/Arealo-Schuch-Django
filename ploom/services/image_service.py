@@ -19,13 +19,6 @@ logger = logging.getLogger(__name__)
 
 # Verfügbare Bild-Typen für den Workflow
 IMAGE_TYPES = {
-    # Spezial-Typen
-    'design': {
-        'label': 'Design (weißer Hintergrund)',
-        'category': 'Spezial',
-        'prompt': 'Nur der Gravur-Text auf reinweißem Hintergrund. Elegante Typografie, kein Topf, kein Hintergrund, nur der Text. Zentriert, gut lesbar, hohe Auflösung.',
-        'is_design_only': True,
-    },
     # Mit Menschen
     'lifestyle': {
         'label': 'Lifestyle',
@@ -102,6 +95,13 @@ IMAGE_TYPES = {
         'label': 'Natur',
         'category': 'Ohne Menschen',
         'prompt': 'Der gravierte Blumentopf draußen in der Natur. Moos, Holz, Steine, natürliche Umgebung. Rustikal und organisch.',
+    },
+    # Spezial-Typen (am Ende der Reihe)
+    'design': {
+        'label': 'Design (weißer Hintergrund)',
+        'category': 'Spezial',
+        'prompt': 'Nur der Gravur-Text auf reinweißem Hintergrund. Elegante Typografie, kein Topf, kein Hintergrund, nur der Text. Zentriert, gut lesbar, hohe Auflösung.',
+        'is_design_only': True,
     },
 }
 

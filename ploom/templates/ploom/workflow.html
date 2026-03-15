@@ -770,7 +770,14 @@ function buildImagesGrid() {
         header.innerHTML = `<h6 class="mt-2 mb-1 text-muted"><i class="bi bi-camera me-1"></i>${scene.title}</h6>`;
         grid.appendChild(header);
 
-        selectedImageTypes.forEach(variant => {
+        // Design immer am Ende sortieren
+        const sortedTypes = [...selectedImageTypes].sort((a, b) => {
+            if (a === 'design') return 1;
+            if (b === 'design') return -1;
+            return 0;
+        });
+
+        sortedTypes.forEach(variant => {
             const existing = generatedImages.find(
                 img => img.scene_index === si && img.variant_type === variant
             );
@@ -825,8 +832,14 @@ async function generateAllImages() {
     const progressText = document.getElementById('image-progress-text');
     progress.classList.remove('d-none');
 
+    const genOrder = [...selectedImageTypes].sort((a, b) => {
+        if (a === 'design') return 1;
+        if (b === 'design') return -1;
+        return 0;
+    });
+
     for (let si = 0; si < selectedScenes.length; si++) {
-        for (const variant of selectedImageTypes) {
+        for (const variant of genOrder) {
             // Skip wenn bereits vorhanden
             const existing = generatedImages.find(
                 img => img.scene_index === si && img.variant_type === variant
