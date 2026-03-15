@@ -356,7 +356,7 @@ Fokus auf:
 
 Antworte NUR im JSON-Format mit folgender Struktur:
 {{
-    "title": "Verkaufsstarker Produkttitel (max 70 Zeichen, Keyword am Anfang)",
+    "title": "Vollständiger Produkttitel — NIEMALS abkürzen oder mit ... abschneiden!",
     "description": "HTML-formatierte Produktbeschreibung (150-250 Wörter, mit <p>, <ul>, <li>, <strong>)",
     "seo_title": "SEO Meta-Titel (max 60 Zeichen, Keyword am Anfang)",
     "seo_description": "SEO Meta-Beschreibung (max 155 Zeichen, mit Call-to-Action)",
@@ -399,13 +399,18 @@ Achte besonders auf:
 
                 data = json.loads(result)
 
-                # Längen prüfen und ggf. kürzen
-                if data.get('title') and len(data['title']) > 70:
-                    data['title'] = data['title'][:67] + "..."
-                if data.get('seo_title') and len(data['seo_title']) > 60:
-                    data['seo_title'] = data['seo_title'][:57] + "..."
-                if data.get('seo_description') and len(data['seo_description']) > 155:
-                    data['seo_description'] = data['seo_description'][:152] + "..."
+                # SEO-Felder auf Shopify-Limits kürzen (Titel NICHT kürzen!)
+                if data.get('seo_title') and len(data['seo_title']) > 70:
+                    # Am letzten Wort abschneiden statt mitten im Wort
+                    truncated = data['seo_title'][:70]
+                    last_space = truncated.rfind(' ')
+                    if last_space > 40:
+                        data['seo_title'] = truncated[:last_space]
+                if data.get('seo_description') and len(data['seo_description']) > 160:
+                    truncated = data['seo_description'][:160]
+                    last_space = truncated.rfind(' ')
+                    if last_space > 100:
+                        data['seo_description'] = truncated[:last_space]
 
                 # HTML bereinigen
                 if data.get('description'):
