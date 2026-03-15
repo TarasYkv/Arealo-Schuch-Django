@@ -1853,6 +1853,7 @@ def api_workflow_create_product(request, session_id):
                 weight_unit=(settings_obj.default_weight_unit if settings_obj else 'kg'),
                 template_suffix=(settings_obj.default_template_suffix if settings_obj else ''),
                 product_metafields=(settings_obj.default_metafields_config if settings_obj else {}),
+                category_metafields=(settings_obj.default_category_metafields if settings_obj else {}),
                 shopify_store=(settings_obj.default_store if settings_obj else None),
                 status='draft',
             )

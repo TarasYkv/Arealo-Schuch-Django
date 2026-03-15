@@ -222,6 +222,30 @@
                             </div>
                             <small class="text-muted">Metafelder die bei jedem neuen Workflow-Produkt gesetzt werden</small>
                         </div>
+
+                        <hr class="my-3">
+
+                        <div class="mb-0">
+                            <label class="form-label">Standard Kategorie-Metafelder</label>
+                            {{ form.default_category_metafields }}
+                            <div id="cat-metafields-ui" class="mt-2">
+                                <div id="cat-metafields-rows"></div>
+                                <div class="row g-2 mt-1">
+                                    <div class="col-5">
+                                        <input type="text" class="form-control form-control-sm" id="new-cat-metafield-key" placeholder="z.B. Farbe">
+                                    </div>
+                                    <div class="col-5">
+                                        <input type="text" class="form-control form-control-sm" id="new-cat-metafield-value" placeholder="Wert">
+                                    </div>
+                                    <div class="col-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="addCatMetafield()">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">Kategorie-spezifische Metafelder (z.B. Farbe, Material, Personalisierungsoptionen)</small>
+                        </div>
                     </div>
                 </div>
 
@@ -501,6 +525,53 @@ document.getElementById('btn-load-metafield-defs').addEventListener('click', fun
         });
     });
 });
+
+// Kategorie-Metafelder UI
+let catMetafieldsData = {};
+try {
+    const rawCatVal = document.getElementById('id_default_category_metafields').value;
+    if (rawCatVal) catMetafieldsData = JSON.parse(rawCatVal);
+} catch(e) {}
+renderCatMetafields();
+
+function renderCatMetafields() {
+    const container = document.getElementById('cat-metafields-rows');
+    container.innerHTML = '';
+    for (const [key, value] of Object.entries(catMetafieldsData)) {
+        const row = document.createElement('div');
+        row.className = 'row g-2 mb-1 align-items-center';
+        row.innerHTML = `
+            <div class="col-5"><input type="text" class="form-control form-control-sm" value="${key}" readonly></div>
+            <div class="col-5"><input type="text" class="form-control form-control-sm" value="${value}" onchange="updateCatMetafield('${key}', this.value)"></div>
+            <div class="col-2"><button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeCatMetafield('${key}')"><i class="bi bi-trash"></i></button></div>`;
+        container.appendChild(row);
+    }
+    syncCatMetafieldsJson();
+}
+
+function addCatMetafield() {
+    const key = document.getElementById('new-cat-metafield-key').value.trim();
+    const value = document.getElementById('new-cat-metafield-value').value.trim();
+    if (!key) return;
+    catMetafieldsData[key] = value;
+    document.getElementById('new-cat-metafield-key').value = '';
+    document.getElementById('new-cat-metafield-value').value = '';
+    renderCatMetafields();
+}
+
+function updateCatMetafield(key, value) {
+    catMetafieldsData[key] = value;
+    syncCatMetafieldsJson();
+}
+
+function removeCatMetafield(key) {
+    delete catMetafieldsData[key];
+    renderCatMetafields();
+}
+
+function syncCatMetafieldsJson() {
+    document.getElementById('id_default_category_metafields').value = JSON.stringify(catMetafieldsData);
+}
 
 function deleteReusableImage(id) {
     if (!confirm('Bild wirklich löschen?')) return;

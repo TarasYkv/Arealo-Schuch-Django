@@ -20,6 +20,7 @@ class PLoomSettingsForm(forms.ModelForm):
             'default_collection_id', 'default_collection_name',
             'image_generation_model', 'komplettset_description',
             'product_description_context', 'pot_description', 'video_url',
+            'default_category_metafields',
         ]
         widgets = {
             'default_store': forms.Select(attrs={'class': 'form-select'}),
@@ -91,6 +92,7 @@ class PLoomSettingsForm(forms.ModelForm):
 
         # Metafelder als Hidden (UI wird per JS generiert)
         self.fields['default_metafields_config'].widget = forms.HiddenInput()
+        self.fields['default_category_metafields'].widget = forms.HiddenInput()
 
 
 class WorkflowStartForm(forms.Form):

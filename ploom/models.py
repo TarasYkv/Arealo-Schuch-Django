@@ -112,6 +112,12 @@ class PLoomSettings(models.Model):
         blank=True,
         verbose_name="Standard-Metafelder"
     )
+    default_category_metafields = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Standard Kategorie-Metafelder",
+        help_text="Metafelder die zur Shopify-Produktkategorie gehören (z.B. Farbe, Material)"
+    )
     default_template_suffix = models.CharField(
         max_length=100,
         blank=True,
