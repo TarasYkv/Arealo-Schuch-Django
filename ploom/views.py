@@ -2122,17 +2122,6 @@ def api_workflow_create_product(request, session_id):
                 except PLoomReusableImage.DoesNotExist:
                     pass
 
-            # Video-URL aus Settings hinzufügen
-            if settings_obj and settings_obj.video_url:
-                PLoomProductImage.objects.create(
-                    product=product,
-                    source='external_url',
-                    external_url=settings_obj.video_url,
-                    alt_text='Produktvideo',
-                    position=position,
-                )
-                position += 1
-
             # 4. Session abschließen
             session.current_step = 'completed'
             session.product = product

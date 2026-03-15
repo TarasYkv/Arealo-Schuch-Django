@@ -206,7 +206,6 @@ class PLoomShopifyService:
                 images = list(ploom_product.images.all())
                 if images:
                     self._upload_product_images(shopify_product_id, images, variant_id_map)
-                    self._upload_product_videos(shopify_product_id, images)
 
                 # Metafelder setzen
                 logger.info(f"Product metafields value: {ploom_product.product_metafields}")
@@ -244,11 +243,6 @@ class PLoomShopifyService:
 
         for i, image in enumerate(images):
             try:
-                # Videos überspringen — werden separat via GraphQL hochgeladen
-                if image.is_video:
-                    logger.info(f"Skipping video in image upload: {image.image_url}")
-                    continue
-
                 image_url = image.image_url
                 if not image_url:
                     continue
@@ -317,161 +311,6 @@ class PLoomShopifyService:
             except Exception as e:
                 logger.warning(f"Error uploading image: {e}")
                 continue
-
-    def _is_external_video_url(self, url: str) -> bool:
-        """Prüft ob die URL ein YouTube/Vimeo Link ist"""
-        url_lower = url.lower()
-        return any(s in url_lower for s in ['youtube.com', 'youtu.be', 'vimeo.com'])
-
-    def _upload_product_videos(self, product_id: str, images: list) -> None:
-        """Verknüpft Videos mit einem Produkt.
-        - YouTube/Vimeo: EXTERNAL_VIDEO
-        - Shopify CDN / MP4: Bestehendes Video in Shopify Files suchen und verknüpfen
-        """
-        videos = [img for img in images if img.is_video]
-        if not videos:
-            return
-
-        graphql_url = f"{self.base_url}/graphql.json"
-        product_gid = f"gid://shopify/Product/{product_id}"
-
-        create_media_mutation = """
-        mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-            productCreateMedia(productId: $productId, media: $media) {
-                media { alt mediaContentType status }
-                mediaUserErrors { field message }
-            }
-        }
-        """
-
-        for video in videos:
-            try:
-                video_url = video.image_url
-                if not video_url:
-                    continue
-
-                alt = video.alt_text or "Produktvideo"
-
-                if self._is_external_video_url(video_url):
-                    # YouTube/Vimeo → EXTERNAL_VIDEO
-                    variables = {
-                        "productId": product_gid,
-                        "media": [{"originalSource": video_url, "alt": alt, "mediaContentType": "EXTERNAL_VIDEO"}]
-                    }
-                    response = self._make_request('POST', graphql_url, json={"query": create_media_mutation, "variables": variables}, timeout=30)
-                    if response.status_code == 200:
-                        errors = response.json().get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
-                        if errors:
-                            logger.warning(f"External video errors: {errors}")
-                        else:
-                            logger.info(f"External video linked: {video_url}")
-                else:
-                    # Shopify CDN Video → bestehendes File suchen und verknüpfen
-                    self._link_existing_video(graphql_url, product_gid, video_url, alt, create_media_mutation)
-
-            except Exception as e:
-                logger.warning(f"Error linking video: {e}")
-                continue
-
-    def _link_existing_video(self, graphql_url: str, product_gid: str, video_url: str, alt: str, create_media_mutation: str) -> None:
-        """Sucht ein bestehendes Video in Shopify Files und verknüpft es mit dem Produkt."""
-        import os
-        from urllib.parse import urlparse
-
-        logger.info(f"Searching for existing video in Shopify Files: {video_url}")
-
-        # Dateiname aus URL extrahieren für die Suche
-        parsed = urlparse(video_url)
-        filename = os.path.basename(parsed.path)
-
-        # 1. Video in Shopify Files suchen
-        files_query = """
-        query findVideo($query: String!) {
-            files(first: 10, query: $query) {
-                edges {
-                    node {
-                        ... on Video {
-                            id
-                            alt
-                            originalSource {
-                                url
-                            }
-                            sources {
-                                url
-                                mimeType
-                            }
-                        }
-                        ... on GenericFile {
-                            id
-                            alt
-                            originalFileLocation
-                            url
-                        }
-                    }
-                }
-            }
-        }
-        """
-
-        # Suche nach Dateiname
-        search_term = filename.replace('.mp4', '').replace('.webm', '').replace('.mov', '')
-        response = self._make_request('POST', graphql_url, json={
-            "query": files_query,
-            "variables": {"query": f"filename:{filename}"}
-        }, timeout=30)
-
-        resource_url = None
-
-        if response.status_code == 200:
-            data = response.json()
-            edges = data.get('data', {}).get('files', {}).get('edges', [])
-            logger.info(f"Files search returned {len(edges)} results for '{filename}'")
-
-            for edge in edges:
-                node = edge.get('node', {})
-                node_id = node.get('id', '')
-
-                # Video-Typ: originalSource.url prüfen
-                original_source = node.get('originalSource', {})
-                if original_source and original_source.get('url'):
-                    resource_url = original_source['url']
-                    logger.info(f"Found video file: {node_id}, source: {resource_url}")
-                    break
-
-                # GenericFile: originalFileLocation oder url prüfen
-                orig_location = node.get('originalFileLocation', '')
-                node_url = node.get('url', '')
-                if orig_location:
-                    resource_url = orig_location
-                    logger.info(f"Found generic file: {node_id}, location: {resource_url}")
-                    break
-                elif node_url:
-                    resource_url = node_url
-                    logger.info(f"Found generic file: {node_id}, url: {resource_url}")
-                    break
-
-        # 2. Wenn nichts gefunden, CDN-URL direkt als originalSource versuchen
-        if not resource_url:
-            logger.info(f"Video not found in Files, using CDN URL directly: {video_url}")
-            resource_url = video_url
-
-        # 3. Video mit Produkt verknüpfen
-        variables = {
-            "productId": product_gid,
-            "media": [{"originalSource": resource_url, "alt": alt, "mediaContentType": "VIDEO"}]
-        }
-        response = self._make_request('POST', graphql_url, json={"query": create_media_mutation, "variables": variables}, timeout=30)
-
-        if response.status_code == 200:
-            resp_data = response.json()
-            logger.info(f"productCreateMedia response: {resp_data}")
-            errors = resp_data.get('data', {}).get('productCreateMedia', {}).get('mediaUserErrors', [])
-            if errors:
-                logger.warning(f"Video link errors: {errors}")
-            else:
-                logger.info(f"Video successfully linked to product")
-        else:
-            logger.warning(f"productCreateMedia failed: {response.status_code} - {response.text[:300]}")
 
     def _set_product_metafields(self, product_id: str, metafields: Dict) -> None:
         """Setzt Metafelder für ein Produkt"""
