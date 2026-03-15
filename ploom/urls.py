@@ -76,6 +76,7 @@ urlpatterns = [
     path('api/workflow/<uuid:session_id>/generate-scenes/', views.api_workflow_generate_scenes, name='api_workflow_generate_scenes'),
     path('api/workflow/<uuid:session_id>/save-scenes/', views.api_workflow_save_scenes, name='api_workflow_save_scenes'),
     path('api/workflow/<uuid:session_id>/generate-base-pot/', views.api_workflow_generate_base_pot, name='api_workflow_generate_base_pot'),
+    path('api/workflow/<uuid:session_id>/engrave-reusable/', views.api_workflow_engrave_reusable, name='api_workflow_engrave_reusable'),
     path('api/workflow/<uuid:session_id>/generate-image/', views.api_workflow_generate_image, name='api_workflow_generate_image'),
     path('api/workflow/<uuid:session_id>/generate-content/', views.api_workflow_generate_content, name='api_workflow_generate_content'),
     path('api/workflow/<uuid:session_id>/save-content/', views.api_workflow_save_content, name='api_workflow_save_content'),

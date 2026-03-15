@@ -1661,6 +1661,69 @@ def api_workflow_generate_base_pot(request, session_id):
 
 @login_required
 @require_POST
+def api_workflow_engrave_reusable(request, session_id):
+    """Nimmt ein wiederverwendbares Bild und generiert eine Version mit der aktuellen Gravur"""
+    session = get_object_or_404(PLoomWorkflowSession, id=session_id, user=request.user)
+
+    data = json.loads(request.body)
+    reusable_id = data.get('reusable_id')
+
+    if not reusable_id:
+        return JsonResponse({'success': False, 'error': 'Kein Bild angegeben'})
+
+    reusable_img = get_object_or_404(PLoomReusableImage, id=reusable_id, user=request.user)
+
+    try:
+        from .services.image_service import PLoomImageService
+        img_service = PLoomImageService(request.user)
+
+        result = img_service.engrave_reusable_image(
+            reusable_image_path=reusable_img.image.path,
+            engraving_text=session.selected_text,
+        )
+
+        if result.get('success') and result.get('image_data'):
+            filename = f"gravur_reusable_{reusable_id}_{session.keyword}"
+            filename = "".join(c for c in filename if c.isalnum() or c in '_-')
+            image_path = img_service.save_generated_image(result['image_data'], filename)
+
+            # In Session speichern
+            images = session.generated_images or []
+            image_entry = {
+                'scene_index': -1,
+                'scene_description': f'Wiederverwendbar: {reusable_img.title}',
+                'variant_type': f'reusable_{reusable_id}',
+                'image_path': image_path,
+                'selected': True,
+                'is_reusable_engraved': True,
+                'reusable_id': reusable_id,
+            }
+            images.append(image_entry)
+            session.generated_images = images
+            session.save(update_fields=['generated_images', 'updated_at'])
+
+            # Usage count erhöhen
+            reusable_img.usage_count += 1
+            reusable_img.save(update_fields=['usage_count'])
+
+            from django.conf import settings as django_settings
+            image_url = f"{django_settings.MEDIA_URL}{image_path}"
+
+            return JsonResponse({
+                'success': True,
+                'image_path': image_path,
+                'image_url': image_url,
+            })
+        else:
+            return JsonResponse({'success': False, 'error': result.get('error', 'Gravur-Generierung fehlgeschlagen')})
+
+    except Exception as e:
+        logger.error(f"Reusable image engraving failed: {e}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_POST
 def api_workflow_generate_image(request, session_id):
     """Generiert EIN Bild für eine Szene + Variante.
 

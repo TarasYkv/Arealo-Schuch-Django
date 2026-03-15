@@ -336,6 +336,54 @@ class PLoomImageService:
             logger.error(f"Image generation failed: {e}")
             return {'success': False, 'error': str(e)}
 
+    def engrave_reusable_image(self, reusable_image_path: str, engraving_text: str) -> dict:
+        """
+        Nimmt ein wiederverwendbares Bild und fügt die Gravur darauf hinzu.
+        Das Bild bleibt ansonsten identisch.
+
+        Args:
+            reusable_image_path: Absoluter Pfad zum wiederverwendbaren Bild
+            engraving_text: Der Gravur-Text
+
+        Returns:
+            dict mit 'success', 'image_data' (base64) oder 'error'
+        """
+        if not self.gemini_service:
+            return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
+
+        if not os.path.exists(reusable_image_path):
+            return {'success': False, 'error': f'Bild nicht gefunden: {reusable_image_path}'}
+
+        engraving_style = self._get_engraving_style()
+        spelled_text = spell_out_text(engraving_text)
+
+        prompt = (
+            f"Das beigefügte Bild zeigt einen Blumentopf (möglicherweise in einer Szene). "
+            f"Behalte das GESAMTE Bild EXAKT bei — gleiche Szene, Hintergrund, Perspektive, "
+            f"Beleuchtung, Farben, alles identisch. "
+            f"\n\nÄndere NUR EINES: Füge auf dem Blumentopf eine Gravur hinzu "
+            f"(oder ersetze eine vorhandene Gravur). "
+            f"\n\nDIE GRAVUR: Der Text {spelled_text} in {engraving_style}. "
+            f"Die Gravur ist in den Ton eingeritzt/eingraviert (nicht aufgemalt). "
+            f"Die Buchstaben sind leicht vertieft und heben sich durch Licht/Schatten ab. "
+            f"Der Text '{engraving_text}' muss EXAKT und vollständig lesbar sein. "
+            f"\n\nWICHTIG: Verändere NICHTS ANDERES am Bild. Nur die Gravur wird hinzugefügt/geändert. "
+            f"Quadratisches Format."
+        )
+
+        try:
+            result = self.gemini_service.generate_image(
+                prompt=prompt,
+                reference_image=reusable_image_path,
+                width=1024,
+                height=1024,
+                model=self._get_model(),
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Reusable image engraving failed: {e}")
+            return {'success': False, 'error': str(e)}
+
     def save_generated_image(self, image_base64: str, filename: str) -> str:
         """
         Speichert ein generiertes Bild als Datei.
