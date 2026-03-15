@@ -424,49 +424,133 @@ Achte besonders auf:
                 return None
         return None
 
-    def generate_engraving_suggestions(self, keyword: str, count: int = 16) -> list:
-        """Generiert kreative Gravur-Text Vorschläge für Blumentöpfe (emotional + humorvoll)"""
-        emotional_count = count // 2 + count % 2  # Mehrheit emotional
-        humor_count = count // 2
+    # Kategorien für Gravur-Texte (Reihenfolge = Anzeigereihenfolge)
+    ENGRAVING_CATEGORIES = [
+        {
+            'key': 'emotional',
+            'name': 'Emotionale Sprüche',
+            'icon': 'bi-heart-fill',
+            'icon_color': 'text-danger',
+            'count': 5,
+            'description': (
+                "- TIEFSINNIG und BEDEUTUNGSVOLL — keine oberflächlichen Floskeln\n"
+                "- EMOTIONAL berühren — der Beschenkte soll beim Lesen einen Moment innehalten\n"
+                "- Wertschätzung, Liebe, Verbundenheit ausdrücken\n"
+                "- Metapher zwischen Pflanze/Wachstum und der Beziehung/dem Anlass\n"
+                "- Beispiele: 'Wurzeln der Liebe', 'Für dich wächst mein Herz', 'Danke, dass du blühst'"
+            ),
+        },
+        {
+            'key': 'humorvoll',
+            'name': 'Humorvolle Sprüche',
+            'icon': 'bi-emoji-laughing-fill',
+            'icon_color': 'text-warning',
+            'count': 5,
+            'description': (
+                "- WITZIG und CHARMANT — bringt den Beschenkten zum Schmunzeln\n"
+                "- Wortspiele mit Pflanzen/Blumen/Wachstum sind ideal\n"
+                "- Liebevoll-frech, nicht beleidigend\n"
+                "- Alltagshumor der zum Thema passt\n"
+                "- Beispiele: 'Ich rede mit Pflanzen. Die hören wenigstens zu.', 'Überlebt mehr als meine Motivation'"
+            ),
+        },
+        {
+            'key': 'motivierend',
+            'name': 'Motivierende Sprüche',
+            'icon': 'bi-lightning-fill',
+            'icon_color': 'text-success',
+            'count': 4,
+            'description': (
+                "- INSPIRIEREND und AUFBAUEND — gibt Kraft und Zuversicht\n"
+                "- Ermutigt zum Wachsen, Weitermachen, Neubeginn\n"
+                "- Positiv und vorwärtsgewandt\n"
+                "- Beispiele: 'Wachse über dich hinaus', 'Jeden Tag ein neuer Anfang', 'Stark wie deine Wurzeln'"
+            ),
+        },
+        {
+            'key': 'weise',
+            'name': 'Weise Sprüche',
+            'icon': 'bi-book-fill',
+            'icon_color': 'text-info',
+            'count': 4,
+            'description': (
+                "- PHILOSOPHISCH und TIEFGRÜNDIG — Lebensweisheiten\n"
+                "- Sprichwort-artig, zeitlos, universell wahr\n"
+                "- Nachdenklich stimmend\n"
+                "- Beispiele: 'Geduld bringt Blüten', 'Stille Wasser, tiefe Wurzeln', 'Wer sät, wird ernten'"
+            ),
+        },
+        {
+            'key': 'frech',
+            'name': 'Freche Sprüche',
+            'icon': 'bi-chat-quote-fill',
+            'icon_color': 'text-primary',
+            'count': 4,
+            'description': (
+                "- FRECH und SCHLAGFERTIG — direkt und selbstbewusst\n"
+                "- Frecher als Humor, aber liebevoll\n"
+                "- Überraschend, unerwartet, provokant-charmant\n"
+                "- Beispiele: 'Gieß mich, nicht deine Sorgen', 'Pflanze schlägt Blumenstrauß', 'Bin pflegeleichter als du denkst'"
+            ),
+        },
+        {
+            'key': 'kurz',
+            'name': 'Kurz & Prägnant',
+            'icon': 'bi-lightning-charge-fill',
+            'icon_color': 'text-dark',
+            'count': 4,
+            'description': (
+                "- MINIMALISTISCH — nur 1-2 Worte\n"
+                "- Kraftvoll durch Kürze\n"
+                "- Wirkt elegant und modern auf dem Topf\n"
+                "- Beispiele: 'Wurzelkraft', 'Sonnenkind', 'Blühend', 'Lebensfreude', 'Herzensmensch'"
+            ),
+        },
+        {
+            'key': 'romantisch',
+            'name': 'Romantische Sprüche',
+            'icon': 'bi-suit-heart-fill',
+            'icon_color': 'text-danger',
+            'count': 4,
+            'description': (
+                "- ROMANTISCH und ZÄRTLICH — für Partner, Hochzeit, Valentinstag\n"
+                "- Liebe und Zweisamkeit ausdrückend\n"
+                "- Innig, aber nicht kitschig\n"
+                "- Beispiele: 'Mein Herz wächst mit dir', 'Du & Ich, für immer', 'Unsere Liebe blüht ewig'"
+            ),
+        },
+    ]
+
+    def generate_engraving_suggestions(self, keyword: str) -> dict:
+        """Generiert kreative Gravur-Text Vorschläge in mehreren Kategorien"""
+        categories = self.ENGRAVING_CATEGORIES
+        total = sum(c['count'] for c in categories)
+
+        category_prompts = []
+        for i, cat in enumerate(categories, 1):
+            category_prompts.append(
+                f"### KATEGORIE {i}: {cat['name'].upper()} ({cat['count']} Stück) ###\n"
+                f"{cat['description']}"
+            )
 
         system_prompt = f"""Du bist Spezialist für kreative Gravur-Texte auf Blumentöpfen, die als Geschenk überreicht werden.
 
-Generiere ZWEI Kategorien von Gravur-Texten:
+Generiere Gravur-Texte in {len(categories)} Kategorien:
 
-### KATEGORIE 1: EMOTIONALE SPRÜCHE ({emotional_count} Stück) ###
-- TIEFSINNIG und BEDEUTUNGSVOLL — keine oberflächlichen Floskeln
-- EMOTIONAL berühren — der Beschenkte soll beim Lesen einen Moment innehalten
-- Wertschätzung, Liebe, Verbundenheit ausdrücken
-- Metapher zwischen Pflanze/Wachstum und der Beziehung/dem Anlass
-
-Stilrichtungen:
-- Poetisch-philosophisch ("Wurzeln der Liebe", "Wo du blühst, bin ich Zuhause")
-- Herzlich-persönlich ("Für dich wächst mein Herz", "Dein Lächeln lässt mich blühen")
-- Tiefgründig-metaphorisch ("Gemeinsam Wurzeln schlagen", "Liebe braucht nur Licht")
-- Dankbar-wertschätzend ("Du bist mein Sonnenschein", "Danke, dass du blühst")
-
-### KATEGORIE 2: HUMORVOLLE SPRÜCHE ({humor_count} Stück) ###
-- WITZIG und CHARMANT — bringt den Beschenkten zum Schmunzeln
-- Thematisch passend zum Anlass/zur Zielgruppe
-- Wortspiele mit Pflanzen/Blumen/Wachstum sind ideal
-- Liebevoll-frech, nicht beleidigend
-- Alltagshumor der zum Thema passt
-
-Beispiele für humorvolle Gravuren:
-- Zum Thema Mama: "Mama weiß alles. Wenn nicht, googelt sie."
-- Zum Thema Gärtner: "Ich rede mit Pflanzen. Die hören wenigstens zu."
-- Zum Thema Lehrer: "Danke fürs Gießen kleiner Köpfe"
-- Zum Thema Büro: "Überlebt mehr als meine Motivation"
+{chr(10).join(category_prompts)}
 
 ### ALLGEMEINE REGELN ###
-- Kurz und prägnant (2-6 Worte pro Text)
+- Kurz und prägnant (1-6 Worte pro Text)
 - Deutsch
 - VERMEIDE generische Sprüche wie "Alles Gute" oder "Viel Glück"
-- Zuerst die emotionalen, dann die humorvollen Sprüche
+- Die Sprüche MÜSSEN thematisch zum gegebenen Anlass/Thema passen
+- Reihenfolge: Kategorien genau in der obigen Reihenfolge
 
-Antworte NUR als JSON-Array mit Strings, z.B.: ["Text 1", "Text 2", ...]"""
+Antworte NUR als JSON-Array mit Strings in EXAKT dieser Reihenfolge:
+Zuerst {categories[0]['count']}x {categories[0]['name']}, dann {categories[1]['count']}x {categories[1]['name']}, usw.
+Insgesamt EXAKT {total} Texte."""
 
-        user_prompt = f"Generiere {count} Gravur-Texte zum Thema '{keyword}': {emotional_count} emotionale und {humor_count} humorvolle. Jeder Text soll als Geschenk-Gravur auf einem Blumentopf funktionieren."
+        user_prompt = f"Generiere {total} Gravur-Texte zum Thema '{keyword}' in allen {len(categories)} Kategorien. Jeder Text soll als Geschenk-Gravur auf einem Blumentopf funktionieren und zum Thema '{keyword}' passen."
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -484,7 +568,20 @@ Antworte NUR als JSON-Array mit Strings, z.B.: ["Text 1", "Text 2", ...]"""
                 result = result.strip()
                 data = json.loads(result)
                 if isinstance(data, list):
-                    return data[:count]
+                    # Texte in Kategorien aufteilen
+                    categorized = []
+                    idx = 0
+                    for cat in categories:
+                        cat_texts = data[idx:idx + cat['count']]
+                        idx += cat['count']
+                        categorized.append({
+                            'key': cat['key'],
+                            'name': cat['name'],
+                            'icon': cat['icon'],
+                            'icon_color': cat['icon_color'],
+                            'texts': cat_texts,
+                        })
+                    return categorized
             except json.JSONDecodeError:
                 logger.error(f"Could not parse engraving suggestions JSON: {result}")
         return []

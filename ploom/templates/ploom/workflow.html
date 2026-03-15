@@ -597,35 +597,22 @@ function generateTexts() {
     .then(data => {
         loading.classList.add('d-none');
         btn.disabled = false;
-        if (data.success) {
+        if (data.success && data.categories) {
             grid.innerHTML = '';
-            const texts = data.texts;
-            const half = Math.ceil(texts.length / 2);
-            const emotional = texts.slice(0, half);
-            const humorous = texts.slice(half);
+            data.categories.forEach((cat, catIdx) => {
+                // Kategorie-Header
+                const header = document.createElement('div');
+                header.className = 'col-12 mb-2' + (catIdx > 0 ? ' mt-3' : '');
+                header.innerHTML = `<h6 class="text-muted"><i class="bi ${cat.icon} ${cat.icon_color} me-1"></i>${cat.name}</h6>`;
+                grid.appendChild(header);
 
-            // Emotionale Sprüche
-            const emotionalHeader = document.createElement('div');
-            emotionalHeader.className = 'col-12 mb-2';
-            emotionalHeader.innerHTML = '<h6 class="text-muted"><i class="bi bi-heart-fill text-danger me-1"></i>Emotionale Sprüche</h6>';
-            grid.appendChild(emotionalHeader);
-            emotional.forEach(text => {
-                const col = document.createElement('div');
-                col.className = 'col-md-4 col-6';
-                col.innerHTML = `<div class="text-card" onclick="selectText(this, '${text.replace(/'/g, "\\'")}')">${text}</div>`;
-                grid.appendChild(col);
-            });
-
-            // Humorvolle Sprüche
-            const humorHeader = document.createElement('div');
-            humorHeader.className = 'col-12 mb-2 mt-3';
-            humorHeader.innerHTML = '<h6 class="text-muted"><i class="bi bi-emoji-laughing-fill text-warning me-1"></i>Humorvolle Sprüche</h6>';
-            grid.appendChild(humorHeader);
-            humorous.forEach(text => {
-                const col = document.createElement('div');
-                col.className = 'col-md-4 col-6';
-                col.innerHTML = `<div class="text-card" onclick="selectText(this, '${text.replace(/'/g, "\\'")}')">${text}</div>`;
-                grid.appendChild(col);
+                // Texte der Kategorie
+                (cat.texts || []).forEach(text => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4 col-6';
+                    col.innerHTML = `<div class="text-card" onclick="selectText(this, '${text.replace(/'/g, "\\'")}')">${text}</div>`;
+                    grid.appendChild(col);
+                });
             });
         } else {
             alert('Fehler: ' + (data.error || 'Unbekannt'));

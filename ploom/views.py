@@ -1568,12 +1568,16 @@ def api_workflow_generate_texts(request, session_id):
     try:
         from .services.ai_service import PLoomAIService
         ai_service = PLoomAIService(request.user)
-        suggestions = ai_service.generate_engraving_suggestions(session.keyword)
+        categories = ai_service.generate_engraving_suggestions(session.keyword)
 
-        session.suggested_texts = suggestions
+        # Flache Liste für Session speichern (Abwärtskompatibilität)
+        all_texts = []
+        for cat in categories:
+            all_texts.extend(cat.get('texts', []))
+        session.suggested_texts = all_texts
         session.save(update_fields=['suggested_texts', 'updated_at'])
 
-        return JsonResponse({'success': True, 'texts': suggestions})
+        return JsonResponse({'success': True, 'categories': categories})
     except Exception as e:
         logger.error(f"Text generation failed: {e}")
         return JsonResponse({'success': False, 'error': str(e)})
