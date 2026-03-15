@@ -232,9 +232,10 @@ class PLoomImageService:
                 reference_image = ref_path
                 style_ref_text = (
                     "Das beigefügte Bild zeigt einen Blumentopf mit einer Gravur. "
-                    "Extrahiere den EXAKTEN Schriftstil der Gravur — gleiche Schriftart, "
-                    "gleiche Strichstärke, gleicher Charakter. "
-                    "Verwende GENAU diesen Schriftstil für den Text auf weißem Hintergrund. "
+                    "Extrahiere NUR die Schriftart und den Stil der Gravur — "
+                    "gleiche Schriftart, gleiche Strichstärke. "
+                    "ABER: Der Text muss GERADE und FLACH geschrieben werden, "
+                    "NICHT gebogen oder gekrümmt wie auf dem Topf! "
                 )
 
         prompt = (
@@ -242,6 +243,9 @@ class PLoomImageService:
             f"Erstelle ein Bild mit NUR dem Gravur-Text auf reinweißem Hintergrund. "
             f"Der Text lautet: {spelled_text}. "
             f"Schriftstil: {engraving_style}. "
+            f"WICHTIG: Der Text muss KOMPLETT GERADE sein — horizontal, flach, "
+            f"KEINE Biegung, KEINE Krümmung, NICHT gewölbt, NICHT gebogen. "
+            f"So als wäre der Text auf ein flaches Blatt Papier geschrieben. "
             f"Der Text ist zentriert, elegant, groß und gut lesbar. "
             f"Kein Topf, keine Dekoration, kein Hintergrundmuster — "
             f"nur der Text '{engraving_text}' auf reinweißem Hintergrund. "
