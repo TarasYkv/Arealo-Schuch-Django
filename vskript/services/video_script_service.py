@@ -827,13 +827,9 @@ HINWEIS: Dieses Format ist für Videos ab 5 Minuten gedacht."""
         self.user = user
         self.settings = settings
 
-        # Provider und Modell aus Settings oder Defaults
-        if settings:
-            self.provider = getattr(settings, 'ai_provider', 'openai')
-            self.model = getattr(settings, 'ai_model', 'gpt-4o')
-        else:
-            self.provider = 'openai'
-            self.model = 'gpt-4o'
+        # VSkript verwendet ausschließlich OpenAI-Modelle
+        self.provider = 'openai'
+        self.model = getattr(settings, 'ai_model', 'gpt-4o') if settings else 'gpt-4o'
 
         # Clients initialisieren
         self._init_clients()
