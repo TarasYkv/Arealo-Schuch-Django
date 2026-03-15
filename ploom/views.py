@@ -2029,6 +2029,7 @@ def api_workflow_create_product(request, session_id):
                 category_metafields=(settings_obj.default_category_metafields if settings_obj else {}),
                 shopify_store=(settings_obj.default_store if settings_obj else None),
                 status=data.get('shopify_status', 'draft'),
+                sales_channels=data.get('sales_channels') or (settings_obj.default_sales_channels if settings_obj else []),
             )
 
             # 2. Varianten erstellen

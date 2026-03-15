@@ -187,6 +187,12 @@ class PLoomSettings(models.Model):
         verbose_name="Video-Link",
         help_text="Link zu einem Produktvideo (z.B. YouTube, Vimeo). Wird bei Produkterstellung übernommen."
     )
+    default_sales_channels = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Standard-Vertriebskanäle",
+        help_text="Vertriebskanäle die standardmäßig bei neuen Produkten aktiviert werden"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -417,6 +417,12 @@
                     </div>
                 </div>
 
+                <!-- Vertriebskanäle -->
+                <h6 class="mt-3"><i class="bi bi-broadcast me-1"></i>Vertriebskanäle</h6>
+                <div class="mb-4" id="workflow-publications-container">
+                    <div class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Lade Kanäle...</div>
+                </div>
+
                 <div class="mt-3 d-flex justify-content-between">
                     <button class="btn btn-outline-secondary" onclick="goToStep('step4')">
                         <i class="bi bi-arrow-left me-1"></i>Zuruck
@@ -451,6 +457,8 @@ let altTexts = {{ session.auto_alt_texts|safe|default:"[]" }};
 let selectedReusableIds = [];
 let selectedImageTypes = ['lifestyle', 'topf_nur', 'nahaufnahme', 'topf_gravur', 'design']; // Standard-Auswahl
 let basePotImagePath = '{{ session.base_pot_image_path|default:""|escapejs }}';
+let workflowPublications = [];
+const defaultSalesChannels = {{ settings_obj.default_sales_channels|safe|default:"[]" }};
 
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', function() {
@@ -463,6 +471,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateSceneButtons();
     buildImagesGrid();
     buildAltTextsUI();
+    loadWorkflowPublications();
 });
 
 // === IMAGE TYPE SELECTION ===
@@ -1085,6 +1094,46 @@ function populateReview() {
     });
 }
 
+// === VERTRIEBSKANÄLE ===
+async function loadWorkflowPublications() {
+    const container = document.getElementById('workflow-publications-container');
+    if (!container) return;
+
+    try {
+        const resp = await fetch('/ploom/api/shopify/publications/');
+        const data = await resp.json();
+        if (data.success && data.publications && data.publications.length > 0) {
+            // Deduplizieren
+            const seen = new Set();
+            workflowPublications = data.publications.filter(p => {
+                if (seen.has(p.id)) return false;
+                seen.add(p.id);
+                return true;
+            });
+
+            let html = '';
+            workflowPublications.forEach(pub => {
+                const isDefault = defaultSalesChannels.includes(pub.id);
+                html += `
+                <div class="form-check">
+                    <input class="form-check-input wf-pub-check" type="checkbox" value="${pub.id}"
+                           id="wf-pub-${pub.id}" ${isDefault ? 'checked' : ''}>
+                    <label class="form-check-label" for="wf-pub-${pub.id}">${pub.name}</label>
+                </div>`;
+            });
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = '<p class="text-muted small mb-0">Keine Vertriebskanäle verfügbar</p>';
+        }
+    } catch (e) {
+        container.innerHTML = '<p class="text-muted small mb-0">Fehler beim Laden der Kanäle</p>';
+    }
+}
+
+function getSelectedPublications() {
+    return Array.from(document.querySelectorAll('.wf-pub-check:checked')).map(el => el.value);
+}
+
 function createProduct() {
     const btn = document.getElementById('btn-create-product');
     btn.disabled = true;
@@ -1112,6 +1161,7 @@ function createProduct() {
             compare_price_komplett: document.getElementById('review-compare-komplett').value || null,
             weight: document.getElementById('review-weight').value || null,
             shopify_status: document.getElementById('review-shopify-status').value,
+            sales_channels: getSelectedPublications(),
         })
     })
     .then(r => r.json())

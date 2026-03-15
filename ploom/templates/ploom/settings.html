@@ -182,6 +182,17 @@
                             <small class="text-muted">Standard-Collection für neue Produkte</small>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">Standard-Vertriebskanäle</label>
+                            {{ form.default_sales_channels }}
+                            <div id="default-sales-channels-container" class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-load-sales-channels">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Kanäle laden
+                                </button>
+                                <div id="default-sales-channels-list" class="mt-2"></div>
+                            </div>
+                            <small class="text-muted">Kanäle, in denen neue Produkte automatisch veröffentlicht werden</small>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Shopify Template Suffix</label>
                             {{ form.default_template_suffix }}
                         </div>
@@ -571,6 +582,60 @@ function removeCatMetafield(key) {
 
 function syncCatMetafieldsJson() {
     document.getElementById('id_default_category_metafields').value = JSON.stringify(catMetafieldsData);
+}
+
+// Standard-Vertriebskanäle
+let defaultSalesChannels = [];
+try {
+    const scVal = document.getElementById('id_default_sales_channels').value;
+    if (scVal) defaultSalesChannels = JSON.parse(scVal);
+} catch(e) {}
+
+document.getElementById('btn-load-sales-channels').addEventListener('click', function() {
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Laden...';
+    fetch('{% url "ploom:api_shopify_publications" %}')
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success || !data.publications) {
+            document.getElementById('default-sales-channels-list').innerHTML =
+                '<div class="text-muted small">Keine Kanäle gefunden</div>';
+            return;
+        }
+        renderDefaultSalesChannels(data.publications);
+    })
+    .catch(() => {
+        document.getElementById('default-sales-channels-list').innerHTML =
+            '<div class="text-danger small">Fehler beim Laden</div>';
+    })
+    .finally(() => {
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Kanäle laden';
+    });
+});
+
+function renderDefaultSalesChannels(publications) {
+    const container = document.getElementById('default-sales-channels-list');
+    let html = '';
+    publications.forEach(pub => {
+        const checked = defaultSalesChannels.includes(pub.id) ? 'checked' : '';
+        html += `<div class="form-check">
+            <input class="form-check-input default-sc-checkbox" type="checkbox" value="${pub.id}" id="default-sc-${pub.id}" ${checked}>
+            <label class="form-check-label" for="default-sc-${pub.id}">${pub.name}</label>
+        </div>`;
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('.default-sc-checkbox').forEach(cb => {
+        cb.addEventListener('change', syncDefaultSalesChannels);
+    });
+}
+
+function syncDefaultSalesChannels() {
+    defaultSalesChannels = [];
+    document.querySelectorAll('.default-sc-checkbox:checked').forEach(cb => {
+        defaultSalesChannels.push(cb.value);
+    });
+    document.getElementById('id_default_sales_channels').value = JSON.stringify(defaultSalesChannels);
 }
 
 function deleteReusableImage(id) {
