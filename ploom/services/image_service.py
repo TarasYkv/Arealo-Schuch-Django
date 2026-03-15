@@ -103,12 +103,6 @@ IMAGE_TYPES = {
         'prompt': '',
         'is_base_pot': True,
     },
-    'design': {
-        'label': 'Design (weißer Hintergrund)',
-        'category': 'Spezial',
-        'prompt': 'Nur der Gravur-Text auf reinweißem Hintergrund. Elegante Typografie, kein Topf, kein Hintergrund, nur der Text. Zentriert, gut lesbar, hohe Auflösung.',
-        'is_design_only': True,
-    },
 }
 
 
@@ -208,40 +202,6 @@ class PLoomImageService:
             logger.error(f"Base pot generation failed: {e}")
             return {'success': False, 'error': str(e)}
 
-    def generate_design_image(self, engraving_text: str) -> dict:
-        """
-        Generiert nur den Gravur-Text auf weißem Hintergrund (für Download).
-
-        Returns:
-            dict mit 'success', 'image_data' (base64) oder 'error'
-        """
-        if not self.gemini_service:
-            return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
-
-        engraving_style = self._get_engraving_style()
-        spelled_text = spell_out_text(engraving_text)
-
-        prompt = (
-            f"Erstelle ein Bild mit NUR Text auf reinweißem Hintergrund. "
-            f"Der Text lautet: {spelled_text}. "
-            f"Schriftstil: {engraving_style}. "
-            f"Der Text ist zentriert, elegant, groß und gut lesbar. "
-            f"Kein Topf, keine Dekoration, nur der Text '{engraving_text}' auf weißem Hintergrund. "
-            f"Quadratisches Format, hohe Auflösung."
-        )
-
-        try:
-            result = self.gemini_service.generate_image(
-                prompt=prompt,
-                width=1024,
-                height=1024,
-                model=self._get_model(),
-            )
-            return result
-        except Exception as e:
-            logger.error(f"Design image generation failed: {e}")
-            return {'success': False, 'error': str(e)}
-
     def generate_pot_image(self, engraving_text: str, scene_description: str,
                            variant_type: str = 'komplett', base_pot_image_path: str = None) -> dict:
         """
@@ -261,10 +221,6 @@ class PLoomImageService:
             return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
 
         image_type_config = IMAGE_TYPES.get(variant_type, {})
-
-        # Design-only Typ (nur Text auf weißem Hintergrund)
-        if image_type_config.get('is_design_only'):
-            return self.generate_design_image(engraving_text)
 
         # Topf + Gravur (Referenzbild mit nur der Gravur geändert)
         if image_type_config.get('is_base_pot'):
