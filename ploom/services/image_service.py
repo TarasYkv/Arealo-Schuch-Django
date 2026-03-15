@@ -208,9 +208,10 @@ class PLoomImageService:
             logger.error(f"Base pot generation failed: {e}")
             return {'success': False, 'error': str(e)}
 
-    def generate_design_image(self, engraving_text: str) -> dict:
+    def generate_design_image(self, engraving_text: str, base_pot_image_path: str = None) -> dict:
         """
         Generiert nur den Gravur-Text auf weißem Hintergrund (für Download).
+        Verwendet den Basis-Topf als Stil-Referenz für konsistente Schrift.
         """
         if not self.gemini_service:
             return {'success': False, 'error': 'Gemini API-Key nicht konfiguriert'}
@@ -218,18 +219,39 @@ class PLoomImageService:
         engraving_style = self._get_engraving_style()
         spelled_text = spell_out_text(engraving_text)
 
+        # Basis-Topf als Stil-Referenz
+        reference_image = None
+        style_ref_text = ""
+        if base_pot_image_path:
+            if os.path.isabs(base_pot_image_path):
+                ref_path = base_pot_image_path
+            else:
+                from django.conf import settings as django_settings
+                ref_path = os.path.join(django_settings.MEDIA_ROOT, base_pot_image_path)
+            if os.path.exists(ref_path):
+                reference_image = ref_path
+                style_ref_text = (
+                    "Das beigefügte Bild zeigt einen Blumentopf mit einer Gravur. "
+                    "Extrahiere den EXAKTEN Schriftstil der Gravur — gleiche Schriftart, "
+                    "gleiche Strichstärke, gleicher Charakter. "
+                    "Verwende GENAU diesen Schriftstil für den Text auf weißem Hintergrund. "
+                )
+
         prompt = (
-            f"Erstelle ein Bild mit NUR Text auf reinweißem Hintergrund. "
+            f"{style_ref_text}"
+            f"Erstelle ein Bild mit NUR dem Gravur-Text auf reinweißem Hintergrund. "
             f"Der Text lautet: {spelled_text}. "
             f"Schriftstil: {engraving_style}. "
             f"Der Text ist zentriert, elegant, groß und gut lesbar. "
-            f"Kein Topf, keine Dekoration, nur der Text '{engraving_text}' auf weißem Hintergrund. "
+            f"Kein Topf, keine Dekoration, kein Hintergrundmuster — "
+            f"nur der Text '{engraving_text}' auf reinweißem Hintergrund. "
             f"Quadratisches Format, hohe Auflösung."
         )
 
         try:
             result = self.gemini_service.generate_image(
                 prompt=prompt,
+                reference_image=reference_image,
                 width=1024,
                 height=1024,
                 model=self._get_model(),
@@ -261,7 +283,7 @@ class PLoomImageService:
 
         # Design-only Typ (nur Text auf weißem Hintergrund)
         if image_type_config.get('is_design_only'):
-            return self.generate_design_image(engraving_text)
+            return self.generate_design_image(engraving_text, base_pot_image_path=base_pot_image_path)
 
         # Topf + Gravur (Referenzbild mit nur der Gravur geändert)
         if image_type_config.get('is_base_pot'):
