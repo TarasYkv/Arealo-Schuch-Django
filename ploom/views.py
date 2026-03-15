@@ -1852,19 +1852,64 @@ def api_workflow_generate_content(request, session_id):
         settings_obj = PLoomSettings.objects.filter(user=request.user).first()
         description_context = settings_obj.product_description_context if settings_obj else ''
 
-        # SEO Content generieren mit besserem Kontext
-        seo_keyword = f"Personalisierter Blumentopf mit Gravur '{session.selected_text}' - Thema: {session.keyword}"
+        # SEO Content generieren mit einzigartigem Kontext
+        import random
+        # Zufällige Elemente für Variation und gegen Duplicate Content
+        story_angles = [
+            "Erzähle eine kleine Geschichte aus der Sicht des Beschenkten, der den Topf zum ersten Mal sieht",
+            "Beschreibe den emotionalen Moment der Übergabe dieses Geschenks",
+            "Fokussiere auf die Handwerkskunst und den Prozess der Gravur",
+            "Betone die Symbolik von Pflanzen und Wachstum in Verbindung mit dem Anlass",
+            "Beschreibe, wie dieser Topf einen besonderen Platz im Zuhause findet",
+            "Erzähle von der Verbindung zwischen dem Gravur-Text und dem Anlass",
+            "Fokussiere auf die Nachhaltigkeit und Langlebigkeit als Gegenentwurf zu kurzlebigen Geschenken",
+            "Beschreibe den Topf als tägliche Erinnerung an einen besonderen Menschen",
+        ]
+        opening_styles = [
+            "Beginne mit einer emotionalen Frage an den Leser",
+            "Beginne mit einem kurzen, bildlichen Szenario",
+            "Beginne mit der Bedeutung des Gravur-Textes",
+            "Beginne mit dem Anlass und warum dieses Geschenk perfekt dafür ist",
+            "Beginne mit einem überraschenden Fakt über personalisierte Geschenke",
+        ]
+        chosen_angle = random.choice(story_angles)
+        chosen_opening = random.choice(opening_styles)
+
+        seo_keyword = f"Blumentopf mit Gravur {session.keyword}"
         seo_context = (
             f"PRODUKT: Handgefertigter Keramik-Blumentopf mit individueller Gravur.\n"
-            f"GRAVUR-TEXT: {session.selected_text}\n"
+            f"GRAVUR-TEXT auf dem Topf: «{session.selected_text}»\n"
             f"THEMA/ANLASS: {session.keyword}\n"
             f"VARIANTEN: 'Nur Topf' und 'Komplettset' (Topf + Bio-Erde + Samen + Anleitung + Baumwollbeutel)\n\n"
-            f"SEO-ANWEISUNGEN:\n"
-            f"- Titel: Hauptkeyword 'Blumentopf mit Gravur' + Anlass/Thema + emotionaler Nutzen. "
-            f"Format z.B.: 'Blumentopf mit Gravur «{session.selected_text}» | Personalisiertes Geschenk zum {session.keyword}'\n"
-            f"- Beschreibung: Vorteile betonen (personalisiert, handgemacht, einzigartig), "
-            f"Anlass nennen, beide Varianten beschreiben\n"
-            f"- Tags: Gravur, personalisiert, Geschenk, {session.keyword}, Blumentopf, Keramik\n"
+
+            f"### DUPLICATE-CONTENT-VERMEIDUNG (KRITISCH!) ###\n"
+            f"Jede Produktbeschreibung in diesem Shop muss EINZIGARTIG sein.\n"
+            f"- Verwende KEINE Standard-Phrasen wie 'Ob als Geschenk oder für sich selbst'\n"
+            f"- Verwende KEINE generischen E-Commerce-Floskeln\n"
+            f"- Schreibe eine INDIVIDUELLE Geschichte die SPEZIFISCH zum Gravur-Text «{session.selected_text}» "
+            f"und zum Anlass «{session.keyword}» passt\n"
+            f"- Der Text darf NICHT austauschbar sein — er muss NUR für dieses Produkt passen\n\n"
+
+            f"### ERZÄHL-PERSPEKTIVE ###\n"
+            f"{chosen_angle}\n"
+            f"{chosen_opening}\n\n"
+
+            f"### TITEL ###\n"
+            f"- Muster: 'Blumentopf mit Gravur «{session.selected_text}» — [emotionaler Bezug zum {session.keyword}]'\n"
+            f"- NICHT generisch. Der Titel muss den KONKRETEN Gravur-Text und Anlass widerspiegeln\n\n"
+
+            f"### BESCHREIBUNG ###\n"
+            f"- 150-250 Wörter, HTML-formatiert (<p>, <ul>, <li>, <strong>)\n"
+            f"- Erzähle eine spezifische Geschichte rund um «{session.selected_text}» und «{session.keyword}»\n"
+            f"- Erkläre, was den Gravur-Text besonders macht und warum er zum Anlass passt\n"
+            f"- Beschreibe BEIDE Varianten (Nur Topf / Komplettset) mit konkreten Details\n"
+            f"- Verwende semantische Keywords: gravierter Blumentopf, personalisiertes Geschenk, "
+            f"Keramik-Topf mit Gravur, {session.keyword} Geschenkidee\n\n"
+
+            f"### SEO ###\n"
+            f"- SEO-Titel max 60 Zeichen, Keyword 'Blumentopf mit Gravur' am Anfang\n"
+            f"- Meta-Beschreibung max 155 Zeichen mit Call-to-Action\n"
+            f"- Tags: spezifisch für diesen Anlass, nicht generisch\n"
         )
         if description_context:
             seo_context += f"\nWEITERE PRODUKT-INFORMATIONEN:\n{description_context}"
