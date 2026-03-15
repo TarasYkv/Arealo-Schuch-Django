@@ -1680,6 +1680,7 @@ def api_workflow_engrave_reusable(request, session_id):
         result = img_service.engrave_reusable_image(
             reusable_image_path=reusable_img.image.path,
             engraving_text=session.selected_text,
+            base_pot_image_path=session.base_pot_image_path or None,
         )
 
         if result.get('success') and result.get('image_data'):

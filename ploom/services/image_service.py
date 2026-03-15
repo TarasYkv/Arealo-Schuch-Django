@@ -297,14 +297,16 @@ class PLoomImageService:
             logger.error(f"Image generation failed: {e}")
             return {'success': False, 'error': str(e)}
 
-    def engrave_reusable_image(self, reusable_image_path: str, engraving_text: str) -> dict:
+    def engrave_reusable_image(self, reusable_image_path: str, engraving_text: str,
+                               base_pot_image_path: str = None) -> dict:
         """
         Nimmt ein wiederverwendbares Bild und fügt die Gravur darauf hinzu.
-        Das Bild bleibt ansonsten identisch.
+        Verwendet optional den Basis-Topf als Gravur-Stil-Referenz.
 
         Args:
             reusable_image_path: Absoluter Pfad zum wiederverwendbaren Bild
             engraving_text: Der Gravur-Text
+            base_pot_image_path: Optional - Pfad zum Basis-Topf für Gravur-Stil-Referenz
 
         Returns:
             dict mit 'success', 'image_data' (base64) oder 'error'
@@ -318,8 +320,29 @@ class PLoomImageService:
         engraving_style = self._get_engraving_style()
         spelled_text = spell_out_text(engraving_text)
 
+        # Prüfe ob Basis-Topf als Gravur-Stil-Referenz verfügbar
+        additional_images = []
+        base_pot_ref_text = ""
+        if base_pot_image_path:
+            full_base_path = None
+            if os.path.isabs(base_pot_image_path):
+                full_base_path = base_pot_image_path
+            else:
+                from django.conf import settings as django_settings
+                full_base_path = os.path.join(django_settings.MEDIA_ROOT, base_pot_image_path)
+
+            if full_base_path and os.path.exists(full_base_path):
+                additional_images.append(full_base_path)
+                base_pot_ref_text = (
+                    f"\n\n### GRAVUR-STIL-REFERENZ (ZWEITES BILD): ###"
+                    f"\nDas ZWEITE beigefügte Bild zeigt den Basis-Topf mit der korrekten Gravur. "
+                    f"Die Gravur auf dem wiederverwendbaren Bild muss EXAKT den gleichen Stil haben: "
+                    f"gleiche Schriftart, gleiche Größe, gleiche Tiefe, gleiche Position auf dem Topf. "
+                    f"Kopiere den Gravur-Stil 1:1 vom Basis-Topf."
+                )
+
         prompt = (
-            f"Das beigefügte Bild zeigt einen Blumentopf (möglicherweise in einer Szene). "
+            f"Das ERSTE beigefügte Bild zeigt einen Blumentopf (möglicherweise in einer Szene). "
             f"Behalte das GESAMTE Bild EXAKT bei — gleiche Szene, Hintergrund, Perspektive, "
             f"Beleuchtung, Farben, alles identisch. "
             f"\n\nÄndere NUR EINES: Füge auf dem Blumentopf eine Gravur hinzu "
@@ -328,6 +351,7 @@ class PLoomImageService:
             f"Die Gravur ist in den Ton eingeritzt/eingraviert (nicht aufgemalt). "
             f"Die Buchstaben sind leicht vertieft und heben sich durch Licht/Schatten ab. "
             f"Der Text '{engraving_text}' muss EXAKT und vollständig lesbar sein. "
+            f"{base_pot_ref_text}"
             f"\n\nWICHTIG: Verändere NICHTS ANDERES am Bild. Nur die Gravur wird hinzugefügt/geändert. "
             f"Quadratisches Format."
         )
@@ -336,6 +360,7 @@ class PLoomImageService:
             result = self.gemini_service.generate_image(
                 prompt=prompt,
                 reference_image=reusable_image_path,
+                additional_images=additional_images if additional_images else None,
                 width=1024,
                 height=1024,
                 model=self._get_model(),

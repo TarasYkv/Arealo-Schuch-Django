@@ -83,6 +83,7 @@ class GeminiImageService:
         self,
         prompt: str,
         reference_image=None,
+        additional_images=None,
         width: int = 1000,
         height: int = 1500,
         model: str = None
@@ -119,7 +120,7 @@ class GeminiImageService:
                 return self._generate_with_imagen(prompt, aspect_ratio, selected_model)
             else:
                 # Gemini nutzt generateContent Endpoint
-                return self._generate_with_gemini(prompt, reference_image, aspect_ratio, selected_model)
+                return self._generate_with_gemini(prompt, reference_image, aspect_ratio, selected_model, additional_images=additional_images)
 
         except requests.exceptions.Timeout:
             return {
@@ -133,7 +134,7 @@ class GeminiImageService:
                 'error': str(e)
             }
 
-    def _generate_with_gemini(self, prompt: str, reference_image, aspect_ratio: str, model: str) -> dict:
+    def _generate_with_gemini(self, prompt: str, reference_image, aspect_ratio: str, model: str, additional_images=None) -> dict:
         """Generiert Bild mit Gemini (generateContent API)"""
         url = f"{self.BASE_URL}/models/{model}:generateContent"
 
@@ -155,6 +156,19 @@ class GeminiImageService:
                 logger.info(f"Reference image added to Gemini request (size: {len(image_b64)} chars)")
             else:
                 logger.warning("[Gemini] Failed to read reference image - image_b64 is empty")
+
+        # Zusätzliche Referenzbilder hinzufügen
+        if additional_images:
+            for idx, add_img in enumerate(additional_images):
+                add_b64 = self._read_image_as_base64(add_img)
+                if add_b64:
+                    parts.append({
+                        "inline_data": {
+                            "mime_type": "image/png",
+                            "data": add_b64
+                        }
+                    })
+                    logger.info(f"Additional image {idx + 1} added to request")
 
         payload = {
             "contents": [{
