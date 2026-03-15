@@ -274,26 +274,32 @@ class PLoomShopifyService:
                     try:
                         from django.conf import settings
                         import os
+                        from urllib.parse import unquote
 
-                        # Relativen Pfad zu absolutem konvertieren
-                        if image_url.startswith('/'):
-                            file_path = os.path.join(settings.BASE_DIR, image_url.lstrip('/'))
-                        else:
-                            file_path = image_url
+                        file_path = None
 
-                        if os.path.exists(file_path):
+                        # Zuerst: ImageField.path verwenden (zuverlässigster Weg)
+                        if image.image:
+                            try:
+                                file_path = image.image.path
+                            except Exception:
+                                pass
+
+                        # Fallback: URL-Pfad dekodieren und auflösen
+                        if not file_path or not os.path.exists(file_path):
+                            decoded_url = unquote(image_url)
+                            if decoded_url.startswith('/'):
+                                file_path = os.path.join(settings.BASE_DIR, decoded_url.lstrip('/'))
+                            else:
+                                file_path = decoded_url
+
+                        if file_path and os.path.exists(file_path):
                             with open(file_path, 'rb') as f:
                                 image_base64 = base64.b64encode(f.read()).decode('utf-8')
                                 image_data["image"]["attachment"] = image_base64
                         else:
-                            # Versuche mit MEDIA_ROOT
-                            if image.source == 'upload' and image.image:
-                                with open(image.image.path, 'rb') as f:
-                                    image_base64 = base64.b64encode(f.read()).decode('utf-8')
-                                    image_data["image"]["attachment"] = image_base64
-                            else:
-                                logger.warning(f"Image file not found: {image_url}")
-                                continue
+                            logger.warning(f"Image file not found: {image_url} (resolved: {file_path})")
+                            continue
                     except Exception as e:
                         logger.warning(f"Could not encode image: {e}")
                         continue
