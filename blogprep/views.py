@@ -1489,8 +1489,15 @@ def api_export_to_shopify(request, project_id):
         store = project.shopify_store
         blog = project.shopify_blog
 
-        # Erstelle Article via Shopify Admin API
-        url = f"https://{store.shop_domain}/admin/api/2024-01/blogs/{blog.shopify_id}/articles.json"
+        # Prüfe ob Re-Export (bestehender Artikel) oder Neu-Export
+        is_reexport = bool(project.shopify_article_id)
+        
+        if is_reexport:
+            # Update bestehenden Artikel via PUT
+            url = f"https://{store.shop_domain}/admin/api/2024-01/articles/{project.shopify_article_id}.json"
+        else:
+            # Erstelle neuen Artikel via POST
+            url = f"https://{store.shop_domain}/admin/api/2024-01/blogs/{blog.shopify_id}/articles.json"
 
         headers = {
             'X-Shopify-Access-Token': store.access_token,
@@ -1506,6 +1513,10 @@ def api_export_to_shopify(request, project_id):
                 'tags': ', '.join(project.secondary_keywords) if project.secondary_keywords else ''
             }
         }
+        
+        # Bei Re-Export: Article ID hinzufügen
+        if is_reexport:
+            article_data['article']['id'] = int(project.shopify_article_id)
 
         # Titelbild als Article Featured Image (nicht im body_html)
         if project.title_image:
@@ -1533,7 +1544,11 @@ def api_export_to_shopify(request, project_id):
                 'type': 'single_line_text_field'
             }]
 
-        response = requests.post(url, json=article_data, headers=headers, timeout=30)
+        # PUT für Update, POST für Neu
+        if is_reexport:
+            response = requests.put(url, json=article_data, headers=headers, timeout=30)
+        else:
+            response = requests.post(url, json=article_data, headers=headers, timeout=30)
 
         if response.status_code in [200, 201]:
             result = response.json()
@@ -1544,10 +1559,12 @@ def api_export_to_shopify(request, project_id):
             project.status = 'completed'
             project.save()
 
+            action_text = 'aktualisiert' if is_reexport else 'exportiert'
             return JsonResponse({
                 'success': True,
                 'article_id': article_id,
-                'message': 'Blog wurde als Entwurf zu Shopify exportiert!'
+                'is_reexport': is_reexport,
+                'message': f'Blog wurde erfolgreich {action_text}!'
             })
         else:
             return JsonResponse({
