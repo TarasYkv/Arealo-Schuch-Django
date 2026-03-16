@@ -1198,10 +1198,12 @@ def api_check_upload_status(request, video_id):
             results_list = result.get('results', [])
             if isinstance(results_list, list):
                 for item in results_list:
-                    if isinstance(item, dict) and item.get('success') and item.get('post_url'):
+                    if isinstance(item, dict) and item.get('success'):
                         platform = item.get('platform', 'unknown')
-                        post_url = item.get('post_url')
-                        posted_urls[platform] = post_url
+                        # API gibt 'url' zurück, nicht 'post_url'
+                        post_url = item.get('url') or item.get('post_url')
+                        if post_url:
+                            posted_urls[platform] = post_url
 
             # URLs im Video speichern
             if posted_urls:
