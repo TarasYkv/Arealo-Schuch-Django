@@ -1519,7 +1519,8 @@ def api_export_to_shopify(request, project_id):
             article_data['article']['id'] = int(project.shopify_article_id)
 
         # Titelbild als Article Featured Image (nicht im body_html)
-        if project.title_image:
+        # Bei Re-Export: Bild überspringen (ist bereits in Shopify)
+        if project.title_image and not is_reexport:
             try:
                 with project.title_image.open('rb') as img_file:
                     image_data = base64.b64encode(img_file.read()).decode('utf-8')
@@ -1529,11 +1530,8 @@ def api_export_to_shopify(request, project_id):
                     }
             except Exception as img_error:
                 logger.warning(f"Titelbild Fehler: {img_error}")
-                # Fallback: URL verwenden
-                article_data['article']['image'] = {
-                    'src': f"{base_url}{project.title_image.url}",
-                    'alt': project.seo_title or project.title
-                }
+                # Bei Fehler: Bild weglassen statt URL-Fallback
+                pass
 
         # Meta-Description als Metafield
         if project.meta_description:
