@@ -867,7 +867,7 @@ def api_style_ref_images_history(request):
 
 @login_required
 def api_generate_funny_sayings(request):
-    """API: Generiert 10 humorvolle Sprüche basierend auf einem Keyword"""
+    """API: Generiert 30-50 humorvolle Sprüche nach Kategorien sortiert basierend auf einem Keyword"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
 
@@ -882,16 +882,37 @@ def api_generate_funny_sayings(request):
     if not has_gemini and not has_openai:
         return JsonResponse({'error': 'Kein API-Key konfiguriert'}, status=400)
 
-    prompt = f"""Generiere genau 10 kurze, humorvolle und witzige Sprüche zum Thema "{keyword}".
+    prompt = f"""Generiere 40-50 kurze, humorvolle Sprüche zum Thema "{keyword}" und organisiere sie in folgenden Kategorien:
 
-Die Sprüche sollen:
+🥰 Emotional / Romantisch: 6-8 Sprüche
+😂 Witzig / Humorvoll: 8-10 Sprüche
+📜 Alte Weisheiten / Klassiker: 5-7 Sprüche
+💪 Motivierend / Inspirierend: 6-8 Sprüche  
+🎉 Feiertage / Anlässe: 4-6 Sprüche
+🤔 Nachdenklich / Tiefgründig: 5-7 Sprüche
+✨ Kreativ / Verspielt: 6-8 Sprüche
+
+Jeder Spruch soll:
 - Kurz und prägnant sein (max. 5-8 Wörter)
-- Witzig/humorvoll sein
+- Zum Thema "{keyword}" passen
 - Gut als Text auf einem Produkt-Mockup aussehen
 - Auf Deutsch sein
 - Keine Anführungszeichen enthalten
 
-Antworte NUR mit einer nummerierten Liste (1. bis 10.), ohne zusätzlichen Text."""
+Format der Antwort:
+🥰 Emotional / Romantisch:
+- [Spruch 1]
+- [Spruch 2]
+...
+
+😂 Witzig / Humorvoll:
+- [Spruch 1]
+- [Spruch 2]
+...
+
+[weitere Kategorien...]
+
+Antworte NUR im oben genannten Format, ohne zusätzlichen Text."""
 
     try:
         if has_gemini:
@@ -906,27 +927,54 @@ Antworte NUR mit einer nummerierten Liste (1. bis 10.), ohne zusätzlichen Text.
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500
+                max_tokens=2000
             )
             result_text = response.choices[0].message.content
 
-        # Parse die Sprüche aus der Antwort
+        # Parse kategorisierte Sprüche
+        categorized_sayings = {}
+        current_category = None
         import re
-        lines = result_text.strip().split('\n')
-        sayings = []
-        for line in lines:
-            # Entferne Nummerierung und bereinige
-            cleaned = re.sub(r'^\d+[\.\)]\s*', '', line.strip())
-            cleaned = cleaned.strip('"\'')
-            if cleaned and len(cleaned) > 2:
-                sayings.append(cleaned)
 
-        # Maximal 10 Sprüche
-        sayings = sayings[:10]
+        lines = result_text.strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Prüfe ob es eine Kategorie-Zeile ist (beginnt mit Emoji)
+            if re.match(r'^[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF✨🥰😂📜💪🎉🤔]', line):
+                current_category = line.strip(':').strip()
+                categorized_sayings[current_category] = []
+            # Prüfe ob es ein Spruch ist (beginnt mit -)
+            elif line.startswith('-') and current_category:
+                spruch = line[1:].strip()
+                # Entferne eventuelle Anführungszeichen
+                spruch = spruch.strip('"\'')
+                if spruch and len(spruch) > 2:
+                    categorized_sayings[current_category].append(spruch)
+
+        # Fallback: falls Parsing fehlschlägt, versuche einfache Nummerierung
+        if not categorized_sayings:
+            lines = result_text.strip().split('\n')
+            sayings = []
+            for line in lines:
+                cleaned = re.sub(r'^\d+[\.\)]\s*', '', line.strip())
+                cleaned = cleaned.strip('"\'')
+                if cleaned and len(cleaned) > 2:
+                    sayings.append(cleaned)
+            
+            # Gruppiere in Standard-Kategorien
+            categorized_sayings = {
+                '😂 Witzig / Humorvoll': sayings[:15],
+                '💪 Motivierend / Inspirierend': sayings[15:25],
+                '🤔 Nachdenklich / Tiefgründig': sayings[25:35],
+                '✨ Kreativ / Verspielt': sayings[35:]
+            }
 
         return JsonResponse({
             'success': True,
-            'sayings': sayings,
+            'sayings_categorized': categorized_sayings,
             'keyword': keyword
         })
 

@@ -1048,15 +1048,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const data = await response.json();
 
-                if (data.success && data.sayings) {
-                    // Show results
+                if (data.success && data.sayings_categorized) {
+                    // Show results with categories
                     if (funnySayingsList) {
-                        funnySayingsList.innerHTML = data.sayings.map((saying, index) => `
-                            <button type="button" class="list-group-item list-group-item-action funny-saying-item" data-saying="${escapeHtml(saying)}">
-                                <span class="badge bg-warning text-dark me-2">${index + 1}</span>
-                                ${escapeHtml(saying)}
-                            </button>
-                        `).join('');
+                        let html = '';
+                        
+                        // Erstelle Accordion für Kategorien
+                        let categoryIndex = 0;
+                        for (const [category, sayings] of Object.entries(data.sayings_categorized)) {
+                            if (sayings && sayings.length > 0) {
+                                const collapseId = `category-${categoryIndex}`;
+                                html += `
+                                    <div class="card mb-2">
+                                        <div class="card-header p-2" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);">
+                                            <button class="btn btn-link text-decoration-none w-100 text-start p-1 text-dark fw-bold" 
+                                                    type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+                                                <i class="fas fa-chevron-down me-2"></i>
+                                                ${escapeHtml(category)} (${sayings.length})
+                                            </button>
+                                        </div>
+                                        <div id="${collapseId}" class="collapse ${categoryIndex === 0 ? 'show' : ''}">
+                                            <div class="card-body p-2">
+                                                <div class="row g-2">
+                                `;
+                                
+                                sayings.forEach((saying, index) => {
+                                    html += `
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-warning btn-sm w-100 text-start funny-saying-item" 
+                                                    data-saying="${escapeHtml(saying)}" title="Klicken zum Auswählen">
+                                                <i class="fas fa-quote-left me-1 text-muted"></i>
+                                                <small>${escapeHtml(saying)}</small>
+                                            </button>
+                                        </div>
+                                    `;
+                                });
+                                
+                                html += `
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                categoryIndex++;
+                            }
+                        }
+                        
+                        funnySayingsList.innerHTML = html;
 
                         // Add click handlers
                         funnySayingsList.querySelectorAll('.funny-saying-item').forEach(item => {
@@ -1065,9 +1103,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (mockupTextContent) {
                                     mockupTextContent.value = saying;
                                 }
-                                // Close modal
-                                const modal = bootstrap.Modal.getInstance(document.getElementById('funnySayingsModal'));
-                                if (modal) modal.hide();
+                                // Visual feedback
+                                this.classList.add('btn-success');
+                                this.classList.remove('btn-outline-warning');
+                                this.innerHTML = '<i class="fas fa-check me-1"></i> Ausgewählt!';
+                                
+                                // Close modal after short delay
+                                setTimeout(() => {
+                                    const modal = bootstrap.Modal.getInstance(document.getElementById('funnySayingsModal'));
+                                    if (modal) modal.hide();
+                                }, 800);
                             });
                         });
                     }
