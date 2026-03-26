@@ -2457,6 +2457,90 @@ def api_providers_save(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
+@login_required
+@user_passes_test(is_superuser)
+def backup_settings_api(request):
+    """Get or update backup settings"""
+    from .models import BackupSettings
+    
+    if request.method == 'GET':
+        settings = BackupSettings.get_settings()
+        return JsonResponse({
+            'success': True,
+            'settings': {
+                'frequency': settings.frequency,
+                'retention_days': settings.retention_days,
+                'is_active': settings.is_active,
+                'last_backup_at': settings.last_backup_at.strftime('%d.%m.%Y %H:%M') if settings.last_backup_at else None,
+                'last_backup_size_mb': settings.last_backup_size_mb,
+                'last_backup_status': settings.last_backup_status,
+                'cron_schedule': settings.get_cron_schedule(),
+            }
+        })
+    
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            settings = BackupSettings.get_settings()
+            old_frequency = settings.frequency
+            
+            settings.frequency = data.get('frequency', 'daily')
+            settings.retention_days = data.get('retention_days', 30)
+            settings.is_active = data.get('is_active', True)
+            settings.updated_by = request.user
+            settings.save()
+            
+            # Update cron job if frequency changed
+            cron_updated = False
+            if old_frequency != settings.frequency:
+                cron_updated = update_backup_cron(settings)
+            
+            return JsonResponse({
+                'success': True,
+                'cron_updated': cron_updated,
+                'cron_schedule': settings.get_cron_schedule()
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+def update_backup_cron(settings):
+    """Update the cron job for automatic backups"""
+    import subprocess
+    
+    cron_schedule = settings.get_cron_schedule()
+    
+    # Remove old backup cron job
+    try:
+        subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+        current_crontab = subprocess.run(['crontab', '-l'], capture_output=True, text=True).stdout
+        
+        # Filter out old backup job
+        new_crontab_lines = [
+            line for line in current_crontab.split('\n')
+            if 'daily_database_backup' not in line
+        ]
+        
+        # Add new job if not disabled
+        if cron_schedule and settings.is_active:
+            backup_cmd = f'{cron_schedule} cd /var/www/workloom && /var/www/workloom/venv/bin/python manage.py daily_database_backup >> /var/log/workloom_backup.log 2>&1'
+            new_crontab_lines.append(backup_cmd)
+        
+        # Install new crontab
+        new_crontab = '\n'.join(new_crontab_lines)
+        process = subprocess.Popen(['crontab', '-'], stdin=subprocess.PIPE, text=True)
+        process.communicate(input=new_crontab)
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error updating cron: {e}")
+        return False
+
+
 # ============================================
 # Social Page (Link in Bio) Views
 # ============================================

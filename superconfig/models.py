@@ -856,3 +856,89 @@ class SocialPageClick(models.Model):
 
     def __str__(self):
         return f"Klick auf '{self.button.title}' am {self.clicked_at.strftime('%d.%m.%Y %H:%M')}"
+
+
+class BackupSettings(models.Model):
+    """
+    Backup-Einstellungen für automatische Datenbank-Backups
+    Singleton-Pattern: Es gibt nur eine Konfiguration
+    """
+    FREQUENCY_CHOICES = [
+        ('hourly', 'Stündlich'),
+        ('every6hours', 'Alle 6 Stunden'),
+        ('daily', 'Täglich'),
+        ('weekly', 'Wöchentlich'),
+        ('monthly', 'Monatlich'),
+        ('disabled', 'Deaktiviert'),
+    ]
+
+    frequency = models.CharField(
+        max_length=20,
+        choices=FREQUENCY_CHOICES,
+        default='daily',
+        verbose_name="Backup-Häufigkeit"
+    )
+
+    retention_days = models.PositiveIntegerField(
+        default=30,
+        verbose_name="Aufbewahrungszeit (Tage)",
+        help_text="Backups älter als X Tage werden automatisch gelöscht"
+    )
+
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Automatische Backups aktivieren"
+    )
+
+    last_backup_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Letztes Backup"
+    )
+
+    last_backup_size_mb = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name="Letzte Backup-Größe (MB)"
+    )
+
+    last_backup_status = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Letzter Status"
+    )
+
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Backup-Einstellungen"
+        verbose_name_plural = "Backup-Einstellungen"
+
+    def __str__(self):
+        return f"Backup: {self.get_frequency_display()}"
+
+    @classmethod
+    def get_settings(cls):
+        """Get or create the singleton settings"""
+        settings = cls.objects.first()
+        if not settings:
+            settings = cls.objects.create()
+        return settings
+
+    def get_cron_schedule(self):
+        """Convert frequency to cron schedule"""
+        schedules = {
+            'hourly': '0 * * * *',
+            'every6hours': '0 */6 * * *',
+            'daily': '0 2 * * *',
+            'weekly': '0 2 * * 0',
+            'monthly': '0 2 1 * *',
+            'disabled': None,
+        }
+        return schedules.get(self.frequency)

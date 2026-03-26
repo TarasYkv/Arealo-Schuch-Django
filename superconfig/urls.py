@@ -55,6 +55,9 @@ urlpatterns = [
     path('api/providers/list/', views.api_providers_list, name='api_providers_list'),
     path('api/providers/save/', views.api_providers_save, name='api_providers_save'),
 
+    # Backup Settings API
+    path('api/backup-settings/', views.backup_settings_api, name='backup_settings_api'),
+
     # Social Page (Link in Bio) URLs
     path('api/social/config/', views.social_page_config, name='social_page_config'),
     path('api/social/config/save/', views.social_page_config_save, name='social_page_config_save'),
