@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ project.title }} - VidGen{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb + Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'vidgen:home' %}">VidGen</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'vidgen:project_list' %}">Projekte</a></li>
+                    <li class="breadcrumb-item active">{{ project.title|truncatechars:30 }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">{{ project.title }}</h1>
+                <a href="{% url 'vidgen:project_edit' project.id %}" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil-square"></i> Manuell bearbeiten
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4" id="status-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-activity"></i> Status</h5>
+                </div>
+                <div class="card-body">
+                    {% if project.status == 'done' %}
+                    <div class="alert alert-success mb-3">
+                        <i class="bi bi-check-circle-fill"></i> Video erfolgreich erstellt!
+                    </div>
+                    {% elif project.status == 'failed' %}
+                    <div class="alert alert-danger mb-3">
+                        <i class="bi bi-x-circle-fill"></i> Fehler: {{ project.error_message }}
+                    </div>
+                    {% else %}
+                    <div class="progress mb-3" style="height: 30px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: {{ project.progress }}%"
+                             id="progress-bar">
+                            {{ project.get_status_display }} ({{ project.progress }}%)
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row text-center">
+                        <div class="col"><span class="badge status-badge {% if project.status == 'script' or project.progress >= 10 %}bg-success{% else %}bg-secondary{% endif %} p-2"><i class="bi bi-pencil"></i> Skript</span></div>
+                        <div class="col"><span class="badge status-badge {% if project.status == 'audio' or project.progress >= 30 %}bg-success{% else %}bg-secondary{% endif %} p-2"><i class="bi bi-mic"></i> Audio</span></div>
+                        <div class="col"><span class="badge status-badge {% if project.status == 'clips' or project.progress >= 50 %}bg-success{% else %}bg-secondary{% endif %} p-2"><i class="bi bi-film"></i> Clips</span></div>
+                        <div class="col"><span class="badge status-badge {% if project.status == 'rendering' or project.progress >= 70 %}bg-success{% else %}bg-secondary{% endif %} p-2"><i class="bi bi-camera-video"></i> Render</span></div>
+                        <div class="col"><span class="badge status-badge {% if project.status == 'done' %}bg-success{% else %}bg-secondary{% endif %} p-2"><i class="bi bi-check"></i> Fertig</span></div>
+                    </div>
+                </div>
+            </div>
+
+            {% if project.video %}
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-play-circle"></i> Video</h5></div>
+                <div class="card-body">
+                    <video controls class="w-100" style="max-height: 500px;">
+                        <source src="{{ project.video.video_file.url }}" type="video/mp4">
+                    </video>
+                    <div class="mt-3">
+                        <a href="{{ project.video.video_file.url }}" class="btn btn-primary" download><i class="bi bi-download"></i> Herunterladen</a>
+                        <a href="{% url 'videos:detail' project.video.id %}" class="btn btn-outline-secondary"><i class="bi bi-eye"></i> In Videos öffnen</a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if project.script %}
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-file-text"></i> Generiertes Skript</h5></div>
+                <div class="card-body"><pre class="mb-0" style="white-space: pre-wrap;">{{ project.script }}</pre></div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-gear"></i> Basis-Einstellungen</h5></div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr><th>Template</th><td>{{ project.get_template_display }}</td></tr>
+                        <tr><th>Plattform</th><td>{{ project.get_platform_display }}</td></tr>
+                        <tr><th>Stimme</th><td>{{ project.get_voice_display }}</td></tr>
+                        <tr><th>Ziel-Dauer</th><td>{{ project.target_duration }} Sek</td></tr>
+                        <tr><th>Auflösung</th><td>{{ project.resolution }}</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-currency-dollar"></i> Kosten</h5></div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr><td>Skript (GPT)</td><td class="text-end">${{ project.cost_script }}</td></tr>
+                        <tr><td>TTS (OpenAI)</td><td class="text-end">${{ project.cost_tts }}</td></tr>
+                        <tr class="table-primary"><th>Gesamt</th><th class="text-end">${{ project.cost_total }}</th></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <small class="text-muted">
+                        Erstellt: {{ project.created_at|date:"d.m.Y H:i" }}<br>
+                        {% if project.completed_at %}Fertig: {{ project.completed_at|date:"d.m.Y H:i" }}{% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if project.status not in 'done,failed' %}
+<script>
+function updateBadges(progress, status) {
+    const badges = document.querySelectorAll('.status-badge');
+    const thresholds = [10, 30, 50, 70, 100];
+    badges.forEach((badge, index) => {
+        if (progress >= thresholds[index] || (index === 4 && status === 'done')) {
+            badge.classList.remove('bg-secondary');
+            badge.classList.add('bg-success');
+        }
+    });
+}
+setInterval(function() {
+    fetch('{% url "vidgen:project_status_api" project.id %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'done' || data.status === 'failed') location.reload();
+            else {
+                const progressBar = document.getElementById('progress-bar');
+                if (progressBar) {
+                    progressBar.style.width = data.progress + '%';
+                    progressBar.textContent = data.status_display + ' (' + data.progress + '%)';
+                }
+                updateBadges(data.progress, data.status);
+            }
+        });
+}, 3000);
+updateBadges({{ project.progress }}, '{{ project.status }}');
+</script>
+{% endif %}
+{% endblock %}

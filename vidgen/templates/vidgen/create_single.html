@@ -1,0 +1,972 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Neues Video erstellen - VidGen{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'vidgen:home' %}">VidGen</a></li>
+                    <li class="breadcrumb-item active">Neues Video</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">
+                <i class="bi bi-plus-circle text-primary"></i> Neues Video erstellen
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- Thema -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-pencil"></i> Thema</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Titel/Thema *</label>
+                            <input type="text" class="form-control form-control-lg" id="title" name="title" 
+                                   placeholder="z.B. Berufsfeuerwehr, iPhone 15 Pro, Italienisch kochen..."
+                                   required>
+                            <div class="form-text">Das Hauptthema deines Videos</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Einstellungen -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-gear"></i> Einstellungen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="template" class="form-label">Template</label>
+                                <select class="form-select" id="template" name="template">
+                                    {% for value, label in templates %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="platform" class="form-label">Plattform</label>
+                                <select class="form-select" id="platform" name="platform">
+                                    {% for value, label in platforms %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="voice" class="form-label">Stimme</label>
+                                <select class="form-select" id="voice" name="voice">
+                                    {% for value, label in voices %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="target_duration" class="form-label">Video-Dauer (ca.)</label>
+                                <select class="form-select" id="target_duration" name="target_duration">
+                                    <option value="30">~30 Sekunden</option>
+                                    <option value="45" selected>~45 Sekunden</option>
+                                    <option value="60">~60 Sekunden</option>
+                                    <option value="90">~90 Sekunden</option>
+                                    <option value="120">~2 Minuten</option>
+                                </select>
+                            </div>
+                        </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="resolution" class="form-label">Aufloesung</label>
+                                <select class="form-select" id="resolution" name="resolution">
+                                    <option value="1080p" selected>1080p (Full HD)</option>
+                                    <option value="720p">720p (HD - schneller)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="render_backend" class="form-label">Render Backend</label>
+                                <select class="form-select" id="render_backend" name="render_backend">
+                                    <option value="local" selected>🖥️ Lokal (Hetzner)</option>
+                                    <option value="modal">🚀 Modal Cloud (GPU ~2¢)</option>
+                                </select>
+                                <div class="form-text">Modal ist 3-5x schneller</div>
+                            </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="title_position" class="form-label">Titel-Position</label>
+                                <select class="form-select" id="title_position" name="title_position">
+                                    {% for value, label in title_positions %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Eigener Text (optional) -->
+                        <div class="mb-3">
+                            <label for="custom_script" class="form-label">
+                                ✍️ Eigener Sprechtext <span class="text-muted">(optional)</span>
+                            </label>
+                            <textarea class="form-control" id="custom_script" name="custom_script" rows="4" 
+                                placeholder="Wenn du einen eigenen Text hast, füge ihn hier ein. Die KI-Generierung wird dann übersprungen."></textarea>
+                            <div class="form-text">Leer lassen = KI generiert das Skript basierend auf dem Template</div>
+                        </div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="watermark" name="watermark">
+                            <label class="form-check-label" for="watermark">
+                                Wasserzeichen hinzufügen
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overlay (optional) -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-layers"></i> Overlay (optional)</h5>
+                        <div>
+                            <a href="/imageforge/" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-magic"></i> ImageForge
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#imageGalleryModal">
+                                <i class="bi bi-images"></i> Galerie
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="overlay" class="form-label">Bild oder Video hochladen</label>
+                            <input type="file" class="form-control" id="overlay" name="overlay"
+                                   accept="image/*,video/mp4">
+                            <div class="form-text">Wird ab der angegebenen Sekunde mittig eingeblendet</div>
+                        </div>
+                        <!-- Vorschau des ausgewaehlten Bildes -->
+                        <div id="overlay_preview" class="mb-3" style="display: none;">
+                            <img id="overlay_preview_img" src="" class="img-thumbnail" style="max-height: 150px;">
+                            <button type="button" class="btn btn-sm btn-danger ms-2" onclick="clearOverlayPreview()">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" id="overlay_url" name="overlay_url" value="">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="overlay_start" class="form-label">Einblenden ab Sekunde</label>
+                                <input type="number" class="form-control" id="overlay_start" name="overlay_start"
+                                       value="5" min="0" max="120">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="overlay_position" class="form-label">Position</label>
+                                <select class="form-select" id="overlay_position" name="overlay_position">
+                                    <option value="center" selected>Mitte</option>
+                                    <option value="top">Oben</option>
+                                    <option value="bottom">Unten</option>
+                                    <option value="left">Links</option>
+                                    <option value="right">Rechts</option>
+                                    <option value="top-left">Oben Links</option>
+                                    <option value="top-right">Oben Rechts</option>
+                                    <option value="bottom-left">Unten Links</option>
+                                    <option value="bottom-right">Unten Rechts</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="overlay_width" class="form-label">Breite (%)</label>
+                                <input type="number" class="form-control" id="overlay_width" name="overlay_width"
+                                       value="60" min="10" max="100">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="overlay_duration" class="form-label">Einblenddauer (Sek)</label>
+                                <input type="number" class="form-control" id="overlay_duration" name="overlay_duration"
+                                       value="0" min="0" max="120">
+                                <div class="form-text">0 = bis Video-Ende</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Video Effekte (optional) -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+
+                <!-- Erweiterte Video Effekte -->
+                <div class="card mb-4">
+                    <div class="card-header bg-purple text-white" style="background-color: #6f42c1 !important;">
+                        <h5 class="mb-0"><i class="bi bi-stars"></i> Erweiterte Effekte</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="color_grading" class="form-label">Color Grading</label>
+                                <select class="form-select" id="color_grading" name="color_grading">
+                                    <option value="none">Original</option>
+                                    <option value="warm">Warm</option>
+                                    <option value="cold">Kalt</option>
+                                    <option value="vintage">Vintage</option>
+                                    <option value="neon">Neon</option>
+                                    <option value="bw">Schwarz-Weiss</option>
+                                    <option value="cinematic">Cinematic</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Hintergrundmusik</label>
+                                <input type="hidden" id="selected_music_track_id" name="selected_music_track_id" value="">
+                                <input type="hidden" id="background_music" name="background_music" value="none">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="selected_music_display" readonly 
+                                           placeholder="Keine Musik ausgewählt" value="">
+                                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#musicModal">
+                                        <i class="bi bi-music-note-list"></i> Auswählen
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="music_volume" class="form-label">Musik-Lautstaerke</label>
+                                <div class="input-group">
+                                    <input type="range" class="form-range" id="music_volume" name="music_volume" min="0" max="50" value="20">
+                                    <span class="input-group-text" id="music_volume_display">20%</span>
+                                </div>
+                            </div>
+                        
+                            <div class="col-md-4 mb-3">
+                                <label for="music_duration" class="form-label">Musik-Laenge (Sek)</label>
+                                <input type="number" class="form-control" id="music_duration" name="music_duration" 
+                                       value="0" min="0" max="180" placeholder="0 = auto">
+                                <div class="form-text">0 = Video-Laenge</div>
+                            </div>
+                        </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="ken_burns_effect" name="ken_burns_effect">
+                                    <label class="form-check-label" for="ken_burns_effect">
+                                        <i class="bi bi-zoom-in"></i> Ken Burns Effekt
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="sound_effects" name="sound_effects">
+                                    <label class="form-check-label" for="sound_effects">
+                                        <i class="bi bi-volume-up"></i> Sound-Effekte
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="audio_ducking" name="audio_ducking" checked>
+                                    <label class="form-check-label" for="audio_ducking">
+                                        <i class="bi bi-soundwave"></i> Audio-Ducking
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+<!-- Zitat & Fakten-Box -->
+                <div class="card mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="bi bi-quote"></i> Zitat & Fakten-Box</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="quote_text" class="form-label">Zitat-Text</label>
+                                <div class="input-group">
+                                    <textarea class="form-control" id="quote_text" name="quote_text" rows="2" placeholder="Das Leben ist zu kurz fuer schlechte Videos..."></textarea>
+                                    <button type="button" class="btn btn-outline-primary" onclick="openQuoteGenerator()">
+                                        <i class="bi bi-magic"></i> Generieren
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="quote_author" class="form-label">Autor</label>
+                                <input type="text" class="form-control" id="quote_author" name="quote_author" placeholder="Unbekannt">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="quote_time" class="form-label">Bei Sekunde</label>
+                                <input type="number" class="form-control" id="quote_time" name="quote_time" value="0" min="0">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="quote_duration" class="form-label">Dauer (Sek)</label>
+                                <input type="number" class="form-control" id="quote_duration" name="quote_duration" value="5" min="1" max="60">
+                                <div class="form-text">Wie lange anzeigen</div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="fact_box_text" class="form-label">Fakten-Box</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="fact_box_text" name="fact_box_text" placeholder="z.B. 85% der Deutschen wissen das nicht...">
+                                    <button type="button" class="btn btn-outline-primary" onclick="openFactGenerator()">
+                                        <i class="bi bi-magic"></i> Generieren
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="fact_box_time" class="form-label">Bei Sekunde</label>
+                                <input type="number" class="form-control" id="fact_box_time" name="fact_box_time" value="0" min="0">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="fact_box_duration" class="form-label">Dauer (Sek)</label>
+                                <input type="number" class="form-control" id="fact_box_duration" name="fact_box_duration" value="5" min="1" max="60">
+                                <div class="form-text">Wie lange anzeigen</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Diskussions-Format -->
+                <div class="card mb-4" id="discussion_card" style="display: none;">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="bi bi-people"></i> Diskussions-Format (2 Sprecher)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-person-fill text-primary"></i> Sprecher 1</h6>
+                                <div class="mb-3">
+                                    <label for="speaker1_name" class="form-label">Name/Rolle</label>
+                                    <input type="text" class="form-control" id="speaker1_name" name="speaker1_name" value="Pro" placeholder="z.B. Pro, Experte, Anna">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="speaker1_voice" class="form-label">Stimme</label>
+                                    <select class="form-select" id="speaker1_voice" name="speaker1_voice">
+                                        <option value="alloy">Alloy (neutral)</option>
+                                        <option value="echo">Echo (maennlich)</option>
+                                        <option value="fable">Fable (britisch)</option>
+                                        <option value="onyx">Onyx (tief)</option>
+                                        <option value="nova">Nova (weiblich)</option>
+                                        <option value="shimmer">Shimmer (weiblich, warm)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-person-fill text-danger"></i> Sprecher 2</h6>
+                                <div class="mb-3">
+                                    <label for="speaker2_name" class="form-label">Name/Rolle</label>
+                                    <input type="text" class="form-control" id="speaker2_name" name="speaker2_name" value="Contra" placeholder="z.B. Contra, Skeptiker, Max">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="speaker2_voice" class="form-label">Stimme</label>
+                                    <select class="form-select" id="speaker2_voice" name="speaker2_voice">
+                                        <option value="echo">Echo (maennlich)</option>
+                                        <option value="alloy">Alloy (neutral)</option>
+                                        <option value="fable">Fable (britisch)</option>
+                                        <option value="onyx">Onyx (tief)</option>
+                                        <option value="nova">Nova (weiblich)</option>
+                                        <option value="shimmer">Shimmer (weiblich, warm)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                // Music volume display
+                document.getElementById('music_volume').addEventListener('input', function() {
+                    document.getElementById('music_volume_display').textContent = this.value + '%';
+                });
+                
+                // Show discussion options when template is "discussion"
+                document.getElementById('template').addEventListener('change', function() {
+                    const discussionCard = document.getElementById('discussion_card');
+                    if (this.value === 'discussion') {
+                        discussionCard.style.display = 'block';
+                        document.getElementById('is_discussion').checked = true;
+                    } else {
+                        discussionCard.style.display = 'none';
+                    }
+                });
+                </script>
+                <input type="hidden" id="is_discussion" name="is_discussion" value="">
+
+                        <h5 class="mb-0"><i class="bi bi-magic"></i> Video-Effekte (optional)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="intro_style" class="form-label">Intro-Style</label>
+                                <select class="form-select" id="intro_style" name="intro_style">
+                                    <option value="none" selected>Kein Intro</option>
+                                    <option value="fade">Fade In</option>
+                                    <option value="zoom">Zoom In</option>
+                                    <option value="slide_up">Slide von unten</option>
+                                    <option value="glitch">Glitch Effekt</option>
+                                    <option value="typewriter">Typewriter</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="transition_style" class="form-label">Clip-Uebergaenge</label>
+                                <select class="form-select" id="transition_style" name="transition_style">
+                                    <option value="cut" selected>Harter Schnitt</option>
+                                    <option value="fade">Ueberblenden</option>
+                                    <option value="zoom">Zoom</option>
+                                    <option value="slide_left">Slide Links</option>
+                                    <option value="slide_right">Slide Rechts</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="progress_bar_color" class="form-label">Progress Bar</label>
+                                <div class="input-group">
+                                    <div class="input-group-text">
+                                        <input type="checkbox" id="show_progress_bar" name="show_progress_bar" class="form-check-input mt-0">
+                                    </div>
+                                    <input type="color" class="form-control form-control-color" id="progress_bar_color" name="progress_bar_color" value="#FFD700" title="Farbe waehlen">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="lower_third_text" class="form-label">Lower Third (Name/Titel)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="lower_third_text" name="lower_third_text" placeholder="z.B. Max Mustermann | Experte">
+                                    <input type="number" class="form-control" id="lower_third_start" name="lower_third_start" value="0" min="0" max="60" style="max-width: 80px;" title="Start (Sek)">
+                                </div>
+                                <div class="form-text">Start in Sekunden (0 = aus)</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Extras</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="emoji_animations" name="emoji_animations">
+                                    <label class="form-check-label" for="emoji_animations">
+                                        Emoji-Animationen (bei bestimmten Woertern)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" name="mode" value="auto" class="btn btn-primary btn-lg">
+                        <i class="bi bi-play-fill"></i> Video erstellen (Automatisch)
+                    </button>
+                    <button type="submit" name="mode" value="manual" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-pencil-square"></i> Schritt für Schritt (Manuell)
+                    </button>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <strong>Automatisch:</strong> Alle Schritte werden nacheinander ausgeführt.<br>
+                        <strong>Manuell:</strong> Du kannst jeden Schritt einzeln prüfen und anpassen.
+                    </small>
+                </div>
+            </form>
+        </div>
+
+        <!-- Info Sidebar -->
+        <div class="col-lg-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5><i class="bi bi-info-circle"></i> So funktioniert's</h5>
+                    <ol class="mb-0">
+                        <li class="mb-2">Gib ein Thema ein</li>
+                        <li class="mb-2">KI generiert das Skript</li>
+                        <li class="mb-2">Text wird gesprochen (TTS)</li>
+                        <li class="mb-2">Passende B-Roll von Pexels</li>
+                        <li class="mb-2">Video wird gerendert</li>
+                        <li>Fertig! 🎉</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5><i class="bi bi-currency-dollar"></i> Geschätzte Kosten</h5>
+                    <p class="mb-1">Pro Video ca. <strong>$0.01 - $0.15</strong></p>
+                    <small class="text-muted">
+                        <ul class="mb-0">
+                            <li>Skript: ~$0.001</li>
+                            <li>TTS: ~$0.009</li>
+                            <li>Whisper: ~$0.005</li>
+                            <li>Pexels: kostenlos</li>
+                            <li>Modal GPU: ~$0.02 <span class="text-primary">(wenn aktiv)</span></li>
+                            <li>Musik (Lyria): ~$0.05 <span class="text-primary">(wenn aktiv)</span></li>
+                        </ul>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Gallery Modal -->
+<div class="modal fade" id="imageGalleryModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-images"></i> Bilder auswaehlen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Tabs fuer verschiedene Quellen -->
+                <ul class="nav nav-tabs mb-3" id="galleryTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#imageforgeImages">ImageForge</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#uploadedImages">Hochgeladen</a>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <!-- ImageForge Bilder -->
+                    <div class="tab-pane fade show active" id="imageforgeImages">
+                        <div class="row" id="imageforgeGallery">
+                            <div class="col-12 text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2">Lade Bilder...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Hochgeladene Bilder -->
+                    <div class="tab-pane fade" id="uploadedImages">
+                        <div class="row" id="uploadedGallery">
+                            <div class="col-12 text-center py-4 text-muted">
+                                Keine hochgeladenen Bilder vorhanden
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Galerie laden wenn Modal geoeffnet wird
+document.getElementById('imageGalleryModal').addEventListener('show.bs.modal', function() {
+    loadImageForgeGallery();
+});
+
+function loadImageForgeGallery() {
+    fetch('/vidgen/api/imageforge/images/?t=' + Date.now())
+        .then(response => response.json())
+        .then(data => {
+            const gallery = document.getElementById('imageforgeGallery');
+            if (data.images && data.images.length > 0) {
+                gallery.innerHTML = data.images.map(img => `
+                    <div class="col-4 col-md-3 col-lg-2 mb-3">
+                        <div class="card h-100" style="cursor: pointer;" onclick="selectOverlayImage('${img.url}')">
+                            <img src="${img.thumbnail || img.url}" class="card-img-top" style="height: 120px; object-fit: cover;">
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                gallery.innerHTML = '<div class="col-12 text-center py-4 text-muted">Keine ImageForge Bilder vorhanden. <a href="/imageforge/" target="_blank">Jetzt erstellen</a></div>';
+            }
+        })
+        .catch(err => {
+            document.getElementById('imageforgeGallery').innerHTML = '<div class="col-12 text-center py-4 text-muted">Fehler beim Laden. <a href="/imageforge/" target="_blank">ImageForge oeffnen</a></div>';
+        });
+}
+
+function selectOverlayImage(url) {
+    document.getElementById('overlay_url').value = url;
+    document.getElementById('overlay_preview').style.display = 'block';
+    document.getElementById('overlay_preview_img').src = url;
+    
+    // Modal schliessen
+    bootstrap.Modal.getInstance(document.getElementById('imageGalleryModal')).hide();
+}
+
+function clearOverlayPreview() {
+    document.getElementById('overlay_url').value = '';
+    document.getElementById('overlay_preview').style.display = 'none';
+    document.getElementById('overlay_preview_img').src = '';
+}
+
+// File Upload Preview
+document.getElementById('overlay').addEventListener('change', function(e) {
+    if (e.target.files && e.target.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('overlay_preview').style.display = 'block';
+            document.getElementById('overlay_preview_img').src = e.target.result;
+            document.getElementById('overlay_url').value = '';
+        }
+        reader.readAsDataURL(e.target.files[0]);
+    }
+});
+</script>
+
+
+<!-- Zitat Generator Modal -->
+<div class="modal fade" id="quoteGeneratorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-quote"></i> Zitat generieren</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Thema/Kontext (optional)</label>
+                    <input type="text" class="form-control" id="quoteTheme" placeholder="z.B. Motivation, Erfolg, Leben...">
+                </div>
+                <button type="button" class="btn btn-primary mb-3" id="genQuotesBtn">
+                    <i class="bi bi-magic"></i> 10 Zitate generieren
+                </button>
+                <div id="quoteResults" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fakten Generator Modal -->
+<div class="modal fade" id="factGeneratorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-graph-up"></i> Fakten generieren</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Thema/Kontext (optional)</label>
+                    <input type="text" class="form-control" id="factTheme" placeholder="z.B. Gesundheit, Technik, Umwelt...">
+                </div>
+                <button type="button" class="btn btn-info mb-3" id="genFactsBtn">
+                    <i class="bi bi-magic"></i> 10 Fakten generieren
+                </button>
+                <div id="factResults" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// CSRF Token aus Cookie holen
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+function openQuoteGenerator() {
+    document.getElementById('quoteResults').innerHTML = '';
+    // Titel/Thema automatisch einfuegen
+    const titleValue = document.getElementById('title').value;
+    if (titleValue) {
+        document.getElementById('quoteTheme').value = titleValue;
+    }
+    new bootstrap.Modal(document.getElementById('quoteGeneratorModal')).show();
+}
+
+function openFactGenerator() {
+    document.getElementById('factResults').innerHTML = '';
+    // Titel/Thema automatisch einfuegen
+    const titleValue = document.getElementById('title').value;
+    if (titleValue) {
+        document.getElementById('factTheme').value = titleValue;
+    }
+    new bootstrap.Modal(document.getElementById('factGeneratorModal')).show();
+}
+
+document.getElementById('genQuotesBtn').addEventListener('click', generateQuotes);
+document.getElementById('genFactsBtn').addEventListener('click', generateFacts);
+
+async function generateQuotes() {
+    const theme = document.getElementById('quoteTheme').value || document.getElementById('title').value || 'allgemein';
+    const resultsDiv = document.getElementById('quoteResults');
+    resultsDiv.innerHTML = '<div class="text-center py-3"><span class="spinner-border"></span> Generiere Zitate...</div>';
+    
+    try {
+        const response = await fetch('/vidgen/api/generate-quotes/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ theme: theme })
+        });
+        const data = await response.json();
+        
+        if (data.quotes && data.quotes.length > 0) {
+            let html = '';
+            data.quotes.forEach(function(q) {
+                html += '<a href="#" class="list-group-item list-group-item-action quote-item" data-text="' + encodeURIComponent(q.text) + '" data-author="' + encodeURIComponent(q.author) + '">';
+                html += '<div class="d-flex justify-content-between"><span>„' + q.text + '"</span><small class="text-muted">— ' + q.author + '</small></div></a>';
+            });
+            resultsDiv.innerHTML = html;
+            resultsDiv.querySelectorAll('.quote-item').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('quote_text').value = decodeURIComponent(this.dataset.text);
+                    document.getElementById('quote_author').value = decodeURIComponent(this.dataset.author);
+                    bootstrap.Modal.getInstance(document.getElementById('quoteGeneratorModal')).hide();
+                });
+            });
+        } else {
+            resultsDiv.innerHTML = '<div class="alert alert-warning">Keine Zitate generiert</div>';
+        }
+    } catch (e) {
+        resultsDiv.innerHTML = '<div class="alert alert-danger">Fehler: ' + e.message + '</div>';
+    }
+}
+
+async function generateFacts() {
+    const theme = document.getElementById('factTheme').value || document.getElementById('title').value || 'allgemein';
+    const resultsDiv = document.getElementById('factResults');
+    resultsDiv.innerHTML = '<div class="text-center py-3"><span class="spinner-border"></span> Generiere Fakten...</div>';
+    
+    try {
+        const response = await fetch('/vidgen/api/generate-facts/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({ theme: theme })
+        });
+        const data = await response.json();
+        
+        if (data.facts && data.facts.length > 0) {
+            let html = '';
+            data.facts.forEach(function(f) {
+                html += '<a href="#" class="list-group-item list-group-item-action fact-item" data-fact="' + encodeURIComponent(f) + '">' + f + '</a>';
+            });
+            resultsDiv.innerHTML = html;
+            resultsDiv.querySelectorAll('.fact-item').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('fact_box_text').value = decodeURIComponent(this.dataset.fact);
+                    bootstrap.Modal.getInstance(document.getElementById('factGeneratorModal')).hide();
+                });
+            });
+        } else {
+            resultsDiv.innerHTML = '<div class="alert alert-warning">Keine Fakten generiert</div>';
+        }
+    } catch (e) {
+        resultsDiv.innerHTML = '<div class="alert alert-danger">Fehler: ' + e.message + '</div>';
+    }
+}
+</script>
+
+<!-- Music Selection Modal -->
+<div class="modal fade" id="musicModal" tabindex="-1" aria-labelledby="musicModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="musicModalLabel">
+                    <i class="bi bi-music-note-beamed"></i> Hintergrundmusik auswählen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Genre Filter -->
+                <div class="mb-3">
+                    <div class="btn-group flex-wrap" role="group" id="genreFilter">
+                        <button type="button" class="btn btn-outline-primary active" data-genre="all">Alle</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="upbeat">Upbeat</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="corporate">Corporate</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="chill">Chill</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="emotional">Emotional</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="dramatic">Dramatic</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="happy">Happy</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="inspiring">Inspiring</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="calm">Calm</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="cinematic">Cinematic</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="electronic">Electronic</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="pop">Pop</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="ambient">Ambient</button>
+                        <button type="button" class="btn btn-outline-primary" data-genre="various">Various</button>
+                    </div>
+                </div>
+                
+                <!-- Currently Playing -->
+                <div id="nowPlaying" class="alert alert-info d-none mb-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="bi bi-play-circle"></i> <span id="nowPlayingTitle">-</span>
+                        </div>
+                        <audio id="previewPlayer" controls style="height: 32px;"></audio>
+                    </div>
+                </div>
+                
+                <!-- Track List -->
+                <div id="musicTrackList" class="row g-2">
+                    <div class="col-12 text-center py-4">
+                        <span class="spinner-border"></span> Lade Musik-Bibliothek...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onclick="clearMusicSelection()" data-bs-dismiss="modal">
+                    <i class="bi bi-volume-mute"></i> Keine Musik
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let allMusicTracks = [];
+let currentGenreFilter = 'all';
+
+// Load music library when modal opens
+document.getElementById('musicModal').addEventListener('show.bs.modal', function() {
+    if (allMusicTracks.length === 0) {
+        loadMusicLibrary();
+    }
+});
+
+async function loadMusicLibrary() {
+    try {
+        const response = await fetch('/vidgen/api/musik/bibliothek/');
+        const data = await response.json();
+        allMusicTracks = data.tracks || [];
+        renderMusicTracks();
+    } catch (e) {
+        document.getElementById('musicTrackList').innerHTML = 
+            '<div class="col-12 text-danger text-center">Fehler beim Laden der Bibliothek</div>';
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderMusicTracks() {
+    const container = document.getElementById('musicTrackList');
+    let tracks = allMusicTracks;
+    
+    if (currentGenreFilter !== 'all') {
+        tracks = tracks.filter(t => t.mood === currentGenreFilter);
+    }
+    
+    if (tracks.length === 0) {
+        container.innerHTML = '<div class="col-12 text-muted text-center py-4">Keine Tracks in dieser Kategorie</div>';
+        return;
+    }
+    
+    window.musicTracks = {};
+    tracks.forEach(t => window.musicTracks[t.id] = t);
+    
+    container.innerHTML = tracks.map(track => `
+        <div class="col-md-4 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body p-2">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="badge bg-secondary">${track.mood}</span>
+                        <small class="text-muted">${track.duration}s</small>
+                    </div>
+                    <p class="small mb-2 text-truncate">${escapeHtml(track.title)}</p>
+                    <div class="btn-group btn-group-sm w-100">
+                        <button type="button" class="btn btn-outline-secondary btn-preview" data-id="${track.id}">
+                            <i class="bi bi-play"></i>
+                        </button>
+                        <button type="button" class="btn btn-primary btn-select" data-id="${track.id}">
+                            <i class="bi bi-check"></i> Wählen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    // Event listeners handled by delegation below
+}
+
+document.getElementById('genreFilter').addEventListener('click', function(e) {
+    if (e.target.tagName === 'BUTTON') {
+        this.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        currentGenreFilter = e.target.dataset.genre;
+        renderMusicTracks();
+    }
+});
+
+// Event delegation for track buttons (prevents duplicate listeners)
+document.getElementById('musicTrackList').addEventListener('click', function(e) {
+    const previewBtn = e.target.closest('.btn-preview');
+    const selectBtn = e.target.closest('.btn-select');
+    
+    if (previewBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const track = window.musicTracks[previewBtn.dataset.id];
+        if (track) {
+            previewTrack(track.audio_url, track.title);
+        }
+    }
+    
+    if (selectBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const track = window.musicTracks[selectBtn.dataset.id];
+        if (track) {
+            selectTrack(track.id, track.title, track.mood);
+        }
+    }
+});
+
+function previewTrack(audioUrl, title) {
+    console.log('previewTrack called:', audioUrl, title);
+    
+    const player = document.getElementById('previewPlayer');
+    const nowPlaying = document.getElementById('nowPlaying');
+    const nowPlayingTitle = document.getElementById('nowPlayingTitle');
+    
+    if (!player || !nowPlaying || !nowPlayingTitle) {
+        console.error('Audio elements not found!', {player, nowPlaying, nowPlayingTitle});
+        return;
+    }
+    
+    nowPlayingTitle.textContent = title;
+    
+    // Stop current playback first
+    player.pause();
+    player.currentTime = 0;
+    
+    // Set new source and play
+    player.src = audioUrl;
+    player.load();
+    
+    player.play().then(() => {
+        console.log('Playing: ' + title);
+    }).catch(error => {
+        console.error('Playback error:', error);
+    });
+    
+    nowPlaying.classList.remove('d-none');
+}
+
+function selectTrack(trackId, title, mood) {
+    document.getElementById('selected_music_track_id').value = trackId;
+    document.getElementById('background_music').value = mood;
+    document.getElementById('selected_music_display').value = title;
+    document.getElementById('previewPlayer').pause();
+    bootstrap.Modal.getInstance(document.getElementById('musicModal')).hide();
+}
+
+function clearMusicSelection() {
+    document.getElementById('selected_music_track_id').value = '';
+    document.getElementById('background_music').value = 'none';
+    document.getElementById('selected_music_display').value = '';
+    document.getElementById('previewPlayer').pause();
+}
+
+// Don't stop audio on modal events - let user control
+document.getElementById('musicModal').addEventListener('hidden.bs.modal', function() {
+    // Intentionally empty - user can stop via controls
+});
+</script>
+
+{% endblock %}

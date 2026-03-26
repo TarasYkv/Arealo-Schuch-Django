@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Batch-Erstellung - VidGen{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'vidgen:home' %}">VidGen</a></li>
+                    <li class="breadcrumb-item active">Batch-Erstellung</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">
+                <i class="bi bi-collection text-success"></i> Batch-Erstellung
+            </h1>
+            <p class="lead text-muted">Erstelle mehrere Videos auf einmal</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- Keywords -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-list-ul"></i> Keywords</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="keywords" class="form-label">Keywords (eine pro Zeile) *</label>
+                            <textarea class="form-control" id="keywords" name="keywords" rows="10"
+                                      placeholder="Berufsfeuerwehr
+Polizist
+Krankenpfleger
+Elektriker
+Mechatroniker
+..."
+                                      required></textarea>
+                            <div class="form-text">Jede Zeile wird zu einem eigenen Video</div>
+                        </div>
+                        <div id="keyword-count" class="text-muted">0 Keywords</div>
+                    </div>
+                </div>
+
+                <!-- Einstellungen -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-gear"></i> Einstellungen (für alle Videos)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="template" class="form-label">Template</label>
+                                <select class="form-select" id="template" name="template">
+                                    {% for value, label in templates %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="platform" class="form-label">Plattform</label>
+                                <select class="form-select" id="platform" name="platform">
+                                    {% for value, label in platforms %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="voice" class="form-label">Stimme</label>
+                                <select class="form-select" id="voice" name="voice">
+                                    {% for value, label in voices %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="watermark" name="watermark">
+                            <label class="form-check-label" for="watermark">
+                                Wasserzeichen hinzufügen
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-lightning-fill"></i> Batch starten
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Info Sidebar -->
+        <div class="col-lg-4">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5><i class="bi bi-info-circle"></i> Batch-Modus</h5>
+                    <p>Gib mehrere Keywords ein und alle Videos werden nacheinander erstellt.</p>
+                    <p class="mb-0"><strong>Tipp:</strong> Du kannst den Fortschritt live verfolgen!</p>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5><i class="bi bi-currency-dollar"></i> Geschätzte Kosten</h5>
+                    <p class="mb-1">Pro Video ca. <strong>$0.01 - $0.03</strong></p>
+                    <div id="estimated-cost" class="alert alert-info">
+                        Gib Keywords ein um die Kosten zu berechnen
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3 border-warning">
+                <div class="card-body">
+                    <h5><i class="bi bi-exclamation-triangle text-warning"></i> Hinweis</h5>
+                    <p class="mb-0">Die Erstellung kann je nach Anzahl der Videos einige Zeit dauern. Du wirst benachrichtigt wenn alles fertig ist.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('keywords').addEventListener('input', function() {
+    const keywords = this.value.trim().split('\n').filter(k => k.trim());
+    const count = keywords.length;
+    document.getElementById('keyword-count').textContent = count + ' Keywords';
+    
+    const minCost = (count * 0.01).toFixed(2);
+    const maxCost = (count * 0.03).toFixed(2);
+    document.getElementById('estimated-cost').innerHTML = 
+        '<strong>' + count + ' Videos</strong><br>Geschätzte Kosten: $' + minCost + ' - $' + maxCost;
+});
+</script>
+{% endblock %}
