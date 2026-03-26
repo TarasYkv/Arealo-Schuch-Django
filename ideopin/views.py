@@ -1299,9 +1299,23 @@ def api_generate_background_description(request, project_id):
 
     try:
         import json
-        data = json.loads(request.body)
+        # Debug: Request body loggen
+        logger.info(f"[Background API] Request body: {request.body[:500] if request.body else 'EMPTY'}")
+        
+        # Fix: Request body sicher parsen
+        try:
+            data = json.loads(request.body.decode('utf-8')) if request.body else {}
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.error(f"[Background API] JSON decode error: {e}, Body: {request.body}")
+            return JsonResponse({
+                'success': False,
+                'error': f'JSON Parse Fehler: {str(e)}'
+            }, status=400)
+        
         user_keywords = data.get('keywords', '')
         project_keywords = data.get('project_keywords', project.keywords)
+        
+        logger.info(f"[Background API] Parsed data - user_keywords: {user_keywords}, project_keywords: {project_keywords}")
 
         if not user_keywords:
             return JsonResponse({
