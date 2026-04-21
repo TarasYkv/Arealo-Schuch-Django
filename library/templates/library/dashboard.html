@@ -1,0 +1,121 @@
+{% extends 'library/base.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="lib-hero d-flex justify-content-between align-items-center flex-wrap">
+    <div>
+      <h1><i class="fas fa-book me-2"></i>Literatur &amp; Referenzen</h1>
+      <p>Deine wissenschaftliche Literaturbasis — synchronisiert mit Zotero, verknüpft mit Lernmodulen.</p>
+    </div>
+    <div class="mt-2">
+      <a href="{% url 'library:reference_add' %}" class="btn btn-light btn-sm me-2">
+        <i class="fas fa-plus me-1"></i>Neue Referenz
+      </a>
+      <a href="{% url 'library:bibtex_import' %}" class="btn btn-outline-light btn-sm me-2">
+        <i class="fas fa-upload me-1"></i>BibTeX importieren
+      </a>
+      <a href="{% url 'library:zotero_settings' %}" class="btn btn-outline-light btn-sm">
+        <i class="fas fa-cog me-1"></i>Zotero
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-2 col-6"><div class="stat-card"><div class="stat-num">{{ stats.total }}</div><div class="stat-lbl">Gesamt</div></div></div>
+    <div class="col-md-2 col-6"><div class="stat-card"><div class="stat-num text-secondary">{{ stats.unread }}</div><div class="stat-lbl">Ungelesen</div></div></div>
+    <div class="col-md-2 col-6"><div class="stat-card"><div class="stat-num text-warning">{{ stats.reading }}</div><div class="stat-lbl">In Arbeit</div></div></div>
+    <div class="col-md-2 col-6"><div class="stat-card"><div class="stat-num text-success">{{ stats.read }}</div><div class="stat-lbl">Gelesen</div></div></div>
+    <div class="col-md-2 col-6"><div class="stat-card"><div class="stat-num text-primary">{{ stats.cited }}</div><div class="stat-lbl">Zitiert</div></div></div>
+    <div class="col-md-2 col-6">
+      <div class="stat-card">
+        <div class="stat-num">{{ stats.progress_percent }}%</div>
+        <div class="stat-lbl">Fortschritt</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong><i class="fas fa-clock me-1"></i>Neueste Referenzen</strong>
+          <a href="{% url 'library:reference_list' %}" class="small">Alle anzeigen →</a>
+        </div>
+        <div class="card-body">
+          {% for r in latest %}
+          <div class="ref-row">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="ref-key">[{{ r.bibtex_key }}]</div>
+                <div class="ref-title"><a href="{{ r.get_absolute_url }}" class="text-decoration-none text-dark">{{ r.title|truncatechars:95 }}</a></div>
+                <div class="ref-meta">{{ r.authors|truncatechars:90 }} {% if r.year %}· {{ r.year }}{% endif %} {% if r.journal %}· <em>{{ r.journal }}</em>{% endif %}</div>
+              </div>
+              <span class="status-pill status-{{ r.status }}">{{ r.get_status_display }}</span>
+            </div>
+          </div>
+          {% empty %}
+          <div class="text-center text-muted py-4">
+            <p>Noch keine Referenzen. <a href="{% url 'library:bibtex_import' %}">BibTeX importieren</a> oder <a href="{% url 'library:reference_add' %}">manuell anlegen</a>.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong><i class="fas fa-folder me-1"></i>Sammlungen</strong>
+          <a href="{% url 'library:collection_add' %}" class="small">+ Neu</a>
+        </div>
+        <div class="card-body">
+          {% for c in collections %}
+          <a href="{{ c.get_absolute_url }}" class="d-block collection-card mb-2 text-decoration-none">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <h5 style="color: {{ c.color }}">{{ c.name }}</h5>
+                <div class="count">{{ c.count }} Referenz{{ c.count|pluralize:"en" }}</div>
+              </div>
+              <i class="fas fa-chevron-right text-muted"></i>
+            </div>
+          </a>
+          {% empty %}
+          <p class="text-muted small mb-0">Keine Sammlungen. <a href="{% url 'library:collection_add' %}">Erste erstellen</a>.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if module_stats %}
+      <div class="card mb-3">
+        <div class="card-header"><strong><i class="fas fa-book-open me-1"></i>Module-Verknüpfungen</strong></div>
+        <div class="card-body">
+          {% for m in module_stats %}
+          <div class="d-flex justify-content-between border-bottom py-1">
+            <span class="small">{{ m.module_code }}{% if m.module_title %} — {{ m.module_title }}{% endif %}</span>
+            <span class="badge bg-secondary">{{ m.c }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="card">
+        <div class="card-header"><strong><i class="fab fa-zotero me-1"></i>Zotero-Status</strong></div>
+        <div class="card-body">
+          {% if zotero %}
+          <p class="small mb-1">User: <code>{{ zotero.user_id }}</code></p>
+          <p class="small mb-1">Typ: {{ zotero.get_library_type_display }}</p>
+          <p class="small mb-2">Letzter Sync: {% if zotero.last_sync %}{{ zotero.last_sync|date:"d.m.Y H:i" }}{% else %}—{% endif %}</p>
+          <a href="{% url 'library:zotero_settings' %}" class="btn btn-sm btn-outline-primary">Einstellungen</a>
+          {% else %}
+          <p class="small text-muted mb-2">Kein Zotero-Zugang konfiguriert. Du kannst trotzdem BibTeX-Dateien importieren.</p>
+          <a href="{% url 'library:zotero_settings' %}" class="btn btn-sm btn-primary">Zotero verbinden</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

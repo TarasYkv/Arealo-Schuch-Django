@@ -282,6 +282,19 @@ MENU_STRUCTURE = {
                 'icon': 'fas fa-tasks',
                 'auth_url_name': 'todos:home',
             },
+            {
+                'app_name': 'library',
+                'label': 'Literatur',
+                'icon': 'fas fa-book',
+                'auth_url_name': 'library:dashboard',
+                'sub_items': [
+                    {'label': 'Dashboard', 'icon': 'fas fa-tachometer-alt', 'url_name': 'library:dashboard'},
+                    {'label': 'Alle Referenzen', 'icon': 'fas fa-list', 'url_name': 'library:reference_list'},
+                    {'label': 'Sammlungen', 'icon': 'fas fa-folder', 'url_name': 'library:collection_list'},
+                    {'label': 'BibTeX importieren', 'icon': 'fas fa-upload', 'url_name': 'library:bibtex_import'},
+                    {'label': 'Zotero verbinden', 'icon': 'fab fa-zotero', 'url_name': 'library:zotero_settings'},
+                ],
+            },
             {'divider': True, 'label': 'Kommunikation'},
             {
                 'app_name': 'chat',

@@ -1,0 +1,23 @@
+{% extends 'library/base.html' %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-folder me-2"></i>Sammlungen</h2>
+    <a href="{% url 'library:collection_add' %}" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Neu</a>
+  </div>
+  <div class="row g-3">
+    {% for c in collections %}
+    <div class="col-md-4">
+      <a href="{{ c.get_absolute_url }}" class="collection-card d-block text-decoration-none">
+        <h5 style="color: {{ c.color }}">{{ c.name }}</h5>
+        <div class="count">{{ c.count }} Referenzen</div>
+        {% if c.description %}<p class="small text-muted mt-2 mb-0">{{ c.description|truncatechars:120 }}</p>{% endif %}
+      </a>
+    </div>
+    {% empty %}
+    <p class="text-muted">Noch keine Sammlungen.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
