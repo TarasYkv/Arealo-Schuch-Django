@@ -26,6 +26,18 @@ class ResearchQuery(models.Model):
     duration_s = models.FloatField(null=True, blank=True)
     total_cost_usd = models.FloatField(null=True, blank=True,
                                        help_text='Summe der API-Kosten in USD')
+    STATUS_CHOICES = (
+        ('pending', 'Wartet'),
+        ('running', 'Läuft'),
+        ('done', 'Fertig'),
+        ('failed', 'Fehlgeschlagen'),
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='done',
+                              help_text='Job-Status für asynchrone Verarbeitung')
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    # Form-Parameter, damit der Worker sie verarbeiten kann
+    params = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
