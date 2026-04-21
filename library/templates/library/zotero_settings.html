@@ -15,5 +15,33 @@
     <button class="btn btn-primary">Speichern</button>
     <a href="{% url 'library:dashboard' %}" class="btn btn-outline-secondary">Zurück</a>
   </form>
+
+  {% if account %}
+  <div class="card mt-3">
+    <div class="card-body">
+      <h5>Sofort synchronisieren</h5>
+      <p class="small text-muted">Letzter Sync: {% if account.last_sync %}{{ account.last_sync|date:"d.m.Y H:i" }}{% else %}noch nie{% endif %}</p>
+      <form method="post" action="{% url 'library:zotero_sync_now' %}">
+        {% csrf_token %}
+        <button class="btn btn-success"><i class="fas fa-sync me-1"></i>Jetzt synchronisieren</button>
+      </form>
+      <div class="form-text mt-2">Kann bei vielen Einträgen ein paar Sekunden dauern. Lasst die Seite offen.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card mt-3">
+    <div class="card-body">
+      <h5><i class="fas fa-question-circle me-1"></i>Wie bekomme ich meine Zotero-User-ID und API-Key?</h5>
+      <ol class="small mb-0">
+        <li>Gehe zu <a href="https://www.zotero.org/settings/keys" target="_blank">zotero.org/settings/keys</a> (Zotero-Login erforderlich)</li>
+        <li>Deine <strong>User-ID</strong> steht oben auf der Seite (7-8-stellige Zahl)</li>
+        <li>Klicke "Create new private key"</li>
+        <li>Name z.B. "Workloom Sync"</li>
+        <li>Haken bei "Allow library access" (Read-only reicht) → "Save Key"</li>
+        <li>Den angezeigten API-Key kopieren und hier eintragen</li>
+      </ol>
+    </div>
+  </div>
 </div>
 {% endblock %}

@@ -10,6 +10,7 @@ from django.utils import timezone
 from .models import Reference, Collection, ModuleLink, ZoteroAccount
 from .forms import ReferenceForm, CollectionForm, ZoteroAccountForm, BibTexImportForm
 from .bibtex import parse_bibtex
+from .zotero_sync import sync_account
 
 
 @login_required
@@ -252,6 +253,26 @@ def collection_add(request):
     else:
         form = CollectionForm()
     return render(request, "library/collection_form.html", {"form": form, "title": "Neue Sammlung"})
+
+
+@login_required
+@require_http_methods(["POST"])
+def zotero_sync_now(request):
+    try:
+        account = ZoteroAccount.objects.get(owner=request.user)
+    except ZoteroAccount.DoesNotExist:
+        messages.error(request, "Kein Zotero-Zugang konfiguriert.")
+        return redirect("library:zotero_settings")
+    try:
+        stats = sync_account(account, collection_name="Zotero-Sync")
+        messages.success(
+            request,
+            f"Zotero-Sync erfolgreich: {stats['created']} neu, "
+            f"{stats['updated']} aktualisiert, {stats['skipped']} übersprungen "
+            f"(in {stats['pages']} Seiten).")
+    except Exception as e:
+        messages.error(request, f"Zotero-Sync fehlgeschlagen: {e}")
+    return redirect("library:dashboard")
 
 
 @login_required
