@@ -156,12 +156,12 @@ MODELS = {
         'notes': 'Ergänzende Stimme mit anderem Trainingsmix.'
     },
     'nemotron': {
-        'name': 'NVIDIA Nemotron 120B', 'provider': 'openrouter', 'model': 'nvidia/nemotron-3-super-120b-a12b:free',
+        'name': 'NVIDIA Nemotron 120B (free)', 'provider': 'openrouter', 'model': 'nvidia/nemotron-3-super-120b-a12b:free',
         'pricing': (0.00, 0.00), 'context': '128k',
         'origin': 'NVIDIA (USA). Eigene Modell-Familie auf Basis von Llama-3 + zusätzlichem Post-Training.',
         'strengths': 'KOSTENLOS via OpenRouter-Free-Tier, brauchbare Qualität, groß (120B Parameter).',
-        'weaknesses': 'Rate-limited, Antworten häufig kürzer, gelegentliche Timeouts; neuer / weniger erprobt.',
-        'notes': 'Kostenneutrale Zusatzperspektive.'
+        'weaknesses': '⚠ Free-Tier upstream stark rate-limited (HTTP 429 häufig), Antworten oft kürzer, gelegentliche Timeouts.',
+        'notes': 'Opt-in — nicht in der Default-Auswahl. Aktivier nur, wenn gratis wichtiger als Zuverlässigkeit.'
     },
     'mercury': {
         'name': 'Mercury 2', 'provider': 'openrouter', 'model': 'inception/mercury-2',
@@ -175,9 +175,9 @@ MODELS = {
         'name': 'GLM 4.5 Air (free)', 'provider': 'openrouter', 'model': 'z-ai/glm-4.5-air:free',
         'pricing': (0.00, 0.00), 'context': '128k',
         'origin': 'Zhipu AI (China). „Air"-Variante — leichtgewichtig, als Free-Tier über OpenRouter verfügbar.',
-        'strengths': 'KOSTENLOS (rate-limited), schnell, solide Qualität für einfache Aufgaben.',
-        'weaknesses': 'Rate-Limits, kein hochkomplexes Reasoning, möglicherweise kleinere Parameterzahl.',
-        'notes': 'Kostenneutrale Zusatzperspektive neben Nemotron.'
+        'strengths': 'KOSTENLOS, schnell, solide Qualität für einfache Aufgaben.',
+        'weaknesses': '⚠ Free-Tier upstream stark rate-limited (HTTP 429 häufig), kein hochkomplexes Reasoning.',
+        'notes': 'Opt-in — nicht in der Default-Auswahl. Alternative: bezahlte Variante "glm" nutzen.'
     },
 }
 
@@ -343,8 +343,19 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
                 'ok': True, 'text': text, 'duration_s': time.time() - t0,
                 'tokens': tokens, 'cost_usd': cost}
     except urllib.error.HTTPError as e:
+        body_preview = e.read()[:300].decode(errors="ignore")
+        if e.code == 429:
+            msg = ('Rate-Limit erreicht. Free-Tier-Modelle sind bei hoher Last oft '
+                   'nicht verfügbar — deaktiviere dieses Modell oder versuche es später.')
+        elif e.code in (401, 403):
+            msg = ('API-Key abgelehnt. Prüfe deinen OpenRouter-Key unter '
+                   '/accounts/neue-api-einstellungen/ (Guthaben, Berechtigung).')
+        elif e.code >= 500:
+            msg = f'Upstream-Fehler ({e.code}) — Anbieter-seitiges Problem. Später nochmal probieren.'
+        else:
+            msg = f'HTTP {e.code}: {body_preview}'
         return {'model': model_id, 'display': name, 'provider': provider_id,
-                'ok': False, 'error': f'HTTP {e.code}: {e.read()[:200].decode(errors="ignore")}',
+                'ok': False, 'error': msg,
                 'duration_s': time.time() - t0, 'cost_usd': 0.0}
     except Exception as e:
         return {'model': model_id, 'display': name, 'provider': provider_id,

@@ -36,7 +36,9 @@ class AskForm(forms.Form):
         label='Council-Modelle (Council + Hybrid)',
         choices=[], required=False,
         widget=forms.CheckboxSelectMultiple,
-        initial=['opus', 'gpt', 'gemini', 'deepseek', 'glm'],
+        # Default: nur bezahlte, stabile Modelle. Free-Tier-Modelle (nemotron,
+        # glm_air_free) sind rate-limited und müssen explizit aktiviert werden.
+        initial=['opus', 'gpt', 'gemini', 'deepseek', 'glm', 'grok'],
     )
     top_k = forms.IntegerField(
         label='RAG Top-K', min_value=2, max_value=15, initial=6,
