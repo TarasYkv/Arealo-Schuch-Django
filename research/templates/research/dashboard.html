@@ -1,104 +1,117 @@
 {% extends 'research/base.html' %}
 
-{% block content %}
-<div class="container-fluid py-4">
+{% block research_content %}
 
-  <div class="research-hero d-flex justify-content-between align-items-center flex-wrap">
-    <div>
-      <h1><i class="fas fa-flask me-2"></i>Forschungsassistent</h1>
-      <p>RAG + Council über deine eigene Zotero-/Workloom-Bibliothek — synthetisiert mit Claude Opus oder Modell deiner Wahl.</p>
-    </div>
-    <div class="mt-2">
-      <a href="{% url 'research:ask' %}" class="btn btn-light btn-sm me-2">
-        <i class="fas fa-wand-magic-sparkles me-1"></i>Neue Frage
-      </a>
-      <a href="{% url 'research:history' %}" class="btn btn-outline-light btn-sm">
-        <i class="fas fa-clock-rotate-left me-1"></i>Verlauf
-      </a>
-    </div>
+<div class="rs-hero">
+  <div>
+    <h1 class="rs-hero__title">Forschungsassistent</h1>
+    <p class="rs-hero__sub">RAG über deine Zotero-Bibliothek + Council aus mehreren KI-Modellen. Alle Antworten mit nachvollziehbaren Quellen aus deiner eigenen Literatur.</p>
   </div>
-
-  <div class="row g-3 mb-4">
-    <div class="col-md-3 col-6"><div class="stat-card">
-      <div class="stat-num">
-        {% if index_stats.online %}{{ index_stats.points }}{% else %}—{% endif %}
-      </div>
-      <div class="stat-lbl">Vektor-Chunks indexiert</div>
-    </div></div>
-    <div class="col-md-3 col-6"><div class="stat-card">
-      <div class="stat-num">{{ council_models|length }}</div>
-      <div class="stat-lbl">KI-Modelle verfügbar</div>
-    </div></div>
-    <div class="col-md-3 col-6"><div class="stat-card">
-      <div class="stat-num">{{ queries|length }}</div>
-      <div class="stat-lbl">Deine letzten Anfragen</div>
-    </div></div>
-    <div class="col-md-3 col-6"><div class="stat-card">
-      <div class="stat-num">
-        {% if index_stats.online %}<span class="text-success">●</span> online{% else %}<span class="text-danger">●</span> offline{% endif %}
-      </div>
-      <div class="stat-lbl">Qdrant-Index</div>
-    </div></div>
+  <div class="rs-hero__actions">
+    <a href="{% url 'research:ask' %}" class="rs-btn rs-btn--primary">
+      <i class="fas fa-wand-magic-sparkles"></i> Neue Frage
+    </a>
+    <a href="{% url 'research:history' %}" class="rs-btn rs-btn--ghost">
+      <i class="fas fa-clock-rotate-left"></i> Verlauf
+    </a>
   </div>
-
-  <div class="row g-3">
-    <div class="col-lg-8">
-      <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <strong><i class="fas fa-clock me-1"></i>Deine letzten Anfragen</strong>
-          <a href="{% url 'research:history' %}" class="small">Alle anzeigen →</a>
-        </div>
-        <div class="card-body">
-          {% for q in queries %}
-          <div class="d-flex justify-content-between align-items-start py-2 border-bottom">
-            <div class="flex-grow-1 me-3">
-              <a href="{{ q.get_absolute_url }}" class="text-decoration-none text-dark">
-                <strong>{{ q.question|truncatechars:100 }}</strong>
-              </a>
-              <div class="text-muted small">
-                <span class="mode-pill mode-{{ q.mode }}">{{ q.get_mode_display }}</span>
-                {{ q.created_at|date:"d.m.Y H:i" }}
-                {% if q.duration_s %}· {{ q.duration_s|floatformat:1 }}s{% endif %}
-                {% for m in q.models_used|slice:":4" %}
-                  <span class="model-pill">{{ m }}</span>
-                {% endfor %}
-              </div>
-            </div>
-            <i class="fas fa-chevron-right text-muted"></i>
-          </div>
-          {% empty %}
-          <div class="text-center text-muted py-4">
-            <p>Noch keine Anfragen. <a href="{% url 'research:ask' %}">Stelle deine erste Frage</a>.</p>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-
-    <div class="col-lg-4">
-      <div class="card mb-3">
-        <div class="card-header"><strong><i class="fas fa-robot me-1"></i>Verfügbare KI-Modelle</strong></div>
-        <div class="card-body">
-          {% for id, cfg in council_models.items %}
-          <div><span class="model-pill">{{ cfg.0 }}</span> <small class="text-muted">· {{ cfg.1 }}</small></div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header"><strong><i class="fas fa-database me-1"></i>Index-Status</strong></div>
-        <div class="card-body">
-          {% if index_stats.online %}
-            <p class="small mb-1">Chunks: <code>{{ index_stats.points }}</code></p>
-            <p class="small mb-1">Status: <code>{{ index_stats.status }}</code></p>
-            <p class="small mb-0 text-muted">Qdrant läuft unter 127.0.0.1:6333</p>
-          {% else %}
-            <p class="small text-danger mb-0">Qdrant offline: {{ index_stats.error }}</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-
 </div>
+
+<div class="rs-stats">
+  <div class="rs-stat">
+    <div class="rs-stat__num rs-stat__num--mono">
+      {% if index_stats.online %}{{ index_stats.points }}{% else %}—{% endif %}
+    </div>
+    <div class="rs-stat__label">Chunks im Index</div>
+  </div>
+  <div class="rs-stat">
+    <div class="rs-stat__num rs-stat__num--mono">{{ council_models|length }}</div>
+    <div class="rs-stat__label">KI-Modelle verfügbar</div>
+  </div>
+  <div class="rs-stat">
+    <div class="rs-stat__num rs-stat__num--mono">{{ queries|length }}</div>
+    <div class="rs-stat__label">Deine letzten Anfragen</div>
+  </div>
+  <div class="rs-stat">
+    <div class="rs-stat__num" style="font-size: 17px; font-weight: 600;">
+      {% if index_stats.online %}
+        <span class="rs-stat__dot"></span>online
+      {% else %}
+        <span class="rs-stat__dot rs-stat__dot--off"></span>offline
+      {% endif %}
+    </div>
+    <div class="rs-stat__label">Qdrant-Index</div>
+  </div>
+</div>
+
+<div class="rs-grid">
+  <div class="rs-panel">
+    <div class="rs-panel__head">
+      <span class="rs-panel__title"><i class="fas fa-clock"></i>Letzte Anfragen</span>
+      <a href="{% url 'research:history' %}" class="rs-panel__link">Alle anzeigen →</a>
+    </div>
+    <div class="rs-panel__body">
+      {% for q in queries %}
+      <div class="rs-query-item">
+        <div class="rs-query-item__text">
+          <a href="{{ q.get_absolute_url }}" class="rs-query-item__q">{{ q.question|truncatechars:100 }}</a>
+          <div class="rs-query-item__meta">
+            <span class="rs-pill rs-pill--mode-{{ q.mode }}">{{ q.get_mode_display|slice:":3" }}</span>
+            <span>{{ q.created_at|date:"d.m.Y · H:i" }}</span>
+            {% if q.duration_s %}<span>·</span><span>{{ q.duration_s|floatformat:1 }}s</span>{% endif %}
+            {% for m in q.models_used|slice:":3" %}
+              <span class="rs-pill">{{ m }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="rs-empty">
+        Noch keine Anfragen. <a href="{% url 'research:ask' %}">Stelle deine erste Frage</a>.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div>
+    <div class="rs-panel" style="margin-bottom: 16px;">
+      <div class="rs-panel__head">
+        <span class="rs-panel__title"><i class="fas fa-robot"></i>Verfügbare Modelle</span>
+      </div>
+      <div class="rs-panel__body">
+        <div class="rs-model-list">
+          {% for id, cfg in council_models.items %}
+          <div class="rs-model-row" title="Kontext {{ cfg.context }} · {{ cfg.notes }}">
+            <span class="rs-model-row__name">{{ cfg.name }}</span>
+            <span class="rs-model-row__id" style="flex: 1; text-align: right;">
+              {% if cfg.pricing.0 == 0 and cfg.pricing.1 == 0 %}
+                <span style="color: var(--rs-success);">free</span>
+              {% else %}
+                ${{ cfg.pricing.0|floatformat:2 }}/{{ cfg.pricing.1|floatformat:2 }}
+              {% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="rs-hint" style="margin-top: 12px;">Preis je 1 Mio. Tokens (Input/Output) in USD. Hover für Modell-Details.</p>
+      </div>
+    </div>
+
+    <div class="rs-panel">
+      <div class="rs-panel__head">
+        <span class="rs-panel__title"><i class="fas fa-database"></i>Index-Status</span>
+      </div>
+      <div class="rs-panel__body">
+        {% if index_stats.online %}
+          <div class="rs-model-row"><span class="rs-model-row__name">Chunks</span><span class="rs-model-row__id">{{ index_stats.points }}</span></div>
+          <div class="rs-model-row"><span class="rs-model-row__name">Status</span><span class="rs-model-row__id">{{ index_stats.status }}</span></div>
+          <div class="rs-model-row"><span class="rs-model-row__name">Host</span><span class="rs-model-row__id">127.0.0.1:6333</span></div>
+        {% else %}
+          <div style="color: var(--rs-danger); font-size: 13px;">{{ index_stats.error }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

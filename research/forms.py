@@ -11,7 +11,7 @@ MODE_CHOICES = (
 
 
 def _model_choices():
-    return [(k, v[0]) for k, v in COUNCIL_MODELS.items()]
+    return [(k, v['name']) for k, v in COUNCIL_MODELS.items()]
 
 
 class AskForm(forms.Form):

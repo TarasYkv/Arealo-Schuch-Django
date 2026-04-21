@@ -1,45 +1,52 @@
 {% extends 'research/base.html' %}
 
-{% block content %}
-<div class="container-fluid py-4">
-  <div class="research-hero">
-    <h1><i class="fas fa-clock-rotate-left me-2"></i>Anfrage-Verlauf</h1>
-  </div>
+{% block research_content %}
 
-  <div class="card">
-    <div class="card-body">
-      {% for q in page.object_list %}
-      <div class="d-flex justify-content-between align-items-start py-2 border-bottom">
-        <div class="flex-grow-1 me-3">
-          <a href="{{ q.get_absolute_url }}" class="text-decoration-none text-dark">
-            <strong>{{ q.question|truncatechars:120 }}</strong>
-          </a>
-          <div class="text-muted small">
-            <span class="mode-pill mode-{{ q.mode }}">{{ q.get_mode_display }}</span>
-            {{ q.created_at|date:"d.m.Y H:i" }}
-            {% if q.duration_s %}· {{ q.duration_s|floatformat:1 }}s{% endif %}
-            {% for m in q.models_used|slice:":5" %}<span class="model-pill">{{ m }}</span>{% endfor %}
-          </div>
+<div class="rs-hero">
+  <div>
+    <h1 class="rs-hero__title">Verlauf</h1>
+    <p class="rs-hero__sub">Alle deine bisherigen Anfragen an den Forschungsassistenten.</p>
+  </div>
+  <div class="rs-hero__actions">
+    <a href="{% url 'research:ask' %}" class="rs-btn rs-btn--primary">
+      <i class="fas fa-plus"></i> Neue Frage
+    </a>
+    <a href="{% url 'research:dashboard' %}" class="rs-btn rs-btn--ghost">
+      <i class="fas fa-arrow-left"></i> Dashboard
+    </a>
+  </div>
+</div>
+
+<div class="rs-panel">
+  <div class="rs-panel__body">
+    {% for q in page.object_list %}
+    <div class="rs-query-item">
+      <div class="rs-query-item__text">
+        <a href="{{ q.get_absolute_url }}" class="rs-query-item__q">{{ q.question|truncatechars:120 }}</a>
+        <div class="rs-query-item__meta">
+          <span class="rs-pill rs-pill--mode-{{ q.mode }}">{{ q.get_mode_display|slice:":3" }}</span>
+          <span>{{ q.created_at|date:"d.m.Y · H:i" }}</span>
+          {% if q.duration_s %}<span>·</span><span>{{ q.duration_s|floatformat:1 }}s</span>{% endif %}
+          {% for m in q.models_used|slice:":5" %}<span class="rs-pill">{{ m }}</span>{% endfor %}
         </div>
       </div>
-      {% empty %}
-      <p class="text-muted">Noch keine Anfragen.</p>
-      {% endfor %}
     </div>
+    {% empty %}
+    <div class="rs-empty">Noch keine Anfragen.</div>
+    {% endfor %}
   </div>
+</div>
 
-  {% if page.has_other_pages %}
-  <nav class="mt-3">
-    <ul class="pagination">
-      {% if page.has_previous %}
-        <li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}">‹</a></li>
-      {% endif %}
-      <li class="page-item active"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
-      {% if page.has_next %}
-        <li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}">›</a></li>
-      {% endif %}
-    </ul>
-  </nav>
+{% if page.has_other_pages %}
+<div class="rs-pager">
+  {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}">‹ Zurück</a>
+  {% endif %}
+  <span class="rs-pager__current">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}">Weiter ›</a>
   {% endif %}
 </div>
+{% endif %}
+
 {% endblock %}

@@ -42,7 +42,10 @@ def ask(request):
             return _execute_ask(request, form)
     else:
         form = AskForm()
-    return render(request, 'research/ask.html', {'form': form})
+    return render(request, 'research/ask.html', {
+        'form': form,
+        'council_models': council_service.MODELS,
+    })
 
 
 def _execute_ask(request, form):
@@ -57,7 +60,8 @@ def _execute_ask(request, form):
     )
     try:
         if mode == 'rag':
-            primary_model_name = council_service.MODELS.get(primary, ('', '', 'claude-opus-4-7'))[2]
+            primary_cfg = council_service.MODELS.get(primary)
+            primary_model_name = primary_cfg['model'] if primary_cfg else 'claude-opus-4-7'
             res = rag_service.ask_rag(question, request.user, top_k=top_k,
                                       model=primary_model_name)
             rq.answer = res['answer']
@@ -74,7 +78,8 @@ def _execute_ask(request, form):
             # Antwort: eine zusammengesetzte Übersicht, damit die Detailseite lesbar ist
             rq.answer = _format_council_summary(res['results'])
         elif mode == 'hybrid':
-            primary_model_name = council_service.MODELS.get(primary, ('', '', 'claude-opus-4-7'))[2]
+            primary_cfg = council_service.MODELS.get(primary)
+            primary_model_name = primary_cfg['model'] if primary_cfg else 'claude-opus-4-7'
             # Erst RAG, dann Council mit eingebundenem Kontext
             rag_res = rag_service.ask_rag(question, request.user, top_k=top_k,
                                           model=primary_model_name)

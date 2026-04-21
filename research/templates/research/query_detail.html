@@ -1,91 +1,89 @@
 {% extends 'research/base.html' %}
 
-{% block content %}
-<div class="container-fluid py-4">
+{% block research_content %}
 
-  <div class="research-hero d-flex justify-content-between align-items-start flex-wrap">
-    <div>
-      <h1><i class="fas fa-comment-dots me-2"></i>Forschungs-Anfrage #{{ q.pk }}</h1>
-      <p class="mb-0">
-        <span class="mode-pill mode-{{ q.mode }}">{{ q.get_mode_display }}</span>
-        <span class="ms-2">{{ q.created_at|date:"d.m.Y H:i" }}</span>
-        {% if q.duration_s %}<span class="ms-2">· {{ q.duration_s|floatformat:1 }}s</span>{% endif %}
-      </p>
-    </div>
-    <div>
-      <a href="{% url 'research:ask' %}" class="btn btn-light btn-sm">
-        <i class="fas fa-plus me-1"></i>Neue Frage
-      </a>
-    </div>
+<div class="rs-hero">
+  <div>
+    <h1 class="rs-hero__title">Anfrage #{{ q.pk }}</h1>
+    <p class="rs-hero__sub">{{ q.created_at|date:"d.m.Y · H:i" }}{% if q.duration_s %} · Dauer {{ q.duration_s|floatformat:1 }}s{% endif %}</p>
   </div>
-
-  <div class="card mb-3">
-    <div class="card-header"><strong>Frage</strong></div>
-    <div class="card-body">{{ q.question|linebreaksbr }}</div>
+  <div class="rs-hero__actions">
+    <a href="{% url 'research:ask' %}" class="rs-btn rs-btn--primary">
+      <i class="fas fa-plus"></i> Neue Frage
+    </a>
+    <a href="{% url 'research:dashboard' %}" class="rs-btn rs-btn--ghost">
+      <i class="fas fa-arrow-left"></i> Dashboard
+    </a>
   </div>
+</div>
 
-  {% if q.error %}
-  <div class="alert alert-danger">
+<div class="rs-meta-bar">
+  <span class="rs-pill rs-pill--mode-{{ q.mode }}">{{ q.get_mode_display }}</span>
+  {% for m in q.models_used %}<span class="rs-pill">{{ m }}</span>{% endfor %}
+</div>
+
+<div class="rs-section-title"><i class="fas fa-question"></i> Frage</div>
+<div class="rs-question-card">{{ q.question|linebreaksbr }}</div>
+
+{% if q.error %}
+  <div class="rs-alert rs-alert--error">
     <strong>Fehler:</strong> {{ q.error }}
   </div>
-  {% endif %}
+{% endif %}
 
-  {% if q.answer %}
-  <div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <strong><i class="fas fa-reply me-1"></i>Antwort</strong>
-      <span>
-        {% for m in q.models_used %}<span class="model-pill">{{ m }}</span>{% endfor %}
-      </span>
+{% if q.answer %}
+<div class="rs-section-title"><i class="fas fa-reply"></i> Antwort</div>
+<div class="rs-answer">{{ q.answer }}</div>
+{% endif %}
+
+{% if q.sources %}
+<div class="rs-section-title"><i class="fas fa-book"></i> Quellen · {{ q.sources|length }}</div>
+<div class="rs-sources">
+  {% for s in q.sources %}
+  <div class="rs-source">
+    <div class="rs-source__head">
+      <span class="rs-source__idx">[{{ s.idx }}]</span>
+      <span class="rs-source__score">Score {{ s.score|floatformat:3 }}</span>
     </div>
-    <div class="card-body">
-      <div class="answer-block">{{ q.answer }}</div>
+    <div class="rs-source__title">{{ s.title|default:s.filename }}</div>
+    <div class="rs-source__meta">
+      {{ s.authors|default:"—" }}{% if s.year %} · {{ s.year }}{% endif %}
     </div>
+    <div class="rs-source__text">{{ s.text }}</div>
+    {% if s.reference_id %}
+    <a href="/library/refs/{{ s.reference_id }}/" class="rs-source__link">
+      <i class="fas fa-arrow-up-right-from-square"></i> In Library öffnen
+    </a>
+    {% endif %}
   </div>
-  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
 
-  {% if q.sources %}
-  <div class="card mb-3">
-    <div class="card-header"><strong><i class="fas fa-book me-1"></i>Quellen ({{ q.sources|length }})</strong></div>
-    <div class="card-body">
-      {% for s in q.sources %}
-      <div class="source-card">
-        <span class="src-score">Score {{ s.score|floatformat:3 }}</span>
-        <div class="src-head">[{{ s.idx }}] {{ s.authors|default:"—" }} ({{ s.year|default:"?" }})</div>
-        <div class="src-meta">
-          {{ s.title|default:s.filename }}
-          {% if s.reference_id %}
-            · <a href="/library/refs/{{ s.reference_id }}/">in Library öffnen →</a>
-          {% endif %}
-        </div>
-        <div class="src-text">{{ s.text|truncatechars:500 }}</div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  {% if council_results %}
-  <div class="card mb-3">
-    <div class="card-header"><strong><i class="fas fa-users me-1"></i>Council-Antworten ({{ council_results|length }})</strong></div>
-    <div class="card-body">
-      {% for r in council_results %}
-      <div class="council-card {% if r.ok %}ok{% else %}err{% endif %}">
-        <div class="cm-head">
-          {{ r.display|default:r.model }}
-          {% if r.duration_s %}<small class="text-muted">· {{ r.duration_s|floatformat:1 }}s</small>{% endif %}
-          {% if r.ok %}<span class="model-pill ok ms-1">OK</span>{% else %}<span class="model-pill err ms-1">Fehler</span>{% endif %}
-        </div>
+{% if council_results %}
+<div class="rs-section-title"><i class="fas fa-users"></i> Council-Antworten · {{ council_results|length }}</div>
+<div class="rs-council">
+  {% for r in council_results %}
+  <div class="rs-council-card {% if r.ok %}rs-council-card--ok{% else %}rs-council-card--err{% endif %}">
+    <div class="rs-council-card__head">
+      <div>
+        <span class="rs-council-card__name">{{ r.display|default:r.model }}</span>
         {% if r.ok %}
-          <div class="cm-text">{{ r.text }}</div>
+          <span class="rs-pill rs-pill--ok">OK</span>
         {% else %}
-          <div class="text-danger small">{{ r.error }}</div>
+          <span class="rs-pill rs-pill--err">Fehler</span>
         {% endif %}
       </div>
-      {% endfor %}
+      {% if r.duration_s %}<span class="rs-council-card__time">{{ r.duration_s|floatformat:1 }}s</span>{% endif %}
     </div>
+    {% if r.ok %}
+      <div class="rs-council-card__text">{{ r.text }}</div>
+    {% else %}
+      <div style="color: var(--rs-danger); font-size: 13px;">{{ r.error }}</div>
+    {% endif %}
   </div>
-  {% endif %}
-
+  {% endfor %}
 </div>
+{% endif %}
+
 {% endblock %}
