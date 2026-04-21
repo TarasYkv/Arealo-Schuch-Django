@@ -36,9 +36,13 @@ class AskForm(forms.Form):
         label='Council-Modelle (Council + Hybrid)',
         choices=[], required=False,
         widget=forms.CheckboxSelectMultiple,
-        # Default: nur bezahlte, stabile Modelle. Free-Tier-Modelle (nemotron,
-        # glm_air_free) sind rate-limited und müssen explizit aktiviert werden.
-        initial=['opus', 'gpt', 'gemini', 'deepseek', 'glm', 'grok'],
+        # Default: breit gefächerter Council — Frontier + Reasoning + Schreib-Spezialisten.
+        # Free-Tier-Modelle (nemotron, glm_air_free) bleiben opt-in wegen Rate-Limits.
+        initial=[
+            'opus', 'gpt', 'gemini', 'deepseek', 'glm', 'grok',
+            'qwen_max_thinking', 'kimi_thinking',
+            'palmyra', 'nova',
+        ],
     )
     top_k = forms.IntegerField(
         label='RAG Top-K', min_value=2, max_value=15, initial=6,
