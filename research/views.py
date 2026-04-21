@@ -3,7 +3,9 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from .forms import AskForm
 from .models import ResearchQuery
@@ -47,7 +49,7 @@ def ask(request):
     if request.method == 'POST':
         form = AskForm(request.POST)
         if form.is_valid():
-            return _execute_ask(request, form)
+            return _execute_ask_async(request, form)
     else:
         form = AskForm()
     return render(request, 'research/ask.html', {
@@ -57,7 +59,39 @@ def ask(request):
     })
 
 
+def _execute_ask_async(request, form):
+    """Erstellt ResearchQuery im Status 'pending' und dispatcht den Celery-Task.
+    Frontend pollt dann den Status bis 'done' oder 'failed'."""
+    from .tasks import execute_research_query
+
+    mode = form.cleaned_data['mode']
+    question = form.cleaned_data['question']
+    primary = form.cleaned_data.get('primary_model') or 'glm'
+    council_ids = list(form.cleaned_data.get('council_models') or [])
+    top_k = int(form.cleaned_data.get('top_k') or 6)
+
+    rq = ResearchQuery.objects.create(
+        owner=request.user, question=question, mode=mode, status='pending',
+        params={
+            'mode': mode,
+            'primary_model': primary,
+            'council_models': council_ids,
+            'top_k': top_k,
+        },
+    )
+    try:
+        execute_research_query.delay(rq.pk)
+    except Exception as e:
+        # Fallback: synchron ausführen (z.B. wenn Celery/Redis down ist)
+        logger.exception('Celery dispatch failed — running synchronously')
+        from .tasks import execute_research_query as task_fn
+        task_fn.apply(args=[rq.pk])
+    return redirect(rq.get_absolute_url())
+
+
 def _execute_ask(request, form):
+    """Alte synchrone Variante — nicht mehr aktiv verwendet, aber erhalten
+    als Referenz/Notfall-Fallback falls Celery nicht verfügbar ist."""
     mode = form.cleaned_data['mode']
     question = form.cleaned_data['question']
     primary = form.cleaned_data.get('primary_model') or 'opus'
@@ -65,7 +99,7 @@ def _execute_ask(request, form):
     top_k = form.cleaned_data.get('top_k') or 6
 
     rq = ResearchQuery.objects.create(
-        owner=request.user, question=question, mode=mode,
+        owner=request.user, question=question, mode=mode, status='done',
     )
     try:
         if mode == 'rag':
@@ -202,6 +236,21 @@ def query_detail(request, pk):
     return render(request, 'research/query_detail.html', {
         'q': rq,
         'council_results': council_results,
+    })
+
+
+@login_required
+def query_status(request, pk):
+    """JSON-Endpoint fürs Polling aus dem Detail-Template."""
+    rq = get_object_or_404(ResearchQuery, pk=pk, owner=request.user)
+    elapsed = None
+    if rq.started_at:
+        end = rq.finished_at or timezone.now()
+        elapsed = (end - rq.started_at).total_seconds()
+    return JsonResponse({
+        'status': rq.status,
+        'elapsed_s': elapsed,
+        'error': rq.error or None,
     })
 
 
