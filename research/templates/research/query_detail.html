@@ -41,11 +41,95 @@
   <i class="fas fa-reply"></i> Antwort
   {% if q.raw_responses.rag %}
     <span style="margin-left: auto; font-size: 12px; color: var(--rs-ink-faint); text-transform: none; letter-spacing: 0; font-weight: 400;">
-      RAG: {{ q.raw_responses.rag.tokens.input|default:0 }} in / {{ q.raw_responses.rag.tokens.output|default:0 }} out Tokens · ${{ q.raw_responses.rag.cost_usd|floatformat:4 }}
+      RAG-Synthese ({{ q.raw_responses.rag.model }}): {{ q.raw_responses.rag.tokens.input|default:0 }} in / {{ q.raw_responses.rag.tokens.output|default:0 }} out · ${{ q.raw_responses.rag.cost_usd|floatformat:4 }}
+    </span>
+  {% elif q.raw_responses.primary_validation %}
+    <span style="margin-left: auto; font-size: 12px; color: var(--rs-ink-faint); text-transform: none; letter-spacing: 0; font-weight: 400;">
+      Primär-Validierung ({{ q.raw_responses.primary_validation.model }}): {{ q.raw_responses.primary_validation.tokens.input|default:0 }} in / {{ q.raw_responses.primary_validation.tokens.output|default:0 }} out · ${{ q.raw_responses.primary_validation.cost_usd|floatformat:4 }}
     </span>
   {% endif %}
 </div>
 <div class="rs-answer">{{ q.answer }}</div>
+{% endif %}
+
+{% if q.raw_responses.primary_validation or q.raw_responses.rag or q.raw_responses.council %}
+<div class="rs-cost-breakdown">
+  <div class="rs-cost-breakdown__title"><i class="fas fa-receipt"></i> Kosten-Aufschlüsselung</div>
+  <table class="rs-cost-table">
+    <thead><tr><th>Schritt</th><th>Modell</th><th>Input-Tokens</th><th>Output-Tokens</th><th>Kosten</th></tr></thead>
+    <tbody>
+      {% if q.raw_responses.rag %}
+      <tr>
+        <td>RAG-Synthese</td>
+        <td>{{ q.raw_responses.rag.model }}</td>
+        <td>{{ q.raw_responses.rag.tokens.input|default:0 }}</td>
+        <td>{{ q.raw_responses.rag.tokens.output|default:0 }}</td>
+        <td>${{ q.raw_responses.rag.cost_usd|floatformat:4 }}</td>
+      </tr>
+      {% endif %}
+      {% if q.raw_responses.primary_validation %}
+      <tr>
+        <td>Primär-Validierung</td>
+        <td>{{ q.raw_responses.primary_validation.model }}</td>
+        <td>{{ q.raw_responses.primary_validation.tokens.input|default:0 }}</td>
+        <td>{{ q.raw_responses.primary_validation.tokens.output|default:0 }}</td>
+        <td>${{ q.raw_responses.primary_validation.cost_usd|floatformat:4 }}</td>
+      </tr>
+      {% endif %}
+      {% for r in council_results %}
+      <tr>
+        <td>Council</td>
+        <td>{{ r.display|default:r.model }}</td>
+        <td>{{ r.tokens.input|default:0 }}</td>
+        <td>{{ r.tokens.output|default:0 }}</td>
+        <td>${{ r.cost_usd|floatformat:4 }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="rs-cost-table__total">
+        <td colspan="4" style="text-align: right;"><strong>Gesamt</strong></td>
+        <td><strong>${{ q.total_cost_usd|floatformat:4 }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<style>
+.rs-cost-breakdown {
+  margin: 24px 0;
+  background: var(--rs-surface);
+  border: 1px solid var(--rs-border);
+  border-radius: 14px;
+  padding: 16px 20px;
+}
+.rs-cost-breakdown__title {
+  font-size: 13px; font-weight: 600; color: var(--rs-ink);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.rs-cost-breakdown__title i { color: var(--rs-ink-soft); }
+.rs-cost-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rs-cost-table th {
+  text-align: left; padding: 6px 10px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--rs-ink-faint); font-weight: 600;
+  border-bottom: 1px solid var(--rs-border-soft);
+}
+.rs-cost-table th:nth-child(3),
+.rs-cost-table th:nth-child(4),
+.rs-cost-table th:nth-child(5) { text-align: right; font-family: 'JetBrains Mono', monospace; }
+.rs-cost-table td {
+  padding: 8px 10px; border-bottom: 1px solid var(--rs-border-soft);
+}
+.rs-cost-table td:nth-child(3),
+.rs-cost-table td:nth-child(4),
+.rs-cost-table td:nth-child(5) {
+  text-align: right; font-family: 'JetBrains Mono', monospace;
+}
+.rs-cost-table__total td {
+  border-top: 2px solid var(--rs-border);
+  border-bottom: none;
+  padding-top: 10px;
+  color: var(--rs-accent-ink);
+}
+</style>
 {% endif %}
 
 {% if q.sources %}
