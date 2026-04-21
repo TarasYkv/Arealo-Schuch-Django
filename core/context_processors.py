@@ -304,6 +304,7 @@ MENU_STRUCTURE = {
                     {'label': 'Dashboard', 'icon': 'fas fa-tachometer-alt', 'url_name': 'research:dashboard'},
                     {'label': 'Neue Frage', 'icon': 'fas fa-wand-magic-sparkles', 'url_name': 'research:ask'},
                     {'label': 'Verlauf', 'icon': 'fas fa-clock-rotate-left', 'url_name': 'research:history'},
+                    {'label': 'API-Keys', 'icon': 'fas fa-key', 'url_name': 'research:api_keys'},
                 ],
             },
             {'divider': True, 'label': 'Kommunikation'},

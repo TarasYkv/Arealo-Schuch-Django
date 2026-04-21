@@ -20,6 +20,11 @@
 <div class="rs-meta-bar">
   <span class="rs-pill rs-pill--mode-{{ q.mode }}">{{ q.get_mode_display }}</span>
   {% for m in q.models_used %}<span class="rs-pill">{{ m }}</span>{% endfor %}
+  {% if q.total_cost_usd is not None %}
+    <span class="rs-pill" style="margin-left: auto; background: var(--rs-accent-soft); color: var(--rs-accent-ink);">
+      <i class="fas fa-dollar-sign"></i>&nbsp;Gesamt ${{ q.total_cost_usd|floatformat:4 }}
+    </span>
+  {% endif %}
 </div>
 
 <div class="rs-section-title"><i class="fas fa-question"></i> Frage</div>
@@ -32,7 +37,14 @@
 {% endif %}
 
 {% if q.answer %}
-<div class="rs-section-title"><i class="fas fa-reply"></i> Antwort</div>
+<div class="rs-section-title">
+  <i class="fas fa-reply"></i> Antwort
+  {% if q.raw_responses.rag %}
+    <span style="margin-left: auto; font-size: 12px; color: var(--rs-ink-faint); text-transform: none; letter-spacing: 0; font-weight: 400;">
+      RAG: {{ q.raw_responses.rag.tokens.input|default:0 }} in / {{ q.raw_responses.rag.tokens.output|default:0 }} out Tokens · ${{ q.raw_responses.rag.cost_usd|floatformat:4 }}
+    </span>
+  {% endif %}
+</div>
 <div class="rs-answer">{{ q.answer }}</div>
 {% endif %}
 
@@ -74,7 +86,18 @@
           <span class="rs-pill rs-pill--err">Fehler</span>
         {% endif %}
       </div>
-      {% if r.duration_s %}<span class="rs-council-card__time">{{ r.duration_s|floatformat:1 }}s</span>{% endif %}
+      <div style="display: flex; gap: 8px; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--rs-ink-faint);">
+        {% if r.tokens %}
+          <span title="Input + Output Tokens">
+            <i class="fas fa-arrow-right"></i> {{ r.tokens.input|default:0 }}
+            <i class="fas fa-arrow-left ms-1"></i> {{ r.tokens.output|default:0 }}
+          </span>
+        {% endif %}
+        {% if r.cost_usd is not None %}
+          <span style="color: var(--rs-accent-ink); font-weight: 600;">${{ r.cost_usd|floatformat:4 }}</span>
+        {% endif %}
+        {% if r.duration_s %}<span>{{ r.duration_s|floatformat:1 }}s</span>{% endif %}
+      </div>
     </div>
     {% if r.ok %}
       <div class="rs-council-card__text">{{ r.text }}</div>

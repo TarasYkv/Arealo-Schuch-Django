@@ -128,8 +128,8 @@ def _get_anthropic_key(user) -> str | None:
 
 def synthesize(question: str, sources: list[Source], api_key: str,
                model: str = 'claude-opus-4-7',
-               max_tokens: int = 1500) -> str:
-    """Schicke Frage + Quellen an Claude, gib die generierte Antwort zurück."""
+               max_tokens: int = 1500) -> tuple[str, dict]:
+    """Schicke Frage + Quellen an Claude, gib (Antwort, Token-Usage) zurück."""
     import anthropic
 
     ctx_lines = []
@@ -147,12 +147,19 @@ def synthesize(question: str, sources: list[Source], api_key: str,
             'content': f'FRAGE:\n{question}\n\nQUELLEN:\n{context}',
         }],
     )
-    return resp.content[0].text
+    tokens = {
+        'input': getattr(resp.usage, 'input_tokens', 0) or 0,
+        'output': getattr(resp.usage, 'output_tokens', 0) or 0,
+    }
+    return resp.content[0].text, tokens
 
 
 def ask_rag(question: str, user, top_k: int = 6,
-            model: str = 'claude-opus-4-7') -> dict:
+            model: str = 'claude-opus-4-7',
+            model_id: str = 'opus') -> dict:
     """End-to-end: Frage → Sources → Antwort. Wirft bei Fehler."""
+    from .council import calculate_cost
+
     t0 = time.time()
     api_key = _get_anthropic_key(user)
     if not api_key:
@@ -162,10 +169,13 @@ def ask_rag(question: str, user, top_k: int = 6,
     sources = retrieve(question, top_k=top_k)
     if not sources:
         raise RuntimeError('Keine Treffer in der Bibliothek. Index leer?')
-    answer = synthesize(question, sources, api_key, model=model)
+    answer, tokens = synthesize(question, sources, api_key, model=model)
+    cost = calculate_cost(model_id, tokens)
     return {
         'answer': answer,
         'sources': [s.as_dict() for s in sources],
         'duration_s': time.time() - t0,
-        'models_used': [model],
+        'models_used': [model_id],
+        'tokens': tokens,
+        'cost_usd': cost,
     }

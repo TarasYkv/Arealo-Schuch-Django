@@ -1,0 +1,69 @@
+{% extends 'research/base.html' %}
+
+{% block research_content %}
+
+<div class="rs-hero">
+  <div>
+    <h1 class="rs-hero__title">API-Keys</h1>
+    <p class="rs-hero__sub">Hinterlege pro Anbieter deinen eigenen Key. Alle Keys werden verschlüsselt in der Datenbank gespeichert. Ohne Key ist das entsprechende Modell im Council nicht verfügbar.</p>
+  </div>
+  <div class="rs-hero__actions">
+    <a href="{% url 'research:dashboard' %}" class="rs-btn rs-btn--ghost">
+      <i class="fas fa-arrow-left"></i> Dashboard
+    </a>
+  </div>
+</div>
+
+{% if messages %}
+  {% for m in messages %}
+    <div class="rs-alert {% if m.tags == 'error' %}rs-alert--error{% else %}rs-alert--ok{% endif %}">{{ m }}</div>
+  {% endfor %}
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    {% for field in form %}
+      {% for meta in fields_meta %}
+        {% if meta.0 == field.name %}
+        <div class="rs-panel">
+          <div class="rs-panel__head">
+            <span class="rs-panel__title">
+              <i class="fas fa-key"></i>{{ meta.1 }}
+            </span>
+            {% if field.value %}
+              <span class="rs-pill rs-pill--ok"><i class="fas fa-check"></i> gesetzt</span>
+            {% else %}
+              <span class="rs-pill">leer</span>
+            {% endif %}
+          </div>
+          <div class="rs-panel__body">
+            <input type="password"
+                   name="{{ field.name }}"
+                   id="{{ field.id_for_label }}"
+                   class="rs-input"
+                   placeholder="{{ meta.2 }}"
+                   autocomplete="new-password"
+                   value="{{ field.value|default:'' }}">
+            {% if field.errors %}<div style="color: var(--rs-danger); font-size: 13px; margin-top: 6px;">{{ field.errors }}</div>{% endif %}
+            <p class="rs-hint" style="margin-top: 8px;">
+              Key holen: <a href="{{ meta.3 }}" target="_blank" rel="noopener">{{ meta.3 }}</a>
+            </p>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </div>
+
+  <button type="submit" class="rs-btn rs-btn--primary" style="padding: 12px 24px;">
+    <i class="fas fa-floppy-disk"></i> Speichern
+  </button>
+</form>
+
+<style>
+.rs-alert--ok { background: var(--rs-success-soft); color: var(--rs-success); border-color: #a7f3d0; }
+</style>
+
+{% endblock %}
