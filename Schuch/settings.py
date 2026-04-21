@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     'makeads',
     'streamrec',
     'superconfig',
+    'vidgen',
     'codelib',
     'promptpro',
     'loomads',
@@ -107,6 +108,7 @@ INSTALLED_APPS = [
     'loommarket',
     'loomtalk',
     'learnloom',
+    'video',
 ]
 
 
@@ -417,5 +419,17 @@ CELERY_BEAT_SCHEDULE = {
     'send-loomline-notifications': {
         'task': 'loomline.tasks.send_scheduled_notifications',
         'schedule': 300.0,  # Every 5 minutes
+    },
+    'cleanup-stuck-scenes': {
+        'task': 'video.tasks.cleanup_stuck_scenes',
+        'schedule': 300.0,  # Every 5 minutes
+    },
+    'auto-shutdown-gpu': {
+        'task': 'video.tasks.auto_shutdown_gpu',
+        'schedule': 300.0,  # Every 5 min - stop idle GPU (was 60s, caused worker block)
+    },
+    'hard-cap-gpu-shutdown': {
+        'task': 'video.tasks.hard_cap_gpu_shutdown',
+        'schedule': 300.0,  # Every 5 min - force stop after 3h uptime (safety net)
     },
 }
