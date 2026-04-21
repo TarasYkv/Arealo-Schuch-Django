@@ -1,6 +1,40 @@
 from django import forms
+from django.contrib.auth import get_user_model
 
 from .services.council import MODELS as COUNCIL_MODELS
+
+
+User = get_user_model()
+
+
+PROVIDER_KEY_FIELDS = [
+    ('anthropic_api_key', 'Anthropic (Opus, Sonnet, Haiku)',
+        'sk-ant-api03-...', 'https://console.anthropic.com/settings/keys'),
+    ('openrouter_api_key', 'OpenRouter (GPT, Grok, Kimi, Qwen, Nemotron, Mercury, Mistral, Minimax)',
+        'sk-or-v1-...', 'https://openrouter.ai/keys'),
+    ('gemini_api_key', 'Google Gemini',
+        'AIza...', 'https://aistudio.google.com/apikey'),
+    ('deepseek_api_key', 'DeepSeek',
+        'sk-...', 'https://platform.deepseek.com/api_keys'),
+    ('zhipu_api_key', 'Zhipu / GLM',
+        '...', 'https://open.bigmodel.cn/usercenter/apikeys'),
+    ('openai_api_key', 'OpenAI (für direkt, falls vorhanden)',
+        'sk-...', 'https://platform.openai.com/api-keys'),
+]
+
+
+class ApiKeyForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = [f[0] for f in PROVIDER_KEY_FIELDS]
+        widgets = {
+            f[0]: forms.TextInput(attrs={
+                'class': 'rs-input',
+                'placeholder': f[2],
+                'autocomplete': 'off',
+            })
+            for f in PROVIDER_KEY_FIELDS
+        }
 
 
 MODE_CHOICES = (

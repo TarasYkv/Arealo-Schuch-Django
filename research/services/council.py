@@ -125,15 +125,28 @@ USER_KEY_FIELDS = {
     # Mapping: Provider-id → CustomUser-Feld
     'anthropic': 'anthropic_api_key',
     'openai': 'openai_api_key',
-    'gemini': 'google_api_key',
+    'gemini': 'gemini_api_key',
+    'openrouter': 'openrouter_api_key',
+    'deepseek': 'deepseek_api_key',
+    'zhipu': 'zhipu_api_key',
 }
 
 
+# Fallback-Kette für Gemini: versuche erst gemini_api_key, dann google_api_key
 def _get_api_key(user, provider_id: str) -> str | None:
-    """Hole API-Key: erst User-Profil, dann settings, dann env."""
-    field = USER_KEY_FIELDS.get(provider_id)
-    if field and user and getattr(user, field, None):
-        return getattr(user, field).strip()
+    """Key-Resolver: User-Profil → settings → env. Gemini hat zwei User-Felder."""
+    candidates: list[str] = []
+    if provider_id == 'gemini':
+        candidates = ['gemini_api_key', 'google_api_key']
+    else:
+        field = USER_KEY_FIELDS.get(provider_id)
+        if field:
+            candidates = [field]
+    for field in candidates:
+        if user and getattr(user, field, None):
+            val = getattr(user, field)
+            if val and val.strip():
+                return val.strip()
     prov = PROVIDERS.get(provider_id, {})
     env_name = prov.get('env')
     if env_name:
@@ -143,10 +156,13 @@ def _get_api_key(user, provider_id: str) -> str | None:
     return None
 
 
+# (obsolet, durch obige Implementierung ersetzt)
+
+
 # -- Protokoll-Adapter ---------------------------------------------------------
 
 def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
-                        max_tokens: int = 1500, timeout: int = 120) -> str:
+                        max_tokens: int = 1500, timeout: int = 120) -> tuple[str, dict]:
     payload = {
         'model': model,
         'messages': [{'role': 'user', 'content': prompt}],
@@ -160,11 +176,17 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
                                  })
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = json.loads(r.read())
-    return body['choices'][0]['message']['content']
+    text = body['choices'][0]['message']['content']
+    usage = body.get('usage', {})
+    tokens = {
+        'input': int(usage.get('prompt_tokens', 0)),
+        'output': int(usage.get('completion_tokens', 0)),
+    }
+    return text, tokens
 
 
 def _call_anthropic(url: str, api_key: str, model: str, prompt: str,
-                    max_tokens: int = 1500, timeout: int = 120) -> str:
+                    max_tokens: int = 1500, timeout: int = 120) -> tuple[str, dict]:
     payload = {
         'model': model,
         'max_tokens': max_tokens,
@@ -179,11 +201,17 @@ def _call_anthropic(url: str, api_key: str, model: str, prompt: str,
                                  })
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = json.loads(r.read())
-    return body['content'][0]['text']
+    text = body['content'][0]['text']
+    usage = body.get('usage', {})
+    tokens = {
+        'input': int(usage.get('input_tokens', 0)),
+        'output': int(usage.get('output_tokens', 0)),
+    }
+    return text, tokens
 
 
 def _call_gemini(url_template: str, api_key: str, model: str, prompt: str,
-                 max_tokens: int = 1500, timeout: int = 120) -> str:
+                 max_tokens: int = 1500, timeout: int = 120) -> tuple[str, dict]:
     url = url_template.format(model=model) + f'?key={api_key}'
     payload = {
         'contents': [{'parts': [{'text': prompt}]}],
@@ -194,7 +222,23 @@ def _call_gemini(url_template: str, api_key: str, model: str, prompt: str,
                                  headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = json.loads(r.read())
-    return body['candidates'][0]['content']['parts'][0]['text']
+    text = body['candidates'][0]['content']['parts'][0]['text']
+    um = body.get('usageMetadata', {})
+    tokens = {
+        'input': int(um.get('promptTokenCount', 0)),
+        'output': int(um.get('candidatesTokenCount', 0)),
+    }
+    return text, tokens
+
+
+def calculate_cost(model_id: str, tokens: dict) -> float:
+    """Berechne Kosten in USD basierend auf MODELS[...].pricing (per 1M tokens)."""
+    cfg = MODELS.get(model_id)
+    if not cfg:
+        return 0.0
+    pin, pout = cfg['pricing']
+    return (tokens.get('input', 0) / 1_000_000) * pin + \
+           (tokens.get('output', 0) / 1_000_000) * pout
 
 
 def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
@@ -215,21 +259,23 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
     t0 = time.time()
     try:
         if api == 'anthropic':
-            text = _call_anthropic(url, api_key, model_name, prompt, max_tokens, timeout)
+            text, tokens = _call_anthropic(url, api_key, model_name, prompt, max_tokens, timeout)
         elif api == 'gemini':
-            text = _call_gemini(url, api_key, model_name, prompt, max_tokens, timeout)
+            text, tokens = _call_gemini(url, api_key, model_name, prompt, max_tokens, timeout)
         else:
-            text = _call_openai_compat(url, api_key, model_name, prompt, max_tokens, timeout)
+            text, tokens = _call_openai_compat(url, api_key, model_name, prompt, max_tokens, timeout)
+        cost = calculate_cost(model_id, tokens)
         return {'model': model_id, 'display': name, 'provider': provider_id,
-                'ok': True, 'text': text, 'duration_s': time.time() - t0}
+                'ok': True, 'text': text, 'duration_s': time.time() - t0,
+                'tokens': tokens, 'cost_usd': cost}
     except urllib.error.HTTPError as e:
         return {'model': model_id, 'display': name, 'provider': provider_id,
                 'ok': False, 'error': f'HTTP {e.code}: {e.read()[:200].decode(errors="ignore")}',
-                'duration_s': time.time() - t0}
+                'duration_s': time.time() - t0, 'cost_usd': 0.0}
     except Exception as e:
         return {'model': model_id, 'display': name, 'provider': provider_id,
                 'ok': False, 'error': f'{type(e).__name__}: {e}',
-                'duration_s': time.time() - t0}
+                'duration_s': time.time() - t0, 'cost_usd': 0.0}
 
 
 def ask_council(question: str, user, model_ids: list[str],
@@ -245,8 +291,10 @@ def ask_council(question: str, user, model_ids: list[str],
     # Stabile Sortierung wie in model_ids
     idx = {m: i for i, m in enumerate(model_ids)}
     results.sort(key=lambda r: idx.get(r['model'], 999))
+    total_cost = sum(r.get('cost_usd', 0) or 0 for r in results)
     return {
         'results': results,
         'duration_s': time.time() - t0,
         'models_used': model_ids,
+        'total_cost_usd': total_cost,
     }

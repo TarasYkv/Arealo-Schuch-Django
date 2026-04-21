@@ -24,6 +24,8 @@ class ResearchQuery(models.Model):
                                      help_text='Für Council-Mode: Rohantworten pro Modell')
     error = models.TextField(blank=True)
     duration_s = models.FloatField(null=True, blank=True)
+    total_cost_usd = models.FloatField(null=True, blank=True,
+                                       help_text='Summe der API-Kosten in USD')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

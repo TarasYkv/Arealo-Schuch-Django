@@ -19,6 +19,9 @@ class CustomUser(AbstractUser):
     ideogram_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Ideogram API Key")
     gemini_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Gemini API Key")
     deepseek_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="DeepSeek API Key")
+    openrouter_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="OpenRouter API Key")
+    zhipu_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Zhipu / GLM API Key")
+    nvidia_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="NVIDIA NIM API Key")
 
     upload_post_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Upload-Post API Key")
     upload_post_user_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="Upload-Post User ID")
