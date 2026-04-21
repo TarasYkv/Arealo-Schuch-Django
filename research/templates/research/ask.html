@@ -275,7 +275,148 @@
     font-size: 13px; font-weight: 600; color: var(--rs-ink);
     margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
   }
+
+  /* Loading-Overlay */
+  .rs-loading {
+    position: fixed; inset: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+    z-index: 10000;
+    animation: rs-fade-in 0.3s ease;
+  }
+  .rs-loading.active { display: flex; }
+
+  .rs-loading__box {
+    text-align: center;
+    max-width: 560px;
+    padding: 0 24px;
+  }
+
+  .rs-loading__orbit {
+    width: 180px; height: 180px;
+    position: relative;
+    margin: 0 auto 32px;
+  }
+  .rs-loading__orbit::before {
+    content: ''; position: absolute; inset: 0;
+    border: 2px solid var(--rs-border);
+    border-radius: 50%;
+    animation: rs-pulse 2s ease-in-out infinite;
+  }
+  .rs-loading__center {
+    position: absolute; inset: 30px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 42px;
+    animation: rs-bounce 1.8s ease-in-out infinite;
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+  }
+  .rs-loading__satellite {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 28px; height: 28px;
+    margin: -14px 0 0 -14px;
+    background: var(--rs-surface);
+    border: 2px solid var(--rs-accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    color: var(--rs-accent-ink);
+  }
+  .rs-loading__satellite--a {
+    animation: rs-orbit-a 3s linear infinite;
+  }
+  .rs-loading__satellite--b {
+    animation: rs-orbit-b 4.5s linear infinite;
+    background: var(--rs-accent-soft);
+  }
+  .rs-loading__satellite--c {
+    animation: rs-orbit-c 5.5s linear infinite;
+    background: #fde68a;
+    border-color: #d97706;
+    color: #b45309;
+  }
+
+  @keyframes rs-orbit-a {
+    from { transform: rotate(0deg) translateX(80px) rotate(0deg); }
+    to   { transform: rotate(360deg) translateX(80px) rotate(-360deg); }
+  }
+  @keyframes rs-orbit-b {
+    from { transform: rotate(120deg) translateX(90px) rotate(-120deg); }
+    to   { transform: rotate(480deg) translateX(90px) rotate(-480deg); }
+  }
+  @keyframes rs-orbit-c {
+    from { transform: rotate(240deg) translateX(75px) rotate(-240deg); }
+    to   { transform: rotate(-120deg) translateX(75px) rotate(120deg); }
+  }
+
+  @keyframes rs-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50%      { transform: scale(1.08); opacity: 0.2; }
+  }
+  @keyframes rs-bounce {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.07); }
+  }
+  @keyframes rs-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rs-slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .rs-loading__title {
+    font-size: 22px; font-weight: 600; letter-spacing: -0.02em;
+    color: var(--rs-ink); margin-bottom: 12px;
+  }
+  .rs-loading__msg {
+    font-size: 15px; color: var(--rs-ink-soft);
+    min-height: 44px;
+    animation: rs-slide-up 0.4s ease;
+    line-height: 1.5;
+  }
+  .rs-loading__timer {
+    margin-top: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; color: var(--rs-ink-faint);
+  }
+  .rs-loading__bar {
+    margin-top: 14px;
+    width: 280px;
+    height: 4px;
+    background: var(--rs-border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-left: auto; margin-right: auto;
+    position: relative;
+  }
+  .rs-loading__bar::after {
+    content: '';
+    position: absolute;
+    height: 100%; width: 40%;
+    background: linear-gradient(90deg, transparent, var(--rs-accent), transparent);
+    animation: rs-bar 1.4s ease-in-out infinite;
+  }
+  @keyframes rs-bar {
+    from { left: -40%; } to { left: 100%; }
+  }
 </style>
+
+<div class="rs-loading" id="loadingOverlay" aria-modal="true" role="dialog" aria-hidden="true">
+  <div class="rs-loading__box">
+    <div class="rs-loading__orbit">
+      <div class="rs-loading__center" id="loadingIcon"><i class="fas fa-brain"></i></div>
+      <div class="rs-loading__satellite rs-loading__satellite--a"><i class="fas fa-atom"></i></div>
+      <div class="rs-loading__satellite rs-loading__satellite--b"><i class="fas fa-microscope"></i></div>
+      <div class="rs-loading__satellite rs-loading__satellite--c"><i class="fas fa-seedling"></i></div>
+    </div>
+    <div class="rs-loading__title">KI-Council denkt nach …</div>
+    <div class="rs-loading__msg" id="loadingMsg">Wirf die Frage in den Ring …</div>
+    <div class="rs-loading__bar"></div>
+    <div class="rs-loading__timer" id="loadingTimer">0.0 s · Bitte nicht die Seite schließen.</div>
+  </div>
+</div>
 
 {{ council_models_json|json_script:"modelsData" }}
 
@@ -300,6 +441,80 @@
 
   modeRadios.forEach(r => r.addEventListener('change', applyMode));
   applyMode();
+})();
+
+// ----- Loading-Overlay mit rotierenden Funny-Messages -----
+(function() {
+  const form = document.getElementById('askForm');
+  const overlay = document.getElementById('loadingOverlay');
+  const msgEl = document.getElementById('loadingMsg');
+  const timerEl = document.getElementById('loadingTimer');
+  const iconEl = document.getElementById('loadingIcon');
+
+  const MESSAGES = [
+    'Opus 4.7 setzt sich die Denkerbrille auf …',
+    'Grok fragt sich, ob Brokkoli nachts auch träumt …',
+    'DeepSeek R1 macht einen tiefen Gedanken-Dive …',
+    'Gemini liest erstmal das komplette Kapitel 7 — alle 2M Tokens davon.',
+    'GLM 5.1 rechnet die Antwort auf dem Papier durch (für den Preis!).',
+    'Kimi K2.6 trinkt noch einen Kaffee, dann geht\'s los.',
+    'Qwen diskutiert mit Mistral, wer besser Deutsch kann.',
+    'Nemotron vergleicht die Sternbilder mit den Paper-IDs …',
+    'Mercury 2 diffundiert sich durch den Lösungsraum.',
+    'Minimax hat grade noch eine andere Konversation offen, kommt gleich …',
+    'Haiku schreibt die Antwort parallel in Versen (17 Silben).',
+    'Das Council stimmt gerade ab: Rot 660 nm oder Rot 665 nm?',
+    'Phytochrom winkt aus dem Hintergrund, es will auch mitreden.',
+    'Ein Pfr-Molekül schaltet gerade um. Geduld.',
+    'Die Qdrant-Vektoren ordnen sich im 384-dimensionalen Raum.',
+    'Deine 151 Paper werden sortiert, nach Score absteigend.',
+    'Opus prüft, ob die Zitate wirklich in den Chunks stehen.',
+    'Seneszenz? „Warte mal, da war was mit PIF4 …"',
+    'Cryptochrom winkt: „Blaulicht ist MEIN Revier!"',
+    'Ein Ethylen-Molekül beschwert sich über den Druck in der Lagerkammer.',
+    'Mercury versucht eine Quantenlösung, scheitert an der Tokenzahl.',
+    'Claude denkt an deine Dissertation und lächelt innerlich.',
+  ];
+  const ICONS = ['fa-brain', 'fa-flask', 'fa-microscope', 'fa-atom', 'fa-dna', 'fa-seedling'];
+
+  let timerInt = null, msgInt = null, iconInt = null, startTs = 0;
+
+  function rotateMsg() {
+    const m = MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
+    msgEl.style.animation = 'none';
+    msgEl.offsetHeight;
+    msgEl.style.animation = '';
+    msgEl.textContent = m;
+  }
+  function tickTimer() {
+    const s = ((performance.now() - startTs) / 1000).toFixed(1);
+    timerEl.textContent = s + ' s · Bitte nicht die Seite schließen.';
+  }
+  function rotateIcon() {
+    const cls = ICONS[Math.floor(Math.random() * ICONS.length)];
+    iconEl.innerHTML = '<i class="fas ' + cls + '"></i>';
+  }
+
+  form.addEventListener('submit', function(ev) {
+    // Basic guard — wenn Frage leer, nicht anzeigen
+    const q = form.querySelector('textarea[name="question"]');
+    if (q && !q.value.trim()) return;
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    startTs = performance.now();
+    rotateMsg();
+    msgInt = setInterval(rotateMsg, 3200);
+    timerInt = setInterval(tickTimer, 100);
+    iconInt = setInterval(rotateIcon, 4000);
+  });
+
+  // Esc-Schutz: während Ladens kann der Overlay nicht geschlossen werden
+  document.addEventListener('keydown', function(ev) {
+    if (!overlay.classList.contains('active')) return;
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); }
+  }, true);
+  // Klicks auf den Overlay selbst tun nichts (kein Dismiss-Handler)
 })();
 
 const MODELS_DATA = JSON.parse(document.getElementById('modelsData').textContent);
