@@ -51,14 +51,22 @@ class Command(BaseCommand):
             if re.search(r"epigraph|springerreference", journal, re.IGNORECASE):
                 reasons.append(f"Journal verdächtig: {journal}")
 
-            # Heuristik: Filename vs. Title weit auseinander
-            fn = (r.notes or "").lower()
-            fn_keywords = re.findall(r"[a-z]{5,}", fn)
-            title_keywords = re.findall(r"[a-z]{5,}", title.lower())
-            if fn_keywords and title_keywords:
-                overlap = set(fn_keywords) & set(title_keywords)
-                if len(overlap) == 0 and len(title_keywords) > 1:
-                    reasons.append("Keine Keyword-Übereinstimmung Filename↔Titel")
+            # Heuristik: DOI-Prefix stimmt nicht mit Publisher-Erwartung
+            if r.doi and r.journal:
+                # Wenn DOI von springerreference aber Filename wissenschaftlich aussieht
+                if "springerreference" in r.doi.lower() and len(title) < 30:
+                    reasons.append(f"SpringerReference-Fehlmatch bei kurzem Titel")
+
+            # Heuristik: Filename enthält klare Keywords die im Titel fehlen
+            fn_notes = (r.notes or "").lower()
+            critical_fn_keywords = ["broccoli", "tomato", "strawberry", "mushroom",
+                                     "lettuce", "banana", "postharvest", "photobio",
+                                     "chlorophyll", "anthocyan", "ethylene", "lipid",
+                                     "pathogen", "listeria", "botrytis"]
+            title_lc = title.lower()
+            mismatches = [k for k in critical_fn_keywords if k in fn_notes and k not in title_lc]
+            if len(mismatches) >= 2:
+                reasons.append(f"Titel fehlt kritische Keywords aus Filename: {mismatches[:3]}")
 
             if reasons:
                 flagged.append((r, reasons))
