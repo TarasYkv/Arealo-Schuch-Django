@@ -1,0 +1,28 @@
+{% extends 'library/base.html' %}
+
+{% block content %}
+<div class="container py-4">
+  <a href="{% url 'library:collection_list' %}" class="small text-muted"><i class="fas fa-chevron-left me-1"></i>Alle Sammlungen</a>
+  <h2 style="color: {{ collection.color }}" class="mt-2">{{ collection.name }}</h2>
+  {% if collection.description %}<p class="text-muted">{{ collection.description }}</p>{% endif %}
+
+  <div class="card mt-3">
+    <div class="card-body">
+      {% for r in refs %}
+      <div class="ref-row">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="ref-key">[{{ r.bibtex_key }}]</div>
+            <div class="ref-title"><a href="{{ r.get_absolute_url }}" class="text-decoration-none text-dark">{{ r.title }}</a></div>
+            <div class="ref-meta">{{ r.authors|truncatechars:100 }}{% if r.year %} · {{ r.year }}{% endif %}{% if r.journal %} · <em>{{ r.journal }}</em>{% endif %}</div>
+          </div>
+          <span class="status-pill status-{{ r.status }}">{{ r.get_status_display }}</span>
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-muted text-center py-3">Keine Referenzen in dieser Sammlung.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

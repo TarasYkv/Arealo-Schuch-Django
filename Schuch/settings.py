@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     'lighting_classification',
     'loomline',
     'fileshare',
+    'library',
     'loomconnect',
     'myprompter',
     'stats',

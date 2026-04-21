@@ -155,12 +155,6 @@ MENU_STRUCTURE = {
                 'auth_url_name': 'streamrec:dashboard',
             },
             {
-                'app_name': 'vidgen',
-                'label': 'VidGen',
-                'icon': 'bi bi-camera-video-fill',
-                'auth_url_name': 'vidgen:home'
-            },
-            {
                 'app_name': 'promptpro',
                 'label': 'PromptPro',
                 'icon': 'bi bi-collection',
@@ -262,13 +256,6 @@ MENU_STRUCTURE = {
                 'icon': 'bi bi-shop text-warning',
                 'auth_url_name': 'loommarket:dashboard',
             },
-            {
-                'app_name': 'videostudio',
-                'label': 'Video Studio',
-                'icon': 'bi bi-film',
-                'auth_url_name': 'video:project_list',
-            },
-
         ],
     },
     'organisation': {
@@ -294,6 +281,19 @@ MENU_STRUCTURE = {
                 'label': 'ToDos',
                 'icon': 'fas fa-tasks',
                 'auth_url_name': 'todos:home',
+            },
+            {
+                'app_name': 'library',
+                'label': 'Literatur',
+                'icon': 'fas fa-book',
+                'auth_url_name': 'library:dashboard',
+                'sub_items': [
+                    {'label': 'Dashboard', 'icon': 'fas fa-tachometer-alt', 'url_name': 'library:dashboard'},
+                    {'label': 'Alle Referenzen', 'icon': 'fas fa-list', 'url_name': 'library:reference_list'},
+                    {'label': 'Sammlungen', 'icon': 'fas fa-folder', 'url_name': 'library:collection_list'},
+                    {'label': 'BibTeX importieren', 'icon': 'fas fa-upload', 'url_name': 'library:bibtex_import'},
+                    {'label': 'Zotero verbinden', 'icon': 'fab fa-zotero', 'url_name': 'library:zotero_settings'},
+                ],
             },
             {'divider': True, 'label': 'Kommunikation'},
             {
