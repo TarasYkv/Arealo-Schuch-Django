@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import AskForm, ApiKeyForm, PROVIDER_KEY_FIELDS
+from .forms import AskForm
 from .models import ResearchQuery
 from .services import rag as rag_service
 from .services import council as council_service
@@ -213,21 +213,4 @@ def history(request):
     return render(request, 'research/history.html', {'page': page})
 
 
-@login_required
-def api_keys(request):
-    """Verwaltung aller LLM-Provider-Keys des Users. Keys werden verschlüsselt."""
-    if request.method == 'POST':
-        form = ApiKeyForm(request.POST, instance=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'API-Keys gespeichert.')
-            return redirect('research:api_keys')
-    else:
-        form = ApiKeyForm(instance=request.user)
-    # Pro Feld: prüfe, ob gesetzt (aus User-Obj), damit Template Status anzeigen kann
-    key_status = {f[0]: bool(getattr(request.user, f[0], None)) for f in PROVIDER_KEY_FIELDS}
-    return render(request, 'research/api_keys.html', {
-        'form': form,
-        'fields_meta': PROVIDER_KEY_FIELDS,
-        'key_status': key_status,
-    })
+# api_keys-View entfernt: wird zentral unter /accounts/neue-api-einstellungen/ verwaltet.

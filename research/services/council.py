@@ -223,10 +223,10 @@ def _get_api_key(user, provider_id: str) -> str | None:
 def _missing_key_msg(provider_id: str) -> str:
     if provider_id == 'openrouter':
         return ('Kein OpenRouter-API-Key hinterlegt. Hole dir einen unter '
-                'https://openrouter.ai/keys und trage ihn unter /research/keys/ ein. '
+                'https://openrouter.ai/keys und trage ihn unter /accounts/neue-api-einstellungen/ ein. '
                 '(Alle Modelle in dieser App laufen über OpenRouter.)')
     return (f'Kein {provider_id}-API-Key hinterlegt. Trage deinen eigenen Key '
-            f'unter /research/keys/ ein.')
+            f'unter /accounts/neue-api-einstellungen/ ein.')
 
 
 # (obsolet, durch obige Implementierung ersetzt)

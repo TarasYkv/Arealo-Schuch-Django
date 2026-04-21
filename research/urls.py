@@ -9,5 +9,6 @@ urlpatterns = [
     path('ask/', views.ask, name='ask'),
     path('ask/<int:pk>/', views.query_detail, name='query_detail'),
     path('history/', views.history, name='history'),
-    path('keys/', views.api_keys, name='api_keys'),
+    # /research/keys/ entfernt — OpenRouter-Key wird zentral unter
+    # /accounts/neue-api-einstellungen/ gepflegt.
 ]
