@@ -31,12 +31,13 @@ def _get_embed_model():
     return _model_cache["model"]
 
 
-SYS_PROMPT_RAG = (
-    "Wissenschaftlicher Assistent (Promotion: adaptive RGBW-Beleuchtung, "
-    "Post-Harvest). Antworte auf Deutsch, ausschließlich basierend auf den "
-    "gelieferten Quellen. Zitiere nach jeder Aussage mit [Nummer]. Wenn Quellen "
-    "die Frage nicht beantworten, sage das klar. Keine Aussagen ohne Quellen-Beleg."
-)
+SYS_PROMPT_RAG = """Du bist ein wissenschaftlicher Assistent für eine Promotion zu
+adaptiver RGBW-Beleuchtung in der Post-Harvest-Lagerung. Beantworte die Frage
+des Doktoranden AUSSCHLIESSLICH auf Basis der gelieferten Quellen. Zitiere nach
+jeder Aussage mit [Nummer] (z.B. [1] oder [2,3]). Wenn die Quellen die Frage
+nicht beantworten, sage das klar. Antworte auf Deutsch, präzise und
+wissenschaftlich. Mache keine Aussagen, die nicht durch die Quellen belegt sind.
+"""
 
 
 @dataclass
@@ -64,11 +65,11 @@ class Source:
 
 
 def retrieve(question: str, top_k: int = 6,
-             min_score: float = 0.22) -> list[Source]:
+             min_score: float = 0.18) -> list[Source]:
     """Finde die top_k relevantesten Chunks in Qdrant.
 
-    Filtert Chunks mit Score unterhalb min_score raus — spart Tokens, weil
-    irrelevante Chunks ohnehin nichts zur Antwort beitragen.
+    Score-Threshold bewusst niedrig (0.18) — filtert nur wirklich irrelevante
+    Chunks raus, behält aber alles, was potenziell zur Antwort beitragen könnte.
     """
     from qdrant_client import QdrantClient
 
@@ -129,21 +130,17 @@ def _lookup_references(filenames: set[str]) -> dict[str, int]:
 
 def synthesize(question: str, sources: list[Source],
                openrouter_model: str, api_key: str,
-               max_tokens: int = 1500,
-               chunk_char_limit: int = 1200) -> tuple[str, dict]:
-    """Schicke Frage + Quellen via OpenRouter an ein LLM, gib (Antwort, Usage) zurück.
-
-    Chunks werden auf chunk_char_limit Zeichen gekürzt — spart Input-Tokens,
-    die Kernaussagen der Quellen stehen meist im ersten Drittel.
-    """
+               max_tokens: int = 1500) -> tuple[str, dict]:
+    """Schicke Frage + Quellen via OpenRouter an ein LLM, gib (Antwort, Usage) zurück."""
     import json
     import urllib.request
 
     ctx_lines = []
     for s in sources:
         cite = f"[{s.idx}] {s.authors} ({s.year}). {s.title}"
-        text = (s.text or '')[:chunk_char_limit]
-        ctx_lines.append(f"[{s.idx}] {cite}\n{text}\n")
+        # Volltext der Chunks bleibt erhalten — sonst Gefahr, dass Messwerte
+        # oder Zahlen am Ende des Chunks abgeschnitten werden.
+        ctx_lines.append(f"--- Quelle {s.idx} ---\n{cite}\nDatei: {s.filename}\n\n{s.text}\n")
     context = "\n".join(ctx_lines)
 
     payload = {
