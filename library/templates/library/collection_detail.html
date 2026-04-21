@@ -5,16 +5,34 @@
   <a href="{% url 'library:collection_list' %}" class="small text-muted"><i class="fas fa-chevron-left me-1"></i>Alle Sammlungen</a>
   <h2 style="color: {{ collection.color }}" class="mt-2">{{ collection.name }}</h2>
   {% if collection.description %}<p class="text-muted">{{ collection.description }}</p>{% endif %}
+  <p class="small text-muted">{{ page.paginator.count }} Referenz{{ page.paginator.count|pluralize:"en" }} gesamt</p>
 
-  <div class="card mt-3">
+  <form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+      <div class="col-md-7"><input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Titel, Autor, Abstract, Tags..."></div>
+      <div class="col-md-3">
+        <select name="status" class="form-select">
+          <option value="">Alle Status</option>
+          {% for k, v in status_choices %}
+          <option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2"><button class="btn btn-primary w-100">Filter</button></div>
+    </div>
+  </form>
+
+  <div class="card">
     <div class="card-body">
-      {% for r in refs %}
+      {% for r in page.object_list %}
       <div class="ref-row">
         <div class="d-flex justify-content-between align-items-start">
-          <div>
+          <div class="flex-grow-1">
             <div class="ref-key">[{{ r.bibtex_key }}]</div>
             <div class="ref-title"><a href="{{ r.get_absolute_url }}" class="text-decoration-none text-dark">{{ r.title }}</a></div>
             <div class="ref-meta">{{ r.authors|truncatechars:100 }}{% if r.year %} · {{ r.year }}{% endif %}{% if r.journal %} · <em>{{ r.journal }}</em>{% endif %}</div>
+            {% if r.doi %}<div class="small mt-1"><a href="{{ r.doi_url }}" target="_blank">DOI: {{ r.doi }}</a></div>{% endif %}
+            {% if r.tag_list %}<div class="mt-1">{% for t in r.tag_list %}<span class="badge bg-light text-dark me-1">{{ t }}</span>{% endfor %}</div>{% endif %}
           </div>
           <span class="status-pill status-{{ r.status }}">{{ r.get_status_display }}</span>
         </div>
@@ -24,5 +42,15 @@
       {% endfor %}
     </div>
   </div>
+
+  {% if page.has_other_pages %}
+  <nav class="mt-3">
+    <ul class="pagination justify-content-center">
+      {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?page=1&q={{ q }}&status={{ status }}">«</a></li><li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}&q={{ q }}&status={{ status }}">‹</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">Seite {{ page.number }} von {{ page.paginator.num_pages }}</span></li>
+      {% if page.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}&q={{ q }}&status={{ status }}">›</a></li><li class="page-item"><a class="page-link" href="?page={{ page.paginator.num_pages }}&q={{ q }}&status={{ status }}">»</a></li>{% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 </div>
 {% endblock %}
