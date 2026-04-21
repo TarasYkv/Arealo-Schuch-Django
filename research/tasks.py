@@ -16,7 +16,8 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, time_limit=600, soft_time_limit=540)
+@shared_task(bind=True, time_limit=600, soft_time_limit=540,
+             queue='research')
 def execute_research_query(self, query_id: int):
     """Führt eine ResearchQuery (RAG/Council/Hybrid) im Worker aus."""
     from .models import ResearchQuery
