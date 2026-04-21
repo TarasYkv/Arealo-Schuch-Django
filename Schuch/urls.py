@@ -52,6 +52,7 @@ urlpatterns = [
     path('schulungen/', include('naturmacher.urls')),
     path('todos/', include('todos.urls')),
     path('library/', include('library.urls')),
+    path('research/', include('research.urls')),
     # Chat wurde zu Organization verschoben
     path('chat/', core_views.redirect_to_organization_chat, name='chat_redirect'),
     path('shopify/', include('shopify_manager.urls')),

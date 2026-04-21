@@ -295,6 +295,17 @@ MENU_STRUCTURE = {
                     {'label': 'Zotero verbinden', 'icon': 'fab fa-zotero', 'url_name': 'library:zotero_settings'},
                 ],
             },
+            {
+                'app_name': 'research',
+                'label': 'Forschungsassistent',
+                'icon': 'fas fa-flask',
+                'auth_url_name': 'research:dashboard',
+                'sub_items': [
+                    {'label': 'Dashboard', 'icon': 'fas fa-tachometer-alt', 'url_name': 'research:dashboard'},
+                    {'label': 'Neue Frage', 'icon': 'fas fa-wand-magic-sparkles', 'url_name': 'research:ask'},
+                    {'label': 'Verlauf', 'icon': 'fas fa-clock-rotate-left', 'url_name': 'research:history'},
+                ],
+            },
             {'divider': True, 'label': 'Kommunikation'},
             {
                 'app_name': 'chat',

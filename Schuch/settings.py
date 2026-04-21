@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     'loomline',
     'fileshare',
     'library',
+    'research',
     'loomconnect',
     'myprompter',
     'stats',
