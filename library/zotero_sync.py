@@ -129,7 +129,8 @@ def sync_account(account: ZoteroAccount, collection_name="Zotero-Sync") -> dict:
     zotero_colls = _fetch_zotero_collections(prefix, account.api_key)
     coll_cache = {None: default_coll}
 
-    url = f"{BASE_URL}{prefix}/items?format=json&limit=100&itemType=-attachment||note"
+    # itemType-Filter in Python unten — Server-URL-Syntax für OR ist nicht zuverlässig.
+    url = f"{BASE_URL}{prefix}/items?format=json&limit=100"
     created, updated, skipped = 0, 0, 0
     page = 0
 
