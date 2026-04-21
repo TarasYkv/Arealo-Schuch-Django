@@ -53,6 +53,7 @@ def ask(request):
     return render(request, 'research/ask.html', {
         'form': form,
         'council_models': council_service.MODELS,
+        'council_models_json': council_service.MODELS,
     })
 
 

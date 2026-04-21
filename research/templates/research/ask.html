@@ -56,9 +56,14 @@
     <div class="rs-panel" style="margin-bottom: 16px;" data-needs="rag hybrid" id="primaryPanel">
       <div class="rs-panel__head">
         <span class="rs-panel__title"><i class="fas fa-star"></i>Primär-Modell</span>
+        <button type="button" class="rs-info-btn"
+                onclick="showModelInfo(document.getElementById('{{ form.primary_model.id_for_label }}').value)"
+                title="Details zum gewählten Modell" aria-label="Primär-Modell-Info">
+          <i class="fas fa-circle-info"></i>
+        </button>
       </div>
       <div class="rs-panel__body">
-        <p class="rs-hint" style="margin-top: 0; margin-bottom: 10px;">Wird für RAG-Synthese und die initiale Hybrid-Antwort genutzt.</p>
+        <p class="rs-hint" style="margin-top: 0; margin-bottom: 10px;">Wird für RAG-Synthese und die Hybrid-Validierung genutzt.</p>
         {{ form.primary_model }}
 
         <label class="rs-label" style="margin-top: 18px;">RAG Top-K</label>
@@ -78,22 +83,64 @@
         <p class="rs-hint" style="margin-top: 0; margin-bottom: 10px;">Werden parallel abgefragt. Auswahl nur aktiv im Council- und Hybrid-Modus.</p>
         <div class="rs-check-group">
           {% for cb in form.council_models %}
-          <label class="rs-check-label" for="{{ cb.id_for_label }}">
-            {{ cb.tag }}
-            <span style="flex: 1;">{{ cb.choice_label }}</span>
-            {% for id, c in council_models.items %}
-              {% if id == cb.data.value %}
-                <span class="rs-model-price">
-                  {% if c.pricing.0 == 0 and c.pricing.1 == 0 %}
-                    <span style="color: var(--rs-success);">free</span>
-                  {% else %}
-                    ${{ c.pricing.0|floatformat:2 }}/{{ c.pricing.1|floatformat:2 }}
-                  {% endif %}
-                </span>
-              {% endif %}
-            {% endfor %}
-          </label>
+          <div class="rs-check-row">
+            <label class="rs-check-label" for="{{ cb.id_for_label }}">
+              {{ cb.tag }}
+              <span style="flex: 1;">{{ cb.choice_label }}</span>
+              {% for id, c in council_models.items %}
+                {% if id == cb.data.value %}
+                  <span class="rs-model-price">
+                    {% if c.pricing.0 == 0 and c.pricing.1 == 0 %}
+                      <span style="color: var(--rs-success);">free</span>
+                    {% else %}
+                      ${{ c.pricing.0|floatformat:2 }}/{{ c.pricing.1|floatformat:2 }}
+                    {% endif %}
+                  </span>
+                {% endif %}
+              {% endfor %}
+            </label>
+            <button type="button" class="rs-info-btn rs-info-btn--small"
+                    onclick="showModelInfo('{{ cb.data.value }}')"
+                    title="Details zu diesem Modell" aria-label="Modell-Info">
+              <i class="fas fa-circle-info"></i>
+            </button>
+          </div>
           {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="rs-modal" id="modelModal" onclick="if(event.target===this)this.classList.remove('open')">
+      <div class="rs-modal__box" style="max-width: 640px;">
+        <div class="rs-modal__head">
+          <h3 id="mmTitle" style="margin: 0; font-size: 18px; font-weight: 600;">Modell</h3>
+          <button type="button" class="rs-info-btn" onclick="document.getElementById('modelModal').classList.remove('open')" aria-label="Schließen">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="rs-modal__body">
+          <div class="rs-model-meta-grid">
+            <div><span class="rs-model-meta-lbl">Anbieter</span><span id="mmProvider">—</span></div>
+            <div><span class="rs-model-meta-lbl">Kontext</span><span id="mmContext">—</span></div>
+            <div><span class="rs-model-meta-lbl">Input</span><span id="mmPriceIn">—</span></div>
+            <div><span class="rs-model-meta-lbl">Output</span><span id="mmPriceOut">—</span></div>
+          </div>
+          <div class="rs-model-section">
+            <div class="rs-model-section-title"><i class="fas fa-globe"></i> Herkunft</div>
+            <div id="mmOrigin">—</div>
+          </div>
+          <div class="rs-model-section">
+            <div class="rs-model-section-title" style="color: var(--rs-success);"><i class="fas fa-plus"></i> Stärken</div>
+            <div id="mmStrengths">—</div>
+          </div>
+          <div class="rs-model-section">
+            <div class="rs-model-section-title" style="color: var(--rs-danger);"><i class="fas fa-minus"></i> Schwächen</div>
+            <div id="mmWeaknesses">—</div>
+          </div>
+          <div class="rs-model-section">
+            <div class="rs-model-section-title"><i class="fas fa-lightbulb"></i> Einsatz-Empfehlung</div>
+            <div id="mmNotes">—</div>
+          </div>
         </div>
       </div>
     </div>
@@ -101,7 +148,7 @@
     <div class="rs-modal" id="priceModal" onclick="if(event.target===this)this.classList.remove('open')">
       <div class="rs-modal__box">
         <div class="rs-modal__head">
-          <h3 style="margin: 0; font-size: 17px; font-weight: 600;">Modell-Preise &amp; Details</h3>
+          <h3 style="margin: 0; font-size: 17px; font-weight: 600;">Alle Modelle im Überblick</h3>
           <button type="button" class="rs-info-btn" onclick="document.getElementById('priceModal').classList.remove('open')" aria-label="Schließen">
             <i class="fas fa-xmark"></i>
           </button>
@@ -205,7 +252,32 @@
   .rs-price-table td:nth-child(4), .rs-price-table td:nth-child(5) {
     font-family: 'JetBrains Mono', monospace; white-space: nowrap;
   }
+
+  .rs-check-row { display: flex; align-items: stretch; gap: 6px; }
+  .rs-check-row .rs-check-label { flex: 1; }
+  .rs-info-btn--small { width: 36px; flex-shrink: 0; align-self: stretch; }
+
+  .rs-model-meta-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 18px;
+    padding: 12px 14px; background: var(--rs-surface-soft);
+    border-radius: 10px; border: 1px solid var(--rs-border-soft);
+  }
+  .rs-model-meta-grid > div { font-size: 13px; color: var(--rs-ink); }
+  .rs-model-meta-lbl {
+    display: block; font-size: 11px; color: var(--rs-ink-faint);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 3px; font-weight: 600;
+  }
+
+  .rs-model-section { margin-bottom: 16px; font-size: 14px; line-height: 1.55; color: var(--rs-ink-soft); }
+  .rs-model-section-title {
+    font-size: 13px; font-weight: 600; color: var(--rs-ink);
+    margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+  }
 </style>
+
+{{ council_models_json|json_script:"modelsData" }}
 
 <script>
 (function() {
@@ -229,6 +301,24 @@
   modeRadios.forEach(r => r.addEventListener('change', applyMode));
   applyMode();
 })();
+
+const MODELS_DATA = JSON.parse(document.getElementById('modelsData').textContent);
+function showModelInfo(modelId) {
+  const d = MODELS_DATA[modelId];
+  if (!d) return;
+  document.getElementById('mmTitle').textContent = d.name;
+  document.getElementById('mmProvider').textContent = d.provider;
+  document.getElementById('mmContext').textContent = d.context;
+  const pin = d.pricing[0] === 0 ? 'free' : '$' + d.pricing[0].toFixed(2) + ' / 1M';
+  const pout = d.pricing[1] === 0 ? 'free' : '$' + d.pricing[1].toFixed(2) + ' / 1M';
+  document.getElementById('mmPriceIn').textContent = pin;
+  document.getElementById('mmPriceOut').textContent = pout;
+  document.getElementById('mmOrigin').textContent = d.origin;
+  document.getElementById('mmStrengths').textContent = d.strengths;
+  document.getElementById('mmWeaknesses').textContent = d.weaknesses;
+  document.getElementById('mmNotes').textContent = d.notes;
+  document.getElementById('modelModal').classList.add('open');
+}
 </script>
 
 {% endblock %}
