@@ -179,6 +179,122 @@ MODELS = {
         'weaknesses': '⚠ Free-Tier upstream stark rate-limited (HTTP 429 häufig), kein hochkomplexes Reasoning.',
         'notes': 'Opt-in — nicht in der Default-Auswahl. Alternative: bezahlte Variante "glm" nutzen.'
     },
+
+    # === Web-Such-Modelle (Perplexity Sonar) ===
+    'sonar_reasoning': {
+        'name': 'Perplexity Sonar Reasoning Pro', 'provider': 'openrouter', 'model': 'perplexity/sonar-reasoning-pro',
+        'pricing': (2.00, 8.00), 'context': '127k',
+        'origin': 'Perplexity (USA, 2022 gegr.). Kombiniert LLM-Reasoning mit live Web-/Paper-Suche; dahinterliegendes Basismodell rotiert (GPT/Claude/Mistral).',
+        'strengths': '🌐 LIVE Web-Zugriff — kann aktuelle Paper/Artikel finden, die nach Trainings-Cutoff erschienen sind. Gibt Quellen-URLs mit. Gut für „Stand der Forschung 2025/2026"-Fragen.',
+        'weaknesses': 'Variable Qualität je nach Basismodell-Route. Längere Latenz wegen Suchschritt. Kein Zugriff auf kostenpflichtige Journals.',
+        'notes': 'GAME-CHANGER für aktuelle Literatur-Recherche. In Council + Hybrid hervorragend, um die anderen Modelle mit Fakten zu ergänzen.'
+    },
+    'sonar_deep': {
+        'name': 'Perplexity Sonar Deep Research', 'provider': 'openrouter', 'model': 'perplexity/sonar-deep-research',
+        'pricing': (2.00, 8.00), 'context': '200k',
+        'origin': 'Perplexity (USA). Spezielle Variante für mehrstufige Recherche — führt mehrere Web-Suchen durch und synthetisiert.',
+        'strengths': '🌐 Tiefere Literatur-Recherche als Sonar-Pro, mehrstufig, eigene Quellen-Aggregation. Ideal für „Gib mir einen State-of-the-Art-Überblick zu X".',
+        'weaknesses': 'Langsamste Variante (oft 30-60s). Kann in einem Rutsch viel Output produzieren (= teurer).',
+        'notes': 'Einsatz bei Kapitel-Recherchen, nicht für schnelle Einzelfragen.'
+    },
+    'sonar_pro': {
+        'name': 'Perplexity Sonar Pro', 'provider': 'openrouter', 'model': 'perplexity/sonar-pro',
+        'pricing': (3.00, 15.00), 'context': '200k',
+        'origin': 'Perplexity (USA). Die Standard-„Web-Frage"-Variante ohne explizite Reasoning-Schritte.',
+        'strengths': '🌐 Schnelle Web-gestützte Antworten mit Quellen. Gut für „Definiere/Erkläre"-Fragen mit aktuellen Daten.',
+        'weaknesses': 'Weniger stark bei komplexem Reasoning als Sonar-Reasoning-Pro. Teurer.',
+        'notes': 'Einsatz wenn du nur die schnelle faktengeprüfte Antwort willst.'
+    },
+
+    # === Dediziertes Reasoning (Chain-of-Thought-Modelle) ===
+    'o3': {
+        'name': 'OpenAI o3', 'provider': 'openrouter', 'model': 'openai/o3',
+        'pricing': (2.00, 8.00), 'context': '200k',
+        'origin': 'OpenAI (USA). „Reasoning-Modell"-Serie — dediziert auf Chain-of-Thought trainiert, längere interne Denkphase vor der Antwort.',
+        'strengths': 'Stark bei mathematischem Beweis, Physik, Statistik, Logik-Rätseln. Erkennt Fehler in eigenen Argumenten besser als Chat-Modelle.',
+        'weaknesses': 'Langsamer als Chat-GPT (denkt erst). Kein Web-Zugriff. Kein perfekter Schreibstil bei Fließtexten.',
+        'notes': 'Perfekt für Fragen mit harter Mathematik/Physik-Komponente, z. B. „Rechne den Pfr/Ptotal für folgende SPD aus".'
+    },
+    'o4_mini': {
+        'name': 'OpenAI o4-mini', 'provider': 'openrouter', 'model': 'openai/o4-mini',
+        'pricing': (1.10, 4.40), 'context': '200k',
+        'origin': 'OpenAI (USA). Kleinere, günstigere Variante der o4-Reasoning-Familie.',
+        'strengths': 'Gutes Reasoning zum halben Preis von o3, trotzdem sehr ordentlich bei Mathe/Code/Logik.',
+        'weaknesses': 'Bei sehr komplexen Ketten etwas schwächer als o3; kleinere Parameterzahl.',
+        'notes': 'Standard-Reasoning-Modell wenn Budget wichtig ist.'
+    },
+    'qwen_max_thinking': {
+        'name': 'Qwen3 Max Thinking', 'provider': 'openrouter', 'model': 'qwen/qwen3-max-thinking',
+        'pricing': (0.78, 3.90), 'context': '262k',
+        'origin': 'Alibaba Cloud (China). Größtes Qwen-Modell mit Thinking-Modus (sichtbare Chain-of-Thought).',
+        'strengths': 'Chinesisches Flagship-Reasoning, multilingual stark (auch Deutsch), günstiger als o3.',
+        'weaknesses': 'Bias auf chin. kulturelle Normen, weniger bekannte Trainingsdaten-Herkunft.',
+        'notes': 'Alternative Reasoning-Stimme neben o3 / DeepSeek R1.'
+    },
+    'kimi_thinking': {
+        'name': 'Kimi K2 Thinking', 'provider': 'openrouter', 'model': 'moonshotai/kimi-k2-thinking',
+        'pricing': (0.60, 2.50), 'context': '262k',
+        'origin': 'Moonshot AI (China). Thinking-Variante des Standard-Kimi mit explizitem CoT.',
+        'strengths': 'Kreatives Reasoning, gutes Deutsch, lange Kontextfenster.',
+        'weaknesses': 'Weniger mathematisch-präzise als o3/DeepSeek; gelegentlich „schwafelig".',
+        'notes': 'Gute Zusatzstimme bei offenen, qualitativen Fragen.'
+    },
+
+    # === Ultra-günstig mit großem Kontextfenster ===
+    'grok_fast': {
+        'name': 'Grok 4.1 Fast', 'provider': 'openrouter', 'model': 'x-ai/grok-4.1-fast',
+        'pricing': (0.20, 0.50), 'context': '2M',
+        'origin': 'xAI (USA, Musk). Schnelle/günstige Variante von Grok 4.1 mit 2M-Kontext.',
+        'strengths': '🔥 2 Mio Tokens Kontext UND $0.20/$0.50 per 1M — du kannst ein komplettes Buch reinwerfen für ein paar Cent. Sehr schnell.',
+        'weaknesses': 'Kein dediziertes Reasoning, etwas oberflächlichere Antworten als Grok 4.20.',
+        'notes': 'Ideal für „Lies diese 10 Paper und gib mir eine Übersicht"-Aufgaben. Sollte deine Standard-Wahl für Long-Context sein.'
+    },
+    'gpt_mini': {
+        'name': 'GPT-4.1 Mini', 'provider': 'openrouter', 'model': 'openai/gpt-4.1-mini',
+        'pricing': (0.40, 1.60), 'context': '1M',
+        'origin': 'OpenAI (USA). Die effiziente Mittelklasse-Variante der GPT-4.1-Familie.',
+        'strengths': '1M Kontext, solides allgemeines Reasoning, günstig, zuverlässig.',
+        'weaknesses': 'Nicht so tief wie GPT-5.4, aber 5× günstiger. Kein Web-Zugriff.',
+        'notes': 'Solider Default für hochvolumige Aufgaben.'
+    },
+    'llama4': {
+        'name': 'Llama 4 Maverick', 'provider': 'openrouter', 'model': 'meta-llama/llama-4-maverick',
+        'pricing': (0.15, 0.60), 'context': '1M',
+        'origin': 'Meta (USA, 2024). Open-Weight-Familie — Gewichte verfügbar zum Selbsthosten.',
+        'strengths': 'Open-Weight (reproduzierbar!), 1M Kontext, sehr günstig.',
+        'weaknesses': 'Weniger fein-getuned als Frontier-Modelle, bei komplexen wissenschaftlichen Themen schwächer.',
+        'notes': 'Für wissenschaftliche Reproduzierbarkeit interessant — wenn du später deine Diss auf Open-Weight-Modellen replizieren willst.'
+    },
+
+    # === Wissenschaftliches Schreiben ===
+    'palmyra': {
+        'name': 'Writer Palmyra X5', 'provider': 'openrouter', 'model': 'writer/palmyra-x5',
+        'pricing': (0.60, 6.00), 'context': '1M',
+        'origin': 'Writer (USA, 2020). Enterprise-LLM speziell für professionelles Schreiben (Finance, Legal, Healthcare).',
+        'strengths': 'Gute Strukturierung langer Texte, formeller Ton, konsistenter Stil — brauchbar für Dissertationsabschnitte.',
+        'weaknesses': 'Teurer Output-Preis, weniger stark bei reinem Reasoning.',
+        'notes': 'Einsatz wenn du Struktur- oder Stilvorschläge für Kapitelentwürfe willst.'
+    },
+
+    # === Diversifikation ===
+    'nova': {
+        'name': 'Amazon Nova Premier', 'provider': 'openrouter', 'model': 'amazon/nova-premier-v1',
+        'pricing': (2.50, 12.50), 'context': '1M',
+        'origin': 'Amazon (USA, 2024). AWS-eigene Foundation-Model-Familie — unabhängig von Anthropic, trotz Milliarden-Investment in Anthropic.',
+        'strengths': 'Andere Trainingsmix, zusätzliche Perspektive im Council, 1M Kontext.',
+        'weaknesses': 'Neu, wenig unabhängige Benchmarks; vergleichbarer Preis wie Opus ohne klare Qualitäts-Überlegenheit.',
+        'notes': 'Zur Diversifizierung — AWS-Stimme im Council.'
+    },
+
+    # === Auto-Routing ===
+    'auto': {
+        'name': 'OpenRouter Auto', 'provider': 'openrouter', 'model': 'openrouter/auto',
+        'pricing': (0.00, 0.00), 'context': '2M',
+        'origin': 'OpenRouter (Tool). Router-Service — wählt automatisch das „beste" Modell für die konkrete Anfrage.',
+        'strengths': 'Zero-Config: du stellst die Frage, OR wählt das passende Modell. Kosten variieren je Routing-Ziel.',
+        'weaknesses': 'Intransparent welches Modell geantwortet hat (Debugging schwierig). Pricing-Feld zeigt $0 hier, aber reale Kosten entstehen je Ziel.',
+        'notes': 'Eher Experimentier-Modus. Im Council lieber die spezifischen Modelle wählen.'
+    },
 }
 
 
