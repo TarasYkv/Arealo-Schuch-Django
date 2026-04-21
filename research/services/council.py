@@ -59,48 +59,118 @@ PROVIDERS: dict[str, dict] = {
 # Preise sind Richtwerte in USD pro 1 Mio. Tokens, Stand 2026-04. Schwanken je nach
 # Anbieter/Route; Details: https://openrouter.ai/models, https://anthropic.com/pricing
 MODELS = {
-    'opus':     {'name': 'Claude Opus 4.7',       'provider': 'anthropic',  'model': 'claude-opus-4-7',
-                 'pricing': (15.00, 75.00), 'context': '1M',
-                 'notes': 'Stärkstes Modell, bester Schreibstil, Deutsch exzellent. Teuer.'},
-    'sonnet':   {'name': 'Claude Sonnet 4.6',     'provider': 'anthropic',  'model': 'claude-sonnet-4-6',
-                 'pricing': (3.00, 15.00), 'context': '200k',
-                 'notes': 'Sehr guter Allrounder, deutlich günstiger als Opus.'},
-    'haiku':    {'name': 'Claude Haiku 4.5',      'provider': 'anthropic',  'model': 'claude-haiku-4-5-20251001',
-                 'pricing': (1.00, 5.00), 'context': '200k',
-                 'notes': 'Schnell und günstig, für einfache Aufgaben.'},
-    'gpt':      {'name': 'GPT-5.4',               'provider': 'openrouter', 'model': 'openai/gpt-5.4',
-                 'pricing': (5.00, 15.00), 'context': '400k',
-                 'notes': 'OpenAI, starkes Reasoning bei Mathe + Statistik.'},
-    'gemini':   {'name': 'Gemini 3.1 Pro',        'provider': 'gemini',     'model': 'gemini-3.1-pro-preview',
-                 'pricing': (1.25, 10.00), 'context': '2M',
-                 'notes': 'Riesiges Kontextfenster, gut für lange Texte.'},
-    'grok':     {'name': 'Grok 4.20',             'provider': 'openrouter', 'model': 'x-ai/grok-4.20',
-                 'pricing': (3.00, 15.00), 'context': '256k',
-                 'notes': 'xAI, gutes allgemeines Reasoning.'},
-    'deepseek': {'name': 'DeepSeek Reasoner',     'provider': 'deepseek',   'model': 'deepseek-reasoner',
-                 'pricing': (0.55, 2.19), 'context': '128k',
-                 'notes': 'Sehr günstig, starkes Reasoning, chinesisches Modell.'},
-    'glm':      {'name': 'GLM 5.1',               'provider': 'zhipu',      'model': 'glm-5.1',
-                 'pricing': (0.20, 1.10), 'context': '128k',
-                 'notes': 'Sehr günstig, sehr schnell, solide Qualität.'},
-    'kimi':     {'name': 'Kimi K2',               'provider': 'openrouter', 'model': 'moonshotai/kimi-k2-instruct',
-                 'pricing': (0.60, 2.50), 'context': '200k',
-                 'notes': 'Moonshot AI, guter Allrounder.'},
-    'qwen':     {'name': 'Qwen 3.6 Plus',         'provider': 'openrouter', 'model': 'qwen/qwen3.6-plus',
-                 'pricing': (0.40, 1.20), 'context': '128k',
-                 'notes': 'Alibaba, sehr stark multilingual.'},
-    'mistral':  {'name': 'Mistral Large 3',       'provider': 'openrouter', 'model': 'mistralai/mistral-large-3-675b-instruct-2512',
-                 'pricing': (2.00, 6.00), 'context': '128k',
-                 'notes': 'Mistral, europäischer Anbieter, solide.'},
-    'minimax':  {'name': 'MiniMax M2.7',          'provider': 'openrouter', 'model': 'minimax/minimax-m2.7',
-                 'pricing': (0.50, 2.00), 'context': '128k',
-                 'notes': 'MiniMax, schnell und günstig.'},
-    'nemotron': {'name': 'NVIDIA Nemotron 120B',  'provider': 'openrouter', 'model': 'nvidia/nemotron-3-super-120b-a12b:free',
-                 'pricing': (0.00, 0.00), 'context': '128k',
-                 'notes': 'KOSTENLOS via OpenRouter (rate-limited).'},
-    'mercury':  {'name': 'Mercury 2',             'provider': 'openrouter', 'model': 'inception/mercury-2',
-                 'pricing': (0.50, 2.00), 'context': '32k',
-                 'notes': 'Inception Mercury, sehr schnell.'},
+    'opus': {
+        'name': 'Claude Opus 4.7', 'provider': 'anthropic', 'model': 'claude-opus-4-7',
+        'pricing': (15.00, 75.00), 'context': '1M',
+        'origin': 'Anthropic (USA, gegr. 2021 von Ex-OpenAI-Forschern). In San Francisco entwickelt, betont Sicherheit und interpretierbares Alignment.',
+        'strengths': 'Bester Schreibstil und Kohärenz, exzellentes Deutsch, starke Reasoning-Kette, sehr gute Kontext-Nutzung über 1M Tokens, ehrlich über Unsicherheit.',
+        'weaknesses': 'Teuerstes Modell, höhere Latenz, hin und wieder übervorsichtig bei kontroversen Themen.',
+        'notes': 'Flaggschiff — gut als Primär-Modell für endgültige Synthesen.'
+    },
+    'sonnet': {
+        'name': 'Claude Sonnet 4.6', 'provider': 'anthropic', 'model': 'claude-sonnet-4-6',
+        'pricing': (3.00, 15.00), 'context': '200k',
+        'origin': 'Anthropic (USA). Mittlere Modellgröße der Claude-Familie.',
+        'strengths': 'Sehr gutes Preis-/Leistungsverhältnis, solider Allrounder, schnell, qualitativ nah an Opus bei vielen Aufgaben.',
+        'weaknesses': 'Kontext „nur" 200k, bei sehr komplexen logischen Ketten schwächer als Opus.',
+        'notes': 'Guter Default für Alltags-Queries.'
+    },
+    'haiku': {
+        'name': 'Claude Haiku 4.5', 'provider': 'anthropic', 'model': 'claude-haiku-4-5-20251001',
+        'pricing': (1.00, 5.00), 'context': '200k',
+        'origin': 'Anthropic (USA). Kleinstes Modell der Claude-Familie.',
+        'strengths': 'Sehr schnell, günstig, gut für Zusammenfassungen, Klassifikation, einfache Extraktion.',
+        'weaknesses': 'Bei tiefem Fach-Reasoning oder langen Argumentationen deutlich schwächer.',
+        'notes': 'Geeignet für schnelle Zweitmeinungen.'
+    },
+    'gpt': {
+        'name': 'GPT-5.4', 'provider': 'openrouter', 'model': 'openai/gpt-5.4',
+        'pricing': (5.00, 15.00), 'context': '400k',
+        'origin': 'OpenAI (USA, gegr. 2015). Microsoft-finanziert, dominiert seit 2022 den LLM-Markt.',
+        'strengths': 'Sehr starkes mathematisches + statistisches Reasoning, gute Code-Qualität, breites Weltwissen.',
+        'weaknesses': 'Schreibstil wirkt formelhafter als Claude; Zitate + Quellen werden häufiger fantasiert.',
+        'notes': 'Gut als Gegenstimme zu Claude.'
+    },
+    'gemini': {
+        'name': 'Gemini 3.1 Pro', 'provider': 'gemini', 'model': 'gemini-3.1-pro-preview',
+        'pricing': (1.25, 10.00), 'context': '2M',
+        'origin': 'Google DeepMind (UK/USA). Direkter Zugriff auf Google-Infrastruktur und Google Scholar.',
+        'strengths': 'Größtes Kontextfenster (2M) — liest ganze Buchkapitel auf einmal; gute multimodale Fähigkeiten (Bilder/PDFs).',
+        'weaknesses': 'Deutsch etwas schwächer, manchmal repetitiv; Antworten bei kontroversen Themen oft ausweichend.',
+        'notes': 'Ideal für lange Paper-Synthesen.'
+    },
+    'grok': {
+        'name': 'Grok 4.20', 'provider': 'openrouter', 'model': 'x-ai/grok-4.20',
+        'pricing': (3.00, 15.00), 'context': '256k',
+        'origin': 'xAI (USA, 2023 von Elon Musk gegründet). Trainiert teilweise auf X-Daten.',
+        'strengths': 'Gute allgemeine Reasoning-Qualität, weniger zensorisch als Konkurrenten, aktuelle Ereignisse.',
+        'weaknesses': 'Jüngstes Ökosystem, Tools teils unausgereift; kann gelegentlich überzogen provokant antworten.',
+        'notes': 'Nützlich für Perspektiven außerhalb des Mainstream-Konsens.'
+    },
+    'deepseek': {
+        'name': 'DeepSeek Reasoner', 'provider': 'deepseek', 'model': 'deepseek-reasoner',
+        'pricing': (0.55, 2.19), 'context': '128k',
+        'origin': 'DeepSeek (China, Hangzhou, 2023). Open-Weight-Modell, kostengünstig trainiert, 2025 viel Medienecho.',
+        'strengths': 'Sehr günstig bei starker Reasoning-Qualität, gute Mathe/Code/Logik, Open-Weight (lokal hostbar).',
+        'weaknesses': 'Deutsch ordentlich aber nicht exzellent; chinesischer Trainingsbias bei politischen Themen.',
+        'notes': 'Bestes Preis-/Leistungsverhältnis im Council.'
+    },
+    'glm': {
+        'name': 'GLM 5.1', 'provider': 'zhipu', 'model': 'glm-5.1',
+        'pricing': (0.20, 1.10), 'context': '128k',
+        'origin': 'Zhipu AI (China, Peking, aus Tsinghua-Uni ausgegründet). Enger Partner der chin. KI-Strategie.',
+        'strengths': 'Extrem günstig, sehr schnell, solide Gesamtqualität, oft unterschätzt.',
+        'weaknesses': 'Deutsch gelegentlich holprig; kulturelle Bias wie bei allen chin. Modellen; Instruction-Following weniger strikt.',
+        'notes': 'Guter Low-Cost-Baustein im Council.'
+    },
+    'kimi': {
+        'name': 'Kimi K2', 'provider': 'openrouter', 'model': 'moonshotai/kimi-k2-instruct',
+        'pricing': (0.60, 2.50), 'context': '200k',
+        'origin': 'Moonshot AI (China, Peking, 2023). Bekannt für lange Kontexte und kreatives Schreiben.',
+        'strengths': 'Gut bei langen Dokumenten, guter Schreibstil, günstig.',
+        'weaknesses': 'Instruction-Following manchmal ungenau; weniger technisch-präzise als DeepSeek.',
+        'notes': 'Alternative Stimme mit kreativeren Formulierungen.'
+    },
+    'qwen': {
+        'name': 'Qwen 3.6 Plus', 'provider': 'openrouter', 'model': 'qwen/qwen3.6-plus',
+        'pricing': (0.40, 1.20), 'context': '128k',
+        'origin': 'Alibaba Cloud (China). Eigene Foundation-Model-Familie, Open-Weight-Varianten verfügbar.',
+        'strengths': 'Extrem stark multilingual (auch Deutsch), gute Code-Qualität, günstig.',
+        'weaknesses': 'Reasoning etwas flach bei sehr komplexen Fachthemen; ab und zu übersichtlich-oberflächlich.',
+        'notes': 'Guter Kandidat, wenn Nicht-Englisch-Qualität zählt.'
+    },
+    'mistral': {
+        'name': 'Mistral Large 3', 'provider': 'openrouter', 'model': 'mistralai/mistral-large-3-675b-instruct-2512',
+        'pricing': (2.00, 6.00), 'context': '128k',
+        'origin': 'Mistral AI (Frankreich, Paris, 2023). Einziger ernstzunehmender europäischer Anbieter.',
+        'strengths': 'DSGVO-konforme Variante verfügbar, guter Schreibstil, starke Mehrsprachigkeit (inkl. Deutsch/Französisch).',
+        'weaknesses': 'Bei tiefem Reasoning hinter Opus/GPT; kleineres Ökosystem.',
+        'notes': 'Europäischer Anker im Council, wichtig für DSGVO-Überlegungen.'
+    },
+    'minimax': {
+        'name': 'MiniMax M2.7', 'provider': 'openrouter', 'model': 'minimax/minimax-m2.7',
+        'pricing': (0.50, 2.00), 'context': '128k',
+        'origin': 'MiniMax (China, Shanghai, 2021). Fokus auf multimodale Agenten + Consumer-Apps (Talkie).',
+        'strengths': 'Schnell, günstig, solide allgemeine Qualität, gute Dialog-Fähigkeiten.',
+        'weaknesses': 'Wissenschaftliches Reasoning nicht auf Top-Niveau; Ausgaben manchmal kurz.',
+        'notes': 'Ergänzende Stimme mit anderem Trainingsmix.'
+    },
+    'nemotron': {
+        'name': 'NVIDIA Nemotron 120B', 'provider': 'openrouter', 'model': 'nvidia/nemotron-3-super-120b-a12b:free',
+        'pricing': (0.00, 0.00), 'context': '128k',
+        'origin': 'NVIDIA (USA). Eigene Modell-Familie auf Basis von Llama-3 + zusätzlichem Post-Training.',
+        'strengths': 'KOSTENLOS via OpenRouter-Free-Tier, brauchbare Qualität, groß (120B Parameter).',
+        'weaknesses': 'Rate-limited, Antworten häufig kürzer, gelegentliche Timeouts; neuer / weniger erprobt.',
+        'notes': 'Kostenneutrale Zusatzperspektive.'
+    },
+    'mercury': {
+        'name': 'Mercury 2', 'provider': 'openrouter', 'model': 'inception/mercury-2',
+        'pricing': (0.50, 2.00), 'context': '32k',
+        'origin': 'Inception Labs (USA, 2024). Forscht an Diffusion-Sprachmodellen — grundlegend andere Architektur als klassische Transformer.',
+        'strengths': 'Extrem schnell (Diffusion-Decoding), interessante alternative Architektur.',
+        'weaknesses': 'Kleineres Kontextfenster, noch weniger Robustheit bei Fachthemen; experimenteller Status.',
+        'notes': 'Zum Benchmarking — liefert oft auffallend andere Formulierungen.'
+    },
 }
 
 

@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = False
 
     dependencies = [
-        ('superconfig', '0008_backup_updated_at'),
+        ('superconfig', '0008_add_profile_text_color'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

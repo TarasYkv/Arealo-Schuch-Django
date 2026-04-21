@@ -450,6 +450,129 @@ body.bg-dark .password-toggle:hover {
         </div>
         {% endif %}
 
+        <!-- OpenRouter -->
+        {% if api_providers.openrouter.is_visible != False %}
+        <div class="col-lg-6">
+            <div class="card api-provider-card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #6366f1, #4338ca);">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-route fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-0">OpenRouter API</h5>
+                            <small class="opacity-75">GPT, Grok, Kimi, Qwen, Nemotron, …</small>
+                        </div>
+                    </div>
+                    <div class="api-status-indicator">
+                        <div class="status-light {% if openrouter_configured %}connected{% else %}disconnected{% endif %}"></div>
+                        <small class="fw-bold">
+                            {% if openrouter_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                        </small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_openrouter">
+                        <div class="mb-3">
+                            <label for="openrouter_api_key" class="form-label">API-Schlüssel:</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password"
+                                       class="form-control"
+                                       id="openrouter_api_key"
+                                       name="openrouter_api_key"
+                                       placeholder="sk-or-v1-..."
+                                       value="{% if openrouter_configured %}{{ openrouter_key_masked }}{% endif %}">
+                                <button class="password-toggle" type="button"
+                                        onclick="togglePasswordVisibility('openrouter_api_key', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Status: <span class="{% if openrouter_configured %}text-success{% else %}text-warning{% endif %}">
+                                    {% if openrouter_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-sm" style="background: linear-gradient(135deg, #6366f1, #4338ca); color: white;">
+                                <i class="fas fa-save me-1"></i>Speichern
+                            </button>
+                        </div>
+                    </form>
+                    <div class="mt-auto">
+                        <a href="{{ api_providers.openrouter.affiliate_link|default:'https://openrouter.ai/keys' }}"
+                           target="_blank" class="btn btn-outline-primary btn-sm"
+                           title="API-Key erhalten">
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.openrouter.affiliate_link_text|default:'API-Key erhalten' }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Zhipu / GLM -->
+        {% if api_providers.zhipu.is_visible != False %}
+        <div class="col-lg-6">
+            <div class="card api-provider-card">
+                <div class="card-header text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #0891b2, #0e7490);">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-microchip fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-0">Zhipu / GLM API</h5>
+                            <small class="opacity-75">GLM-5.1, extrem günstig</small>
+                        </div>
+                    </div>
+                    <div class="api-status-indicator">
+                        <div class="status-light {% if zhipu_configured %}connected{% else %}disconnected{% endif %}"></div>
+                        <small class="fw-bold">
+                            {% if zhipu_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                        </small>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_zhipu">
+                        <div class="mb-3">
+                            <label for="zhipu_api_key" class="form-label">API-Schlüssel:</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                <input type="password"
+                                       class="form-control"
+                                       id="zhipu_api_key"
+                                       name="zhipu_api_key"
+                                       placeholder="..."
+                                       value="{% if zhipu_configured %}{{ zhipu_key_masked }}{% endif %}">
+                                <button class="password-toggle" type="button"
+                                        onclick="togglePasswordVisibility('zhipu_api_key', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Status: <span class="{% if zhipu_configured %}text-success{% else %}text-warning{% endif %}">
+                                    {% if zhipu_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-sm" style="background: linear-gradient(135deg, #0891b2, #0e7490); color: white;">
+                                <i class="fas fa-save me-1"></i>Speichern
+                            </button>
+                        </div>
+                    </form>
+                    <div class="mt-auto">
+                        <a href="{{ api_providers.zhipu.affiliate_link|default:'https://open.bigmodel.cn/usercenter/apikeys' }}"
+                           target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>{{ api_providers.zhipu.affiliate_link_text|default:'API-Key erhalten' }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- YouTube API -->
         {% if api_providers.youtube.is_visible != False %}
         <div class="col-lg-6">

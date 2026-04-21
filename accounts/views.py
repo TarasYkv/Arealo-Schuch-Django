@@ -984,6 +984,33 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Gemini API-Key ein.')
 
+        elif action == 'update_openrouter':
+            openrouter_key = request.POST.get('openrouter_api_key', '').strip()
+            if openrouter_key:
+                user.openrouter_api_key = openrouter_key
+                user.save()
+                messages.success(request, 'OpenRouter API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen OpenRouter API-Key ein.')
+
+        elif action == 'update_zhipu':
+            zhipu_key = request.POST.get('zhipu_api_key', '').strip()
+            if zhipu_key:
+                user.zhipu_api_key = zhipu_key
+                user.save()
+                messages.success(request, 'Zhipu / GLM API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen Zhipu API-Key ein.')
+
+        elif action == 'update_nvidia':
+            nvidia_key = request.POST.get('nvidia_api_key', '').strip()
+            if nvidia_key:
+                user.nvidia_api_key = nvidia_key
+                user.save()
+                messages.success(request, 'NVIDIA API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen NVIDIA API-Key ein.')
+
         elif action == 'update_upload_post':
             upload_post_key = request.POST.get('upload_post_api_key', '').strip()
             upload_post_user_id = request.POST.get('upload_post_user_id', '').strip()
@@ -1078,6 +1105,9 @@ def neue_api_einstellungen_view(request):
         'ideogram_key_masked': '••••••••' + user.ideogram_api_key[-4:] if user.ideogram_api_key and len(user.ideogram_api_key) > 4 else '',
         'gemini_key_masked': '••••••••' + user.gemini_api_key[-4:] if user.gemini_api_key and len(user.gemini_api_key) > 4 else '',
         'upload_post_key_masked': '••••••••' + user.upload_post_api_key[-4:] if user.upload_post_api_key and len(user.upload_post_api_key) > 4 else '',
+        'openrouter_key_masked': '••••••••' + user.openrouter_api_key[-4:] if user.openrouter_api_key and len(user.openrouter_api_key) > 4 else '',
+        'zhipu_key_masked': '••••••••' + user.zhipu_api_key[-4:] if user.zhipu_api_key and len(user.zhipu_api_key) > 4 else '',
+        'nvidia_key_masked': '••••••••' + user.nvidia_api_key[-4:] if user.nvidia_api_key and len(user.nvidia_api_key) > 4 else '',
         'openai_configured': bool(user.openai_api_key),
         'anthropic_configured': bool(user.anthropic_api_key),
         'deepseek_configured': bool(user.deepseek_api_key),
@@ -1085,6 +1115,9 @@ def neue_api_einstellungen_view(request):
         'ideogram_configured': bool(user.ideogram_api_key),
         'gemini_configured': bool(user.gemini_api_key),
         'upload_post_configured': bool(user.upload_post_api_key),
+        'openrouter_configured': bool(user.openrouter_api_key),
+        'zhipu_configured': bool(user.zhipu_api_key),
+        'nvidia_configured': bool(user.nvidia_api_key),
         # Supadata (TikTok) - nur für Superuser
         'supadata_key_masked': '••••••••' + user.supadata_api_key[-4:] if user.supadata_api_key and len(user.supadata_api_key) > 4 else '',
         'supadata_configured': bool(user.supadata_api_key),
