@@ -1,70 +1,234 @@
 {% extends 'research/base.html' %}
 
-{% block content %}
-<div class="container-fluid py-4">
+{% block research_content %}
 
-  <div class="research-hero">
-    <h1><i class="fas fa-wand-magic-sparkles me-2"></i>Neue Frage</h1>
-    <p>Stelle eine Frage an deine Bibliothek (RAG) oder direkt an mehrere KI-Modelle (Council).</p>
+<div class="rs-hero">
+  <div>
+    <h1 class="rs-hero__title">Neue Frage</h1>
+    <p class="rs-hero__sub">Frage deine Library, ein Council aus KI-Modellen oder beides im Hybrid-Modus.</p>
+  </div>
+  <div class="rs-hero__actions">
+    <a href="{% url 'research:dashboard' %}" class="rs-btn rs-btn--ghost">
+      <i class="fas fa-arrow-left"></i> Zurück
+    </a>
+  </div>
+</div>
+
+<form method="post" class="rs-form" id="askForm">
+  {% csrf_token %}
+
+  <div>
+    <div class="rs-panel" style="margin-bottom: 16px;">
+      <div class="rs-panel__body" style="padding: 20px;">
+        <label class="rs-label" for="{{ form.question.id_for_label }}">{{ form.question.label }}</label>
+        <textarea name="{{ form.question.name }}" id="{{ form.question.id_for_label }}"
+                  class="rs-input rs-textarea"
+                  placeholder="z. B. Welche Wellenlänge verzögert Seneszenz bei Brokkoli am stärksten?"
+                  required>{{ form.question.value|default_if_none:'' }}</textarea>
+        {% if form.question.errors %}
+          <div style="color: var(--rs-danger); font-size: 13px; margin-top: 6px;">{{ form.question.errors }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="rs-panel" style="margin-bottom: 16px;">
+      <div class="rs-panel__head">
+        <span class="rs-panel__title"><i class="fas fa-sliders"></i>Modus</span>
+      </div>
+      <div class="rs-panel__body">
+        <div class="rs-radio-group">
+          {% for radio in form.mode %}
+          <label class="rs-radio-label" for="{{ radio.id_for_label }}">
+            {{ radio.tag }}
+            <span>{{ radio.choice_label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="rs-btn rs-btn--primary" style="padding: 12px 22px; font-size: 15px;">
+      <i class="fas fa-paper-plane"></i> Frage absenden
+    </button>
   </div>
 
-  <form method="post" class="row g-3">
-    {% csrf_token %}
-    <div class="col-lg-8">
-      <div class="card mb-3">
-        <div class="card-body">
-          <label class="form-label">{{ form.question.label }}</label>
-          {{ form.question }}
-          {% if form.question.errors %}<div class="text-danger small">{{ form.question.errors }}</div>{% endif %}
-        </div>
+  <div>
+    <div class="rs-panel" style="margin-bottom: 16px;" data-needs="rag hybrid" id="primaryPanel">
+      <div class="rs-panel__head">
+        <span class="rs-panel__title"><i class="fas fa-star"></i>Primär-Modell</span>
       </div>
+      <div class="rs-panel__body">
+        <p class="rs-hint" style="margin-top: 0; margin-bottom: 10px;">Wird für RAG-Synthese und die initiale Hybrid-Antwort genutzt.</p>
+        {{ form.primary_model }}
 
-      <div class="card mb-3">
-        <div class="card-header"><strong>Modus</strong></div>
-        <div class="card-body">
-          {% for radio in form.mode %}
-          <div class="form-check mb-1">
-            {{ radio.tag }}
-            <label for="{{ radio.id_for_label }}" class="form-check-label">{{ radio.choice_label }}</label>
-          </div>
-          {% endfor %}
-        </div>
+        <label class="rs-label" style="margin-top: 18px;">RAG Top-K</label>
+        {{ form.top_k }}
+        <p class="rs-hint">Wie viele relevante Text-Chunks aus der Library abgeholt werden.</p>
       </div>
-
-      <button type="submit" class="btn btn-primary">
-        <i class="fas fa-paper-plane me-1"></i>Frage absenden
-      </button>
-      <a href="{% url 'research:dashboard' %}" class="btn btn-link">Abbrechen</a>
     </div>
 
-    <div class="col-lg-4">
-      <div class="card mb-3">
-        <div class="card-header"><strong>Primär-Modell</strong><br>
-          <small class="text-muted">(wird für RAG-Synthese und Hybrid genutzt)</small>
-        </div>
-        <div class="card-body">
-          {{ form.primary_model }}
-          <label class="form-label mt-3">RAG Top-K</label>
-          {{ form.top_k }}
-          <small class="text-muted">Wie viele relevante Chunks aus der Library abgeholt werden.</small>
-        </div>
+    <div class="rs-panel" data-needs="council hybrid" id="councilPanel">
+      <div class="rs-panel__head">
+        <span class="rs-panel__title"><i class="fas fa-users"></i>Council-Modelle</span>
+        <button type="button" class="rs-info-btn" onclick="document.getElementById('priceModal').classList.add('open')" title="Preise &amp; Details anzeigen" aria-label="Preise anzeigen">
+          <i class="fas fa-circle-info"></i>
+        </button>
       </div>
-
-      <div class="card">
-        <div class="card-header"><strong>Council-Modelle</strong><br>
-          <small class="text-muted">(werden für Council + Hybrid genutzt)</small>
-        </div>
-        <div class="card-body">
+      <div class="rs-panel__body">
+        <p class="rs-hint" style="margin-top: 0; margin-bottom: 10px;">Werden parallel abgefragt. Auswahl nur aktiv im Council- und Hybrid-Modus.</p>
+        <div class="rs-check-group">
           {% for cb in form.council_models %}
-          <div class="form-check">
+          <label class="rs-check-label" for="{{ cb.id_for_label }}">
             {{ cb.tag }}
-            <label for="{{ cb.id_for_label }}" class="form-check-label small">{{ cb.choice_label }}</label>
-          </div>
+            <span style="flex: 1;">{{ cb.choice_label }}</span>
+            {% for id, c in council_models.items %}
+              {% if id == cb.data.value %}
+                <span class="rs-model-price">
+                  {% if c.pricing.0 == 0 and c.pricing.1 == 0 %}
+                    <span style="color: var(--rs-success);">free</span>
+                  {% else %}
+                    ${{ c.pricing.0|floatformat:2 }}/{{ c.pricing.1|floatformat:2 }}
+                  {% endif %}
+                </span>
+              {% endif %}
+            {% endfor %}
+          </label>
           {% endfor %}
         </div>
       </div>
     </div>
-  </form>
 
-</div>
+    <div class="rs-modal" id="priceModal" onclick="if(event.target===this)this.classList.remove('open')">
+      <div class="rs-modal__box">
+        <div class="rs-modal__head">
+          <h3 style="margin: 0; font-size: 17px; font-weight: 600;">Modell-Preise &amp; Details</h3>
+          <button type="button" class="rs-info-btn" onclick="document.getElementById('priceModal').classList.remove('open')" aria-label="Schließen">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="rs-modal__body">
+          <p class="rs-hint" style="margin: 0 0 16px;">Preise in USD pro 1 Mio. Tokens. Input/Output getrennt. Stand 2026-04, Richtwerte.</p>
+          <table class="rs-price-table">
+            <thead><tr><th>Modell</th><th>Anbieter</th><th>Kontext</th><th>Input</th><th>Output</th><th>Hinweise</th></tr></thead>
+            <tbody>
+              {% for id, c in council_models.items %}
+              <tr>
+                <td><strong>{{ c.name }}</strong><br><span class="rs-model-row__id">{{ id }}</span></td>
+                <td>{{ c.provider }}</td>
+                <td>{{ c.context }}</td>
+                <td>{% if c.pricing.0 == 0 %}<span style="color: var(--rs-success);">free</span>{% else %}${{ c.pricing.0|floatformat:2 }}{% endif %}</td>
+                <td>{% if c.pricing.1 == 0 %}<span style="color: var(--rs-success);">free</span>{% else %}${{ c.pricing.1|floatformat:2 }}{% endif %}</td>
+                <td class="rs-hint" style="font-size: 12px;">{{ c.notes }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="rs-hint" style="margin-top: 16px;">Typische Council-Anfrage: 500-1500 Input-Tokens, 500-1500 Output-Tokens. Eine Abfrage an alle 14 Modelle kostet grob geschätzt $0.05–$0.15 — dominiert von Opus/GPT/Grok.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<style>
+  select.form-select, select[name="primary_model"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--rs-border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--rs-ink);
+    background: var(--rs-surface);
+  }
+  input[type="number"] {
+    width: 120px;
+    padding: 10px 12px;
+    border: 1px solid var(--rs-border);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--rs-ink);
+  }
+  .rs-panel--disabled { opacity: 0.45; pointer-events: none; transition: opacity 0.2s ease; }
+
+  .rs-info-btn {
+    background: transparent; border: 1px solid var(--rs-border);
+    color: var(--rs-ink-soft); cursor: pointer;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .rs-info-btn:hover { border-color: var(--rs-accent); color: var(--rs-accent); background: var(--rs-accent-soft); }
+
+  .rs-model-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; color: var(--rs-ink-faint);
+    background: var(--rs-surface-soft);
+    padding: 2px 8px; border-radius: 6px;
+    margin-left: 8px;
+  }
+
+  .rs-modal {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 60px 20px 20px; z-index: 9999;
+    overflow-y: auto;
+  }
+  .rs-modal.open { display: flex; }
+  .rs-modal__box {
+    background: var(--rs-surface);
+    border-radius: 14px;
+    max-width: 900px; width: 100%;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+    overflow: hidden;
+  }
+  .rs-modal__head {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--rs-border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .rs-modal__body { padding: 20px 22px 24px; }
+
+  .rs-price-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rs-price-table th {
+    text-align: left; padding: 8px 10px;
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--rs-ink-faint); font-weight: 600;
+    border-bottom: 1px solid var(--rs-border);
+  }
+  .rs-price-table td {
+    padding: 10px; border-bottom: 1px solid var(--rs-border-soft);
+    vertical-align: top;
+  }
+  .rs-price-table td:nth-child(4), .rs-price-table td:nth-child(5) {
+    font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+  }
+</style>
+
+<script>
+(function() {
+  const form = document.getElementById('askForm');
+  const modeRadios = form.querySelectorAll('input[name="mode"]');
+  const panels = form.querySelectorAll('[data-needs]');
+
+  function applyMode() {
+    const selected = form.querySelector('input[name="mode"]:checked');
+    const mode = selected ? selected.value : 'rag';
+    panels.forEach(panel => {
+      const needs = panel.getAttribute('data-needs').split(/\s+/);
+      if (needs.includes(mode)) {
+        panel.classList.remove('rs-panel--disabled');
+      } else {
+        panel.classList.add('rs-panel--disabled');
+      }
+    });
+  }
+
+  modeRadios.forEach(r => r.addEventListener('change', applyMode));
+  applyMode();
+})();
+</script>
+
 {% endblock %}
