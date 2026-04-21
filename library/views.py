@@ -211,10 +211,31 @@ def collection_list(request):
 @login_required
 def collection_detail(request, pk):
     coll = get_object_or_404(Collection, pk=pk, owner=request.user)
-    refs = coll.references.all().order_by("-year", "title")
+    qs = coll.references.all()
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q) | Q(authors__icontains=q) |
+            Q(abstract__icontains=q) | Q(notes__icontains=q) |
+            Q(bibtex_key__icontains=q) | Q(tags__icontains=q)
+        )
+
+    status = request.GET.get("status", "")
+    if status:
+        qs = qs.filter(status=status)
+
+    qs = qs.order_by("-year", "title")
+
+    paginator = Paginator(qs, 25)
+    page = paginator.get_page(request.GET.get("page", 1))
+
     return render(request, "library/collection_detail.html", {
         "collection": coll,
-        "refs": refs,
+        "page": page,
+        "q": q,
+        "status": status,
+        "status_choices": Reference.STATUS_CHOICES,
     })
 
 
