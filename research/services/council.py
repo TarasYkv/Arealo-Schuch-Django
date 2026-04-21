@@ -430,7 +430,7 @@ def calculate_cost(model_id: str, tokens: dict) -> float:
            (tokens.get('output', 0) / 1_000_000) * pout
 
 
-def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
+def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1000,
               timeout: int = 120) -> dict:
     cfg = MODELS.get(model_id)
     if not cfg:
@@ -480,7 +480,7 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
 
 
 def ask_council(question: str, user, model_ids: list[str],
-                max_tokens: int = 1500, timeout: int = 120) -> dict:
+                max_tokens: int = 1000, timeout: int = 120) -> dict:
     """Parallel an alle Modelle. Gibt strukturierte Ergebnisliste zurück."""
     t0 = time.time()
     results: list[dict] = []

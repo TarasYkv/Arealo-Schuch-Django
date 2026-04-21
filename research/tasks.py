@@ -40,37 +40,34 @@ def execute_research_query(self, query_id: int):
         return '\n'.join(lines)
 
     def _validation_prompt(question, council_results, rag_sources):
+        # Token-Spar-Version: Council-Antworten werden auf 2500 Zeichen gekürzt
+        # (vorher 4000), RAG-Quellen auf 800 Zeichen (vorher 1500) — das spart
+        # ca. 40 % Input-Tokens bei gleichbleibender Synthesequalität, weil
+        # das Primär-Modell sowieso nur die Kernaussagen sucht.
         parts = [
-            'Du bist ein wissenschaftlicher Reviewer. Mehrere KI-Modelle haben',
-            'dieselbe Frage beantwortet. Dein Auftrag:',
+            'Reviewer-Rolle: Mehrere KI-Modelle haben die Frage beantwortet. '
+            'Analysiere (1) Konsens, (2) Streitpunkte, (3) fehlende Aspekte, '
+            'und (4) synthetisiere auf Deutsch in Markdown.',
             '',
-            '1. **Validieren:** Welche Aussagen sind konsistent (hohe Konfidenz)? '
-            'Welche widersprüchlich oder nur einzeln?',
-            '2. **Diskutieren:** Gewichte die Unterschiede. Welches Modell argumentiert '
-            'stärker, wo? Welche Aussagen sind plausibel, welche fraglich?',
-            '3. **Ergänzen:** Fehlt etwas Wichtiges? (RAG-Quellen als Faktencheck.)',
-            '4. **Synthetisieren:** Schreibe eine konsolidierte, wissenschaftlich '
-            'präzise Antwort auf Deutsch.',
+            f'FRAGE: {question}',
             '',
-            f'ORIGINALFRAGE:\n{question}',
-            '',
-            '=== ANTWORTEN DER MODELLE ===',
+            '=== MODELL-ANTWORTEN ===',
         ]
         for i, r in enumerate(council_results, 1):
             name = r.get('display', r.get('model'))
             if r.get('ok'):
                 text = (r.get('text') or '').strip()
-                parts.append(f'\n--- Modell {i}: {name} ---\n{text[:4000]}')
+                parts.append(f'\n[{i}] {name}:\n{text[:2500]}')
             else:
-                parts.append(f'\n--- Modell {i}: {name} — Fehler: {r.get("error")} ---')
+                parts.append(f'\n[{i}] {name} — Fehler: {r.get("error")}')
+        # Nur Top-4 RAG-Quellen reingeben — Qdrant sortiert nach Score
         if rag_sources:
-            parts.append('\n\n=== RAG-QUELLEN ===')
-            for s in rag_sources:
-                parts.append(f'\n[{s.idx}] {s.authors} ({s.year}). {s.title}\n{s.text[:1500]}')
+            parts.append('\n\n=== RAG-QUELLEN (Faktencheck) ===')
+            for s in rag_sources[:4]:
+                parts.append(f'\n[{s.idx}] {s.authors} ({s.year}). {s.title}\n{s.text[:800]}')
         parts.append(
-            '\n\nFormatiere die Antwort in Markdown mit: '
-            '1. **Konsens**, 2. **Streitpunkte**, 3. **Ergänzung**, '
-            '4. **Konsolidierte Antwort**.'
+            '\n\nAntwort-Struktur: **Konsens** / **Streitpunkte** / '
+            '**Ergänzung** / **Konsolidierte Antwort**.'
         )
         return '\n'.join(parts)
 
@@ -133,7 +130,7 @@ def execute_research_query(self, query_id: int):
             rq.sources = [s.as_dict() for s in sources]
             validation_prompt = _validation_prompt(rq.question, cres['results'], sources)
             val_res = council_service._call_one(
-                primary, validation_prompt, user, max_tokens=2500, timeout=300)
+                primary, validation_prompt, user, max_tokens=1800, timeout=300)
             if val_res.get('ok'):
                 rq.answer = val_res['text']
             else:
