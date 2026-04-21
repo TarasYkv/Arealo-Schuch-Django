@@ -1,7 +1,9 @@
-"""RAG-Service: Qdrant-Suche + Claude Opus Synthese.
+"""RAG-Service: Qdrant-Suche + LLM-Synthese (via OpenRouter).
 
-Nutzt die lokale Qdrant-Instanz (127.0.0.1:6333) und den Anthropic-API-Key
-aus dem User-Profil (accounts.CustomUser.anthropic_api_key) oder dem .env.
+Nutzt die lokale Qdrant-Instanz (127.0.0.1:6333) und den OpenRouter-API-Key
+aus dem User-Profil (accounts.CustomUser.openrouter_api_key). Alle Modelle
+— inkl. Claude Opus/Sonnet — werden über die OpenRouter-Route angesprochen,
+damit der User nur einen einzigen Key benötigt.
 """
 from __future__ import annotations
 
@@ -118,18 +120,12 @@ def _lookup_references(filenames: set[str]) -> dict[str, int]:
     return result
 
 
-def _get_anthropic_key(user) -> str | None:
-    """NUR User-Profil, kein Env-Fallback (siehe council._get_api_key)."""
-    if user and hasattr(user, 'anthropic_api_key') and user.anthropic_api_key:
-        return user.anthropic_api_key.strip()
-    return None
-
-
-def synthesize(question: str, sources: list[Source], api_key: str,
-               model: str = 'claude-opus-4-7',
+def synthesize(question: str, sources: list[Source],
+               openrouter_model: str, api_key: str,
                max_tokens: int = 1500) -> tuple[str, dict]:
-    """Schicke Frage + Quellen an Claude, gib (Antwort, Token-Usage) zurück."""
-    import anthropic
+    """Schicke Frage + Quellen via OpenRouter an ein LLM, gib (Antwort, Usage) zurück."""
+    import json
+    import urllib.request
 
     ctx_lines = []
     for s in sources:
@@ -137,38 +133,53 @@ def synthesize(question: str, sources: list[Source], api_key: str,
         ctx_lines.append(f"--- Quelle {s.idx} ---\n{cite}\nDatei: {s.filename}\n\n{s.text}\n")
     context = "\n".join(ctx_lines)
 
-    client = anthropic.Anthropic(api_key=api_key)
-    resp = client.messages.create(
-        model=model, max_tokens=max_tokens,
-        system=SYS_PROMPT_RAG,
-        messages=[{
-            'role': 'user',
-            'content': f'FRAGE:\n{question}\n\nQUELLEN:\n{context}',
-        }],
-    )
-    tokens = {
-        'input': getattr(resp.usage, 'input_tokens', 0) or 0,
-        'output': getattr(resp.usage, 'output_tokens', 0) or 0,
+    payload = {
+        'model': openrouter_model,
+        'messages': [
+            {'role': 'system', 'content': SYS_PROMPT_RAG},
+            {'role': 'user', 'content': f'FRAGE:\n{question}\n\nQUELLEN:\n{context}'},
+        ],
+        'max_tokens': max_tokens,
     }
-    return resp.content[0].text, tokens
+    req = urllib.request.Request(
+        'https://openrouter.ai/api/v1/chat/completions',
+        method='POST',
+        data=json.dumps(payload).encode(),
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {api_key}',
+        },
+    )
+    with urllib.request.urlopen(req, timeout=180) as r:
+        body = json.loads(r.read())
+    text = body['choices'][0]['message']['content']
+    usage = body.get('usage', {})
+    tokens = {
+        'input': int(usage.get('prompt_tokens', 0)),
+        'output': int(usage.get('completion_tokens', 0)),
+    }
+    return text, tokens
 
 
 def ask_rag(question: str, user, top_k: int = 6,
-            model: str = 'claude-opus-4-7',
+            model: str = 'anthropic/claude-opus-4.7',
             model_id: str = 'opus') -> dict:
-    """End-to-end: Frage → Sources → Antwort. Wirft bei Fehler."""
+    """End-to-end: Frage → Sources → Antwort (via OpenRouter). Wirft bei Fehler."""
     from .council import calculate_cost
 
     t0 = time.time()
-    api_key = _get_anthropic_key(user)
+    api_key = None
+    if user and getattr(user, 'openrouter_api_key', None):
+        api_key = user.openrouter_api_key.strip() or None
     if not api_key:
         raise RuntimeError(
-            'Kein Anthropic-API-Key hinterlegt. Trage deinen eigenen Key unter '
-            '/research/keys/ ein. (Kein Fallback aus der Server-Konfiguration.)')
+            'Kein OpenRouter-API-Key hinterlegt. Hole einen unter '
+            'https://openrouter.ai/keys und trage ihn unter /research/keys/ ein. '
+            '(Alle Modelle in dieser App laufen über OpenRouter.)')
     sources = retrieve(question, top_k=top_k)
     if not sources:
         raise RuntimeError('Keine Treffer in der Bibliothek. Index leer?')
-    answer, tokens = synthesize(question, sources, api_key, model=model)
+    answer, tokens = synthesize(question, sources, model, api_key)
     cost = calculate_cost(model_id, tokens)
     return {
         'answer': answer,

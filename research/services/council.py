@@ -60,15 +60,15 @@ PROVIDERS: dict[str, dict] = {
 # Anbieter/Route; Details: https://openrouter.ai/models, https://anthropic.com/pricing
 MODELS = {
     'opus': {
-        'name': 'Claude Opus 4.7', 'provider': 'anthropic', 'model': 'claude-opus-4-7',
-        'pricing': (15.00, 75.00), 'context': '1M',
+        'name': 'Claude Opus 4.7', 'provider': 'openrouter', 'model': 'anthropic/claude-opus-4.7',
+        'pricing': (5.00, 25.00), 'context': '1M',
         'origin': 'Anthropic (USA, gegr. 2021 von Ex-OpenAI-Forschern). In San Francisco entwickelt, betont Sicherheit und interpretierbares Alignment.',
         'strengths': 'Bester Schreibstil und Kohärenz, exzellentes Deutsch, starke Reasoning-Kette, sehr gute Kontext-Nutzung über 1M Tokens, ehrlich über Unsicherheit.',
         'weaknesses': 'Teuerstes Modell, höhere Latenz, hin und wieder übervorsichtig bei kontroversen Themen.',
         'notes': 'Flaggschiff — gut als Primär-Modell für endgültige Synthesen.'
     },
     'sonnet': {
-        'name': 'Claude Sonnet 4.6', 'provider': 'anthropic', 'model': 'claude-sonnet-4-6',
+        'name': 'Claude Sonnet 4.6', 'provider': 'openrouter', 'model': 'anthropic/claude-sonnet-4.6',
         'pricing': (3.00, 15.00), 'context': '200k',
         'origin': 'Anthropic (USA). Mittlere Modellgröße der Claude-Familie.',
         'strengths': 'Sehr gutes Preis-/Leistungsverhältnis, solider Allrounder, schnell, qualitativ nah an Opus bei vielen Aufgaben.',
@@ -76,7 +76,7 @@ MODELS = {
         'notes': 'Guter Default für Alltags-Queries.'
     },
     'haiku': {
-        'name': 'Claude Haiku 4.5', 'provider': 'anthropic', 'model': 'claude-haiku-4-5-20251001',
+        'name': 'Claude Haiku 4.5', 'provider': 'openrouter', 'model': 'anthropic/claude-haiku-4.5',
         'pricing': (1.00, 5.00), 'context': '200k',
         'origin': 'Anthropic (USA). Kleinstes Modell der Claude-Familie.',
         'strengths': 'Sehr schnell, günstig, gut für Zusammenfassungen, Klassifikation, einfache Extraktion.',
@@ -85,15 +85,15 @@ MODELS = {
     },
     'gpt': {
         'name': 'GPT-5.4', 'provider': 'openrouter', 'model': 'openai/gpt-5.4',
-        'pricing': (5.00, 15.00), 'context': '400k',
+        'pricing': (2.50, 15.00), 'context': '400k',
         'origin': 'OpenAI (USA, gegr. 2015). Microsoft-finanziert, dominiert seit 2022 den LLM-Markt.',
         'strengths': 'Sehr starkes mathematisches + statistisches Reasoning, gute Code-Qualität, breites Weltwissen.',
         'weaknesses': 'Schreibstil wirkt formelhafter als Claude; Zitate + Quellen werden häufiger fantasiert.',
         'notes': 'Gut als Gegenstimme zu Claude.'
     },
     'gemini': {
-        'name': 'Gemini 3.1 Pro', 'provider': 'gemini', 'model': 'gemini-3.1-pro-preview',
-        'pricing': (1.25, 10.00), 'context': '2M',
+        'name': 'Gemini 3.1 Pro', 'provider': 'openrouter', 'model': 'google/gemini-3.1-pro-preview',
+        'pricing': (2.00, 12.00), 'context': '2M',
         'origin': 'Google DeepMind (UK/USA). Direkter Zugriff auf Google-Infrastruktur und Google Scholar.',
         'strengths': 'Größtes Kontextfenster (2M) — liest ganze Buchkapitel auf einmal; gute multimodale Fähigkeiten (Bilder/PDFs).',
         'weaknesses': 'Deutsch etwas schwächer, manchmal repetitiv; Antworten bei kontroversen Themen oft ausweichend.',
@@ -101,31 +101,31 @@ MODELS = {
     },
     'grok': {
         'name': 'Grok 4.20', 'provider': 'openrouter', 'model': 'x-ai/grok-4.20',
-        'pricing': (3.00, 15.00), 'context': '256k',
+        'pricing': (2.00, 6.00), 'context': '256k',
         'origin': 'xAI (USA, 2023 von Elon Musk gegründet). Trainiert teilweise auf X-Daten.',
         'strengths': 'Gute allgemeine Reasoning-Qualität, weniger zensorisch als Konkurrenten, aktuelle Ereignisse.',
         'weaknesses': 'Jüngstes Ökosystem, Tools teils unausgereift; kann gelegentlich überzogen provokant antworten.',
         'notes': 'Nützlich für Perspektiven außerhalb des Mainstream-Konsens.'
     },
     'deepseek': {
-        'name': 'DeepSeek Reasoner', 'provider': 'deepseek', 'model': 'deepseek-reasoner',
-        'pricing': (0.55, 2.19), 'context': '128k',
+        'name': 'DeepSeek R1', 'provider': 'openrouter', 'model': 'deepseek/deepseek-r1',
+        'pricing': (0.70, 2.50), 'context': '128k',
         'origin': 'DeepSeek (China, Hangzhou, 2023). Open-Weight-Modell, kostengünstig trainiert, 2025 viel Medienecho.',
         'strengths': 'Sehr günstig bei starker Reasoning-Qualität, gute Mathe/Code/Logik, Open-Weight (lokal hostbar).',
         'weaknesses': 'Deutsch ordentlich aber nicht exzellent; chinesischer Trainingsbias bei politischen Themen.',
         'notes': 'Bestes Preis-/Leistungsverhältnis im Council.'
     },
     'glm': {
-        'name': 'GLM 5.1', 'provider': 'zhipu', 'model': 'glm-5.1',
-        'pricing': (0.20, 1.10), 'context': '128k',
+        'name': 'GLM 5.1', 'provider': 'openrouter', 'model': 'z-ai/glm-5.1',
+        'pricing': (0.70, 4.40), 'context': '128k',
         'origin': 'Zhipu AI (China, Peking, aus Tsinghua-Uni ausgegründet). Enger Partner der chin. KI-Strategie.',
         'strengths': 'Extrem günstig, sehr schnell, solide Gesamtqualität, oft unterschätzt.',
         'weaknesses': 'Deutsch gelegentlich holprig; kulturelle Bias wie bei allen chin. Modellen; Instruction-Following weniger strikt.',
         'notes': 'Guter Low-Cost-Baustein im Council.'
     },
     'kimi': {
-        'name': 'Kimi K2', 'provider': 'openrouter', 'model': 'moonshotai/kimi-k2-instruct',
-        'pricing': (0.60, 2.50), 'context': '200k',
+        'name': 'Kimi K2.6', 'provider': 'openrouter', 'model': 'moonshotai/kimi-k2.6',
+        'pricing': (0.60, 2.80), 'context': '200k',
         'origin': 'Moonshot AI (China, Peking, 2023). Bekannt für lange Kontexte und kreatives Schreiben.',
         'strengths': 'Gut bei langen Dokumenten, guter Schreibstil, günstig.',
         'weaknesses': 'Instruction-Following manchmal ungenau; weniger technisch-präzise als DeepSeek.',
@@ -133,15 +133,15 @@ MODELS = {
     },
     'qwen': {
         'name': 'Qwen 3.6 Plus', 'provider': 'openrouter', 'model': 'qwen/qwen3.6-plus',
-        'pricing': (0.40, 1.20), 'context': '128k',
+        'pricing': (0.33, 1.95), 'context': '128k',
         'origin': 'Alibaba Cloud (China). Eigene Foundation-Model-Familie, Open-Weight-Varianten verfügbar.',
         'strengths': 'Extrem stark multilingual (auch Deutsch), gute Code-Qualität, günstig.',
         'weaknesses': 'Reasoning etwas flach bei sehr komplexen Fachthemen; ab und zu übersichtlich-oberflächlich.',
         'notes': 'Guter Kandidat, wenn Nicht-Englisch-Qualität zählt.'
     },
     'mistral': {
-        'name': 'Mistral Large 3', 'provider': 'openrouter', 'model': 'mistralai/mistral-large-3-675b-instruct-2512',
-        'pricing': (2.00, 6.00), 'context': '128k',
+        'name': 'Mistral Large 2512', 'provider': 'openrouter', 'model': 'mistralai/mistral-large-2512',
+        'pricing': (0.50, 1.50), 'context': '128k',
         'origin': 'Mistral AI (Frankreich, Paris, 2023). Einziger ernstzunehmender europäischer Anbieter.',
         'strengths': 'DSGVO-konforme Variante verfügbar, guter Schreibstil, starke Mehrsprachigkeit (inkl. Deutsch/Französisch).',
         'weaknesses': 'Bei tiefem Reasoning hinter Opus/GPT; kleineres Ökosystem.',
@@ -149,7 +149,7 @@ MODELS = {
     },
     'minimax': {
         'name': 'MiniMax M2.7', 'provider': 'openrouter', 'model': 'minimax/minimax-m2.7',
-        'pricing': (0.50, 2.00), 'context': '128k',
+        'pricing': (0.30, 1.20), 'context': '128k',
         'origin': 'MiniMax (China, Shanghai, 2021). Fokus auf multimodale Agenten + Consumer-Apps (Talkie).',
         'strengths': 'Schnell, günstig, solide allgemeine Qualität, gute Dialog-Fähigkeiten.',
         'weaknesses': 'Wissenschaftliches Reasoning nicht auf Top-Niveau; Ausgaben manchmal kurz.',
@@ -165,11 +165,19 @@ MODELS = {
     },
     'mercury': {
         'name': 'Mercury 2', 'provider': 'openrouter', 'model': 'inception/mercury-2',
-        'pricing': (0.50, 2.00), 'context': '32k',
+        'pricing': (0.25, 0.75), 'context': '32k',
         'origin': 'Inception Labs (USA, 2024). Forscht an Diffusion-Sprachmodellen — grundlegend andere Architektur als klassische Transformer.',
         'strengths': 'Extrem schnell (Diffusion-Decoding), interessante alternative Architektur.',
         'weaknesses': 'Kleineres Kontextfenster, noch weniger Robustheit bei Fachthemen; experimenteller Status.',
         'notes': 'Zum Benchmarking — liefert oft auffallend andere Formulierungen.'
+    },
+    'glm_air_free': {
+        'name': 'GLM 4.5 Air (free)', 'provider': 'openrouter', 'model': 'z-ai/glm-4.5-air:free',
+        'pricing': (0.00, 0.00), 'context': '128k',
+        'origin': 'Zhipu AI (China). „Air"-Variante — leichtgewichtig, als Free-Tier über OpenRouter verfügbar.',
+        'strengths': 'KOSTENLOS (rate-limited), schnell, solide Qualität für einfache Aufgaben.',
+        'weaknesses': 'Rate-Limits, kein hochkomplexes Reasoning, möglicherweise kleinere Parameterzahl.',
+        'notes': 'Kostenneutrale Zusatzperspektive neben Nemotron.'
     },
 }
 
@@ -203,27 +211,22 @@ USER_KEY_FIELDS = {
 
 
 def _get_api_key(user, provider_id: str) -> str | None:
-    """Key-Resolver: NUR User-Profil. Kein Env-Fallback — wir wollen, dass jeder
-    User seinen eigenen Key einträgt (Kostenzuordnung, Kontingent, Nachvollziehbarkeit)."""
-    candidates: list[str] = []
-    if provider_id == 'gemini':
-        candidates = ['gemini_api_key', 'google_api_key']
-    else:
-        field = USER_KEY_FIELDS.get(provider_id)
-        if field:
-            candidates = [field]
-    for field in candidates:
-        if user and getattr(user, field, None):
-            val = getattr(user, field)
-            if val and val.strip():
-                return val.strip()
+    """Key-Resolver: NUR User-Profil. Kein Env-Fallback."""
+    field = USER_KEY_FIELDS.get(provider_id)
+    if field and user and getattr(user, field, None):
+        val = getattr(user, field)
+        if val and val.strip():
+            return val.strip()
     return None
 
 
 def _missing_key_msg(provider_id: str) -> str:
-    cfg = PROVIDERS.get(provider_id, {})
+    if provider_id == 'openrouter':
+        return ('Kein OpenRouter-API-Key hinterlegt. Hole dir einen unter '
+                'https://openrouter.ai/keys und trage ihn unter /research/keys/ ein. '
+                '(Alle Modelle in dieser App laufen über OpenRouter.)')
     return (f'Kein {provider_id}-API-Key hinterlegt. Trage deinen eigenen Key '
-            f'unter /research/keys/ ein. (Kein Fallback aus der Server-Konfiguration.)')
+            f'unter /research/keys/ ein.')
 
 
 # (obsolet, durch obige Implementierung ersetzt)
