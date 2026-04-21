@@ -15,4 +15,5 @@ urlpatterns = [
     path("collections/add/", views.collection_add, name="collection_add"),
     path("collections/<int:pk>/", views.collection_detail, name="collection_detail"),
     path("zotero/", views.zotero_settings, name="zotero_settings"),
+    path("zotero/sync/", views.zotero_sync_now, name="zotero_sync_now"),
 ]
