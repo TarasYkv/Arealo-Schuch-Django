@@ -174,7 +174,7 @@ def ask_rag(question: str, user, top_k: int = 6,
     if not api_key:
         raise RuntimeError(
             'Kein OpenRouter-API-Key hinterlegt. Hole einen unter '
-            'https://openrouter.ai/keys und trage ihn unter /research/keys/ ein. '
+            'https://openrouter.ai/keys und trage ihn unter /accounts/neue-api-einstellungen/ ein. '
             '(Alle Modelle in dieser App laufen über OpenRouter.)')
     sources = retrieve(question, top_k=top_k)
     if not sources:

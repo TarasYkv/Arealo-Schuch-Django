@@ -1,31 +1,6 @@
 from django import forms
-from django.contrib.auth import get_user_model
 
 from .services.council import MODELS as COUNCIL_MODELS
-
-
-User = get_user_model()
-
-
-PROVIDER_KEY_FIELDS = [
-    ('openrouter_api_key',
-        'OpenRouter — deckt ALLE Modelle ab (Claude, GPT, Gemini, Grok, DeepSeek, GLM, …)',
-        'sk-or-v1-...', 'https://openrouter.ai/keys'),
-]
-
-
-class ApiKeyForm(forms.ModelForm):
-    class Meta:
-        model = User
-        fields = [f[0] for f in PROVIDER_KEY_FIELDS]
-        widgets = {
-            f[0]: forms.TextInput(attrs={
-                'class': 'rs-input',
-                'placeholder': f[2],
-                'autocomplete': 'off',
-            })
-            for f in PROVIDER_KEY_FIELDS
-        }
 
 
 MODE_CHOICES = (
