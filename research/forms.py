@@ -8,18 +8,9 @@ User = get_user_model()
 
 
 PROVIDER_KEY_FIELDS = [
-    ('anthropic_api_key', 'Anthropic (Opus, Sonnet, Haiku)',
-        'sk-ant-api03-...', 'https://console.anthropic.com/settings/keys'),
-    ('openrouter_api_key', 'OpenRouter (GPT, Grok, Kimi, Qwen, Nemotron, Mercury, Mistral, Minimax)',
+    ('openrouter_api_key',
+        'OpenRouter — deckt ALLE Modelle ab (Claude, GPT, Gemini, Grok, DeepSeek, GLM, …)',
         'sk-or-v1-...', 'https://openrouter.ai/keys'),
-    ('gemini_api_key', 'Google Gemini',
-        'AIza...', 'https://aistudio.google.com/apikey'),
-    ('deepseek_api_key', 'DeepSeek',
-        'sk-...', 'https://platform.deepseek.com/api_keys'),
-    ('zhipu_api_key', 'Zhipu / GLM',
-        '...', 'https://open.bigmodel.cn/usercenter/apikeys'),
-    ('openai_api_key', 'OpenAI (für direkt, falls vorhanden)',
-        'sk-...', 'https://platform.openai.com/api-keys'),
 ]
 
 
