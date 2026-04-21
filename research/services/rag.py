@@ -127,7 +127,7 @@ def _get_anthropic_key(user) -> str | None:
 
 
 def synthesize(question: str, sources: list[Source], api_key: str,
-               model: str = 'claude-opus-4-5-20250929',
+               model: str = 'claude-opus-4-7',
                max_tokens: int = 1500) -> str:
     """Schicke Frage + Quellen an Claude, gib die generierte Antwort zurück."""
     import anthropic
@@ -151,7 +151,7 @@ def synthesize(question: str, sources: list[Source], api_key: str,
 
 
 def ask_rag(question: str, user, top_k: int = 6,
-            model: str = 'claude-opus-4-5-20250929') -> dict:
+            model: str = 'claude-opus-4-7') -> dict:
     """End-to-end: Frage → Sources → Antwort. Wirft bei Fehler."""
     t0 = time.time()
     api_key = _get_anthropic_key(user)

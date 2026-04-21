@@ -57,7 +57,7 @@ def _execute_ask(request, form):
     )
     try:
         if mode == 'rag':
-            primary_model_name = council_service.MODELS.get(primary, ('', '', 'claude-opus-4-5-20250929'))[2]
+            primary_model_name = council_service.MODELS.get(primary, ('', '', 'claude-opus-4-7'))[2]
             res = rag_service.ask_rag(question, request.user, top_k=top_k,
                                       model=primary_model_name)
             rq.answer = res['answer']
@@ -74,7 +74,7 @@ def _execute_ask(request, form):
             # Antwort: eine zusammengesetzte Übersicht, damit die Detailseite lesbar ist
             rq.answer = _format_council_summary(res['results'])
         elif mode == 'hybrid':
-            primary_model_name = council_service.MODELS.get(primary, ('', '', 'claude-opus-4-5-20250929'))[2]
+            primary_model_name = council_service.MODELS.get(primary, ('', '', 'claude-opus-4-7'))[2]
             # Erst RAG, dann Council mit eingebundenem Kontext
             rag_res = rag_service.ask_rag(question, request.user, top_k=top_k,
                                           model=primary_model_name)

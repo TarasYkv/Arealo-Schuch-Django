@@ -56,8 +56,8 @@ PROVIDERS: dict[str, dict] = {
 
 # Verfügbare Modelle (id → (Anzeigename, Provider, Modell-Identifier))
 MODELS = {
-    'opus':     ('Claude Opus 4.7',        'anthropic',  'claude-opus-4-5-20250929'),
-    'sonnet':   ('Claude Sonnet 4.5',      'anthropic',  'claude-sonnet-4-5-20250929'),
+    'opus':     ('Claude Opus 4.7',        'anthropic',  'claude-opus-4-7'),
+    'sonnet':   ('Claude Sonnet 4.6',      'anthropic',  'claude-sonnet-4-6'),
     'haiku':    ('Claude Haiku 4.5',       'anthropic',  'claude-haiku-4-5-20251001'),
     'gpt':      ('GPT-5.4',                'openrouter', 'openai/gpt-5.4'),
     'gemini':   ('Gemini 3.1 Pro',         'gemini',     'gemini-3.1-pro-preview'),
