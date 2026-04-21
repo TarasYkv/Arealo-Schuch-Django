@@ -256,6 +256,42 @@ def collection_add(request):
 
 
 @login_required
+def export_bibtex(request):
+    """Gibt alle Referenzen des Users als BibTeX-Datei zum Download."""
+    from .management.commands.export_bibtex import to_bibtex
+    refs = Reference.objects.filter(owner=request.user).order_by("year", "bibtex_key")
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        refs = refs.filter(
+            Q(title__icontains=q) | Q(authors__icontains=q) |
+            Q(tags__icontains=q) | Q(bibtex_key__icontains=q))
+
+    coll = request.GET.get("collection", "")
+    if coll:
+        refs = refs.filter(collection_id=coll)
+
+    lines = [
+        "% =============================================",
+        f"% BibTeX-Export aus Workloom-Library",
+        f"% User: {request.user.username}",
+        f"% Anzahl: {refs.count()} Einträge",
+        f"% Datum: {timezone.now().strftime('%Y-%m-%d %H:%M')}",
+        "% Import in Zotero: File → Import → Auswahl dieser Datei",
+        "% =============================================",
+        "",
+    ]
+    for r in refs:
+        lines.append(to_bibtex(r))
+        lines.append("")
+
+    response = HttpResponse("\n".join(lines), content_type="application/x-bibtex")
+    response["Content-Disposition"] = (
+        f'attachment; filename="workloom_library_{timezone.now():%Y%m%d}.bib"')
+    return response
+
+
+@login_required
 @require_http_methods(["POST"])
 def zotero_sync_now(request):
     try:

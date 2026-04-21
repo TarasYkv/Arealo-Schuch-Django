@@ -86,17 +86,48 @@ def make_bibkey(item_data: dict, zotero_key: str) -> str:
     return (f"{first or 'ref'}{year}{slug}")[:60] or f"zot{zotero_key}"
 
 
+def _fetch_zotero_collections(prefix: str, api_key: str) -> dict:
+    """Holt Collections aus Zotero API → Map zotero_key → {name, parent}."""
+    url = f"{BASE_URL}{prefix}/collections?limit=100"
+    collections = {}
+    while url:
+        data, _, link = _api_get(url, api_key)
+        for c in data:
+            key = c.get("key")
+            cd = c.get("data", {})
+            collections[key] = {
+                "name": cd.get("name", "Unbenannt"),
+                "parent": cd.get("parentCollection", False) or None,
+            }
+        url = _next_url(link)
+    return collections
+
+
+def _ensure_workloom_collection(owner, name, zotero_key, cache):
+    """Idempotent Collection anlegen/holen, Cache zur Vermeidung doppelter Queries."""
+    if zotero_key in cache:
+        return cache[zotero_key]
+    coll, _ = Collection.objects.update_or_create(
+        owner=owner, name=name[:200],
+        defaults={"zotero_key": zotero_key, "color": "#cc2936"})
+    cache[zotero_key] = coll
+    return coll
+
+
 def sync_account(account: ZoteroAccount, collection_name="Zotero-Sync") -> dict:
-    """Synchronisiert eine Zotero-Bibliothek in Workloom-Library."""
+    """Synchronisiert eine Zotero-Bibliothek in Workloom-Library (mit Collections-Mapping)."""
     if account.library_type == "users":
         prefix = f"/users/{account.user_id}"
     else:
         prefix = f"/groups/{account.group_id or account.user_id}"
 
-    coll, _ = Collection.objects.get_or_create(
+    default_coll, _ = Collection.objects.get_or_create(
         owner=account.owner, name=collection_name,
         defaults={"description": "Automatisch aus Zotero synchronisiert",
                   "color": "#cc2936"})
+
+    zotero_colls = _fetch_zotero_collections(prefix, account.api_key)
+    coll_cache = {None: default_coll}
 
     url = f"{BASE_URL}{prefix}/items?format=json&limit=100&itemType=-attachment||note"
     created, updated, skipped = 0, 0, 0
@@ -112,7 +143,18 @@ def sync_account(account: ZoteroAccount, collection_name="Zotero-Sync") -> dict:
                 continue
             zotero_key = data.get("key", "")
             bibkey = make_bibkey(data, zotero_key)
-            defaults = zotero_item_to_defaults(data, account.owner, coll)
+
+            # Collection-Mapping: erste Zotero-Collection wird die Library-Collection
+            item_colls = data.get("collections", [])
+            target_coll = default_coll
+            if item_colls:
+                first_zcoll = item_colls[0]
+                zc_info = zotero_colls.get(first_zcoll)
+                if zc_info:
+                    target_coll = _ensure_workloom_collection(
+                        account.owner, zc_info["name"], first_zcoll, coll_cache)
+
+            defaults = zotero_item_to_defaults(data, account.owner, target_coll)
             defaults["zotero_key"] = zotero_key
             defaults["last_synced"] = timezone.now()
 
