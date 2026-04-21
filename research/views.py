@@ -262,4 +262,135 @@ def history(request):
     return render(request, 'research/history.html', {'page': page})
 
 
+@login_required
+def stats(request):
+    """Verbrauchsstatistik: Pro Modell + Pro Tag, einstellbarer Zeitraum."""
+    from datetime import timedelta, datetime, date
+    from collections import defaultdict
+
+    # Zeitraum — GET-Parameter `range` in (today, 7d, 30d, 90d, all, custom)
+    today = timezone.localdate()
+    rng = request.GET.get('range', '30d')
+    since = None
+    until = None
+    if rng == 'today':
+        since = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+    elif rng == '7d':
+        since = timezone.now() - timedelta(days=7)
+    elif rng == '30d':
+        since = timezone.now() - timedelta(days=30)
+    elif rng == '90d':
+        since = timezone.now() - timedelta(days=90)
+    elif rng == 'custom':
+        s = request.GET.get('since')
+        u = request.GET.get('until')
+        if s:
+            try:
+                since = timezone.make_aware(datetime.strptime(s, '%Y-%m-%d'))
+            except ValueError:
+                since = None
+        if u:
+            try:
+                until = timezone.make_aware(datetime.strptime(u, '%Y-%m-%d') + timedelta(days=1))
+            except ValueError:
+                until = None
+
+    queries_qs = ResearchQuery.objects.filter(owner=request.user, status='done')
+    if since:
+        queries_qs = queries_qs.filter(created_at__gte=since)
+    if until:
+        queries_qs = queries_qs.filter(created_at__lt=until)
+
+    # Aggregations
+    per_model = defaultdict(lambda: {'queries': 0, 'input_tokens': 0,
+                                     'output_tokens': 0, 'cost': 0.0})
+    per_day = defaultdict(lambda: {'cost': 0.0, 'queries': 0})
+    total_cost = 0.0
+    total_queries = 0
+    total_input = 0
+    total_output = 0
+
+    for q in queries_qs.iterator():
+        total_queries += 1
+        total_cost += float(q.total_cost_usd or 0)
+        d = timezone.localtime(q.created_at).date().isoformat()
+        per_day[d]['queries'] += 1
+        per_day[d]['cost'] += float(q.total_cost_usd or 0)
+
+        rr = q.raw_responses or {}
+        # RAG-Antworten
+        if 'rag' in rr and isinstance(rr['rag'], dict):
+            m = rr['rag'].get('model', '?')
+            t = rr['rag'].get('tokens', {}) or {}
+            c = float(rr['rag'].get('cost_usd') or 0)
+            per_model[m]['queries'] += 1
+            per_model[m]['input_tokens'] += int(t.get('input', 0) or 0)
+            per_model[m]['output_tokens'] += int(t.get('output', 0) or 0)
+            per_model[m]['cost'] += c
+            total_input += int(t.get('input', 0) or 0)
+            total_output += int(t.get('output', 0) or 0)
+        # Primär-Validierung (Hybrid)
+        if 'primary_validation' in rr and isinstance(rr['primary_validation'], dict):
+            pv = rr['primary_validation']
+            m = pv.get('model', '?')
+            t = pv.get('tokens', {}) or {}
+            c = float(pv.get('cost_usd') or 0)
+            per_model[m]['queries'] += 1
+            per_model[m]['input_tokens'] += int(t.get('input', 0) or 0)
+            per_model[m]['output_tokens'] += int(t.get('output', 0) or 0)
+            per_model[m]['cost'] += c
+            total_input += int(t.get('input', 0) or 0)
+            total_output += int(t.get('output', 0) or 0)
+        # Council
+        for r in rr.get('council', []) or []:
+            if not isinstance(r, dict):
+                continue
+            m = r.get('model', '?')
+            t = r.get('tokens', {}) or {}
+            c = float(r.get('cost_usd') or 0)
+            per_model[m]['queries'] += 1
+            per_model[m]['input_tokens'] += int(t.get('input', 0) or 0)
+            per_model[m]['output_tokens'] += int(t.get('output', 0) or 0)
+            per_model[m]['cost'] += c
+            total_input += int(t.get('input', 0) or 0)
+            total_output += int(t.get('output', 0) or 0)
+
+    # Prepare sorted list for template
+    model_rows = []
+    for mid, d in per_model.items():
+        cfg = council_service.MODELS.get(mid)
+        display = cfg['name'] if cfg else mid
+        provider = cfg['provider'] if cfg else '—'
+        model_rows.append({
+            'id': mid,
+            'display': display,
+            'provider': provider,
+            'queries': d['queries'],
+            'input_tokens': d['input_tokens'],
+            'output_tokens': d['output_tokens'],
+            'cost': d['cost'],
+            'cost_share': (d['cost'] / total_cost * 100) if total_cost else 0,
+        })
+    model_rows.sort(key=lambda r: r['cost'], reverse=True)
+
+    # Prepare day-series for sparkline (chronological)
+    day_series = sorted(per_day.items())
+    max_day_cost = max((v['cost'] for _, v in day_series), default=0.0) or 1
+
+    return render(request, 'research/stats.html', {
+        'rng': rng,
+        'since': since,
+        'until': until,
+        'total_cost': total_cost,
+        'total_queries': total_queries,
+        'total_input': total_input,
+        'total_output': total_output,
+        'model_rows': model_rows,
+        'day_series': day_series,
+        'max_day_cost': max_day_cost,
+        'custom_since': request.GET.get('since', ''),
+        'custom_until': request.GET.get('until', ''),
+    })
+
+
 # api_keys-View entfernt: wird zentral unter /accounts/neue-api-einstellungen/ verwaltet.

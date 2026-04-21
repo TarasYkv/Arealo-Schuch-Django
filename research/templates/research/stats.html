@@ -1,0 +1,197 @@
+{% extends 'research/base.html' %}
+{% load humanize %}
+
+{% block research_content %}
+
+<div class="rs-hero">
+  <div>
+    <h1 class="rs-hero__title">Verbrauchsstatistik</h1>
+    <p class="rs-hero__sub">Kosten pro Modell und pro Tag. Einstellbarer Zeitraum. Alle Werte sind USD, pro User (deine eigenen Queries).</p>
+  </div>
+  <div class="rs-hero__actions">
+    <a href="{% url 'research:ask' %}" class="rs-btn rs-btn--primary">
+      <i class="fas fa-plus"></i> Neue Frage
+    </a>
+    <a href="{% url 'research:dashboard' %}" class="rs-btn rs-btn--ghost">
+      <i class="fas fa-arrow-left"></i> Dashboard
+    </a>
+  </div>
+</div>
+
+<form method="get" class="rs-range-bar">
+  <div class="rs-range-group">
+    <button type="submit" name="range" value="today" class="rs-range-btn {% if rng == 'today' %}rs-range-btn--active{% endif %}">Heute</button>
+    <button type="submit" name="range" value="7d"    class="rs-range-btn {% if rng == '7d' %}rs-range-btn--active{% endif %}">7 Tage</button>
+    <button type="submit" name="range" value="30d"   class="rs-range-btn {% if rng == '30d' %}rs-range-btn--active{% endif %}">30 Tage</button>
+    <button type="submit" name="range" value="90d"   class="rs-range-btn {% if rng == '90d' %}rs-range-btn--active{% endif %}">90 Tage</button>
+    <button type="submit" name="range" value="all"   class="rs-range-btn {% if rng == 'all' %}rs-range-btn--active{% endif %}">Alles</button>
+    <a href="#" onclick="document.getElementById('customRange').style.display='flex'; return false;"
+       class="rs-range-btn {% if rng == 'custom' %}rs-range-btn--active{% endif %}">Benutzerdefiniert</a>
+  </div>
+  <div class="rs-custom-range" id="customRange" {% if rng == 'custom' %}style="display:flex;"{% endif %}>
+    <input type="date" name="since" value="{{ custom_since }}" class="rs-input rs-input--date">
+    <span class="rs-range-to">bis</span>
+    <input type="date" name="until" value="{{ custom_until }}" class="rs-input rs-input--date">
+    <button type="submit" name="range" value="custom" class="rs-btn rs-btn--ghost">Anwenden</button>
+  </div>
+</form>
+
+<div class="rs-stats">
+  <div class="rs-stat">
+    <div class="rs-stat__num rs-stat__num--mono">${{ total_cost|floatformat:4 }}</div>
+    <div class="rs-stat__label">Kosten im Zeitraum</div>
+  </div>
+  <div class="rs-stat">
+    <div class="rs-stat__num rs-stat__num--mono">{{ total_queries }}</div>
+    <div class="rs-stat__label">Anfragen</div>
+  </div>
+  <div class="rs-stat">
+    <div class="rs-stat__num rs-stat__num--mono">{{ total_input|intcomma }}</div>
+    <div class="rs-stat__label">Input-Tokens</div>
+  </div>
+  <div class="rs-stat">
+    <div class="rs-stat__num rs-stat__num--mono">{{ total_output|intcomma }}</div>
+    <div class="rs-stat__label">Output-Tokens</div>
+  </div>
+</div>
+
+{% if day_series %}
+<div class="rs-panel" style="margin-bottom: 24px;">
+  <div class="rs-panel__head">
+    <span class="rs-panel__title"><i class="fas fa-chart-column"></i>Kosten pro Tag</span>
+  </div>
+  <div class="rs-panel__body">
+    <div class="rs-chart">
+      {% for day, v in day_series %}
+      <div class="rs-chart__col" title="{{ day }}: ${{ v.cost|floatformat:4 }} aus {{ v.queries }} Anfragen">
+        <div class="rs-chart__bar" style="height: {% widthratio v.cost max_day_cost 100 %}%;">
+          <span class="rs-chart__value">${{ v.cost|floatformat:3 }}</span>
+        </div>
+        <div class="rs-chart__label">{{ day|slice:"5:" }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="rs-panel">
+  <div class="rs-panel__head">
+    <span class="rs-panel__title"><i class="fas fa-robot"></i>Pro Modell</span>
+  </div>
+  <div class="rs-panel__body" style="padding: 0;">
+    <table class="rs-model-table">
+      <thead>
+        <tr>
+          <th>Modell</th>
+          <th>Anbieter</th>
+          <th class="num">Anfragen</th>
+          <th class="num">Input</th>
+          <th class="num">Output</th>
+          <th class="num">Kosten</th>
+          <th class="num">Anteil</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in model_rows %}
+        <tr>
+          <td><strong>{{ r.display }}</strong><br><span class="rs-model-row__id">{{ r.id }}</span></td>
+          <td>{{ r.provider }}</td>
+          <td class="num">{{ r.queries }}</td>
+          <td class="num">{{ r.input_tokens|intcomma }}</td>
+          <td class="num">{{ r.output_tokens|intcomma }}</td>
+          <td class="num" style="font-weight: 600; color: var(--rs-accent-ink);">${{ r.cost|floatformat:4 }}</td>
+          <td class="num">
+            <div class="rs-share-bar" style="--share: {{ r.cost_share|floatformat:1 }}%">
+              <span>{{ r.cost_share|floatformat:1 }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="rs-empty">Keine Daten im gewählten Zeitraum.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+.rs-range-bar { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; align-items: center; }
+.rs-range-group { display: flex; gap: 4px; flex-wrap: wrap; border: 1px solid var(--rs-border); border-radius: 10px; padding: 4px; background: var(--rs-surface); }
+.rs-range-btn {
+  padding: 8px 14px; border: none; background: transparent;
+  font-size: 13px; color: var(--rs-ink-soft); cursor: pointer;
+  border-radius: 7px; text-decoration: none;
+  transition: all 0.15s ease;
+}
+.rs-range-btn:hover { background: var(--rs-surface-soft); color: var(--rs-ink); }
+.rs-range-btn--active { background: var(--rs-ink); color: #fff; }
+.rs-range-btn--active:hover { background: var(--rs-ink); color: #fff; }
+
+.rs-custom-range { display: none; align-items: center; gap: 8px; }
+.rs-input--date { width: 150px; padding: 8px 10px; font-size: 13px; }
+.rs-range-to { font-size: 13px; color: var(--rs-ink-faint); }
+
+.rs-chart { display: flex; align-items: flex-end; gap: 6px; height: 200px; padding: 8px 0; }
+.rs-chart__col { flex: 1; min-width: 22px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rs-chart__bar {
+  width: 100%; min-height: 2px;
+  background: linear-gradient(180deg, var(--rs-accent) 0%, #8b5cf6 100%);
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  transition: opacity 0.15s ease;
+}
+.rs-chart__col:hover .rs-chart__bar { opacity: 0.85; }
+.rs-chart__value {
+  position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--rs-ink-soft); white-space: nowrap;
+  opacity: 0;
+}
+.rs-chart__col:hover .rs-chart__value { opacity: 1; }
+.rs-chart__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; color: var(--rs-ink-faint);
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
+}
+
+.rs-model-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rs-model-table th {
+  text-align: left; padding: 12px 16px;
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--rs-ink-faint); font-weight: 600;
+  border-bottom: 1px solid var(--rs-border);
+  background: var(--rs-surface-soft);
+}
+.rs-model-table th.num { text-align: right; }
+.rs-model-table td { padding: 14px 16px; border-bottom: 1px solid var(--rs-border-soft); vertical-align: middle; }
+.rs-model-table td.num { text-align: right; font-family: 'JetBrains Mono', monospace; }
+.rs-model-table tr:last-child td { border-bottom: none; }
+.rs-model-table tr:hover td { background: var(--rs-surface-soft); }
+
+.rs-share-bar {
+  position: relative;
+  width: 100%; min-width: 100px;
+  height: 22px;
+  background: var(--rs-surface-soft);
+  border-radius: 11px;
+  overflow: hidden;
+  display: inline-block;
+}
+.rs-share-bar::before {
+  content: '';
+  position: absolute; top: 0; left: 0; bottom: 0;
+  width: var(--share);
+  background: linear-gradient(90deg, var(--rs-accent) 0%, #8b5cf6 100%);
+  border-radius: 11px;
+}
+.rs-share-bar span {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center; height: 100%;
+  font-size: 11px; color: var(--rs-ink); font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+</style>
+
+{% endblock %}

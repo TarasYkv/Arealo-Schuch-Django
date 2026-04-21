@@ -10,4 +10,5 @@ urlpatterns = [
     path('ask/<int:pk>/', views.query_detail, name='query_detail'),
     path('ask/<int:pk>/status/', views.query_status, name='query_status'),
     path('history/', views.history, name='history'),
+    path('stats/', views.stats, name='stats'),
 ]
