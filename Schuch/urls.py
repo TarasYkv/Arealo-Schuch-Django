@@ -70,6 +70,7 @@ urlpatterns = [
     path('email-templates/', include('email_templates.urls')),
     path('somi-plan/', include('somi_plan.urls')),
     path('makeads/', include('makeads.urls')),
+    path('vidgen/', include('vidgen.urls')),
     path('streamrec/', include('streamrec.urls', namespace='streamrec')),
     path('superconfig/', include('superconfig.urls')),
     path('loomads/', include('loomads.urls')),
@@ -96,6 +97,8 @@ urlpatterns = [
 
     # SEO: Sitemap und robots.txt
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    # Video Creator
+    path("videostudio/", include("video.urls")),
     path('robots.txt', core_views.robots_txt, name='robots_txt'),
 
     path('admin/', admin.site.urls),

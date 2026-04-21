@@ -155,6 +155,12 @@ MENU_STRUCTURE = {
                 'auth_url_name': 'streamrec:dashboard',
             },
             {
+                'app_name': 'vidgen',
+                'label': 'VidGen',
+                'icon': 'bi bi-camera-video-fill',
+                'auth_url_name': 'vidgen:home'
+            },
+            {
                 'app_name': 'promptpro',
                 'label': 'PromptPro',
                 'icon': 'bi bi-collection',
@@ -256,6 +262,13 @@ MENU_STRUCTURE = {
                 'icon': 'bi bi-shop text-warning',
                 'auth_url_name': 'loommarket:dashboard',
             },
+            {
+                'app_name': 'videostudio',
+                'label': 'Video Studio',
+                'icon': 'bi bi-film',
+                'auth_url_name': 'video:project_list',
+            },
+
         ],
     },
     'organisation': {
