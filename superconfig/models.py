@@ -435,10 +435,14 @@ class APIProviderSettings(models.Model):
     """
     PROVIDER_CHOICES = [
         ('openai', 'OpenAI'),
+        ('anthropic', 'Anthropic (Claude)'),
+        ('openrouter', 'OpenRouter'),
+        ('gemini', 'Gemini'),
+        ('deepseek', 'DeepSeek'),
+        ('zhipu', 'Zhipu / GLM'),
         ('youtube', 'YouTube'),
         ('zoho', 'Zoho Mail'),
         ('ideogram', 'Ideogram'),
-        ('gemini', 'Gemini'),
         ('shopify', 'Shopify'),
         ('pinterest', 'Pinterest'),
         ('upload_post', 'Upload-Post'),
@@ -556,6 +560,22 @@ class APIProviderSettings(models.Model):
             'gemini': {
                 'affiliate_link': 'https://aistudio.google.com/apikey',
                 'direct_link': 'https://aistudio.google.com/apikey',
+            },
+            'anthropic': {
+                'affiliate_link': 'https://console.anthropic.com/settings/keys',
+                'direct_link': 'https://console.anthropic.com/settings/keys',
+            },
+            'openrouter': {
+                'affiliate_link': 'https://openrouter.ai/keys',
+                'direct_link': 'https://openrouter.ai/keys',
+            },
+            'deepseek': {
+                'affiliate_link': 'https://platform.deepseek.com/api_keys',
+                'direct_link': 'https://platform.deepseek.com/api_keys',
+            },
+            'zhipu': {
+                'affiliate_link': 'https://open.bigmodel.cn/usercenter/apikeys',
+                'direct_link': 'https://open.bigmodel.cn/usercenter/apikeys',
             },
             'shopify': {
                 'affiliate_link': 'https://partners.shopify.com/',

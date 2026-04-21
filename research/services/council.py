@@ -132,9 +132,9 @@ USER_KEY_FIELDS = {
 }
 
 
-# Fallback-Kette für Gemini: versuche erst gemini_api_key, dann google_api_key
 def _get_api_key(user, provider_id: str) -> str | None:
-    """Key-Resolver: User-Profil → settings → env. Gemini hat zwei User-Felder."""
+    """Key-Resolver: NUR User-Profil. Kein Env-Fallback — wir wollen, dass jeder
+    User seinen eigenen Key einträgt (Kostenzuordnung, Kontingent, Nachvollziehbarkeit)."""
     candidates: list[str] = []
     if provider_id == 'gemini':
         candidates = ['gemini_api_key', 'google_api_key']
@@ -147,13 +147,13 @@ def _get_api_key(user, provider_id: str) -> str | None:
             val = getattr(user, field)
             if val and val.strip():
                 return val.strip()
-    prov = PROVIDERS.get(provider_id, {})
-    env_name = prov.get('env')
-    if env_name:
-        val = getattr(settings, env_name, None) or os.environ.get(env_name)
-        if val:
-            return val.strip()
     return None
+
+
+def _missing_key_msg(provider_id: str) -> str:
+    cfg = PROVIDERS.get(provider_id, {})
+    return (f'Kein {provider_id}-API-Key hinterlegt. Trage deinen eigenen Key '
+            f'unter /research/keys/ ein. (Kein Fallback aus der Server-Konfiguration.)')
 
 
 # (obsolet, durch obige Implementierung ersetzt)
@@ -252,7 +252,8 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
     api_key = _get_api_key(user, provider_id)
     if not api_key:
         return {'model': model_id, 'display': name, 'provider': provider_id,
-                'ok': False, 'error': f'Kein API-Key für {provider_id}'}
+                'ok': False, 'error': _missing_key_msg(provider_id),
+                'cost_usd': 0.0}
     prov = PROVIDERS[provider_id]
     url = prov['url']
     api = prov['api']

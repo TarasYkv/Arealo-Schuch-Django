@@ -119,11 +119,10 @@ def _lookup_references(filenames: set[str]) -> dict[str, int]:
 
 
 def _get_anthropic_key(user) -> str | None:
-    """API-Key-Auflösung: zunächst User-Profil, dann settings/env."""
+    """NUR User-Profil, kein Env-Fallback (siehe council._get_api_key)."""
     if user and hasattr(user, 'anthropic_api_key') and user.anthropic_api_key:
         return user.anthropic_api_key.strip()
-    key = getattr(settings, 'ANTHROPIC_API_KEY', None) or os.environ.get('ANTHROPIC_API_KEY')
-    return key.strip() if key else None
+    return None
 
 
 def synthesize(question: str, sources: list[Source], api_key: str,
@@ -164,8 +163,8 @@ def ask_rag(question: str, user, top_k: int = 6,
     api_key = _get_anthropic_key(user)
     if not api_key:
         raise RuntimeError(
-            'Kein Anthropic-API-Key gefunden. Hinterlege ihn im Profil '
-            '(anthropic_api_key) oder als ANTHROPIC_API_KEY.')
+            'Kein Anthropic-API-Key hinterlegt. Trage deinen eigenen Key unter '
+            '/research/keys/ ein. (Kein Fallback aus der Server-Konfiguration.)')
     sources = retrieve(question, top_k=top_k)
     if not sources:
         raise RuntimeError('Keine Treffer in der Bibliothek. Index leer?')

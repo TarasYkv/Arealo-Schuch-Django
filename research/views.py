@@ -93,24 +93,39 @@ def _execute_ask(request, form):
             rq.total_cost_usd = res.get('total_cost_usd', 0.0)
             rq.answer = _format_council_summary(res['results'])
         elif mode == 'hybrid':
+            # Hybrid = Council zuerst ABFRAGEN, dann Primär-Modell VALIDIERT
+            # und DISKUTIERT die Council-Antworten (mit RAG-Kontext, falls vorhanden).
             primary_cfg = council_service.MODELS.get(primary)
-            primary_model_name = primary_cfg['model'] if primary_cfg else 'claude-opus-4-7'
-            rag_res = rag_service.ask_rag(question, request.user, top_k=top_k,
-                                          model=primary_model_name, model_id=primary)
-            rq.sources = rag_res['sources']
-            hybrid_prompt = _hybrid_prompt(question, rag_res)
+            if not primary_cfg:
+                raise ValueError(f'Unbekanntes Primär-Modell: {primary}')
             if not council_ids:
                 council_ids = ['gpt', 'gemini', 'deepseek']
-            cres = council_service.ask_council(hybrid_prompt, request.user, council_ids)
-            rq.answer = rag_res['answer']
+            # Parallele Council-Abfrage mit der Originalfrage
+            cres = council_service.ask_council(question, request.user, council_ids)
+            # RAG-Quellen für Validierung (optional)
+            try:
+                sources = rag_service.retrieve(question, top_k=top_k)
+            except Exception:
+                sources = []
+            rq.sources = [s.as_dict() for s in sources]
+            # Primär-Modell: validiere die Council-Antworten + diskutiere
+            validation_prompt = _validation_prompt(question, cres['results'], sources)
+            val_res = council_service._call_one(
+                primary, validation_prompt, request.user, max_tokens=2500, timeout=180)
+            if val_res.get('ok'):
+                rq.answer = val_res['text']
+            else:
+                rq.answer = (f'(Primär-Validierung fehlgeschlagen: {val_res.get("error")})\n\n'
+                             + _format_council_summary(cres['results']))
             rq.raw_responses = {
-                'rag': {'model': primary, 'tokens': rag_res.get('tokens', {}),
-                        'cost_usd': rag_res.get('cost_usd', 0.0)},
+                'primary_validation': val_res,
                 'council': cres['results'],
+                'rag_sources_count': len(sources),
             }
             rq.models_used = [primary] + council_ids
-            rq.duration_s = rag_res['duration_s'] + cres['duration_s']
-            rq.total_cost_usd = rag_res.get('cost_usd', 0.0) + cres.get('total_cost_usd', 0.0)
+            rq.duration_s = cres['duration_s'] + (val_res.get('duration_s') or 0)
+            rq.total_cost_usd = (cres.get('total_cost_usd', 0.0)
+                                 + (val_res.get('cost_usd') or 0.0))
         else:
             raise ValueError(f'Unbekannter Modus: {mode}')
     except Exception as e:
@@ -121,19 +136,46 @@ def _execute_ask(request, form):
     return redirect(rq.get_absolute_url())
 
 
-def _hybrid_prompt(question: str, rag_res: dict) -> str:
+def _validation_prompt(question: str, council_results: list[dict],
+                       rag_sources: list) -> str:
     parts = [
-        'Du sollst eine wissenschaftliche Frage beantworten. Zuerst bekommst du',
-        'eine bereits erstellte Antwort auf Basis der eigenen Bibliothek.',
-        'Prüfe diese Antwort kritisch, ergänze eigene Perspektiven, und weise auf',
-        'wichtige Aspekte hin, die in der Bibliothek evtl. fehlen.',
+        'Du bist ein wissenschaftlicher Reviewer. Mehrere KI-Modelle haben',
+        'dieselbe Frage beantwortet. Dein Auftrag:',
         '',
-        f'FRAGE:\n{question}',
+        '1. **Validieren:** Welche Aussagen sind über die Modelle hinweg konsistent '
+        '(hohe Konfidenz)? Welche sind widersprüchlich oder nur in einer Antwort '
+        'enthalten (niedrige Konfidenz)?',
+        '2. **Diskutieren:** Gewichte die Unterschiede. Welches Modell argumentiert '
+        'stärker, wo? Welche Aussagen sind plausibel, welche fraglich?',
+        '3. **Ergänzen:** Fehlt etwas Wichtiges in allen Antworten? (Nutze die '
+        'untenstehenden RAG-Quellen als Faktencheck, falls vorhanden.)',
+        '4. **Synthetisieren:** Schreibe eine konsolidierte, wissenschaftlich '
+        'präzise Antwort auf Deutsch, die alle wertvollen Beiträge integriert.',
         '',
-        'BIBLIOTHEKS-ANTWORT:\n' + rag_res.get('answer', ''),
+        f'ORIGINALFRAGE:\n{question}',
         '',
-        'Deine Antwort (deutsch, prägnant, max. 500 Wörter):',
+        '=== ANTWORTEN DER MODELLE ===',
     ]
+    for i, r in enumerate(council_results, 1):
+        name = r.get('display', r.get('model'))
+        if r.get('ok'):
+            text = (r.get('text') or '').strip()
+            parts.append(f'\n--- Modell {i}: {name} ---\n{text[:4000]}')
+        else:
+            parts.append(f'\n--- Modell {i}: {name} — Fehler: {r.get("error")} ---')
+
+    if rag_sources:
+        parts.append('\n\n=== RAG-QUELLEN (aus eigener Library, Faktencheck) ===')
+        for s in rag_sources:
+            parts.append(f'\n[{s.idx}] {s.authors} ({s.year}). {s.title}\n{s.text[:1500]}')
+
+    parts.append(
+        '\n\nFormatiere deine Antwort in Markdown mit den Abschnitten:\n'
+        '1. **Konsens** (konsistente Aussagen),\n'
+        '2. **Streitpunkte** (widersprüchliche/unsichere Aussagen),\n'
+        '3. **Ergänzung** (was fehlt),\n'
+        '4. **Konsolidierte Antwort** (finale Synthese).'
+    )
     return '\n'.join(parts)
 
 
