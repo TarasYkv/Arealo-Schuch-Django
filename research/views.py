@@ -305,10 +305,25 @@ def stats(request):
     per_model = defaultdict(lambda: {'queries': 0, 'input_tokens': 0,
                                      'output_tokens': 0, 'cost': 0.0})
     per_day = defaultdict(lambda: {'cost': 0.0, 'queries': 0})
+    per_day_per_model = defaultdict(lambda: defaultdict(float))
     total_cost = 0.0
     total_queries = 0
     total_input = 0
     total_output = 0
+
+    def _accum(day, model_id, tokens, cost):
+        t_in = int((tokens or {}).get('input', 0) or 0)
+        t_out = int((tokens or {}).get('output', 0) or 0)
+        c = float(cost or 0)
+        per_model[model_id]['queries'] += 1
+        per_model[model_id]['input_tokens'] += t_in
+        per_model[model_id]['output_tokens'] += t_out
+        per_model[model_id]['cost'] += c
+        per_day_per_model[day][model_id] += c
+        nonlocal_state['in'] += t_in
+        nonlocal_state['out'] += t_out
+
+    nonlocal_state = {'in': 0, 'out': 0}
 
     for q in queries_qs.iterator():
         total_queries += 1
@@ -318,46 +333,39 @@ def stats(request):
         per_day[d]['cost'] += float(q.total_cost_usd or 0)
 
         rr = q.raw_responses or {}
-        # RAG-Antworten
         if 'rag' in rr and isinstance(rr['rag'], dict):
-            m = rr['rag'].get('model', '?')
-            t = rr['rag'].get('tokens', {}) or {}
-            c = float(rr['rag'].get('cost_usd') or 0)
-            per_model[m]['queries'] += 1
-            per_model[m]['input_tokens'] += int(t.get('input', 0) or 0)
-            per_model[m]['output_tokens'] += int(t.get('output', 0) or 0)
-            per_model[m]['cost'] += c
-            total_input += int(t.get('input', 0) or 0)
-            total_output += int(t.get('output', 0) or 0)
-        # Primär-Validierung (Hybrid)
+            _accum(d, rr['rag'].get('model', '?'),
+                   rr['rag'].get('tokens'), rr['rag'].get('cost_usd'))
         if 'primary_validation' in rr and isinstance(rr['primary_validation'], dict):
             pv = rr['primary_validation']
-            m = pv.get('model', '?')
-            t = pv.get('tokens', {}) or {}
-            c = float(pv.get('cost_usd') or 0)
-            per_model[m]['queries'] += 1
-            per_model[m]['input_tokens'] += int(t.get('input', 0) or 0)
-            per_model[m]['output_tokens'] += int(t.get('output', 0) or 0)
-            per_model[m]['cost'] += c
-            total_input += int(t.get('input', 0) or 0)
-            total_output += int(t.get('output', 0) or 0)
-        # Council
+            _accum(d, pv.get('model', '?'),
+                   pv.get('tokens'), pv.get('cost_usd'))
         for r in rr.get('council', []) or []:
-            if not isinstance(r, dict):
-                continue
-            m = r.get('model', '?')
-            t = r.get('tokens', {}) or {}
-            c = float(r.get('cost_usd') or 0)
-            per_model[m]['queries'] += 1
-            per_model[m]['input_tokens'] += int(t.get('input', 0) or 0)
-            per_model[m]['output_tokens'] += int(t.get('output', 0) or 0)
-            per_model[m]['cost'] += c
-            total_input += int(t.get('input', 0) or 0)
-            total_output += int(t.get('output', 0) or 0)
+            if isinstance(r, dict):
+                _accum(d, r.get('model', '?'),
+                       r.get('tokens'), r.get('cost_usd'))
+
+    total_input = nonlocal_state['in']
+    total_output = nonlocal_state['out']
+
+    # Stabile, gut unterscheidbare Farbpalette für Modelle
+    PALETTE = [
+        '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4',
+        '#8b5cf6', '#ec4899', '#14b8a6', '#0ea5e9', '#84cc16',
+        '#f97316', '#a855f7', '#22c55e', '#eab308', '#3b82f6',
+        '#e11d48', '#d946ef', '#0891b2', '#059669', '#ca8a04',
+        '#dc2626', '#7c3aed', '#0284c7', '#65a30d', '#be185d',
+    ]
+    # Sortiere Modelle nach Gesamtkosten (teuerste zuerst → stabile Farbzuweisung)
+    sorted_model_ids = sorted(per_model.keys(),
+                              key=lambda m: per_model[m]['cost'], reverse=True)
+    color_map = {mid: PALETTE[i % len(PALETTE)]
+                 for i, mid in enumerate(sorted_model_ids)}
 
     # Prepare sorted list for template
     model_rows = []
-    for mid, d in per_model.items():
+    for mid in sorted_model_ids:
+        d = per_model[mid]
         cfg = council_service.MODELS.get(mid)
         display = cfg['name'] if cfg else mid
         provider = cfg['provider'] if cfg else '—'
@@ -365,17 +373,40 @@ def stats(request):
             'id': mid,
             'display': display,
             'provider': provider,
+            'color': color_map[mid],
             'queries': d['queries'],
             'input_tokens': d['input_tokens'],
             'output_tokens': d['output_tokens'],
             'cost': d['cost'],
             'cost_share': (d['cost'] / total_cost * 100) if total_cost else 0,
         })
-    model_rows.sort(key=lambda r: r['cost'], reverse=True)
 
-    # Prepare day-series for sparkline (chronological)
-    day_series = sorted(per_day.items())
-    max_day_cost = max((v['cost'] for _, v in day_series), default=0.0) or 1
+    # Day-series mit Model-Segmenten für stacked bar chart
+    day_series = []
+    max_day_cost = max((v['cost'] for v in per_day.values()), default=0.0) or 1
+    for d, meta in sorted(per_day.items()):
+        # Segmente: sortiert nach Kosten desc pro Tag
+        segs_raw = sorted(per_day_per_model.get(d, {}).items(),
+                          key=lambda kv: kv[1], reverse=True)
+        segs = []
+        for mid, cost in segs_raw:
+            if cost <= 0:
+                continue
+            cfg = council_service.MODELS.get(mid)
+            display = cfg['name'] if cfg else mid
+            segs.append({
+                'id': mid,
+                'display': display,
+                'cost': cost,
+                'share_of_day': (cost / meta['cost'] * 100) if meta['cost'] else 0,
+                'color': color_map.get(mid, '#94a3b8'),
+            })
+        day_series.append((d, {
+            'cost': meta['cost'],
+            'queries': meta['queries'],
+            'height_pct': (meta['cost'] / max_day_cost * 100) if max_day_cost else 0,
+            'segments': segs,
+        }))
 
     return render(request, 'research/stats.html', {
         'rng': rng,
