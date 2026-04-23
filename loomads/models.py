@@ -178,7 +178,6 @@ class AppCampaign(models.Model):
         ('chat', 'Chat-System'),
         ('todos', 'Todos'),
         ('core', 'Dashboard/Startseite'),
-        ('image_editor', 'Image Editor'),
         ('amortization_calculator', 'Amortisationsrechner'),
         ('pdf_sucher', 'PDF Sucher'),
         ('naturmacher', 'Naturmacher'),

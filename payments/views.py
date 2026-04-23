@@ -93,28 +93,6 @@ def calculate_total_storage_for_user(user):
     except:
         pass
 
-    # 6. Image Editor
-    try:
-        from image_editor.models import ImageProject, AIGenerationHistory
-        projects = ImageProject.objects.filter(user=user)
-        for project in projects:
-            for field in ['original_image', 'processed_image']:
-                img = getattr(project, field, None)
-                if img:
-                    try:
-                        total_used_bytes += img.size if hasattr(img, 'size') else 0
-                    except:
-                        pass
-        histories = AIGenerationHistory.objects.filter(project__user=user, output_image__isnull=False)
-        for history in histories:
-            if history.output_image:
-                try:
-                    total_used_bytes += history.output_image.size if hasattr(history.output_image, 'size') else 0
-                except:
-                    pass
-    except:
-        pass
-
     # 7. PDF Sucher
     try:
         from pdf_sucher.models import SearchSession
@@ -1834,34 +1812,6 @@ def user_storage_detail_api(request, user_id):
             apps['Ideopin'] = {'bytes': ideopin_total, 'mb': ideopin_total / (1024 * 1024), 'count': ideopin_count, 'icon': 'fab fa-pinterest'}
     except Exception as e:
         logger.error(f"Error calculating ideopin storage for user {user_id}: {e}")
-
-    # Image Editor
-    try:
-        from image_editor.models import ImageProject, AIGenerationHistory
-        img_total = 0
-        img_count = 0
-        projects = ImageProject.objects.filter(user=target_user)
-        for project in projects:
-            for field in ['original_image', 'processed_image']:
-                img = getattr(project, field, None)
-                if img and hasattr(img, 'size'):
-                    try:
-                        img_total += img.size
-                        img_count += 1
-                    except:
-                        pass
-        histories = AIGenerationHistory.objects.filter(project__user=target_user, output_image__isnull=False)
-        for history in histories:
-            if history.output_image and hasattr(history.output_image, 'size'):
-                try:
-                    img_total += history.output_image.size
-                    img_count += 1
-                except:
-                    pass
-        if img_total > 0:
-            apps['Image Editor'] = {'bytes': img_total, 'mb': img_total / (1024 * 1024), 'count': img_count, 'icon': 'fas fa-image'}
-    except Exception as e:
-        logger.error(f"Error calculating image editor storage for user {user_id}: {e}")
 
     # LearnLoom
     try:

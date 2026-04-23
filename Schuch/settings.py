@@ -69,7 +69,6 @@ INSTALLED_APPS = [
     'chat',
     'shopify_manager',
     'shopify_uploads',
-    'image_editor',
     'bug_report',
     'videos',
     'mycut',

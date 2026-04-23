@@ -199,14 +199,6 @@ def dashboard(request):
             'color': 'bg-success',
             'category': 'ecommerce'
         },
-        'bilder': {
-            'name': 'Bilder-Editor',
-            'description': 'Bearbeite und optimiere Bilder direkt in der Anwendung.',
-            'icon': 'bi-image',
-            'url': 'image_editor:dashboard',
-            'color': 'bg-info',
-            'category': 'media'
-        },
         'schulungen': {
             'name': 'Schulungen',
             'description': 'Zugriff auf Schulungsmaterialien und Weiterbildungsangebote.',
@@ -1375,8 +1367,8 @@ def company_info_view(request):
                 )
         
         # Sortierung: Hauptapps zuerst, dann Sub-Features
-        main_apps = ['core', 'chat', 'videos', 'shopify_manager', 'image_editor', 'naturmacher', 
-                     'organization', 'todos', 'pdf_sucher', 'amortization_calculator', 
+        main_apps = ['core', 'chat', 'videos', 'shopify_manager', 'naturmacher',
+                     'organization', 'todos', 'pdf_sucher', 'amortization_calculator',
                      'sportplatzApp', 'bug_report', 'payments']
         
         # Custom Sortierung: Hauptapps zuerst, dann Features
@@ -2792,60 +2784,6 @@ def storage_overview_view(request):
     except Exception:
         pass
 
-    # 6. Image Editor
-    try:
-        from image_editor.models import ImageProject, AIGenerationHistory
-
-        # Original & Processed Images
-        projects = ImageProject.objects.filter(user=user).order_by('-updated_at')
-        for project in projects:
-            for field_name, field_type in [('original_image', 'Original'), ('processed_image', 'Bearbeitet')]:
-                img = getattr(project, field_name, None)
-                if img:
-                    try:
-                        file_size = img.size if hasattr(img, 'size') else 0
-                        if file_size > 0:
-                            all_files.append({
-                                'app': 'image_editor',
-                                'app_name': 'Bild Editor',
-                                'app_icon': 'fas fa-paint-brush',
-                                'name': f"{project.name or 'Projekt'} ({field_type})",
-                                'filename': os.path.basename(img.name),
-                                'size_bytes': file_size,
-                                'size_mb': file_size / (1024 * 1024),
-                                'created_at': project.created_at,
-                                'type': f'Bild ({field_type})',
-                                'url': None,
-                                'id': project.id,
-                            })
-                    except Exception:
-                        pass
-
-        # AI Generated Images
-        ai_images = AIGenerationHistory.objects.filter(user=user, generated_image__isnull=False).order_by('-created_at')
-        for ai_img in ai_images:
-            if ai_img.generated_image:
-                try:
-                    file_size = ai_img.generated_image.size if hasattr(ai_img.generated_image, 'size') else 0
-                    if file_size > 0:
-                        all_files.append({
-                            'app': 'image_editor',
-                            'app_name': 'Bild Editor',
-                            'app_icon': 'fas fa-robot',
-                            'name': f"KI-Bild: {ai_img.prompt[:30]}..." if ai_img.prompt else 'KI-generiertes Bild',
-                            'filename': os.path.basename(ai_img.generated_image.name),
-                            'size_bytes': file_size,
-                            'size_mb': file_size / (1024 * 1024),
-                            'created_at': ai_img.created_at,
-                            'type': 'KI-Bild',
-                            'url': None,
-                            'id': ai_img.id,
-                        })
-                except Exception:
-                    pass
-    except Exception:
-        pass
-
     # 7. PDF Sucher
     try:
         from pdf_sucher.models import PDFDocument, PDFSummary
@@ -3340,7 +3278,6 @@ def storage_overview_view(request):
         'videos': ('videos', 'VideoFlow', 'fas fa-video'),
         'fileshare': ('fileshare', 'FileShare', 'fas fa-file-upload'),
         'streamrec': ('streamrec', 'StreamRec', 'fas fa-video-camera'),
-        'bilder': ('image_editor', 'Bilder', 'fas fa-image'),
         'promptpro': ('promptpro', 'PromptPro', 'bi bi-collection'),
         'myprompter': ('myprompter', 'MyPrompter', 'bi bi-mic-fill'),
         'schulungen': ('naturmacher', 'Schulungen', 'fas fa-graduation-cap'),

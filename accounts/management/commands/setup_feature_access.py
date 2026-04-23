@@ -51,7 +51,6 @@ class Command(BaseCommand):
             
             # Founder's Early Access erforderlich
             ('shopify_manager', 'founder_access', 'Vollständiger Shopify-Manager nur mit Early Access'),
-            ('image_editor', 'founder_access', 'Bild-Editor nur mit Early Access'),
             ('naturmacher', 'founder_access', 'Schulungs-Tools nur mit Early Access'),
             ('organization', 'founder_access', 'Organisations-Tools nur mit Early Access'),
             ('todos', 'founder_access', 'Erweiterte ToDo-Features nur mit Early Access'),

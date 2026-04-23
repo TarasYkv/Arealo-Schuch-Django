@@ -503,32 +503,6 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error calculating ideopin storage: {e}")
 
-        # Image Editor
-        try:
-            from image_editor.models import ImageProject, AIGenerationHistory
-            img_total = 0
-            projects = ImageProject.objects.filter(user=user)
-            for project in projects:
-                for field_name in ['original_image', 'processed_image']:
-                    img = getattr(project, field_name, None)
-                    if img and hasattr(img, 'size'):
-                        try:
-                            img_total += img.size
-                        except Exception:
-                            pass
-            # AI Generated Images
-            ai_images = AIGenerationHistory.objects.filter(user=user, generated_image__isnull=False)
-            for ai_img in ai_images:
-                if ai_img.generated_image and hasattr(ai_img.generated_image, 'size'):
-                    try:
-                        img_total += ai_img.generated_image.size
-                    except Exception:
-                        pass
-            by_app['image_editor'] = img_total
-            total_bytes += img_total
-        except Exception as e:
-            logger.error(f"Error calculating image_editor storage: {e}")
-
         # BlogPrep
         try:
             from blogprep.models import BlogPrepProject

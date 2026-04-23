@@ -137,12 +137,6 @@ MENU_STRUCTURE = {
                 'auth_url_name': 'naturmacher:thema_list',
             },
             {
-                'app_name': 'bilder',
-                'label': 'Bilder',
-                'icon': 'fas fa-images',
-                'auth_url_name': 'image_editor:dashboard',
-            },
-            {
                 'app_name': 'videos',
                 'label': 'Videos',
                 'icon': 'fas fa-video',
