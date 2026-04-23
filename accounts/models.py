@@ -748,7 +748,6 @@ class AppUsageTracking(models.Model):
             'schuch': 'Schuch',
             'schuch_dashboard': 'Schuch Dashboard',
             'shopify_manager': 'Shopify Manager',
-            'image_editor': 'Bild Editor',
             'naturmacher': 'Schulungen',
             'organization': 'Organisation',
             'todos': 'ToDos',
@@ -899,7 +898,6 @@ class AppInfo(models.Model):
         ('videos', 'Videos'),
         ('mail', 'Email'),
         ('shopify_manager', 'Shopify Manager'),
-        ('image_editor', 'Bild Editor'),
         ('naturmacher', 'Schulungen (Naturmacher)'),
         ('organization', 'Organisation'),
         ('todos', 'ToDos'),
@@ -998,7 +996,6 @@ class FeatureAccess(models.Model):
         ('videos', 'Videos'),
         ('mail', 'Email'),
         ('shopify_manager', 'Shopify Manager'),
-        ('image_editor', 'Bild Editor'),
         ('naturmacher', 'Schulungen (Naturmacher)'),
         ('organization', 'Organisation'),
         ('todos', 'ToDos'),
@@ -1187,7 +1184,6 @@ class FeatureAccess(models.Model):
             
             # Founder's Early Access erforderlich
             ('shopify_manager', 'founder_access', 'Vollständiger Shopify-Manager nur mit Early Access'),
-            ('image_editor', 'founder_access', 'Bild-Editor nur mit Early Access'),
             ('naturmacher', 'founder_access', 'Schulungs-Tools nur mit Early Access'),
             ('organization', 'founder_access', 'Organisations-Tools nur mit Early Access'),
             ('todos', 'founder_access', 'Erweiterte ToDo-Features nur mit Early Access'),

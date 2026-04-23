@@ -75,7 +75,6 @@ class StorageLogAdmin(admin.ModelAdmin):
             'fileshare': '#198754',
             'streamrec': '#dc3545',
             'shopify': '#ffc107',
-            'image_editor': '#6f42c1',
             'organization': '#fd7e14',
             'chat': '#20c997',
             'other': '#6c757d',

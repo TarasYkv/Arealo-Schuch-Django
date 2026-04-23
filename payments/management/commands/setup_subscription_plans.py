@@ -119,7 +119,7 @@ class Command(BaseCommand):
                     'all_apps_access': True,
                     'priority_support': True,
                     'trial_days': 3,
-                    'apps': ['chat', 'videos', 'shopify_manager', 'image_editor', 'naturmacher', 'organization', 'todos', 'pdf_sucher', 'amortization_calculator', 'sportplatzApp'],
+                    'apps': ['chat', 'videos', 'shopify_manager', 'naturmacher', 'organization', 'todos', 'pdf_sucher', 'amortization_calculator', 'sportplatzApp'],
                     'regular_price': '19.99',
                     'early_access_discount': True,
                     'storage_info': 'Video-Speicherplatz separat erhältlich'

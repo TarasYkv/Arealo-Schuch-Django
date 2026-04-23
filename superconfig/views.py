@@ -1946,7 +1946,6 @@ def user_storage_detail_api(request, user_id):
             'chat': 'Chat',
             'streamrec': 'StreamRec',
             'shopify': 'Shopify Manager',
-            'image_editor': 'Bild Editor',
             'other': 'Andere',
         }
 
@@ -2029,7 +2028,6 @@ def storage_by_app_api(request):
             'chat': 'Chat',
             'streamrec': 'StreamRec',
             'shopify': 'Shopify Manager',
-            'image_editor': 'Bild Editor',
             'other': 'Andere',
         }
 

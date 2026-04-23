@@ -22,7 +22,6 @@ class StorageLog(models.Model):
         ('fileshare', 'FileShare'),
         ('streamrec', 'StreamRec'),
         ('shopify', 'Shopify Manager'),
-        ('image_editor', 'Bild Editor'),
         ('organization', 'Organization'),
         ('chat', 'Chat'),
         ('android_apk_manager', 'Android APK Manager'),

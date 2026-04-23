@@ -18,7 +18,6 @@ class AppUsageTrackingMiddleware:
         r'^/$': 'schuch',
         r'^/dashboard/': 'schuch_dashboard',
         r'^/shopify/': 'shopify_manager',
-        r'^/image-editor/': 'image_editor',
         r'^/naturmacher/': 'naturmacher',
         r'^/organization/': 'organization',
         r'^/todos/': 'todos',

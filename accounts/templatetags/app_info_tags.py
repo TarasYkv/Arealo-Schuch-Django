@@ -141,7 +141,6 @@ APP_GRADIENTS = {
     'todos': '#fb6340, #fbb140',  # Orange-Gelb
     'organization': '#11cdef, #1171ef',  # Cyan-Blau
     'shopify_manager': '#95bf47, #5e8e3e',  # Shopify Grün
-    'image_editor': '#f3a4b5, #c471ed',  # Rosa-Lila
     'mail': '#4a90d9, #667eea',  # Blau
     'naturmacher': '#2ecc71, #27ae60',  # Grün
     'promptpro': '#ff6b6b, #ee5a24',  # Rot-Orange
