@@ -104,7 +104,6 @@ INSTALLED_APPS = [
     'linkloom',
     'backloom',
     'ploom',
-    'clawboard',
     'loommarket',
     'loomtalk',
     'learnloom',

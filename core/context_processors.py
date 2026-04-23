@@ -233,6 +233,12 @@ MENU_STRUCTURE = {
                 'auth_url_name': 'imageforge:dashboard',
             },
             {
+                'app_name': 'vidgen',
+                'label': 'VidGen',
+                'icon': 'bi bi-camera-reels text-danger',
+                'auth_url_name': 'vidgen:dashboard',
+            },
+            {
                 'app_name': 'vskript',
                 'label': 'VSkript',
                 'icon': 'bi bi-camera-video text-success',
@@ -328,19 +334,6 @@ MENU_STRUCTURE = {
                 'icon': 'fas fa-link',
                 'auth_url_name': 'linkloom:dashboard',
             },
-            {
-                'app_name': 'clawboard',
-                'label': 'Clawboard',
-                'icon': 'bi bi-robot',
-                'auth_url_name': 'clawboard:dashboard',
-                'sub_items': [
-                    {'label': 'Dashboard', 'icon': 'bi bi-grid-1x2', 'url_name': 'clawboard:dashboard'},
-                    {'label': 'KI-Chat', 'icon': 'bi bi-chat-dots', 'url_name': 'clawboard:chat'},
-                    {'label': 'Memory', 'icon': 'bi bi-file-earmark-text', 'url_name': 'clawboard:memory_browser'},
-                    {'label': 'Connector', 'icon': 'bi bi-plug', 'url_name': 'clawboard:connector_setup'},
-                ],
-            },
-            {'divider': True, 'label': 'Lernen'},
             {
                 'app_name': 'learnloom',
                 'label': 'LearnLoom',

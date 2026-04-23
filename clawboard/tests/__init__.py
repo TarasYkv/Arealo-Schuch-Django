@@ -1,1 +1,0 @@
-# Clawboard Browser Tests

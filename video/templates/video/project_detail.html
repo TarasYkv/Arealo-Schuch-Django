@@ -1,0 +1,2930 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ project.name }} - Video Studio
+<!-- Download Modal -->
+<div class="modal fade" id="downloadModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-download"></i> Videos herunterladen</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Wie moechtest du die Videos herunterladen?</p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-success" onclick="doDownload('merged')">
+            <i class="bi bi-collection-play"></i> Ein zusammengefuegtes Video
+          </button>
+          <button class="btn btn-primary" onclick="doDownload('individual')">
+            <i class="bi bi-files"></i> Einzelne Videos (ZIP)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+/div>
+
+
+
+
+{% endblock %}
+
+{% block content %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-film"></i> {{ project.name }}</h1>
+            <p class="text-muted mb-0"><i class="bi bi-clock"></i> Erstellt: {{ project.created_at|date:"d.m.Y H:i" }}</p>
+        </div>
+        <div>
+            <a href="{% url 'video:project_list' %}" class="btn btn-secondary me-2"><i class="bi bi-arrow-left"></i> Zurück</a>
+            <button class="btn btn-warning me-2" data-bs-toggle="modal" data-bs-target="#scriptImportModal"><i class="bi bi-file-earmark-text"></i> Skript importieren</button>
+            <button class="btn btn-danger" onclick="deleteProject()"><i class="bi bi-trash"></i> Löschen</button>
+        </div>
+    </div>
+
+
+    <!-- GPU Server Toggle -->
+    <div class="card mb-4 border-primary" id="gpu-server-card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-gpu-card"></i> GPU Server</h5>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="gpu-toggle" onchange="toggleGPU(this.checked)" style="width:3em;height:1.5em;cursor:pointer">
+                <label class="form-check-label text-white ms-2" for="gpu-toggle" id="gpu-status-text">Prüfe...</label>
+            </div>
+        </div>
+        <div class="card-body py-2">
+            <div class="d-flex flex-wrap align-items-center" style="gap:0.5rem;font-size:0.85rem">
+                <select id="gpu-provider" class="form-select form-select-sm" style="width:auto">
+                    <option value="jarvis">JarvisLabs (A100-80GB, \$1.49/h)</option>
+                    <option value="runpod" selected>RunPod (A40, $0.44/h)</option>
+                </select>
+                <span class="badge bg-secondary" id="gpu-badge">...</span>
+                <small class="text-muted" id="gpu-cost-info"></small>
+            </div>
+            <div class="d-flex flex-wrap align-items-center mt-1" style="gap:0.5rem;font-size:0.85rem">
+                <span class="badge bg-dark" id="gpu-balance" style="display:none; font-size:0.8rem;"></span>
+                <div id="gpu-retry-info" class="text-warning fw-bold" style="display:none; font-size:0.85rem;"></div>
+                <div class="d-flex align-items-center ms-auto" style="gap:0.3rem">
+                    <small class="text-muted text-nowrap">Auto-Stopp:</small>
+                    <select id="auto-shutdown-timer" class="form-select form-select-sm" style="width:auto;font-size:0.8rem" onchange="saveAutoShutdownTimer(this.value)">
+                        <option value="3">3 Min</option>
+                        <option value="5">5 Min</option>
+                        <option value="10" selected>10 Min</option>
+                        <option value="15">15 Min</option>
+                    </select>
+                </div>
+            </div>
+            <div id="gpu-queue-overview" class="mt-1" style="display:none; font-size:0.8rem;"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-5">
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-people"></i> Assets</h5></div>
+                <div class="card-body">
+                    <h6>Charaktere ({{ characters|length }}/3) <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline" onclick="showCharacterBestPractice()"><i class="bi bi-info-circle"></i></button></h6>
+                    <div class="mb-3">
+                        {% for char in characters %}
+                        <div class="mb-3 p-2 rounded" style="background:rgba(13,110,253,0.05); border:1px solid rgba(13,110,253,0.2)">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong class="text-primary">{{ char.name }}</strong>
+                                <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteCharacter('{{ char.id }}')" title="Charakter löschen"><i class="bi bi-trash"></i></button>
+                            </div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <!-- Hauptbild -->
+                                <div class="position-relative" style="width:80px">
+                                    <img src="/videostudio/thumb/video/character/{{ char.id }}/" loading="lazy" class="img-thumbnail" style="height:80px;width:80px;object-fit:cover" title="Hauptbild">
+                                    <span class="badge bg-primary position-absolute bottom-0 start-50 translate-middle-x" style="font-size:0.6rem">Main</span>
+                                </div>
+                                <!-- Extra Bilder -->
+                                {% for extra in char.extra_images.all %}
+                                <div class="position-relative" style="width:80px">
+                                    <img src="{{ extra.image.url }}" loading="lazy" class="img-thumbnail" style="height:80px;width:80px;object-fit:cover">
+                                    <button class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle p-0" style="width:18px;height:18px;font-size:9px;margin:2px" onclick="deleteCharImage('{{ extra.id }}')"><i class="bi bi-x"></i></button>
+                                </div>
+                                {% endfor %}
+                                <!-- Upload-Button -->
+                                <label class="position-relative d-flex align-items-center justify-content-center border border-dashed rounded" style="width:80px;height:80px;cursor:pointer;background:rgba(255,255,255,0.05)">
+                                    <i class="bi bi-plus-circle text-primary" style="font-size:1.4rem"></i>
+                                    <input type="file" accept="image/*" multiple class="d-none" onchange="uploadCharImages('{{ char.id }}', this.files)">
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Mehrere Bilder (Profil, 3/4, Seitenansicht) verbessern die Gesichts-Konsistenz in FLUX+PuLID und Nano Banana 2.</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if characters|length < 3 %}
+                    <div class="row g-2 mb-3">
+                        <div class="col-4"><input type="text" id="charName" class="form-control form-control-sm" placeholder="Name"></div>
+                        <div class="col-5"><input type="file" id="charImage" class="form-control form-control-sm" accept="image/*"></div>
+                        <div class="col-3"><button type="button" class="btn btn-sm btn-primary w-100" onclick="addCharacter()">+</button></div>
+                    </div>
+                    {% endif %}
+
+                    <h6>Produkt</h6>
+                    {% if product %}
+                    <div class="row mb-3">
+                        <div class="col-4">
+                            <div class="position-relative">
+                                <img src="/videostudio/thumb/video/product/{{ product.id }}/" loading="lazy" class="img-thumbnail" style="height:100px;object-fit:cover;width:100%;image-rendering:auto" alt="{{ product.name }}">
+                                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="deleteProduct()"><i class="bi bi-x"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-8"><span class="badge bg-success">{{ product.name }}</span></div>
+                    </div>
+                    {% else %}
+                    <div class="row g-2 mb-3">
+                        <div class="col-4"><input type="text" id="prodName" class="form-control form-control-sm" placeholder="Name"></div>
+                        <div class="col-5"><input type="file" id="prodImage" class="form-control form-control-sm" accept="image/*"></div>
+                        <div class="col-3"><button type="button" class="btn btn-sm btn-success w-100" onclick="addProduct()">+</button></div>
+                    </div>
+                    {% endif %}
+
+                    <h6>Stillbild</h6>
+                    {% if still_image %}
+                    <div class="row mb-2">
+                        <div class="col-4">
+                            <div class="position-relative">
+                                <img src="/videostudio/thumb/video/stillimage/{{ still_image.id }}/" loading="lazy" class="img-thumbnail" style="height:100px;object-fit:cover;width:100%;image-rendering:auto" alt="{{ still_image.name }}">
+                                <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="deleteStill()"><i class="bi bi-x"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-8"><span class="badge bg-info">{{ still_image.name }}</span></div>
+                    </div>
+                    {% else %}
+                    <div class="row g-2 mb-3">
+                        <div class="col-4"><input type="text" id="stillName" class="form-control form-control-sm" placeholder="Name"></div>
+                        <div class="col-5"><input type="file" id="stillImage" class="form-control form-control-sm" accept="image/*"></div>
+                        <div class="col-3"><button type="button" class="btn btn-sm btn-info w-100" onclick="addStill()">+</button></div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-magic"></i> Frame generieren</h5></div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">Modell:</label>
+                        <div class="d-flex gap-1 align-items-center">
+                            <select id="frameModel" class="form-select form-select-sm" onchange="updateFrameModelInfo()" style="flex:1">
+                                <option value="nano-banana">Nano Banana 2 (Gemini 3.1) — $0.039/Bild — Character + Reference</option>
+                                <option value="gemini-2.5">Gemini 2.5 Flash Image — $0.039/Bild — Character + Reference</option>
+                                <option value="gemini-2.0">Gemini 2.0 Flash Image — $0.025/Bild — Reference, günstiger</option>
+                                <option value="imagen-4-fast">Imagen 4 Fast — $0.020/Bild — nur Text, günstigst</option>
+                                <option value="imagen-4">Imagen 4 — $0.040/Bild — nur Text, hohe Qualität</option>
+                                <option value="imagen-4-ultra">Imagen 4 Ultra — $0.060/Bild — nur Text, Premium</option>
+                                <option value="flux-pulid">FLUX + PuLID (lokal) — ~$0.02/Bild — Character-konsistent</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="showFrameModelComparison()" title="Modell-Vergleich">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted" id="frameModelInfo">Nano Banana 2: Character + Produktbilder als Referenz</small>
+                    </div>
+                    <div class="mb-3">
+                        <textarea id="framePrompt" class="form-control" rows="3" placeholder="Beschreibe das Bild, das generiert werden soll..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-grow-1" onclick="generateFrame()" id="genFrameBtn">
+                            <i class="bi bi-stars"></i> Generieren
+                        </button>
+                        <button class="btn btn-danger d-none" onclick="cancelGeneration()" id="cancelGenBtn">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div id="frameGenStatus" class="mt-2 small text-muted"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-images"></i> Generierte Frames</h5>
+                    <button class="btn btn-sm btn-light" onclick="showFramesModal()">
+                        <i class="bi bi-eye"></i> Anzeigen
+                    </button>
+                </div>
+                <div class="card-body d-none" id="framesGrid">
+                    {% for frame in frames %}
+                    <div class="d-inline-block position-relative me-2 mb-2"
+                         id="frame-{{ frame.id }}"
+                         {% if frame.image %}draggable="true" ondragstart="onFrameDragStart(event, '{{ frame.id }}')"{% endif %}>
+                        {% if frame.image %}
+                        <img src="/videostudio/thumb/video/generatedframe/{{ frame.id }}/" loading="lazy" class="img-thumbnail" style="height:120px;width:120px;object-fit:cover" alt="Frame">
+                        <span class="badge {% if frame.frame_type == 'start' %}bg-success{% elif frame.frame_type == 'end' %}bg-danger{% else %}bg-secondary{% endif %} position-absolute bottom-0 start-0 m-1" style="font-size:0.6em">{{ frame.get_frame_type_display }}{% for s in scenes %}{% if s.start_frame_id == frame.id %} Sz.{{ s.order }}{% elif s.end_frame_id == frame.id %} Sz.{{ s.order }}{% endif %}{% endfor %}</span>
+                        <!-- Mobile assign button -->
+                        <button class="btn btn-sm position-absolute bottom-0 end-0 m-1" style="font-size:0.7em;padding:2px 5px;background:#0d6efd;color:white;border:none;border-radius:3px;z-index:2" onclick="showAssignModal('{{ frame.id }}')" title="Szene zuweisen"><i class="bi bi-arrow-right-circle"></i></button>
+                        {% elif frame.status == 'generating' %}
+                        <div class="img-thumbnail d-flex align-items-center justify-content-center bg-primary bg-opacity-10" style="height:120px;width:120px">
+                            <span class="spinner-border spinner-border-sm text-primary"></span>
+                        </div>
+                        {% else %}
+                        <div class="img-thumbnail d-flex flex-column align-items-center justify-content-center bg-danger bg-opacity-10" style="height:120px;width:120px">
+                            <i class="bi bi-exclamation-triangle text-danger"></i>
+                            <span class="text-danger" style="font-size:0.6em">Fehler</span>
+                        </div>
+                        {% endif %}
+                        <button class="btn btn-sm position-absolute top-0 end-0 m-1" style="font-size:0.7em;padding:2px 5px;background:#dc3545;color:white;border:none;border-radius:3px;z-index:2" onclick="deleteFrame('{{ frame.id }}')"><i class="bi bi-x"></i></button>
+                    </div>
+                    {% endfor %}
+                    {% if not frames %}
+                    <p class="text-muted small">Noch keine Frames. Generiere oder lade welche hoch!</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <small class="text-muted"><i class="bi bi-hand-index"></i> Desktop: Drag & Drop | Mobil: <i class="bi bi-arrow-right-circle"></i> Button</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="d-flex justify-content-between align-items-center mb-3" style="flex-wrap:wrap;gap:8px">
+                <h3><i class="bi bi-film"></i> Szenen</h3>
+                <button class="btn btn-secondary btn-sm me-1" onclick="toggleAllScenes(true)"><i class="bi bi-check-all"></i></button>
+                <button class="btn btn-secondary btn-sm me-2" onclick="toggleAllScenes(false)"><i class="bi bi-x-lg"></i></button>
+                <button class="btn btn-primary me-2" onclick="runAllPipelines()"><i class="bi bi-magic"></i> Pipeline: Alle Szenen</button>
+                <button class="btn btn-success me-2" onclick="generateAllScenes()"><i class="bi bi-play-fill"></i> Nur Video (ausgewählte)</button>
+                <button class="btn btn-success me-2" onclick="downloadAll()"><i class="bi bi-download"></i> Download All</button>
+                <button class="btn btn-primary" onclick="addScene()"><i class="bi bi-plus"></i> Szene hinzufügen</button>
+            </div>
+
+            <!-- Projekt-weite Hintergrundmusik -->
+            <div class="card mb-3" style="border:1px solid rgba(155,89,182,0.4);background:rgba(155,89,182,0.08)">
+                <div class="card-body p-3">
+                    <h5 style="color:#bb86fc"><i class="bi bi-music-note-beamed"></i> Hintergrundmusik (gesamtes Projekt)</h5>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3">
+                            <label class="form-label small mb-0" style="color:#bb86fc">Genre</label>
+                            <select class="form-select form-select-sm" id="project-music-genre" onchange="saveProjectMusic()">
+                                <option value="">Kein Genre</option>
+                                <option value="cinematic" {% if project.music_genre == 'cinematic' %}selected{% endif %}>Cinematic</option>
+                                <option value="lofi" {% if project.music_genre == 'lofi' %}selected{% endif %}>Lo-Fi / Chill</option>
+                                <option value="corporate" {% if project.music_genre == 'corporate' %}selected{% endif %}>Corporate</option>
+                                <option value="epic" {% if project.music_genre == 'epic' %}selected{% endif %}>Epic / Trailer</option>
+                                <option value="ambient" {% if project.music_genre == 'ambient' %}selected{% endif %}>Ambient</option>
+                                <option value="happy" {% if project.music_genre == 'happy' %}selected{% endif %}>Happy</option>
+                                <option value="sad" {% if project.music_genre == 'sad' %}selected{% endif %}>Melancholisch</option>
+                                <option value="dramatic" {% if project.music_genre == 'dramatic' %}selected{% endif %}>Dramatisch</option>
+                                <option value="romantic" {% if project.music_genre == 'romantic' %}selected{% endif %}>Romantisch</option>
+                                <option value="electronic" {% if project.music_genre == 'electronic' %}selected{% endif %}>Electronic</option>
+                                <option value="acoustic" {% if project.music_genre == 'acoustic' %}selected{% endif %}>Akustisch</option>
+                                <option value="piano" {% if project.music_genre == 'piano' %}selected{% endif %}>Piano</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small mb-0" style="color:#bb86fc">Musik-Prompt</label>
+                            <input type="text" class="form-control form-control-sm" id="project-music-prompt" placeholder="z.B. 'slow emotional piano, warm, intimate'" value="{{ project.music_prompt }}" onblur="saveProjectMusic()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-0" style="color:#bb86fc">Lautstärke</label>
+                            <div class="d-flex align-items-center gap-1">
+                                <input type="range" class="form-range form-range-sm" min="0.05" max="1.0" step="0.05" value="{{ project.music_volume }}" id="project-music-vol" oninput="document.getElementById('project-music-vol-val').textContent=Math.round(this.value*100)+'%'" onchange="saveProjectMusic()">
+                                <small class="text-muted" id="project-music-vol-val">{% widthratio project.music_volume 1 100 %}%</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-light" style="border-color:#bb86fc;color:#bb86fc" onclick="generateProjectMusic()" id="project-music-gen-btn">
+                                <i class="bi bi-music-note-beamed"></i> Generieren
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <audio id="project-music-audio" controls style="{% if project.music_file %}{% else %}display:none;{% endif %}height:30px;flex:1"{% if project.music_file %} src="{{ project.music_file.url }}"{% endif %}></audio>
+                        <small class="text-muted">Ein Track für alle Szenen (wird beim Gesamtdownload eingemischt)</small>
+                    </div>
+                </div>
+            </div>
+
+            <div id="scenesContainer">
+                {% for scene in scenes %}
+                <div class="card mb-3 scene-card" id="scene-{{ scene.id }}">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-1">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="form-check form-check-inline mb-0"><input class="form-check-input scene-check" type="checkbox" checked id="check-{{ scene.id }}" data-scene-id="{{ scene.id }}"></div>
+                            <h6 class="mb-0"><i class="bi bi-play-circle"></i> Szene {{ forloop.counter }}</h6>
+                            {% if scene.status == 'generating' and scene.render_progress == 0 %}
+                            <span class="badge bg-info queue-badge-{{ scene.id }}" style="font-size:0.75rem; padding:4px 8px;">
+                                <i class="bi bi-hourglass-split me-1"></i>Warteschlange
+                                <div class="spinner-border spinner-border-sm ms-1" role="status" style="width:12px;height:12px;"></div>
+                            </span>
+                            {% elif scene.status == 'generating' %}
+                            <div class="progress flex-grow-1 progress-wrap-{{ scene.id }}" style="height:18px; min-width:60px; max-width:120px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning"
+                                     role="progressbar" id="progress-{{ scene.id }}"
+                                     style="width: {{ scene.render_progress }}%; font-size:0.75rem;">
+                                    {{ scene.render_progress }}%
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            {% if scene.status == 'generating' %}
+                            <button class="btn btn-sm btn-warning" onclick="cancelScene('{{ scene.id }}')"><i class="bi bi-stop-fill"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteScene('{{ scene.id }}')"><i class="bi bi-trash"></i></button>
+                            {% elif scene.status == 'pending' %}
+                            <button class="btn btn-sm btn-warning text-dark" onclick="generatePreview('{{ scene.id }}')"><i class="bi bi-eye"></i></button>
+                            <button class="btn btn-sm btn-success" onclick="generateScene('{{ scene.id }}')"><i class="bi bi-play-fill"></i> Render</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteScene('{{ scene.id }}')"><i class="bi bi-trash"></i></button>
+                            {% elif scene.status == 'error' %}
+                            <button class="btn btn-sm btn-warning text-dark" onclick="generatePreview('{{ scene.id }}')"><i class="bi bi-eye"></i></button>
+                            <button class="btn btn-sm btn-success" onclick="generateScene('{{ scene.id }}')"><i class="bi bi-arrow-clockwise"></i> Retry</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteScene('{{ scene.id }}')"><i class="bi bi-trash"></i></button>
+                            {% elif scene.status == 'done' %}
+                            <span class="badge bg-success" data-scene-done>Fertig</span>
+                            {% if scene.render_cost > 0 %}
+                            <span class="badge bg-info" title="{{ scene.render_duration_sec }}s">${{ scene.render_cost|floatformat:2 }}</span>
+                            <small class="text-light">{{ scene.render_duration_sec|floatformat:0 }}s</small>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                        {% if scene.status == 'done' %}
+                        <div class="d-flex align-items-center gap-1 mt-1 w-100">
+                            {% if scene.render_duration_sec and scene.render_duration_sec < 60 and scene.video_file %}
+                            <button class="btn btn-sm btn-outline-primary flex-fill" onclick="upscaleScene('{{ scene.id }}', '480p')"><i class="bi bi-arrows-angle-expand"></i> 480p</button>
+                            <button class="btn btn-sm btn-outline-primary flex-fill" onclick="upscaleScene('{{ scene.id }}', '720p')"><i class="bi bi-arrows-angle-expand"></i> 720p</button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-warning flex-fill" onclick="generatePreview('{{ scene.id }}')"><i class="bi bi-eye"></i> Preview</button>
+                            <button class="btn btn-sm btn-primary flex-fill" onclick="generateScene('{{ scene.id }}')"><i class="bi bi-arrow-clockwise"></i> Rerender</button>
+                            <button class="btn btn-sm btn-danger flex-fill" onclick="deleteScene('{{ scene.id }}')"><i class="bi bi-trash"></i></button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="accordion scene-accordion" id="scene-accordion-{{ scene.id }}">
+                        <!-- Section 1: FRAMES -->
+                        <div class="accordion-item" style="background:transparent;border:1px solid rgba(255,255,255,0.1)">
+                          <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 px-3" style="background:rgba(25,135,84,0.15);color:#fff;font-weight:600" type="button" data-bs-toggle="collapse" data-bs-target="#frames-section-{{ scene.id }}">
+                              <i class="bi bi-images me-2"></i> 1. Frames
+                            </button>
+                          </h2>
+                          <div id="frames-section-{{ scene.id }}" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                        <!-- Frame Model Selection -->
+                        <div class="mb-2 d-flex align-items-center gap-2">
+                            <label class="form-label small mb-0">Frame-Modell:</label>
+                            <select class="form-select form-select-sm scene-frame-model" data-scene="{{ scene.id }}" style="width:auto;" onchange="saveSceneField('{{ scene.id }}','frame_model',this.value)">
+                                <option value="flux-pulid" {% if scene.frame_model == 'flux-pulid' or not scene.frame_model %}selected{% endif %}>FLUX + PuLID (lokal) — ~$0.02/Bild</option>
+                                <option value="nano-banana" {% if scene.frame_model == 'nano-banana' %}selected{% endif %}>Nano Banana 2 — $0.039/Bild</option>
+                                <option value="gemini-2.5" {% if scene.frame_model == 'gemini-2.5' %}selected{% endif %}>Gemini 2.5 Flash Image — $0.039/Bild</option>
+                                <option value="gemini-2.0" {% if scene.frame_model == 'gemini-2.0' %}selected{% endif %}>Gemini 2.0 Flash Image — $0.025/Bild</option>
+                                <option value="imagen-4-fast" {% if scene.frame_model == 'imagen-4-fast' %}selected{% endif %}>Imagen 4 Fast — $0.020/Bild</option>
+                                <option value="imagen-4" {% if scene.frame_model == 'imagen-4' %}selected{% endif %}>Imagen 4 — $0.040/Bild</option>
+                                <option value="imagen-4-ultra" {% if scene.frame_model == 'imagen-4-ultra' %}selected{% endif %}>Imagen 4 Ultra — $0.060/Bild</option>
+                            </select>
+                            <select class="form-select form-select-sm" style="width:auto;max-width:180px" onchange="saveSceneField('{{ scene.id }}','frame_style',this.value)">
+                                <option value="photorealistic" {% if scene.frame_style == 'photorealistic' or not scene.frame_style %}selected{% endif %}>Fotorealistisch</option>
+                                <option value="cinematic" {% if scene.frame_style == 'cinematic' %}selected{% endif %}>Cinematic</option>
+                                <option value="editorial" {% if scene.frame_style == 'editorial' %}selected{% endif %}>Editorial</option>
+                                <option value="documentary" {% if scene.frame_style == 'documentary' %}selected{% endif %}>Dokumentarisch</option>
+                                <option value="warm-portrait" {% if scene.frame_style == 'warm-portrait' %}selected{% endif %}>Warmes Portrait</option>
+                                <option value="anime" {% if scene.frame_style == 'anime' %}selected{% endif %}>Anime</option>
+                                <option value="illustration" {% if scene.frame_style == 'illustration' %}selected{% endif %}>Illustration</option>
+                                <option value="watercolor" {% if scene.frame_style == 'watercolor' %}selected{% endif %}>Aquarell</option>
+                                <option value="3d-render" {% if scene.frame_style == '3d-render' %}selected{% endif %}>3D Render</option>
+                                <option value="none" {% if scene.frame_style == 'none' %}selected{% endif %}>Kein Stil</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="showFrameModelComparison()" title="Modell-Vergleich">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-6">
+                                <label class="form-label small"><span class="badge bg-success">Start-Frame</span></label>
+                                <div class="drop-zone border border-success rounded p-2 text-center position-relative" style="min-height:120px"
+                                     ondragover="event.preventDefault();this.classList.add('bg-success','bg-opacity-10')"
+                                     ondragleave="this.classList.remove('bg-success','bg-opacity-10')"
+                                     ondrop="onFrameDrop(event,'{{ scene.id }}','start');this.classList.remove('bg-success','bg-opacity-10')">
+                                    {% if scene.start_frame and scene.start_frame.image %}
+                                    <img src="/videostudio/scene/{{ scene.id }}/thumb/start/" loading="lazy" class="img-fluid rounded" style="max-height:140px;width:100%;object-fit:cover" alt="Start">
+                                    <button class="btn btn-danger position-absolute top-0 end-0 rounded-circle p-0 d-flex align-items-center justify-content-center" style="width:20px;height:20px;font-size:10px;margin:4px;opacity:0.8" onclick="event.stopPropagation();clearSceneFrame('{{ scene.id }}','start')"><i class="bi bi-x"></i></button>
+                                    {% else %}
+                                    <i class="bi bi-plus-circle text-success" style="font-size:1.5em"></i>
+                                    <p class="small text-muted mb-1">Frame ablegen oder</p>
+                                    <label class="btn btn-sm btn-success"><i class="bi bi-upload"></i> Upload<input type="file" accept="image/*" class="d-none" onchange="uploadSceneFrame(this,'{{ scene.id }}','start')"></label>
+                                    {% endif %}
+                                </div>
+                                <textarea class="form-control form-control-sm mt-1" id="start-frame-prompt-{{ scene.id }}" rows="2" placeholder="Start-Frame Prompt (leer lassen = kein Auto-Gen)" onblur="saveSceneField('{{ scene.id }}','start_frame_prompt',this.value)">{{ scene.start_frame_prompt }}</textarea>
+                                <button class="btn btn-sm btn-outline-success w-100 mt-1" onclick="genSceneFrame('{{ scene.id }}','start')" id="gen-start-{{ scene.id }}">
+                                    <i class="bi bi-stars"></i> Start-Frame generieren
+                                </button>
+                            </div>
+                            <div class="col-6" id="endframe-col-{{ scene.id }}">
+                                <label class="form-label small"><span class="badge bg-danger">End-Frame</span></label>
+                                <div class="drop-zone border border-danger rounded p-2 text-center position-relative" style="min-height:120px"
+                                     ondragover="event.preventDefault();this.classList.add('bg-danger','bg-opacity-10')"
+                                     ondragleave="this.classList.remove('bg-danger','bg-opacity-10')"
+                                     ondrop="onFrameDrop(event,'{{ scene.id }}','end');this.classList.remove('bg-danger','bg-opacity-10')">
+                                    {% if scene.end_frame and scene.end_frame.image %}
+                                    <img src="/videostudio/scene/{{ scene.id }}/thumb/end/" loading="lazy" class="img-fluid rounded" style="max-height:140px;width:100%;object-fit:cover" alt="End">
+                                    <button class="btn btn-danger position-absolute top-0 end-0 rounded-circle p-0 d-flex align-items-center justify-content-center" style="width:20px;height:20px;font-size:10px;margin:4px;opacity:0.8" onclick="event.stopPropagation();clearSceneFrame('{{ scene.id }}','end')"><i class="bi bi-x"></i></button>
+                                    {% else %}
+                                    <i class="bi bi-plus-circle text-danger" style="font-size:1.5em"></i>
+                                    <p class="small text-muted mb-1">Frame ablegen oder</p>
+                                    <label class="btn btn-sm btn-danger"><i class="bi bi-upload"></i> Upload<input type="file" accept="image/*" class="d-none" onchange="uploadSceneFrame(this,'{{ scene.id }}','end')"></label>
+                                    {% endif %}
+                                </div>
+                                <textarea class="form-control form-control-sm mt-1" id="end-frame-prompt-{{ scene.id }}" rows="2" placeholder="End-Frame Prompt (nur Wan 2.2 etc.)" onblur="saveSceneField('{{ scene.id }}','end_frame_prompt',this.value)">{{ scene.end_frame_prompt }}</textarea>
+                                <button class="btn btn-sm btn-outline-danger w-100 mt-1" onclick="genSceneFrame('{{ scene.id }}','end')" id="gen-end-{{ scene.id }}">
+                                    <i class="bi bi-stars"></i> End-Frame generieren
+                                </button>
+                            </div>
+                        </div>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- Section 2: VIDEO -->
+                        <div class="accordion-item" style="background:transparent;border:1px solid rgba(255,255,255,0.1)">
+                          <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 px-3" style="background:rgba(13,110,253,0.15);color:#fff;font-weight:600" type="button" data-bs-toggle="collapse" data-bs-target="#video-section-{{ scene.id }}">
+                              <i class="bi bi-film me-2"></i> 2. Video
+                            </button>
+                          </h2>
+                          <div id="video-section-{{ scene.id }}" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                        <div class="mb-2">
+                            <textarea class="form-control form-control-sm scene-prompt" rows="2" data-scene="{{ scene.id }}" placeholder="Szene-Prompt (was passiert im Video)" onblur="saveScenePrompt(this)">{{ scene.prompt }}</textarea>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <label class="small">Modell:</label>
+                            <select class="form-select form-select-sm scene-model" name="model_choice" data-current="{{ scene.model_choice }}" data-scene="{{ scene.id }}" onchange="saveSceneModel(this); updateSceneSettings();">
+                                <!-- filled by JS -->
+                            </select>
+                            <i class="bi bi-info-circle text-info" style="cursor:pointer" data-scene="{{ scene.id }}" onclick="showModelTooltip(this)" title="Klicke für Modell-Info"></i>
+                            <label class="small ms-1">
+                            </label>
+                            <input type="hidden" class="scene-gpu" name="gpu_choice" value="auto" data-scene="{{ scene.id }}">
+                            <label class="small ms-2">Dauer:</label>
+                            <input type="number" class="form-control form-control-sm scene-duration" style="width:80px" value="{{ scene.duration }}" min="2" max="30" data-scene="{{ scene.id }}" onchange="saveSceneDuration(this)">
+                            <span class="small text-muted">Sek</span>
+                            {% if scene.status == 'done' %}
+                            <div class="d-flex align-items-center gap-2 ms-auto">
+                                <div class="dropdown" id="video-versions-{{ scene.id }}">
+                                    <button class="btn btn-sm btn-outline-info dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-collection-play"></i> Versionen
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" id="video-list-{{ scene.id }}">
+                                        <li><small class="dropdown-item-text text-muted">Laden...</small></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            {% elif scene.status == 'error' %}
+                            <div class="alert alert-danger py-2 px-3 mb-0 mt-2" style="font-size:0.85rem; border-radius:8px;">
+                            <i class="bi bi-exclamation-triangle"></i> {{ scene.error_message }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if scene.status == 'done' %}
+                        <!-- Video Player -->
+                        <div class="mt-2">
+                            <video controls class="w-100 rounded" style="max-height:360px" preload="metadata" id="video-player-{{ scene.id }}">
+                                {% if scene.video_file %}<source src="{{ scene.video_file.url }}" type="video/mp4">{% endif %}
+                            </video>
+                        </div>
+                        {% endif %}
+                        <!-- TEXT OVERLAY (ffmpeg post-process) -->
+                        <div class="mt-2 p-2 rounded" style="background:#262626;border:1px solid rgba(255,193,7,0.3)">
+                            <div class="small mb-1" style="color:#ffc107; font-weight:600"><i class="bi bi-fonts"></i> Text-Overlay (wird ohne Neu-Rendern eingebrannt)</div>
+                            <textarea class="form-control form-control-sm" id="overlay-text-{{ scene.id }}" rows="2" placeholder="Text der im Video erscheinen soll..." onblur="saveSceneField('{{ scene.id }}','text_overlay',this.value)">{{ scene.text_overlay }}</textarea>
+                            <div class="row g-2 mt-1">
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0" style="color:#fff;font-weight:500">Vertikal</label>
+                                    <select class="form-select form-select-sm" id="overlay-vpos-{{ scene.id }}" onchange="saveSceneField('{{ scene.id }}','overlay_pos_v',this.value)">
+                                        <option value="top" {% if scene.overlay_pos_v == 'top' %}selected{% endif %}>Oben</option>
+                                        <option value="middle" {% if scene.overlay_pos_v == 'middle' or not scene.overlay_pos_v %}selected{% endif %}>Mitte</option>
+                                        <option value="bottom" {% if scene.overlay_pos_v == 'bottom' %}selected{% endif %}>Unten</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0" style="color:#fff;font-weight:500">Horizontal</label>
+                                    <select class="form-select form-select-sm" id="overlay-hpos-{{ scene.id }}" onchange="saveSceneField('{{ scene.id }}','overlay_pos_h',this.value)">
+                                        <option value="left" {% if scene.overlay_pos_h == 'left' %}selected{% endif %}>Links</option>
+                                        <option value="center" {% if scene.overlay_pos_h == 'center' or not scene.overlay_pos_h %}selected{% endif %}>Zentriert</option>
+                                        <option value="right" {% if scene.overlay_pos_h == 'right' %}selected{% endif %}>Rechts</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0" style="color:#fff;font-weight:500">Stil</label>
+                                    <select class="form-select form-select-sm" id="overlay-style-{{ scene.id }}" onchange="saveSceneField('{{ scene.id }}','overlay_style',this.value)">
+                                        <option value="classic" {% if scene.overlay_style == 'classic' %}selected{% endif %}>Classic (weiß + Box)</option>
+                                        <option value="modern" {% if scene.overlay_style == 'modern' or not scene.overlay_style %}selected{% endif %}>Modern (große Outline)</option>
+                                        <option value="subtitle" {% if scene.overlay_style == 'subtitle' %}selected{% endif %}>Subtitle (klein unten)</option>
+                                        <option value="title" {% if scene.overlay_style == 'title' %}selected{% endif %}>Title (groß oben)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-warning mt-2 w-100" id="overlay-btn-{{ scene.id }}" onclick="applyTextOverlay('{{ scene.id }}')">
+                                <i class="bi bi-magic"></i> Text-Overlay anwenden (ffmpeg)
+                            </button>
+                        </div>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- Section 3: AUDIO -->
+                        <div class="accordion-item" style="background:transparent;border:1px solid rgba(255,255,255,0.1)">
+                          <h2 class="accordion-header">
+                            <button class="accordion-button collapsed py-2 px-3" style="background:rgba(13,202,240,0.15);color:#fff;font-weight:600" type="button" data-bs-toggle="collapse" data-bs-target="#audio-section-{{ scene.id }}">
+                              <i class="bi bi-mic-fill me-2"></i> 3. Audio
+                            </button>
+                          </h2>
+                          <div id="audio-section-{{ scene.id }}" class="accordion-collapse collapse">
+                            <div class="accordion-body p-2">
+                        <!-- Voiceover — immer sichtbar -->
+                        <div class="p-2 rounded" style="background:rgba(0,200,255,0.05); border:1px solid rgba(0,200,255,0.15)">
+                            <div class="d-flex align-items-center mb-1">
+                                <i class="bi bi-mic-fill text-info me-1"></i>
+                                <small class="text-info fw-bold me-2">Voiceover</small>
+                                <select class="form-select form-select-sm" style="width:auto; max-width:220px; font-size:0.75rem" id="audio-model-{{ scene.id }}" onchange="updateAudioParams('{{ scene.id }}')">
+                                    <optgroup label="🏠 Piper Standard (lokal, CPU, gratis)">
+                                        <option value="piper-thorsten-medium" {% if scene.audio_model == "piper-thorsten-medium" %}selected{% endif %}>Thorsten (M, medium)</option>
+                                        <option value="piper-thorsten-high" {% if scene.audio_model == "piper-thorsten-high" %}selected{% endif %}>Thorsten (M, high)</option>
+                                        <option value="piper-karlsson" {% if scene.audio_model == "piper-karlsson" %}selected{% endif %}>Karlsson (M, tief)</option>
+                                        <option value="piper-kerstin" {% if scene.audio_model == "piper-kerstin" %}selected{% endif %}>Kerstin (W)</option>
+                                        <option value="piper-eva" {% if scene.audio_model == "piper-eva" %}selected{% endif %}>Eva (W, fast)</option>
+                                        <option value="piper-pavoque" {% if scene.audio_model == "piper-pavoque" %}selected{% endif %}>Pavoque (M, narrativ)</option>
+                                        <option value="piper-ramona" {% if scene.audio_model == "piper-ramona" %}selected{% endif %}>Ramona (W)</option>
+                                    </optgroup>
+                                    <optgroup label="🎭 Thorsten Emotional (lokal, CPU)">
+                                        <option value="piper-thorsten-neutral" {% if scene.audio_model == "piper-thorsten-neutral" %}selected{% endif %}>Thorsten — neutral</option>
+                                        <option value="piper-thorsten-amused" {% if scene.audio_model == "piper-thorsten-amused" %}selected{% endif %}>Thorsten — amüsiert</option>
+                                        <option value="piper-thorsten-angry" {% if scene.audio_model == "piper-thorsten-angry" %}selected{% endif %}>Thorsten — wütend</option>
+                                        <option value="piper-thorsten-surprised" {% if scene.audio_model == "piper-thorsten-surprised" %}selected{% endif %}>Thorsten — überrascht</option>
+                                        <option value="piper-thorsten-sleepy" {% if scene.audio_model == "piper-thorsten-sleepy" %}selected{% endif %}>Thorsten — müde</option>
+                                        <option value="piper-thorsten-whisper" {% if scene.audio_model == "piper-thorsten-whisper" %}selected{% endif %}>Thorsten — flüsternd</option>
+                                        <option value="piper-thorsten-disgusted" {% if scene.audio_model == "piper-thorsten-disgusted" %}selected{% endif %}>Thorsten — angewidert</option>
+                                        <option value="piper-thorsten-drunk" {% if scene.audio_model == "piper-thorsten-drunk" %}selected{% endif %}>Thorsten — angetrunken</option>
+                                    </optgroup>
+                                    <optgroup label="📚 MLS Multi-Speaker (lokal, CPU)">
+                                        <option value="piper-mls-male-1" {% if scene.audio_model == "piper-mls-male-1" %}selected{% endif %}>MLS Männlich 1</option>
+                                        <option value="piper-mls-male-2" {% if scene.audio_model == "piper-mls-male-2" %}selected{% endif %}>MLS Männlich 2</option>
+                                        <option value="piper-mls-female-1" {% if scene.audio_model == "piper-mls-female-1" %}selected{% endif %}>MLS Weiblich 1</option>
+                                        <option value="piper-mls-female-2" {% if scene.audio_model == "piper-mls-female-2" %}selected{% endif %}>MLS Weiblich 2</option>
+                                    </optgroup>
+                                    <optgroup label="🎭 XTTS-v2 weiblich (RunPod GPU)">
+                                        <option value="xtts-daisy" {% if scene.audio_model == "xtts-daisy" %}selected{% endif %}>Daisy Studious (klar, studiös)</option>
+                                        <option value="xtts-gracie" {% if scene.audio_model == "xtts-gracie" %}selected{% endif %}>Gracie Wise (ruhig, weise)</option>
+                                        <option value="xtts-claribel" {% if scene.audio_model == "xtts-claribel" %}selected{% endif %}>Claribel Dervla (warm)</option>
+                                        <option value="xtts-ana" {% if scene.audio_model == "xtts-ana" %}selected{% endif %}>Ana Florence (elegant)</option>
+                                        <option value="xtts-tammie" {% if scene.audio_model == "xtts-tammie" %}selected{% endif %}>Tammie Ema (sanft)</option>
+                                        <option value="xtts-alison" {% if scene.audio_model == "xtts-alison" %}selected{% endif %}>Alison Dietlinde (natürlich)</option>
+                                        <option value="xtts-sofia" {% if scene.audio_model == "xtts-sofia" %}selected{% endif %}>Sofia Hellen (hell)</option>
+                                    </optgroup>
+                                    <optgroup label="🎭 XTTS-v2 männlich (RunPod GPU)">
+                                        <option value="xtts-baldur" {% if scene.audio_model == "xtts-baldur" %}selected{% endif %}>Baldur Sanjin (seriös)</option>
+                                        <option value="xtts-viktor-e" {% if scene.audio_model == "xtts-viktor-e" %}selected{% endif %}>Viktor Eka (markant)</option>
+                                        <option value="xtts-andrew" {% if scene.audio_model == "xtts-andrew" %}selected{% endif %}>Andrew Chipper (freundlich)</option>
+                                        <option value="xtts-damien" {% if scene.audio_model == "xtts-damien" %}selected{% endif %}>Damien Black (tief, dunkel)</option>
+                                        <option value="xtts-viktor-m" {% if scene.audio_model == "xtts-viktor-m" %}selected{% endif %}>Viktor Menelaos (klassisch)</option>
+                                        <option value="xtts-dionisio" {% if scene.audio_model == "xtts-dionisio" %}selected{% endif %}>Dionisio Schuyler (warm, M)</option>
+                                        <option value="xtts-craig" {% if scene.audio_model == "xtts-craig" %}selected{% endif %}>Craig Gutsy (kräftig)</option>
+                                    </optgroup>
+                                    <optgroup label="🎤 XTTS-v2 Voice-Clone">
+                                        <option value="xtts-clone" {% if scene.audio_model == "xtts-clone" %}selected{% endif %}>🎤 Eigene Stimme (Upload)</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <textarea class="form-control form-control-sm voiceover-text"
+                                id="voiceover-{{ scene.id }}"
+                                rows="2"
+                                placeholder="Gesprochener Text hier eingeben..."
+                                data-scene="{{ scene.id }}"
+                                data-max-words="{% widthratio scene.duration 2 5 %}"
+                                oninput="checkVoiceoverLimit(this)"
+                                onblur="saveSceneField('{{ scene.id }}','voiceover_text',this.value)"
+                            >{{ scene.voiceover_text }}</textarea>
+                            <div class="mt-1 d-flex gap-2 align-items-center">
+                                <button type="button" class="btn btn-sm btn-outline-info" id="vo-preview-btn-{{ scene.id }}" onclick="previewVoiceover('{{ scene.id }}')"><i class="bi bi-play-circle"></i> Text anhören</button>
+                                <audio id="vo-preview-audio-{{ scene.id }}" controls style="{% if scene.audio_file %}{% else %}display:none;{% endif %}flex:1;height:30px"{% if scene.audio_file %} src="{{ scene.audio_file.url }}"{% endif %}></audio>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <small class="text-muted" id="wordcount-{{ scene.id }}">
+                                    Max. {% widthratio scene.duration 2 5 %} Wörter ({{ scene.duration }}s Video)
+                                </small>
+
+                            </div>
+                        </div>
+                            </div>
+                          </div>
+                        </div>
+                        </div>
+                        <!-- Pipeline Button -->
+                        <div class="mt-2">
+                            <button class="btn btn-success w-100" onclick="runScenePipeline('{{ scene.id }}')">
+                                <i class="bi bi-magic"></i> Pipeline: Frames → Video → Voiceover
+                            </button>
+                        </div>
+
+                        <!-- Erweiterte Einstellungen (aufklappbar) -->
+                        <div class="mt-1">
+                            <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#settings-{{ scene.id }}">
+                                <i class="bi bi-gear"></i> Erweiterte Einstellungen
+                            </button>
+                        </div>
+                        <div class="collapse mt-2" id="settings-{{ scene.id }}">
+                            <div class="card card-body bg-dark border-secondary p-2">
+                                <!-- QUALITY PRESETS + FINE-TUNING -->
+                                <div class="mb-3 p-2 rounded" style="background:rgba(255,193,7,0.08); border:1px solid rgba(255,193,7,0.3)">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <strong class="small" style="color:#ffc107"><i class="bi bi-stars"></i> Qualitäts-Preset <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('preset')"><i class="bi bi-info-circle"></i></button></strong>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <input type="radio" class="btn-check" name="qp-{{ scene.id }}" id="qp-draft-{{ scene.id }}" value="draft" {% if scene.quality_preset == 'draft' %}checked{% endif %} onchange="applyQualityPreset('{{ scene.id }}','draft')">
+                                            <label class="btn btn-outline-warning" for="qp-draft-{{ scene.id }}" title="Schnell rendern, weniger Qualität">Draft</label>
+                                            <input type="radio" class="btn-check" name="qp-{{ scene.id }}" id="qp-balanced-{{ scene.id }}" value="balanced" {% if scene.quality_preset == 'balanced' %}checked{% endif %} onchange="applyQualityPreset('{{ scene.id }}','balanced')">
+                                            <label class="btn btn-outline-warning" for="qp-balanced-{{ scene.id }}">Balanced</label>
+                                            <input type="radio" class="btn-check" name="qp-{{ scene.id }}" id="qp-ultra-{{ scene.id }}" value="ultra" {% if scene.quality_preset == 'ultra' %}checked{% endif %} onchange="applyQualityPreset('{{ scene.id }}','ultra')">
+                                            <label class="btn btn-outline-warning" for="qp-ultra-{{ scene.id }}" title="Beste Qualität, langsamer">Ultra</label>
+                                            <input type="radio" class="btn-check" name="qp-{{ scene.id }}" id="qp-custom-{{ scene.id }}" value="custom" {% if scene.quality_preset == 'custom' %}checked{% endif %}>
+                                            <label class="btn btn-outline-warning" for="qp-custom-{{ scene.id }}">Custom</label>
+                                        </div>
+                                    </div>
+
+                                    <!-- FLUX section -->
+                                    <div class="mb-2 p-2 rounded" style="background:#262626; border:1px solid rgba(255,193,7,0.2)">
+                                        <div class="small mb-1" style="color:#ffc107; font-weight:600"><i class="bi bi-image"></i> FLUX + PuLID (Frame-Generierung) <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1; vertical-align:baseline" onclick="showQualityInfo('flux')"><i class="bi bi-info-circle"></i></button></div>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">Auflösung <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('resolution')"><i class="bi bi-info-circle"></i></button></label>
+                                                <select class="form-select form-select-sm" data-q-field="flux_resolution" data-scene="{{ scene.id }}" onchange="saveQualityField('{{ scene.id }}','flux_resolution',this.value)">
+                                                    <option value="1024" {% if scene.flux_resolution == '1024' %}selected{% endif %}>1024×1024 (schnell)</option>
+                                                    <option value="1080_h" {% if scene.flux_resolution == '1080_h' %}selected{% endif %}>1920×1080 (FullHD)</option>
+                                                    <option value="1080_v" {% if scene.flux_resolution == '1080_v' %}selected{% endif %}>1080×1920 (Shorts)</option>
+                                                    <option value="2048" {% if scene.flux_resolution == '2048' %}selected{% endif %}>2048×2048 (2K)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">Steps <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('steps')"><i class="bi bi-info-circle"></i></button></label>
+                                                <input type="number" class="form-control form-control-sm" data-q-field="flux_steps" data-scene="{{ scene.id }}" value="{{ scene.flux_steps }}" min="10" max="60" onchange="saveQualityField('{{ scene.id }}','flux_steps',this.value)">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">CFG <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('cfg')"><i class="bi bi-info-circle"></i></button></label>
+                                                <input type="number" class="form-control form-control-sm" data-q-field="flux_guidance" data-scene="{{ scene.id }}" value="{{ scene.flux_guidance }}" min="1" max="10" step="0.1" onchange="saveQualityField('{{ scene.id }}','flux_guidance',this.value)">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">PuLID <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('pulid')"><i class="bi bi-info-circle"></i></button></label>
+                                                <input type="number" class="form-control form-control-sm" data-q-field="pulid_cfg" data-scene="{{ scene.id }}" value="{{ scene.pulid_cfg }}" min="0.3" max="2.0" step="0.1" onchange="saveQualityField('{{ scene.id }}','pulid_cfg',this.value)">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- HunyuanVideo section -->
+                                    <div class="p-2 rounded" style="background:#262626; border:1px solid rgba(255,193,7,0.2)">
+                                        <div class="small mb-1" style="color:#ffc107; font-weight:600"><i class="bi bi-film"></i> HunyuanVideo 1.5 I2V (Video-Render) <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1; vertical-align:baseline" onclick="showQualityInfo('hunyuan')"><i class="bi bi-info-circle"></i></button></div>
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">Auflösung <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('resolution')"><i class="bi bi-info-circle"></i></button></label>
+                                                <select class="form-select form-select-sm" data-q-field="hunyuan_resolution" data-scene="{{ scene.id }}" onchange="saveQualityField('{{ scene.id }}','hunyuan_resolution',this.value)">
+                                                    <option value="480p" {% if scene.hunyuan_resolution == '480p' %}selected{% endif %}>480p (832×480, schnell)</option>
+                                                    <option value="720p" {% if scene.hunyuan_resolution == '720p' %}selected{% endif %}>720p (1280×720, Qualität)</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">Steps <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('steps')"><i class="bi bi-info-circle"></i></button></label>
+                                                <input type="number" class="form-control form-control-sm" data-q-field="hunyuan_steps" data-scene="{{ scene.id }}" value="{{ scene.hunyuan_steps }}" min="10" max="80" onchange="saveQualityField('{{ scene.id }}','hunyuan_steps',this.value)">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">CFG <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('cfg')"><i class="bi bi-info-circle"></i></button></label>
+                                                <input type="number" class="form-control form-control-sm" data-q-field="hunyuan_cfg" data-scene="{{ scene.id }}" value="{{ scene.hunyuan_cfg }}" min="1" max="12" step="0.5" onchange="saveQualityField('{{ scene.id }}','hunyuan_cfg',this.value)">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">Flow-Shift <button type="button" class="btn btn-link btn-sm p-0 ms-1" style="color:#4dd0e1;vertical-align:baseline;font-size:0.8rem" onclick="showQualityInfo('flow_shift')"><i class="bi bi-info-circle"></i></button></label>
+                                                <input type="number" class="form-control form-control-sm" data-q-field="hunyuan_flow_shift" data-scene="{{ scene.id }}" value="{{ scene.hunyuan_flow_shift }}" min="1" max="15" step="0.5" onchange="saveQualityField('{{ scene.id }}','hunyuan_flow_shift',this.value)">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">
+                                            Bildformat
+                                        </label>
+                                        <select class="form-select form-select-sm scene-aspect-ratio" data-scene="{{ scene.id }}" onchange="saveSceneSetting(this,'aspect_ratio')">
+                                            <option value="auto" {% if scene.aspect_ratio == 'auto' %}selected{% endif %}>Auto</option>
+                                            <option value="16:9" {% if scene.aspect_ratio == '16:9' %}selected{% endif %}>16:9 (Querformat)</option>
+                                            <option value="9:16" {% if scene.aspect_ratio == '9:16' %}selected{% endif %}>9:16 (Hochformat)</option>
+                                            <option value="1:1" {% if scene.aspect_ratio == '1:1' %}selected{% endif %}>1:1 (Quadrat)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">
+                                            Seed
+                                        </label>
+                                        <input type="number" class="form-control form-control-sm scene-seed" value="{{ scene.seed }}" data-scene="{{ scene.id }}" onchange="saveSceneSetting(this,'seed')">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">
+                                            FPS
+                                        </label>
+                                        <select class="form-select form-select-sm scene-fps" data-scene="{{ scene.id }}" onchange="saveSceneSetting(this,'fps')">
+                                            <option value="16" {% if scene.fps == 16 %}selected{% endif %}>16 fps</option>
+                                            <option value="24" {% if scene.fps == 24 %}selected{% endif %}>24 fps</option>
+                                            <option value="30" {% if scene.fps == 30 %}selected{% endif %}>30 fps</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small mb-0" style="color:#ffffff;font-weight:500">
+                                            Negativer Prompt
+                                        </label>
+                                        <input type="text" class="form-control form-control-sm scene-neg-prompt" placeholder="Leer = Standard" value="{{ scene.negative_prompt }}" data-scene="{{ scene.id }}" onblur="saveSceneSetting(this,'negative_prompt')">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-film" style="font-size:3em"></i>
+                    <p class="mt-2">Noch keine Szenen. Generiere Frames und füge Szenen hinzu!</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Modal (Mobile-friendly) -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-arrow-right-circle"></i> Frame zuweisen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Wohin soll der Frame?</p>
+        <div id="assignModalTargets"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var PROJECT_PK = '{{ project.pk }}';
+var CSRF = '{{ csrf_token }}';
+var genController = null;
+var draggedFrameId = null;
+var _assignFrameId = null;
+
+// Build assign modal targets from existing scenes
+var _scenes = [
+    {% for scene in scenes %}
+    {id: '{{ scene.id }}', num: {{ forloop.counter }} }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+function showFramesModal() {
+    var grid = document.getElementById('framesGrid');
+    var modal = document.getElementById('framesModal');
+    if (!grid || !modal) return;
+    modal.querySelector('.modal-body').innerHTML = grid.innerHTML;
+    var bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+    bsModal.show();
+}
+
+function showAssignModal(frameId) {
+    _assignFrameId = frameId;
+    var html = '';
+    _scenes.forEach(function(s) {
+        html += '<div class="d-flex align-items-center mb-2 gap-2">';
+        html += '<span class="fw-bold me-2">Szene ' + s.num + '</span>';
+        html += '<button class="btn btn-sm btn-success" onclick="assignFrame(\'' + s.id + '\',\'start\')"><i class="bi bi-box-arrow-in-left"></i> Start</button>';
+        html += '<button class="btn btn-sm btn-danger" onclick="assignFrame(\'' + s.id + '\',\'end\')"><i class="bi bi-box-arrow-right"></i> Ende</button>';
+        html += '</div>';
+    });
+    if (_scenes.length === 0) {
+        html = '<p class="text-muted">Keine Szenen vorhanden. Erstelle zuerst eine Szene!</p>';
+    }
+    document.getElementById('assignModalTargets').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('assignModal')).show();
+}
+
+function assignFrame(sceneId, slot) {
+    fetch('/videostudio/scene/' + sceneId + '/update-frames/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({slot: slot, frame_id: _assignFrameId})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) location.reload();
+        else alert(data.error || 'Fehler');
+    });
+}
+
+function onFrameDragStart(event, frameId) {
+    draggedFrameId = frameId;
+    event.dataTransfer.setData('text/plain', frameId);
+    event.dataTransfer.effectAllowed = 'move';
+}
+
+function onFrameDrop(event, sceneId, slot) {
+    event.preventDefault();
+    var frameId = event.dataTransfer.getData('text/plain') || draggedFrameId;
+    if (!frameId) return;
+    fetch('/videostudio/scene/' + sceneId + '/update-frames/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({slot: slot, frame_id: frameId})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) location.reload();
+        else alert(data.error || 'Fehler');
+    });
+}
+
+function clearSceneFrame(sceneId, slot) {
+    fetch('/videostudio/scene/' + sceneId + '/update-frames/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({slot: slot, frame_id: null})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) location.reload();
+    });
+}
+
+function uploadSceneFrame(input, sceneId, slot) {
+    var file = input.files[0];
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('image', file);
+    fd.append('name', file.name);
+    fd.append('frame_type', slot);
+    fetch('/videostudio/' + PROJECT_PK + '/frame/upload/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (!data.ok) { alert(data.error || 'Upload Fehler'); return; }
+        return fetch('/videostudio/scene/' + sceneId + '/update-frames/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify({slot: slot, frame_id: data.frame_id})
+        });
+    }).then(function(r) { if (r) return r.json(); }).then(function(data) {
+        if (data && data.ok) location.reload();
+    });
+}
+
+function uploadCharImages(charId, files) {
+    if (!files || files.length === 0) return;
+    var fd = new FormData();
+    for (var i = 0; i < files.length; i++) fd.append('images', files[i]);
+    fetch('/videostudio/character/' + charId + '/image-add/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF},
+        body: fd
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') { location.reload(); }
+        else { alert('Fehler: ' + (data.error || 'Upload fehlgeschlagen')); }
+    })
+    .catch(function(e){ alert('Fehler: ' + e); });
+}
+
+function deleteCharImage(imgId) {
+    if (!confirm('Bild löschen?')) return;
+    fetch('/videostudio/character-image/' + imgId + '/delete/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF}
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') { location.reload(); }
+        else { alert('Fehler: ' + (data.error || 'Unbekannt')); }
+    });
+}
+
+function addCharacter() {
+    var fd = new FormData();
+    fd.append('name', document.getElementById('charName').value);
+    fd.append('image', document.getElementById('charImage').files[0]);
+    fetch('/videostudio/' + PROJECT_PK + '/character/add/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd
+    }).then(function(r) { return r.json(); }).then(function(data) { if (data.ok) location.reload(); else alert(data.error); });
+}
+
+function deleteCharacter(id) {
+    if (!confirm('Charakter entfernen?')) return;
+    fetch('/videostudio/character/' + id + '/delete/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function() { location.reload(); });
+}
+
+function addProduct() {
+    var fd = new FormData();
+    fd.append('name', document.getElementById('prodName').value);
+    fd.append('image', document.getElementById('prodImage').files[0]);
+    fetch('/videostudio/' + PROJECT_PK + '/product/add/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd
+    }).then(function() { location.reload(); });
+}
+
+function deleteProduct() {
+    if (!confirm('Produkt entfernen?')) return;
+    fetch('/videostudio/' + PROJECT_PK + '/product/delete/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function() { location.reload(); });
+}
+
+function addStill() {
+    var fd = new FormData();
+    fd.append('name', document.getElementById('stillName').value);
+    fd.append('image', document.getElementById('stillImage').files[0]);
+    fetch('/videostudio/' + PROJECT_PK + '/still/add/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd
+    }).then(function() { location.reload(); });
+}
+
+function deleteStill() {
+    if (!confirm('Stillbild entfernen?')) return;
+    fetch('/videostudio/' + PROJECT_PK + '/still/delete/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function() { location.reload(); });
+}
+
+function updateFrameModelInfo() {
+    var sel = document.getElementById('frameModel');
+    var info = document.getElementById('frameModelInfo');
+    if (!sel || !info) return;
+    var v = sel.value;
+    var texts = {
+        'nano-banana': 'Nano Banana 2 (Gemini 3.1): Character + Produkt-Referenzen, beste Qualität',
+        'gemini-2.5': 'Gemini 2.5 Flash Image: Character + Referenzen, etwas ältere Version',
+        'gemini-2.0': 'Gemini 2.0 Flash Image: Referenzen, günstiger aber weniger detailliert',
+        'imagen-4-fast': 'Imagen 4 Fast: Nur Text-Prompt, günstigst, schnell für einfache Bilder',
+        'imagen-4': 'Imagen 4: Nur Text-Prompt, hohe Qualität',
+        'imagen-4-ultra': 'Imagen 4 Ultra: Nur Text-Prompt, Premium-Qualität',
+        'flux-pulid': 'Lokal auf RunPod, Character-Konsistenz via Referenz-Bildern. Pod startet automatisch.',
+    };
+    info.textContent = texts[v] || '';
+}
+
+function generateFrame() {
+    var prompt = document.getElementById('framePrompt').value.trim();
+    if (!prompt) return alert('Bitte Prompt eingeben');
+    var modelSel = document.getElementById('frameModel');
+    var model = modelSel ? modelSel.value : 'nano-banana';
+    var btn = document.getElementById('genFrameBtn');
+    var cancelBtn = document.getElementById('cancelGenBtn');
+    var status = document.getElementById('frameGenStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+    cancelBtn.classList.remove('d-none');
+
+    var endpoint, statusMsg;
+    if (model === 'flux-pulid') {
+        endpoint = '/videostudio/' + PROJECT_PK + '/frame/generate-flux/';
+        statusMsg = 'Sende Anfrage an FLUX + PuLID (lokal)... Pod startet evtl. (bis zu 90s)';
+    } else {
+        endpoint = '/videostudio/' + PROJECT_PK + '/frame/generate/';
+        statusMsg = 'Sende Anfrage an Nano Banana 2...';
+    }
+    status.textContent = statusMsg;
+    genController = new AbortController();
+    var fd = new FormData();
+    fd.append('prompt', prompt);
+    fetch(endpoint, {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd, signal: genController.signal
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        resetGenBtn();
+        if (data.ok) {
+            status.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Frame generiert!</span>';
+            setTimeout(function() { location.reload(); }, 500);
+        } else {
+            status.innerHTML = '<span class="text-danger">' + (data.error || 'Fehler') + '</span>';
+        }
+    }).catch(function(err) {
+        resetGenBtn();
+        if (err.name === 'AbortError') {
+            status.innerHTML = '<span class="text-warning">Abgebrochen</span>';
+        } else {
+            status.innerHTML = '<span class="text-danger">Netzwerkfehler</span>';
+        }
+    });
+}
+
+function cancelGeneration() {
+    if (genController) genController.abort();
+    resetGenBtn();
+}
+
+function resetGenBtn() {
+    var btn = document.getElementById('genFrameBtn');
+    var cancelBtn = document.getElementById('cancelGenBtn');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stars"></i> Generieren';
+    cancelBtn.classList.add('d-none');
+    genController = null;
+}
+
+function deleteFrame(id) {
+    if (!confirm('Frame loeschen?')) return;
+    fetch('/videostudio/frame/' + id + '/delete/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function() { location.reload(); });
+}
+
+function addScene() {
+    var fd = new FormData();
+    fd.append('prompt', '');
+    fd.append('duration', '5');
+    fetch('/videostudio/' + PROJECT_PK + '/scene/add/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd
+    }).then(function(r) { return r.json(); }).then(function(data) { if (data.ok) location.reload(); else alert(data.error); });
+}
+
+
+function downloadAll() {
+    var doneScenes = document.querySelectorAll("[data-scene-done]");
+    if (doneScenes.length === 0) {
+        alert('Keine fertigen Videos vorhanden.');
+        return;
+    }
+    new bootstrap.Modal(document.getElementById('downloadModal')).show();
+}
+
+function doDownload(mode) {
+    bootstrap.Modal.getInstance(document.getElementById('downloadModal')).hide();
+    window.location.href = '/videostudio/' + PROJECT_PK + '/download/?mode=' + mode;
+}
+
+function toggleAllScenes(checked) {
+    document.querySelectorAll('.scene-check').forEach(function(cb) { cb.checked = checked; });
+}
+
+function generateAllScenes() {
+    var ids = [];
+    document.querySelectorAll('.scene-check:checked').forEach(function(cb) {
+        ids.push(cb.getAttribute('data-scene-id'));
+    });
+    if (ids.length === 0) { alert('Keine Szenen ausgewählt!'); return; }
+    var started = 0;
+    var total = ids.length;
+    // Sofortiges Feedback
+    ids.forEach(function(id) {
+        var card = document.getElementById('scene-' + id);
+        if (card) {
+            var header = card.querySelector('.card-header > div:last-child');
+            if (header) header.innerHTML = '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Wird gestartet...</span>';
+        }
+    });
+    ids.forEach(function(id) {
+        fetch('/videostudio/scene/' + id + '/generate/', {
+            method: 'POST', headers: {'X-CSRFToken': CSRF}
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            started++;
+            if (started === total) {
+                setTimeout(function() { location.reload(); }, 1500);
+            }
+        });
+    });
+}
+
+function generateScene(id) {
+    // Sofortiges visuelles Feedback
+    var card = document.getElementById('scene-' + id);
+    if (card) {
+        var header = card.querySelector('.card-header > div:last-child');
+        if (header) header.innerHTML = '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Wird gestartet...</span>';
+    }
+    fetch('/videostudio/scene/' + id + '/generate/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) {
+            if (header) header.innerHTML = '<span class="badge bg-info"><i class="bi bi-check-circle"></i> In Warteschlange</span>';
+            setTimeout(function() { location.reload(); }, 1000);
+        }
+        else alert(data.error || 'Fehler beim Rendern');
+    }).catch(function() {
+        if (header) header.innerHTML = '<span class="badge bg-danger">Verbindungsfehler</span>';
+    });
+}
+
+function generatePreview(id) {
+    var card = document.getElementById('scene-' + id);
+    if (card) {
+        var header = card.querySelector('.card-header > div:last-child');
+        if (header) header.innerHTML = '<span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Preview wird gestartet...</span>';
+    }
+    fetch('/videostudio/scene/' + id + '/generate/?preview=1', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) {
+            if (header) header.innerHTML = '<span class="badge bg-info"><i class="bi bi-check-circle"></i> In Warteschlange</span>';
+            setTimeout(function() { location.reload(); }, 1000);
+        }
+        else alert(data.error || 'Fehler beim Preview');
+    }).catch(function() {
+        if (header) header.innerHTML = '<span class="badge bg-danger">Verbindungsfehler</span>';
+    });
+}
+
+function upscaleScene(id, resolution) {
+    fetch('/videostudio/scene/' + id + '/generate/?resolution=' + resolution, {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) location.reload();
+        else alert(data.error || 'Fehler beim Upscale');
+    });
+}
+
+function cancelScene(id) {
+    fetch('/videostudio/scene/' + id + '/cancel/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.status === 'cancelled') location.reload();
+        else alert('Konnte nicht abbrechen: ' + (data.error || data.status));
+    });
+}
+
+function deleteScene(id) {
+    if (!confirm('Szene loeschen?')) return;
+    fetch('/videostudio/scene/' + id + '/delete/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function() { location.reload(); });
+}
+
+function deleteProject() {
+    if (!confirm('Projekt wirklich loeschen? Alle Daten gehen verloren!')) return;
+    fetch('/videostudio/' + PROJECT_PK + '/delete/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function() { window.location = '/videostudio/'; });
+}
+
+// Auto-poll progress while scenes are generating
+(function() {
+    var generating = document.querySelectorAll('[id^="progress-"], [class*="queue-badge-"]');
+    if (generating.length > 0) {
+        var projectId = '{{ project.id }}';
+        setInterval(async function() {
+            try {
+                var r = await fetch('/videostudio/' + projectId + '/status/');
+                var data = await r.json();
+                var needReload = false;
+                data.scenes.forEach(function(s) {
+                    var bar = document.getElementById('progress-' + s.id);
+                    if (bar && s.status === 'generating') {
+                        var curProg = parseInt(bar.style.width) || 0;
+                        if (s.progress >= curProg) {
+                            bar.style.width = s.progress + '%';
+                            bar.textContent = s.progress + '%';
+                        }
+                        // Switch from queue badge to progress bar when rendering starts
+                        if (s.progress > 0) {
+                            var qBadge = document.querySelector('.queue-badge-' + s.id);
+                            var pWrap = document.querySelector('.progress-wrap-' + s.id);
+                            if (qBadge) qBadge.style.display = 'none';
+                            if (pWrap) pWrap.style.display = '';
+                        }
+                        // Show retry message if present
+                        var msgEl = document.getElementById('retry-msg-' + s.id);
+                        if (s.error && s.error.length > 0) {
+                            if (!msgEl) {
+                                var card = bar.closest('.card-body');
+                                if (card) {
+                                    var div = document.createElement('div');
+                                    div.id = 'retry-msg-' + s.id;
+                                    div.className = 'alert alert-warning py-2 px-3 mt-2 mb-0';
+                                    div.style.fontSize = '0.85rem';
+                                    div.style.borderRadius = '8px';
+                                    div.textContent = s.error;
+                                    card.appendChild(div);
+                                }
+                            } else { msgEl.textContent = s.error; }
+                        } else if (msgEl) { msgEl.remove(); }
+                    } else if (bar && s.status !== 'generating') {
+                        needReload = true;
+                    }
+                });
+                // Show retry info in GPU server card
+                        var retryInfo = document.getElementById('gpu-retry-info');
+                        var retryScene = data.scenes.find(function(s) { return s.status === 'generating' && s.error && s.error.length > 5; });
+                        if (retryScene && retryInfo) {
+                            retryInfo.style.display = 'block';
+                            retryInfo.textContent = retryScene.error;
+                        } else if (retryInfo) {
+                            retryInfo.style.display = 'none';
+                        }
+                        // Update queue overview in GPU card
+                        var queueEl = document.getElementById('gpu-queue-overview');
+                        if (queueEl) {
+                            var generating = [];
+                            var sceneIdx = 0;
+                            data.scenes.forEach(function(s) {
+                                sceneIdx++;
+                                if (s.status === 'generating') generating.push({idx: sceneIdx, progress: s.progress});
+                            });
+                            if (generating.length > 0) {
+                                // Sort by progress descending - highest progress = currently rendering
+                                generating.sort(function(a, b) { return b.progress - a.progress; });
+                                var activeIdx = generating[0].idx;
+                                var queued = generating.slice(1).map(function(g) { return g.idx; });
+                                var html = '<span class="badge bg-warning text-dark me-1"><i class="bi bi-gpu-card me-1"></i>Rendert: Sz. ' + activeIdx + ' (' + generating[0].progress + '%)</span>';
+                                if (queued.length > 0) html += '<span class="badge bg-info me-1"><i class="bi bi-hourglass-split me-1"></i>Queue: Sz. ' + queued.join(', ') + '</span>';
+                                queueEl.innerHTML = html;
+                                queueEl.style.display = '';
+                            } else {
+                                queueEl.style.display = 'none';
+                            }
+                        }
+                        // No auto-reload - update status inline instead of reloading
+                        if (needReload && !document.activeElement.matches("input, textarea, select")) location.reload();
+            } catch(e) {}
+        }, 3000);
+    }
+})();
+
+function saveScenePrompt(el) {
+    var sceneId = el.getAttribute('data-scene');
+    fetch('/videostudio/scene/' + sceneId + '/update/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({prompt: el.value})
+    });
+}
+
+// Info-Popup für Quality-Einstellungen
+var QUALITY_INFO = {
+    preset: {
+        title: 'Qualitäts-Preset',
+        text: 'Setzt alle FLUX- und Hunyuan-Parameter auf vordefinierte Werte:\n\n' +
+              '• Draft: schnellste Render-Zeit, niedrige Settings — gut zum Testen\n' +
+              '• Balanced: empfohlene Defaults, gute Qualität bei moderater Zeit\n' +
+              '• Ultra: höchste Qualität (1080p / 720p, 32-50 Steps) — 2-3x länger\n' +
+              '• Custom: wird automatisch gesetzt sobald du ein Einzelfeld änderst'
+    },
+    flux: {
+        title: 'FLUX + PuLID (Frame-Generierung)',
+        text: 'FLUX.1-dev ist ein lokales Open-Source Text-to-Image Modell auf RunPod A40. ' +
+              'PuLID ist die Erweiterung für Gesichts-Referenz: liest dein Charakterbild und überträgt das Gesicht ins generierte Frame. ' +
+              'Redux ergänzt Produktbilder/Stills als Stil-Referenz.\n\n' +
+              'Diese Einstellungen gelten nur wenn du FLUX als Frame-Modell wählst.'
+    },
+    hunyuan: {
+        title: 'HunyuanVideo 1.5 I2V',
+        text: 'Open-Source Video-Modell von Tencent, läuft auf RunPod A40 (FP8-quantisiert). ' +
+              'I2V = Image-to-Video, nutzt dein Start-Frame als Basis für das Video. ' +
+              'Kostet nur GPU-Zeit (~0,02-0,03€/5 Sek).\n\n' +
+              'Einstellungen gelten wenn du HunyuanVideo als Video-Modell wählst.'
+    },
+    resolution: {
+        title: 'Auflösung',
+        text: 'Zielgröße des generierten Bildes/Videos.\n\n' +
+              '• FLUX 1024×1024: schnell, quadratisch, gut für Test-Frames\n' +
+              '• FLUX 1920×1080: FullHD horizontal, beste Qualität, braucht mehr VRAM\n' +
+              '• FLUX 1080×1920: FullHD vertikal (Shorts/Reels/TikTok)\n' +
+              '• FLUX 2048×2048: 2K quadratisch, sehr langsam, an VRAM-Grenze\n\n' +
+              '• Hunyuan 480p (832×480): schnell, weniger Details\n' +
+              '• Hunyuan 720p (1280×720): sichtbar schärfer, ~2x längere Render-Zeit'
+    },
+    steps: {
+        title: 'Inference Steps',
+        text: 'Anzahl der Diffusions-Schritte die das Modell durchläuft um das Bild/Video zu erzeugen. ' +
+              'Mehr Steps = feiner, sauberer, weniger Artefakte — aber linear längere Render-Zeit.\n\n' +
+              '• FLUX: 15-20 (schnell) | 24-28 (Balanced) | 32-40 (Ultra)\n' +
+              '• Hunyuan: 15-20 (schnell) | 25-35 (Balanced) | 50-60 (Ultra)\n\n' +
+              'Mehr als ~60 Steps bringt meist keine sichtbare Verbesserung mehr.'
+    },
+    cfg: {
+        title: 'CFG (Classifier-Free Guidance)',
+        text: 'Wie stark das Modell dem Text-Prompt folgt.\n\n' +
+              '• Niedrig (2-3): kreativer, weicher, kann vom Prompt abweichen\n' +
+              '• Mittel (3-5 FLUX, 5-7 Hunyuan): guter Balance-Punkt\n' +
+              '• Hoch (6-8): sehr prompt-treu, kann aber "überbacken" wirken (oversaturated, plastic look, Artefakte)\n\n' +
+              'FLUX Standard: 3.5 | Hunyuan Standard: 6.0'
+    },
+    pulid: {
+        title: 'PuLID Gesichts-Gewicht',
+        text: 'Stärke mit der PuLID das Gesicht aus deinem Referenzfoto ins generierte Bild einfügt.\n\n' +
+              '• 0.5-0.8: Gesicht wird nur leicht übernommen, FLUX variiert stark\n' +
+              '• 1.0-1.2: empfohlener Bereich, gute Ähnlichkeit + natürliche Integration\n' +
+              '• 1.4-2.0: sehr starke Ähnlichkeit, kann aber "aufgeklebt" wirken oder Prompt-Details überdecken\n\n' +
+              'Nur wirksam wenn ein Charakter-Bild im Projekt gesetzt ist.'
+    },
+    flow_shift: {
+        title: 'Flow-Shift (Hunyuan)',
+        text: 'Steuert die Bewegungs-Glätte in HunyuanVideo.\n\n' +
+              '• 5-7: Standard-Bewegung, kann leichtes Flimmern haben\n' +
+              '• 7-9: empfohlen für glattere, natürlichere Bewegung\n' +
+              '• 9-11: sehr glatte Bewegung, aber weniger dynamisch\n' +
+              '• 12+: kann Bewegungen einfrieren\n\n' +
+              'Höhere Werte reduzieren Flimmern und "Jitter", besonders bei Gesichtern und Händen.'
+    }
+};
+
+function showCharacterBestPractice() {
+    var modalEl = document.getElementById('qualityInfoModal');
+    if (!modalEl) return;
+    document.getElementById('qualityInfoModalTitle').textContent = '📸 Charakter-Bilder: Best Practice';
+    var html = '<p class="mb-2">Mehrere Bilder pro Charakter <strong>massiv verbessern</strong> die Gesichts-Konsistenz über verschiedene Szenen hinweg.</p>';
+    html += '<p class="mb-2"><strong style="color:#ffc107">Ideale Kombination (5 Bilder):</strong></p>';
+    html += '<ul class="small mb-2">';
+    html += '<li><strong>1× Hauptbild</strong> — Frontansicht, neutraler Ausdruck, gute Beleuchtung, Auge-Level</li>';
+    html += '<li><strong>1× 3/4-Ansicht links</strong> — Kopf leicht gedreht</li>';
+    html += '<li><strong>1× 3/4-Ansicht rechts</strong> — gleichmäßige Abdeckung</li>';
+    html += '<li><strong>1× Profil</strong> — Seitenansicht (90°)</li>';
+    html += '<li><strong>1× Alternative Mimik</strong> — lächelnd, ernst oder anderer Ausdruck</li>';
+    html += '</ul>';
+    html += '<p class="mb-2"><strong style="color:#ffc107">Was die Modelle damit machen:</strong></p>';
+    html += '<ul class="small mb-2">';
+    html += '<li><strong>FLUX + PuLID:</strong> bis zu 5 Bilder werden gechained. Erstes Bild: volle Gewichtung. Weitere: 70% Gewichtung — verbessert Konsistenz bei schwierigen Winkeln ohne Overfitting</li>';
+    html += '<li><strong>Nano Banana 2 (Gemini):</strong> alle Bilder im Multi-Modal-Prompt → Modell lernt die Person als Set</li>';
+    html += '<li><strong>Imagen 4:</strong> nutzt die ersten 3 Bilder (API-Limit)</li>';
+    html += '</ul>';
+    html += '<p class="mb-2"><strong style="color:#ffc107">Qualitäts-Tipps:</strong></p>';
+    html += '<ul class="small mb-2">';
+    html += '<li>🟢 Bilder sollten <strong>dieselbe Person</strong> klar zeigen (keine Promi-Nachahmungen)</li>';
+    html += '<li>🟢 <strong>Gute Beleuchtung</strong> — keine harten Schatten im Gesicht</li>';
+    html += '<li>🟢 <strong>Hohe Auflösung</strong> (min. 512×512, besser 1024×1024)</li>';
+    html += '<li>🟢 <strong>Konsistentes Alter</strong> — keine Kinderfotos + Erwachsenenfotos mischen</li>';
+    html += '<li>🔴 <strong>Vermeiden:</strong> Sonnenbrille, starkes Makeup, seltsame Kopfbedeckungen</li>';
+    html += '<li>🔴 <strong>Vermeiden:</strong> Foto-Filter, Schwarz/Weiß, extreme Winkel von unten/oben</li>';
+    html += '<li>🔴 <strong>Vermeiden:</strong> verschiedene Personen in einem Bild (Modell verwirrt sich)</li>';
+    html += '</ul>';
+    html += '<p class="small text-muted mt-2">Mit 1 Bild: gute Basis-Konsistenz. Mit 3-5 Bildern: ~40% weniger Gesichts-Drift über Szenen.</p>';
+    document.getElementById('qualityInfoModalBody').innerHTML = html;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+}
+
+function showQualityInfo(key) {
+    var info = QUALITY_INFO[key];
+    if (!info) return;
+    var modalEl = document.getElementById('qualityInfoModal');
+    if (!modalEl) return;
+    document.getElementById('qualityInfoModalTitle').textContent = info.title;
+    // Replace \n with <br> and escape HTML
+    var esc = info.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    document.getElementById('qualityInfoModalBody').innerHTML = esc;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+}
+
+// Text-Overlay anwenden (ffmpeg, no re-render)
+function applyTextOverlay(sceneId) {
+    var textEl = document.getElementById('overlay-text-' + sceneId);
+    if (!textEl || !textEl.value.trim()) { alert('Bitte Overlay-Text eingeben'); return; }
+    var btn = document.getElementById('overlay-btn-' + sceneId);
+    var vpos = document.getElementById('overlay-vpos-' + sceneId);
+    var hpos = document.getElementById('overlay-hpos-' + sceneId);
+    var style = document.getElementById('overlay-style-' + sceneId);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> ffmpeg läuft...'; }
+
+    fetch('/videostudio/scene/' + sceneId + '/apply-overlay/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: JSON.stringify({
+            text_overlay: textEl.value.trim(),
+            overlay_pos_v: vpos ? vpos.value : 'bottom',
+            overlay_pos_h: hpos ? hpos.value : 'center',
+            overlay_style: style ? style.value : 'classic'
+        })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'queued') {
+            if (btn) { btn.innerHTML = '<i class="bi bi-check-circle"></i> In Warteschlange (Aktualisiere in 10 Sek...)'; }
+            setTimeout(function(){ location.reload(); }, 10000);
+        } else {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-magic"></i> Text-Overlay anwenden (ffmpeg)'; }
+            alert('Fehler: ' + (data.error || 'Unbekannt'));
+        }
+    })
+    .catch(function(e){
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-magic"></i> Text-Overlay anwenden (ffmpeg)'; }
+        alert('Fehler: ' + e);
+    });
+}
+
+// Quality Presets: wendet Preset auf FLUX + Hunyuan Felder an
+var QUALITY_PRESETS = {
+    draft: {
+        flux_resolution: '1024', flux_steps: 18, flux_guidance: 3.5, pulid_cfg: 1.0,
+        hunyuan_resolution: '480p', hunyuan_steps: 15, hunyuan_cfg: 6.0, hunyuan_flow_shift: 7.0
+    },
+    balanced: {
+        flux_resolution: '1024', flux_steps: 24, flux_guidance: 3.5, pulid_cfg: 1.1,
+        hunyuan_resolution: '480p', hunyuan_steps: 25, hunyuan_cfg: 6.5, hunyuan_flow_shift: 7.5
+    },
+    ultra: {
+        flux_resolution: '1080_h', flux_steps: 32, flux_guidance: 4.0, pulid_cfg: 1.2,
+        hunyuan_resolution: '720p', hunyuan_steps: 50, hunyuan_cfg: 7.5, hunyuan_flow_shift: 9.0
+    }
+};
+
+function applyQualityPreset(sceneId, preset) {
+    var values = QUALITY_PRESETS[preset];
+    if (!values) return;
+    // Save preset name itself
+    saveQualityField(sceneId, 'quality_preset', preset);
+    // Update each field in UI + save
+    Object.keys(values).forEach(function(field) {
+        var el = document.querySelector('[data-q-field="' + field + '"][data-scene="' + sceneId + '"]');
+        if (el) {
+            el.value = values[field];
+            saveQualityField(sceneId, field, values[field]);
+        }
+    });
+}
+
+function saveQualityField(sceneId, field, value) {
+    // When user changes an individual field, mark as custom
+    if (field !== 'quality_preset') {
+        var customRadio = document.getElementById('qp-custom-' + sceneId);
+        if (customRadio) customRadio.checked = true;
+        // Don't recursively save 'custom' to avoid infinite loop — save via direct fetch
+        saveSceneField(sceneId, 'quality_preset', 'custom');
+    }
+    saveSceneField(sceneId, field, value);
+}
+
+// Generic scene field saver (frame prompts, voiceover, frame_model)
+function saveSceneField(sceneId, field, value) {
+    var payload = {};
+    payload[field] = value;
+    fetch('/videostudio/scene/' + sceneId + '/update/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify(payload)
+    });
+}
+
+// Generate start or end frame for a scene (using its prompt)
+function genSceneFrame(sceneId, slot) {
+    var promptEl = document.getElementById(slot + '-frame-prompt-' + sceneId);
+    var prompt = promptEl ? promptEl.value.trim() : '';
+    if (!prompt) {
+        alert('Bitte erst einen ' + slot + '-Frame-Prompt eingeben');
+        return;
+    }
+
+    var btn = document.getElementById('gen-' + slot + '-' + sceneId);
+    var oldHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+    }
+
+    // Save ALL relevant fields first, THEN generate (awaited so DB has latest values)
+    var payload = {};
+    payload[slot + '_frame_prompt'] = prompt;
+    var modelEl = document.querySelector('.scene-frame-model[data-scene="' + sceneId + '"]');
+    if (modelEl) payload.frame_model = modelEl.value;
+
+    fetch('/videostudio/scene/' + sceneId + '/update/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify(payload)
+    }).then(function() {
+        var fd = new FormData();
+        fd.append('slot', slot);
+        return fetch('/videostudio/scene/' + sceneId + '/frame-generate/', {
+            method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd
+        });
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
+        if (data.ok) {
+            setTimeout(function() { location.reload(); }, 500);
+        } else {
+            alert(data.error || 'Fehler beim Generieren');
+        }
+    }).catch(function(err) {
+        if (btn) { btn.disabled = false; btn.innerHTML = oldHtml; }
+        alert('Netzwerkfehler: ' + err);
+    });
+}
+
+// Run full pipeline for a scene: frames -> video -> voiceover
+function saveProjectMusic() {
+    var genre = document.getElementById('project-music-genre').value;
+    var prompt = document.getElementById('project-music-prompt').value;
+    var vol = document.getElementById('project-music-vol').value;
+    fetch('/videostudio/' + PROJECT_PK + '/update-music/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({music_genre: genre, music_prompt: prompt, music_volume: parseFloat(vol)})
+    });
+}
+
+function generateProjectMusic() {
+    var genre = document.getElementById('project-music-genre').value;
+    var prompt = document.getElementById('project-music-prompt').value.trim();
+    if (!genre && !prompt) { alert('Bitte Genre wählen oder Musik-Prompt eingeben'); return; }
+
+    var btn = document.getElementById('project-music-gen-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...'; }
+
+    saveProjectMusic();
+    setTimeout(function() {
+        fetch('/videostudio/' + PROJECT_PK + '/generate-music/', {
+            method: 'POST', headers: {'X-CSRFToken': CSRF}
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-music-note-beamed"></i> Generieren'; }
+            if (data.status === 'ok' && data.music_url) {
+                var player = document.getElementById('project-music-audio');
+                if (player) { player.src = data.music_url + '?t=' + Date.now(); player.style.display = ''; }
+            } else { alert(data.error || 'Fehler bei Musik-Generierung'); }
+        }).catch(function(e) {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-music-note-beamed"></i> Generieren'; }
+            alert('Fehler: ' + e);
+        });
+    }, 500);
+}
+
+function generateMusic(sceneId) {
+    var genreEl = document.getElementById('music-genre-' + sceneId);
+    var promptEl = document.getElementById('music-prompt-' + sceneId);
+    var genre = genreEl ? genreEl.value : '';
+    var prompt = promptEl ? promptEl.value.trim() : '';
+    if (!genre && !prompt) { alert('Bitte Genre wählen oder Musik-Prompt eingeben'); return; }
+
+    var btn = document.getElementById('music-gen-btn-' + sceneId);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...'; }
+
+    fetch('/videostudio/scene/' + sceneId + '/generate-music/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({music_prompt: prompt, music_genre: genre})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-music-note-beamed"></i> Musik generieren'; }
+        if (data.status === 'ok' && data.music_url) {
+            var player = document.getElementById('music-audio-' + sceneId);
+            if (player) {
+                player.src = data.music_url + '?t=' + Date.now();
+                player.style.display = '';
+            }
+        } else {
+            alert(data.error || 'Fehler bei Musik-Generierung');
+        }
+    })
+    .catch(function(e) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-music-note-beamed"></i> Musik generieren'; }
+        alert('Fehler: ' + e);
+    });
+}
+
+function runScenePipeline(sceneId) {
+    fetch('/videostudio/scene/' + sceneId + '/pipeline/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) {
+            setTimeout(function() { location.reload(); }, 500);
+        } else {
+            alert(data.error || 'Fehler beim Starten der Pipeline');
+        }
+    }).catch(function(err) {
+        alert('Netzwerkfehler: ' + err);
+    });
+}
+
+// Run pipeline for ALL scenes in project
+function runAllPipelines() {
+    if (!confirm('Pipeline für ALLE Szenen starten?')) return;
+    fetch('/videostudio/' + PROJECT_PK + '/pipeline-all/', {
+        method: 'POST', headers: {'X-CSRFToken': CSRF}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) {
+            alert(data.started + ' Szenen gestartet');
+            setTimeout(function() { location.reload(); }, 500);
+        }
+    });
+}
+
+
+function saveSceneModel(el) {
+    var sceneId = el.getAttribute('data-scene');
+    var model = el.value;
+    updateSceneSettings(sceneId, model);
+    fetch('/videostudio/scene/' + sceneId + '/update/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({model_choice: el.value})
+    });
+}
+
+// Model capabilities
+var MODEL_CAPS = {
+    'ltx2-distilled': {
+        guidance: false, steps: false, aspect: false, fps: true, neg_prompt: false, end_frame: false, duration: false,
+        defaults: {guidance_scale: 1.0, num_steps: 8}
+    },
+    'ltx2-full': {
+        guidance: true, steps: true, aspect: false, fps: true, neg_prompt: true, end_frame: true, duration: false,
+        defaults: {guidance_scale: 3.5, num_steps: 40}
+    },
+    'ltx-2': {
+        guidance: true, steps: true, aspect: true, fps: false, neg_prompt: false, end_frame: false, duration: true,
+        defaults: {guidance_scale: 3.0, num_steps: 25}
+    },
+    'cogvideox': {
+        guidance: true, steps: true, aspect: false, fps: false, neg_prompt: true, end_frame: false, duration: false,
+        defaults: {guidance_scale: 6.0, num_steps: 30}
+    },
+    'hunyuan': {
+        guidance: true, steps: true, aspect: false, fps: true, neg_prompt: true, end_frame: false, duration: false,
+        defaults: {guidance_scale: 6.0, num_steps: 30}
+    },
+    'hunyuanvideo': {
+        guidance: true, steps: true, aspect: false, fps: true, neg_prompt: true, end_frame: false, duration: false,
+        defaults: {guidance_scale: 6.0, num_steps: 30}
+    },
+    'wan-flf2v': {
+        guidance: true, steps: true, aspect: true, fps: true, neg_prompt: true, end_frame: true, duration: true,
+        defaults: {guidance_scale: 5.0, num_steps: 30}
+    },
+    'wan-2.2': {
+        guidance: true, steps: true, aspect: true, fps: true, neg_prompt: true, end_frame: true, duration: true,
+        defaults: {guidance_scale: 5.0, num_steps: 20}
+    },
+    'wan-2.2-14b-rp': {
+        guidance: true, steps: true, aspect: true, fps: true, neg_prompt: true, end_frame: false, duration: true,
+        defaults: {guidance_scale: 5.0, num_steps: 20}
+    },
+    'hunyuanvideo-rp': {
+        guidance: true, steps: true, aspect: true, fps: true, neg_prompt: true, end_frame: false, duration: true,
+        defaults: {guidance_scale: 6.0, num_steps: 30}
+    },
+    'wan-2.2-5b': {
+        guidance: true, steps: true, aspect: true, fps: true, neg_prompt: true, end_frame: false, duration: true,
+        defaults: {guidance_scale: 5.0, num_steps: 30}
+    },
+    'ltx-video': {
+        guidance: true, steps: true, aspect: true, fps: false, neg_prompt: false, end_frame: false, duration: true,
+        defaults: {guidance_scale: 3.0, num_steps: 20}
+    },
+    'ltx-video-rp': {
+        guidance: true, steps: true, aspect: true, fps: false, neg_prompt: false, end_frame: false, duration: true,
+        defaults: {guidance_scale: 3.0, num_steps: 20}
+    }
+};
+
+function updateSceneSettings(sceneId, model) {
+    var caps = MODEL_CAPS[model] || MODEL_CAPS['wan-flf2v'];
+    var row = document.getElementById('settings-' + sceneId);
+    if (!row) return;
+
+    // GPU filtering: hide GPUs with insufficient VRAM
+    var minVram = caps.min_gpu || 0;
+    var gpuVram = {'L40S':48,'A100-40':40,'A100':80,'RTX6000':48,'H100':80,'H200':141,'B200':192};
+    var gpuSelect = document.querySelector('.scene-gpu[data-scene="' + sceneId + '"]');
+    if (gpuSelect) {
+        var currentGpu = gpuSelect.value;
+        gpuSelect.querySelectorAll('option').forEach(function(opt) {
+            var vram = gpuVram[opt.value] || 0;
+            opt.hidden = (vram < minVram);
+        });
+        // If current GPU is now hidden, switch to cheapest available
+        if (gpuVram[currentGpu] < minVram) {
+            var firstVisible = gpuSelect.querySelector('option:not([hidden])');
+            if (firstVisible) { gpuSelect.value = firstVisible.value; saveSceneGpu(gpuSelect); }
+        }
+    }
+
+    // Toggle fields based on capabilities
+    var fields = {
+        'guidance_scale': caps.guidance,
+        'num_steps': caps.steps,
+        'aspect_ratio': caps.aspect,
+        'fps': caps.fps,
+        'negative_prompt': caps.neg_prompt,
+    };
+
+    // Find parent col-md-* divs containing each field
+    // End-Frame column
+    var endCol = document.getElementById('endframe-col-' + sceneId);
+    if (endCol) {
+        if (caps.end_frame) {
+            endCol.style.opacity = '1'; endCol.style.pointerEvents = 'auto';
+            endCol.querySelectorAll('input, button').forEach(function(el) { el.disabled = false; });
+        } else {
+            endCol.style.opacity = '0.5'; endCol.style.pointerEvents = 'none';
+            endCol.querySelectorAll('input, button').forEach(function(el) { el.disabled = true; });
+        }
+    }
+
+    row.querySelectorAll('select, input, input[type="range"], textarea').forEach(function(el) {
+        var setting = null;
+        if (el.classList.contains('scene-guidance')) setting = 'guidance_scale';
+        else if (el.classList.contains('scene-num-steps')) setting = 'num_steps';
+        else if (el.classList.contains('scene-aspect-ratio')) setting = 'aspect_ratio';
+        else if (el.classList.contains('scene-fps')) setting = 'fps';
+        else if (el.classList.contains('scene-neg-prompt')) setting = 'negative_prompt';
+        else if (el.classList.contains('scene-seed')) setting = 'seed';
+
+        if (setting) {
+            var col = el.closest('.col-md-3, .col-md-4, .col-md-6');
+            if (col) {
+                if (setting === 'seed') {
+                    col.style.opacity = '1'; col.style.pointerEvents = 'auto';
+                    el.disabled = false;
+                } else if (fields[setting] === false) {
+                    col.style.opacity = '0.5';
+                    el.disabled = true;
+                } else {
+                    col.style.opacity = '1'; col.style.pointerEvents = 'auto';
+                    el.disabled = false;
+                }
+            }
+        }
+    });
+}
+
+// Init on page load
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.scene-model').forEach(function(sel) {
+        var sceneId = sel.getAttribute('data-scene');
+        updateSceneSettings(sceneId, sel.value);
+    });
+});
+
+function saveSceneGpu(el) {
+    var sceneId = el.getAttribute('data-scene');
+    fetch('/videostudio/scene/' + sceneId + '/update/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+        body: JSON.stringify({gpu_choice: el.value})
+    });
+}
+
+function saveSceneDuration(el) {
+    var sceneId = el.getAttribute("data-scene");
+    fetch("/videostudio/scene/" + sceneId + "/update/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": CSRF},
+        body: JSON.stringify({duration: parseInt(el.value)})
+    });
+}
+
+function saveSceneSetting(el, field) {
+    var sceneId = el.getAttribute("data-scene");
+    var val = el.value;
+    if (field === "guidance_scale") val = parseFloat(val);
+    else if (field === "seed") val = parseInt(val);
+    else if (field === "num_steps" || field === "fps") val = parseInt(val);
+    fetch("/videostudio/scene/" + sceneId + "/update/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": CSRF},
+        body: JSON.stringify({[field]: val})
+    });
+}
+
+function saveSceneResolution(el) {
+    // Resolution is stored client-side only; the workflow builder reads it at render time
+    var sceneId = el.getAttribute("data-scene");
+    var val = el.value;
+    localStorage.setItem("scene_resolution_" + sceneId, val);
+}
+
+function saveAutoShutdownTimer(minutes) {
+    // Save auto-shutdown timer preference and send to server
+    localStorage.setItem("auto_shutdown_minutes", minutes);
+    fetch("/videostudio/server/set-auto-shutdown/", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": CSRF},
+        body: JSON.stringify({minutes: parseInt(minutes)})
+    }).catch(function() {});
+    var info = document.getElementById("gpu-auto-shutdown-info");
+    if (info) info.textContent = "nach " + minutes + " Min Inaktivität";
+}
+
+var MODEL_INFO = {
+    'ltx2-distilled': '<h5 style="margin:0 0 8px;color:#4a9eff">\u26a1 LTX-2 Distilled</h5>' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Typ</td><td>Image-to-Video (I2V)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Parameter</td><td>19B (destilliert)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Steps</td><td>8 (sehr schnell)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Frames</td><td>121 / 17 (#test)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Aufloesung</td><td>768x512 fix</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Dauer ~5s Video</td><td>L40S: ~2min | H100: ~1min</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Kosten ~</td><td>$0.05-0.15 pro Video</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Start-Frame</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">End-Frame</td><td>\u274c</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Guidance</td><td>\u274c (1.0 fix)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Neg. Prompt</td><td>\u274c</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">FPS</td><td>\u2705 Einstellbar</td></tr>' +
+        '</table>' +
+        '<hr style="border-color:#333;margin:8px 0">' +
+        '<p style="color:#8f8;font-size:12px;margin:4px 0"><b>Staerken:</b> Schnellstes Modell. Nur 8 Denoising-Steps = minimale Wartezeit. Gut fuer schnelle Previews und Iterationen. Gute Bildqualitaet trotz Destillation.</p>' +
+        '<p style="color:#f88;font-size:12px;margin:4px 0"><b>Schwaechen:</b> Keine Guidance-Scale = kein Einfluss auf Prompt-Treue. Kein negativer Prompt. Kein End-Frame. Manchmal weniger detailreich als Full. Kann bei komplexen Szenen ungenau sein.</p>' +
+        '<p style="color:#ff8;font-size:12px;margin:4px 0"><b>Beste fuer:</b> Schnelle Previews, erste Tests, einfache Kamera-Bewegungen,_bulk-Generierung.</p>',
+
+    'ltx2-full': '<h5 style="margin:0 0 8px;color:#4a9eff">\U0001f3a8 LTX-2 Full</h5>' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Typ</td><td>Image-to-Video (I2V)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Parameter</td><td>19B (voll)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Steps</td><td>40 Default (1-100)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Frames</td><td>121 / 17 (#test)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Aufloesung</td><td>768x512 fix</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Dauer ~5s Video</td><td>L40S: ~8min | H100: ~4min</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Kosten ~</td><td>$0.15-0.50 pro Video</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Start-Frame</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">End-Frame</td><td>\u2705 Interpolation</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Guidance</td><td>\u2705 1.0-10.0</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Neg. Prompt</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">FPS</td><td>\u2705 Einstellbar</td></tr>' +
+        '</table>' +
+        '<hr style="border-color:#333;margin:8px 0">' +
+        '<p style="color:#8f8;font-size:12px;margin:4px 0"><b>Staerken:</b> EINZIGES Modell mit Start+End Frame Interpolation! Erzeugt fluessige Uebergaenge zwischen zwei Bildern. Volle Kontrolle durch Guidance + Neg. Prompt. 40 Steps = hohe Qualitaet.</p>' +
+        '<p style="color:#f88;font-size:12px;margin:4px 0"><b>Schwaechen:</b> Langsamer als Distilled (5x). Fixe Aufloesung 768x512. Manchmal Artefakte bei komplexer Interpolation. Start+End muessen aehnlich sein fuer gute Ergebnisse.</p>' +
+        '<p style="color:#ff8;font-size:12px;margin:4px 0"><b>Beste fuer:</b> Szenen-Uebergaenge, Morphing zwischen Bildern, Story-Driven Videos mit definiertem Start+Ende.</p>' +
+        '<p style="color:#aaf;font-size:12px;margin:4px 0"><b>Tipp:</b> Guidance 4.0-6.0 funktioniert am besten. Hoeher = steifer, niedriger = kreativer aber ungenauer.</p>',
+
+    'cogvideox': '<h5 style="margin:0 0 8px;color:#4a9eff">\U0001f3ac CogVideoX 1.5</h5>' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Typ</td><td>Image-to-Video (I2V)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Parameter</td><td>5B</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Steps</td><td>50 Default (1-100)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Frames</td><td>81 / 17 (#test)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Aufloesung</td><td>768x512 fix</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Dauer ~3s Video</td><td>L40S: ~6min | H100: ~3min</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Kosten ~</td><td>$0.10-0.40 pro Video</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Start-Frame</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">End-Frame</td><td>\u274c</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Guidance</td><td>\u2705 1.0-10.0</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Neg. Prompt</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">FPS</td><td>\u274c Fix (Modell-intern)</td></tr>' +
+        '</table>' +
+        '<hr style="border-color:#333;margin:8px 0">' +
+        '<p style="color:#8f8;font-size:12px;margin:4px 0"><b>Staerken:</b> Natuerliches, organische Bewegung. 81 Frames = laengere Clips (~3s). Gute Objekt-Konsistenz. Effizient durch 5B Parameter. Von THUDM (Tsinghua Univ.).</p>' +
+        '<p style="color:#f88;font-size:12px;margin:4px 0"><b>Schwaechen:</b> Kein End-Frame. FPS nicht einstellbar. Nur 5B = weniger Detail als groessere Modelle. Manchmal "dreamy" Look statt fotorealistisch. 50 Steps = langsamer als Distilled.</p>' +
+        '<p style="color:#ff8;font-size:12px;margin:4px 0"><b>Beste fuer:</b> Natuerliche Bewegungen, Menschen/Pflanzen/Tiere, organische Szenen, laengere Clips ohne End-Frame.</p>' +
+        '<p style="color:#aaf;font-size:12px;margin:4px 0"><b>Tipp:</b> Guidance 6.0-8.0 fuer saubere Ergebnisse. Niedrig = kreativer, hoeher = treuer zum Prompt.</p>',
+
+    'hunyuan': '<h5 style="margin:0 0 8px;color:#4a9eff">\U0001f4f9 HunyuanVideo</h5>' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Typ</td><td>Image-to-Video (I2V)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Parameter</td><td>13B</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Steps</td><td>30 Default (1-100)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Frames</td><td>65 / 33 (#test)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Aufloesung</td><td>Auto (via Start-Frame)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Dauer ~4s Video</td><td>L40S: ~10min | H100: ~5min</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Kosten ~</td><td>$0.20-0.60 pro Video</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Start-Frame</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">End-Frame</td><td>\u274c</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Guidance</td><td>\u2705 1.0-10.0</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Neg. Prompt</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">FPS</td><td>\u2705 Einstellbar</td></tr>' +
+        '</table>' +
+        '<hr style="border-color:#333;margin:8px 0">' +
+        '<p style="color:#8f8;font-size:12px;margin:4px 0"><b>Staerken:</b> Sehr fotorealistisch! Tencent-Qualitaet. Gute Textur- und Lichtdarstellung. Natuerliche Physik (Wasser, Stoff, Haare). Passt Aufloesung an Start-Frame an.</p>' +
+        '<p style="color:#f88;font-size:12px;margin:4px 0"><b>Schwaechen:</b> Kein End-Frame. Neues Modell = weniger getestet. 65 Frames max = kuerzer als WAN/CogVideoX. Laedt lange beim ersten Aufruf. Guidance ab 8.0 kann uebersaettigen.</p>' +
+        '<p style="color:#ff8;font-size:12px;margin:4px 0"><b>Beste fuer:</b> Fotorealistische Szenen, Produkt-Videos, Natur, Menschen. Wenn es "echt" aussehen soll.</p>' +
+        '<p style="color:#aaf;font-size:12px;margin:4px 0"><b>Tipp:</b> Guidance 6.0 ist der Sweet-Spot. FPS 15 empfohlen. Guter neg. Prompt: "blur, dark, noisy, static, low quality"</p>',
+
+    'wan-flf2v': '<h5 style="margin:0 0 8px;color:#4a9eff">\U0001f31f WAN 2.2 FLF2V</h5>' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Typ</td><td>Image-to-Video (I2V)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Parameter</td><td>27B (MoE, 14B aktiv)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Steps</td><td>30 Default (1-100)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Frames</td><td>81 / 17 (#test)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Aufloesung</td><td>\u2705 Aspect Ratio waehlbar</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Dauer ~3s Video</td><td>L40S: ~12min | H100: ~6min</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Kosten ~</td><td>$0.25-0.70 pro Video</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Start-Frame</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">End-Frame</td><td>\u2705 (last_image)</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Guidance</td><td>\u2705 1.0-10.0</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">Neg. Prompt</td><td>\u2705</td></tr>' +
+        '<tr><td style="padding:2px 8px;color:#aaa">FPS</td><td>\u2705 Einstellbar</td></tr>' +
+        '</table>' +
+        '<hr style="border-color:#333;margin:8px 0">' +
+        '<p style="color:#8f8;font-size:12px;margin:4px 0"><b>Staerken:</b> Top-Modell! Meiste Features: Start+End-Frame, Aspect Ratio, volle Kontrolle. 27B MoE = beste Qualitaet. Hervorragendes Motion und Kamerafuehrung. Beste Konsistenz ueber Frames.</p>' +
+        '<p style="color:#f88;font-size:12px;margin:4px 0"><b>Schwaechen:</b> Teuerstes Modell ($0.25-0.70/video). Langsamste Generierung. 27B brauchen viel VRAM (CPU Offload auf L40S). MoE kann manchmal inkonsistent sein.</p>' +
+        '<p style="color:#ff8;font-size:12px;margin:4px 0"><b>Beste fuer:</b> Finale Produktion, beste Qualitaet, komplexe Szenen mit Start+End-Frame, quer/hoch-Format Videos.</p>' +
+        '<p style="color:#aaf;font-size:12px;margin:4px 0"><b>Tipp:</b> Guidance 5.0 balanciert. Aspect Ratio: 16:9 fuer Landschaft, 9:16 fuer Social Media (TikTok/Reels). End-Frame nicht zu unterschiedlich vom Start!</p>'
+};
+
+function showModelTooltip(el) {
+    var sceneId = el.getAttribute('data-scene');
+    var sel = document.querySelector('.scene-model[data-scene="' + sceneId + '"]');
+    var model = sel ? sel.value : 'wan-flf2v';
+    var info = MODEL_INFO[model] || 'Keine Info verfuegbar';
+    var existing = document.getElementById('modelPopover');
+    if (existing) existing.remove();
+    var div = document.createElement('div');
+    div.id = 'modelPopover';
+    div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a2e;color:#fff;padding:24px;border-radius:12px;z-index:9999;max-width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);font-size:14px;line-height:1.6';
+    div.innerHTML = info + '<br><button onclick="this.parentElement.remove()" style="background:#4a9eff;border:none;color:#fff;padding:8px 20px;border-radius:6px;cursor:pointer;margin-top:8px;width:100%">Schliessen</button>';
+    document.body.appendChild(div);
+}
+
+
+// Init tooltips
+var TT = {
+    aspect: "Auto: Passt sich dem Start-Frame an. 16:9 Querformat. 9:16 Hochformat. 1:1 Quadrat",
+    guidance: "Wie stark das Modell dem Prompt folgt. 1-3: Kreativ. 4-6: Balance (5.0). 7-10: Strikt",
+    steps: "Anzahl Denoising-Schritte. 15: Schnell. 30: Standard. 50: Qualitaet. Hoeher = teurer!",
+    seed: "Zufallsseed. Gleicher Seed + Prompt = gleiches Video",
+    fps: "Frames pro Sekunde. 16: Ruckelig. 24: Standard. 30: Fluessig",
+    negprompt: "Was das Modell NICHT erzeugen soll. Leer = Standard. Beispiel: blur, dark, noisy"
+};
+function initTooltips() {
+    if (typeof bootstrap === "undefined") { setTimeout(initTooltips, 200); return; }
+    document.querySelectorAll("[data-tt]").forEach(function(el){
+        var key = el.getAttribute("data-tt");
+        if (TT[key]) { el.setAttribute("title", TT[key]); new bootstrap.Tooltip(el); }
+    });
+}
+initTooltips();
+
+// Voiceover
+function checkVoiceoverLimit(el) {
+    var sceneId = el.dataset.scene;
+    var maxWords = parseInt(el.dataset.maxWords) || 12;
+    var words = el.value.trim().split(/\s+/).filter(function(w){ return w.length > 0; });
+    var counter = document.getElementById('wordcount-' + sceneId);
+    
+    if (words.length > maxWords) {
+        el.style.borderColor = '#ff4444';
+        if (counter) { counter.textContent = words.length + '/' + maxWords + ' Wörter — ZU LANG!'; counter.style.color = '#ff4444'; }
+    } else {
+        el.style.borderColor = '';
+        if (counter) { counter.textContent = words.length + '/' + maxWords + ' Wörter'; counter.style.color = ''; }
+    }
+}
+
+function generateVoiceover(sceneId) {
+    var textEl = document.getElementById('voiceover-' + sceneId);
+    var modelEl = document.getElementById('audio-model-' + sceneId);
+    if (!textEl || !textEl.value.trim()) { alert('Bitte Text eingeben'); return; }
+    
+    var maxWords = parseInt(textEl.dataset.maxWords) || 12;
+    var words = textEl.value.trim().split(/\s+/).filter(function(w){ return w.length > 0; });
+    if (words.length > maxWords) { alert('Text zu lang! Max. ' + maxWords + ' Wörter.'); return; }
+    
+    fetch('/videostudio/scene/' + sceneId + '/voiceover/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: JSON.stringify({voiceover_text: textEl.value.trim(), audio_model: modelEl ? modelEl.value : 'piper-thorsten-medium'})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') { location.reload(); }
+        else { alert(data.error || 'Fehler bei Audio-Generierung'); }
+    })
+    .catch(function(e){ alert('Fehler: ' + e); });
+}
+
+var AUDIO_PARAMS = {
+    'piper-thorsten-medium': { desc: 'Deutsch, männlich, medium - schnell & klar', runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-high':   { desc: 'Deutsch, männlich, high - bessere Qualität', runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-karlsson':        { desc: 'Deutsch, männlich, tiefe Stimme',            runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-kerstin':         { desc: 'Deutsch, weiblich, ruhig',                    runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-eva':             { desc: 'Deutsch, weiblich, sehr schnell',             runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-pavoque':         { desc: 'Deutsch, männlich, narrativ',              runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-ramona':          { desc: 'Deutsch, weiblich, klar',                  runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-neutral':   { desc: 'Thorsten Emotional — neutral',          runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-amused':    { desc: 'Thorsten Emotional — amüsiert/fröhlich', runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-angry':     { desc: 'Thorsten Emotional — wütend',            runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-surprised': { desc: 'Thorsten Emotional — überrascht',        runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-sleepy':    { desc: 'Thorsten Emotional — müde/schläfrig',    runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-whisper':   { desc: 'Thorsten Emotional — flüsternd',         runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-disgusted': { desc: 'Thorsten Emotional — angewidert',        runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-thorsten-drunk':     { desc: 'Thorsten Emotional — angetrunken',       runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-mls-male-1':   { desc: 'MLS Datensatz — männlich Speaker 1',           runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-mls-male-2':   { desc: 'MLS Datensatz — männlich Speaker 2',           runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-mls-female-1': { desc: 'MLS Datensatz — weiblich Speaker 1',           runs_on: 'CPU lokal', price: '0,00 €' },
+    'piper-mls-female-2': { desc: 'MLS Datensatz — weiblich Speaker 2',           runs_on: 'CPU lokal', price: '0,00 €' },
+        'xtts-daisy':    { desc: 'XTTS-v2 Daisy Studious (weiblich, klar)',     runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-gracie':   { desc: 'XTTS-v2 Gracie Wise (weiblich, ruhig)',       runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-claribel': { desc: 'XTTS-v2 Claribel Dervla (weiblich, warm)',    runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-ana':      { desc: 'XTTS-v2 Ana Florence (weiblich, elegant)',    runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-tammie':   { desc: 'XTTS-v2 Tammie Ema (weiblich, sanft)',        runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-alison':   { desc: 'XTTS-v2 Alison Dietlinde (weiblich, natürlich)', runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-sofia':    { desc: 'XTTS-v2 Sofia Hellen (weiblich, hell)',       runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-baldur':   { desc: 'XTTS-v2 Baldur Sanjin (männlich, seriös)',    runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-viktor-e': { desc: 'XTTS-v2 Viktor Eka (männlich, markant)',      runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-andrew':   { desc: 'XTTS-v2 Andrew Chipper (männlich, freundlich)', runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-damien':   { desc: 'XTTS-v2 Damien Black (männlich, tief)',       runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-viktor-m': { desc: 'XTTS-v2 Viktor Menelaos (männlich, klassisch)', runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-dionisio': { desc: 'XTTS-v2 Dionisio Schuyler (männlich, warm)',  runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-craig':    { desc: 'XTTS-v2 Craig Gutsy (männlich, kräftig)',     runs_on: 'RunPod GPU', price: '~0,01 € / Clip' },
+    'xtts-female-1':         { desc: 'XTTS-v2 weibliche Stimme (Daisy)',            runs_on: 'RunPod GPU', price: '~0,01 € / Clip (GPU-Zeit)' },
+    'xtts-female-2':         { desc: 'XTTS-v2 weibliche Stimme (Gracie)',           runs_on: 'RunPod GPU', price: '~0,01 € / Clip (GPU-Zeit)' },
+    'xtts-male-1':           { desc: 'XTTS-v2 männliche Stimme (Baldur)',           runs_on: 'RunPod GPU', price: '~0,01 € / Clip (GPU-Zeit)' },
+    'xtts-male-2':           { desc: 'XTTS-v2 männliche Stimme (Viktor)',           runs_on: 'RunPod GPU', price: '~0,01 € / Clip (GPU-Zeit)' },
+    'xtts-clone':            { desc: 'Voice-Clone: eigene Stimme aus 6-30 Sek Audio-Sample',
+                                runs_on: 'RunPod GPU', price: '~0,01 € / Clip (GPU-Zeit)',
+                                needs_reference: true }
+};
+
+function updateAudioParams(sceneId) {
+    var modelEl = document.getElementById('audio-model-' + sceneId);
+    if (!modelEl) return;
+    var model = modelEl.value;
+    var params = AUDIO_PARAMS[model] || {};
+    var container = modelEl.closest('[style*="background:rgba(0,200,255"]');
+    if (!container) return;
+
+    // Remove old panel
+    var oldPanel = container.querySelector('.audio-params');
+    if (oldPanel) oldPanel.remove();
+
+    var html = '<div class="audio-params mt-1 small text-muted d-flex flex-wrap gap-2 align-items-center">';
+    html += '<span><i class="bi bi-info-circle"></i> ' + (params.desc || '') + '</span>';
+    if (params.runs_on) html += '<span class="badge bg-secondary">' + params.runs_on + '</span>';
+    if (params.price)   html += '<span class="badge bg-success">' + params.price + '</span>';
+    html += '</div>';
+
+    if (params.needs_reference) {
+        html += '<div class="audio-params mt-1 p-2 rounded" style="background:rgba(255,200,0,0.08); border:1px solid rgba(255,200,0,0.25)">';
+        html += '<label class="small text-warning fw-bold d-block mb-1"><i class="bi bi-mic-fill"></i> Voice-Clone Referenz (6-30 Sek, klare Stimme)</label>';
+        html += '<div class="mb-2 p-2 rounded" style="background:#1a1a1a; border:1px solid #ffc107; border-left:4px solid #ffc107">';
+        html += '  <div class="d-flex justify-content-between align-items-start mb-1"><small style="color:#ffc107;font-weight:600"><i class="bi bi-book"></i> Lies diesen Text langsam und deutlich vor:</small>';
+        html += '  <button type="button" class="btn btn-link btn-sm p-0" style="color:#4dd0e1" onclick="nextCloneText(\'' + sceneId + '\')"><i class="bi bi-arrow-repeat"></i> Anderer Text</button></div>';
+        html += '  <div class="small" id="clone-text-' + sceneId + '" style="color:#ffffff; font-style:italic; line-height:1.5; font-size:0.9rem">' + pickCloneText(0) + '</div>';
+        html += '  <div style="color:#9e9e9e; font-size:0.65rem; margin-top:4px">~15-20 Sekunden · phonetisch ausgewogen</div>';
+        html += '</div>';
+        html += '<div class="d-flex gap-2 align-items-center flex-wrap">';
+        html += '  <input type="file" class="form-control form-control-sm" style="max-width:220px" accept="audio/*" id="voice-ref-' + sceneId + '" onchange="uploadVoiceRef(\'' + sceneId + '\', this.files[0])">';
+        html += '  <span class="text-muted small">oder</span>';
+        html += '  <button type="button" class="btn btn-sm btn-outline-warning" id="rec-btn-' + sceneId + '" onclick="toggleVoiceRecord(\'' + sceneId + '\')"><i class="bi bi-record-circle"></i> Aufnehmen</button>';
+        html += '  <span class="text-muted small" id="rec-timer-' + sceneId + '"></span>';
+        html += '</div>';
+        html += '<audio id="rec-preview-' + sceneId + '" controls style="display:none;width:100%;height:32px" class="mt-1"></audio>';
+        html += '<button type="button" class="btn btn-sm btn-success mt-1" id="rec-submit-' + sceneId + '" style="display:none" onclick="submitVoiceRecord(\'' + sceneId + '\')"><i class="bi bi-upload"></i> Nur für diese Szene</button>';
+        html += '<div id="rec-save-row-' + sceneId + '" style="display:none" class="mt-2 d-flex gap-2 align-items-center flex-wrap">';
+        html += '  <input type="text" class="form-control form-control-sm" placeholder="Stimme benennen (z.B. Meine Stimme)" id="rec-save-name-' + sceneId + '" maxlength="100" style="max-width:260px">';
+        html += '  <button type="button" class="btn btn-sm btn-warning" onclick="saveAsVoiceClone(\'' + sceneId + '\')"><i class="bi bi-save"></i> Dauerhaft speichern</button>';
+        html += '</div>';
+        html += '<hr class="my-2" style="border-color:rgba(255,255,255,0.1); margin-top:0.75rem!important">';
+        html += '<div><small style="color:#ffc107;font-weight:600"><i class="bi bi-bookmark-star"></i> Gespeicherte Stimmen:</small>';
+        html += '<div id="vclone-list-' + sceneId + '" class="mt-1"><small class="text-muted">Lade...</small></div></div>';
+        html += '</div>';
+        setTimeout(function(){ loadVoiceClones(sceneId); }, 50);
+    }
+
+    var textArea = container.querySelector('textarea');
+    if (textArea) {
+        var wrap = document.createElement('div');
+        wrap.innerHTML = html;
+        wrap.classList.add('audio-params');
+        textArea.parentNode.insertBefore(wrap, textArea);
+    }
+
+    // Save model immediately
+    saveSceneField(sceneId, 'audio_model', model);
+}
+
+function uploadVoiceRef(sceneId, file) {
+    if (!file) return;
+    var fd = new FormData();
+    fd.append('voice_reference_audio', file);
+    fetch('/videostudio/scene/' + sceneId + '/upload-voice-ref/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: fd
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            alert('Voice-Clone Referenz hochgeladen!');
+        } else {
+            alert('Fehler: ' + (data.error || 'Upload fehlgeschlagen'));
+        }
+    })
+    .catch(function(e){ alert('Fehler: ' + e); });
+}
+
+// --- Browser-Aufnahme für Voice-Clone ---
+var VOICE_REC = {};  // { sceneId: {recorder, chunks, blob, stream, timerId, startTs} }
+
+// Phonetisch ausgewogene deutsche Texte für Voice-Cloning (~15-20 Sek vorlesen)
+var CLONE_REFERENCE_TEXTS = [
+    'Einst stritten sich Nordwind und Sonne, wer von ihnen beiden wohl der Stärkere wäre. Der Wanderer kam in einem warmen Mantel des Weges daher, und sie wurden einig: Wer ihn zwingen könnte, den Mantel abzunehmen, der galt als der Stärkere.',
+    'Die Sonne scheint hell am blauen Himmel, während bunte Vögel zwitschernd durch die Bäume fliegen. Kinder spielen fröhlich im Park, und eine sanfte Brise trägt den Duft frisch gemähten Grases durch die warme Sommerluft.',
+    'Frühmorgens, wenn der Tau noch auf den Gräsern glitzert, wandert ein Fuchs leise durch den stillen Wald. Er jagt keine Beute, sondern genießt die Ruhe zwischen Birken, Eichen und alten Tannen im Licht der aufgehenden Sonne.',
+    'Zwölf Boxkämpfer jagten Eva quer über den großen Sylter Deich. Jeden Morgen backt der Bäcker frische Brötchen, und abends liest der Professor faszinierende Bücher über Physik, Chemie und die Geschichte Europas.',
+    'In einer kleinen Küche köchelt eine würzige Suppe aus Karotten, Zwiebeln und frischen Kräutern. Dazu gibt es knuspriges Brot, einen Schluck kaltes Wasser und ein kurzes Gespräch über das Wetter des heutigen Tages.',
+    'Der Zug rollt langsam durch die Berge, vorbei an dunklen Tunneln, rauschenden Flüssen und kleinen Dörfern mit roten Dächern. Reisende blicken neugierig aus dem Fenster und staunen über die Schönheit der herbstlichen Landschaft.'
+];
+
+function pickCloneText(idx) {
+    var t = CLONE_REFERENCE_TEXTS[idx % CLONE_REFERENCE_TEXTS.length];
+    // Escape for HTML
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+var CLONE_TEXT_IDX = {};
+function nextCloneText(sceneId) {
+    CLONE_TEXT_IDX[sceneId] = (CLONE_TEXT_IDX[sceneId] || 0) + 1;
+    var el = document.getElementById('clone-text-' + sceneId);
+    if (el) el.innerHTML = pickCloneText(CLONE_TEXT_IDX[sceneId]);
+}
+
+function toggleVoiceRecord(sceneId) {
+    var state = VOICE_REC[sceneId];
+    if (state && state.recorder && state.recorder.state === 'recording') {
+        stopVoiceRecord(sceneId);
+    } else {
+        startVoiceRecord(sceneId);
+    }
+}
+
+function startVoiceRecord(sceneId) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Browser unterstützt keine Audio-Aufnahme'); return;
+    }
+    navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream) {
+        var mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'audio/ogg';
+            if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = '';
+        }
+        var recorder = mimeType ? new MediaRecorder(stream, {mimeType: mimeType}) : new MediaRecorder(stream);
+        var chunks = [];
+        recorder.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = function() {
+            var blob = new Blob(chunks, {type: recorder.mimeType || 'audio/webm'});
+            VOICE_REC[sceneId].blob = blob;
+            var url = URL.createObjectURL(blob);
+            var preview = document.getElementById('rec-preview-' + sceneId);
+            if (preview) { preview.src = url; preview.style.display = 'block'; }
+            var submit = document.getElementById('rec-submit-' + sceneId);
+            if (submit) submit.style.display = 'inline-block';
+            var saveRow = document.getElementById('rec-save-row-' + sceneId);
+            if (saveRow) saveRow.style.display = 'flex';
+            // Stop all tracks
+            stream.getTracks().forEach(function(t){ t.stop(); });
+        };
+        recorder.start();
+        VOICE_REC[sceneId] = {recorder: recorder, chunks: chunks, stream: stream, startTs: Date.now()};
+
+        // Update button & timer
+        var btn = document.getElementById('rec-btn-' + sceneId);
+        if (btn) {
+            btn.innerHTML = '<i class="bi bi-stop-circle-fill text-danger"></i> Stop';
+            btn.classList.remove('btn-outline-warning');
+            btn.classList.add('btn-danger');
+        }
+        var timerEl = document.getElementById('rec-timer-' + sceneId);
+        VOICE_REC[sceneId].timerId = setInterval(function() {
+            var sec = Math.floor((Date.now() - VOICE_REC[sceneId].startTs) / 1000);
+            if (timerEl) timerEl.textContent = '⏺ ' + sec + 's';
+            // Auto-stop at 30s
+            if (sec >= 30) stopVoiceRecord(sceneId);
+        }, 250);
+    }).catch(function(err) {
+        alert('Mikrofon-Zugriff verweigert: ' + err.message);
+    });
+}
+
+function stopVoiceRecord(sceneId) {
+    var state = VOICE_REC[sceneId];
+    if (!state) return;
+    if (state.timerId) clearInterval(state.timerId);
+    if (state.recorder && state.recorder.state === 'recording') state.recorder.stop();
+    var btn = document.getElementById('rec-btn-' + sceneId);
+    if (btn) {
+        btn.innerHTML = '<i class="bi bi-record-circle"></i> Neu aufnehmen';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-outline-warning');
+    }
+    var sec = Math.floor((Date.now() - state.startTs) / 1000);
+    var timerEl = document.getElementById('rec-timer-' + sceneId);
+    if (timerEl) timerEl.textContent = sec + 's aufgenommen';
+    if (sec < 6) {
+        alert('Zu kurz! Mindestens 6 Sekunden nötig — bitte neu aufnehmen.');
+    }
+}
+
+function loadVoiceClones(sceneId) {
+    var listEl = document.getElementById('vclone-list-' + sceneId);
+    if (!listEl) return;
+    fetch('/videostudio/voice-clones/?scene_id=' + sceneId, {
+        method: 'GET',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (!data.clones || data.clones.length === 0) {
+            listEl.innerHTML = '<small class="text-muted">Noch keine gespeicherten Stimmen. Nimm eine auf und klick "Dauerhaft speichern".</small>';
+            return;
+        }
+        var active = data.active_clone_id;
+        var html = '<div class="d-flex flex-column gap-1">';
+        data.clones.forEach(function(c) {
+            var isActive = (active === c.id);
+            var rowStyle = isActive
+                ? 'background:rgba(25,135,84,0.25); border:2px solid #198754'
+                : 'background:rgba(255,255,255,0.04); border:2px solid transparent';
+            html += '<div class="d-flex gap-2 align-items-center p-1 rounded vclone-row" data-clone-id="' + c.id + '" style="' + rowStyle + '">';
+            html += '<i class="bi bi-' + (isActive ? 'check-circle-fill text-success' : 'person-bounding-box text-warning') + '"></i>';
+            html += '<span class="small flex-grow-1" style="color:#fff;font-weight:' + (isActive ? '600' : '400') + '">' + c.name + (isActive ? ' <span class="badge bg-success" style="font-size:0.6rem">AKTIV</span>' : '') + '</span>';
+            html += '<audio controls src="' + c.audio_url + '" style="height:28px;max-width:180px"></audio>';
+            if (isActive) {
+                html += '<button type="button" class="btn btn-sm btn-success py-0 px-2" disabled title="Wird verwendet"><i class="bi bi-check-lg"></i></button>';
+            } else {
+                html += '<button type="button" class="btn btn-sm btn-outline-success py-0 px-2" onclick="applyVoiceClone(\'' + sceneId + '\', \'' + c.id + '\')" title="In dieser Szene verwenden"><i class="bi bi-check-lg"></i></button>';
+            }
+            html += '<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteVoiceClone(\'' + sceneId + '\', \'' + c.id + '\', \'' + c.name.replace(/[\'"\\]/g,'') + '\')" title="Löschen"><i class="bi bi-trash"></i></button>';
+            html += '</div>';
+        });
+        html += '</div>';
+        listEl.innerHTML = html;
+    })
+    .catch(function(e){ listEl.innerHTML = '<small class="text-danger">Fehler beim Laden: ' + e + '</small>'; });
+}
+
+function applyVoiceClone(sceneId, cloneId) {
+    fetch('/videostudio/scene/' + sceneId + '/apply-voice-clone/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: JSON.stringify({clone_id: cloneId})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            loadVoiceClones(sceneId);  // refresh highlights
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannt'));
+        }
+    })
+    .catch(function(e){ alert('Fehler: ' + e); });
+}
+
+function deleteVoiceClone(sceneId, cloneId, name) {
+    if (!confirm('Voice-Clone "' + name + '" wirklich löschen?')) return;
+    fetch('/videostudio/voice-clones/' + cloneId + '/delete/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value}
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') { loadVoiceClones(sceneId); }
+        else { alert('Fehler: ' + (data.error || 'Unbekannt')); }
+    })
+    .catch(function(e){ alert('Fehler: ' + e); });
+}
+
+function saveAsVoiceClone(sceneId) {
+    var state = VOICE_REC[sceneId];
+    if (!state || !state.blob) { alert('Keine Aufnahme vorhanden'); return; }
+    var nameEl = document.getElementById('rec-save-name-' + sceneId);
+    var name = nameEl ? nameEl.value.trim() : '';
+    if (!name) { alert('Bitte Name für die Stimme eingeben'); return; }
+    var sec = Math.floor((Date.now() - state.startTs) / 1000);
+    if (sec < 6) { alert('Aufnahme zu kurz (min 6 Sek)'); return; }
+    var ext = (state.blob.type.indexOf('webm') !== -1) ? 'webm' : (state.blob.type.indexOf('ogg') !== -1 ? 'ogg' : 'wav');
+    var file = new File([state.blob], 'voice_clone_recording.' + ext, {type: state.blob.type});
+    var fd = new FormData();
+    fd.append('name', name);
+    fd.append('audio_file', file);
+    fetch('/videostudio/voice-clones/create/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: fd
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            alert('Stimme "' + data.name + '" dauerhaft gespeichert. Klick jetzt auf das grüne Häkchen um sie für diese Szene zu verwenden.');
+            loadVoiceClones(sceneId);
+            if (nameEl) nameEl.value = '';
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannt'));
+        }
+    })
+    .catch(function(e){ alert('Fehler: ' + e); });
+}
+
+// Preview: generiere Voiceover OHNE Video-Render, um nur das Audio anzuhören
+function previewVoiceover(sceneId) {
+    var textEl = document.getElementById('voiceover-' + sceneId);
+    var modelEl = document.getElementById('audio-model-' + sceneId);
+    if (!textEl || !textEl.value.trim()) { alert('Bitte Text eingeben'); return; }
+    var btn = document.getElementById('vo-preview-btn-' + sceneId);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generiere...'; }
+    var payload = {
+        voiceover_text: textEl.value.trim(),
+        audio_model: modelEl ? modelEl.value : 'piper-thorsten-medium',
+        preview_only: true
+    };
+    fetch('/videostudio/scene/' + sceneId + '/voiceover-preview/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: JSON.stringify(payload)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-circle"></i> Text anhören'; }
+        if (data.status === 'ok' && data.audio_url) {
+            var player = document.getElementById('vo-preview-audio-' + sceneId);
+            if (player) {
+                player.src = data.audio_url + '?t=' + Date.now();
+                player.style.display = 'block';
+                player.play().catch(function(){});
+            }
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannt'));
+        }
+    })
+    .catch(function(e){
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-circle"></i> Text anhören'; }
+        alert('Fehler: ' + e);
+    });
+}
+
+function submitVoiceRecord(sceneId) {
+    var state = VOICE_REC[sceneId];
+    if (!state || !state.blob) { alert('Keine Aufnahme vorhanden'); return; }
+    var sec = Math.floor((Date.now() - state.startTs) / 1000);
+    if (sec < 6) { alert('Aufnahme zu kurz (min 6 Sek)'); return; }
+    var ext = (state.blob.type.indexOf('webm') !== -1) ? 'webm' : (state.blob.type.indexOf('ogg') !== -1 ? 'ogg' : 'wav');
+    var file = new File([state.blob], 'voice_clone_recording.' + ext, {type: state.blob.type});
+    var fd = new FormData();
+    fd.append('voice_reference_audio', file);
+    var btn = document.getElementById('rec-submit-' + sceneId);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Upload läuft...'; }
+    fetch('/videostudio/scene/' + sceneId + '/upload-voice-ref/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: fd
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') {
+            alert('Aufnahme als Voice-Clone Referenz gespeichert!');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-circle"></i> Hochgeladen'; }
+        } else {
+            alert('Fehler: ' + (data.error || 'Upload fehlgeschlagen'));
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-upload"></i> Aufnahme hochladen'; }
+        }
+    })
+    .catch(function(e){
+        alert('Fehler: ' + e);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-upload"></i> Aufnahme hochladen'; }
+    });
+}
+
+// Override generateVoiceover to include params
+function generateVoiceover(sceneId) {
+    var textEl = document.getElementById('voiceover-' + sceneId);
+    var modelEl = document.getElementById('audio-model-' + sceneId);
+    if (!textEl || !textEl.value.trim()) { alert('Bitte Text eingeben'); return; }
+    
+    var maxWords = parseInt(textEl.dataset.maxWords) || 12;
+    var words = textEl.value.trim().split(/\s+/).filter(function(w){ return w.length > 0; });
+    if (words.length > maxWords) { alert('Text zu lang! Max. ' + maxWords + ' Wörter.'); return; }
+    
+    var payload = {
+        voiceover_text: textEl.value.trim(),
+        audio_model: modelEl ? modelEl.value : 'piper-thorsten-medium'
+    };
+    
+    // Add params
+    var voiceEl = document.getElementById('audio-voice-' + sceneId);
+    var speedEl = document.getElementById('audio-speed-' + sceneId);
+    var pitchEl = document.getElementById('audio-pitch-' + sceneId);
+    var emotionEl = document.getElementById('audio-emotion-' + sceneId);
+    if (voiceEl) payload.voice = voiceEl.value;
+    if (speedEl) payload.speed = parseFloat(speedEl.value);
+    if (pitchEl) payload.pitch = parseFloat(pitchEl.value);
+    if (emotionEl) payload.emotion = emotionEl.value;
+    
+    fetch('/videostudio/scene/' + sceneId + '/voiceover/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: JSON.stringify(payload)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        if (data.status === 'ok') { location.reload(); }
+        else { alert(data.error || 'Fehler bei Audio-Generierung'); }
+    })
+    .catch(function(e){ alert('Fehler: ' + e); });
+}
+
+
+var VIDEO_MODELS = {
+    // === REALISTISCH ===
+    'google-veo-3.1': {cat: 'realistisch', name: 'Google Veo 3.1', provider: 'Renderful', price: 2.00, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'google-veo-3': {cat: 'realistisch', name: 'Google Veo 3', provider: 'Renderful', price: 1.50, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'google-veo-2': {cat: 'realistisch', name: 'Google Veo 2', provider: 'Renderful', price: 0.50, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'sora-2': {cat: 'realistisch', name: 'Sora 2', provider: 'OpenAI/Renderful', price: 0.20, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'sora-2-image': {cat: 'realistisch', name: 'Sora 2 + Startbild', provider: 'OpenAI/Renderful', price: 0.25, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'runway-gen3': {cat: 'realistisch', name: 'Runway Gen-3 Alpha', provider: 'Runway/Renderful', price: 0.50, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'sora-2-pro': {cat: 'realistisch', name: 'Sora 2 Pro', provider: 'OpenAI/Renderful', price: 0.45, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'seedance-1.5-pro': {cat: 'realistisch', name: 'Seedance 1.5 Pro', provider: 'ByteDance/Renderful', price: 0.16, start_frame: true, end_frame: true, duration: true, aspect: true},
+    'seedance-1.0-pro': {cat: 'realistisch', name: 'Seedance 1.0 Pro', provider: 'ByteDance/Renderful', price: 0.20, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'seedance-1.0-pro-fast': {cat: 'realistisch', name: 'Seedance 1.0 Fast', provider: 'ByteDance/Renderful', price: 0.12, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'seedance-1.0-lite': {cat: 'realistisch', name: 'Seedance 1.0 Lite', provider: 'ByteDance/Renderful', price: 0.08, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'kling-v3.0-pro': {cat: 'realistisch', name: 'Kling v3.0 Pro', provider: 'Kuaishou/Renderful', price: 0.50, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'kling-v2.6': {cat: 'realistisch', name: 'Kling v2.6 (mit Audio)', provider: 'Kuaishou/Renderful', price: 0.28, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'kling-v1.6': {cat: 'realistisch', name: 'Kling v1.6', provider: 'Kuaishou/Renderful', price: 0.22, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'kling-v1.5': {cat: 'realistisch', name: 'Kling v1.5', provider: 'Kuaishou/Renderful', price: 0.21, start_frame: false, end_frame: false, duration: true, aspect: true},
+    'kling-v1': {cat: 'realistisch', name: 'Kling v1', provider: 'Kuaishou/Renderful', price: 0.20, start_frame: false, end_frame: false, duration: true, aspect: true},
+
+    // === GESICHT / CHARAKTER ===
+    'hailuo-2.3': {cat: 'gesicht', name: 'Hailuo 2.3 (MiniMax)', provider: 'Renderful', price: 0.28, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'minimax-m2.7': {cat: 'gesicht', name: 'MiniMax M2.7', provider: 'MiniMax/Renderful', price: 0.25, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'minimax-m2.5': {cat: 'gesicht', name: 'MiniMax M2.5', provider: 'MiniMax/Renderful', price: 0.20, start_frame: false, end_frame: false, duration: true, aspect: true},
+
+    // === GÜNSTIG / BUDGET ===
+    'wan-2.5-480p': {cat: 'budget', name: 'Wan 2.5 (480p + Audio)', provider: 'Alibaba/Renderful', price: 0.05, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'wan-2.5-720p': {cat: 'budget', name: 'Wan 2.5 (720p + Audio)', provider: 'Alibaba/Renderful', price: 0.10, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'wan-2.5-1080p': {cat: 'budget', name: 'Wan 2.5 (1080p + Audio)', provider: 'Alibaba/Renderful', price: 0.15, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'wan-2.6-720p': {cat: 'budget', name: 'Wan 2.6 (720p)', provider: 'Alibaba/Renderful', price: 0.12, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'wan-2.6-1080p': {cat: 'budget', name: 'Wan 2.6 (1080p)', provider: 'Alibaba/Renderful', price: 0.18, start_frame: true, end_frame: false, duration: true, aspect: true},
+
+    // === COMIC / ANIMATION ===
+    'vidu-q1': {cat: 'comic', name: 'Vidu Q1 (1080p, Anime-Modus)', provider: 'Renderful', price: 0.40, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'vidu-q2': {cat: 'comic', name: 'Vidu Q2 (hohe Qualität)', provider: 'Renderful', price: 0.25, start_frame: true, end_frame: false, duration: true, aspect: true},
+
+    // === OPEN SOURCE (via Fal.ai) ===
+    'ltx-2': {cat: 'jarvislabs', name: 'LTX-2 (19B)', provider: 'JarvisLabs A100', price: 0.05, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'ltx-video': {cat: 'jarvislabs', name: 'LTX-Video 2B', provider: 'JarvisLabs A100', price: 0.02, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'hunyuanvideo': {cat: 'jarvislabs', name: 'HunyuanVideo 1.5', provider: 'JarvisLabs A100', price: 0.02, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'cogvideox': {cat: 'jarvislabs', name: 'CogVideoX 5B', provider: 'JarvisLabs A100', price: 0.02, start_frame: true, end_frame: false, duration: true, aspect: true},
+    'wan-2.2': {cat: 'jarvislabs', name: 'Wan 2.2 (14B)', provider: 'JarvisLabs A100', price: 0.03, start_frame: true, end_frame: true, duration: true, aspect: true},
+    // === RUNPOD A6000 ===
+    'hunyuanvideo-rp': {cat: 'runpod', name: 'HunyuanVideo 1.5 I2V', provider: 'RunPod A40', price: 0.03, start_frame: true, end_frame: false, duration: true, aspect: true},
+};
+
+var MODEL_CATS = {
+    'realistisch': {label: '🎬 Realistisch', icon: 'bi-camera-video'},
+    'gesicht': {label: '👤 Gesicht / Charakter', icon: 'bi-person-video2'},
+    'budget': {label: '💰 Budget (ab $0.05)', icon: 'bi-piggy-bank'},
+    'comic': {label: '🎨 Comic / Animation', icon: 'bi-brush'},
+    'jarvislabs': {label: '🖥️ JarvisLabs A100 (ab $0.02/Video)', icon: 'bi-gpu-card'},
+    'runpod': {label: '🚀 RunPod A40 (ab $0.04/Video)', icon: 'bi-gpu-card'}
+};
+
+function populateModelDropdown(selectEl) {
+    var currentVal = selectEl.value;
+    selectEl.innerHTML = '';
+    var cats = Object.keys(MODEL_CATS);
+    cats.forEach(function(catKey) {
+        var optgroup = document.createElement('optgroup');
+        optgroup.label = MODEL_CATS[catKey].label;
+        Object.keys(VIDEO_MODELS).forEach(function(modelId) {
+            var m = VIDEO_MODELS[modelId];
+            if (m.cat !== catKey) return;
+            var opt = document.createElement('option');
+            opt.value = modelId;
+            var sf = m.start_frame ? ' 🖼️' : '';
+            var ef = m.end_frame ? '🔄' : '';
+            opt.textContent = m.name + ' — $' + m.price.toFixed(2) + sf + ef;
+            optgroup.appendChild(opt);
+        });
+        if (optgroup.children.length > 0) selectEl.appendChild(optgroup);
+    });
+    if (currentVal) selectEl.value = currentVal;
+}
+
+function updateModelInfo(sceneId) {
+    var modelEl = document.getElementById('audio-model-' + sceneId);
+    // Not needed anymore, model select is self-describing
+}
+
+document.querySelectorAll('select[name="model_choice"]').forEach(function(sel) {
+    populateModelDropdown(sel);
+    var cur = sel.getAttribute('data-current') || 'hunyuanvideo-rp';
+    sel.value = cur;
+});
+
+// Initialisiere Audio-Model Panels auf allen Szenen beim Seitenaufbau
+// (damit gespeicherte Voice-Clones geladen werden wenn xtts-clone schon gewählt ist)
+document.querySelectorAll('select[id^="audio-model-"]').forEach(function(sel) {
+    var sceneId = sel.id.replace('audio-model-', '');
+    if (typeof updateAudioParams === 'function') {
+        try { updateAudioParams(sceneId); } catch(e) { console.warn('updateAudioParams init failed', e); }
+    }
+});
+
+// ============================================================
+// GPU Server Management
+// ============================================================
+let gpuCheckInterval = null;
+
+async function checkGPUStatus() {
+    try {
+        const r = await fetch('/videostudio/server/status/');
+        const data = await r.json();
+        const toggle = document.getElementById('gpu-toggle');
+        const badge = document.getElementById('gpu-badge');
+        const text = document.getElementById('gpu-status-text');
+        const costInfo = document.getElementById('gpu-cost-info');
+        // auto-shutdown info removed from UI
+
+        if (data.status === 'running') {
+            toggle.checked = true;
+            badge.className = 'badge bg-success';
+            badge.textContent = '🟢 Running';
+            if (data.provider === 'runpod') { text.textContent = 'RunPod A40 aktiv'; } else if (data.provider === 'jarvis') { text.textContent = 'JarvisLabs A100-80GB aktiv'; } else { text.textContent = 'GPU aktiv'; }
+            costInfo.textContent = `$${data.cost_per_hr || '1.49'}/h | Session: $${data.session_cost || '0.00'} (${data.uptime_min || 0} Min)`;
+            // Show account balance
+            const balEl = document.getElementById('gpu-balance');
+            if (data.balance !== undefined && balEl) {
+                balEl.style.display = '';
+                const bal = parseFloat(data.balance);
+                balEl.className = 'badge ' + (bal < 1 ? 'bg-danger' : bal < 5 ? 'bg-warning text-dark' : 'bg-success');
+                balEl.innerHTML = '<i class="bi bi-wallet2 me-1"></i>Guthaben: $' + bal.toFixed(2);
+            }
+        } else if (data.status === 'paused') {
+            toggle.checked = false;
+            badge.className = 'badge bg-warning text-dark';
+            badge.textContent = '🟡 Pausiert';
+            text.textContent = 'Server pausiert';
+            costInfo.textContent = '$0.00/h';
+            // autoInfo removed
+        } else {
+            toggle.checked = false;
+            badge.className = 'badge bg-secondary';
+            badge.textContent = '⚫ Gestoppt';
+            text.textContent = 'Server aus';
+            costInfo.textContent = '';
+            // autoInfo removed
+        }
+    } catch(e) {
+        document.getElementById('gpu-badge').textContent = 'Fehler';
+    }
+}
+
+async function toggleGPU(enable) {
+    const toggle = document.getElementById('gpu-toggle');
+    const provider = document.getElementById('gpu-provider').value;
+    toggle.disabled = true;
+    try {
+        const url = enable ? '/videostudio/server/start/' : '/videostudio/server/stop/';
+        await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({provider: provider})
+        });
+        // Wait and check
+        if (enable) {
+            document.getElementById('gpu-status-text').textContent = 'Startet...';
+            for (let i = 0; i < 24; i++) {
+                await new Promise(r => setTimeout(r, 5000));
+                await checkGPUStatus();
+                if (toggle.checked) break;
+            }
+        } else {
+            document.getElementById('gpu-status-text').textContent = 'Stoppt...';
+            await new Promise(r => setTimeout(r, 3000));
+            await checkGPUStatus();
+        }
+    } catch(e) {
+        console.error(e);
+    }
+    toggle.disabled = false;
+}
+
+// Check GPU status on load and every 30s
+checkGPUStatus();
+gpuCheckInterval = setInterval(checkGPUStatus, 30000);
+
+// ============================================================
+// Video Versions per Scene
+// ============================================================
+async function loadSceneVideos(sceneId) {
+    try {
+        const r = await fetch(`/videostudio/scene/${sceneId}/videos/`);
+        const data = await r.json();
+        const list = document.getElementById(`video-list-${sceneId}`);
+        if (!list) return;
+
+        if (!data.videos || data.videos.length === 0) {
+            list.innerHTML = '<li><small class="dropdown-item-text text-muted">Noch keine Videos</small></li>';
+            return;
+        }
+
+        list.innerHTML = data.videos.map(v => `
+            <li class="dropdown-item d-flex justify-content-between align-items-center ${v.is_selected ? 'active' : ''}"
+                style="cursor:pointer" onclick="selectVideo('${sceneId}', '${v.id}')">
+                <div>
+                    <small><strong>${v.model_used}</strong> · ${v.render_duration_sec.toFixed(0)}s · $${v.render_cost.toFixed(3)}</small>
+                </div>
+                <div class="d-flex gap-1">
+                    ${v.is_selected ? '<i class="bi bi-check-circle-fill text-success"></i>' : ''}
+                    ${v.video_url ? `<a href="${v.video_url}" target="_blank" class="btn btn-sm btn-outline-primary p-0 px-1" onclick="event.stopPropagation()"><i class="bi bi-download"></i></a>` : ''}
+                    <button class="btn btn-sm btn-outline-danger p-0 px-1" onclick="event.stopPropagation(); deleteVideo('${v.id}', '${sceneId}')"><i class="bi bi-trash"></i></button>
+                </div>
+            </li>
+        `).join('');
+
+        // Update video player with the selected video
+        const selected = data.videos.find(v => v.is_selected);
+        if (selected && selected.video_url) {
+            const player = document.getElementById(`video-player-${sceneId}`);
+            if (player) {
+                let source = player.querySelector('source');
+                if (!source) {
+                    source = document.createElement('source');
+                    source.type = 'video/mp4';
+                    player.appendChild(source);
+                }
+                if (!source.src.endsWith(selected.video_url)) {
+                    source.src = selected.video_url;
+                    player.load();
+                }
+            }
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+async function selectVideo(sceneId, videoId) {
+    await fetch(`/videostudio/scene/${sceneId}/select-video/${videoId}/`, {method: 'POST'});
+    loadSceneVideos(sceneId);
+}
+
+async function deleteVideo(videoId, sceneId) {
+    if (!confirm('Video wirklich löschen?')) return;
+    await fetch(`/videostudio/video/${videoId}/delete/`, {method: 'POST'});
+    loadSceneVideos(sceneId);
+}
+
+// Load video versions for all scenes on page load
+document.querySelectorAll('[id^="video-list-"]').forEach(el => {
+    const sceneId = el.id.replace('video-list-', '');
+    loadSceneVideos(sceneId);
+});
+
+function showFrameModelComparison() {
+    var modal = new bootstrap.Modal(document.getElementById('frameModelComparisonModal'));
+    modal.show();
+}
+</script>
+
+<!-- Frame Model Comparison Modal -->
+<div class="modal fade" id="frameModelComparisonModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title"><i class="bi bi-info-circle me-2"></i>Frame-Modelle im Vergleich</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>Modell</th>
+                <th>Preis/Bild</th>
+                <th>Charaktere</th>
+                <th>Produkte</th>
+                <th>Stillbilder</th>
+                <th>Qualität</th>
+                <th>Geschwindigkeit</th>
+                <th>Beste für</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Nano Banana 2</strong><br><small class="text-muted">Gemini 3.1 Flash Image</small></td>
+                <td>$0.039</td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td>★★★★★</td>
+                <td>★★★★☆</td>
+                <td>Alles — Character, Produkt &amp; Szenen-Mixing</td>
+              </tr>
+              <tr>
+                <td><strong>Gemini 2.5 Flash Image</strong></td>
+                <td>$0.039</td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td>★★★★☆</td>
+                <td>★★★★☆</td>
+                <td>Fallback wenn Nano Banana 2 nicht verfügbar</td>
+              </tr>
+              <tr>
+                <td><strong>Gemini 2.0 Flash Image</strong></td>
+                <td>$0.025</td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td><span class="badge bg-success">Ja</span></td>
+                <td>★★★☆☆</td>
+                <td>★★★★★</td>
+                <td>Günstiger, wenn Qualität nicht kritisch ist</td>
+              </tr>
+              <tr>
+                <td><strong>Imagen 4 Fast</strong></td>
+                <td>$0.020</td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td>★★★☆☆</td>
+                <td>★★★★★</td>
+                <td>Einfache Hintergründe, Objekte, Landschaften (nur Text)</td>
+              </tr>
+              <tr>
+                <td><strong>Imagen 4</strong></td>
+                <td>$0.040</td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td>★★★★☆</td>
+                <td>★★★★☆</td>
+                <td>Hochwertige Bilder ohne Referenzen</td>
+              </tr>
+              <tr>
+                <td><strong>Imagen 4 Ultra</strong></td>
+                <td>$0.060</td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td><span class="badge bg-danger">Nein</span></td>
+                <td>★★★★★</td>
+                <td>★★★☆☆</td>
+                <td>Premium-Qualität, fotorealistisch</td>
+              </tr>
+              <tr>
+                <td><strong>FLUX + PuLID + Redux</strong><br><small class="text-muted">Lokal auf RunPod</small></td>
+                <td>~$0.02</td>
+                <td><span class="badge bg-success">Ja (Face-ID via PuLID)</span></td>
+                <td><span class="badge bg-success">Ja (via Redux)</span></td>
+                <td><span class="badge bg-success">Ja (via Redux)</span></td>
+                <td>★★★★☆</td>
+                <td>★★☆☆☆</td>
+                <td>Character + Produkte + Stillbilder kombinierbar</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="alert alert-info mb-0 mt-2">
+          <strong><i class="bi bi-lightbulb me-1"></i>Tipp:</strong>
+          Für konsistente Charaktere: <strong>Nano Banana 2</strong> oder <strong>FLUX + PuLID</strong>.
+          Für einfache Bilder: <strong>Imagen 4 Fast</strong>.
+          Wenn FLUX+PuLID ohne Character-Bild gewählt wird, fällt das System automatisch auf Nano Banana 2 zurück.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schliessen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Download Modal -->
+<div class="modal fade" id="downloadModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-download"></i> Videos herunterladen</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Wie moechtest du die Videos herunterladen?</p>
+        <div class="d-grid gap-2">
+          <button class="btn btn-success" onclick="doDownload('merged')">
+            <i class="bi bi-collection-play"></i> Ein zusammengefuegtes Video
+          </button>
+          <button class="btn btn-primary" onclick="doDownload('individual')">
+            <i class="bi bi-files"></i> Einzelne Videos (ZIP)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Frames Modal -->
+<div class="modal fade" id="framesModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-images"></i> Generierte Frames</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body"></div>
+    </div>
+  </div>
+</div>
+
+{# AJAX Scene Status Polling #}
+<script>
+(function(){
+  let pi = null;
+  const PK = "{{ project.pk }}";
+  function poll() {
+    fetch("/videostudio/" + PK + "/status/")
+      .then(r => r.json())
+      .then(data => {
+        data.scenes.forEach(s => {
+          const c = document.getElementById("scene-" + s.id);
+          if (!c) return;
+          const b = c.querySelector(".card-header div:last-child");
+          if (!b) return;
+          let h = "";
+          if (s.status === "rendering" || s.status === "generating") {
+            h = '<button class="btn btn-sm btn-warning" disabled><span class="spinner-border spinner-border-sm"></span> Rendert...</button>';
+            h += '<button class="btn btn-sm btn-warning ms-1" onclick="cancelScene(''+s.id+'')"><i class="bi bi-stop-fill"></i> Stop</button>';
+          } else if (s.status === "pending") {
+            h = '<button class="btn btn-sm btn-success" onclick="generateScene(''+s.id+'')"><i class="bi bi-play-fill"></i> Render</button>';
+          } else if (s.status === "error") {
+            h = '<button class="btn btn-sm btn-success" onclick="generateScene(''+s.id+'')"><i class="bi bi-arrow-clockwise"></i> Retry</button>';
+          } else if (s.status === "done") {
+            h = '<span class="badge bg-success">Fertig</span>';
+            if (s.cost > 0) h += '<span class="badge bg-info ms-1">$'+s.cost.toFixed(2)+'</span>';
+            if (s.duration) h += '<small class="text-muted ms-1">'+s.duration+'s</small>';
+            h += '<button class="btn btn-sm btn-primary ms-2" onclick="generateScene(''+s.id+'')"><i class="bi bi-arrow-clockwise"></i></button>';
+          }
+          h += '<button class="btn btn-sm btn-danger" onclick="deleteScene(''+s.id+'')"><i class="bi bi-trash"></i></button>';
+          b.innerHTML = h;
+        });
+        const hasR = data.scenes.some(s => s.status === "rendering" || s.status === "generating");
+        if (!hasR && pi) { clearInterval(pi); pi = null; if (!document.activeElement.matches("input, textarea, select")) setTimeout(() => location.reload(), 500); }
+      })
+      .catch(e => console.error("Poll:", e));
+  }
+  const og = window.generateScene;
+  if (og) window.generateScene = function(id) { og(id); if (!pi) pi = setInterval(poll, 3000); };
+  const oa = window.generateAllScenes;
+  if (oa) window.generateAllScenes = function() { oa(); if (!pi) pi = setInterval(poll, 3000); };
+  if (document.querySelectorAll('.spinner-border').length > 0) pi = setInterval(poll, 3000);
+})();
+</script>
+
+
+<!-- Quality Info Modal -->
+<div class="modal fade" id="qualityInfoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#1f1f1f; border:1px solid #ffc107">
+      <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1)">
+        <h5 class="modal-title" style="color:#ffc107" id="qualityInfoModalTitle"><i class="bi bi-info-circle"></i> Info</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+      <div class="modal-body" style="color:#fff; font-size:0.9rem; line-height:1.5" id="qualityInfoModalBody">
+      </div>
+      <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.1)">
+        <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Verstanden</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Script Import Modal -->
+<div class="modal fade" id="scriptImportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" style="background:#1f1f1f; border:1px solid #ffc107">
+      <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1)">
+        <h5 class="modal-title" style="color:#ffc107"><i class="bi bi-file-earmark-text"></i> Skript importieren</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="color:#fff">
+        <p class="small">Füge hier ein strukturiertes Szenen-Skript ein. Erkannte Felder: <strong>BILDPROMPT</strong> → Start-Frame, <strong>VIDEO-PROMPT</strong> → Szene-Prompt, <strong>VOICE-OVER</strong> → gesprochener Text, <strong>TEXT-OVERLAY</strong> (optional) → Text-Overlay, <strong>| N Sek</strong> → Dauer.</p>
+        <textarea id="scriptImportText" class="form-control" rows="14" placeholder="SZENE 1 — HOOK | [00:00 – 00:05] | 5 Sek&#10;━━━...&#10;📌 STORY-BEAT: ...&#10;📸 BILDPROMPT:&#10;  <Frame-Prompt>&#10;🎬 VIDEO-PROMPT (max. 5 Sek):&#10;  Kamerabewegung: ...&#10;  Subjekt-Bewegung: ...&#10;  Atmosphäre: ...&#10;  Tempo: Langsam | Dauer: 5 Sekunden&#10;🎙️ VOICE-OVER:&#10;  „..."&#10;TEXT-OVERLAY: ... (optional)" style="background:#0d0d0d;color:#fff;border:1px solid rgba(255,255,255,0.15);font-family:monospace;font-size:0.85rem"></textarea>
+        <div class="mt-2 form-check">
+          <input type="checkbox" id="scriptImportReplace" class="form-check-input">
+          <label for="scriptImportReplace" class="form-check-label small">Vorhandene Szenen <strong>ersetzen</strong> (statt anhängen)</label>
+        </div>
+        <div id="scriptImportResult" class="mt-2 small"></div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.1)">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-warning" id="scriptImportBtn" onclick="submitScriptImport()"><i class="bi bi-arrow-down-circle"></i> Szenen erstellen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function submitScriptImport() {
+    var ta = document.getElementById('scriptImportText');
+    var repl = document.getElementById('scriptImportReplace');
+    var btn = document.getElementById('scriptImportBtn');
+    var res = document.getElementById('scriptImportResult');
+    if (!ta.value.trim()) { alert('Bitte Skript-Text einfügen'); return; }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Parsen...';
+    res.innerHTML = '';
+    fetch('/videostudio/{{ project.pk }}/import-script/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+        body: JSON.stringify({script_text: ta.value, replace: repl.checked})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-down-circle"></i> Szenen erstellen';
+        if (data.status === 'ok') {
+            res.innerHTML = '<div class="alert alert-success py-2 mb-0">✓ ' + data.created + ' Szenen erstellt. Lade Seite neu...</div>';
+            setTimeout(function(){ location.reload(); }, 1500);
+        } else {
+            res.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + (data.error || 'Fehler') + '</div>';
+        }
+    })
+    .catch(function(e){
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-down-circle"></i> Szenen erstellen';
+        res.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + e + '</div>';
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,562 @@
+<!-- Social Media Teilen Modal (aus Videos-App übernommen) -->
+<div class="modal fade" id="socialModal" tabindex="-1" aria-labelledby="socialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="socialModalLabel">
+                    <i class="bi bi-share me-2"></i>Video auf Social Media posten
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="social-video-id" value="{{ project.video.id }}">
+                <input type="hidden" id="project-script" value="{{ project.script|escapejs }}">
+                <input type="hidden" id="project-title-hidden" value="{{ project.title|escapejs }}">
+
+                <!-- Plattform-Auswahl -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold"><i class="bi bi-globe me-1"></i> Plattformen auswählen</label>
+                    <div class="row g-2">
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input platform-checkbox" type="checkbox" value="instagram" id="platform-instagram" onchange="togglePlatformOptions('instagram')">
+                                <label class="form-check-label" for="platform-instagram">
+                                    <i class="bi bi-instagram" style="color: #E4405F;"></i> Instagram
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input platform-checkbox" type="checkbox" value="facebook" id="platform-facebook" onchange="togglePlatformOptions('facebook')">
+                                <label class="form-check-label" for="platform-facebook">
+                                    <i class="bi bi-facebook" style="color: #1877F2;"></i> Facebook
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input platform-checkbox" type="checkbox" value="tiktok" id="platform-tiktok" onchange="togglePlatformOptions('tiktok')">
+                                <label class="form-check-label" for="platform-tiktok">
+                                    <i class="bi bi-tiktok"></i> TikTok
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input platform-checkbox" type="checkbox" value="youtube" id="platform-youtube" onchange="togglePlatformOptions('youtube')">
+                                <label class="form-check-label" for="platform-youtube">
+                                    <i class="bi bi-youtube" style="color: #FF0000;"></i> YouTube
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input platform-checkbox" type="checkbox" value="linkedin" id="platform-linkedin" onchange="togglePlatformOptions('linkedin')">
+                                <label class="form-check-label" for="platform-linkedin">
+                                    <i class="bi bi-linkedin" style="color: #0A66C2;"></i> LinkedIn
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="form-check platform-check">
+                                <input class="form-check-input platform-checkbox" type="checkbox" value="pinterest" id="platform-pinterest" onchange="togglePlatformOptions('pinterest')">
+                                <label class="form-check-label" for="platform-pinterest">
+                                    <i class="bi bi-pinterest" style="color: #E60023;"></i> Pinterest
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plattform-spezifische Optionen -->
+                <div id="platform-options-container">
+                    <!-- Instagram Optionen -->
+                    <div id="options-instagram" class="platform-options card mb-3" style="display: none;">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2"><i class="bi bi-instagram" style="color: #E4405F;"></i> Instagram Optionen</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Video-Typ</label>
+                                    <select class="form-select form-select-sm" id="instagram-media-type">
+                                        <option value="REELS" selected>Reels</option>
+                                        <option value="STORIES">Stories</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" id="instagram-share-to-feed" checked>
+                                        <label class="form-check-label small" for="instagram-share-to-feed">Im Feed teilen</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TikTok Optionen -->
+                    <div id="options-tiktok" class="platform-options card mb-3" style="display: none;">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2"><i class="bi bi-tiktok"></i> TikTok Optionen</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Sichtbarkeit</label>
+                                    <select class="form-select form-select-sm" id="tiktok-privacy">
+                                        <option value="PUBLIC_TO_EVERYONE" selected>Öffentlich</option>
+                                        <option value="MUTUAL_FOLLOW_FRIENDS">Nur Freunde</option>
+                                        <option value="SELF_ONLY">Nur ich</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">Interaktionen</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="tiktok-allow-comments" checked>
+                                        <label class="form-check-label small" for="tiktok-allow-comments">Kommentare erlauben</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="tiktok-allow-duet" checked>
+                                        <label class="form-check-label small" for="tiktok-allow-duet">Duett erlauben</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- YouTube Optionen -->
+                    <div id="options-youtube" class="platform-options card mb-3" style="display: none;">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2"><i class="bi bi-youtube" style="color: #FF0000;"></i> YouTube Optionen</h6>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small">Sichtbarkeit</label>
+                                    <select class="form-select form-select-sm" id="youtube-privacy">
+                                        <option value="public" selected>Öffentlich</option>
+                                        <option value="unlisted">Nicht gelistet</option>
+                                        <option value="private">Privat</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Kategorie</label>
+                                    <select class="form-select form-select-sm" id="youtube-category">
+                                        <option value="22" selected>Menschen & Blogs</option>
+                                        <option value="24">Unterhaltung</option>
+                                        <option value="28">Wissenschaft & Technik</option>
+                                        <option value="26">Praktische Tipps</option>
+                                        <option value="27">Bildung</option>
+                                        <option value="17">Sport</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" id="youtube-made-for-kids">
+                                        <label class="form-check-label small" for="youtube-made-for-kids">Für Kinder</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Facebook Optionen -->
+                    <div id="options-facebook" class="platform-options card mb-3" style="display: none;">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2"><i class="bi bi-facebook" style="color: #1877F2;"></i> Facebook Optionen</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Video-Typ</label>
+                                    <select class="form-select form-select-sm" id="facebook-media-type">
+                                        <option value="REELS" selected>Reels</option>
+                                        <option value="VIDEO">Standard Video</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LinkedIn Optionen -->
+                    <div id="options-linkedin" class="platform-options card mb-3" style="display: none;">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2"><i class="bi bi-linkedin" style="color: #0A66C2;"></i> LinkedIn Optionen</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Sichtbarkeit</label>
+                                    <select class="form-select form-select-sm" id="linkedin-visibility">
+                                        <option value="PUBLIC" selected>Öffentlich</option>
+                                        <option value="CONNECTIONS">Nur Kontakte</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pinterest Optionen -->
+                    <div id="options-pinterest" class="platform-options card mb-3" style="display: none;">
+                        <div class="card-body py-2">
+                            <h6 class="card-title mb-2"><i class="bi bi-pinterest" style="color: #E60023;"></i> Pinterest Optionen</h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small">Board auswählen</label>
+                                    <select class="form-select form-select-sm" id="pinterest-board">
+                                        <option value="">Board wird geladen...</option>
+                                    </select>
+                                    <small class="text-muted">Videos werden als Video-Pins gepostet</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small">Link (optional)</label>
+                                    <input type="url" class="form-control form-control-sm" id="pinterest-link" placeholder="https://...">
+                                    <small class="text-muted">Ziel-URL beim Klick auf den Pin</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- KI-Textgenerierung -->
+                <div class="mb-4">
+                    <button type="button" class="btn btn-outline-primary w-100" id="generate-ai-btn" onclick="generateAIContent()">
+                        <i class="bi bi-magic me-1"></i> Texte aus Skript generieren
+                    </button>
+                    <small class="text-muted d-block mt-1">Generiert automatisch Titel, Beschreibung und Hashtags basierend auf dem Video-Skript</small>
+                </div>
+
+                <!-- Titel -->
+                <div class="mb-3">
+                    <label for="social-title" class="form-label fw-bold"><i class="bi bi-type me-1"></i> Titel</label>
+                    <input type="text" class="form-control" id="social-title" maxlength="60" value="{{ project.title }}">
+                    <small class="text-muted"><span id="title-count">0</span>/60 Zeichen</small>
+                </div>
+
+                <!-- Beschreibung -->
+                <div class="mb-3">
+                    <label for="social-description" class="form-label fw-bold"><i class="bi bi-text-left me-1"></i> Beschreibung</label>
+                    <textarea class="form-control" id="social-description" rows="3" maxlength="500" placeholder="Beschreibung mit Call-to-Action"></textarea>
+                    <small class="text-muted"><span id="description-count">0</span>/500 Zeichen</small>
+                </div>
+
+                <!-- Hashtags -->
+                <div class="mb-3">
+                    <label for="social-hashtags" class="form-label fw-bold"><i class="bi bi-hash me-1"></i> Hashtags</label>
+                    <textarea class="form-control" id="social-hashtags" rows="2" placeholder="#hashtag1 #hashtag2 #hashtag3"></textarea>
+                </div>
+
+                <!-- Status-Anzeige -->
+                <div id="social-status" class="alert d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" id="post-social-btn" onclick="postToSocial()">
+                    <i class="bi bi-send me-1"></i> Posten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.platform-check {
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.platform-check:hover {
+    background-color: #f8f9fa;
+}
+.platform-check .form-check-input:checked + .form-check-label {
+    font-weight: bold;
+}
+.platform-options {
+    border-left: 3px solid #0d6efd;
+}
+</style>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+let pinterestBoardsLoaded = false;
+
+// Plattform-Optionen toggle
+function togglePlatformOptions(platform) {
+    const checkbox = document.getElementById(`platform-${platform}`);
+    const optionsDiv = document.getElementById(`options-${platform}`);
+
+    if (checkbox && optionsDiv) {
+        optionsDiv.style.display = checkbox.checked ? 'block' : 'none';
+
+        // Pinterest-Boards laden wenn Pinterest ausgewählt
+        if (platform === 'pinterest' && checkbox.checked) {
+            loadPinterestBoards();
+        }
+    }
+}
+
+// Pinterest-Boards laden
+async function loadPinterestBoards() {
+    if (pinterestBoardsLoaded) return;
+
+    const boardSelect = document.getElementById('pinterest-board');
+    if (!boardSelect) return;
+
+    boardSelect.innerHTML = '<option value="">Lädt Boards...</option>';
+
+    try {
+        const response = await fetch('/ideopin/api/upload-post/boards/');
+        const data = await response.json();
+
+        if (data.success && data.boards && data.boards.length > 0) {
+            boardSelect.innerHTML = '<option value="">-- Board wählen --</option>';
+            data.boards.forEach(board => {
+                const option = document.createElement('option');
+                option.value = board.id || board.board_id || board.name;
+                option.textContent = board.name || board.title || board.id;
+                boardSelect.appendChild(option);
+            });
+            pinterestBoardsLoaded = true;
+        } else {
+            boardSelect.innerHTML = '<option value="">Keine Boards gefunden</option>';
+        }
+    } catch (error) {
+        console.error('Pinterest-Boards laden fehlgeschlagen:', error);
+        boardSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+    }
+}
+
+// Zeichenzähler
+document.getElementById('social-title').addEventListener('input', function() {
+    document.getElementById('title-count').textContent = this.value.length;
+});
+document.getElementById('social-description').addEventListener('input', function() {
+    document.getElementById('description-count').textContent = this.value.length;
+});
+
+// Initial counts
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('title-count').textContent = document.getElementById('social-title').value.length;
+    document.getElementById('description-count').textContent = document.getElementById('social-description').value.length;
+});
+
+// Plattform-spezifische Optionen sammeln
+function getPlatformOptions() {
+    const options = {};
+
+    if (document.getElementById('platform-instagram')?.checked) {
+        options.instagram = {
+            media_type: document.getElementById('instagram-media-type')?.value || 'REELS',
+            share_to_feed: document.getElementById('instagram-share-to-feed')?.checked || false
+        };
+    }
+    if (document.getElementById('platform-tiktok')?.checked) {
+        options.tiktok = {
+            privacy_level: document.getElementById('tiktok-privacy')?.value || 'PUBLIC_TO_EVERYONE',
+            disable_comment: !document.getElementById('tiktok-allow-comments')?.checked,
+            disable_duet: !document.getElementById('tiktok-allow-duet')?.checked
+        };
+    }
+    if (document.getElementById('platform-youtube')?.checked) {
+        options.youtube = {
+            privacyStatus: document.getElementById('youtube-privacy')?.value || 'public',
+            categoryId: document.getElementById('youtube-category')?.value || '22',
+            madeForKids: document.getElementById('youtube-made-for-kids')?.checked || false
+        };
+    }
+    if (document.getElementById('platform-facebook')?.checked) {
+        options.facebook = {
+            facebook_media_type: document.getElementById('facebook-media-type')?.value || 'REELS'
+        };
+    }
+    if (document.getElementById('platform-linkedin')?.checked) {
+        options.linkedin = {
+            visibility: document.getElementById('linkedin-visibility')?.value || 'PUBLIC'
+        };
+    }
+    if (document.getElementById('platform-pinterest')?.checked) {
+        options.pinterest = {
+            board_id: document.getElementById('pinterest-board')?.value || '',
+            link: document.getElementById('pinterest-link')?.value || ''
+        };
+    }
+    return options;
+}
+
+// KI-Content generieren
+async function generateAIContent() {
+    const scriptEl = document.getElementById('project-script');
+    const titleEl = document.getElementById('project-title-hidden');
+    const script = scriptEl ? scriptEl.value : '';
+    const title = titleEl ? titleEl.value : '';
+    const genBtn = document.getElementById('generate-ai-btn');
+
+    function setStatus(cls, content, isHtml) {
+        const statusDiv = document.getElementById('social-status');
+        if (!statusDiv) return;
+        statusDiv.className = cls;
+        if (isHtml) statusDiv.innerHTML = content;
+        else statusDiv.textContent = content;
+        statusDiv.classList.remove('d-none');
+    }
+
+    function setVal(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+    }
+
+    function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
+
+    const platforms = [];
+    document.querySelectorAll('.platform-checkbox:checked').forEach(cb => {
+        platforms.push(cb.value);
+    });
+
+    if (platforms.length === 0) {
+        setStatus('alert alert-warning', 'Bitte wähle zuerst mindestens eine Plattform aus.');
+        return;
+    }
+
+    if (genBtn) {
+        genBtn.disabled = true;
+        genBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generiere...';
+    }
+
+    setStatus('alert alert-info', 'KI generiert passende Texte...');
+
+    try {
+        const response = await fetch('/vidgen/api/generate-social-text/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ script, title, platforms })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            setVal('social-title', data.title || '');
+            setVal('social-description', data.description || '');
+            setVal('social-hashtags', data.hashtags || '');
+            setText('title-count', (data.title || '').length);
+            setText('description-count', (data.description || '').length);
+            setStatus('alert alert-success', '<i class="bi bi-check-circle me-1"></i> Texte erfolgreich generiert!', true);
+        } else {
+            setStatus('alert alert-danger', '<i class="bi bi-x-circle me-1"></i> ' + (data.error || 'Fehler'), true);
+        }
+    } catch (error) {
+        setStatus('alert alert-danger', 'Netzwerkfehler: ' + error);
+    } finally {
+        if (genBtn) {
+            genBtn.disabled = false;
+            genBtn.innerHTML = '<i class="bi bi-magic me-1"></i> Texte aus Skript generieren';
+        }
+    }
+}
+
+// Post to Social Media
+async function postToSocial() {
+    function getVal(id) {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    }
+    function setStatus(cls, content, isHtml) {
+        const statusDiv = document.getElementById('social-status');
+        if (!statusDiv) return;
+        statusDiv.className = cls;
+        if (isHtml) statusDiv.innerHTML = content;
+        else statusDiv.textContent = content;
+        statusDiv.classList.remove('d-none');
+    }
+
+    const videoId = getVal('social-video-id');
+    const title = getVal('social-title');
+    const description = getVal('social-description');
+    const hashtags = getVal('social-hashtags');
+    const postBtn = document.getElementById('post-social-btn');
+
+    const platforms = [];
+    document.querySelectorAll('.platform-checkbox:checked').forEach(cb => {
+        platforms.push(cb.value);
+    });
+
+    if (platforms.length === 0) {
+        setStatus('alert alert-warning', 'Bitte wähle mindestens eine Plattform aus.');
+        return;
+    }
+
+    if (!videoId) {
+        setStatus('alert alert-danger', 'Video-ID nicht gefunden.');
+        return;
+    }
+
+    if (postBtn) {
+        postBtn.disabled = true;
+        postBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Wird gepostet...';
+    }
+
+    setStatus('alert alert-info', 'Video wird hochgeladen...');
+
+    const platformOptions = getPlatformOptions();
+
+    try {
+        const response = await fetch('/videos/api/social/post/' + videoId + '/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                platforms: platforms,
+                title: title,
+                description: description + '\n\n' + hashtags,
+                platform_options: platformOptions
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Build detailed success message with platform list
+            const platformLabels = {
+                instagram: 'Instagram',
+                facebook: 'Facebook',
+                tiktok: 'TikTok',
+                youtube: 'YouTube',
+                linkedin: 'LinkedIn',
+                pinterest: 'Pinterest'
+            };
+            const postedTo = platforms.map(p => platformLabels[p] || p).join(', ');
+            const successHtml = '<div class="text-center">' +
+                '<div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>' +
+                '<h4 style="color: #155724; margin-bottom: 0.5rem;">Erfolgreich gepostet!</h4>' +
+                '<p style="margin-bottom: 0.25rem;">Dein Video wurde an folgende Plattformen gesendet:</p>' +
+                '<p style="font-weight: 600; color: #155724;">' + postedTo + '</p>' +
+                (data.message ? '<small class="text-muted d-block mt-2">' + data.message + '</small>' : '') +
+                '</div>';
+            setStatus('alert alert-success', successHtml, true);
+
+            // Show browser notification if permission granted
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                new Notification('Video gepostet! 🎉', {
+                    body: 'Erfolgreich auf ' + postedTo + ' veröffentlicht.',
+                    icon: '/static/favicon.ico'
+                });
+            }
+
+            // Disable the post button to prevent double-posting
+            if (postBtn) {
+                postBtn.disabled = true;
+                postBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Gepostet';
+            }
+            return; // skip the finally re-enable
+        } else {
+            setStatus('alert alert-danger', '<i class="bi bi-x-circle me-1"></i> ' + (data.error || 'Fehler beim Posten'), true);
+        }
+    } catch (error) {
+        setStatus('alert alert-danger', 'Netzwerkfehler: ' + error);
+    } finally {
+        if (postBtn && !postBtn.innerHTML.includes('Gepostet')) {
+            postBtn.disabled = false;
+            postBtn.innerHTML = '<i class="bi bi-send me-1"></i> Posten';
+        }
+    }
+}
+</script>

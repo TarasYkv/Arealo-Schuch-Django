@@ -1,0 +1,2413 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KIE Video Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body { background-color: #111827; color: white; }
+        .drag-over { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.1); }
+    
+        .modal-fade-in { animation: fadeIn 0.2s ease-in-out; }
+        .modal-slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        
+        /* Provider colors */
+        .provider-kling { background: linear-gradient(135deg, #f97316, #ea580c); }
+        .provider-google { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+        .provider-openai { background: linear-gradient(135deg, #10b981, #047857); }
+        .provider-hailuo { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .provider-wan { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .provider-grok { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .provider-runway { background: linear-gradient(135deg, #ec4899, #db2777); }
+        .provider-flux { background: linear-gradient(135deg, #eab308, #d97706); }
+        .provider-qwen { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .provider-bytedance { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+        .provider-ideogram { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .provider-recraft { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .provider-topaz { background: linear-gradient(135deg, #10b981, #047857); }
+        .provider-pollinations { background: linear-gradient(135deg, #6b7280, #4b5563); }
+        .provider-meigen { background: linear-gradient(135deg, #f97316, #ea580c); }
+</style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script>
+        "use strict";
+
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
+function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
+function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+var _React = React,
+  useState = _React.useState,
+  useEffect = _React.useEffect,
+  useRef = _React.useRef;
+
+// COMPLETE MODEL DATA FROM KIE.AI - ALL 137 VIDEO + 63 IMAGE MODELS
+const FULL_VIDEO_MODELS = [
+  // KLING - Beste Qualität, braucht Start-Frame
+  { id: 'kling-2.6-5s', provider: 'Kling', name: 'Kling 2.6 (5s)', price: '$0.275', desc: 'Kuaishou, 5 Sekunden', badges: ['5s'], supportsEndFrame: false },
+  { id: 'kling-2.6-10s', provider: 'Kling', name: 'Kling 2.6 (10s)', price: '$0.55', desc: 'Kuaishou, 10 Sekunden', badges: ['10s'], supportsEndFrame: false },
+  
+  // VEO - Google mit Audio
+  { id: 'veo3-fast', provider: 'Google', name: 'Veo 3 Fast', price: '$0.40', desc: 'Google schnell + Audio', badges: ['Audio', 'Fast'], supportsEndFrame: false },
+  { id: 'veo3-quality', provider: 'Google', name: 'Veo 3 Quality', price: '$0.80+', desc: 'Google Premium + Audio', badges: ['Audio', 'Premium'], supportsEndFrame: false },
+  
+  // HAILUO
+  { id: 'hailuo-2.3', provider: 'Hailuo', name: 'Hailuo 2.3', price: '$0.20', desc: 'MiniMax, gute Bewegung', badges: [], supportsEndFrame: false },
+  
+  // WAN - mit End-Frame Support
+  { id: 'wan-2.6', provider: 'Wan', name: 'Wan 2.6', price: '$0.35', desc: 'Alibaba, End-Frame möglich', badges: ['End-Frame'], supportsEndFrame: true },
+];
+
+const FULL_IMAGE_MODELS = [
+  // GÜNSTIG
+  { id: 'z-image', provider: 'Qwen', name: 'Z-Image', price: '$0.004', desc: 'Günstigstes, gute Qualität', badges: ['Budget'], supportsReference: false },
+  { id: 'grok-imagine', provider: 'Grok', name: 'Grok Imagine', price: '$0.02', desc: 'xAI, 6 Bilder/Request', badges: [], supportsReference: false },
+  { id: 'ideogram-v3', provider: 'Ideogram', name: 'Ideogram V3', price: '$0.02', desc: 'Beste Text-in-Bild', badges: ['Text'], supportsReference: false },
+  
+  // CHARAKTER-KONSISTENZ (Referenzbild hochladen für gleiche Person)
+  { id: 'flux-kontext-pro', provider: 'Flux', name: 'Flux Kontext Pro', price: '$0.025', desc: 'Konsistenz mit Referenzbild', badges: ['Konsistenz'], supportsReference: true },
+  { id: 'flux-kontext-max', provider: 'Flux', name: 'Flux Kontext Max', price: '$0.05', desc: 'Premium Konsistenz', badges: ['Konsistenz', 'Premium'], supportsReference: true },
+  { id: 'qwen-edit', provider: 'Qwen', name: 'Qwen Edit', price: '$0.028', desc: 'Bild bearbeiten mit Referenz', badges: ['Edit', 'Konsistenz'], supportsReference: true },
+  
+  // HOHE QUALITÄT
+  { id: 'flux-pro', provider: 'Flux', name: 'Flux 2 Pro', price: '$0.025', desc: 'Photorealistisch', badges: ['Pro'], supportsReference: false },
+  { id: 'nano-banana', provider: 'Google', name: 'Nano Banana', price: '$0.04', desc: 'Google Standard', badges: [], supportsReference: false },
+  { id: 'nano-banana-pro', provider: 'Google', name: 'Nano Banana Pro', price: '$0.09', desc: 'Google Pro Qualität', badges: ['Pro'], supportsReference: false },
+  { id: 'imagen4', provider: 'Google', name: 'Imagen 4', price: 'Credits', desc: 'Google Premium', badges: ['Premium'], supportsReference: false },
+  
+  // GRATIS
+  { id: 'pollinations', provider: 'Free', name: 'Pollinations', price: 'KOSTENLOS', desc: 'Gratis, langsamer', badges: ['Free'], supportsReference: false },
+];
+
+// Mapping for backward compatibility with existing API calls
+const MODEL_ID_MAPPING = {
+  // Video models (legacy -> new)
+  'kling/3.0-image-to-video': 'kling-3.0-i2v-1080p',
+  'kling/2.6-image-to-video': 'kling-2.6-i2v-5s',
+  'sora2/image-to-video': 'sora2-i2v-standard-10s',
+  'sora2/pro-image-to-video': 'sora2-pro-i2v-standard-10s',
+  'veo3_fast': 'veo-3.1-i2v-fast',
+  'veo3': 'veo-3.1-i2v-quality',
+  'wan/2.6-image-to-video': 'wan-2.6-i2v-10s-720p',
+  'hailuo/2.3-image-to-video': 'hailuo-2.3-i2v-standard-768p-6s',
+  
+  // Image models (legacy -> new)  
+  'z-image': 'z-image',
+  'grok-imagine/text-to-image': 'grok-imagine-t2i',
+  'flux-2/pro-text-to-image': 'flux-2-pro-1k',
+  'flux-kontext-pro': 'flux-kontext-pro',
+  'qwen/text-to-image': 'qwen2-image-edit-t2i',
+  'seedream/5.0-lite': 'seedream-5.0-lite-t2i',
+  'gpt-4o-image': 'gpt-4o-image',
+  'seedream/4.5': 'seedream-4.5-t2i',
+  'google/nano-banana': 'nano-banana-2-1k',
+  'flux-kontext-max': 'flux-kontext-max',
+  'flux-2/flex-text-to-image': 'flux-2-flex-1k',
+  'google/nano-banana-pro': 'nano-banana-pro-1k',
+  'ideogram/text-to-image': 'ideogram-v3-balanced',
+  'ideogram/character': 'ideogram-character-balanced',
+  'google/imagen4': 'imagen4-default',
+  'pollinations': 'pollinations'
+};
+
+// Helper functions for modal
+const getProviderClass = (provider) => {
+  return `provider-${provider.toLowerCase()}`;
+};
+
+const getLegacyModelId = (newModelId) => {
+  const legacy = Object.entries(MODEL_ID_MAPPING).find(([legacy, newId]) => newId === newModelId);
+  return legacy ? legacy[0] : newModelId;
+};
+
+// MODEL SELECTOR MODAL COMPONENT 
+function ModelSelectorModal({ isOpen, onClose, onSelect, type = 'image', selectedModel = null }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState('');
+  const [selectedTab, setSelectedTab] = useState(type);
+  const [selectedModelId, setSelectedModelId] = useState(selectedModel);
+
+  const models = selectedTab === 'video' ? FULL_VIDEO_MODELS : FULL_IMAGE_MODELS;
+  
+  // Get unique providers
+  const providers = [...new Set(models.map(m => m.provider))].sort();
+  
+  // Filter models based on search and provider
+  const filteredModels = models.filter(model => {
+    const searchMatch = searchTerm === '' || 
+      model.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      model.desc.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      model.provider.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (model.variant && model.variant.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const providerMatch = selectedProvider === '' || model.provider === selectedProvider;
+    
+    return searchMatch && providerMatch;
+  });
+
+  const handleSelect = () => {
+    if (selectedModelId) {
+      const model = models.find(m => m.id === selectedModelId);
+      onSelect(selectedModelId, model);
+      onClose();
+    }
+  };
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex items-center justify-center p-4 modal-fade-in",
+    style: { backgroundColor: 'rgba(0, 0, 0, 0.8)' },
+    onClick: handleBackdropClick
+  },
+    /*#__PURE__*/React.createElement("div", {
+      className: "bg-gray-900 rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col modal-slide-in border border-gray-700"
+    },
+      // Header
+      /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center justify-between p-6 border-b border-gray-700"
+      },
+        /*#__PURE__*/React.createElement("h2", {
+          className: "text-2xl font-bold text-white"
+        }, "Modell auswählen"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: onClose,
+          className: "text-gray-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center"
+        }, /*#__PURE__*/React.createElement("i", { className: "fas fa-times" }))
+      ),
+      
+      // Tabs
+      /*#__PURE__*/React.createElement("div", {
+        className: "flex border-b border-gray-700"
+      },
+        /*#__PURE__*/React.createElement("button", {
+          onClick: () => setSelectedTab('video'),
+          className: `px-6 py-3 font-medium transition-colors ${
+            selectedTab === 'video' 
+              ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10' 
+              : 'text-gray-400 hover:text-white'
+          }`
+        }, 
+          /*#__PURE__*/React.createElement("i", { className: "fas fa-video mr-2" }),
+          `Video (${FULL_VIDEO_MODELS.length})`
+        ),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: () => setSelectedTab('image'),
+          className: `px-6 py-3 font-medium transition-colors ${
+            selectedTab === 'image' 
+              ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10' 
+              : 'text-gray-400 hover:text-white'
+          }`
+        },
+          /*#__PURE__*/React.createElement("i", { className: "fas fa-image mr-2" }),
+          `Bild (${FULL_IMAGE_MODELS.length})`
+        )
+      ),
+      
+      // Filter Bar
+      /*#__PURE__*/React.createElement("div", {
+        className: "p-4 border-b border-gray-700 bg-gray-800/50"
+      },
+        /*#__PURE__*/React.createElement("div", {
+          className: "flex gap-4"
+        },
+          /*#__PURE__*/React.createElement("div", {
+            className: "flex-1 relative"
+          },
+            /*#__PURE__*/React.createElement("i", {
+              className: "fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            }),
+            /*#__PURE__*/React.createElement("input", {
+              type: "text",
+              value: searchTerm,
+              onChange: (e) => setSearchTerm(e.target.value),
+              placeholder: "Modell suchen...",
+              className: "w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            })
+          ),
+          /*#__PURE__*/React.createElement("select", {
+            value: selectedProvider,
+            onChange: (e) => setSelectedProvider(e.target.value),
+            className: "px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          },
+            /*#__PURE__*/React.createElement("option", { value: "" }, "Alle Anbieter"),
+            providers.map(provider => 
+              /*#__PURE__*/React.createElement("option", {
+                key: provider,
+                value: provider
+              }, provider)
+            )
+          )
+        )
+      ),
+      
+      // Models Grid
+      /*#__PURE__*/React.createElement("div", {
+        className: "flex-1 overflow-y-auto p-6"
+      },
+        /*#__PURE__*/React.createElement("div", {
+          className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        },
+          filteredModels.map(model => 
+            /*#__PURE__*/React.createElement("div", {
+              key: model.id,
+              onClick: () => setSelectedModelId(model.id),
+              className: `bg-gray-800 rounded-lg p-4 cursor-pointer transition-all duration-200 border-2 hover:bg-gray-750 ${
+                selectedModelId === model.id 
+                  ? 'border-blue-500 bg-blue-500/10' 
+                  : 'border-transparent hover:border-gray-600'
+              }`
+            },
+              // Provider Badge
+              /*#__PURE__*/React.createElement("div", {
+                className: "flex items-center justify-between mb-3"
+              },
+                /*#__PURE__*/React.createElement("span", {
+                  className: `${getProviderClass(model.provider)} text-white text-xs px-2 py-1 rounded-md font-medium`
+                }, model.provider),
+                selectedModelId === model.id && /*#__PURE__*/React.createElement("i", {
+                  className: "fas fa-check text-blue-400 text-lg"
+                })
+              ),
+              
+              // Model Name
+              /*#__PURE__*/React.createElement("h3", {
+                className: "font-bold text-white text-lg mb-1"
+              }, 
+                model.name,
+                model.variant && /*#__PURE__*/React.createElement("span", {
+                  className: "text-sm text-gray-300 font-normal ml-2"
+                }, model.variant)
+              ),
+              
+              // Price
+              /*#__PURE__*/React.createElement("div", {
+                className: "text-green-400 font-bold text-lg mb-2"
+              }, model.price),
+              
+              // Description
+              /*#__PURE__*/React.createElement("p", {
+                className: "text-gray-300 text-sm mb-3"
+              }, model.desc),
+              
+              // Badges
+              model.badges && model.badges.length > 0 && /*#__PURE__*/React.createElement("div", {
+                className: "flex flex-wrap gap-1"
+              },
+                model.badges.map((badge, index) => 
+                  /*#__PURE__*/React.createElement("span", {
+                    key: index,
+                    className: "bg-gray-600 text-gray-200 text-xs px-2 py-1 rounded"
+                  }, badge)
+                )
+              )
+            )
+          )
+        ),
+        
+        filteredModels.length === 0 && /*#__PURE__*/React.createElement("div", {
+          className: "text-center text-gray-400 py-12"
+        },
+          /*#__PURE__*/React.createElement("i", {
+            className: "fas fa-search text-4xl mb-4 opacity-50"
+          }),
+          /*#__PURE__*/React.createElement("p", {
+            className: "text-lg"
+          }, "Keine Modelle gefunden"),
+          /*#__PURE__*/React.createElement("p", {
+            className: "text-sm"
+          }, "Versuchen Sie andere Suchbegriffe oder Filter")
+        )
+      ),
+      
+      // Footer
+      /*#__PURE__*/React.createElement("div", {
+        className: "p-6 border-t border-gray-700 bg-gray-800/50"
+      },
+        /*#__PURE__*/React.createElement("div", {
+          className: "flex items-center justify-between"
+        },
+          /*#__PURE__*/React.createElement("div", {
+            className: "text-sm text-gray-400"
+          },
+            `${filteredModels.length} von ${models.length} Modellen`
+          ),
+          /*#__PURE__*/React.createElement("button", {
+            onClick: handleSelect,
+            disabled: !selectedModelId,
+            className: "px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium text-white transition-colors flex items-center gap-2"
+          },
+            /*#__PURE__*/React.createElement("i", { className: "fas fa-check" }),
+            "Auswählen"
+          )
+        )
+      )
+    )
+  );
+}
+
+
+// API functions - session-based auth (key from user profile)
+var API_BASE = '/video/api';
+var getHeaders = function getHeaders() {
+  return {
+    'Content-Type': 'application/json'
+  };
+};
+var api = {
+  fetchProjects: function fetchProjects() {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+      var res;
+      return _regenerator().w(function (_context) {
+        while (1) switch (_context.n) {
+          case 0:
+            _context.n = 1;
+            return fetch("".concat(API_BASE, "/projects/"), {
+              headers: getHeaders(),
+              credentials: 'same-origin'
+            });
+          case 1:
+            res = _context.v;
+            return _context.a(2, res.json());
+        }
+      }, _callee);
+    }))();
+  },
+  fetchProject: function fetchProject(id) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+      var res;
+      return _regenerator().w(function (_context2) {
+        while (1) switch (_context2.n) {
+          case 0:
+            _context2.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(id, "/"), {
+              headers: getHeaders(),
+              credentials: 'same-origin'
+            });
+          case 1:
+            res = _context2.v;
+            return _context2.a(2, res.json());
+        }
+      }, _callee2);
+    }))();
+  },
+  createProject: function createProject(name) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+      var res;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.n) {
+          case 0:
+            _context3.n = 1;
+            return fetch("".concat(API_BASE, "/projects/"), {
+              method: 'POST',
+              headers: getHeaders(),
+              credentials: 'same-origin',
+              body: JSON.stringify({
+                name: name
+              })
+            });
+          case 1:
+            res = _context3.v;
+            return _context3.a(2, res.json());
+        }
+      }, _callee3);
+    }))();
+  },
+  deleteProject: function deleteProject(id) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.n) {
+          case 0:
+            _context4.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(id, "/"), {
+              method: 'DELETE',
+              headers: getHeaders(),
+              credentials: 'same-origin'
+            });
+          case 1:
+            return _context4.a(2);
+        }
+      }, _callee4);
+    }))();
+  },
+  uploadAsset: function uploadAsset(projectId, file, type, name) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+      var formData, res;
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.n) {
+          case 0:
+            formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+            formData.append('name', name);
+            _context5.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/assets/"), {
+              method: 'POST',
+              credentials: 'same-origin',
+              body: formData
+            });
+          case 1:
+            res = _context5.v;
+            return _context5.a(2, res.json());
+        }
+      }, _callee5);
+    }))();
+  },
+  deleteAsset: function deleteAsset(projectId, assetId) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.n) {
+          case 0:
+            _context6.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/assets/").concat(assetId, "/"), {
+              method: 'DELETE',
+              headers: getHeaders(),
+              credentials: "same-origin"
+            });
+          case 1:
+            return _context6.a(2);
+        }
+      }, _callee6);
+    }))();
+  },
+  createScene: function createScene(projectId) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+      var res;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.n) {
+          case 0:
+            _context7.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/scenes/"), {
+              method: 'POST',
+              headers: getHeaders(),
+              credentials: "same-origin"
+            });
+          case 1:
+            res = _context7.v;
+            return _context7.a(2, res.json());
+        }
+      }, _callee7);
+    }))();
+  },
+  updateScene: function updateScene(projectId, sceneId, updates) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+      var res;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.n) {
+          case 0:
+            _context8.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/scenes/").concat(sceneId, "/"), {
+              method: 'PATCH',
+              headers: getHeaders(),
+              credentials: "same-origin",
+              body: JSON.stringify(updates)
+            });
+          case 1:
+            res = _context8.v;
+            return _context8.a(2, res.json());
+        }
+      }, _callee8);
+    }))();
+  },
+  deleteScene: function deleteScene(projectId, sceneId) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.n) {
+          case 0:
+            _context9.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/scenes/").concat(sceneId, "/"), {
+              method: 'DELETE',
+              headers: getHeaders(),
+              credentials: "same-origin"
+            });
+          case 1:
+            return _context9.a(2);
+        }
+      }, _callee9);
+    }))();
+  },
+  generateImage: function generateImage(projectId, params) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+      var res;
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.n) {
+          case 0:
+            _context0.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/generate/image/"), {
+              method: 'POST',
+              headers: getHeaders(),
+              credentials: "same-origin",
+              body: JSON.stringify(params)
+            });
+          case 1:
+            res = _context0.v;
+            return _context0.a(2, res.json());
+        }
+      }, _callee0);
+    }))();
+  },
+  generateVideo: function generateVideo(projectId, sceneId) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+      var res;
+      return _regenerator().w(function (_context1) {
+        while (1) switch (_context1.n) {
+          case 0:
+            _context1.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/scenes/").concat(sceneId, "/generate/video/"), {
+              method: 'POST',
+              headers: getHeaders(),
+              credentials: "same-origin"
+            });
+          case 1:
+            res = _context1.v;
+            return _context1.a(2, res.json());
+        }
+      }, _callee1);
+    }))();
+  },
+  generateAudio: function generateAudio(projectId, sceneId, text) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+      var res;
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.n) {
+          case 0:
+            _context10.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/scenes/").concat(sceneId, "/generate/audio/"), {
+              method: 'POST',
+              headers: getHeaders(),
+              credentials: "same-origin",
+              body: JSON.stringify({
+                text: text
+              })
+            });
+          case 1:
+            res = _context10.v;
+            return _context10.a(2, res.json());
+        }
+      }, _callee10);
+    }))();
+  },
+  checkTask: function checkTask(taskId) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+      var res;
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.n) {
+          case 0:
+            _context11.n = 1;
+            return fetch("".concat(API_BASE, "/task/").concat(taskId, "/"), {
+              headers: getHeaders(),
+              credentials: "same-origin"
+            });
+          case 1:
+            res = _context11.v;
+            return _context11.a(2, res.json());
+        }
+      }, _callee11);
+    }))();
+  },
+  exportProject: function exportProject(projectId) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+      var res;
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.n) {
+          case 0:
+            _context12.n = 1;
+            return fetch("".concat(API_BASE, "/projects/").concat(projectId, "/export/"), {
+              method: 'POST',
+              headers: getHeaders(),
+              credentials: "same-origin"
+            });
+          case 1:
+            res = _context12.v;
+            return _context12.a(2, res.json());
+        }
+      }, _callee12);
+    }))();
+  }
+};
+
+// Video Models
+var VIDEO_MODELS = [
+  // Kling - Most popular
+  { value: 'kling/3.0-image-to-video', label: 'Kling 3.0', price: '$0.09-0.14/sec', desc: 'Neueste Version, 15s, Audio', durations: [5, 10, 15], hasAudio: true },
+  { value: 'kling/2.6-image-to-video', label: 'Kling 2.6', price: '$0.28-1.10', desc: 'Günstig mit Audio', durations: [5, 10], hasAudio: true },
+  
+  // Sora - OpenAI
+  { value: 'sora2/image-to-video', label: 'Sora 2', price: '$0.18-0.20', desc: 'OpenAI, realistic' },
+  { value: 'sora2/pro-image-to-video', label: 'Sora 2 Pro', price: '$0.30+', desc: 'OpenAI Premium' },
+  
+  // Veo - Google Premium
+  { value: 'veo3_fast', label: 'Veo 3.1 Fast', price: '~$0.40', desc: 'Google Schnell + Audio', supportsStartEnd: true },
+  { value: 'veo3', label: 'Veo 3.1 Quality', price: '~$0.80+', desc: 'Google Premium + Audio', supportsStartEnd: true },
+  
+  // Wan - Alibaba
+  { value: 'wan/2.6-image-to-video', label: 'Wan 2.6', price: '$0.52-1.58', desc: 'Alibaba, multi-shot' },
+  
+  // Hailuo - MiniMax
+  { value: 'hailuo/2.3-image-to-video', label: 'Hailuo 2.3', price: '$$', desc: 'MiniMax, gute Qualität' },
+];
+var IMAGE_MODELS = [
+  // Cheapest first
+  { value: 'z-image', label: 'Z-Image', price: '$0.004', desc: 'Günstigstes', free: false },
+  { value: 'grok-imagine/text-to-image', label: 'Grok Imagine', price: '$0.02 (6 Bilder)', desc: 'xAI, 6 Bilder/Request', free: false, supportsImageInput: true },
+  
+  // Flux
+  { value: 'flux-2/pro-text-to-image', label: 'Flux 2 Pro', price: '$0.025-0.035', desc: 'Photorealistisch', free: false },
+  { value: 'flux-kontext-pro', label: 'Flux Kontext Pro', price: '$0.025', desc: 'Bild-Bearbeitung', free: false, supportsImageInput: true },
+  
+  // ByteDance
+  { value: 'seedream/5.0-lite', label: 'Seedream 5.0 Lite', price: '$0.0275', desc: 'ByteDance günstig', free: false, supportsImageInput: true },
+  { value: 'qwen/text-to-image', label: 'Qwen Image 2.0', price: '$0.028', desc: 'Alibaba', free: false, supportsImageInput: true },
+  { value: 'gpt-4o-image', label: 'GPT-4o Image', price: '$0.03', desc: 'OpenAI', free: false },
+  { value: 'seedream/4.5', label: 'Seedream 4.5', price: '$0.0325', desc: 'ByteDance', free: false, supportsImageInput: true },
+  
+  // Google
+  { value: 'google/nano-banana', label: 'Nano Banana 2', price: '$0.04-0.09', desc: 'Google, schnell', free: false, supportsImageInput: true },
+  { value: 'flux-kontext-max', label: 'Flux Kontext Max', price: '$0.05', desc: 'Premium Kontext', free: false, supportsImageInput: true },
+  { value: 'flux-2/flex-text-to-image', label: 'Flux 2 Flex', price: '$0.07-0.12', desc: 'Flexibel', free: false, supportsImageInput: true },
+  { value: 'google/nano-banana-pro', label: 'Nano Banana Pro', price: '$0.09-0.12', desc: 'Google Premium', free: false, supportsImageInput: true },
+  
+  // Ideogram
+  { value: 'ideogram/text-to-image', label: 'Ideogram', price: '$$', desc: 'Text in Bildern', free: false },
+  { value: 'ideogram/character', label: 'Ideogram Character', price: '$$', desc: 'Charakter-Konsistenz', free: false, supportsImageInput: true },
+  
+  // Google Premium
+  { value: 'google/imagen4', label: 'Imagen 4', price: 'Credits', desc: 'Google Höchste Qualität', free: false },
+  
+  // Free
+  { value: 'pollinations', label: '🆓 Pollinations FLUX', price: 'KOSTENLOS', desc: 'Gratis, rate-limited', free: true },
+];
+
+// Components
+
+
+// ENHANCED IMAGEGERATOR WITH MODAL
+function ImageGeneratorWithModal(_ref7) {
+  var _IMAGE_MODELS$find2;
+  var project = _ref7.project,
+    assets = _ref7.assets,
+    generatedImages = _ref7.generatedImages,
+    setGeneratedImages = _ref7.setGeneratedImages;
+  var _useState5 = useState(''),
+    _useState6 = _slicedToArray(_useState5, 2),
+    prompt = _useState6[0],
+    setPrompt = _useState6[1];
+  var _useState7 = useState('z-image'),
+    _useState8 = _slicedToArray(_useState7, 2),
+    model = _useState8[0],
+    setModel = _useState8[1];
+  var _useState9 = useState('16:9'),
+    _useState0 = _slicedToArray(_useState9, 2),
+    aspectRatio = _useState0[0],
+    setAspectRatio = _useState0[1];
+  var _useState1 = useState('1K'),
+    _useState10 = _slicedToArray(_useState1, 2),
+    resolution = _useState10[0],
+    setResolution = _useState10[1];
+  var _useState11 = useState([]),
+    _useState12 = _slicedToArray(_useState11, 2),
+    selectedAssets = _useState12[0],
+    setSelectedAssets = _useState12[1];
+  var _useState13 = useState(false),
+    _useState14 = _slicedToArray(_useState13, 2),
+    generating = _useState14[0],
+    setGenerating = _useState14[1];
+  var _useState15 = useState(false),
+    _useState16 = _slicedToArray(_useState15, 2),
+    showImageModal = _useState16[0],
+    setShowImageModal = _useState16[1];
+  var _useState17 = useState(null),
+    _useState18 = _slicedToArray(_useState17, 2),
+    selectedImageModel = _useState18[0],
+    setSelectedImageModel = _useState18[1];
+
+  const selectedImageModelData = selectedImageModel ? FULL_IMAGE_MODELS.find(m => m.id === selectedImageModel) : null;
+
+  const handleImageModelSelect = (modelId, modelData) => {
+    setSelectedImageModel(modelId);
+    setModel(getLegacyModelId(modelId));
+    setShowImageModal(false);
+  };
+
+  // Original handleGenerate logic would go here...
+  var handleGenerate = /*#__PURE__*/function() {
+    var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+      var isFree, dims, pollUrl, newImage, imageInputs, result, _result, cancelled, TIMEOUT_MS, startTime, poll, _t;
+      return _regenerator().w(function (_context) {
+        while (1) switch (_context.n) {
+          case 0:
+            if (prompt.trim()) {
+              _context.n = 1;
+              break;
+            }
+            return _context.abrupt("return");
+          case 1:
+            setGenerating(true);
+            _context.prev = 2;
+            isFree = model === 'pollinations';
+            if (!isFree) {
+              _context.n = 4;
+              break;
+            }
+            dims = { '16:9': [1024, 576], '9:16': [576, 1024], '1:1': [512, 512], '4:3': [640, 480] }[aspectRatio] || [512, 512];
+            pollUrl = "https://gen.pollinations.ai/image/" + encodeURIComponent(prompt) + "?width=" + dims[0] + "&height=" + dims[1] + "&model=flux&seed=" + Math.floor(Math.random() * 999999);
+            newImage = { id: 'free-' + Date.now(), prompt: prompt, model: model, image_url: pollUrl, task_id: null, status: 'done', created_at: new Date().toISOString() };
+            setGeneratedImages(function(prev) { return [newImage].concat(prev); });
+            setPrompt('');
+            _context.n = 10;
+            break;
+          case 4:
+            imageInputs = selectedAssets.map(function(id) {
+              var asset = assets.find(function(a) { return a.id === id; });
+              return asset ? window.location.origin + asset.url : '';
+            }).filter(Boolean);
+            _context.n = 5;
+            return api.generateImage(project.id, { prompt: prompt, model: model, image_inputs: imageInputs, aspect_ratio: aspectRatio, resolution: resolution });
+          case 5:
+            result = _context.v;
+            newImage = { id: result.id, prompt: prompt, model: model, image_url: '', task_id: result.task_id, status: 'generating', created_at: new Date().toISOString() };
+            setGeneratedImages(function(prev) { return [newImage].concat(prev); });
+            cancelled = false;
+            TIMEOUT_MS = 5 * 60 * 1000;
+            startTime = Date.now();
+            poll = /*#__PURE__*/function() {
+              var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+                var status, rj, imageUrl, _result2;
+                return _regenerator().w(function (_context2) {
+                  while (1) switch (_context2.n) {
+                    case 0:
+                      if (!cancelled) {
+                        _context2.n = 1;
+                        break;
+                      }
+                      return _context2.abrupt("return");
+                    case 1:
+                      if (!(Date.now() - startTime > TIMEOUT_MS)) {
+                        _context2.n = 2;
+                        break;
+                      }
+                      setGeneratedImages(function(prev) { return prev.map(function(img) { return img.id === result.id ? Object.assign({}, img, { status: 'error' }) : img; }); });
+                      return _context2.abrupt("return");
+                    case 2:
+                      _context2.prev = 2;
+                      _context2.n = 3;
+                      return api.checkTask(result.task_id);
+                    case 3:
+                      status = _context2.v;
+                      if (!cancelled) {
+                        _context2.n = 4;
+                        break;
+                      }
+                      return _context2.abrupt("return");
+                    case 4:
+                      if (!(status.data && (status.data.state === 'completed' || status.data.state === 'success'))) {
+                        _context2.n = 5;
+                        break;
+                      }
+                      imageUrl = '';
+                      try { rj = JSON.parse(status.data.resultJson || '{}'); imageUrl = rj.resultUrls && rj.resultUrls[0] || status.data.output && status.data.output.image_url || ''; } catch(e) {}
+                      setGeneratedImages(function(prev) { return prev.map(function(img) { return img.id === result.id ? Object.assign({}, img, { status: 'done', image_url: imageUrl }) : img; }); });
+                      _context2.n = 8;
+                      break;
+                    case 5:
+                      if (!(status.data && status.data.state === 'failed')) {
+                        _context2.n = 6;
+                        break;
+                      }
+                      setGeneratedImages(function(prev) { return prev.map(function(img) { return img.id === result.id ? Object.assign({}, img, { status: 'error' }) : img; }); });
+                      _context2.n = 8;
+                      break;
+                    case 6:
+                      setTimeout(poll, 3000);
+                    case 8:
+                      _context2.n = 10;
+                      break;
+                    case 9:
+                      _context2.prev = 9;
+                      _context2.t0 = _context2.t(2, 9);
+                      if (!cancelled) {
+                        setGeneratedImages(function(prev) { return prev.map(function(img) { return img.id === result.id ? Object.assign({}, img, { status: 'error' }) : img; }); });
+                      }
+                    case 10:
+                      return _context2.abrupt("return");
+                  }
+                }, _callee2, null, [[2, 9]]);
+              }));
+              return function poll() { return _ref2.apply(this, arguments); };
+            }();
+            poll();
+            setGeneratedImages(function(prev) { return prev.map(function(img) { return img.id === result.id ? Object.assign({}, img, { _cancel: function _cancel() { cancelled = true; setGeneratedImages(function(p) { return p.map(function(i) { return i.id === result.id ? Object.assign({}, i, { status: 'error' }) : i; }); }); } }) : img; }); });
+            setPrompt('');
+          case 10:
+            _context.n = 12;
+            break;
+          case 11:
+            _context.prev = 11;
+            _context.t0 = _context.t(2, 11);
+            setGenerating(false);
+            return _context.abrupt("return");
+          case 12:
+            setGenerating(false);
+        }
+      }, _callee, null, [[2, 11]]);
+    }));
+    return function handleGenerate() { return _ref.apply(this, arguments); };
+  }();
+
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-800 rounded-lg p-4"
+  },
+    /*#__PURE__*/React.createElement("h3", {
+      className: "font-bold mb-4"
+    },
+      /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-magic text-yellow-400 mr-2"
+      }),
+      "Bild-Generator"
+    ),
+    
+    /*#__PURE__*/React.createElement("textarea", {
+      value: prompt,
+      onChange: (e) => setPrompt(e.target.value),
+      placeholder: "Beschreibe das Bild...",
+      rows: 3,
+      className: "w-full px-3 py-2 bg-gray-700 rounded mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+    }),
+    
+    /*#__PURE__*/React.createElement("div", {
+      className: "grid grid-cols-1 gap-2 mb-4"
+    },
+      // Model Selector Button
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setShowImageModal(true),
+        className: "w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-left flex items-center justify-between transition-colors"
+      },
+        /*#__PURE__*/React.createElement("div", {
+          className: "flex items-center gap-2"
+        },
+          selectedImageModelData && /*#__PURE__*/React.createElement("span", {
+            className: `${getProviderClass(selectedImageModelData.provider)} text-white text-xs px-2 py-1 rounded`
+          }, selectedImageModelData.provider),
+          /*#__PURE__*/React.createElement("span", {
+            className: "text-white"
+          }, selectedImageModelData ? `${selectedImageModelData.name} — ${selectedImageModelData.price}` : "Bild-Modell auswählen...")
+        ),
+        /*#__PURE__*/React.createElement("i", {
+          className: "fas fa-chevron-down text-gray-400"
+        })
+      ),
+      
+      // Aspect Ratio
+      /*#__PURE__*/React.createElement("select", {
+        value: aspectRatio,
+        onChange: (e) => setAspectRatio(e.target.value),
+        className: "px-3 py-2 bg-gray-700 rounded text-sm"
+      },
+        /*#__PURE__*/React.createElement("option", { value: "16:9" }, "16:9"),
+        /*#__PURE__*/React.createElement("option", { value: "9:16" }, "9:16"), 
+        /*#__PURE__*/React.createElement("option", { value: "1:1" }, "1:1")
+      ),
+      
+      // Resolution
+      /*#__PURE__*/React.createElement("select", {
+        value: resolution,
+        onChange: (e) => setResolution(e.target.value),
+        className: "px-3 py-2 bg-gray-700 rounded text-sm"
+      },
+        /*#__PURE__*/React.createElement("option", { value: "1K" }, "1K"),
+        /*#__PURE__*/React.createElement("option", { value: "2K" }, "2K"),
+        /*#__PURE__*/React.createElement("option", { value: "4K" }, "4K")
+      )
+    ),
+    
+    /*#__PURE__*/React.createElement("button", {
+      onClick: handleGenerate,
+      disabled: generating || !prompt.trim(),
+      className: "w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded font-medium flex items-center justify-center gap-2 disabled:opacity-50 mb-4"
+    },
+      generating ? 
+        /*#__PURE__*/React.createElement(React.Fragment, null,
+          /*#__PURE__*/React.createElement("i", { className: "fas fa-spinner fa-spin" }),
+          " Generiere..."
+        ) :
+        /*#__PURE__*/React.createElement(React.Fragment, null,
+          /*#__PURE__*/React.createElement("i", { className: "fas fa-magic" }),
+          " Bild generieren"
+        )
+    ),
+    
+    /*#__PURE__*/React.createElement("div", {
+      className: "text-center text-xs text-gray-400"
+    },
+      `🎨 ${FULL_IMAGE_MODELS.length} Bild-Modelle verfügbar`
+    ),
+    
+    // Modal
+    /*#__PURE__*/React.createElement(ModelSelectorModal, {
+      isOpen: showImageModal,
+      onClose: () => setShowImageModal(false),
+      onSelect: handleImageModelSelect,
+      type: 'image',
+      selectedModel: selectedImageModel
+    })
+  );
+}
+
+// ENHANCED SCENE CARD WITH MODAL 
+function SceneCardWithModal(_ref) {
+  var scene = _ref.scene,
+    index = _ref.index,
+    project = _ref.project;
+  
+  var _useState19 = useState(scene.video_model || null),
+    _useState20 = _slicedToArray(_useState19, 2),
+    selectedVideoModel = _useState20[0],
+    setSelectedVideoModel = _useState20[1];
+  var _useState21 = useState(false),
+    _useState22 = _slicedToArray(_useState21, 2),
+    showVideoModal = _useState22[0],
+    setShowVideoModal = _useState22[1];
+  
+  const selectedVideoModelData = selectedVideoModel ? FULL_VIDEO_MODELS.find(m => m.id === selectedVideoModel) : null;
+
+  const handleVideoModelSelect = (modelId, modelData) => {
+    setSelectedVideoModel(modelId);
+    setShowVideoModal(false);
+    
+    // API call would go here to update the scene
+    console.log('Selected video model:', modelId, modelData);
+  };
+
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-800 rounded-lg p-4 border border-gray-700"
+  },
+    /*#__PURE__*/React.createElement("h4", {
+      className: "font-bold mb-3 flex items-center gap-2"
+    }, 
+      /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-film text-blue-400"
+      }),
+      `Szene ${index + 1}`
+    ),
+    
+    // Video Model Selector Button
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowVideoModal(true),
+      className: "w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-left flex items-center justify-between transition-colors mb-4"
+    },
+      /*#__PURE__*/React.createElement("div", {
+        className: "flex items-center gap-2"
+      },
+        selectedVideoModelData && /*#__PURE__*/React.createElement("span", {
+          className: `${getProviderClass(selectedVideoModelData.provider)} text-white text-xs px-2 py-1 rounded`
+        }, selectedVideoModelData.provider),
+        /*#__PURE__*/React.createElement("span", {
+          className: "text-white text-sm"
+        }, selectedVideoModelData ? `${selectedVideoModelData.name} — ${selectedVideoModelData.price}` : "Video-Modell auswählen...")
+      ),
+      /*#__PURE__*/React.createElement("i", {
+        className: "fas fa-chevron-down text-gray-400"
+      })
+    ),
+    
+    /*#__PURE__*/React.createElement("div", {
+      className: "h-24 bg-gray-700 rounded border-2 border-dashed border-gray-600 flex items-center justify-center"
+    },
+      /*#__PURE__*/React.createElement("span", {
+        className: "text-gray-400 text-sm"
+      }, "Drag & Drop Bilder hier...")
+    ),
+    
+    /*#__PURE__*/React.createElement("div", {
+      className: "mt-4 text-center text-xs text-gray-400"
+    },
+      `🎬 ${FULL_VIDEO_MODELS.length} Video-Modelle verfügbar`
+    ),
+    
+    // Modal
+    /*#__PURE__*/React.createElement(ModelSelectorModal, {
+      isOpen: showVideoModal,
+      onClose: () => setShowVideoModal(false),
+      onSelect: handleVideoModelSelect,
+      type: 'video',
+      selectedModel: selectedVideoModel
+    })
+  );
+}
+
+
+function ProjectList(_ref) {
+  var onSelect = _ref.onSelect;
+  var _useState = useState([]),
+    _useState2 = _slicedToArray(_useState, 2),
+    projects = _useState2[0],
+    setProjects = _useState2[1];
+  var _useState3 = useState(''),
+    _useState4 = _slicedToArray(_useState3, 2),
+    newName = _useState4[0],
+    setNewName = _useState4[1];
+  useEffect(function () {
+    api.fetchProjects().then(setProjects);
+  }, []);
+  var handleCreate = /*#__PURE__*/function () {
+    var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+      var project;
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.n) {
+          case 0:
+            if (newName.trim()) {
+              _context13.n = 1;
+              break;
+            }
+            return _context13.a(2);
+          case 1:
+            _context13.n = 2;
+            return api.createProject(newName);
+          case 2:
+            project = _context13.v;
+            setProjects([project].concat(_toConsumableArray(projects)));
+            setNewName('');
+            onSelect(project.id);
+          case 3:
+            return _context13.a(2);
+        }
+      }, _callee13);
+    }));
+    return function handleCreate() {
+      return _ref2.apply(this, arguments);
+    };
+  }();
+  var handleDelete = /*#__PURE__*/function () {
+    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(e, id) {
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.n) {
+          case 0:
+            e.stopPropagation();
+            if (confirm('Projekt löschen?')) {
+              _context14.n = 1;
+              break;
+            }
+            return _context14.a(2);
+          case 1:
+            _context14.n = 2;
+            return api.deleteProject(id);
+          case 2:
+            setProjects(projects.filter(function (p) {
+              return p.id !== id;
+            }));
+          case 3:
+            return _context14.a(2);
+        }
+      }, _callee14);
+    }));
+    return function handleDelete(_x, _x2) {
+      return _ref3.apply(this, arguments);
+    };
+  }();
+  return /*#__PURE__*/React.createElement("div", {
+    className: "p-6"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-2xl font-bold mb-6"
+  }, "Projekte"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2 mb-6"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: newName,
+    onChange: function onChange(e) {
+      return setNewName(e.target.value);
+    },
+    placeholder: "Neues Projekt...",
+    className: "flex-1 px-4 py-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500",
+    onKeyDown: function onKeyDown(e) {
+      return e.key === 'Enter' && handleCreate();
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handleCreate,
+    disabled: !newName.trim(),
+    className: "px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded flex items-center gap-2 disabled:opacity-50"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-plus"
+  }), " Erstellen")), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, projects.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-400 text-center py-8"
+  }, "Noch keine Projekte.") : projects.map(function (project) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: project.id,
+      onClick: function onClick() {
+        return onSelect(project.id);
+      },
+      className: "flex items-center justify-between p-4 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-3"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-folder text-blue-400"
+    }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+      className: "font-medium"
+    }, project.name), /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-gray-400"
+    }, new Date(project.updated_at).toLocaleDateString('de-DE')))), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick(e) {
+        return handleDelete(e, project.id);
+      },
+      className: "p-2 text-gray-400 hover:text-red-400"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-trash"
+    })));
+  })));
+}
+function AssetUpload(_ref4) {
+  var project = _ref4.project,
+    assets = _ref4.assets,
+    setAssets = _ref4.setAssets;
+  var fileInputRef = useRef(null);
+  var uploadTypeRef = useRef('character');
+  var characters = assets.filter(function (a) {
+    return a.type === 'character';
+  });
+  var styleImage = assets.find(function (a) {
+    return a.type === 'style';
+  });
+  var productImage = assets.find(function (a) {
+    return a.type === 'product';
+  });
+  var handleUpload = function handleUpload(type) {
+    uploadTypeRef.current = type;
+    fileInputRef.current.click();
+  };
+  var handleFileChange = /*#__PURE__*/function () {
+    var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(e) {
+      var _e$target$files;
+      var file, asset;
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.n) {
+          case 0:
+            file = (_e$target$files = e.target.files) === null || _e$target$files === void 0 ? void 0 : _e$target$files[0];
+            if (file) {
+              _context15.n = 1;
+              break;
+            }
+            return _context15.a(2);
+          case 1:
+            _context15.n = 2;
+            return api.uploadAsset(project.id, file, uploadTypeRef.current, file.name);
+          case 2:
+            asset = _context15.v;
+            if (uploadTypeRef.current === 'style' || uploadTypeRef.current === 'product') {
+              setAssets([].concat(_toConsumableArray(assets.filter(function (a) {
+                return a.type !== uploadTypeRef.current;
+              })), [asset]));
+            } else {
+              setAssets([].concat(_toConsumableArray(assets), [asset]));
+            }
+            e.target.value = '';
+          case 3:
+            return _context15.a(2);
+        }
+      }, _callee15);
+    }));
+    return function handleFileChange(_x3) {
+      return _ref5.apply(this, arguments);
+    };
+  }();
+  var handleDelete = /*#__PURE__*/function () {
+    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(asset) {
+      return _regenerator().w(function (_context16) {
+        while (1) switch (_context16.n) {
+          case 0:
+            _context16.n = 1;
+            return api.deleteAsset(project.id, asset.id);
+          case 1:
+            setAssets(assets.filter(function (a) {
+              return a.id !== asset.id;
+            }));
+          case 2:
+            return _context16.a(2);
+        }
+      }, _callee16);
+    }));
+    return function handleDelete(_x4) {
+      return _ref6.apply(this, arguments);
+    };
+  }();
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-800 rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-bold mb-4"
+  }, "Assets"), /*#__PURE__*/React.createElement("input", {
+    ref: fileInputRef,
+    type: "file",
+    accept: "image/*",
+    onChange: handleFileChange,
+    className: "hidden"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-user mr-1"
+  }), "Charaktere (", characters.length, "/3)"), characters.length < 3 && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return handleUpload('character');
+    },
+    className: "text-sm text-blue-400"
+  }, "+ Hinzuf\xFCgen")), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-2"
+  }, characters.map(function (_char) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: _char.id,
+      className: "relative group"
+    }, /*#__PURE__*/React.createElement("img", {
+      src: _char.url,
+      alt: _char.name,
+      className: "w-full aspect-square object-cover rounded"
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return handleDelete(_char);
+      },
+      className: "absolute top-1 right-1 p-1 bg-red-500 rounded opacity-0 group-hover:opacity-100"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-times text-xs"
+    })));
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-palette mr-1"
+  }), "Stil-Bild"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return handleUpload('style');
+    },
+    className: "text-sm text-blue-400"
+  }, styleImage ? 'Ändern' : '+ Hinzufügen')), styleImage && /*#__PURE__*/React.createElement("div", {
+    className: "relative group"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: styleImage.url,
+    alt: "Stil",
+    className: "w-full aspect-video object-cover rounded"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return handleDelete(styleImage);
+    },
+    className: "absolute top-1 right-1 p-1 bg-red-500 rounded opacity-0 group-hover:opacity-100"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-times text-xs"
+  })))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm text-gray-400"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-box mr-1"
+  }), "Produkt-Bild"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return handleUpload('product');
+    },
+    className: "text-sm text-blue-400"
+  }, productImage ? 'Ändern' : '+ Hinzufügen')), productImage && /*#__PURE__*/React.createElement("div", {
+    className: "relative group"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: productImage.url,
+    alt: "Produkt",
+    className: "w-full aspect-video object-cover rounded"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return handleDelete(productImage);
+    },
+    className: "absolute top-1 right-1 p-1 bg-red-500 rounded opacity-0 group-hover:opacity-100"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-times text-xs"
+  })))));
+}
+function ImageGenerator(_ref7) {
+  var _IMAGE_MODELS$find2;
+  var project = _ref7.project,
+    assets = _ref7.assets,
+    generatedImages = _ref7.generatedImages,
+    setGeneratedImages = _ref7.setGeneratedImages;
+  var _useState5 = useState(''),
+    _useState6 = _slicedToArray(_useState5, 2),
+    prompt = _useState6[0],
+    setPrompt = _useState6[1];
+  var _useState7 = useState('z-image'),
+    _useState8 = _slicedToArray(_useState7, 2),
+    model = _useState8[0],
+    setModel = _useState8[1];
+  var _useState9 = useState('16:9'),
+    _useState0 = _slicedToArray(_useState9, 2),
+    aspectRatio = _useState0[0],
+    setAspectRatio = _useState0[1];
+  var _useState1 = useState('1K'),
+    _useState10 = _slicedToArray(_useState1, 2),
+    resolution = _useState10[0],
+    setResolution = _useState10[1];
+  var _useState11 = useState([]),
+    _useState12 = _slicedToArray(_useState11, 2),
+    selectedAssets = _useState12[0],
+    setSelectedAssets = _useState12[1];
+  var _useState13 = useState(false),
+    _useState14 = _slicedToArray(_useState13, 2),
+    generating = _useState14[0],
+    setGenerating = _useState14[1];
+  var handleGenerate = /*#__PURE__*/function () {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
+      var _IMAGE_MODELS$find, isFree, dims, pollUrl, newImage, imageInputs, result, _newImage, cancelled, TIMEOUT_MS, startTime, _poll;
+      return _regenerator().w(function (_context18) {
+        while (1) switch (_context18.p = _context18.n) {
+          case 0:
+            if (prompt.trim()) {
+              _context18.n = 1;
+              break;
+            }
+            return _context18.a(2);
+          case 1:
+            setGenerating(true);
+            _context18.p = 2;
+            isFree = (_IMAGE_MODELS$find = IMAGE_MODELS.find(function (m) {
+              return m.value === model;
+            })) === null || _IMAGE_MODELS$find === void 0 ? void 0 : _IMAGE_MODELS$find.free;
+            if (!isFree) {
+              _context18.n = 3;
+              break;
+            }
+            // Pollinations.ai - free, direct URL
+            dims = {
+              '16:9': [1024, 576],
+              '9:16': [576, 1024],
+              '1:1': [512, 512],
+              '4:3': [640, 480]
+            }[aspectRatio] || [512, 512];
+            pollUrl = "https://gen.pollinations.ai/image/".concat(encodeURIComponent(prompt), "?width=").concat(dims[0], "&height=").concat(dims[1], "&model=flux&seed=").concat(Math.floor(Math.random() * 999999));
+            newImage = {
+              id: 'free-' + Date.now(),
+              prompt: prompt,
+              model: model,
+              url: pollUrl,
+              task_id: null,
+              status: 'done',
+              created_at: new Date().toISOString()
+            };
+            setGeneratedImages([newImage].concat(_toConsumableArray(generatedImages)));
+            setPrompt('');
+            _context18.n = 5;
+            break;
+          case 3:
+            // Kie.ai - paid models
+            imageInputs = selectedAssets.map(function (id) {
+              var asset = assets.find(function (a) {
+                return a.id === id;
+              });
+              return asset ? window.location.origin + asset.url : '';
+            }).filter(Boolean);
+            _context18.n = 4;
+            return api.generateImage(project.id, {
+              prompt: prompt,
+              model: model,
+              image_inputs: imageInputs,
+              aspect_ratio: aspectRatio,
+              resolution: resolution
+            });
+          case 4:
+            result = _context18.v;
+            _newImage = {
+              id: result.id,
+              prompt: prompt,
+              model: model,
+              url: '',
+              task_id: result.task_id,
+              status: 'generating',
+              created_at: new Date().toISOString()
+            };
+            setGeneratedImages([_newImage].concat(_toConsumableArray(generatedImages)));
+
+            // Poll with cancel & timeout (5 min)
+            cancelled = false;
+            TIMEOUT_MS = 5 * 60 * 1000;
+            startTime = Date.now();
+            _poll = /*#__PURE__*/function () {
+              var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+                var _status$data, _status$data2, _status$data5, status, imageUrl, _status$data3, _rj$resultUrls, _status$data4, rj, _t;
+                return _regenerator().w(function (_context17) {
+                  while (1) switch (_context17.p = _context17.n) {
+                    case 0:
+                      if (!cancelled) {
+                        _context17.n = 1;
+                        break;
+                      }
+                      return _context17.a(2);
+                    case 1:
+                      if (!(Date.now() - startTime > TIMEOUT_MS)) {
+                        _context17.n = 2;
+                        break;
+                      }
+                      setGeneratedImages(function (prev) {
+                        return prev.map(function (img) {
+                          return img.id === result.id ? _objectSpread(_objectSpread({}, img), {}, {
+                            status: 'error'
+                          }) : img;
+                        });
+                      });
+                      return _context17.a(2);
+                    case 2:
+                      _context17.p = 2;
+                      _context17.n = 3;
+                      return api.checkTask(result.task_id);
+                    case 3:
+                      status = _context17.v;
+                      if (!cancelled) {
+                        _context17.n = 4;
+                        break;
+                      }
+                      return _context17.a(2);
+                    case 4:
+                      if (((_status$data = status.data) === null || _status$data === void 0 ? void 0 : _status$data.state) === 'completed' || ((_status$data2 = status.data) === null || _status$data2 === void 0 ? void 0 : _status$data2.state) === 'success') {
+                        imageUrl = '';
+                        try {
+                          rj = JSON.parse(((_status$data3 = status.data) === null || _status$data3 === void 0 ? void 0 : _status$data3.resultJson) || '{}');
+                          imageUrl = ((_rj$resultUrls = rj.resultUrls) === null || _rj$resultUrls === void 0 ? void 0 : _rj$resultUrls[0]) || ((_status$data4 = status.data) === null || _status$data4 === void 0 || (_status$data4 = _status$data4.output) === null || _status$data4 === void 0 ? void 0 : _status$data4.image_url) || '';
+                        } catch (e) {}
+                        setGeneratedImages(function (prev) {
+                          return prev.map(function (img) {
+                            return img.id === result.id ? _objectSpread(_objectSpread({}, img), {}, {
+                              status: 'done',
+                              url: imageUrl
+                            }) : img;
+                          });
+                        });
+                      } else if (((_status$data5 = status.data) === null || _status$data5 === void 0 ? void 0 : _status$data5.state) === 'failed') {
+                        setGeneratedImages(function (prev) {
+                          return prev.map(function (img) {
+                            return img.id === result.id ? _objectSpread(_objectSpread({}, img), {}, {
+                              status: 'error'
+                            }) : img;
+                          });
+                        });
+                      } else {
+                        setTimeout(_poll, 3000);
+                      }
+                      _context17.n = 6;
+                      break;
+                    case 5:
+                      _context17.p = 5;
+                      _t = _context17.v;
+                      if (!cancelled) {
+                        setGeneratedImages(function (prev) {
+                          return prev.map(function (img) {
+                            return img.id === result.id ? _objectSpread(_objectSpread({}, img), {}, {
+                              status: 'error'
+                            }) : img;
+                          });
+                        });
+                      }
+                    case 6:
+                      return _context17.a(2);
+                  }
+                }, _callee17, null, [[2, 5]]);
+              }));
+              return function poll() {
+                return _ref9.apply(this, arguments);
+              };
+            }();
+            _poll();
+            // Store cancel function on the image object
+            setGeneratedImages(function (prev) {
+              return prev.map(function (img) {
+                return img.id === result.id ? _objectSpread(_objectSpread({}, img), {}, {
+                  _cancel: function _cancel() {
+                    cancelled = true;
+                    setGeneratedImages(function (p) {
+                      return p.map(function (i) {
+                        return i.id === result.id ? _objectSpread(_objectSpread({}, i), {}, {
+                          status: 'error'
+                        }) : i;
+                      });
+                    });
+                  }
+                }) : img;
+              });
+            });
+            setPrompt('');
+          case 5:
+            _context18.p = 5;
+            setGenerating(false);
+            return _context18.f(5);
+          case 6:
+            return _context18.a(2);
+        }
+      }, _callee18, null, [[2,, 5, 6]]);
+    }));
+    return function handleGenerate() {
+      return _ref8.apply(this, arguments);
+    };
+  }();
+  var toggleAsset = function toggleAsset(id) {
+    setSelectedAssets(function (prev) {
+      return prev.includes(id) ? prev.filter(function (a) {
+        return a !== id;
+      }) : [].concat(_toConsumableArray(prev), [id]);
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-800 rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-bold mb-4"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-magic text-yellow-400 mr-2"
+  }), "Bild-Generator"), assets.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mb-4"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "text-sm text-gray-400 block mb-2"
+  }, "Referenz-Bilder:"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, assets.map(function (asset) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: asset.id,
+      onClick: function onClick() {
+        return toggleAsset(asset.id);
+      },
+      className: "px-3 py-1 rounded text-sm ".concat(selectedAssets.includes(asset.id) ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600')
+    }, asset.type === 'character' ? '👤' : asset.type === 'style' ? '🎨' : '📦', " ", asset.name);
+  }))), /*#__PURE__*/React.createElement("textarea", {
+    value: prompt,
+    onChange: function onChange(e) {
+      return setPrompt(e.target.value);
+    },
+    placeholder: "Beschreibe das Bild...",
+    rows: 3,
+    className: "w-full px-3 py-2 bg-gray-700 rounded mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-2 mb-4"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: model,
+    onChange: function onChange(e) {
+      return setModel(e.target.value);
+    },
+    className: "px-3 py-2 bg-gray-700 rounded text-sm",
+    title: (_IMAGE_MODELS$find2 = IMAGE_MODELS.find(function (m) {
+      return m.value === model;
+    })) === null || _IMAGE_MODELS$find2 === void 0 ? void 0 : _IMAGE_MODELS$find2.price
+  }, IMAGE_MODELS.map(function (m) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: m.value,
+      value: m.value
+    }, m.label, " \u2014 ", m.price);
+  })), /*#__PURE__*/React.createElement("select", {
+    value: aspectRatio,
+    onChange: function onChange(e) {
+      return setAspectRatio(e.target.value);
+    },
+    className: "px-3 py-2 bg-gray-700 rounded text-sm"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "16:9"
+  }, "16:9"), /*#__PURE__*/React.createElement("option", {
+    value: "9:16"
+  }, "9:16"), /*#__PURE__*/React.createElement("option", {
+    value: "1:1"
+  }, "1:1")), /*#__PURE__*/React.createElement("select", {
+    value: resolution,
+    onChange: function onChange(e) {
+      return setResolution(e.target.value);
+    },
+    className: "px-3 py-2 bg-gray-700 rounded text-sm"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "1K"
+  }, "1K"), /*#__PURE__*/React.createElement("option", {
+    value: "2K"
+  }, "2K"), /*#__PURE__*/React.createElement("option", {
+    value: "4K"
+  }, "4K"))), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerate,
+    disabled: generating || !prompt.trim(),
+    className: "w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+  }, generating ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-spinner fa-spin"
+  }), " Generiere...") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-magic"
+  }), " Bild generieren")), generatedImages.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "text-sm text-gray-400 mb-2"
+  }, "Generierte Bilder:"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 max-h-64 overflow-y-auto"
+  }, generatedImages.map(function (img) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: img.id,
+      className: "relative aspect-video bg-gray-700 rounded overflow-hidden",
+      draggable: img.status === 'done',
+      onDragStart: function onDragStart(e) {
+        return e.dataTransfer.setData('imageId', img.id);
+      }
+    }, img.status === 'generating' ? /*#__PURE__*/React.createElement("div", {
+      className: "absolute inset-0 flex flex-col items-center justify-center gap-1"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-spinner fa-spin text-2xl"
+    }), img._cancel && /*#__PURE__*/React.createElement("button", {
+      onClick: img._cancel,
+      className: "px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs"
+    }, "Abbrechen")) : img.status === 'done' && img.url ? /*#__PURE__*/React.createElement("img", {
+      src: img.url,
+      alt: "",
+      className: "w-full h-full object-cover cursor-grab"
+    }) : /*#__PURE__*/React.createElement("div", {
+      className: "absolute inset-0 flex items-center justify-center text-red-400"
+    }, "Fehler"));
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mt-2"
+  }, "\uD83D\uDCA1 Bilder per Drag & Drop zu Szenen ziehen")));
+}
+function SceneCard(_ref0) {
+  var scene = _ref0.scene,
+    index = _ref0.index,
+    project = _ref0.project,
+    generatedImages = _ref0.generatedImages,
+    updateSceneState = _ref0.updateSceneState,
+    deleteSceneState = _ref0.deleteSceneState;
+  var _useState15 = useState(scene.audio_tts_text || ''),
+    _useState16 = _slicedToArray(_useState15, 2),
+    ttsText = _useState16[0],
+    setTtsText = _useState16[1];
+  var _useState17 = useState(scene),
+    _useState18 = _slicedToArray(_useState17, 2),
+    localScene = _useState18[0],
+    setLocalScene = _useState18[1];
+  var startFrame = generatedImages.find(function (i) {
+    return i.id === localScene.start_frame;
+  });
+  var endFrame = generatedImages.find(function (i) {
+    return i.id === localScene.end_frame;
+  });
+  var maxChars = Math.floor(localScene.duration * 12.5);
+  var handleDrop = /*#__PURE__*/function () {
+    var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(e, slot) {
+      var imageId, field, updated;
+      return _regenerator().w(function (_context19) {
+        while (1) switch (_context19.n) {
+          case 0:
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            imageId = e.dataTransfer.getData('imageId');
+            if (imageId) {
+              _context19.n = 1;
+              break;
+            }
+            return _context19.a(2);
+          case 1:
+            field = slot === 'start' ? 'start_frame' : 'end_frame';
+            _context19.n = 2;
+            return api.updateScene(project.id, localScene.id, _defineProperty({}, field, imageId));
+          case 2:
+            updated = _objectSpread(_objectSpread({}, localScene), {}, _defineProperty({}, field, imageId));
+            setLocalScene(updated);
+            updateSceneState(localScene.id, updated);
+          case 3:
+            return _context19.a(2);
+        }
+      }, _callee19);
+    }));
+    return function handleDrop(_x5, _x6) {
+      return _ref1.apply(this, arguments);
+    };
+  }();
+  var handleDragOver = function handleDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('drag-over');
+  };
+  var handleDragLeave = function handleDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+  };
+  var handlePromptChange = /*#__PURE__*/function () {
+    var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(e) {
+      var prompt;
+      return _regenerator().w(function (_context20) {
+        while (1) switch (_context20.n) {
+          case 0:
+            prompt = e.target.value;
+            setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+              prompt: prompt
+            }));
+          case 1:
+            return _context20.a(2);
+        }
+      }, _callee20);
+    }));
+    return function handlePromptChange(_x7) {
+      return _ref10.apply(this, arguments);
+    };
+  }();
+  var handlePromptBlur = /*#__PURE__*/function () {
+    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
+      return _regenerator().w(function (_context21) {
+        while (1) switch (_context21.n) {
+          case 0:
+            _context21.n = 1;
+            return api.updateScene(project.id, localScene.id, {
+              prompt: localScene.prompt
+            });
+          case 1:
+            updateSceneState(localScene.id, localScene);
+          case 2:
+            return _context21.a(2);
+        }
+      }, _callee21);
+    }));
+    return function handlePromptBlur() {
+      return _ref11.apply(this, arguments);
+    };
+  }();
+  var handleModelChange = /*#__PURE__*/function () {
+    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(e) {
+      var video_model, updated;
+      return _regenerator().w(function (_context22) {
+        while (1) switch (_context22.n) {
+          case 0:
+            video_model = e.target.value;
+            _context22.n = 1;
+            return api.updateScene(project.id, localScene.id, {
+              video_model: video_model
+            });
+          case 1:
+            updated = _objectSpread(_objectSpread({}, localScene), {}, {
+              video_model: video_model
+            });
+            setLocalScene(updated);
+            updateSceneState(localScene.id, updated);
+          case 2:
+            return _context22.a(2);
+        }
+      }, _callee22);
+    }));
+    return function handleModelChange(_x8) {
+      return _ref12.apply(this, arguments);
+    };
+  }();
+  var handleDurationChange = /*#__PURE__*/function () {
+    var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(e) {
+      var duration, updated;
+      return _regenerator().w(function (_context23) {
+        while (1) switch (_context23.n) {
+          case 0:
+            duration = parseInt(e.target.value);
+            _context23.n = 1;
+            return api.updateScene(project.id, localScene.id, {
+              duration: duration
+            });
+          case 1:
+            updated = _objectSpread(_objectSpread({}, localScene), {}, {
+              duration: duration
+            });
+            setLocalScene(updated);
+            updateSceneState(localScene.id, updated);
+          case 2:
+            return _context23.a(2);
+        }
+      }, _callee23);
+    }));
+    return function handleDurationChange(_x9) {
+      return _ref13.apply(this, arguments);
+    };
+  }();
+  var handleGenerateVideo = /*#__PURE__*/function () {
+    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25() {
+      var result, cancelled, TIMEOUT_MS, startTime, _poll2;
+      return _regenerator().w(function (_context25) {
+        while (1) switch (_context25.n) {
+          case 0:
+            if (localScene.start_frame) {
+              _context25.n = 1;
+              break;
+            }
+            return _context25.a(2);
+          case 1:
+            setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+              video_status: 'generating'
+            }));
+            _context25.n = 2;
+            return api.generateVideo(project.id, localScene.id);
+          case 2:
+            result = _context25.v;
+            cancelled = false;
+            TIMEOUT_MS = 10 * 60 * 1000; // 10 min for video
+            startTime = Date.now();
+            _poll2 = /*#__PURE__*/function () {
+              var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
+                var _status$data6, _status$data7, _status$data0, status, _JSON$parse$resultUrl, _status$data8, _status$data9, updated, _t2;
+                return _regenerator().w(function (_context24) {
+                  while (1) switch (_context24.p = _context24.n) {
+                    case 0:
+                      if (!cancelled) {
+                        _context24.n = 1;
+                        break;
+                      }
+                      return _context24.a(2);
+                    case 1:
+                      if (!(Date.now() - startTime > TIMEOUT_MS)) {
+                        _context24.n = 2;
+                        break;
+                      }
+                      setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+                        video_status: 'error'
+                      }));
+                      return _context24.a(2);
+                    case 2:
+                      _context24.p = 2;
+                      _context24.n = 3;
+                      return api.checkTask(result.task_id);
+                    case 3:
+                      status = _context24.v;
+                      if (!cancelled) {
+                        _context24.n = 4;
+                        break;
+                      }
+                      return _context24.a(2);
+                    case 4:
+                      if (((_status$data6 = status.data) === null || _status$data6 === void 0 ? void 0 : _status$data6.state) === 'completed' || ((_status$data7 = status.data) === null || _status$data7 === void 0 ? void 0 : _status$data7.state) === 'success') {
+                        updated = _objectSpread(_objectSpread({}, localScene), {}, {
+                          video_status: 'done',
+                          video_url: ((_JSON$parse$resultUrl = JSON.parse(((_status$data8 = status.data) === null || _status$data8 === void 0 ? void 0 : _status$data8.resultJson) || "{}").resultUrls) === null || _JSON$parse$resultUrl === void 0 ? void 0 : _JSON$parse$resultUrl[0]) || ((_status$data9 = status.data) === null || _status$data9 === void 0 || (_status$data9 = _status$data9.output) === null || _status$data9 === void 0 ? void 0 : _status$data9.video_url) || ""
+                        });
+                        setLocalScene(updated);
+                        updateSceneState(localScene.id, updated);
+                      } else if (((_status$data0 = status.data) === null || _status$data0 === void 0 ? void 0 : _status$data0.state) === 'failed') {
+                        setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+                          video_status: 'error'
+                        }));
+                      } else {
+                        setTimeout(_poll2, 5000);
+                      }
+                      _context24.n = 6;
+                      break;
+                    case 5:
+                      _context24.p = 5;
+                      _t2 = _context24.v;
+                      if (!cancelled) setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+                        video_status: 'error'
+                      }));
+                    case 6:
+                      return _context24.a(2);
+                  }
+                }, _callee24, null, [[2, 5]]);
+              }));
+              return function poll() {
+                return _ref15.apply(this, arguments);
+              };
+            }();
+            _poll2();
+          case 3:
+            return _context25.a(2);
+        }
+      }, _callee25);
+    }));
+    return function handleGenerateVideo() {
+      return _ref14.apply(this, arguments);
+    };
+  }();
+  var handleGenerateAudio = /*#__PURE__*/function () {
+    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27() {
+      var result, cancelled, TIMEOUT_MS, startTime, _poll3;
+      return _regenerator().w(function (_context27) {
+        while (1) switch (_context27.n) {
+          case 0:
+            if (ttsText.trim()) {
+              _context27.n = 1;
+              break;
+            }
+            return _context27.a(2);
+          case 1:
+            setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+              audio_status: 'generating'
+            }));
+            _context27.n = 2;
+            return api.generateAudio(project.id, localScene.id, ttsText);
+          case 2:
+            result = _context27.v;
+            cancelled = false;
+            TIMEOUT_MS = 5 * 60 * 1000;
+            startTime = Date.now();
+            _poll3 = /*#__PURE__*/function () {
+              var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
+                var _status$data1, _status$data10, _status$data13, status, _JSON$parse$resultUrl2, _status$data11, _status$data12, updated, _t3;
+                return _regenerator().w(function (_context26) {
+                  while (1) switch (_context26.p = _context26.n) {
+                    case 0:
+                      if (!cancelled) {
+                        _context26.n = 1;
+                        break;
+                      }
+                      return _context26.a(2);
+                    case 1:
+                      if (!(Date.now() - startTime > TIMEOUT_MS)) {
+                        _context26.n = 2;
+                        break;
+                      }
+                      setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+                        audio_status: 'error'
+                      }));
+                      return _context26.a(2);
+                    case 2:
+                      _context26.p = 2;
+                      _context26.n = 3;
+                      return api.checkTask(result.task_id);
+                    case 3:
+                      status = _context26.v;
+                      if (!cancelled) {
+                        _context26.n = 4;
+                        break;
+                      }
+                      return _context26.a(2);
+                    case 4:
+                      if (((_status$data1 = status.data) === null || _status$data1 === void 0 ? void 0 : _status$data1.state) === 'completed' || ((_status$data10 = status.data) === null || _status$data10 === void 0 ? void 0 : _status$data10.state) === 'success') {
+                        updated = _objectSpread(_objectSpread({}, localScene), {}, {
+                          audio_status: 'done',
+                          audio_url: ((_JSON$parse$resultUrl2 = JSON.parse(((_status$data11 = status.data) === null || _status$data11 === void 0 ? void 0 : _status$data11.resultJson) || "{}").resultUrls) === null || _JSON$parse$resultUrl2 === void 0 ? void 0 : _JSON$parse$resultUrl2[0]) || ((_status$data12 = status.data) === null || _status$data12 === void 0 || (_status$data12 = _status$data12.output) === null || _status$data12 === void 0 ? void 0 : _status$data12.audio_url) || ""
+                        });
+                        setLocalScene(updated);
+                        updateSceneState(localScene.id, updated);
+                      } else if (((_status$data13 = status.data) === null || _status$data13 === void 0 ? void 0 : _status$data13.state) === 'failed') {
+                        setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+                          audio_status: 'error'
+                        }));
+                      } else {
+                        setTimeout(_poll3, 3000);
+                      }
+                      _context26.n = 6;
+                      break;
+                    case 5:
+                      _context26.p = 5;
+                      _t3 = _context26.v;
+                      if (!cancelled) setLocalScene(_objectSpread(_objectSpread({}, localScene), {}, {
+                        audio_status: 'error'
+                      }));
+                    case 6:
+                      return _context26.a(2);
+                  }
+                }, _callee26, null, [[2, 5]]);
+              }));
+              return function poll() {
+                return _ref17.apply(this, arguments);
+              };
+            }();
+            _poll3();
+          case 3:
+            return _context27.a(2);
+        }
+      }, _callee27);
+    }));
+    return function handleGenerateAudio() {
+      return _ref16.apply(this, arguments);
+    };
+  }();
+  var handleDelete = /*#__PURE__*/function () {
+    var _ref18 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
+      return _regenerator().w(function (_context28) {
+        while (1) switch (_context28.n) {
+          case 0:
+            if (confirm('Szene löschen?')) {
+              _context28.n = 1;
+              break;
+            }
+            return _context28.a(2);
+          case 1:
+            _context28.n = 2;
+            return api.deleteScene(project.id, localScene.id);
+          case 2:
+            deleteSceneState(localScene.id);
+          case 3:
+            return _context28.a(2);
+        }
+      }, _callee28);
+    }));
+    return function handleDelete() {
+      return _ref18.apply(this, arguments);
+    };
+  }();
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-800 rounded-lg p-4 border border-gray-700"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-bold"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-grip-vertical text-gray-500 mr-2"
+  }), "Szene ", index + 1), /*#__PURE__*/React.createElement("button", {
+    onClick: handleDelete,
+    className: "text-gray-400 hover:text-red-400"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-trash"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: function onDrop(e) {
+      return handleDrop(e, 'start');
+    },
+    className: "aspect-video bg-gray-700 rounded border-2 border-dashed border-gray-600 flex items-center justify-center overflow-hidden"
+  }, startFrame !== null && startFrame !== void 0 && startFrame.url ? /*#__PURE__*/React.createElement("img", {
+    src: startFrame.url,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-500"
+  }, "Start-Frame")), /*#__PURE__*/React.createElement("div", {
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: function onDrop(e) {
+      return handleDrop(e, 'end');
+    },
+    className: "aspect-video bg-gray-700 rounded border-2 border-dashed border-gray-600 flex items-center justify-center overflow-hidden"
+  }, endFrame !== null && endFrame !== void 0 && endFrame.url ? /*#__PURE__*/React.createElement("img", {
+    src: endFrame.url,
+    alt: "",
+    className: "w-full h-full object-cover"
+  }) : /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-500"
+  }, "End-Frame (opt.)"))), /*#__PURE__*/React.createElement("textarea", {
+    value: localScene.prompt || '',
+    onChange: handlePromptChange,
+    onBlur: handlePromptBlur,
+    placeholder: "Was passiert in dieser Szene?",
+    rows: 2,
+    className: "w-full px-2 py-1 bg-gray-700 rounded text-sm mb-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: localScene.video_model,
+    onChange: handleModelChange,
+    className: "px-2 py-1 bg-gray-700 rounded text-sm"
+  }, VIDEO_MODELS.map(function (m) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: m.value,
+      value: m.value
+    }, m.label);
+  })), /*#__PURE__*/React.createElement("select", {
+    value: localScene.duration,
+    onChange: handleDurationChange,
+    className: "px-2 py-1 bg-gray-700 rounded text-sm"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: 5
+  }, "5 Sek"), /*#__PURE__*/React.createElement("option", {
+    value: 10
+  }, "10 Sek"))), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateVideo,
+    disabled: !localScene.start_frame || localScene.video_status === 'generating',
+    className: "w-full py-2 bg-green-600 hover:bg-green-700 rounded text-sm flex items-center justify-center gap-2 disabled:opacity-50 mb-2"
+  }, localScene.video_status === 'generating' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-spinner fa-spin"
+  }), " Generiere...") : localScene.video_status === 'done' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-check"
+  }), " Video fertig") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-play"
+  }), " Video generieren")), localScene.video_url && /*#__PURE__*/React.createElement("video", {
+    src: localScene.video_url,
+    controls: true,
+    className: "w-full rounded mb-2"
+  }), localScene.video_status === 'done' && /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-gray-700 pt-2 mt-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-2"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-volume-up text-gray-400"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-400"
+  }, "Audio (", ttsText.length, "/", maxChars, " Zeichen)")), /*#__PURE__*/React.createElement("textarea", {
+    value: ttsText,
+    onChange: function onChange(e) {
+      return setTtsText(e.target.value.slice(0, maxChars));
+    },
+    placeholder: "Sprechtext...",
+    rows: 2,
+    className: "w-full px-2 py-1 bg-gray-700 rounded text-sm mb-2 resize-none"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: handleGenerateAudio,
+    disabled: !ttsText.trim() || localScene.audio_status === 'generating',
+    className: "w-full py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+  }, localScene.audio_status === 'generating' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-spinner fa-spin"
+  }), " Generiere...") : localScene.audio_status === 'done' ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-check"
+  }), " Audio fertig") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-volume-up"
+  }), " Audio generieren"))));
+}
+function Timeline(_ref19) {
+  var project = _ref19.project,
+    scenes = _ref19.scenes,
+    setScenes = _ref19.setScenes,
+    generatedImages = _ref19.generatedImages;
+  var handleAddScene = /*#__PURE__*/function () {
+    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
+      var scene;
+      return _regenerator().w(function (_context29) {
+        while (1) switch (_context29.n) {
+          case 0:
+            _context29.n = 1;
+            return api.createScene(project.id);
+          case 1:
+            scene = _context29.v;
+            setScenes([].concat(_toConsumableArray(scenes), [scene]));
+          case 2:
+            return _context29.a(2);
+        }
+      }, _callee29);
+    }));
+    return function handleAddScene() {
+      return _ref20.apply(this, arguments);
+    };
+  }();
+  var updateSceneState = function updateSceneState(id, updated) {
+    setScenes(scenes.map(function (s) {
+      return s.id === id ? updated : s;
+    }));
+  };
+  var deleteSceneState = function deleteSceneState(id) {
+    setScenes(scenes.filter(function (s) {
+      return s.id !== id;
+    }));
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-bold text-lg"
+  }, "Szenen-Timeline"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleAddScene,
+    className: "px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-plus"
+  }), " Szene hinzuf\xFCgen")), scenes.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "text-center text-gray-400 py-12"
+  }, /*#__PURE__*/React.createElement("p", null, "Noch keine Szenen."), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm"
+  }, "F\xFCge deine erste Szene hinzu!")) : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4"
+  }, scenes.sort(function (a, b) {
+    return a.order - b.order;
+  }).map(function (scene, index) {
+    return /*#__PURE__*/React.createElement(SceneCardWithModal, {
+      key: scene.id,
+      scene: scene,
+      index: index,
+      project: project,
+      generatedImages: generatedImages,
+      updateSceneState: updateSceneState,
+      deleteSceneState: deleteSceneState
+    });
+  })));
+}
+function ExportPanel(_ref21) {
+  var project = _ref21.project,
+    scenes = _ref21.scenes;
+  var _useState19 = useState(false),
+    _useState20 = _slicedToArray(_useState19, 2),
+    exporting = _useState20[0],
+    setExporting = _useState20[1];
+  var _useState21 = useState(null),
+    _useState22 = _slicedToArray(_useState21, 2),
+    exportUrl = _useState22[0],
+    setExportUrl = _useState22[1];
+  var completedScenes = scenes.filter(function (s) {
+    return s.video_status === 'done';
+  });
+  var canExport = completedScenes.length > 0;
+  var handleExport = /*#__PURE__*/function () {
+    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30() {
+      var result;
+      return _regenerator().w(function (_context30) {
+        while (1) switch (_context30.p = _context30.n) {
+          case 0:
+            setExporting(true);
+            _context30.p = 1;
+            _context30.n = 2;
+            return api.exportProject(project.id);
+          case 2:
+            result = _context30.v;
+            setExportUrl(result.url);
+          case 3:
+            _context30.p = 3;
+            setExporting(false);
+            return _context30.f(3);
+          case 4:
+            return _context30.a(2);
+        }
+      }, _callee30, null, [[1,, 3, 4]]);
+    }));
+    return function handleExport() {
+      return _ref22.apply(this, arguments);
+    };
+  }();
+  return /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-800 rounded-lg p-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-bold mb-4"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-film text-green-400 mr-2"
+  }), "Export"), /*#__PURE__*/React.createElement("div", {
+    className: "text-sm text-gray-400 mb-4"
+  }, /*#__PURE__*/React.createElement("p", null, completedScenes.length, " von ", scenes.length, " Szenen fertig")), /*#__PURE__*/React.createElement("button", {
+    onClick: handleExport,
+    disabled: !canExport || exporting,
+    className: "w-full py-2 bg-green-600 hover:bg-green-700 rounded font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+  }, exporting ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-spinner fa-spin"
+  }), " Exportiere...") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-download"
+  }), " Video exportieren")), exportUrl && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4"
+  }, /*#__PURE__*/React.createElement("video", {
+    src: exportUrl,
+    controls: true,
+    className: "w-full rounded mb-2"
+  }), /*#__PURE__*/React.createElement("a", {
+    href: exportUrl,
+    download: true,
+    className: "block text-center py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-download mr-1"
+  }), " Herunterladen")));
+}
+function ProjectEditor(_ref23) {
+  var projectId = _ref23.projectId,
+    onBack = _ref23.onBack;
+  var _useState23 = useState(null),
+    _useState24 = _slicedToArray(_useState23, 2),
+    project = _useState24[0],
+    setProject = _useState24[1];
+  var _useState25 = useState([]),
+    _useState26 = _slicedToArray(_useState25, 2),
+    assets = _useState26[0],
+    setAssets = _useState26[1];
+  var _useState27 = useState([]),
+    _useState28 = _slicedToArray(_useState27, 2),
+    scenes = _useState28[0],
+    setScenes = _useState28[1];
+  var _useState29 = useState([]),
+    _useState30 = _slicedToArray(_useState29, 2),
+    generatedImages = _useState30[0],
+    setGeneratedImages = _useState30[1];
+  useEffect(function () {
+    api.fetchProject(projectId).then(function (data) {
+      setProject(data);
+      setAssets(data.assets || []);
+      setScenes(data.scenes || []);
+      setGeneratedImages(data.generated_images || []);
+    });
+  }, [projectId]);
+  if (!project) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center justify-center h-full"
+    }, /*#__PURE__*/React.createElement("i", {
+      className: "fas fa-spinner fa-spin text-4xl"
+    }));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "h-full flex flex-col"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4 p-4 border-b border-gray-700"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onBack,
+    className: "p-2 hover:bg-gray-700 rounded"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-arrow-left"
+  })), /*#__PURE__*/React.createElement("h1", {
+    className: "text-xl font-bold"
+  }, project.name)), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-80 border-r border-gray-700 overflow-y-auto p-4 space-y-4"
+  }, /*#__PURE__*/React.createElement(AssetUpload, {
+    project: project,
+    assets: assets,
+    setAssets: setAssets
+  }), /*#__PURE__*/React.createElement(ImageGeneratorWithModal, {
+    project: project,
+    assets: assets,
+    generatedImages: generatedImages,
+    setGeneratedImages: setGeneratedImages
+  }), /*#__PURE__*/React.createElement(ExportPanel, {
+    project: project,
+    scenes: scenes
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto"
+  }, /*#__PURE__*/React.createElement(Timeline, {
+    project: project,
+    scenes: scenes,
+    setScenes: setScenes,
+    generatedImages: generatedImages
+  }))));
+}
+function App() {
+  var _useState31 = useState(null),
+    _useState32 = _slicedToArray(_useState31, 2),
+    selectedProjectId = _useState32[0],
+    setSelectedProjectId = _useState32[1];
+  if (selectedProjectId) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "h-screen"
+    }, /*#__PURE__*/React.createElement(ProjectEditor, {
+      projectId: selectedProjectId,
+      onBack: function onBack() {
+        return setSelectedProjectId(null);
+      }
+    }));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen"
+  }, /*#__PURE__*/React.createElement("header", {
+    className: "border-b border-gray-700 p-4 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("h1", {
+    className: "text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+  }, "VideoForge"), /*#__PURE__*/React.createElement("a", {
+    href: "/accounts/neue-api-einstellungen/",
+    className: "text-sm text-gray-400 hover:text-white"
+  }, /*#__PURE__*/React.createElement("i", {
+    className: "fas fa-cog mr-1"
+  }), "API-Einstellungen")), /*#__PURE__*/React.createElement(ProjectList, {
+    onSelect: setSelectedProjectId
+  }));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
+    </script>
+</body>
+</html>

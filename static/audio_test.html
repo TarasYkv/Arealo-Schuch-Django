@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Test</title>
+</head>
+<body>
+    <h1>Audio Test</h1>
+    
+    <h3>Test 1: Direkter Audio-Tag</h3>
+    <audio id="test1" controls>
+        <source src="/media/music_library/upbeat_738_deep-urban.mp3" type="audio/mpeg">
+    </audio>
+    
+    <h3>Test 2: JavaScript-gesteuerter Player</h3>
+    <audio id="test2" controls></audio>
+    <br>
+    <button onclick="playTrack('/media/music_library/corporate_127_inspiring.mp3')">Play Corporate</button>
+    <button onclick="playTrack('/media/music_library/chill_680_lofi.mp3')">Play Chill</button>
+    <button onclick="document.getElementById('test2').pause()">Stop</button>
+    
+    <h3>Test 3: Externe URL</h3>
+    <audio id="test3" controls>
+        <source src="https://assets.mixkit.co/music/738/738.mp3" type="audio/mpeg">
+    </audio>
+    
+    <script>
+    function playTrack(url) {
+        const player = document.getElementById('test2');
+        player.src = url;
+        player.load();
+        player.play().then(() => {
+            console.log('Playing');
+        }).catch(e => {
+            alert('Error: ' + e.message);
+        });
+    }
+    
+    // Log all audio events
+    ['test1', 'test2', 'test3'].forEach(id => {
+        const el = document.getElementById(id);
+        ['play', 'pause', 'ended', 'error', 'stalled', 'waiting', 'canplay'].forEach(evt => {
+            el.addEventListener(evt, () => console.log(id + ': ' + evt));
+        });
+    });
+    </script>
+</body>
+</html>

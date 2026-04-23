@@ -1,0 +1,79 @@
+class HunyuanVideoI2V:
+    @modal.enter()
+    def load_model(self):
+        import torch
+        from diffusers import HunyuanVideoImageToVideoPipeline, HunyuanVideoTransformer3DModel
+        model_id = "hunyuanvideo-community/HunyuanVideo-I2V"
+        transformer = HunyuanVideoTransformer3DModel.from_pretrained(
+            model_id, subfolder="transformer", torch_dtype=torch.bfloat16
+        )
+        self.pipe = HunyuanVideoImageToVideoPipeline.from_pretrained(
+            model_id, transformer=transformer, torch_dtype=torch.float16
+        )
+        self.pipe.vae.enable_tiling()
+        self.pipe.enable_sequential_cpu_offload()
+
+    @modal.method()
+    def generate_video(self, **kw):
+        import torch
+        from PIL import Image
+        from io import BytesIO
+        import numpy as np
+        start_image_bytes = kw.get("start_image_bytes")
+        prompt = kw.get("prompt", "")
+        fps = kw.get("fps", 15)
+        seed = kw.get("seed", 42)
+        num_steps = kw.get("num_steps", 30)
+        guidance_scale = kw.get("guidance_scale", 6.0)
+        test_mode = kw.get("test_mode", False)
+        num_frames = 33 if test_mode else 65
+        generator = torch.Generator("cuda").manual_seed(seed)
+        if start_image_bytes:
+            img = Image.open(BytesIO(start_image_bytes)).convert("RGB")
+        else:
+            img = Image.new("RGB", (768, 512), (128, 128, 128))
+        
+        # HunyuanVideo needs longer, more detailed prompts
+        if not prompt.strip():
+            full_prompt = "A cinematic video showing smooth camera movement, capturing natural motion and realistic details. The scene unfolds gradually with proper lighting and shadows."
+        elif len(prompt.strip()) < 20:
+            # Extend short prompts automatically
+            full_prompt = f"{prompt.strip()}. The video shows smooth motion, realistic details, cinematic quality, proper lighting and natural movement."
+        else:
+            full_prompt = prompt.strip()
+            
+        try:
+            # First attempt with full prompt
+            result = self.pipe(image=img, prompt=full_prompt,
+                num_frames=num_frames, num_inference_steps=num_steps,
+                guidance_scale=guidance_scale, generator=generator,
+                height=512, width=768)  # Explicit size specification
+            frames = result.frames[0]
+        except Exception as e:
+            print(f"HunyuanVideo first attempt failed: {e}")
+            try:
+                # Second attempt with standard prompt
+                safe_prompt = "A high quality video showing natural movement and smooth transitions. The scene is well-lit with realistic details and cinematic quality."
+                result = self.pipe(image=img, prompt=safe_prompt,
+                    num_frames=num_frames, num_inference_steps=num_steps,
+                    guidance_scale=guidance_scale, generator=generator,
+                    height=512, width=768)
+                frames = result.frames[0]
+            except Exception as e2:
+                print(f"HunyuanVideo second attempt failed: {e2}")
+                # Final attempt with minimal parameters
+                try:
+                    result = self.pipe(image=img, 
+                        prompt="Create a smooth video with natural motion",
+                        num_frames=33,  # Less frames
+                        num_inference_steps=20,  # Less steps
+                        guidance_scale=4.0,  # Lower guidance
+                        generator=generator)
+                    frames = result.frames[0]
+                except Exception as e3:
+                    print(f"HunyuanVideo final fallback failed: {e3}")
+                    raise Exception(f"HunyuanVideo generation failed completely: {str(e3)}")
+                    
+        return to_mp4(np.array(frames) if not isinstance(frames[0], np.ndarray) else frames, fps)
+
+
