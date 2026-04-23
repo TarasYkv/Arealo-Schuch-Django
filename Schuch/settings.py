@@ -79,7 +79,6 @@ INSTALLED_APPS = [
     'lighting_tools',
     'mail_app',
     'email_templates',
-    'somi_plan',
     'makeads',
     'streamrec',
     'superconfig',
