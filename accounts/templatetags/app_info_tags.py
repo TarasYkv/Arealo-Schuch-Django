@@ -144,7 +144,6 @@ APP_GRADIENTS = {
     'image_editor': '#f3a4b5, #c471ed',  # Rosa-Lila
     'mail': '#4a90d9, #667eea',  # Blau
     'naturmacher': '#2ecc71, #27ae60',  # Grün
-    'somi_plan': '#e91e63, #9c27b0',  # Pink-Lila
     'promptpro': '#ff6b6b, #ee5a24',  # Rot-Orange
     'myprompter': '#764ba2, #667eea',  # Lila-Blau
     'fileshare': '#00b894, #00cec9',  # Türkis

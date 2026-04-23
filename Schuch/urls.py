@@ -70,7 +70,6 @@ urlpatterns = [
     path('payments/', include('payments.urls')),
     path('mail/', include('mail_app.urls')),
     path('email-templates/', include('email_templates.urls')),
-    path('somi-plan/', include('somi_plan.urls')),
     path('makeads/', include('makeads.urls')),
     path('streamrec/', include('streamrec.urls', namespace='streamrec')),
     path('superconfig/', include('superconfig.urls')),

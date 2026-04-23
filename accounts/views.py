@@ -319,14 +319,6 @@ def dashboard(request):
             'color': 'bg-warning',
             'category': 'content'
         },
-        'somi_plan': {
-            'name': 'SoMi Plan',
-            'description': 'Social Media Planer für strukturierte Content-Strategie.',
-            'icon': 'bi-calendar-check',
-            'url': 'somi_plan:dashboard',
-            'color': 'bg-info',
-            'category': 'content'
-        },
         'ideopin': {
             'name': 'IdeoPin',
             'description': 'Generiere kreative Post-Ideen für Social Media.',
@@ -3369,7 +3361,6 @@ def storage_overview_view(request):
         'ploom': ('ploom', 'P-Loom', 'bi bi-box-seam-fill'),
         # Kreativ Apps
         'makeads': ('makeads', 'AdsMake', 'bi bi-megaphone'),
-        'somi_plan': ('somi_plan', 'SoMi-Plan', 'bi bi-graph-up'),
         'ideopin': ('ideopin', 'IdeoPin', 'bi bi-pinterest'),
         'imageforge': ('imageforge', 'ImageForge', 'bi bi-image'),
         'vskript': ('vskript', 'VSkript', 'bi bi-file-play'),

@@ -21,7 +21,6 @@ class PublicAppRedirectMiddleware:
             'bilder': ['images/'],
             'mail': ['mail/'],
             'schulungen': ['schulungen/'],
-            'somi_plan': ['somi-plan/'],
             'loomads': ['loomads/'],
             'promptpro': ['promptpro/'],
         }

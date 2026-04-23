@@ -214,28 +214,6 @@ Wissen teilen war nie einfacher!''',
                     'Zertifikate'
                 ]
             },
-            'somi_plan': {
-                'title': 'SoMi-Plan - Social Media Content planen',
-                'icon_class': 'bi bi-calendar-check',
-                'short_description': 'Content-Kalender für Social Media',
-                'detailed_description': '''Das Problem: Social Media Posting ist chaotisch - mal zu viel, mal vergessen, nie konsistent.
-
-Die Workloom-Lösung: SoMi-Plan gibt dir den Überblick - plane Posts im Voraus und bleibe konsistent!
-
-So funktioniert's:
-1️⃣ Content-Ideen im Kalender eintragen
-2️⃣ Posts planen und organisieren
-3️⃣ Übersicht über alle Kanäle behalten
-
-Nie wieder spontan posten müssen!''',
-                'key_features': [
-                    'Content-Kalender',
-                    'Multi-Plattform Übersicht',
-                    'Post-Planung',
-                    'Ideensammlung',
-                    'Team-Koordination'
-                ]
-            },
             'promptpro': {
                 'title': 'PromptPro - KI-Prompt-Bibliothek',
                 'icon_class': 'bi bi-collection',

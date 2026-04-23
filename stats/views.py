@@ -333,7 +333,6 @@ def extract_app_name_from_url(url):
             'payments': 'Zahlungen',
             'mail': 'Mail',
             'email-templates': 'Email Vorlagen',
-            'somi-plan': 'Somi Plan',
             'makeads': 'MakeAds',
             'streamrec': 'StreamRec',
             'superconfig': 'SuperConfig',

@@ -282,23 +282,6 @@ def _get_available_apps():
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
-        'somi_plan': {
-            'name': 'PlanMaster Pro',
-            'icon': 'bi-calendar-check',
-            'color': 'warning',
-            'short_desc': 'Intelligente Planung und Terminverwaltung',
-            'features': [
-                'KI-optimierte Terminplanung',
-                'Ressourcenmanagement',
-                'Team-Koordination',
-                'Mobile Synchronisation'
-            ],
-            'benefits': {
-                'Perfekte Organisation': 'Nie wieder Terminkonflikte',
-                'Teamwork': 'Koordinierte Zusammenarbeit'
-            },
-            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
-        },
         'loomads': {
             'name': 'AdFlow Pro',
             'icon': 'bi-megaphone',
@@ -959,28 +942,6 @@ def _get_all_apps():
                 'Schnell testen': 'Viele Varianten für A/B-Tests generieren',
                 'Kosten sparen': 'Kein teurer Werbetexter nötig',
                 'Konsistenz': 'Einheitliche Markenstimme über alle Kanäle'
-            },
-            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
-        },
-        'somi_plan': {
-            'name': 'SoMi-Plan',
-            'icon': 'bi-calendar-check',
-            'color': 'warning',
-            'short_desc': 'Social Media Planer - plane, erstelle und organisiere deinen Content für alle Netzwerke.',
-            'features': [
-                'Content-Kalender - Übersichtliche Planung deiner Posts im Kalender',
-                'KI-Texterstellung - Passende Captions und Texte generieren lassen',
-                'Medien-Verwaltung - Bilder und Videos für Posts organisieren',
-                'Multi-Plattform - Plane für Instagram, Facebook, TikTok, LinkedIn & mehr',
-                'Hashtag-Vorschläge - Relevante Hashtags automatisch vorgeschlagen',
-                'Posting-Zeiten - Optimale Zeiten für maximale Reichweite',
-                'Content-Ideen - KI-generierte Vorschläge für neue Posts'
-            ],
-            'benefits': {
-                'Konsistenz': 'Regelmäßig posten durch vorausschauende Planung',
-                'Zeitersparnis': 'Content im Voraus erstellen und planen',
-                'Überblick': 'Alle Kanäle in einer Ansicht',
-                'Nie ideenlos': 'KI liefert immer neue Content-Ideen'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },

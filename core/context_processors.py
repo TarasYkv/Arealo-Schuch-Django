@@ -227,12 +227,6 @@ MENU_STRUCTURE = {
                 'auth_url_name': 'makeads:dashboard',
             },
             {
-                'app_name': 'somi_plan',
-                'label': 'SoMi-Plan',
-                'icon': 'bi bi-graph-up',
-                'auth_url_name': 'somi_plan:dashboard',
-            },
-            {
                 'app_name': 'ideopin',
                 'label': 'IdeoPin',
                 'icon': 'bi bi-pinterest text-danger',
