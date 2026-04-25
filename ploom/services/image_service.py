@@ -289,8 +289,21 @@ class PLoomImageService:
         if image_type_config.get('is_design_only'):
             return self.generate_design_image(engraving_text, base_pot_image_path=base_pot_image_path)
 
-        # Topf + Gravur (Referenzbild mit nur der Gravur geändert)
+        # Topf + Gravur (Referenzbild mit nur der Gravur geändert).
+        # Wichtig: wenn bereits ein base_pot generiert wurde (base_pot_image_path),
+        # nehmen wir EXAKT dieses Bild zurück — sonst würde Gemini ein neues
+        # base_pot mit potenziell anderem Logo erzeugen, was die Konsistenz mit
+        # den Szenenbildern bricht (alle Szenen referenzieren das alte base_pot).
         if image_type_config.get('is_base_pot'):
+            if base_pot_image_path:
+                from django.conf import settings as django_settings
+                import base64 as _b64
+                full_path = os.path.join(django_settings.MEDIA_ROOT, base_pot_image_path)
+                if os.path.exists(full_path):
+                    with open(full_path, 'rb') as _f:
+                        image_data = _b64.b64encode(_f.read()).decode('utf-8')
+                    logger.info(f"Reusing existing base_pot for is_base_pot variant: {full_path}")
+                    return {'success': True, 'image_data': image_data}
             return self.generate_base_pot(engraving_text)
 
         pot_desc = self._get_pot_description()
@@ -325,13 +338,13 @@ class PLoomImageService:
                 f"zum Referenzbild dargestellt werden — gleiche Buchstaben-Form, gleiches Logo, "
                 f"gleiche Schreibschrift ({engraving_style})."
                 f"\n\n### TOPFGRÖSSE (kritisch — wird oft falsch dargestellt): ###"
-                f"\nDer Topf ist SEHR KLEIN: nur 14 cm hoch und 14 cm Durchmesser. "
-                f"Visueller Vergleich: etwa so groß wie eine etwas größere Kaffeetasse oder "
-                f"ein hohes Espressoglas. Er passt bequem in zwei zusammengelegte Erwachsenen-Hände. "
-                f"\n\nWenn Personen im Bild sind: der Topf darf NIEMALS größer wirken als eine Kaffeetasse "
-                f"in der Hand, und sollte sichtbar von einer Hand teilweise umfasst werden können."
+                f"\nDer Topf ist KLEIN und KOMPAKT: 14 cm hoch und 14 cm Durchmesser. "
+                f"Visueller Vergleich: ein wenig größer als eine Kaffeetasse — etwa wie eine kleine "
+                f"Müslischale oder eine große Cappuccino-Tasse. "
+                f"\n\nWenn Personen im Bild sind: der Topf wird typischerweise mit beiden Händen gehalten "
+                f"oder mit einer Hand fast komplett umfasst. Er ist NICHT viel größer als eine Tasse."
                 f"\n\nVERBOTEN: bodenlange Pflanzkübel, große Gartenkübel, hüfthohe Übertöpfe, Vasen, "
-                f"Kübel über 20 cm Höhe. Wenn der Topf größer als eine Kaffeetasse erscheint, ist das Bild FALSCH."
+                f"Kübel über 20 cm Höhe. Wenn der Topf erkennbar größer ist als eine Müslischale, ist das Bild FALSCH."
                 f"\n\n### BILD-TYP (WICHTIGSTE ANWEISUNG — bestimmt Komposition und Stil): ###"
                 f"\n{image_type_prompt}"
                 f"\n\n### THEMATISCHER KONTEXT (Stimmung/Umgebung): ###"
@@ -347,11 +360,11 @@ class PLoomImageService:
                 f"Erstelle ein Produktfoto vom Typ '{image_type_label}'. "
                 f"\n\n### TOPF-SPEZIFIKATION (kritisch — wird oft falsch dargestellt): ###"
                 f"\nDer Blumentopf muss so aussehen: {pot_desc}. "
-                f"\nGröße: SEHR KLEIN, nur 14 cm hoch und 14 cm Durchmesser — etwa so groß wie eine "
-                f"etwas größere Kaffeetasse oder ein hohes Espressoglas. Passt bequem in zwei "
-                f"zusammengelegte Erwachsenen-Hände. "
+                f"\nGröße: KLEIN und KOMPAKT, 14 cm hoch und 14 cm Durchmesser — ein wenig größer als "
+                f"eine Kaffeetasse, etwa wie eine kleine Müslischale oder eine große Cappuccino-Tasse. "
+                f"Wird typischerweise mit beiden Händen gehalten."
                 f"\nVERBOTEN: bodenlange Pflanzkübel, hüfthohe Übertöpfe, Vasen, Kübel über 20 cm. "
-                f"Wenn der Topf größer als eine Kaffeetasse erscheint, ist das Bild FALSCH."
+                f"Wenn der Topf erkennbar größer ist als eine Müslischale, ist das Bild FALSCH."
                 f"\n\n### GRAVUR (muss konsistent bleiben): ###"
                 f"\nAuf der Vorderseite des Topfes ist in {engraving_style} die Gravur "
                 f"{spelled_text} eingraviert. Die Gravur ist in den Ton eingeritzt "
