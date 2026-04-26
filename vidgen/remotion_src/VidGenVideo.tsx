@@ -744,45 +744,44 @@ export const VidGenVideo: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
-      {/* Intro Effect Wrapper */}
-      <IntroEffect style={config.introStyle || 'none'}>
-        {/* Background Videos with Ken Burns & Transitions */}
-        {Array.from({ length: config.clips }).map((_, i) => (
-          <Sequence
-            key={i}
-            from={i * clipDuration}
-            durationInFrames={clipDuration}
-          >
-            {config.kenBurnsEffect ? (
-              <KenBurnsVideo
-                src={staticFile(`clip${i + 1}.mp4`)}
-                index={i}
-              />
-            ) : (
-              <OffthreadVideo
-                src={staticFile(`clip${i + 1}.mp4`)}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-            )}
-            {/* Transition Overlay */}
-            <TransitionOverlay 
-              style={config.transitionStyle || 'cut'} 
-              clipIndex={i} 
-              clipDuration={clipDuration} 
+      {/* Background Videos — immer sichtbar, kein Intro-Overlay */}
+      {Array.from({ length: config.clips }).map((_, i) => (
+        <Sequence
+          key={i}
+          from={i * clipDuration}
+          durationInFrames={clipDuration}
+        >
+          {config.kenBurnsEffect ? (
+            <KenBurnsVideo
+              src={staticFile(`clip${i + 1}.mp4`)}
+              index={i}
             />
-          </Sequence>
-        ))}
-      </IntroEffect>
+          ) : (
+            <OffthreadVideo
+              src={staticFile(`clip${i + 1}.mp4`)}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          )}
+          {/* Transition Overlay */}
+          <TransitionOverlay 
+            style={config.transitionStyle || 'cut'} 
+            clipIndex={i} 
+            clipDuration={clipDuration} 
+          />
+        </Sequence>
+      ))}
 
       {/* Audio */}
       <Audio src={staticFile("voiceover.mp3")} />
 
-      {/* Title (first 5 seconds) */}
-      <Title title={config.title} position={config.titlePosition || 'top'} />
+      {/* Title (first 5 seconds) — mit Intro-Effekt animiert */}
+      <IntroEffect style={config.introStyle || 'none'}>
+        <Title title={config.title} position={config.titlePosition || 'top'} />
+      </IntroEffect>
 
       {/* Subtitles */}
       {words.length > 0 && <Subtitle words={words} />}
