@@ -88,7 +88,11 @@ class PLoomShopifyService:
                     "vendor": ploom_product.vendor or "",
                     "product_type": ploom_product.product_type or "",
                     "tags": ploom_product.tags or "",
-                    "status": "draft",  # Immer als Entwurf
+                    # Status aus PLoomProduct übernehmen ('active' = veröffentlicht,
+                    # 'draft' = Entwurf, 'archived' = archiviert). Default: active.
+                    "status": (ploom_product.status
+                               if ploom_product.status in ("active", "draft", "archived")
+                               else "active"),
                 }
             }
 
