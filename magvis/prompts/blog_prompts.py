@@ -1,11 +1,28 @@
 """GLM-Prompts für Blog-Sektionen (Naturmacher-Stil)."""
 
 NATURMACHER_VOICE = (
-    "Du schreibst für Naturmacher.de — einen deutschen Familienbetrieb, der "
-    "personalisierte Blumentöpfe mit Gravur als Geschenke verkauft. "
-    "Stil: warm, herzlich, du-Form, persönliche Anrede des Lesers. "
-    "Sprache: korrektes Deutsch, fließende Sätze, max. 25 Wörter pro Satz. "
-    "Vermeide hohle Marketing-Phrasen. Nutze Bilder und Beispiele."
+    "Du schreibst aus erster Person fuer Naturmacher.de — wir sind ein "
+    "deutscher Familienbetrieb (graviert seit 2019 Blumentoepfe als "
+    "personalisierte Geschenke).\n\n"
+    "PERSPEKTIVE — STRENG:\n"
+    "- Schreibe in 'wir' / 'uns' / 'bei Naturmacher': "
+    "  'Wir bei Naturmacher gravieren...', 'Bei uns hat sich gezeigt...', "
+    "  'Aus unserer Werkstatt-Erfahrung...'\n"
+    "- Spreche den Leser mit 'du' / 'dich' / 'dein' an.\n"
+    "- KEINE neutralen Sachtexte ohne Stimme, KEINE 'Sie'-Form, KEINE "
+    "  generischen Floskeln wie 'Es ist allgemein bekannt...'\n\n"
+    "EIGENE ERFAHRUNG einstreuen (E-E-A-T):\n"
+    "- Mindestens 2-3 konkrete Praxis-Mini-Anekdoten pro Beitrag, z.B.:\n"
+    "  • 'Letztens hat uns eine Kundin geschrieben, sie habe ihren...'\n"
+    "  • 'In unserer Werkstatt sehen wir oft, dass...'\n"
+    "  • 'Wir haben schon hunderte Toepfe graviert und wissen daher...'\n"
+    "  • 'Eine Mama erzaehlte uns, ihre Tochter habe...'\n"
+    "- Die Anekdoten muessen plausibel sein und zum Thema des Abschnitts passen.\n\n"
+    "STIL:\n"
+    "- Warm, herzlich, ehrlich, naturverbunden.\n"
+    "- Korrektes Deutsch, fluessige Saetze, max. 25 Woerter pro Satz.\n"
+    "- KEINE hohlen Marketing-Phrasen ('zeitlose Eleganz', 'erstklassige Qualitaet').\n"
+    "- Konkrete Bilder, sinnliche Sprache, kleine Beispiele aus dem Alltag."
 )
 
 
@@ -23,9 +40,16 @@ def headings_prompt(topic: str, num_headings: int = 6) -> str:
 def section_prompt(topic: str, heading: str, position_hint: str = '') -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
-        f"Schreibe 1-2 Absätze (insgesamt 80-180 Wörter) für die Blog-Sektion "
+        f"Schreibe 2-3 Absaetze (insgesamt 180-280 Woerter) fuer die Blog-Sektion "
         f"\"{heading}\" innerhalb eines Beitrags zum Thema \"{topic}\". "
         f"{position_hint}\n\n"
+        f"INVERTED PYRAMID (kritisch fuer SEO + LLM-Snippet-Ranking):\n"
+        f"- Die ersten 1-2 Saetze beantworten die Sektions-Frage DIREKT und "
+        f"  prägnant (definitive Antwort). Erst DANACH kommen Details, Beispiele "
+        f"  und Praxis-Anekdoten.\n"
+        f"- Wenn moeglich: 1-2 H3-Unterueberschriften (<h3 style=\"color:#3D5A40;"
+        f"margin:1.4rem 0 0.6rem;font-size:1.1rem;\">) zur Strukturierung.\n"
+        f"- Mindestens 1 Praxis-Mini-Anekdote in 1. Person ('Letztens hat uns...').\n\n"
         f"WICHTIG — Strukturierte Inhalte: Wenn dieser Abschnitt thematisch passt, "
         f"baue UNBEDINGT eines der folgenden Strukturelemente ein:\n"
         f"- Eine Aufzählung mit 4-6 Stichpunkten als <ul><li>...</li></ul> "
@@ -52,10 +76,58 @@ def section_prompt(topic: str, heading: str, position_hint: str = '') -> str:
 def intro_prompt(topic: str) -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
-        f"Schreibe eine Blog-Einleitung von genau 2 Absätzen (zusammen 100-150 Wörter) "
-        f"zum Thema \"{topic}\". Ein starker Hook, eine emotionale Verbindung zum Leser, "
-        f"ein Versprechen, was im Beitrag kommt. Kein <h1>, kein <h2>. "
-        f"Antworte als reines HTML in <p>-Tags."
+        f"Schreibe eine Blog-Einleitung von 2-3 Absaetzen (130-180 Woerter) "
+        f'zum Thema "{topic}".\n'
+        f"- Hook im 1. Satz (Frage, Statement oder Mini-Anekdote).\n"
+        f"- 'Wir bei Naturmacher haben...' Erfahrungsbezug einbauen.\n"
+        f"- Versprechen, was der Leser hier lernt/findet.\n"
+        f"- Kein <h1>, kein <h2>. Reines HTML in <p>-Tags."
+    )
+
+
+def tldr_prompt(topic: str) -> str:
+    """Kompakte TL;DR-Box am Anfang — Featured-Snippet- + LLM-Goldgrube."""
+    return (
+        f"{NATURMACHER_VOICE}\n\n"
+        f'Erstelle eine TL;DR-Zusammenfassung fuer einen Blog zum Thema "{topic}".\n'
+        f"- 1 Kern-Antwort-Satz: prägnante, definitive Antwort auf die Hauptfrage. "
+        f"  (Genau dieser Satz wird von ChatGPT/Perplexity zitiert!)\n"
+        f"- 3-4 Bullet-Highlights (je max. 12 Woerter, mit aktivem Verb).\n"
+        f"- Naturmacher-Empfehlung in 1 Satz.\n\n"
+        f"Antworte als JSON:\n"
+        f'{{"core_answer": "...", "bullets": ["...", "...", "..."], '
+        f'"recommendation": "..."}}\n'
+        f"core_answer + recommendation: jeweils eine Zeile, je max. 25 Woerter."
+    )
+
+
+def w_questions_prompt(topic: str) -> str:
+    """W-Fragen-Block — beantwortet die typischen Suchanfragen direkt."""
+    return (
+        f"{NATURMACHER_VOICE}\n\n"
+        f'Erstelle GENAU 5 W-Fragen + direkte Antworten zum Thema "{topic}".\n'
+        f"Jede Frage beginnt mit Was, Wie, Wann, Warum, oder Wer. Die Antwort "
+        f"beantwortet die Frage in den ersten 10-15 Woertern direkt — danach "
+        f"folgt 1 Satz mit Kontext / Naturmacher-Erfahrung.\n\n"
+        f"Diese Fragen entsprechen typischen Google-Suchanfragen (W-Fragen-Box).\n\n"
+        f"Antworte als JSON-Array:\n"
+        f'[{{"question": "Was ist...?", "answer": "Direkte Antwort. Ergaenzender '
+        f'Kontext-Satz mit Naturmacher-Erfahrung."}}, ...]'
+    )
+
+
+def search_intent_prompt(topic: str) -> str:
+    """Klassifiziert die Suchintention, damit Ueberschriften/Sprache passen."""
+    return (
+        f'Klassifiziere die Suchintention fuer das Keyword "{topic}":\n\n'
+        f'- "informational" — User will lernen / sich informieren '
+        f'(Was, Wie, Warum, Tipps, Ideen)\n'
+        f'- "transactional" — User will kaufen / direkte Aktion '
+        f'(kaufen, bestellen, vergleichen)\n'
+        f'- "navigational" — User sucht eine bestimmte Marke/Site\n\n'
+        f"Liefere zudem 3-5 LSI-Keywords (semantisch verwandt).\n\n"
+        f'Antworte als JSON: {{"intent": "informational|transactional|navigational", '
+        f'"reasoning": "1 Satz", "lsi_keywords": ["...", "..."]}}'
     )
 
 

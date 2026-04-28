@@ -22,9 +22,12 @@ from ..prompts.blog_prompts import (
     faqs_prompt,
     headings_prompt,
     intro_prompt,
+    search_intent_prompt,
     section_prompt,
     seo_prompt,
     tips_prompt,
+    tldr_prompt,
+    w_questions_prompt,
 )
 from .gemini_helper import MagvisGeminiHelper
 from .internal_linking_service import MagvisInternalLinkingService
@@ -55,6 +58,7 @@ class MagvisBlogAssembler:
         self._research_context = ''         # gefuellt vor Sektionen-Generierung
         self._internal_links_text = ''
         self._internal_links_data: dict = {}
+        self._search_intent: dict = {}       # informational/transactional + LSI-Keywords
 
     # ------------------------------------------------------------------ public
 
@@ -73,8 +77,9 @@ class MagvisBlogAssembler:
         # 2. Headings (Struktur-Skelett)
         headings = self._generate_headings(topic)
 
-        # 0a. RESEARCH + INTERNAL LINKS (frueh — fuer Sektions-Prompts)
+        # 0a. RESEARCH + INTERNAL LINKS + INTENT (frueh — fuer Sektions-Prompts)
         self._do_research_and_linking(topic)
+        self._classify_intent(topic)
 
         # 0. TITELBILD (Hero, ganz oben)
         title_url = self._generate_blog_image(
@@ -86,6 +91,16 @@ class MagvisBlogAssembler:
                 'type': 'title_image', 'id': 'hero',
                 'src': title_url,
                 'html': self._title_image_html(title_url, blog.seo_title or topic),
+            })
+
+        # 0b. TL;DR-BOX (vor Intro — Featured-Snippet- + LLM-Optimierung)
+        tldr_data = self.glm.json_chat_with_retry(
+            tldr_prompt(topic), expect='object', max_tokens=600, retries=2,
+        ) or {}
+        if tldr_data.get('core_answer'):
+            sections.append({
+                'type': 'tldr_box', 'id': 'tldr',
+                'html': self._tldr_box_html(tldr_data),
             })
 
         # 3. Intro
@@ -148,6 +163,16 @@ class MagvisBlogAssembler:
         para3 = self._call_glm(section_prompt(topic, head3))
         sections.append({'type': 'h2', 'id': slug3, 'title': head3})
         sections.append({'type': 'paragraph', 'id': f'{slug3}-p', 'html': para3})
+
+        # 9b. W-FRAGEN-BLOCK (nach Sektion 3 — typische Google-Suchanfragen direkt beantwortet)
+        wq = self.glm.json_chat_with_retry(
+            w_questions_prompt(topic), expect='array', max_tokens=2000, retries=3,
+        ) or []
+        if wq and isinstance(wq, list):
+            sections.append({
+                'type': 'w_questions', 'id': 'w-questions',
+                'html': self._w_questions_html(wq),
+            })
 
         # 10. QUIZ
         try:
@@ -283,12 +308,20 @@ class MagvisBlogAssembler:
     # ----------------------------------------------------------------- helper
 
     def _call_glm(self, prompt: str) -> str:
-        # Research + Links als System-Erweiterung anhaengen
+        # Research + Links + Intent als System-Erweiterung anhaengen
         system = NATURMACHER_VOICE
+        intent = self._search_intent.get('intent', 'informational') if self._search_intent else 'informational'
+        lsi = self._search_intent.get('lsi_keywords', []) if self._search_intent else []
+        if intent == 'transactional':
+            system += '\n\nSUCHINTENTION: Transaktional — der Leser will (nach dem Lesen) entscheiden/kaufen. Sei konkret zu Vorteilen, Anwendungsfaellen.'
+        else:
+            system += '\n\nSUCHINTENTION: Informationell — der Leser will lernen. Liefere echten Mehrwert, keine Verkaufstexte.'
+        if lsi:
+            system += f'\n\nLSI-KEYWORDS (semantisch verwandt — natuerlich einbauen, nicht keyword-stuffing): {", ".join(lsi)}'
         if self._research_context:
             system += (
                 '\n\nRECHERCHE-KONTEXT (verwende Fakten daraus, niemals 1:1 zitieren, '
-                'sondern als Naturmacher mit eigener Stimme einbauen):\n'
+                'sondern als Naturmacher in 1. Person mit eigener Stimme einbauen):\n'
                 + self._research_context
             )
         if self._internal_links_text:
@@ -303,6 +336,21 @@ class MagvisBlogAssembler:
         except Exception as exc:
             logger.warning('GLM-Call fehlgeschlagen: %s', exc)
             return f'<p><em>(Hinweis: Sektion konnte nicht generiert werden.)</em></p>'
+
+    def _classify_intent(self, topic: str) -> None:
+        """Klassifiziert Suchintention + ermittelt LSI-Keywords."""
+        try:
+            data = self.glm.json_chat_with_retry(
+                search_intent_prompt(topic), expect='object',
+                max_tokens=400, retries=2,
+            ) or {}
+            self._search_intent = data
+            logger.info('Intent: %s, LSI: %s',
+                        data.get('intent', '?'),
+                        data.get('lsi_keywords', []))
+        except Exception as exc:
+            logger.warning('Intent-Klassifikation fehlgeschlagen: %s', exc)
+            self._search_intent = {'intent': 'informational'}
 
     def _do_research_and_linking(self, topic: str) -> None:
         """Web-Research + interne Links — fuellt self._research_context und _internal_links_text."""
@@ -474,6 +522,73 @@ class MagvisBlogAssembler:
     </div>
   </div>
 </div>'''
+
+    def _tldr_box_html(self, data: dict) -> str:
+        """TL;DR-Box am Anfang des Blogs — fuer Featured Snippets + LLMs."""
+        core = escape(str(data.get('core_answer', '')))
+        bullets = data.get('bullets') or []
+        recommendation = escape(str(data.get('recommendation', '')))
+        if not core:
+            return ''
+        bullet_html = ''.join(
+            f'<li style="margin:4px 0;color:#3D5A40;">{escape(str(b))}</li>'
+            for b in bullets if b
+        )
+        rec_html = ''
+        if recommendation:
+            rec_html = (
+                f'<div style="margin-top:12px;padding-top:10px;'
+                f'border-top:1px dashed rgba(125,156,128,0.3);'
+                f'font-size:0.92rem;color:#3D5A40;">'
+                f'<strong>Naturmacher-Tipp:</strong> {recommendation}'
+                f'</div>'
+            )
+        return (
+            '<aside class="naturmacher-tldr" '
+            'style="margin:24px auto 28px;max-width:680px;'
+            'background:linear-gradient(135deg,#FFFCF4 0%,#F8F1DA 100%);'
+            'border:1px solid rgba(212,171,50,0.4);border-radius:12px;'
+            'padding:18px 22px;box-shadow:0 2px 14px rgba(212,171,50,0.08);">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+            '<span style="font-size:1.2rem;">⚡️</span>'
+            '<strong style="color:#8A6F1F;font-size:0.85rem;letter-spacing:0.08em;text-transform:uppercase;">In 30 Sekunden</strong>'
+            '</div>'
+            f'<p style="margin:0 0 10px;font-size:1.05rem;color:#2A2A2A;line-height:1.5;font-weight:500;">{core}</p>'
+            f'<ul style="margin:0;padding-left:18px;">{bullet_html}</ul>'
+            f'{rec_html}'
+            '</aside>'
+        )
+
+    def _w_questions_html(self, items: list) -> str:
+        """W-Fragen-Block — typische Google-Suchanfragen direkt beantwortet."""
+        if not items:
+            return ''
+        rows = ''
+        for it in items[:5]:
+            if not isinstance(it, dict):
+                continue
+            q = escape(str(it.get('question', '')))
+            a = escape(str(it.get('answer', '')))
+            if not q or not a:
+                continue
+            rows += (
+                '<div style="padding:14px 0;border-bottom:1px solid #E8DFC9;">'
+                f'<div style="font-weight:600;color:#3D5A40;font-size:1.02rem;margin-bottom:6px;">'
+                f'<span style="color:#D4AB32;margin-right:6px;">?</span>{q}'
+                '</div>'
+                f'<div style="color:#5C5651;font-size:0.95rem;line-height:1.55;">{a}</div>'
+                '</div>'
+            )
+        return (
+            '<section class="naturmacher-w-questions" '
+            'style="margin:36px auto;max-width:680px;background:#FAF6EC;'
+            'border:1px solid #E8DFC9;border-radius:12px;padding:8px 24px 18px;">'
+            '<h3 style="margin:18px 0 6px;color:#3D5A40;font-size:1.2rem;'
+            'border-bottom:2px solid rgba(125,156,128,0.25);padding-bottom:8px;">'
+            'Die häufigsten Fragen direkt beantwortet</h3>'
+            f'{rows}'
+            '</section>'
+        )
 
     def _title_image_html(self, src: str, alt_title: str) -> str:
         """Hero-Titelbild im Blog (16:9, full-width)."""
