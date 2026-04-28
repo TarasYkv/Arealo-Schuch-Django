@@ -67,23 +67,24 @@ class MagvisOrchestrator:
     # ----------------------------------------------------------------- stages
 
     def _stage_video(self, **kwargs) -> dict:
+        """Video-Stage: vidgen synchron im selben Worker.
+
+        Der pool=solo Celery-Worker kann den vidgen-Task nicht parallel
+        abarbeiten, deshalb kein .delay() + Polling-Deadlock — sondern
+        direkter Aufruf von vidgen.tasks.generate_video.run().
+        """
         from .video_pipeline import MagvisVideoPipeline
         pipe = MagvisVideoPipeline(self.project)
-        if not self.project.vidgen_project:
-            pipe.create_video_project()
-        task_id = pipe.trigger_render()
-        # Video läuft async im vidgen-Worker. Wir warten synchron mit Polling.
-        import time
-        deadline = time.time() + 1800  # 30 min
-        while time.time() < deadline:
-            done, err = pipe.is_done()
-            if done:
-                if err:
-                    raise RuntimeError(f'Video-Generierung fehlgeschlagen: {err}')
-                pipe.attach_video_record()
-                return {'success': True, 'task_id': task_id}
-            time.sleep(15)
-        raise RuntimeError('Timeout bei Video-Generierung (>30 Min)')
+        pipe.create_video_project()
+        result = pipe.trigger_render(sync=True)
+        # vidgen markiert sein VideoProject am Ende auf status='done' oder 'failed'
+        done, err = pipe.is_done()
+        if not done:
+            raise RuntimeError('Video-Pipeline lief, aber VideoProject ist nicht done/failed')
+        if err:
+            raise RuntimeError(f'Video-Generierung fehlgeschlagen: {err}')
+        pipe.attach_video_record()
+        return {'success': True, 'video_result': result}
 
     def _stage_post_video(self, **kwargs) -> dict:
         from .social_pipeline import MagvisSocialPipeline

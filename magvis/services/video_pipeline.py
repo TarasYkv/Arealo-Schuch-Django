@@ -51,14 +51,27 @@ class MagvisVideoPipeline:
         self.project.save(update_fields=['vidgen_project', 'updated_at'])
         return vidgen_project
 
-    def trigger_render(self) -> str:
-        """Triggert vidgen.tasks.generate_video als Celery-Task. Liefert Task-ID."""
+    def trigger_render(self, sync: bool = True) -> str | dict:
+        """Startet die vidgen-Pipeline.
+
+        Mit sync=True (Default): synchron im aktuellen Prozess —
+        notwendig wenn wir aus einem Solo-Pool-Worker laufen, der sich
+        sonst selbst deadlockt (kein zweiter Worker fuer den vidgen-Task).
+        Mit sync=False: per Celery-delay (eigene Queue empfohlen).
+        """
         from vidgen.tasks import generate_video
 
         if not self.project.vidgen_project:
             self.create_video_project()
 
-        async_result = generate_video.delay(self.project.vidgen_project.id)
+        vp_id = self.project.vidgen_project.id
+        if sync:
+            # Bypass Celery — vidgen.generate_video.run() laeuft inline.
+            # Das laesst den Stage-Worker bis zum Video-Ende blockieren,
+            # ist aber im Solo-Pool die einzig deadlock-freie Option.
+            return generate_video.run(vp_id)
+
+        async_result = generate_video.delay(vp_id)
         task_ids = self.project.task_ids or {}
         task_ids['video'] = async_result.id
         self.project.task_ids = task_ids
