@@ -34,6 +34,29 @@ from .llm_client import MagvisLLMClient
 logger = logging.getLogger(__name__)
 
 
+# Statisches Naturmacher-Hersteller-HTML (Pflichtangabe Produktbundle).
+HERSTELLER_INFO_HTML = (
+    '<p><span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>Bei diesem Artikel handelt es sich um ein Produktbundle.</span>'
+    '<br style="text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, &quot;;">'
+    '<span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>Die Bundlebestandteile sind&nbsp;</span>'
+    '<span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 12px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>'
+    '<a href="https://cdn.shopify.com/s/files/1/0696/9494/7595/files/produktsicherheit.pdf?v=1736755197" target="_blank" rel="noopener noreferrer">hier</a></span>'
+    '<span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>aufgeführt.</span>'
+    '<br style="text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, &quot;;">'
+    '<br style="text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, &quot;;">'
+    '<span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>Verantwortlich für die Zusammenstellung des Produktbundles ist:</span>'
+    '<br style="text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, &quot;;">'
+    'Naturmacher, Taras Yuzkiv'
+    '<br style="text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, &quot;;">'
+    '<span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>Schillerstraße 6 64625 Bensheim</span>'
+    '<br style="text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, &quot;;">'
+    '<span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>E-Mail: kontakt@naturmacher.de</span>'
+    '<br style="text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, &quot;;">'
+    '<br></p>'
+)
+WARN_HINWEISE = 'kein Spielzeug'
+
+
 class MagvisProductPipeline:
     def __init__(self, project: MagvisProject):
         self.project = project
@@ -92,6 +115,33 @@ class MagvisProductPipeline:
                                          'updated_at'])
 
         return {'success': all(r[1].get('success') for r in results), 'results': results}
+
+    def _generate_kurzbeschreibung_eigene(self, engraving_text: str) -> list[str]:
+        """3 knackige Bullet-Highlights als List-Field (Shopify-Metafeld)."""
+        prompt = (
+            f'Erstelle 3 sehr knappe, emotionale Highlight-Punkte fuer einen '
+            f'personalisierten Blumentopf mit Gravur "{engraving_text}" '
+            f'zum Thema "{self.project.topic}".\n\n'
+            f"Format-Regeln:\n"
+            f"- Jeder Punkt 2-5 Woerter, AKTIV formuliert.\n"
+            f"- KEIN Punkt am Ende, KEIN Substantiv-Marketing-Floskel "
+            f'  ("hochwertig", "premium" verboten).\n'
+            f'- Beispiele: "Bereit zum Verschenken", "Geschenk das im Gedaechtnis bleibt", '
+            f'  "Persoenlich graviert", "Mit Liebe gefertigt", "Sofort einsatzbereit".\n\n'
+            f'Antwort als JSON-Array mit 3 Strings: ["...", "...", "..."]'
+        )
+        try:
+            data = self.glm.json_chat(prompt, temperature=0.6)
+            if isinstance(data, list) and len(data) >= 1:
+                return [str(s).strip() for s in data[:3] if s]
+        except Exception as exc:
+            logger.warning('Kurzbeschreibung-Generation: %s', exc)
+        # Fallback
+        return [
+            'Bereit zum Verschenken',
+            'Geschenk, das im Gedächtnis bleibt',
+            'Persönlich für dich graviert',
+        ]
 
     def _override_seo_mid_volume(self, base_seo: dict, engraving_text: str) -> dict | None:
         """Optimiert SEO-Felder auf Mid-Volume-Long-Tail-Keywords (statt generisch)."""
@@ -194,6 +244,9 @@ class MagvisProductPipeline:
         ) or {}
         seo_content = self._override_seo_mid_volume(seo_content, engraving_text) or seo_content
 
+        # 3 Kurzbeschreibung-Highlights via GLM (List-Field)
+        kurzbeschreibung = self._generate_kurzbeschreibung_eigene(engraving_text)
+
         # Produkt anlegen (vorerst ohne Shopify)
         ploom_settings_obj = ploom_settings
         product = PLoomProduct.objects.create(
@@ -210,6 +263,11 @@ class MagvisProductPipeline:
             inventory_quantity=100,
             shopify_store=ploom_settings_obj.default_store if ploom_settings_obj else None,
             status='active',  # active = direkt veroeffentlicht in Shopify (nicht 'draft')
+            product_metafields={
+                'custom.herstellerinformationen_': HERSTELLER_INFO_HTML,
+                'custom._warn_hinweise': WARN_HINWEISE,
+                'custom.kurzbeschreibung_eigene': kurzbeschreibung,
+            },
         )
 
         # Phase 1: 3 KI-Bilder
