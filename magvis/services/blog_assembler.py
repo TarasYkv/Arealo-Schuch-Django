@@ -413,21 +413,44 @@ class MagvisBlogAssembler:
             return f'<p><em>(Hinweis: Sektion konnte nicht generiert werden.)</em></p>'
 
     def _extract_verified_statistics(self, topic: str) -> list[dict]:
-        """Holt 1-3 verifizierte Statistiken aus Whitelist-Quellen.
+        """Holt 1-4 verifizierte Statistiken/Aussagen aus Whitelist-Quellen.
 
         Pipeline:
-        1. Stat-fokussierte Web-Suche (research_service.search_statistics)
-        2. GLM extrahiert mit quote_excerpt-Pflichtfeld
-        3. Live-Verifikation gegen Quell-URL
-        4. Filtert auf Whitelist-Domains
+        1. Topic-Transformation: 'geschenk X' → 'X' fuer Stat-Suche
+        2. Stat-fokussierte Web-Suche (research_service.search_statistics)
+        3. GLM extrahiert mit quote_excerpt-Pflichtfeld
+        4. Live-Verifikation gegen Quell-URL
         """
+        # Topic-Transformation: 'geschenk abiturientin' → 'abiturientin abitur'
+        # Damit Stat-Suche thematische, nicht produktbezogene Quellen findet
+        stat_topic = topic
+        for prefix in ('geschenk ', 'geschenkidee ', 'idee '):
+            if stat_topic.lower().startswith(prefix):
+                stat_topic = stat_topic[len(prefix):].strip()
+                break
+        # Zusatz: GLM-generierte Schlagwoerter fuer breitere Suche
         try:
-            stat_results = self.research.search_statistics(topic, num_results=8)
+            related = self.glm.text(
+                f'Liefere 3 sachbezogene Schlagwoerter fuer eine Statistik-Suche '
+                f'zum Thema "{stat_topic}". Nur die Woerter, kommagetrennt, kein Praefix. '
+                f'Beispiele: "abiturientin" → "abitur, hochschulreife, schulabschluss"; '
+                f'"erzieherin" → "erzieher, kindergarten, paedagogik"',
+                temperature=0.2,
+            ).strip()
+            if related and len(related) < 200:
+                stat_topic = f'{stat_topic} {related.replace(",", " ")}'
+        except Exception:
+            pass
+        logger.info('Stat-Topic transformiert: %r', stat_topic)
+
+        try:
+            stat_results = self.research.search_statistics(stat_topic, num_results=8)
         except Exception as exc:
             logger.warning('Stat-Search fehlgeschlagen: %s', exc)
             return []
+        logger.info('Stat-Search Treffer: %d Whitelist-URLs', len(stat_results) if stat_results else 0)
         if not stat_results:
-            logger.info('Keine Stat-Quellen aus Whitelist gefunden')
+            logger.warning('Keine Stat-Quellen aus Whitelist gefunden')
             return []
         research_text = self.research.format_for_llm(stat_results)
 
@@ -441,6 +464,7 @@ class MagvisBlogAssembler:
             return []
         if not isinstance(extracted, list):
             return []
+        logger.info('GLM extrahierte %d Stat-Kandidaten', len(extracted))
 
         # Verifikation MIT Recherche-Kontext (Snippet-First)
         verified = []

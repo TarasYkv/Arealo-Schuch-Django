@@ -26,6 +26,8 @@ class MagvisResearchService:
     TIMEOUT = 12
 
     # Vertrauenswuerdige Domains fuer Statistiken (frei abrufbar ohne Login).
+    # Erweitert um: Wikipedia (sekundaer, aber zitiert Primaerquellen),
+    # Branchenmagazine, Berufsverbaende.
     STATISTICS_WHITELIST = (
         # Bund
         'destatis.de', 'bundesregierung.de', 'bmfsfj.de', 'bmg.de',
@@ -47,6 +49,13 @@ class MagvisResearchService:
         # Laender (Auswahl)
         'statistik-bw.de', 'statistik.bayern.de', 'it.nrw',
         'statistik-berlin-brandenburg.de',
+        # Wikipedia (sekundaer — zitiert Primaerquellen, hat oft echte Zahlen)
+        'de.wikipedia.org', 'en.wikipedia.org',
+        # Berufs-spezifische Quellen
+        'arbeitsagentur.de', 'bmwk.de', 'kfw.de',
+        'destatis.de', 'pwc.de', 'mckinsey.de',
+        # Magazine/Fachpresse mit eigenen Studien
+        'deutschlandfunk.de', 'tagesschau.de', 'zeit.de',
     )
 
     @classmethod
