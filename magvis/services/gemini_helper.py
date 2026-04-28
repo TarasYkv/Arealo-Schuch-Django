@@ -74,29 +74,37 @@ class MagvisGeminiHelper:
         return {'success': False, 'error': 'all 3 attempts failed'}
 
     def generate_diagram(self, topic: str, content_summary: str = '') -> dict:
-        """Erzeugt ein Infografik-/Diagramm-Bild für den Blog (Bar-Chart, Flow oder Mindmap-Style)."""
+        """Erzeugt ein Infografik-Bild OHNE Text (nur Icons/Symbole) — vermeidet Schreibfehler."""
         prompt = (
-            f'Generate an image (NOT TEXT, IMAGE only) — a clean modern German infographic about "{topic}".\n\n'
-            f'Style: minimalist flat design, soft earth-tone palette (beige, sage green, warm brown), '
-            f'clear sans-serif typography in German, lots of whitespace.\n\n'
-            f'Content: {content_summary or "the most important key points about the topic"} — '
-            f'visualized as 3 to 5 key points, each with a simple icon and a German one-line caption.\n\n'
-            f'STRICT NEGATIVES: no photorealism, no real people, no stock-photo look, no English text.\n\n'
+            f'Generate an image (NOT TEXT) — a clean visual concept board about "{topic}".\n\n'
+            f'Style: minimalist flat design, soft earth-tone palette '
+            f'(beige, sage green, warm brown). Lots of whitespace. '
+            f'3 to 5 simple symbolic icons arranged in a balanced composition.\n\n'
+            f'Content theme: {content_summary or "the topic"} expressed THROUGH ICONS '
+            f'(plant, gift, heart, candle, hand, star, sparkle, flower, leaf — choose what fits).\n\n'
+            f'CRITICAL — DO NOT INCLUDE ANY TEXT/WORDS/LETTERS/CAPTIONS/LABELS/NUMBERS '
+            f'in the image. Zero text. Zero readable characters. Pure visual symbols only. '
+            f'No headlines, no titles, no annotations.\n\n'
+            f'STRICT NEGATIVES: no photorealism, no real people, no stock-photo look, '
+            f'no any kind of writing, no decorative typography.\n\n'
             f'Output: ONLY the image. Do not respond with text.'
         )
         return self._generate_and_save(prompt, prefix='diagram')
 
     def generate_brainstorm(self, topic: str) -> dict:
-        """Brainstorming-Bild: visuelle Mindmap / Concept-Board."""
+        """Brainstorming-Bild OHNE Text — nur Icons + Linien (vermeidet Schreibfehler)."""
         prompt = (
-            f'Generate an image (NOT TEXT, IMAGE only) — a hand-drawn brainstorming mind-map about "{topic}".\n\n'
-            f'Visual style: pencil + watercolor accents on cream-colored paper, earth-tone palette '
-            f'(beige, sage green, warm brown). The central topic is written in the middle as a hand-drawn '
-            f'bubble. Around it, 5-7 connected branches lead to sub-topics, each labelled in German handwriting '
-            f'with a small doodle icon (heart, gift, plant, candle, hand, etc.).\n\n'
-            f'Composition: square format. Whitespace around. Looks like a real notebook page.\n\n'
-            f'STRICT NEGATIVES: no photographic content, no real people, no realistic objects, '
-            f'no text descriptions outside the image, no English labels.\n\n'
+            f'Generate an image (NOT TEXT) — a hand-drawn brainstorming sketch related '
+            f'to "{topic}", with only ICONS and CONNECTING LINES, NO words.\n\n'
+            f'Visual style: pencil + watercolor accents on cream paper, earth-tone palette '
+            f'(beige, sage green, warm brown). A central icon (heart, gift, or plant), '
+            f'connected by hand-drawn lines to 5-7 smaller sub-icons (candle, hand, '
+            f'star, leaf, sparkle, etc.).\n\n'
+            f'CRITICAL — ZERO TEXT IN IMAGE: no labels, no words, no letters, no numbers, '
+            f'no captions, no headlines. Only graphic symbols and connecting lines.\n\n'
+            f'Composition: square format, whitespace, notebook-page feel.\n\n'
+            f'STRICT NEGATIVES: no photographic content, no real people, no realistic '
+            f'objects, no any kind of writing.\n\n'
             f'Output: ONLY the image. Do not respond with text.'
         )
         return self._generate_and_save(prompt, prefix='brainstorm')

@@ -1003,22 +1003,16 @@ class MagvisBlogAssembler:
         )
 
     def _compose_html(self, blog: MagvisBlog) -> str:
-        # Reihenfolge: title_image (ganz oben) → TOC → restliche Sektionen.
-        # H2 in Naturmacher-Salbeigruen, elegant unterstrichen.
+        # Reihenfolge: TOC → restliche Sektionen.
+        # title_image NICHT in body_html — wird als Article-Featured-Image
+        # an Shopify uebergeben (Theme rendert es als Hero, vermeidet Duplikat).
         parts: list[str] = []
-        title_html = ''
-        for sec in blog.sections:
-            if sec.get('type') == 'title_image':
-                title_html = sec.get('html', '')
-                break
-        if title_html:
-            parts.append(title_html)
         if blog.toc_html:
             parts.append(blog.toc_html)
         for sec in blog.sections:
             t = sec.get('type')
             if t == 'title_image':
-                continue  # bereits oben
+                continue  # geht als article.image an Shopify
             if t == 'h2':
                 parts.append(
                     f'<h2 id="{sec["id"]}" '
@@ -1063,6 +1057,14 @@ class MagvisBlogAssembler:
         target_blog_id = live['id']
         target_blog_handle = live.get('handle', 'news')
 
+        # Title-Bild als Article-Image (Featured-Image) setzen — Theme rendert
+        # das automatisch als Hero. Aus body_html lassen wir es weg (sonst doppelt).
+        title_url = ''
+        for sec in blog.sections:
+            if sec.get('type') == 'title_image' and sec.get('src', '').startswith('http'):
+                title_url = sec['src']
+                break
+
         article_payload = {
             'article': {
                 'title': blog.seo_title,
@@ -1080,6 +1082,11 @@ class MagvisBlogAssembler:
                 ],
             }
         }
+        if title_url:
+            article_payload['article']['image'] = {
+                'src': title_url,
+                'alt': blog.seo_title or self.project.topic,
+            }
         headers = {
             'X-Shopify-Access-Token': store.access_token,
             'Content-Type': 'application/json',
