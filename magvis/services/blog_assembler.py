@@ -69,6 +69,7 @@ class MagvisBlogAssembler:
         sections: list[dict] = []
 
         # 1. SEO-Titel + Meta-Description
+        self.project.log_stage('blog', f'🎯 SEO + Mid-Volume-Keywords fuer "{topic}"')
         seo = self._generate_seo()
         blog.seo_title = seo.get('title', topic)[:255]
         blog.seo_description = seo.get('description', '')[:500]
@@ -78,10 +79,13 @@ class MagvisBlogAssembler:
         headings = self._generate_headings(topic)
 
         # 0a. RESEARCH + INTERNAL LINKS + INTENT (frueh — fuer Sektions-Prompts)
+        self.project.log_stage('blog', '🔍 Web-Recherche (Brave Search) + interne Links')
         self._do_research_and_linking(topic)
+        self.project.log_stage('blog', '🧠 Suchintention klassifizieren + LSI-Keywords')
         self._classify_intent(topic)
 
         # 0. TITELBILD (Hero, ganz oben)
+        self.project.log_stage('blog', '🖼️ Hero-Titelbild via Gemini generieren')
         title_url = self._generate_blog_image(
             kind='title',
             topic_summary=f'Hero image for "{topic}", elegant editorial photo.',
@@ -94,6 +98,7 @@ class MagvisBlogAssembler:
             })
 
         # 0b. TL;DR-BOX (vor Intro — Featured-Snippet- + LLM-Optimierung)
+        self.project.log_stage('blog', '⚡️ TL;DR-Box generieren (Kernantwort)')
         tldr_data = self.glm.json_chat_with_retry(
             tldr_prompt(topic), expect='object', max_tokens=600, retries=2,
         ) or {}
@@ -104,10 +109,12 @@ class MagvisBlogAssembler:
             })
 
         # 3. Intro
+        self.project.log_stage('blog', '✍️ Einleitung (1. Person Naturmacher) schreiben')
         intro_html = self._call_glm(intro_prompt(topic))
         sections.append({'type': 'intro', 'id': 'intro', 'html': intro_html})
 
         # 3b. FAKTEN-BOX (nach Intro, vor TOC)
+        self.project.log_stage('blog', '📚 Fakten-Box (4 Wusstest-du-schon)')
         facts = self.glm.json_chat_with_retry(
             facts_prompt(topic, num_facts=4), expect='array',
             max_tokens=1500, retries=3,
@@ -122,7 +129,9 @@ class MagvisBlogAssembler:
         toc_html_str = render_toc(toc_headings, minutes=estimate_minutes(intro_html, wpm=220) + 4)
         blog.toc_html = toc_html_str
 
+        self.project.log_stage('blog', '📖 Inhaltsverzeichnis aufbauen')
         # 5. Sektion 1 (1-2 Absätze)
+        self.project.log_stage('blog', f'✍️ Sektion 1/6: {(headings[0] if headings else "")[:50]}')
         head1 = headings[0] if headings else 'Worum geht es?'
         slug1 = slugify(head1)
         para1 = self._call_glm(section_prompt(topic, head1))
@@ -138,6 +147,7 @@ class MagvisBlogAssembler:
             })
 
         # 7. Sektion 2
+        self.project.log_stage('blog', f'✍️ Sektion 2/6: {(headings[1] if len(headings) > 1 else "")[:50]}')
         head2 = headings[1] if len(headings) > 1 else 'Hintergrund'
         slug2 = slugify(head2)
         para2 = self._call_glm(section_prompt(topic, head2))
@@ -145,6 +155,7 @@ class MagvisBlogAssembler:
         sections.append({'type': 'paragraph', 'id': f'{slug2}-p', 'html': para2})
 
         # 8. Diagramm (Gemini)
+        self.project.log_stage('blog', '🎨 Diagramm-Bild via Gemini + Shopify-CDN-Upload')
         diagram_url = self._generate_blog_image(
             kind='diagram',
             topic_summary=f'Wichtigste Punkte zum Thema "{topic}" als Infografik'
@@ -158,6 +169,7 @@ class MagvisBlogAssembler:
             })
 
         # 9. Sektion 3
+        self.project.log_stage('blog', f'✍️ Sektion 3/6: {(headings[2] if len(headings) > 2 else "")[:50]}')
         head3 = headings[2] if len(headings) > 2 else 'Was du beachten solltest'
         slug3 = slugify(head3)
         para3 = self._call_glm(section_prompt(topic, head3))
@@ -165,6 +177,7 @@ class MagvisBlogAssembler:
         sections.append({'type': 'paragraph', 'id': f'{slug3}-p', 'html': para3})
 
         # 9b. W-FRAGEN-BLOCK (nach Sektion 3 — typische Google-Suchanfragen direkt beantwortet)
+        self.project.log_stage('blog', '❓ W-Fragen-Block (5 Was/Wie/Wann/Warum/Wer)')
         wq = self.glm.json_chat_with_retry(
             w_questions_prompt(topic), expect='array', max_tokens=2000, retries=3,
         ) or []
@@ -175,6 +188,7 @@ class MagvisBlogAssembler:
             })
 
         # 10. QUIZ
+        self.project.log_stage('blog', '🧠 Quiz mit 4 Fragen via GLM')
         try:
             quiz_data = generate_quiz(topic, self.glm,
                                       num_questions=self.settings.default_quiz_questions or 4)
@@ -185,6 +199,7 @@ class MagvisBlogAssembler:
         sections.append({'type': 'quiz', 'id': 'quiz', 'html': quiz_html(quiz_data)})
 
         # 11. Sektion 4
+        self.project.log_stage('blog', f'✍️ Sektion 4/6: {(headings[3] if len(headings) > 3 else "")[:50]}')
         head4 = headings[3] if len(headings) > 3 else 'Tipps & Ideen'
         slug4 = slugify(head4)
         para4 = self._call_glm(section_prompt(topic, head4))
@@ -200,6 +215,7 @@ class MagvisBlogAssembler:
             })
 
         # 13. Brainstorming-Bild (Gemini)
+        self.project.log_stage('blog', '🌿 Brainstorming-Bild via Gemini + Shopify-CDN-Upload')
         brainstorm_url = self._generate_blog_image(kind='brainstorm', topic_summary='')
         if brainstorm_url:
             blog.brainstorm_image_path = brainstorm_url
@@ -210,6 +226,7 @@ class MagvisBlogAssembler:
             })
 
         # 14. Sektion 5
+        self.project.log_stage('blog', f'✍️ Sektion 5/6: {(headings[4] if len(headings) > 4 else "")[:50]}')
         head5 = headings[4] if len(headings) > 4 else 'Ein wenig zum Spielen'
         slug5 = slugify(head5)
         para5 = self._call_glm(section_prompt(topic, head5))
@@ -217,6 +234,7 @@ class MagvisBlogAssembler:
         sections.append({'type': 'paragraph', 'id': f'{slug5}-p', 'html': para5})
 
         # 15. MINI-SPIEL
+        self.project.log_stage('blog', '🎯 Mini-Spiel (5-Schritt-Sortier-Spiel)')
         try:
             game_data = generate_minigame(topic, self.glm)
         except Exception as exc:
@@ -226,6 +244,7 @@ class MagvisBlogAssembler:
         sections.append({'type': 'minigame', 'id': 'minigame', 'html': minigame_html(game_data)})
 
         # 16. Sektion 6 (letztes Drittel)
+        self.project.log_stage('blog', f'✍️ Sektion 6/6: {(headings[5] if len(headings) > 5 else "")[:50]}')
         head6 = headings[5] if len(headings) > 5 else 'Persönliche Geschenkideen'
         slug6 = slugify(head6)
         para6 = self._call_glm(section_prompt(topic, head6))
@@ -241,6 +260,7 @@ class MagvisBlogAssembler:
             })
 
         # 17b. TIPPS-BOX (vor FAQs, im letzten Drittel)
+        self.project.log_stage('blog', '✨ Tipps-Box (4 praktische Tipps)')
         tips = self.glm.json_chat_with_retry(
             tips_prompt(topic, num_tips=4), expect='array',
             max_tokens=1500, retries=3,
@@ -251,6 +271,7 @@ class MagvisBlogAssembler:
         })
 
         # 18. FAQs (mit Retry + robust JSON parsing)
+        self.project.log_stage('blog', '❓ 5 FAQs + JSON-LD Schema')
         faqs = self.glm.json_chat_with_retry(
             faqs_prompt(topic, num_faqs=self.settings.default_faq_count or 5),
             expect='array', max_tokens=3000, retries=3,
@@ -298,6 +319,7 @@ class MagvisBlogAssembler:
             )
 
         # Shopify-Veröffentlichung (Blog-Artikel) — best effort
+        self.project.log_stage('blog', '🚀 Shopify-Blog-Publish (PUT/POST)')
         try:
             self._publish_to_shopify(blog)
         except Exception as exc:

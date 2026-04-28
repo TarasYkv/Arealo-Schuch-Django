@@ -16,7 +16,23 @@
       </span>
     </div>
   </div>
-  <div class="magvis-progress"><div class="magvis-progress-bar" style="width:{{ project.progress_pct }}%"></div></div>
+  <div class="magvis-progress"><div class="magvis-progress-bar" id="progress-bar" style="width:{{ project.progress_pct }}%"></div></div>
+
+  <!-- LIVE-AKTIVITAET (zeigt was die Pipeline gerade tut) -->
+  {% if project.stage != 'completed' and project.stage != 'failed' %}
+  <div class="magvis-live-activity" style="display:flex;align-items:center;gap:12px;background:#FAF6EC;border:1px solid #E8DFC9;border-radius:8px;padding:12px 16px;margin:14px 0;">
+    <div style="width:14px;height:14px;border-radius:50%;background:#D4AB32;animation:pulse 1.4s ease-in-out infinite;"></div>
+    <div style="flex:1;">
+      <div style="font-size:0.78rem;color:#7A7264;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">Aktuelle Aktivität</div>
+      <div id="live-activity-message" style="color:#3D5A40;font-weight:500;font-size:0.97rem;">{% if project.stage_logs %}{{ project.stage_logs|last|safe }}{% endif %}</div>
+    </div>
+    <div id="live-stats" style="font-size:0.85rem;color:#7A7264;text-align:right;">
+      <div id="live-stage-display">{{ project.get_stage_display }}</div>
+      <div id="live-counts">{{ project.image_assets.count }} Bilder · {% if project.blog %}{{ project.blog.sections|length }} Sektionen{% else %}0 Sektionen{% endif %}</div>
+    </div>
+  </div>
+  <style>@keyframes pulse{0%,100%{opacity:0.6;transform:scale(1);}50%{opacity:1;transform:scale(1.18);}}</style>
+  {% endif %}
 
   <div class="magvis-stages">
     {% for slug, label in project.STAGE_CHOICES %}
@@ -152,14 +168,37 @@ document.getElementById('btn-advance')?.addEventListener('click', async () => {
   if (d.task_id) location.reload();
 });
 
-// Stage-Polling
-setInterval(async () => {
+// Live-Status Polling — aktualisiert UI ohne Reload solange Stage gleich
+let lastStage = '{{ project.stage }}';
+let lastLogCount = parseInt('{{ project.stage_logs|length|default:0 }}', 10);
+async function pollStatus() {
   try {
     const r = await fetch('{% url "magvis:project_status" project.id %}');
     const d = await r.json();
-    if (d.stage !== '{{ project.stage }}') location.reload();
+    if (d.stage !== lastStage) { location.reload(); return; }
+    // Live-Update ohne Reload
+    const bar = document.getElementById('progress-bar');
+    if (bar) bar.style.width = d.progress_pct + '%';
+    const stats = document.getElementById('live-counts');
+    if (stats) stats.textContent = `${d.image_assets_count} Bilder · ${d.blog_sections_count} Sektionen`;
+    if (d.latest_log) {
+      const msg = document.getElementById('live-activity-message');
+      if (msg) msg.textContent = d.latest_log.message || '';
+      // Logs-Liste auch aktualisieren
+      if (d.log_count > lastLogCount) {
+        const logBox = document.querySelector('.magvis-stage-log');
+        if (logBox) {
+          logBox.innerHTML = d.recent_logs.map(l =>
+            `${l.ts} [${l.level}] ${l.stage}: ${l.message}<br>`
+          ).join('');
+        }
+        lastLogCount = d.log_count;
+      }
+    }
   } catch(e){}
-}, 8000);
+}
+setInterval(pollStatus, 4000);
+pollStatus();
 
 // Image-Post-Submit (AJAX)
 document.querySelectorAll('.image-post-form').forEach(form => {

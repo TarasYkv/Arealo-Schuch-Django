@@ -182,6 +182,7 @@ class MagvisProductPipeline:
         )
 
         # Schritt 1: Basis-Topf
+        self.project.log_stage('products', f'🪴 Produkt {index}: Basis-Topf via Gemini')
         base_pot_path = self._generate_base_pot(image_service, engraving_text, session)
         if not base_pot_path:
             return {'success': False, 'error': 'Basis-Topf-Generierung fehlgeschlagen', 'session': session}
@@ -213,17 +214,20 @@ class MagvisProductPipeline:
 
         # Phase 1: 3 KI-Bilder
         position = 1
-        for variant in KI_VARIANTS_PHASE_1:
+        for i, variant in enumerate(KI_VARIANTS_PHASE_1, start=1):
+            self.project.log_stage('products', f'🖼️ Produkt {index}: KI-Bild Phase 1 ({i}/3): {variant}')
             self._add_ki_image(product, image_service, engraving_text, variant, base_pot_path, position)
             position += 1
 
         # Phase 2: 3 CDN-Bilder
+        self.project.log_stage('products', f'🪧 Produkt {index}: 3 fixe CDN-Bilder anhaengen')
         for url in (self.magvis_settings.fixed_cdn_image_urls or [])[:3]:
             self._add_cdn_image(product, url, position)
             position += 1
 
         # Phase 3: 1 KI-Bild (nahaufnahme)
         for variant in KI_VARIANTS_PHASE_3:
+            self.project.log_stage('products', f'🔍 Produkt {index}: Detail-Macro ({variant})')
             self._add_ki_image(product, image_service, engraving_text, variant, base_pot_path, position)
             position += 1
 
@@ -234,6 +238,7 @@ class MagvisProductPipeline:
             first_image.save(update_fields=['is_featured'])
 
         # Shopify-Veröffentlichung
+        self.project.log_stage('products', f'🛒 Produkt {index}: Shopify-Veroeffentlichung')
         shopify_url = ''
         try:
             from ploom.services.shopify_service import PLoomShopifyService

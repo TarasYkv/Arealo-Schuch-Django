@@ -106,11 +106,23 @@ def project_advance(request, project_id):
 @login_required
 def project_status(request, project_id):
     project = get_object_or_404(MagvisProject, id=project_id, user=request.user)
+    logs = project.stage_logs or []
     return JsonResponse({
-        'stage': project.stage, 'progress_pct': project.progress_pct,
+        'stage': project.stage,
+        'stage_display': project.get_stage_display(),
+        'progress_pct': project.progress_pct,
         'error_message': project.error_message,
         'youtube_url': project.youtube_url,
-        'product_1_id': project.product_1_id, 'product_2_id': project.product_2_id,
+        'product_1_id': str(project.product_1_id) if project.product_1_id else None,
+        'product_2_id': str(project.product_2_id) if project.product_2_id else None,
+        'image_assets_count': project.image_assets.count(),
+        'has_blog': hasattr(project, 'blog') and project.blog is not None,
+        'blog_sections_count': len(project.blog.sections) if hasattr(project, 'blog') and project.blog else 0,
+        'blog_published_url': project.blog.shopify_published_url if hasattr(project, 'blog') and project.blog else '',
+        'recent_logs': logs[-8:],     # die letzten 8 Aktivitaeten
+        'latest_log': logs[-1] if logs else None,
+        'log_count': len(logs),
+        'updated_at': project.updated_at.isoformat() if project.updated_at else '',
     })
 
 
