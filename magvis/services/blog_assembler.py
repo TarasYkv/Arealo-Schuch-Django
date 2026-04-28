@@ -277,17 +277,22 @@ class MagvisBlogAssembler:
 
         # 13b. Fallback für Hero-Titelbild: wenn keins generiert wurde,
         # nutze brainstorm_url (oder diagram_url) als Hero ganz oben
+        # UND entferne die ursprüngliche Sektion (vermeidet Duplikat).
         has_hero = any(s.get('type') == 'title_image' for s in sections)
         if not has_hero:
             fallback = brainstorm_url or diagram_url
+            fallback_kind = 'brainstorm' if brainstorm_url else 'diagram'
             if fallback:
                 hero_section = {
                     'type': 'title_image', 'id': 'hero', 'src': fallback,
                     'html': self._title_image_html(fallback, blog.seo_title or topic),
                 }
-                # An Position 0 einsetzen (vor TL;DR)
                 sections.insert(0, hero_section)
-                self.project.log_stage('blog', '✓ Hero-Bild aus Brainstorm/Diagramm-Fallback übernommen')
+                # Originale Brainstorm-/Diagramm-Sektion entfernen (Duplikat-Fix)
+                sections[:] = [s for s in sections
+                               if not (s.get('type') == 'image' and s.get('id') == fallback_kind)]
+                self.project.log_stage('blog',
+                    f'✓ Hero-Bild aus {fallback_kind}-Fallback übernommen + originale Sektion entfernt')
 
         # 14. Sektion 5
         self.project.log_stage('blog', f'✍️ Sektion 5/6: {(headings[4] if len(headings) > 4 else "")[:50]}')
