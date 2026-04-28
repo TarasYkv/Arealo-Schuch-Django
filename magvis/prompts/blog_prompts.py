@@ -23,12 +23,29 @@ def headings_prompt(topic: str, num_headings: int = 6) -> str:
 def section_prompt(topic: str, heading: str, position_hint: str = '') -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
-        f"Schreibe 1-2 Absätze (insgesamt 80-150 Wörter) für die Blog-Sektion "
+        f"Schreibe 1-2 Absätze (insgesamt 80-180 Wörter) für die Blog-Sektion "
         f"\"{heading}\" innerhalb eines Beitrags zum Thema \"{topic}\". "
         f"{position_hint}\n\n"
-        f"Antworte NUR mit dem reinen Text der Absätze — kein <h2>, kein Markdown, "
-        f"keine Anrede oder Schluss-Floskel. Verwende einfache HTML-Absätze: "
-        f"<p>...</p>"
+        f"WICHTIG — Strukturierte Inhalte: Wenn dieser Abschnitt thematisch passt, "
+        f"baue UNBEDINGT eines der folgenden Strukturelemente ein:\n"
+        f"- Eine Aufzählung mit 4-6 Stichpunkten als <ul><li>...</li></ul> "
+        f"  (z.B. wenn du Vorteile, Eigenschaften, Tipps, oder Eigenschaften "
+        f"  einer Personengruppe aufzählen kannst — DAS IST DER NORMALFALL).\n"
+        f"- Eine Vergleichstabelle mit 3-5 Zeilen + 2-3 Spalten als "
+        f"  <table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table> "
+        f"  (z.B. Vorher vs. Nachher, Standard-Geschenk vs. Personalisiert, "
+        f"  Optionen mit Eigenschaften).\n"
+        f"- Eine nummerierte Liste <ol><li>...</li></ol> wenn Reihenfolge wichtig.\n\n"
+        f"Style-Inline (nutze Naturmacher-Farben):\n"
+        f"- Tabellen: <table style=\"width:100%;border-collapse:collapse;margin:1.4rem 0;\">, "
+        f"  Zellen mit <td style=\"padding:10px 14px;border-bottom:1px solid #E8DFC9;\"> "
+        f"  und Header mit <th style=\"padding:10px 14px;background:#F4F8F0;color:#3D5A40;"
+        f"text-align:left;border-bottom:2px solid #7D9C80;\">\n"
+        f"- Listen: <ul style=\"margin:1rem 0;padding-left:1.4rem;line-height:1.7;\"> "
+        f"  oder <ol style=\"margin:1rem 0;padding-left:1.4rem;line-height:1.7;\">\n"
+        f"- Listen-Items dürfen <strong>fettgedruckte Schluesselworte</strong> haben.\n\n"
+        f"Antworte NUR mit reinem HTML (Absätze in <p>...</p>, plus die "
+        f"strukturellen Elemente). KEIN <h2>, kein Markdown."
     )
 
 

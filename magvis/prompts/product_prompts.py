@@ -19,31 +19,21 @@ SCENE_DESCRIPTIONS = {
         "Studio-Aufnahme. Reiner weißer, nahtloser Hintergrund. "
         "Eye-Level-Perspektive. KEINE Hände, KEINE Person, KEIN Außenbereich, "
         "KEIN Geschenkpapier, KEIN Lifestyle-Setting. "
-        "Klare professionelle Studio-Beleuchtung, die die Gravur scharf zeigt. "
-        "GROESSEN-OVERRIDE: Der Topf darf etwas groesser wirken als bei sehr "
-        "kleinen Toepfen ueblich — etwa 18 cm hoch und 18 cm Durchmesser "
-        "(also ca. 30% groesser als die Ursprungs-14-cm-Vorgabe). "
-        "Er soll prominent, gut sichtbar und ausgewachsen wirken, NICHT zierlich."
+        "Klare professionelle Studio-Beleuchtung, die die Gravur scharf zeigt."
     ),
     'lifestyle': (
         "Echter Innenraum (Wohnzimmer, Küche oder Arbeitsplatz). "
         "Eine erwachsene Person seitlich im Bild, Gesicht teilweise sichtbar. "
         "Natürliches Tageslicht durch ein Fenster, warme Atmosphäre. "
         "KEIN reiner Studiohintergrund. KEIN Geschenkpapier. "
-        "KEINE Makro-Detailaufnahme. Authentisch, wie ein Instagram-Foto. "
-        "GROESSEN-OVERRIDE: Der Topf ist groesser als bei klassischen Mini-Toepfen — "
-        "ca. 18 cm hoch und 18 cm Durchmesser. Er fuellt etwa zwei Hand-Innenflaechen, "
-        "ist deutlich groesser als eine Cappuccino-Tasse und entspricht etwa der "
-        "Groesse eines mittelgrossen Blumentopfes. NICHT winzig wirken lassen."
+        "KEINE Makro-Detailaufnahme. Authentisch, wie ein Instagram-Foto."
     ),
     'geschenk_uebergabe': (
         "Zwei Hände bei der Geschenk-Übergabe. Festliche Stimmung "
         "(Geburtstag, Jahrestag oder Weihnachten). "
         "Geschenkpapier, Schleife oder Kranz im Bild. "
         "Warmes Bokeh-Hintergrundlicht. "
-        "KEIN Studio-Setting. KEIN Einzel-Topf-Stillleben. KEIN Macro. "
-        "GROESSEN-OVERRIDE: Der Topf ist ca. 18 cm hoch und 18 cm Durchmesser "
-        "(30% groesser als die Standard-14-cm-Vorgabe), prominent in den Haenden."
+        "KEIN Studio-Setting. KEIN Einzel-Topf-Stillleben. KEIN Macro."
     ),
     'nahaufnahme': (
         "Extreme Makro-Detailaufnahme der Gravur. "
