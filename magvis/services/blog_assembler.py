@@ -25,6 +25,7 @@ from ..prompts.blog_prompts import (
     search_intent_prompt,
     section_prompt,
     seo_prompt,
+    statistics_extraction_prompt,
     tips_prompt,
     tldr_prompt,
     w_questions_prompt,
@@ -112,6 +113,16 @@ class MagvisBlogAssembler:
         self.project.log_stage('blog', '✍️ Einleitung (1. Person Naturmacher) schreiben')
         intro_html = self._call_glm(intro_prompt(topic))
         sections.append({'type': 'intro', 'id': 'intro', 'html': intro_html})
+
+        # 3a. STATISTIK-BOX (nach TL;DR, vor Fakten — verifizierte Quellen)
+        self.project.log_stage('blog', '📊 Statistiken aus Whitelist-Quellen extrahieren')
+        verified_stats = self._extract_verified_statistics(topic)
+        if verified_stats:
+            self.project.log_stage('blog', f'✓ {len(verified_stats)} Statistiken verifiziert')
+            sections.append({
+                'type': 'statistics_box', 'id': 'stats',
+                'html': self._statistics_box_html(verified_stats),
+            })
 
         # 3b. FAKTEN-BOX (nach Intro, vor TOC)
         self.project.log_stage('blog', '📚 Fakten-Box (4 Wusstest-du-schon)')
@@ -358,6 +369,98 @@ class MagvisBlogAssembler:
         except Exception as exc:
             logger.warning('GLM-Call fehlgeschlagen: %s', exc)
             return f'<p><em>(Hinweis: Sektion konnte nicht generiert werden.)</em></p>'
+
+    def _extract_verified_statistics(self, topic: str) -> list[dict]:
+        """Holt 1-3 verifizierte Statistiken aus Whitelist-Quellen.
+
+        Pipeline:
+        1. Stat-fokussierte Web-Suche (research_service.search_statistics)
+        2. GLM extrahiert mit quote_excerpt-Pflichtfeld
+        3. Live-Verifikation gegen Quell-URL
+        4. Filtert auf Whitelist-Domains
+        """
+        try:
+            stat_results = self.research.search_statistics(topic, num_results=6)
+        except Exception as exc:
+            logger.warning('Stat-Search fehlgeschlagen: %s', exc)
+            return []
+        if not stat_results:
+            return []
+        research_text = self.research.format_for_llm(stat_results)
+
+        try:
+            extracted = self.glm.json_chat_with_retry(
+                statistics_extraction_prompt(topic, research_text),
+                expect='array', max_tokens=2000, retries=2,
+            ) or []
+        except Exception as exc:
+            logger.warning('Stat-Extraktion via GLM fehlgeschlagen: %s', exc)
+            return []
+        if not isinstance(extracted, list):
+            return []
+
+        # Verifikation
+        verified = []
+        for stat in extracted[:5]:
+            if not isinstance(stat, dict):
+                continue
+            try:
+                if self.research.verify_statistic(stat):
+                    verified.append(stat)
+                    logger.info('✓ Stat verifiziert: %s = %s',
+                                stat.get('label', '?'), stat.get('value', '?'))
+                else:
+                    logger.info('✗ Stat verworfen (nicht verifizierbar): %s',
+                                stat.get('label', '?'))
+            except Exception as exc:
+                logger.warning('Stat-Verifikation Fehler: %s', exc)
+        # Mind. 2 Stats — sonst lieber keine Box
+        if len(verified) < 2:
+            logger.info('Nur %d verifizierte Stats — Stat-Box wird ausgelassen', len(verified))
+            return []
+        return verified[:3]
+
+    def _statistics_box_html(self, stats: list[dict]) -> str:
+        """Sichtbare 'Belastbare Zahlen'-Box mit Quell-Links."""
+        if not stats:
+            return ''
+        items = ''
+        for s in stats:
+            value = escape(str(s.get('value', '')))
+            label = escape(str(s.get('label', '')))
+            url = escape(str(s.get('source_url', '')))
+            source = escape(str(s.get('source_name', 'Quelle')))
+            if not value or not url:
+                continue
+            items += (
+                '<div style="padding:12px 0;border-bottom:1px solid rgba(125,156,128,0.2);'
+                'display:flex;gap:14px;align-items:flex-start;">'
+                f'<div style="font-size:1.4rem;font-weight:700;color:#3D5A40;'
+                f'min-width:90px;letter-spacing:-0.02em;">{value}</div>'
+                '<div style="flex:1;">'
+                f'<div style="color:#2A2A2A;font-size:0.95rem;line-height:1.4;'
+                f'margin-bottom:4px;">{label}</div>'
+                f'<a href="{url}" target="_blank" rel="noopener" '
+                f'style="font-size:0.82rem;color:#7D9C80;text-decoration:none;'
+                f'border-bottom:1px dotted #7D9C80;">→ {source} ↗</a>'
+                '</div></div>'
+            )
+        return (
+            '<aside class="naturmacher-statistics" '
+            'style="margin:36px auto;max-width:680px;background:#fff;'
+            'border:1px solid rgba(125,156,128,0.3);border-left:4px solid #7D9C80;'
+            'border-radius:12px;padding:18px 24px 8px;'
+            'box-shadow:0 2px 14px rgba(0,0,0,0.04);">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+            '<span style="font-size:1.2rem;">📊</span>'
+            '<strong style="color:#3D5A40;font-size:0.92rem;letter-spacing:0.04em;'
+            'text-transform:uppercase;">Belastbare Zahlen zum Thema</strong>'
+            '</div>'
+            '<div style="font-size:0.78rem;color:#7A7264;margin-bottom:8px;">'
+            'Geprüfte Quellen, die wir bei unserer Recherche verwendet haben:</div>'
+            f'<div>{items}</div>'
+            '</aside>'
+        )
 
     def _classify_intent(self, topic: str) -> None:
         """Klassifiziert Suchintention + ermittelt LSI-Keywords."""

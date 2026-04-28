@@ -179,6 +179,33 @@ def seo_prompt(topic: str) -> str:
     )
 
 
+def statistics_extraction_prompt(topic: str, research_text: str) -> str:
+    """STRICT-Prompt fuer Halluzinations-sichere Stat-Extraktion."""
+    return (
+        f'Extrahiere bis zu 3 belastbare Statistiken zum Thema "{topic}" '
+        f"aus dem unten stehenden RECHERCHE-TEXT.\n\n"
+        f"=== ABSOLUT WICHTIGE REGELN — HALLUZINATIONS-SCHUTZ ===\n"
+        f"1. ERFINDE NICHTS. Nutze AUSSCHLIESSLICH Zahlen, die WORTWOERTLICH im "
+        f"   Recherche-Text stehen. Wenn keine passende Zahl da ist — liefere ein leeres Array.\n"
+        f"2. quote_excerpt MUSS exakt eine Passage aus dem Recherche-Text sein, "
+        f"   die die Zahl enthaelt (mindestens 50 Zeichen).\n"
+        f"3. Lieber 0 statt 3 Stats, wenn du nicht 100% sicher bist.\n"
+        f"4. Bevorzuge konkrete Zahlen ('686.000', '38%', '1,8 Mio.'), nicht 'viele' oder 'einige'.\n\n"
+        f"=== RECHERCHE-TEXT ===\n"
+        f"{research_text}\n"
+        f"=== ENDE RECHERCHE-TEXT ===\n\n"
+        f"Antworte AUSSCHLIESSLICH als JSON-Array (max. 3 Eintraege, oder leeres Array):\n"
+        f'[{{"value": "686.000", "label": "Erzieher in Deutschland (2023)", '
+        f'"source_url": "https://...", "source_name": "Statistisches Bundesamt", '
+        f'"quote_excerpt": "Im Jahr 2023 waren in Deutschland rund 686.000 Personen als Erzieher beschäftigt..."}}, ...]\n\n'
+        f"value: nur die Zahl mit Einheit (z.B. '38%', '1,8 Mio.', '686.000').\n"
+        f"label: 4-8 Woerter Kurzbeschreibung (Was beschreibt die Zahl?).\n"
+        f"source_url: VOLLSTAENDIGE URL aus den Q-Bloecken oben.\n"
+        f"source_name: kurzer Quellname (z.B. 'Statistisches Bundesamt', 'BMFSFJ', 'Eurostat').\n"
+        f"quote_excerpt: WORTWOERTLICHER Auszug aus dem Recherche-Text mit der Zahl drin."
+    )
+
+
 def faqs_prompt(topic: str, num_faqs: int = 5) -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"

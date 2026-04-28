@@ -25,6 +25,35 @@ class MagvisResearchService:
     }
     TIMEOUT = 12
 
+    # Vertrauenswuerdige Domains fuer Statistiken (frei abrufbar ohne Login).
+    STATISTICS_WHITELIST = (
+        # Bund
+        'destatis.de', 'bundesregierung.de', 'bmfsfj.de', 'bmg.de',
+        'bmuv.de', 'bmf.de', 'bmwk.de', 'bmas.de', 'bmel.de', 'bmi.bund.de',
+        'bmbf.de', 'bzga.de', 'bsi.bund.de', 'bka.de', 'bafa.de',
+        # Forschung & Wissenschaft
+        'rki.de', 'iab.de', 'iwd.de', 'diw.de', 'ifo.de', 'wsi.de',
+        'pestel-institut.de', 'wzb.eu', 'bibb.de', 'dipf.de',
+        'kmk.org', 'daad.de', 'forschung.de',
+        # Stiftungen & Verbaende (mit Statistik-Reputation)
+        'bertelsmann-stiftung.de', 'boeckler.de', 'rosalux.de',
+        'vbw-bayern.de', 'arbeitgeber.de', 'dgb.de', 'verdi.de',
+        # EU & International
+        'ec.europa.eu', 'eurostat.ec.europa.eu', 'europarl.europa.eu',
+        'oecd.org', 'who.int', 'unicef.de', 'imf.org', 'worldbank.org',
+        # Branchenstatistik (frei zugaenglich)
+        'statista.com',  # Headlines/Titles oft frei
+        'gfk.com', 'yougov.de', 'civey.com',
+        # Laender (Auswahl)
+        'statistik-bw.de', 'statistik.bayern.de', 'it.nrw',
+        'statistik-berlin-brandenburg.de',
+    )
+
+    @classmethod
+    def is_whitelisted(cls, url: str) -> bool:
+        host = urlparse(url).netloc.lower()
+        return any(host == d or host.endswith('.' + d) for d in cls.STATISTICS_WHITELIST)
+
     def __init__(self, user=None):
         """Wenn user.brave_api_key gesetzt: Brave Search API nutzen, sonst DDG."""
         self.user = user
@@ -134,6 +163,80 @@ class MagvisResearchService:
         text = article.get_text(separator=' ', strip=True) if article else ''
         text = re.sub(r'\s+', ' ', text).strip()
         return text[:max_length]
+
+    def search_statistics(self, topic: str, num_results: int = 6) -> list[dict]:
+        """Sucht gezielt Statistik-Quellen aus der Whitelist.
+
+        Kombiniert: Brave-Search mit Stat-Query + Whitelist-Filter.
+        Holt zusaetzlich PDF-/HTML-Content, damit GLM Zahlen darin
+        finden und mit quote_excerpt belegen kann.
+        """
+        # Mehrere parallele Queries fuer mehr Whitelist-Hits
+        queries = [
+            f'{topic} statistik',
+            f'{topic} studie zahlen',
+            f'{topic} site:destatis.de OR site:bmfsfj.de OR site:rki.de',
+        ]
+        all_results = []
+        seen_urls = set()
+        for q in queries:
+            for r in (self._brave(q, num_results) if self.brave_key
+                      else self._ddg_html(q, num_results)):
+                url = r.get('url', '')
+                if url in seen_urls:
+                    continue
+                if not self.is_whitelisted(url):
+                    continue
+                seen_urls.add(url)
+                all_results.append(r)
+                if len(all_results) >= num_results:
+                    break
+            if len(all_results) >= num_results:
+                break
+
+        # Content extrahieren
+        for i, r in enumerate(all_results):
+            try:
+                if i > 0:
+                    time.sleep(random.uniform(0.3, 0.7))
+                r['content'] = self._extract_text(r['url'], max_length=4000)
+            except Exception:
+                r['content'] = ''
+
+        return all_results
+
+    def verify_statistic(self, stat: dict) -> bool:
+        """Live-Verifikation einer extrahierten Statistik.
+
+        Holt die Quell-URL frisch ab und prueft ob die Zahl + Excerpt
+        wirklich darin vorkommen. Schuetzt vor LLM-Halluzinationen.
+        """
+        url = stat.get('source_url', '')
+        value = (stat.get('value', '') or '').strip()
+        excerpt = (stat.get('quote_excerpt', '') or '').strip()
+        if not url or not value or not self.is_whitelisted(url):
+            return False
+        try:
+            resp = requests.get(url, headers=self.HEADERS, timeout=self.TIMEOUT)
+            resp.raise_for_status()
+        except Exception:
+            return False
+
+        text = re.sub(r'<[^>]+>', ' ', resp.text)
+        text = re.sub(r'\s+', ' ', text)
+        # Normalisierung: Punkte/Kommas vereinheitlichen, NBSP raus
+        norm_text = text.replace('\xa0', ' ').lower()
+        norm_value = re.sub(r'\s+', '', value).lower()
+        # Auch die Zahl ohne Tausender-Trenner pruefen
+        norm_value_alt = norm_value.replace('.', '').replace(',', '')
+        norm_text_clean = re.sub(r'[.,]', '', norm_text)
+
+        if norm_value in norm_text or norm_value_alt in norm_text_clean:
+            return True
+        # Fallback: pruefe Excerpt (mind. 30 Zeichen davon)
+        if len(excerpt) >= 30 and excerpt[:30].lower() in norm_text:
+            return True
+        return False
 
     def format_for_llm(self, results: list[dict]) -> str:
         """Komprimiertes Format fuer LLM-System-Prompt."""
