@@ -544,9 +544,15 @@ class MagvisBlogAssembler:
         return cdn_url or result.get('rel_path', '') or result.get('url', '')
 
     def _upload_to_shopify_files(self, abs_path: str, filename: str, alt_text: str = '') -> str:
-        """Laedt ein Bild zu Shopify-Files hoch und liefert CDN-URL."""
+        """Laedt ein Bild zu Shopify-Files hoch und liefert FINALE CDN-URL.
+
+        Polling fuer cdn.shopify.com URL: blogprep.shopify_files liefert
+        initial nur die temporaere staged-URL (1h gueltig). Wir pollen
+        Shopify GraphQL bis die finale CDN-URL bereit ist (max. 30s).
+        """
         import base64
         import os
+        import time
         if not abs_path or not os.path.exists(abs_path):
             return ''
         try:
@@ -558,11 +564,61 @@ class MagvisBlogAssembler:
             with open(abs_path, 'rb') as fh:
                 b64 = base64.b64encode(fh.read()).decode('utf-8')
             svc = ShopifyFilesService(ploom_s.default_store)
-            ok, url, _ = svc.upload_image_from_base64(b64, filename, alt_text=alt_text)
-            return url if ok else ''
+            ok, url, file_id = svc.upload_image_from_base64(b64, filename, alt_text=alt_text)
+            if not ok:
+                return ''
+            # Wenn URL schon CDN-URL: gut, fertig
+            if 'cdn.shopify.com' in url:
+                return url
+            # Sonst: Polling auf finale CDN-URL (max. 30s, alle 3s)
+            if file_id:
+                cdn = self._poll_shopify_file_url(svc, file_id, max_attempts=10, delay=3)
+                if cdn:
+                    return cdn
+            # Fallback: was wir haben (staged-URL — 1h gueltig)
+            return url
         except Exception as exc:
             logger.warning('Shopify-Files-Upload fehlgeschlagen (%s): %s', filename, exc)
             return ''
+
+    def _poll_shopify_file_url(self, svc, file_id: str, max_attempts: int = 10,
+                                 delay: int = 3) -> str:
+        """Pollt Shopify GraphQL bis die finale CDN-URL eines MediaImage bereit ist."""
+        import requests as _requests
+        import time as _time
+        query = """
+        query getFile($id: ID!) {
+          node(id: $id) {
+            ... on MediaImage {
+              image { url }
+              fileStatus
+            }
+          }
+        }
+        """
+        for attempt in range(max_attempts):
+            try:
+                resp = _requests.post(
+                    svc.graphql_url,
+                    json={'query': query, 'variables': {'id': file_id}},
+                    headers=svc.headers, timeout=15,
+                )
+                resp.raise_for_status()
+                node = resp.json().get('data', {}).get('node') or {}
+                status = node.get('fileStatus', '')
+                image = node.get('image') or {}
+                url = image.get('url', '')
+                if url and 'cdn.shopify.com' in url:
+                    logger.info('CDN-URL ready (attempt %d): %s', attempt + 1, url[:80])
+                    return url
+                if status in ('FAILED', 'ERROR'):
+                    logger.warning('Shopify-File-Status: %s', status)
+                    return ''
+            except Exception as exc:
+                logger.warning('Polling-Fehler (attempt %d): %s', attempt + 1, exc)
+            _time.sleep(delay)
+        logger.warning('CDN-URL nach %d Polls nicht bereit fuer %s', max_attempts, file_id)
+        return ''
 
     def _shopify_product_info(self, product) -> dict:
         """Holt Live-Daten (handle, featured-image-src) eines Shopify-Produkts."""
