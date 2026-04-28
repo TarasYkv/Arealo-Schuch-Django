@@ -388,15 +388,30 @@ class MagvisBlogAssembler:
             return
 
         store = ploom_settings.default_store
-        from shopify_manager.models import ShopifyBlog
-        target_blog = ShopifyBlog.objects.filter(store=store).first()
-        if not target_blog:
-            logger.info('Kein ShopifyBlog vorhanden — überspringe Publish')
+
+        # Nur Live-Shopify-Blogs verwenden (Workloom-DB kann veraltete Eintraege haben)
+        try:
+            r = requests.get(
+                f'https://{store.shop_domain}/admin/api/2023-10/blogs.json',
+                headers={'X-Shopify-Access-Token': store.access_token}, timeout=15,
+            )
+            r.raise_for_status()
+            live_blogs = r.json().get('blogs', [])
+        except Exception as exc:
+            logger.warning('Shopify-Blog-Liste nicht abrufbar: %s', exc)
             return
 
+        if not live_blogs:
+            logger.info('Kein Live-ShopifyBlog — überspringe Publish')
+            return
+
+        # Bevorzugt 'news', sonst der erste vorhandene Blog
+        live = next((b for b in live_blogs if b.get('handle') == 'news'), live_blogs[0])
+        target_blog_id = live['id']
+        target_blog_handle = live.get('handle', 'news')
+
         # Direkt über REST API
-        import requests
-        url = f'https://{store.shop_domain}/admin/api/2023-10/blogs/{target_blog.shopify_id}/articles.json'
+        url = f'https://{store.shop_domain}/admin/api/2023-10/blogs/{target_blog_id}/articles.json'
         payload = {
             'article': {
                 'title': blog.seo_title,
@@ -414,13 +429,13 @@ class MagvisBlogAssembler:
             resp = requests.post(url, headers=headers, json=payload, timeout=60)
             resp.raise_for_status()
             data = resp.json().get('article', {})
-            blog.shopify_blog_id = str(target_blog.shopify_id)  # in MagvisBlog: lokales Feld
+            blog.shopify_blog_id = str(target_blog_id)
             blog.shopify_article_id = str(data.get('id', ''))
             handle = data.get('handle', '')
             if handle:
                 blog.shopify_published_url = (
                     f'https://{store.custom_domain or store.shop_domain}'
-                    f'/blogs/{target_blog.handle or "news"}/{handle}'
+                    f'/blogs/{target_blog_handle}/{handle}'
                 )
             blog.save(update_fields=['shopify_blog_id', 'shopify_article_id', 'shopify_published_url'])
         except Exception as exc:
