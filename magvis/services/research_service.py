@@ -171,28 +171,39 @@ class MagvisResearchService:
         Holt zusaetzlich PDF-/HTML-Content, damit GLM Zahlen darin
         finden und mit quote_excerpt belegen kann.
         """
-        # Mehrere parallele Queries fuer mehr Whitelist-Hits
-        queries = [
-            f'{topic} statistik',
-            f'{topic} studie zahlen',
-            f'{topic} site:destatis.de OR site:bmfsfj.de OR site:rki.de',
-        ]
+        # 1 kombinierte Query (statt 3 parallel) — verhindert Brave 429-Rate-Limit
+        query = f'{topic} statistik OR studie OR zahlen'
         all_results = []
         seen_urls = set()
-        for q in queries:
-            for r in (self._brave(q, num_results) if self.brave_key
-                      else self._ddg_html(q, num_results)):
-                url = r.get('url', '')
-                if url in seen_urls:
-                    continue
-                if not self.is_whitelisted(url):
-                    continue
-                seen_urls.add(url)
-                all_results.append(r)
-                if len(all_results) >= num_results:
-                    break
+        try:
+            results = self._brave(query, num_results * 2) if self.brave_key else self._ddg_html(query, num_results * 2)
+        except Exception as exc:
+            logger.warning('Stat-Search fehlgeschlagen: %s', exc)
+            return []
+        for r in results:
+            url = r.get('url', '')
+            if url in seen_urls or not self.is_whitelisted(url):
+                continue
+            seen_urls.add(url)
+            all_results.append(r)
             if len(all_results) >= num_results:
                 break
+        # Fallback: wenn nichts in Whitelist gefunden, zweite Query mit explizitem Domain-Filter
+        if len(all_results) < 2:
+            time.sleep(1.2)  # Rate-Limit respektieren
+            try:
+                fallback_q = f'{topic} site:destatis.de OR site:bmfsfj.de OR site:eurostat.ec.europa.eu OR site:statista.com'
+                fallback = self._brave(fallback_q, num_results) if self.brave_key else self._ddg_html(fallback_q, num_results)
+                for r in fallback:
+                    url = r.get('url', '')
+                    if url in seen_urls or not self.is_whitelisted(url):
+                        continue
+                    seen_urls.add(url)
+                    all_results.append(r)
+                    if len(all_results) >= num_results:
+                        break
+            except Exception:
+                pass
 
         # Content extrahieren
         for i, r in enumerate(all_results):
