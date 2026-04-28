@@ -60,6 +60,7 @@ class MagvisBlogAssembler:
         self._internal_links_text = ''
         self._internal_links_data: dict = {}
         self._search_intent: dict = {}       # informational/transactional + LSI-Keywords
+        self._verified_facts: list = []      # Stat-Box-Stats fuer Inline-Verlinkung im Text
 
     # ------------------------------------------------------------------ public
 
@@ -145,8 +146,10 @@ class MagvisBlogAssembler:
         # 3a. STATISTIK-BOX (nach TL;DR, vor Fakten — verifizierte Quellen)
         self.project.log_stage('blog', '📊 Statistiken aus Whitelist-Quellen extrahieren')
         verified_stats = self._extract_verified_statistics(topic)
+        # Fuer Inline-Verlinkung in Sektionen speichern
+        self._verified_facts = verified_stats or []
         if verified_stats:
-            self.project.log_stage('blog', f'✓ {len(verified_stats)} Statistiken verifiziert')
+            self.project.log_stage('blog', f'✓ {len(verified_stats)} Stats — auch fuer Inline-Verlinkung im Text')
             sections.append({
                 'type': 'statistics_box', 'id': 'stats',
                 'html': self._statistics_box_html(verified_stats),
@@ -414,6 +417,26 @@ class MagvisBlogAssembler:
                 '<a href="URL">Ankertext</a> NATUERLICH in den Text ein. Erzwinge '
                 'KEINE Links — pro Absatz max 1 Link, im ganzen Beitrag max 5.'
             )
+
+        # Verifizierte Fakten fuer Inline-Quellenverlinkung
+        if self._verified_facts:
+            facts_block = ['\n\nVERIFIZIERTE FAKTEN — bitte im Fliesstext einbauen mit Quellenlink:']
+            for f in self._verified_facts[:4]:
+                value = f.get('value', '')
+                label = f.get('label', '')
+                url = f.get('source_url', '')
+                source = f.get('source_name', 'Quelle')
+                if value and url:
+                    facts_block.append(f'  • "{value}" — {label}\n    Quelle: {source}, URL: {url}')
+            facts_block.append(
+                '\nWenn du eine dieser Aussagen in deinem Text einbaust, ZITIERE die '
+                'Quelle als HTML-Link: <a href="URL" target="_blank" rel="noopener">{Quelle}</a>. '
+                'Beispiel: "...wie das <a href=\\"https://destatis.de/...\\" target=\\"_blank\\" '
+                'rel=\\"noopener\\">Statistische Bundesamt</a> berichtet, gab es 686.000..."\n'
+                'WICHTIG: Zitiere NUR diese Fakten — erfinde KEINE eigenen Stats. '
+                'Pro Sektion max. 1 Faktenzitat.'
+            )
+            system += '\n'.join(facts_block)
         try:
             return self.glm.text(prompt, system=system, temperature=0.75).strip()
         except Exception as exc:
