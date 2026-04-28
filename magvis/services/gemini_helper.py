@@ -74,54 +74,63 @@ class MagvisGeminiHelper:
         return {'success': False, 'error': 'all 3 attempts failed'}
 
     def generate_diagram(self, topic: str, content_summary: str = '') -> dict:
-        """Erzeugt ein Infografik-Bild OHNE Text (nur Icons/Symbole) — vermeidet Schreibfehler."""
+        """Erzeugt ein Infografik-Bild MIT deutschen Beschriftungen via Nano Banana Pro."""
         prompt = (
-            f'Generate an image (NOT TEXT) — a clean visual concept board about "{topic}".\n\n'
+            f'Generate an image (NOT TEXT) — a clean modern German infographic about "{topic}".\n\n'
             f'Style: minimalist flat design, soft earth-tone palette '
-            f'(beige, sage green, warm brown). Lots of whitespace. '
-            f'3 to 5 simple symbolic icons arranged in a balanced composition.\n\n'
-            f'Content theme: {content_summary or "the topic"} expressed THROUGH ICONS '
-            f'(plant, gift, heart, candle, hand, star, sparkle, flower, leaf — choose what fits).\n\n'
-            f'CRITICAL — DO NOT INCLUDE ANY TEXT/WORDS/LETTERS/CAPTIONS/LABELS/NUMBERS '
-            f'in the image. Zero text. Zero readable characters. Pure visual symbols only. '
-            f'No headlines, no titles, no annotations.\n\n'
+            f'(beige, sage green, warm brown), clear sans-serif typography in German, '
+            f'lots of whitespace.\n\n'
+            f'Content: {content_summary or "the most important key points about the topic"} — '
+            f'visualized as 3 to 5 key points, each with a simple icon and a short German caption.\n\n'
+            f'IMPORTANT — German typography quality: Use correct German spelling with '
+            f'umlauts (ä, ö, ü, ß). Captions are short (max 4 words each). Spell-check ALL words.\n\n'
             f'STRICT NEGATIVES: no photorealism, no real people, no stock-photo look, '
-            f'no any kind of writing, no decorative typography.\n\n'
+            f'no English text, no misspelled words.\n\n'
             f'Output: ONLY the image. Do not respond with text.'
         )
-        return self._generate_and_save(prompt, prefix='diagram')
+        # Use premium model for text quality (avoids spelling errors)
+        return self._generate_and_save(prompt, prefix='diagram',
+                                        model_override='gemini-3-pro-image-preview')
 
     def generate_brainstorm(self, topic: str) -> dict:
-        """Brainstorming-Bild OHNE Text — nur Icons + Linien (vermeidet Schreibfehler)."""
+        """Brainstorm-Bild MIT deutscher Handschrift via Nano Banana Pro."""
         prompt = (
-            f'Generate an image (NOT TEXT) — a hand-drawn brainstorming sketch related '
-            f'to "{topic}", with only ICONS and CONNECTING LINES, NO words.\n\n'
+            f'Generate an image (NOT TEXT) — a hand-drawn brainstorming mind-map about "{topic}".\n\n'
             f'Visual style: pencil + watercolor accents on cream paper, earth-tone palette '
-            f'(beige, sage green, warm brown). A central icon (heart, gift, or plant), '
-            f'connected by hand-drawn lines to 5-7 smaller sub-icons (candle, hand, '
-            f'star, leaf, sparkle, etc.).\n\n'
-            f'CRITICAL — ZERO TEXT IN IMAGE: no labels, no words, no letters, no numbers, '
-            f'no captions, no headlines. Only graphic symbols and connecting lines.\n\n'
+            f'(beige, sage green, warm brown). The central topic written in the middle as '
+            f'hand-drawn bubble. Around it, 5-7 connected branches lead to sub-topics, '
+            f'each labelled in German handwriting with a small doodle icon (heart, gift, '
+            f'plant, candle, hand, etc.).\n\n'
+            f'IMPORTANT — German typography quality: Use correct German spelling with '
+            f'umlauts (ä, ö, ü, ß). Each label 1-3 words. Spell-check ALL words.\n\n'
             f'Composition: square format, whitespace, notebook-page feel.\n\n'
             f'STRICT NEGATIVES: no photographic content, no real people, no realistic '
-            f'objects, no any kind of writing.\n\n'
+            f'objects, no English labels, no misspelled words.\n\n'
             f'Output: ONLY the image. Do not respond with text.'
         )
-        return self._generate_and_save(prompt, prefix='brainstorm')
+        # Use premium model for text quality
+        return self._generate_and_save(prompt, prefix='brainstorm',
+                                        model_override='gemini-3-pro-image-preview')
 
-    def _generate_and_save(self, prompt: str, prefix: str) -> dict:
-        """Ruft Gemini, speichert Bild in MEDIA_ROOT/magvis/blog_images/, liefert dict."""
+    def _generate_and_save(self, prompt: str, prefix: str,
+                            model_override: str | None = None) -> dict:
+        """Ruft Gemini, speichert Bild in MEDIA_ROOT/magvis/blog_images/, liefert dict.
+
+        model_override erlaubt pro Bild-Typ ein anderes Modell (z.B.
+        gemini-3-pro-image-preview fuer Diagramm/Brainstorm wegen Text-Qualitaet).
+        """
         # Titelbild querformat (16:9), Diagramm/Brainstorm quadratisch
         if prefix == 'title':
             width, height = 1280, 720
         else:
             width, height = 1024, 1024
+        active_model = model_override or self.model
         try:
             result = self.service.generate_image(
                 prompt=prompt,
                 width=width,
                 height=height,
-                model=self.model,
+                model=active_model,
             )
         except Exception as exc:
             logger.exception('Gemini-Bildgenerierung fehlgeschlagen')
