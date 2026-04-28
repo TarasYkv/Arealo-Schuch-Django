@@ -119,15 +119,15 @@ class MagvisProductPipeline:
     def _generate_kurzbeschreibung_eigene(self, engraving_text: str) -> list[str]:
         """3 knackige Bullet-Highlights als List-Field (Shopify-Metafeld)."""
         prompt = (
-            f'Erstelle 3 sehr knappe, emotionale Highlight-Punkte fuer einen '
+            f'Erstelle 3 sehr knappe, emotionale Highlight-Punkte für einen '
             f'personalisierten Blumentopf mit Gravur "{engraving_text}" '
             f'zum Thema "{self.project.topic}".\n\n'
             f"Format-Regeln:\n"
-            f"- Jeder Punkt 2-5 Woerter, AKTIV formuliert.\n"
+            f"- Jeder Punkt 2-5 Wörter, AKTIV formuliert.\n"
             f"- KEIN Punkt am Ende, KEIN Substantiv-Marketing-Floskel "
             f'  ("hochwertig", "premium" verboten).\n'
-            f'- Beispiele: "Bereit zum Verschenken", "Geschenk das im Gedaechtnis bleibt", '
-            f'  "Persoenlich graviert", "Mit Liebe gefertigt", "Sofort einsatzbereit".\n\n'
+            f'- Beispiele: "Bereit zum Verschenken", "Geschenk das im Gedächtnis bleibt", '
+            f'  "Persönlich graviert", "Mit Liebe gefertigt", "Sofort einsatzbereit".\n\n'
             f'Antwort als JSON-Array mit 3 Strings: ["...", "...", "..."]'
         )
         try:
@@ -146,33 +146,33 @@ class MagvisProductPipeline:
     def _override_seo_mid_volume(self, base_seo: dict, engraving_text: str) -> dict | None:
         """Optimiert SEO-Felder auf Mid-Volume-Long-Tail-Keywords (statt generisch)."""
         prompt = (
-            f"Erstelle Produkt-SEO fuer einen personalisierten Blumentopf mit Gravur "
+            f"Erstelle Produkt-SEO für einen personalisierten Blumentopf mit Gravur "
             f'auf Naturmacher.de zum Thema "{self.project.topic}".\n\n'
             f'Gravur: "{engraving_text}"\n\n'
             f"WICHTIG — Mid-Volume-Long-Tail-Strategie:\n"
             f"- Produkt-Title 60-80 Zeichen mit 3-5 Wort-Long-Tail "
             f"  (Kombination Topf + Anlass + Modifier).\n"
-            f"  Beispiele: 'Personalisierter Blumentopf zum Abschied — Geschenk fuer "
-            f"  Erzieherin', 'Gravierter Keramik-Topf Geschenk Geburtstag persoenlich'.\n"
+            f"  Beispiele: 'Personalisierter Blumentopf zum Abschied — Geschenk für "
+            f"  Erzieherin', 'Gravierter Keramik-Topf Geschenk Geburtstag persönlich'.\n"
             f"- KEINE generischen High-Volume-Keywords ('Geschenk', 'Personalisiertes "
             f"  Geschenk' allein), sondern Spezifitaet ('zum Abitur', 'Kindergarten-"
             f"  Abschied', 'Mama Geburtstag').\n"
             f"- Description 140-160 Zeichen, Long-Tail + Material-USP + CTA.\n"
-            f"- Tags 5-8 Stueck, Mix aus Mid-Tails: 'Geschenk {self.project.topic}', "
-            f"  'Blumentopf mit Gravur', 'persoenliches Geschenk', '{self.project.topic} "
+            f"- Tags 5-8 Stück, Mix aus Mid-Tails: 'Geschenk {self.project.topic}', "
+            f"  'Blumentopf mit Gravur', 'persönliches Geschenk', '{self.project.topic} "
             f"  Abschied', etc.\n"
             f"- Zielsuchvolumen 100-2000/Monat (realistisch rankbar).\n\n"
             f"Antwort als JSON:\n"
             f'{{"title": "...", "description": "...", "seo_title": "...", '
             f'"seo_description": "...", "tags": "tag1, tag2, ..."}}\n\n'
-            f"description: laenger (300-500 Zeichen), erklaerend mit Mid-Tail-Keywords "
-            f"natuerlich verteilt; seo_description: kurz fuer Meta-Tag (140-160 Zeichen)."
+            f"description: länger (300-500 Zeichen), erklaerend mit Mid-Tail-Keywords "
+            f"natuerlich verteilt; seo_description: kurz für Meta-Tag (140-160 Zeichen)."
         )
         try:
             data = self.glm.json_chat(prompt, temperature=0.45)
             if not isinstance(data, dict):
                 return None
-            # Wahl: GLM-Output ueberschreibt, aber Fallback auf base_seo wenn fehlt
+            # Wahl: GLM-Output überschreibt, aber Fallback auf base_seo wenn fehlt
             return {
                 'title': data.get('title') or base_seo.get('title'),
                 'description': data.get('description') or base_seo.get('description'),
@@ -198,8 +198,8 @@ class MagvisProductPipeline:
             f"- Stattdessen: Rollen-/Beziehungsbezeichnungen aus dem Topic verwenden "
             f"  (z.B. 'Lieblings-Erzieherin', 'Beste Freundin', 'Danke, Mama'), "
             f"  oder reine Botschaft ohne Anrede.\n"
-            f"- Optional 2. Zeile mit Komma getrennt fuer eine kurze Botschaft "
-            f"  (z.B. 'Danke fuers Mit-Grossziehen') — KEIN Name.\n\n"
+            f"- Optional 2. Zeile mit Komma getrennt für eine kurze Botschaft "
+            f"  (z.B. 'Danke fürs Mit-Großziehen') — KEIN Name.\n\n"
             f'Antworte nur als JSON-Array mit 2 Strings: ["Text 1", "Text 2"]'
         )
         try:
@@ -262,7 +262,7 @@ class MagvisProductPipeline:
             price=ploom_settings_obj.default_price_komplett or 19.90 if ploom_settings_obj else 19.90,
             inventory_quantity=100,
             shopify_store=ploom_settings_obj.default_store if ploom_settings_obj else None,
-            status='active',  # active = direkt veroeffentlicht in Shopify (nicht 'draft')
+            status='active',  # active = direkt veröffentlicht in Shopify (nicht 'draft')
             product_metafields={
                 'custom.herstellerinformationen_': HERSTELLER_INFO_HTML,
                 'custom._warn_hinweise': WARN_HINWEISE,
@@ -296,7 +296,7 @@ class MagvisProductPipeline:
             first_image.save(update_fields=['is_featured'])
 
         # Shopify-Veröffentlichung
-        self.project.log_stage('products', f'🛒 Produkt {index}: Shopify-Veroeffentlichung')
+        self.project.log_stage('products', f'🛒 Produkt {index}: Shopify-Veröffentlichung')
         shopify_url = ''
         try:
             from ploom.services.shopify_service import PLoomShopifyService

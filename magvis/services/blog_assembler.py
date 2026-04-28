@@ -56,7 +56,7 @@ class MagvisBlogAssembler:
         self.research = MagvisResearchService(user=self.user)
         self.linking = MagvisInternalLinkingService(self.user, llm_client=self.glm)
         self._shopify_product_cache = {}   # product_id → {handle, image_src}
-        self._research_context = ''         # gefuellt vor Sektionen-Generierung
+        self._research_context = ''         # gefüllt vor Sektionen-Generierung
         self._internal_links_text = ''
         self._internal_links_data: dict = {}
         self._search_intent: dict = {}       # informational/transactional + LSI-Keywords
@@ -70,7 +70,7 @@ class MagvisBlogAssembler:
         sections: list[dict] = []
 
         # 1. SEO-Titel + Meta-Description
-        self.project.log_stage('blog', f'🎯 SEO + Mid-Volume-Keywords fuer "{topic}"')
+        self.project.log_stage('blog', f'🎯 SEO + Mid-Volume-Keywords für "{topic}"')
         seo = self._generate_seo()
         blog.seo_title = seo.get('title', topic)[:255]
         blog.seo_description = seo.get('description', '')[:500]
@@ -79,7 +79,7 @@ class MagvisBlogAssembler:
         # 2. Headings (Struktur-Skelett)
         headings = self._generate_headings(topic)
 
-        # 0a. RESEARCH + INTERNAL LINKS + INTENT (frueh — fuer Sektions-Prompts)
+        # 0a. RESEARCH + INTERNAL LINKS + INTENT (frueh — für Sektions-Prompts)
         self.project.log_stage('blog', '🔍 Web-Recherche (Brave Search) + interne Links')
         self._do_research_and_linking(topic)
         self.project.log_stage('blog', '🧠 Suchintention klassifizieren + LSI-Keywords')
@@ -115,9 +115,9 @@ class MagvisBlogAssembler:
         if not tldr_data.get('core_answer'):
             try:
                 fallback = self.glm.text(
-                    f'Schreibe in einem Satz die wichtigste Aussage fuer einen '
-                    f'Naturmacher-Blog zum Thema "{topic}". Max. 25 Woerter, '
-                    f'antworte nur mit dem Satz, ohne Anfuehrungszeichen.',
+                    f'Schreibe in einem Satz die wichtigste Aussage für einen '
+                    f'Naturmacher-Blog zum Thema "{topic}". Max. 25 Wörter, '
+                    f'antworte nur mit dem Satz, ohne Anführungszeichen.',
                     temperature=0.5,
                 ).strip().strip('"').strip()
                 if 10 < len(fallback) < 250:
@@ -202,7 +202,7 @@ class MagvisBlogAssembler:
         )
         if not diagram_url and prev_diagram and prev_diagram.startswith('http'):
             diagram_url = prev_diagram
-            self.project.log_stage('blog', '✓ Diagramm-Bild aus DB-Fallback uebernommen')
+            self.project.log_stage('blog', '✓ Diagramm-Bild aus DB-Fallback übernommen')
         if diagram_url:
             blog.diagram_image_path = diagram_url
             sections.append({
@@ -263,7 +263,7 @@ class MagvisBlogAssembler:
         # Fallback: wenn aktuelle Generation failed aber DB hat eine alte URL → nutze die
         if not brainstorm_url and blog.brainstorm_image_path and blog.brainstorm_image_path.startswith('http'):
             brainstorm_url = blog.brainstorm_image_path
-            self.project.log_stage('blog', '✓ Brainstorm-Bild aus DB-Fallback uebernommen')
+            self.project.log_stage('blog', '✓ Brainstorm-Bild aus DB-Fallback übernommen')
         if brainstorm_url:
             blog.brainstorm_image_path = brainstorm_url
             sections.append({
@@ -272,7 +272,7 @@ class MagvisBlogAssembler:
                 'html': self._image_html(brainstorm_url, f'Brainstorming zum Thema {topic}'),
             })
 
-        # 13b. Fallback fuer Hero-Titelbild: wenn keins generiert wurde,
+        # 13b. Fallback für Hero-Titelbild: wenn keins generiert wurde,
         # nutze brainstorm_url (oder diagram_url) als Hero ganz oben
         has_hero = any(s.get('type') == 'title_image' for s in sections)
         if not has_hero:
@@ -424,7 +424,7 @@ class MagvisBlogAssembler:
         """Holt 1-4 verifizierte Statistiken/Aussagen aus Whitelist-Quellen.
 
         Pipeline:
-        1. Topic-Transformation: 'geschenk X' → 'X' fuer Stat-Suche
+        1. Topic-Transformation: 'geschenk X' → 'X' für Stat-Suche
         2. Stat-fokussierte Web-Suche (research_service.search_statistics)
         3. GLM extrahiert mit quote_excerpt-Pflichtfeld
         4. Live-Verifikation gegen Quell-URL
@@ -436,11 +436,11 @@ class MagvisBlogAssembler:
             if stat_topic.lower().startswith(prefix):
                 stat_topic = stat_topic[len(prefix):].strip()
                 break
-        # Zusatz: GLM-generierte Schlagwoerter fuer breitere Suche
+        # Zusatz: GLM-generierte Schlagwörter für breitere Suche
         try:
             related = self.glm.text(
-                f'Liefere 3 sachbezogene Schlagwoerter fuer eine Statistik-Suche '
-                f'zum Thema "{stat_topic}". Nur die Woerter, kommagetrennt, kein Praefix. '
+                f'Liefere 3 sachbezogene Schlagwörter für eine Statistik-Suche '
+                f'zum Thema "{stat_topic}". Nur die Wörter, kommagetrennt, kein Präfix. '
                 f'Beispiele: "abiturientin" → "abitur, hochschulreife, schulabschluss"; '
                 f'"erzieherin" → "erzieher, kindergarten, paedagogik"',
                 temperature=0.2,
@@ -522,7 +522,7 @@ class MagvisBlogAssembler:
         """Sichtbare 'Belastbare Aussagen'-Box mit Quell-Links.
 
         Unterscheidet visuell zwischen Zahlen-Stats (groß angezeigt) und
-        qualitativen Aussagen (in Anfuehrungszeichen).
+        qualitativen Aussagen (in Anführungszeichen).
         """
         if not stats:
             return ''
@@ -593,7 +593,7 @@ class MagvisBlogAssembler:
             self._search_intent = {'intent': 'informational'}
 
     def _do_research_and_linking(self, topic: str) -> None:
-        """Web-Research + interne Links — fuellt self._research_context und _internal_links_text."""
+        """Web-Research + interne Links — füllt self._research_context und _internal_links_text."""
         # Research (best effort, fail silent)
         try:
             search_q = f'{topic} Geschenk Idee'
@@ -650,7 +650,7 @@ class MagvisBlogAssembler:
         if not result.get('success'):
             return ''
 
-        # Bild zu Shopify-Files hochladen (CDN-URL fuer den Blog-Embed)
+        # Bild zu Shopify-Files hochladen (CDN-URL für den Blog-Embed)
         cdn_url = self._upload_to_shopify_files(
             result.get('abs_path', ''),
             f'magvis_{kind}_{self.project.id}',
@@ -661,7 +661,7 @@ class MagvisBlogAssembler:
     def _upload_to_shopify_files(self, abs_path: str, filename: str, alt_text: str = '') -> str:
         """Laedt ein Bild zu Shopify-Files hoch und liefert FINALE CDN-URL.
 
-        Polling fuer cdn.shopify.com URL: blogprep.shopify_files liefert
+        Polling für cdn.shopify.com URL: blogprep.shopify_files liefert
         initial nur die temporaere staged-URL (1h gueltig). Wir pollen
         Shopify GraphQL bis die finale CDN-URL bereit ist (max. 30s).
         """
@@ -732,7 +732,7 @@ class MagvisBlogAssembler:
             except Exception as exc:
                 logger.warning('Polling-Fehler (attempt %d): %s', attempt + 1, exc)
             _time.sleep(delay)
-        logger.warning('CDN-URL nach %d Polls nicht bereit fuer %s', max_attempts, file_id)
+        logger.warning('CDN-URL nach %d Polls nicht bereit für %s', max_attempts, file_id)
         return ''
 
     def _shopify_product_info(self, product) -> dict:
@@ -820,7 +820,7 @@ class MagvisBlogAssembler:
 </div>'''
 
     def _tldr_box_html(self, data: dict) -> str:
-        """TL;DR-Box am Anfang des Blogs — fuer Featured Snippets + LLMs."""
+        """TL;DR-Box am Anfang des Blogs — für Featured Snippets + LLMs."""
         core = escape(str(data.get('core_answer', '')))
         bullets = data.get('bullets') or []
         recommendation = escape(str(data.get('recommendation', '')))
@@ -1005,7 +1005,7 @@ class MagvisBlogAssembler:
     def _compose_html(self, blog: MagvisBlog) -> str:
         # Reihenfolge: TOC → restliche Sektionen.
         # title_image NICHT in body_html — wird als Article-Featured-Image
-        # an Shopify uebergeben (Theme rendert es als Hero, vermeidet Duplikat).
+        # an Shopify übergeben (Theme rendert es als Hero, vermeidet Duplikat).
         parts: list[str] = []
         if blog.toc_html:
             parts.append(blog.toc_html)
@@ -1123,8 +1123,8 @@ def _fallback_facts(topic: str) -> list:
     return [
         {'icon': '🌱', 'title': 'Lebenslang sichtbar',
          'text': 'Ein gravierter Topf bleibt jahrelang im Alltag — anders als Konsumgeschenke.'},
-        {'icon': '🎁', 'title': 'Persoenlich', 'text': 'Personalisierte Geschenke wirken nachweislich wertvoller als Standardprodukte.'},
-        {'icon': '🌍', 'title': 'Made in Germany', 'text': 'Die Toepfe stammen aus deutscher Manufaktur und werden hier graviert.'},
+        {'icon': '🎁', 'title': 'Persönlich', 'text': 'Personalisierte Geschenke wirken nachweislich wertvoller als Standardprodukte.'},
+        {'icon': '🌍', 'title': 'Made in Germany', 'text': 'Die Töpfe stammen aus deutscher Manufaktur und werden hier graviert.'},
         {'icon': '💚', 'title': 'Nachhaltig', 'text': 'Keramik ist langlebig, recycelbar und voellig kunststofffrei.'},
     ]
 
@@ -1132,11 +1132,11 @@ def _fallback_facts(topic: str) -> list:
 def _fallback_tips(topic: str) -> list:
     return [
         {'icon': '✏️', 'title': 'Kurz halten',
-         'text': 'Waehle einen kurzen Spruch (max. 25 Zeichen) — er bleibt besser lesbar.'},
+         'text': 'Wähle einen kurzen Spruch (max. 25 Zeichen) — er bleibt besser lesbar.'},
         {'icon': '🌸', 'title': 'Pflanze beilegen',
-         'text': 'Verschenke den Topf bepflanzt mit einer pflegeleichten Pflanze fuer den Wow-Effekt.'},
+         'text': 'Verschenke den Topf bepflanzt mit einer pflegeleichten Pflanze für den Wow-Effekt.'},
         {'icon': '🎀', 'title': 'Liebevoll verpacken',
          'text': 'Eine Schleife und Geschenkpapier in Erdtoenen unterstreichen die natuerliche Optik.'},
         {'icon': '📅', 'title': 'Zeit einplanen',
-         'text': 'Bestelle 1 Woche vor dem Anlass — dann reicht die Zeit fuer Gravur und Versand.'},
+         'text': 'Bestelle 1 Woche vor dem Anlass — dann reicht die Zeit für Gravur und Versand.'},
     ]

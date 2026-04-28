@@ -1,8 +1,8 @@
 """GLM-Prompts für Blog-Sektionen (Naturmacher-Stil)."""
 
 NATURMACHER_VOICE = (
-    "Du schreibst aus erster Person fuer Naturmacher.de — wir sind ein "
-    "deutscher Familienbetrieb (graviert seit 2019 Blumentoepfe als "
+    "Du schreibst aus erster Person für Naturmacher.de — wir sind ein "
+    "deutscher Familienbetrieb (graviert seit 2019 Blumentöpfe als "
     "personalisierte Geschenke).\n\n"
     "PERSPEKTIVE — STRENG:\n"
     "- Schreibe in 'wir' / 'uns' / 'bei Naturmacher': "
@@ -15,13 +15,13 @@ NATURMACHER_VOICE = (
     "- Mindestens 2-3 konkrete Praxis-Mini-Anekdoten pro Beitrag, z.B.:\n"
     "  • 'Letztens hat uns eine Kundin geschrieben, sie habe ihren...'\n"
     "  • 'In unserer Werkstatt sehen wir oft, dass...'\n"
-    "  • 'Wir haben schon hunderte Toepfe graviert und wissen daher...'\n"
-    "  • 'Eine Mama erzaehlte uns, ihre Tochter habe...'\n"
-    "- Die Anekdoten muessen plausibel sein und zum Thema des Abschnitts passen.\n\n"
+    "  • 'Wir haben schon hunderte Töpfe graviert und wissen daher...'\n"
+    "  • 'Eine Mama erzählte uns, ihre Tochter habe...'\n"
+    "- Die Anekdoten müssen plausibel sein und zum Thema des Abschnitts passen.\n\n"
     "STIL:\n"
     "- Warm, herzlich, ehrlich, naturverbunden.\n"
-    "- Korrektes Deutsch, fluessige Saetze, max. 25 Woerter pro Satz.\n"
-    "- KEINE hohlen Marketing-Phrasen ('zeitlose Eleganz', 'erstklassige Qualitaet').\n"
+    "- Korrektes Deutsch, flüssige Sätze, max. 25 Wörter pro Satz.\n"
+    "- KEINE hohlen Marketing-Phrasen ('zeitlose Eleganz', 'erstklassige Qualität').\n"
     "- Konkrete Bilder, sinnliche Sprache, kleine Beispiele aus dem Alltag."
 )
 
@@ -40,14 +40,14 @@ def headings_prompt(topic: str, num_headings: int = 6) -> str:
 def section_prompt(topic: str, heading: str, position_hint: str = '') -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
-        f"Schreibe 2-3 Absaetze (insgesamt 180-280 Woerter) fuer die Blog-Sektion "
+        f"Schreibe 2-3 Absätze (insgesamt 180-280 Wörter) für die Blog-Sektion "
         f"\"{heading}\" innerhalb eines Beitrags zum Thema \"{topic}\". "
         f"{position_hint}\n\n"
-        f"INVERTED PYRAMID (kritisch fuer SEO + LLM-Snippet-Ranking):\n"
-        f"- Die ersten 1-2 Saetze beantworten die Sektions-Frage DIREKT und "
+        f"INVERTED PYRAMID (kritisch für SEO + LLM-Snippet-Ranking):\n"
+        f"- Die ersten 1-2 Sätze beantworten die Sektions-Frage DIREKT und "
         f"  prägnant (definitive Antwort). Erst DANACH kommen Details, Beispiele "
         f"  und Praxis-Anekdoten.\n"
-        f"- Wenn moeglich: 1-2 H3-Unterueberschriften (<h3 style=\"color:#3D5A40;"
+        f"- Wenn möglich: 1-2 H3-Unterüberschriften (<h3 style=\"color:#3D5A40;"
         f"margin:1.4rem 0 0.6rem;font-size:1.1rem;\">) zur Strukturierung.\n"
         f"- Mindestens 1 Praxis-Mini-Anekdote in 1. Person ('Letztens hat uns...').\n\n"
         f"WICHTIG — Strukturierte Inhalte: Wenn dieser Abschnitt thematisch passt, "
@@ -67,7 +67,7 @@ def section_prompt(topic: str, heading: str, position_hint: str = '') -> str:
         f"text-align:left;border-bottom:2px solid #7D9C80;\">\n"
         f"- Listen: <ul style=\"margin:1rem 0;padding-left:1.4rem;line-height:1.7;\"> "
         f"  oder <ol style=\"margin:1rem 0;padding-left:1.4rem;line-height:1.7;\">\n"
-        f"- Listen-Items dürfen <strong>fettgedruckte Schluesselworte</strong> haben.\n\n"
+        f"- Listen-Items dürfen <strong>fettgedruckte Schlüsselworte</strong> haben.\n\n"
         f"Antworte NUR mit reinem HTML (Absätze in <p>...</p>, plus die "
         f"strukturellen Elemente). KEIN <h2>, kein Markdown."
     )
@@ -76,7 +76,7 @@ def section_prompt(topic: str, heading: str, position_hint: str = '') -> str:
 def intro_prompt(topic: str) -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
-        f"Schreibe eine Blog-Einleitung von 2-3 Absaetzen (130-180 Woerter) "
+        f"Schreibe eine Blog-Einleitung von 2-3 Absätzen (130-180 Wörter) "
         f'zum Thema "{topic}".\n'
         f"- Hook im 1. Satz (Frage, Statement oder Mini-Anekdote).\n"
         f"- 'Wir bei Naturmacher haben...' Erfahrungsbezug einbauen.\n"
@@ -88,17 +88,17 @@ def intro_prompt(topic: str) -> str:
 def tldr_prompt(topic: str) -> str:
     """Kompakte TL;DR-Box am Anfang — Featured-Snippet- + LLM-Goldgrube."""
     return (
-        f'Erstelle eine ultra-kurze Zusammenfassung fuer einen Naturmacher-Blog '
+        f'Erstelle eine ultra-kurze Zusammenfassung für einen Naturmacher-Blog '
         f'zum Thema "{topic}".\n\n'
         f"FORMAT (genau einhalten):\n"
-        f"- core_answer: 1 Satz, max. 25 Woerter — die Hauptaussage des Beitrags.\n"
-        f"- bullets: Liste mit GENAU 3 Highlights (je 4-10 Woerter, aktives Verb).\n"
-        f"- recommendation: 1 Naturmacher-Empfehlung, max. 15 Woerter.\n\n"
+        f"- core_answer: 1 Satz, max. 25 Wörter — die Hauptaussage des Beitrags.\n"
+        f"- bullets: Liste mit GENAU 3 Highlights (je 4-10 Wörter, aktives Verb).\n"
+        f"- recommendation: 1 Naturmacher-Empfehlung, max. 15 Wörter.\n\n"
         f"Beispiel:\n"
-        f'{{"core_answer": "Ein gravierter Blumentopf ist das ideale Geschenk fuer Erzieherinnen — '
-        f'persoenlich und langlebig.", "bullets": ["Pflegeleicht und frostfest", '
-        f'"Gravur frei waehlbar", "Lieferung in 5 Tagen"], "recommendation": '
-        f'"Mit einer pflegeleichten Pflanze bepflanzen fuer Wow-Effekt."}}\n\n'
+        f'{{"core_answer": "Ein gravierter Blumentopf ist das ideale Geschenk für Erzieherinnen — '
+        f'persönlich und langlebig.", "bullets": ["Pflegeleicht und frostfest", '
+        f'"Gravur frei wählbar", "Lieferung in 5 Tagen"], "recommendation": '
+        f'"Mit einer pflegeleichten Pflanze bepflanzen für Wow-Effekt."}}\n\n'
         f'Antworte AUSSCHLIESSLICH als JSON-Objekt mit GENAU diesen 3 Keys: '
         f'core_answer (string), bullets (array of 3 strings), recommendation (string).'
     )
@@ -110,19 +110,19 @@ def w_questions_prompt(topic: str) -> str:
         f"{NATURMACHER_VOICE}\n\n"
         f'Erstelle GENAU 5 W-Fragen + direkte Antworten zum Thema "{topic}".\n'
         f"Jede Frage beginnt mit Was, Wie, Wann, Warum, oder Wer. Die Antwort "
-        f"beantwortet die Frage in den ersten 10-15 Woertern direkt — danach "
+        f"beantwortet die Frage in den ersten 10-15 Wörtern direkt — danach "
         f"folgt 1 Satz mit Kontext / Naturmacher-Erfahrung.\n\n"
         f"Diese Fragen entsprechen typischen Google-Suchanfragen (W-Fragen-Box).\n\n"
         f"Antworte als JSON-Array:\n"
-        f'[{{"question": "Was ist...?", "answer": "Direkte Antwort. Ergaenzender '
+        f'[{{"question": "Was ist...?", "answer": "Direkte Antwort. Ergänzender '
         f'Kontext-Satz mit Naturmacher-Erfahrung."}}, ...]'
     )
 
 
 def search_intent_prompt(topic: str) -> str:
-    """Klassifiziert die Suchintention, damit Ueberschriften/Sprache passen."""
+    """Klassifiziert die Suchintention, damit Überschriften/Sprache passen."""
     return (
-        f'Klassifiziere die Suchintention fuer das Keyword "{topic}":\n\n'
+        f'Klassifiziere die Suchintention für das Keyword "{topic}":\n\n'
         f'- "informational" — User will lernen / sich informieren '
         f'(Was, Wie, Warum, Tipps, Ideen)\n'
         f'- "transactional" — User will kaufen / direkte Aktion '
@@ -137,13 +137,13 @@ def search_intent_prompt(topic: str) -> str:
 def facts_prompt(topic: str, num_facts: int = 4) -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
-        f"Erstelle GENAU {num_facts} interessante, ueberraschende Fakten zum Thema "
-        f'"{topic}". Jeder Fakt: 1 Satz (max. 25 Woerter), faktisch wahr, '
+        f"Erstelle GENAU {num_facts} interessante, überraschende Fakten zum Thema "
+        f'"{topic}". Jeder Fakt: 1 Satz (max. 25 Wörter), faktisch wahr, '
         f"nicht-trivial. Keine Werbetexte, kein Marketing.\n\n"
         f"Antworte AUSSCHLIESSLICH als JSON-Array:\n"
         f'[{{"icon": "🌱", "title": "Kurzer Fakten-Titel", "text": "Der Fakt-Satz."}}, ...]\n'
         f"icon: 1 passendes Emoji (Pflanze, Stern, Geschenk, Gluehbirne, Herz, ...). "
-        f"title: 2-4 Woerter."
+        f"title: 2-4 Wörter."
     )
 
 
@@ -151,11 +151,11 @@ def tips_prompt(topic: str, num_tips: int = 4) -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
         f"Erstelle GENAU {num_tips} praktische, sofort umsetzbare Tipps zum Thema "
-        f'"{topic}". Jeder Tipp: 1 Anweisung (max. 30 Woerter), aktiver Imperativ '
+        f'"{topic}". Jeder Tipp: 1 Anweisung (max. 30 Wörter), aktiver Imperativ '
         f'("Schreibe...", "Verpacke...", "Nutze..."), du-Form.\n\n'
         f"Antworte AUSSCHLIESSLICH als JSON-Array:\n"
         f'[{{"icon": "💡", "title": "Kurzer Tipp-Titel", "text": "Der Tipp-Satz."}}, ...]\n'
-        f"icon: 1 passendes Emoji. title: 2-4 Woerter."
+        f"icon: 1 passendes Emoji. title: 2-4 Wörter."
     )
 
 
@@ -163,15 +163,15 @@ def seo_prompt(topic: str) -> str:
     """SEO-Titel + Meta-Description, optimiert auf MID-VOLUME-Long-Tail-Keywords."""
     return (
         f"{NATURMACHER_VOICE}\n\n"
-        f"Erstelle SEO-Titel und Meta-Description fuer einen Blogbeitrag zum Thema "
-        f'"{topic}" (Naturmacher.de — gravierte Blumentoepfe).\n\n'
+        f"Erstelle SEO-Titel und Meta-Description für einen Blogbeitrag zum Thema "
+        f'"{topic}" (Naturmacher.de — gravierte Blumentöpfe).\n\n'
         f"WICHTIG — Mid-Volume-Strategie (nicht super-kompetitive Keywords, "
         f"sondern realistisch rankbare Long-Tails):\n"
         f"- Title 50-60 Zeichen, mit 3-4 Wort-Long-Tail (z.B. statt 'Geschenk Erzieherin' "
-        f"  besser 'Geschenk Erzieherin Kindergarten Abschied' oder 'Persoenliches "
+        f"  besser 'Geschenk Erzieherin Kindergarten Abschied' oder 'Persönliches "
         f"  Abschiedsgeschenk Erzieherin').\n"
-        f"- Modifier zur Eingrenzung verwenden: 'persoenlich', 'individuell', 'kreativ', "
-        f"  'mit Gravur', 'zum Abschied', 'fuer den Geburtstag', 'guenstig'.\n"
+        f"- Modifier zur Eingrenzung verwenden: 'persönlich', 'individuell', 'kreativ', "
+        f"  'mit Gravur', 'zum Abschied', 'für den Geburtstag', 'günstig'.\n"
         f"- Im Title gerne Zahlen oder Frage-Form ('5 Ideen fuer...', 'Was schenken...?').\n"
         f"- Description 140-160 Zeichen, Long-Tail-Keyword + Vorteil + Call-to-Action "
         f"  ('jetzt entdecken', 'mit Gravur', 'in 5 Tagen').\n"
@@ -183,7 +183,7 @@ def seo_prompt(topic: str) -> str:
 
 
 def statistics_extraction_prompt(topic: str, research_text: str) -> str:
-    """Prompt fuer Stat- + Aussagen-Extraktion (Halluzinations-sicher aber optimistisch)."""
+    """Prompt für Stat- + Aussagen-Extraktion (Halluzinations-sicher aber optimistisch)."""
     return (
         f'Extrahiere 2-5 belegbare Aussagen zum Thema "{topic}" aus dem '
         f"RECHERCHE-TEXT. Mix aus Zahlen-Statistiken UND qualitativen Aussagen.\n\n"
@@ -191,11 +191,11 @@ def statistics_extraction_prompt(topic: str, research_text: str) -> str:
         f"1. Nutze NUR Aussagen, die im Recherche-Text vorkommen (wortwoertlich oder "
         f"   sinngemaess paraphrasiert). KEIN frei erfinden.\n"
         f"2. quote_excerpt: PASSAGE aus dem Recherche-Text (>= 40 Zeichen), "
-        f"   die die Aussage stuetzt.\n"
+        f"   die die Aussage stützt.\n"
         f"3. Liefere LIEBER 2-3 brauchbare Stats als 0! Im Recherche-Text gibt es "
         f"   meist mindestens ein paar Zahlen/Fakten — nutze sie.\n"
         f"4. value: konkrete Zahl ('686.000', '38%') ODER prägnante 3-7-Wort-Aussage "
-        f"   ('Persönliches haelt laenger', 'Top-3-Wahl', 'gewachsen seit 2010').\n"
+        f"   ('Persönliches haelt länger', 'Top-3-Wahl', 'gewachsen seit 2010').\n"
         f"5. Bei Vagheit ('viele', 'oft'): NICHT extrahieren. Suche stattdessen "
         f"   konkrete Zahlen oder klare Aussagen.\n\n"
         f"=== RECHERCHE-TEXT ===\n"
@@ -208,10 +208,10 @@ def statistics_extraction_prompt(topic: str, research_text: str) -> str:
         f'"quote_excerpt": "Im Jahr 2023 waren in Deutschland rund 686.000 Personen als Erzieher beschäftigt..."}},\n'
         f' {{"value": "Persönliches wirkt länger", "label": "Forschung zur Geschenkpsychologie", '
         f'"source_url": "https://...", "source_name": "Max-Planck-Institut", '
-        f'"quote_excerpt": "Studien zeigen: Persoenlich gestaltete Geschenke wirken nachhaltig emotionaler als..."}}]\n\n'
+        f'"quote_excerpt": "Studien zeigen: Persönlich gestaltete Geschenke wirken nachhaltig emotionaler als..."}}]\n\n'
         f"value: konkrete Zahl mit Einheit ODER 3-7-Wort-Aussage.\n"
-        f"label: 4-8 Woerter Kurzbeschreibung.\n"
-        f"source_url: VOLLSTAENDIGE URL aus den Q-Bloecken.\n"
+        f"label: 4-8 Wörter Kurzbeschreibung.\n"
+        f"source_url: VOLLSTÄNDIGE URL aus den Q-Blöcken.\n"
         f"source_name: kurzer Quellname.\n"
         f"quote_excerpt: WORTWOERTLICHER Auszug aus dem Recherche-Text."
     )
