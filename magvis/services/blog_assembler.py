@@ -193,12 +193,16 @@ class MagvisBlogAssembler:
         sections.append({'type': 'h2', 'id': slug2, 'title': head2})
         sections.append({'type': 'paragraph', 'id': f'{slug2}-p', 'html': para2})
 
-        # 8. Diagramm (Gemini) — wird bei Bedarf zum Title-Bild-Fallback
+        # 8. Diagramm (Gemini) — mit DB-Fallback bei Fehlschlag
         self.project.log_stage('blog', '🎨 Diagramm-Bild via Gemini + Shopify-CDN-Upload')
+        prev_diagram = getattr(blog, 'diagram_image_path', '') or ''
         diagram_url = self._generate_blog_image(
             kind='diagram',
             topic_summary=f'Wichtigste Punkte zum Thema "{topic}" als Infografik'
         )
+        if not diagram_url and prev_diagram and prev_diagram.startswith('http'):
+            diagram_url = prev_diagram
+            self.project.log_stage('blog', '✓ Diagramm-Bild aus DB-Fallback uebernommen')
         if diagram_url:
             blog.diagram_image_path = diagram_url
             sections.append({
@@ -253,9 +257,13 @@ class MagvisBlogAssembler:
                 'product_id': str(self.project.product_1.id), 'html': product_card_1,
             })
 
-        # 13. Brainstorming-Bild (Gemini)
+        # 13. Brainstorming-Bild (Gemini) — mit DB-Fallback bei Fehlschlag
         self.project.log_stage('blog', '🌿 Brainstorming-Bild via Gemini + Shopify-CDN-Upload')
         brainstorm_url = self._generate_blog_image(kind='brainstorm', topic_summary='')
+        # Fallback: wenn aktuelle Generation failed aber DB hat eine alte URL → nutze die
+        if not brainstorm_url and blog.brainstorm_image_path and blog.brainstorm_image_path.startswith('http'):
+            brainstorm_url = blog.brainstorm_image_path
+            self.project.log_stage('blog', '✓ Brainstorm-Bild aus DB-Fallback uebernommen')
         if brainstorm_url:
             blog.brainstorm_image_path = brainstorm_url
             sections.append({
