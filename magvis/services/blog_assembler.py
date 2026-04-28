@@ -943,6 +943,14 @@ class MagvisBlogAssembler:
                 'body_html': blog.final_html,
                 'tags': self.project.topic,
                 'published': True,
+                'metafields': [
+                    {
+                        'namespace': 'custom',
+                        'key': 'blog_tool',
+                        'value': 'minisolo-gravurvorschau',
+                        'type': 'single_line_text_field',
+                    },
+                ],
             }
         }
         headers = {
