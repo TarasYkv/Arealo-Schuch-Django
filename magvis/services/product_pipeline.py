@@ -102,8 +102,14 @@ class MagvisProductPipeline:
             f"Anforderungen:\n"
             f"- Persönlich, herzlich, NICHT kitschig.\n"
             f"- Beide Texte deutlich verschieden im Stil.\n"
-            f"- Pro Text optional ein Komma + 2. Zeile (z.B. Name oder Datum).\n\n"
-            f"Antworte nur als JSON-Array mit 2 Strings: [\"Text 1\", \"Text 2\"]"
+            f"- VERBOTEN: Konkrete Eigennamen (Anna, Max, Lisa, Tom, ...). Auch keine "
+            f"  Platzhalter wie [Name] oder „Name". KEINE Daten/Jahreszahlen.\n"
+            f"- Stattdessen: Rollen-/Beziehungsbezeichnungen aus dem Topic verwenden "
+            f'  (z.B. "Lieblings-Erzieherin", "Beste Freundin", "Danke, Mama"), '
+            f"  oder reine Botschaft ohne Anrede.\n"
+            f"- Optional 2. Zeile mit Komma getrennt für eine kurze Botschaft "
+            f"  (z.B. „Danke fürs Mit-Großziehen") — KEIN Name.\n\n"
+            f'Antworte nur als JSON-Array mit 2 Strings: ["Text 1", "Text 2"]'
         )
         try:
             data = self.glm.json_chat(prompt, temperature=0.85)
