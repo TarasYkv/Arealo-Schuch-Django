@@ -263,30 +263,33 @@ class MagvisProject(models.Model):
     # Sub-Objekt-Referenzen (Reuse-First)
     vidgen_project = models.ForeignKey(
         'vidgen.VideoProject', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='+',
+        on_delete=models.SET_NULL, related_name='+', db_constraint=False,
     )
     posted_video = models.ForeignKey(
         'videos.Video', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='+',
+        on_delete=models.SET_NULL, related_name='+', db_constraint=False,
     )
     youtube_url = models.URLField(blank=True)
     youtube_video_id = models.CharField(max_length=32, blank=True)
 
+    # db_constraint=False vermeidet MySQL-Charset-Mismatches (ploom-Tabellen
+    # haben gemischte utf8mb3/utf8mb4-Collations). Referenzielle Integrität
+    # bleibt auf App-Ebene durch Django.
     ploom_session_1 = models.ForeignKey(
         'ploom.PLoomWorkflowSession', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='+',
+        on_delete=models.SET_NULL, related_name='+', db_constraint=False,
     )
     ploom_session_2 = models.ForeignKey(
         'ploom.PLoomWorkflowSession', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='+',
+        on_delete=models.SET_NULL, related_name='+', db_constraint=False,
     )
     product_1 = models.ForeignKey(
         'ploom.PLoomProduct', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='+',
+        on_delete=models.SET_NULL, related_name='+', db_constraint=False,
     )
     product_2 = models.ForeignKey(
         'ploom.PLoomProduct', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='+',
+        on_delete=models.SET_NULL, related_name='+', db_constraint=False,
     )
 
     task_ids = models.JSONField(default=dict, blank=True)
