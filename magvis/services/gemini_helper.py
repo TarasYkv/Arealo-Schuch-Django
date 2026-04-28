@@ -38,24 +38,28 @@ class MagvisGeminiHelper:
     def generate_diagram(self, topic: str, content_summary: str = '') -> dict:
         """Erzeugt ein Infografik-/Diagramm-Bild für den Blog (Bar-Chart, Flow oder Mindmap-Style)."""
         prompt = (
-            f'Erstelle eine moderne, klare Infografik zum Thema "{topic}". '
-            f'Stil: minimalistisch, sanfte Erdtöne (Beige, Salbeigrün, warmes Braun), '
-            f'klare Typografie auf Deutsch, übersichtliches Layout. '
-            f'Inhaltlich: {content_summary or "die wichtigsten Punkte des Themas"} '
-            f'als gut verständliche Visualisierung (z.B. drei bis fünf Schlüssel-Punkte mit Icons). '
-            f'KEINE Fotorealismus, KEINE menschlichen Figuren, KEIN Stockfoto-Look. '
-            f'Quadratisches Format. Hochauflösend.'
+            f'Generate an image (NOT TEXT, IMAGE only) — a clean modern German infographic about "{topic}".\n\n'
+            f'Style: minimalist flat design, soft earth-tone palette (beige, sage green, warm brown), '
+            f'clear sans-serif typography in German, lots of whitespace.\n\n'
+            f'Content: {content_summary or "the most important key points about the topic"} — '
+            f'visualized as 3 to 5 key points, each with a simple icon and a German one-line caption.\n\n'
+            f'STRICT NEGATIVES: no photorealism, no real people, no stock-photo look, no English text.\n\n'
+            f'Output: ONLY the image. Do not respond with text.'
         )
         return self._generate_and_save(prompt, prefix='diagram')
 
     def generate_brainstorm(self, topic: str) -> dict:
         """Brainstorming-Bild: visuelle Mindmap / Concept-Board."""
         prompt = (
-            f'Brainstorming-Mindmap zum Thema "{topic}". '
-            f'Stil: handgezeichnete Skizze auf cremefarbenem Papier, leichte Aquarell-Akzente in Erdtönen. '
-            f'Zentraler Begriff in der Mitte, drumherum 5-7 verzweigte Unterthemen mit kleinen Icons/Symbolen, '
-            f'verbindende Linien. Deutsch beschriftet. Locker und kreativ wirkend, '
-            f'wie aus einem Notizbuch. KEINE Fotos, KEINE Personen. Quadratisches Format.'
+            f'Generate an image (NOT TEXT, IMAGE only) — a hand-drawn brainstorming mind-map about "{topic}".\n\n'
+            f'Visual style: pencil + watercolor accents on cream-colored paper, earth-tone palette '
+            f'(beige, sage green, warm brown). The central topic is written in the middle as a hand-drawn '
+            f'bubble. Around it, 5-7 connected branches lead to sub-topics, each labelled in German handwriting '
+            f'with a small doodle icon (heart, gift, plant, candle, hand, etc.).\n\n'
+            f'Composition: square format. Whitespace around. Looks like a real notebook page.\n\n'
+            f'STRICT NEGATIVES: no photographic content, no real people, no realistic objects, '
+            f'no text descriptions outside the image, no English labels.\n\n'
+            f'Output: ONLY the image. Do not respond with text.'
         )
         return self._generate_and_save(prompt, prefix='brainstorm')
 

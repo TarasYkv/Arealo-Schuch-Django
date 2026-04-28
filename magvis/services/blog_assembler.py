@@ -179,14 +179,30 @@ class MagvisBlogAssembler:
                 'product_id': str(self.project.product_2.id), 'html': product_card_2,
             })
 
-        # 18. FAQs
-        try:
-            faqs = self.glm.json_chat(faqs_prompt(topic, num_faqs=self.settings.default_faq_count or 5))
-        except Exception as exc:
-            logger.warning('FAQs failed: %s', exc)
-            faqs = []
+        # 18. FAQs (mit Retry + robust JSON parsing)
+        faqs = self.glm.json_chat_with_retry(
+            faqs_prompt(topic, num_faqs=self.settings.default_faq_count or 5),
+            expect='array', max_tokens=3000, retries=3,
+        ) or []
         if not isinstance(faqs, list):
             faqs = []
+        # Validierung: nur dicts mit question+answer
+        faqs = [f for f in faqs if isinstance(f, dict)
+                and f.get('question') and f.get('answer')]
+        if not faqs:
+            logger.warning('FAQs leer geliefert — verwende Naturmacher-Standard-Fallback')
+            faqs = [
+                {'question': f'Warum eignet sich ein personalisierter Blumentopf zum Thema "{topic}"?',
+                 'answer': 'Ein gravierter Blumentopf ist langlebig, naturverbunden und individuell — er bleibt jahrelang sichtbar im Alltag.'},
+                {'question': 'Wie lange dauert die Lieferung?',
+                 'answer': 'In der Regel 5-7 Werktage innerhalb Deutschlands.'},
+                {'question': 'Kann ich die Gravur frei wählen?',
+                 'answer': 'Ja, jeder Topf wird individuell graviert — du gibst Text und Schriftart vor.'},
+                {'question': 'Sind die Töpfe für draußen geeignet?',
+                 'answer': 'Ja, sie sind frostbeständig und für den Außenbereich geeignet.'},
+                {'question': 'Welche Größe haben die Töpfe?',
+                 'answer': 'Etwa 14 cm Durchmesser und 12 cm Höhe — kompakt und vielseitig einsetzbar.'},
+            ]
         blog.faqs = faqs
         sections.append({'type': 'faqs', 'id': 'faqs', 'html': self._faqs_html(faqs)})
 
@@ -380,7 +396,7 @@ class MagvisBlogAssembler:
 
         # Direkt über REST API
         import requests
-        url = f'https://{store.shop_domain}/admin/api/2023-10/blogs/{target_blog.shopify_blog_id}/articles.json'
+        url = f'https://{store.shop_domain}/admin/api/2023-10/blogs/{target_blog.shopify_id}/articles.json'
         payload = {
             'article': {
                 'title': blog.seo_title,
@@ -398,7 +414,7 @@ class MagvisBlogAssembler:
             resp = requests.post(url, headers=headers, json=payload, timeout=60)
             resp.raise_for_status()
             data = resp.json().get('article', {})
-            blog.shopify_blog_id = str(target_blog.shopify_blog_id)
+            blog.shopify_blog_id = str(target_blog.shopify_id)  # in MagvisBlog: lokales Feld
             blog.shopify_article_id = str(data.get('id', ''))
             handle = data.get('handle', '')
             if handle:

@@ -73,6 +73,35 @@ class MagvisGLMClient:
     def generate_text(self, prompt: str, max_tokens: int | None = None) -> str:
         return self.text(prompt, temperature=0.7)
 
+    def json_chat_with_retry(self, prompt: str, system: str | None = None,
+                              expect: str = 'object', max_tokens: int = 2048,
+                              retries: int = 3) -> dict | list | None:
+        """Wie json_chat, aber mit retries bei Parse-Fehlern. Liefert None statt Exception."""
+        full_system = (system or '') + ('\n\n' if system else '') + (
+            'Antworte AUSSCHLIESSLICH mit gültigem JSON. Kein Markdown, '
+            'keine Erklärungen, keine Kommentare. Antwort muss komplett und '
+            'syntaktisch korrekt sein.'
+        )
+        for _ in range(retries):
+            try:
+                text = self.chat(
+                    [{'role': 'system', 'content': full_system},
+                     {'role': 'user', 'content': prompt}],
+                    temperature=0.4, max_tokens=max_tokens,
+                )
+            except Exception:
+                continue
+            try:
+                result = _parse_json_loose(text)
+            except Exception:
+                continue
+            if expect == 'array' and not isinstance(result, list):
+                continue
+            if expect == 'object' and not isinstance(result, dict):
+                continue
+            return result
+        return None
+
 
 def repair_and_parse(text: str, expect: str = 'object'):
     """OpenClaw-kompatibler Wrapper. Liefert dict / list oder None bei Fehler."""
@@ -90,11 +119,11 @@ def repair_and_parse(text: str, expect: str = 'object'):
 
 
 def _parse_json_loose(text: str):
-    """Parst JSON robust: entfernt Markdown-Codeblöcke, findet JSON in Text."""
+    """Parst JSON robust: entfernt Markdown-Codeblöcke, findet JSON in Text,
+    repariert Trailing-Commas und abgeschnittene Arrays/Objekte."""
     if not text:
         raise ValueError('Leere GLM-Antwort')
 
-    # Markdown-Codeblock entfernen
     text = text.strip()
     if text.startswith('```'):
         text = re.sub(r'^```(?:json)?\s*\n?', '', text)
@@ -106,13 +135,34 @@ def _parse_json_loose(text: str):
     except json.JSONDecodeError:
         pass
 
-    # Fallback: erstes { ... } oder [ ... ] im Text suchen
-    for opener, closer in (('{', '}'), ('[', ']')):
+    # Erstes { … } oder [ … ] im Text suchen
+    candidates = []
+    for opener, closer in (('[', ']'), ('{', '}')):
         start = text.find(opener)
         end = text.rfind(closer)
         if start != -1 and end > start:
+            candidates.append(text[start:end + 1])
+
+    for cand in candidates:
+        # Trailing-Komma vor ] oder }
+        cand_clean = re.sub(r',(\s*[\]\}])', r'\1', cand)
+        try:
+            return json.loads(cand_clean)
+        except json.JSONDecodeError:
+            pass
+
+    # Letzter Versuch: mit jedem Closer abschneiden bis was parsebar ist
+    for opener, closer in (('[', ']'), ('{', '}')):
+        start = text.find(opener)
+        if start == -1:
+            continue
+        # Alle Vorkommen des Schließers durchgehen, vom letzten zurück
+        positions = [i for i, ch in enumerate(text) if ch == closer and i > start]
+        for end in reversed(positions):
+            candidate = text[start:end + 1]
+            candidate = re.sub(r',(\s*[\]\}])', r'\1', candidate)
             try:
-                return json.loads(text[start:end + 1])
+                return json.loads(candidate)
             except json.JSONDecodeError:
                 continue
 
