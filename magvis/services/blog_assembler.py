@@ -26,9 +26,11 @@ from ..prompts.blog_prompts import (
     tips_prompt,
 )
 from .gemini_helper import MagvisGeminiHelper
+from .internal_linking_service import MagvisInternalLinkingService
 from .llm_client import MagvisLLMClient
 from .minigame_generator import generate_minigame, minigame_html
 from .quiz_generator import generate_quiz, quiz_html
+from .research_service import MagvisResearchService
 from .toc_generator import estimate_minutes, render_toc, slugify
 from .youtube_embed import embed_html
 
@@ -46,7 +48,12 @@ class MagvisBlogAssembler:
         self.settings, _ = MagvisSettings.objects.get_or_create(user=self.user)
         self.glm = MagvisLLMClient(self.user, self.settings)
         self.gemini = MagvisGeminiHelper(self.user, self.settings)
+        self.research = MagvisResearchService(user=self.user)
+        self.linking = MagvisInternalLinkingService(self.user, llm_client=self.glm)
         self._shopify_product_cache = {}   # product_id → {handle, image_src}
+        self._research_context = ''         # gefuellt vor Sektionen-Generierung
+        self._internal_links_text = ''
+        self._internal_links_data: dict = {}
 
     # ------------------------------------------------------------------ public
 
@@ -64,6 +71,9 @@ class MagvisBlogAssembler:
 
         # 2. Headings (Struktur-Skelett)
         headings = self._generate_headings(topic)
+
+        # 0a. RESEARCH + INTERNAL LINKS (frueh — fuer Sektions-Prompts)
+        self._do_research_and_linking(topic)
 
         # 0. TITELBILD (Hero, ganz oben)
         title_url = self._generate_blog_image(
@@ -272,11 +282,49 @@ class MagvisBlogAssembler:
     # ----------------------------------------------------------------- helper
 
     def _call_glm(self, prompt: str) -> str:
+        # Research + Links als System-Erweiterung anhaengen
+        system = NATURMACHER_VOICE
+        if self._research_context:
+            system += (
+                '\n\nRECHERCHE-KONTEXT (verwende Fakten daraus, niemals 1:1 zitieren, '
+                'sondern als Naturmacher mit eigener Stimme einbauen):\n'
+                + self._research_context
+            )
+        if self._internal_links_text:
+            system += (
+                '\n\n' + self._internal_links_text + '\n'
+                'WICHTIG: Wenn ein Anker thematisch passt, baue ihn als HTML-Link '
+                '<a href="URL">Ankertext</a> NATUERLICH in den Text ein. Erzwinge '
+                'KEINE Links — pro Absatz max 1 Link, im ganzen Beitrag max 5.'
+            )
         try:
-            return self.glm.text(prompt, system=NATURMACHER_VOICE, temperature=0.75).strip()
+            return self.glm.text(prompt, system=system, temperature=0.75).strip()
         except Exception as exc:
             logger.warning('GLM-Call fehlgeschlagen: %s', exc)
-            return f'<p><em>(Hinweis: GLM-Sektion konnte nicht generiert werden — bitte Eintrag manuell ergänzen.)</em></p>'
+            return f'<p><em>(Hinweis: Sektion konnte nicht generiert werden.)</em></p>'
+
+    def _do_research_and_linking(self, topic: str) -> None:
+        """Web-Research + interne Links — fuellt self._research_context und _internal_links_text."""
+        # Research (best effort, fail silent)
+        try:
+            search_q = f'{topic} Geschenk Idee'
+            results = self.research.search(search_q, num_results=4)
+            if results:
+                self._research_context = self.research.format_for_llm(results)
+                logger.info('Research: %d Quellen geladen', len(results))
+        except Exception as exc:
+            logger.warning('Research fehlgeschlagen: %s', exc)
+
+        # Internal Links (Blogs + Produkte)
+        try:
+            secondary = self.project.keywords or []
+            self._internal_links_data = self.linking.collect(topic, secondary)
+            self._internal_links_text = self.linking.format_for_llm(self._internal_links_data)
+            n_blogs = len(self._internal_links_data.get('blogs', []))
+            n_prods = len(self._internal_links_data.get('products', []))
+            logger.info('Internal-Linking: %d Blogs + %d Produkte gefunden', n_blogs, n_prods)
+        except Exception as exc:
+            logger.warning('Internal-Linking fehlgeschlagen: %s', exc)
 
     def _generate_seo(self) -> dict:
         prompt = (
