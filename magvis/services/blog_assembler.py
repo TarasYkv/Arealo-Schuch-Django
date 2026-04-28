@@ -904,10 +904,22 @@ class MagvisBlogAssembler:
         )
 
     def _compose_html(self, blog: MagvisBlog) -> str:
-        # H2 in Naturmacher-Salbeigruen (passt zu Faktenbox), elegant unterstrichen
-        parts: list[str] = [blog.toc_html or '']
+        # Reihenfolge: title_image (ganz oben) → TOC → restliche Sektionen.
+        # H2 in Naturmacher-Salbeigruen, elegant unterstrichen.
+        parts: list[str] = []
+        title_html = ''
+        for sec in blog.sections:
+            if sec.get('type') == 'title_image':
+                title_html = sec.get('html', '')
+                break
+        if title_html:
+            parts.append(title_html)
+        if blog.toc_html:
+            parts.append(blog.toc_html)
         for sec in blog.sections:
             t = sec.get('type')
+            if t == 'title_image':
+                continue  # bereits oben
             if t == 'h2':
                 parts.append(
                     f'<h2 id="{sec["id"]}" '
