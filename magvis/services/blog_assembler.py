@@ -516,30 +516,90 @@ class MagvisBlogAssembler:
             logger.info('%d Stats verifiziert — Box wird gerendert', len(verified))
             return verified[:4]
 
-        # Plan-B: Keine GLM-Stats verifizierbar → zeige Brave-Treffer
-        # als 'Kuratierte Recherche-Quellen' (ohne Zahl, nur Titel + URL + Snippet)
-        logger.info('GLM-Extraktion 0 — Plan-B: zeige Brave-Treffer direkt')
-        plan_b = []
-        for r in stat_results[:4]:
+        # Plan-B: GLM-Stats nicht verifizierbar → GLM generiert SAUBERE
+        # Beschreibungen fuer die Brave-Treffer (statt rohem Snippet, das oft
+        # Wiki-Edit-Notes oder Anzeigeoptionen-Text enthaelt).
+        logger.info('GLM-Extraktion 0 — Plan-B: GLM-Beschreibungen fuer Quellen')
+        from urllib.parse import urlparse
+
+        # Quell-Liste fuer GLM-Aufgabe vorbereiten
+        candidates = []
+        for r in stat_results[:5]:
             url = r.get('url', '')
             title = r.get('title', '').strip()
-            snippet = (r.get('snippet', '') or r.get('content', ''))[:140].strip()
+            snippet = (r.get('snippet', '') or '').strip()[:300]
             if not url or not self.research.is_whitelisted(url):
                 continue
-            if not title and not snippet:
-                continue
-            # Domain als source_name extrahieren
-            from urllib.parse import urlparse
             host = urlparse(url).netloc.replace('www.', '')
+            candidates.append({'url': url, 'title': title, 'snippet': snippet, 'host': host})
+
+        if not candidates:
+            return []
+
+        # GLM generiert pro Quelle eine prägnante Beschreibung
+        sources_text = '\n'.join([
+            f'[{i+1}] {c["title"]}\nDomain: {c["host"]}\nSnippet: {c["snippet"]}'
+            for i, c in enumerate(candidates)
+        ])
+        prompt = (
+            f'Erstelle für jede der folgenden {len(candidates)} Quellen zum Thema '
+            f'"{topic}" eine SAUBERE 1-Satz-Beschreibung (max. 18 Wörter), die in einer '
+            f'"Recherche-Quellen"-Box neben dem Domainnamen steht.\n\n'
+            f"Anweisungen:\n"
+            f"- IGNORIERE generische Wikipedia-Edit-Notes ('bedarf einer Überarbeitung'), "
+            f"  Anzeigeoptionen-Text ('Tabelle Säulendiagramm'), Cookie-Banner.\n"
+            f"- Beschreibe stattdessen WAS in dieser Quelle thematisch zu finden ist "
+            f'(z.B. "Statistiken zur Abiturientenquote nach Bundesland 2024").\n'
+            f"- Korrektes Deutsch mit Umlauten.\n\n"
+            f"=== QUELLEN ===\n{sources_text}\n=== ENDE ===\n\n"
+            f'Antwort als JSON-Array (genau {len(candidates)} Eintraege, gleiche Reihenfolge):\n'
+            f'[{{"description": "..."}}, ...]'
+        )
+        try:
+            descs = self.glm.json_chat_with_retry(
+                prompt, expect='array', max_tokens=1500, retries=2,
+            ) or []
+        except Exception as exc:
+            logger.warning('GLM-Beschreibungen fehlgeschlagen: %s', exc)
+            descs = []
+
+        plan_b = []
+        for i, c in enumerate(candidates):
+            # GLM-Beschreibung wenn moeglich, sonst gekuerzter Snippet
+            desc = ''
+            if i < len(descs) and isinstance(descs[i], dict):
+                desc = (descs[i].get('description') or '').strip()
+            if not desc:
+                # Cleanup: Wiki-Notes + andere Junk-Texte filtern
+                snippet = c['snippet']
+                if 'bedarf einer' in snippet.lower() or 'überarbeitung' in snippet.lower():
+                    desc = f'Übersicht und Inhalt zum Thema "{topic}"'
+                elif 'anzeigeoptionen' in snippet.lower() or 'säulendiagramm' in snippet.lower():
+                    desc = f'Statistik-Tabelle und Diagramme zum Thema "{topic}"'
+                else:
+                    # Erste 100 Zeichen als Notbehelf
+                    desc = (snippet[:100].rsplit(' ', 1)[0] + '…') if len(snippet) > 100 else snippet
+            # Source-Name kuerzen + bekannte Domains schoener machen
+            domain_pretty = {
+                'destatis.de': 'Statistisches Bundesamt',
+                'de.wikipedia.org': 'Wikipedia',
+                'statista.com': 'Statista',
+                'bmfsfj.de': 'BMFSFJ',
+                'bundesregierung.de': 'Bundesregierung',
+                'rki.de': 'Robert Koch-Institut',
+                'arbeitsagentur.de': 'Arbeitsagentur',
+                'kmk.org': 'Kultusministerkonferenz',
+                'oecd.org': 'OECD',
+                'who.int': 'WHO',
+            }.get(c['host'], c['host'])
             plan_b.append({
-                'value': title[:60] or 'Quelle zum Thema',
-                'label': snippet,
-                'source_url': url,
-                'source_name': host,
+                'value': domain_pretty,  # value = klare Quellennennung
+                'label': desc,
+                'source_url': c['url'],
+                'source_name': domain_pretty,
             })
-        if plan_b:
-            logger.info('Plan-B Stat-Box mit %d Brave-Quellen', len(plan_b))
-        return plan_b
+        logger.info('Plan-B Stat-Box mit %d kuratierten Quellen', len(plan_b))
+        return plan_b[:4]
 
     def _statistics_box_html(self, stats: list[dict]) -> str:
         """Sichtbare 'Belastbare Aussagen'-Box mit Quell-Links.
