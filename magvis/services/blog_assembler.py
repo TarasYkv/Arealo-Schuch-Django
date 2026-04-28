@@ -381,6 +381,7 @@ class MagvisBlogAssembler:
 
     def _publish_to_shopify(self, blog: MagvisBlog) -> None:
         """Veröffentlicht den Blog-Artikel über shopify_manager (best effort)."""
+        import requests
         from ploom.models import PLoomSettings
         ploom_settings = PLoomSettings.objects.filter(user=self.user).first()
         if not ploom_settings or not ploom_settings.default_store:
@@ -410,7 +411,6 @@ class MagvisBlogAssembler:
         target_blog_id = live['id']
         target_blog_handle = live.get('handle', 'news')
 
-        # Direkt über REST API
         url = f'https://{store.shop_domain}/admin/api/2023-10/blogs/{target_blog_id}/articles.json'
         payload = {
             'article': {
