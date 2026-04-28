@@ -4,20 +4,238 @@
 {% block wizard_subtitle %}— Einstellungen{% endblock %}
 
 {% block wizard_body %}
-<form method="post" class="magvis-card" style="max-width:780px;">
+
+<div class="magvis-card">
+  <h2 style="margin-top:0;">⚙️ Magvis-Einstellungen</h2>
+  <p style="color:#7A7264;">
+    Hier konfigurierst du Standardwerte, die für jedes neue Magvis-Projekt verwendet werden.
+    Du kannst sie jederzeit ändern — bestehende Projekte bleiben unverändert.
+  </p>
+  <p style="color:#7A7264;">
+    💡 <strong>Tipp:</strong> API-Keys (GLM, Gemini, OpenAI, Upload-Post) werden zentral unter
+    <a href="/accounts/neue-api-einstellungen/">/accounts/neue-api-einstellungen/</a> verwaltet.
+    Hier auf dieser Seite konfigurierst du, welches Modell &amp; welche Default-Werte Magvis nutzen soll.
+  </p>
+</div>
+
+<form method="post" class="magvis-card" style="max-width:880px;">
   {% csrf_token %}
-  <h2>Magvis-Einstellungen</h2>
-  {% for field in form %}
-    <div class="mb-3">
-      <label class="form-label">{{ field.label }}</label>
-      {{ field }}
-      {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-      {% if field.errors %}<div class="text-danger">{{ field.errors|join:", " }}</div>{% endif %}
+
+  <!-- ============== KI-MODELLE ============== -->
+  <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;">🧠 KI-Modelle</h3>
+  <p style="color:#7A7264;font-size:0.92rem;">Welche LLM/Bild-Modelle Magvis für die Inhaltsgenerierung nutzt.</p>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>GLM-Modell</strong> <span style="color:#7A7264;font-weight:normal;">(für Texte)</span></label>
+    {{ form.glm_model }}
+    <div class="form-text">
+      <strong>Verwendung:</strong> Erzeugt Blog-Texte, Quiz-Fragen, Mini-Spiel, FAQs, Gravur-Vorschläge, Auto-Titel/-Beschreibungen für Social-Media-Posts.<br>
+      <strong>Beispiele:</strong> <code>glm-5.1</code> (Standard, beste Qualität), <code>glm-4.6</code>, <code>glm-4-plus</code>, <code>glm-4-air</code> (günstiger).<br>
+      <strong>API-Key:</strong> wird aus <code>user.zhipu_api_key</code> gelesen (in <a href="/accounts/neue-api-einstellungen/">API-Einstellungen</a> setzen).
     </div>
-  {% endfor %}
-  <div class="magvis-actions">
-    <button type="submit" class="magvis-btn primary">Speichern</button>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>GLM Base-URL</strong></label>
+    {{ form.glm_base_url }}
+    <div class="form-text">
+      OpenAI-kompatibler Endpoint. <strong>Standard:</strong> <code>https://api.z.ai/api/coding/paas/v4</code> (z.AI Coding-Plan).<br>
+      Nur ändern, wenn du einen anderen Provider/Endpoint nutzt (z.B. eigener BigModel-Account, OpenRouter, etc.).
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Gemini Bild-Modell</strong></label>
+    {{ form.gemini_image_model }}
+    <div class="form-text">
+      <strong>Verwendung:</strong> Erzeugt Diagramm-Bilder &amp; Brainstorming-Bilder im Blog, optional auch KI-Text-Overlays beim Bild-Posting.<br>
+      <strong>Empfehlungen (von günstig nach hochwertig):</strong>
+      <ul style="margin:6px 0;">
+        <li><code>gemini-2.5-flash-image</code> — günstig, schnell, gute Qualität (Standard, ~$0.039/Bild)</li>
+        <li><code>gemini-3-pro-image-preview</code> — höchste Qualität, langsamer, teurer</li>
+        <li><code>imagen-4.0-fast-generate-001</code> — schnelle Imagen 4 Variante</li>
+        <li><code>imagen-4.0-generate-001</code> — Standard Imagen 4</li>
+        <li><code>imagen-4.0-ultra-generate-001</code> — beste Imagen-Qualität</li>
+      </ul>
+      Für Magvis-Blog-Bilder reicht <code>gemini-2.5-flash-image</code> völlig.
+    </div>
+  </div>
+
+  <!-- ============== VIDEO-DEFAULTS ============== -->
+  <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;margin-top:32px;">🎬 Video-Defaults (vidgen)</h3>
+  <p style="color:#7A7264;font-size:0.92rem;">Standardwerte für die Video-Generierung in Stage 1. Stack: Modal Remotion + Pexels-Stock-Clips + OpenAI TTS + Lyria-Musik (kein RunPod).</p>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Video-Template</strong></label>
+    {{ form.default_video_template }}
+    <div class="form-text">
+      Bestimmt Skript-Stil und Aufbau. Beispiele:
+      <ul style="margin:6px 0;">
+        <li><code>youtube_short</code> — vertikales 9:16 Format für Shorts (empfohlen für Magvis)</li>
+        <li><code>job_intro</code> — Beruf-Vorstellung mit Hook + Aufgaben + Gehalt</li>
+        <li><code>product</code> — Produkt-Spotlight</li>
+        <li><code>tutorial</code> — How-To</li>
+        <li><code>facts</code> — Wissens-Snippets</li>
+        <li><code>hook_story</code> — Storytelling mit starkem Hook</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Video-Dauer (Sekunden)</strong></label>
+    {{ form.default_video_duration }}
+    <div class="form-text">
+      Empfohlen: <strong>30-60 Sekunden</strong> für YouTube Shorts / TikTok / Reels.<br>
+      Längere Videos (90s+) kosten mehr Modal-Render-Zeit.
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Voice (OpenAI TTS)</strong></label>
+    {{ form.default_voice }}
+    <div class="form-text">
+      OpenAI TTS-Stimmen (mehr Infos: <a href="https://platform.openai.com/docs/guides/text-to-speech" target="_blank">OpenAI Docs</a>):
+      <ul style="margin:6px 0;">
+        <li><code>alloy</code> — neutral, ausgewogen (empfohlen für Naturmacher)</li>
+        <li><code>echo</code> — männlich, klar</li>
+        <li><code>fable</code> — britischer Akzent</li>
+        <li><code>onyx</code> — tiefe, ruhige Männerstimme</li>
+        <li><code>nova</code> — junge Frauenstimme</li>
+        <li><code>shimmer</code> — warme Frauenstimme</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============== BLOG-DEFAULTS ============== -->
+  <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;margin-top:32px;">📝 Blog-Defaults</h3>
+  <p style="color:#7A7264;font-size:0.92rem;">Standardwerte für die Blog-Erstellung in Stage 4. Naturmacher-Stil mit Quiz, Mini-Spiel und FAQs.</p>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Quiz-Fragen pro Blog</strong></label>
+    {{ form.default_quiz_questions }}
+    <div class="form-text">
+      Anzahl Multiple-Choice-Fragen im Mini-Quiz. <strong>Empfohlen: 3-5</strong> (mehr ist anstrengend für Leser).
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>FAQ-Anzahl pro Blog</strong></label>
+    {{ form.default_faq_count }}
+    <div class="form-text">
+      FAQs am Ende des Beitrags (mit JSON-LD Schema für Google Rich Snippets). <strong>Empfohlen: 4-6.</strong>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Brand Voice / Stil-Beschreibung</strong></label>
+    {{ form.naturmacher_brand_voice }}
+    <div class="form-text">
+      System-Prompt-Zusatz, den GLM bei jeder Text-Generierung erhält.<br>
+      <strong>Beispiel (Naturmacher.de):</strong><br>
+      <em>"Naturmacher.de — herzlich, persönlich, naturverbunden, du-Form, deutscher Familienbetrieb. Vermeide hohle Marketing-Phrasen. Nutze Bilder und Beispiele aus dem Alltag."</em><br>
+      <strong>Tipps:</strong> Nenne Marke, Tonalität (du/Sie/neutral), Stil-Keywords (warm/sachlich/witzig), no-go-Phrasen.
+    </div>
+  </div>
+
+  <!-- ============== PRODUKTE ============== -->
+  <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;margin-top:32px;">📦 Produkt-Defaults (ploom)</h3>
+  <p style="color:#7A7264;font-size:0.92rem;">Stage 3 erzeugt 2 Produkte parallel mit je <strong>4 KI-Bildern</strong> (Studio, Lifestyle, Geschenk-Übergabe, Macro) + <strong>3 fixe CDN-Bilder</strong>.</p>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>P-Loom Settings (Referenz)</strong></label>
+    {{ form.default_ploom_settings }}
+    <div class="form-text">
+      Verweist auf eine vorhandene <code>PLoomSettings</code>-Konfiguration (unter <a href="/ploom/einstellungen/">P-Loom-Einstellungen</a>).<br>
+      Liefert: <strong>Referenz-Topf-Foto</strong> (Pflicht für KI-Bildgenerierung), <strong>Topf-Beschreibung</strong> (z.B. "14cm × 14cm Keramik"),
+      <strong>Shopify-Store</strong> (für Veröffentlichung), Default-Preise und Tags.<br>
+      <strong>Wichtig:</strong> Ohne diese Verknüpfung kann Stage 3 keine Produkte erstellen.
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Fixe CDN-Bild-URLs (3 Stück)</strong></label>
+    {{ form.fixed_cdn_image_urls_text }}
+    <div class="form-text">
+      Eine URL pro Zeile. Diese Bilder werden bei <strong>jedem</strong> Produkt als Phase-2-Bilder eingefügt
+      (zwischen den 3 ersten KI-Bildern und dem letzten Detail-KI-Bild).<br>
+      <strong>Zweck:</strong> immergleiche Stimmungsbilder (z.B. Marken-Erklärbilder, Lifestyle-Hero-Aufnahmen),
+      die jedes Produkt mit dem Markenkontext unterlegen.<br>
+      <strong>Beispiele für Naturmacher:</strong>
+      <pre style="background:#FAF6EC;padding:8px;border-radius:4px;font-size:0.85rem;margin:6px 0;">https://naturmacher.de/cdn/shop/files/Dein_Pflanzmoment_1.png
+https://naturmacher.de/cdn/shop/files/Blumentopf_mit_Gravur_xyz.png
+https://naturmacher.de/cdn/shop/files/Warum_ein_Naturmacher-Topf_so_besonders_ist_2.png</pre>
+      Lade in Shopify hoch (Inhalt → Dateien) und kopiere die CDN-URL.
+    </div>
+  </div>
+
+  <!-- ============== BILD-POSTEN ============== -->
+  <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;margin-top:32px;">📤 Bild-Posten Defaults (ideopin-Stil)</h3>
+  <p style="color:#7A7264;font-size:0.92rem;">Stage 5: Pro Bild einzeln entscheiden, auf welche Plattformen gepostet wird (mit/ohne Text-Overlay).</p>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Default-Plattformen (kommagetrennt)</strong></label>
+    {{ form.default_image_platforms_text }}
+    <div class="form-text">
+      Werden in Stage 5 vorausgewählt — du kannst pro Bild abwählen.<br>
+      <strong>Verfügbare Plattformen:</strong> <code>pinterest, instagram, facebook, tiktok, x, linkedin, threads, bluesky</code><br>
+      <strong>Empfohlen für Naturmacher:</strong> <code>pinterest, instagram, facebook</code>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Upload-Post User-ID</strong></label>
+    {{ form.upload_post_user }}
+    <div class="form-text">
+      User-Identifier für die <a href="https://upload-post.com/" target="_blank">Upload-Post.com</a>-API.
+      Findest du im Upload-Post Dashboard. Die <strong>API-Key</strong> für Upload-Post wird in
+      <a href="/accounts/neue-api-einstellungen/">/accounts/neue-api-einstellungen/</a> gesetzt.
+    </div>
+  </div>
+
+  <!-- ============== AUTO-RUN ============== -->
+  <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;margin-top:32px;">🤖 Auto-Run (Themen-Queue)</h3>
+  <p style="color:#7A7264;font-size:0.92rem;">Lasse Magvis automatisch in regelmäßigen Abständen das nächste Topic aus deiner Themen-Queue ziehen und einen kompletten Workflow durchlaufen.</p>
+
+  <div class="form-check mb-3">
+    {{ form.auto_run_enabled }}
+    <label class="form-check-label"><strong>Auto-Run aktiviert</strong></label>
+    <div class="form-text">
+      Wenn aktiv, läuft die <code>auto_run_from_queue</code> Cron-Task gemäß Schedule und startet einen Workflow,
+      sofern in deiner <a href="{% url 'magvis:topics_list' %}">Themen-Queue</a> ein <code>pending</code>-Topic vorhanden ist.
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label"><strong>Cron-Schedule</strong></label>
+    {{ form.auto_run_schedule }}
+    <div class="form-text">
+      Standard <a href="https://crontab.guru/" target="_blank">Cron-Expression</a>. Beispiele:
+      <ul style="margin:6px 0;">
+        <li><code>0 6 * * *</code> — täglich um 06:00 Uhr</li>
+        <li><code>0 9 * * 1,4</code> — montags und donnerstags um 09:00</li>
+        <li><code>0 */6 * * *</code> — alle 6 Stunden</li>
+        <li><code>30 18 * * 0</code> — sonntags um 18:30</li>
+      </ul>
+      💡 Hinweis: Das Cron-System muss in Celery-Beat eingerichtet sein (System-Admin-Aufgabe).
+    </div>
+  </div>
+
+  <div class="magvis-actions" style="margin-top:32px;">
+    <button type="submit" class="magvis-btn primary">💾 Speichern</button>
     <a href="{% url 'magvis:project_list' %}" class="magvis-btn ghost">Abbrechen</a>
+    <a href="{% url 'magvis:report_config' %}" class="magvis-btn ghost">→ Report-Konfiguration</a>
   </div>
 </form>
+
+<div class="magvis-card" style="margin-top:18px;background:#F0E7CC;">
+  <h3 style="margin-top:0;">📚 Vor dem ersten Run prüfen</h3>
+  <ol>
+    <li>✅ <a href="/accounts/neue-api-einstellungen/">API-Keys gesetzt</a>: <code>zhipu_api_key</code> (GLM), <code>gemini_api_key</code>, <code>openai_api_key</code>, <strong>Upload-Post</strong>-Key</li>
+    <li>✅ <a href="/ploom/einstellungen/">P-Loom Settings</a>: <strong>Referenz-Topf-Foto</strong> hochgeladen, Shopify-Store verknüpft, Topf-Beschreibung gesetzt</li>
+    <li>✅ Magvis-Settings (diese Seite): <strong>P-Loom Settings</strong> ausgewählt, <strong>3 fixe CDN-URLs</strong> eingetragen</li>
+    <li>✅ <a href="{% url 'magvis:report_config' %}">Report-Konfiguration</a>: Empfänger-E-Mail eingetragen</li>
+    <li>✅ <a href="{% url 'magvis:topics_list' %}">Themen-Queue</a>: mindestens 1 Topic angelegt</li>
+  </ol>
+</div>
+
 {% endblock %}
