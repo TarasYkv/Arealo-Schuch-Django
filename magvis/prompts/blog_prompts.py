@@ -42,6 +42,31 @@ def intro_prompt(topic: str) -> str:
     )
 
 
+def facts_prompt(topic: str, num_facts: int = 4) -> str:
+    return (
+        f"{NATURMACHER_VOICE}\n\n"
+        f"Erstelle GENAU {num_facts} interessante, ueberraschende Fakten zum Thema "
+        f'"{topic}". Jeder Fakt: 1 Satz (max. 25 Woerter), faktisch wahr, '
+        f"nicht-trivial. Keine Werbetexte, kein Marketing.\n\n"
+        f"Antworte AUSSCHLIESSLICH als JSON-Array:\n"
+        f'[{{"icon": "🌱", "title": "Kurzer Fakten-Titel", "text": "Der Fakt-Satz."}}, ...]\n'
+        f"icon: 1 passendes Emoji (Pflanze, Stern, Geschenk, Gluehbirne, Herz, ...). "
+        f"title: 2-4 Woerter."
+    )
+
+
+def tips_prompt(topic: str, num_tips: int = 4) -> str:
+    return (
+        f"{NATURMACHER_VOICE}\n\n"
+        f"Erstelle GENAU {num_tips} praktische, sofort umsetzbare Tipps zum Thema "
+        f'"{topic}". Jeder Tipp: 1 Anweisung (max. 30 Woerter), aktiver Imperativ '
+        f'("Schreibe...", "Verpacke...", "Nutze..."), du-Form.\n\n'
+        f"Antworte AUSSCHLIESSLICH als JSON-Array:\n"
+        f'[{{"icon": "💡", "title": "Kurzer Tipp-Titel", "text": "Der Tipp-Satz."}}, ...]\n'
+        f"icon: 1 passendes Emoji. title: 2-4 Woerter."
+    )
+
+
 def faqs_prompt(topic: str, num_faqs: int = 5) -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"

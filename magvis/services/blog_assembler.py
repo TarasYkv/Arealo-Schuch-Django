@@ -18,10 +18,12 @@ from django.utils.text import slugify as django_slugify
 from ..models import MagvisBlog, MagvisImageAsset, MagvisProject
 from ..prompts.blog_prompts import (
     NATURMACHER_VOICE,
+    facts_prompt,
     faqs_prompt,
     headings_prompt,
     intro_prompt,
     section_prompt,
+    tips_prompt,
 )
 from .gemini_helper import MagvisGeminiHelper
 from .glm_client import MagvisGLMClient
@@ -66,6 +68,16 @@ class MagvisBlogAssembler:
         # 3. Intro
         intro_html = self._call_glm(intro_prompt(topic))
         sections.append({'type': 'intro', 'id': 'intro', 'html': intro_html})
+
+        # 3b. FAKTEN-BOX (nach Intro, vor TOC)
+        facts = self.glm.json_chat_with_retry(
+            facts_prompt(topic, num_facts=4), expect='array',
+            max_tokens=1500, retries=3,
+        ) or _fallback_facts(topic)
+        sections.append({
+            'type': 'facts_box', 'id': 'facts',
+            'html': self._facts_box_html(facts),
+        })
 
         # 4. Inhaltsverzeichnis (TOC) zwischen Intro und Hauptteil
         toc_headings = [(2, h, slugify(h)) for h in headings]
@@ -179,6 +191,16 @@ class MagvisBlogAssembler:
                 'type': 'product', 'id': 'product-2',
                 'product_id': str(self.project.product_2.id), 'html': product_card_2,
             })
+
+        # 17b. TIPPS-BOX (vor FAQs, im letzten Drittel)
+        tips = self.glm.json_chat_with_retry(
+            tips_prompt(topic, num_tips=4), expect='array',
+            max_tokens=1500, retries=3,
+        ) or _fallback_tips(topic)
+        sections.append({
+            'type': 'tips_box', 'id': 'tips',
+            'html': self._tips_box_html(tips),
+        })
 
         # 18. FAQs (mit Retry + robust JSON parsing)
         faqs = self.glm.json_chat_with_retry(
@@ -398,6 +420,79 @@ class MagvisBlogAssembler:
   </div>
 </div>'''
 
+    def _facts_box_html(self, facts: list) -> str:
+        """Fakten-Box: dezent-modernes Salbei/Sand-Schema."""
+        if not facts:
+            return ''
+        items = ''
+        for f in facts:
+            if not isinstance(f, dict):
+                continue
+            icon = escape(str(f.get('icon', '🌱')))
+            title = escape(str(f.get('title', '')))
+            text = escape(str(f.get('text', '')))
+            if not text:
+                continue
+            items += (
+                '<div style="display:flex;gap:14px;align-items:flex-start;'
+                'padding:14px 0;border-bottom:1px solid rgba(125,156,128,0.15);">'
+                f'<div style="font-size:1.6rem;line-height:1;flex-shrink:0;">{icon}</div>'
+                '<div>'
+                f'<div style="font-weight:600;color:#3D5A40;font-size:1rem;margin-bottom:4px;">{title}</div>'
+                f'<div style="color:#5C5651;font-size:0.95rem;line-height:1.5;">{text}</div>'
+                '</div></div>'
+            )
+        # Letzte Border-Bottom entfernen via :last-child geht nicht inline → akzeptabel
+        return (
+            '<aside class="naturmacher-facts-box" '
+            'style="margin:36px auto;max-width:680px;background:linear-gradient(135deg,#F4F8F0 0%,#E8EDDF 100%);'
+            'border:1px solid rgba(125,156,128,0.25);border-left:4px solid #7D9C80;'
+            'border-radius:12px;padding:24px 28px;'
+            'box-shadow:0 2px 12px rgba(125,156,128,0.08);font-family:inherit;">'
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+            '<div style="font-size:1.3rem;">📚</div>'
+            '<h3 style="margin:0;font-size:1.15rem;color:#3D5A40;font-weight:600;letter-spacing:-0.01em;">Wusstest du schon?</h3>'
+            '</div>'
+            f'<div>{items}</div>'
+            '</aside>'
+        )
+
+    def _tips_box_html(self, tips: list) -> str:
+        """Tipps-Box: dezent-modernes Sand/Gold-Schema (warm, aktiv)."""
+        if not tips:
+            return ''
+        items = ''
+        for t in tips:
+            if not isinstance(t, dict):
+                continue
+            icon = escape(str(t.get('icon', '💡')))
+            title = escape(str(t.get('title', '')))
+            text = escape(str(t.get('text', '')))
+            if not text:
+                continue
+            items += (
+                '<div style="display:flex;gap:14px;align-items:flex-start;'
+                'padding:14px 0;border-bottom:1px solid rgba(212,171,50,0.15);">'
+                f'<div style="font-size:1.6rem;line-height:1;flex-shrink:0;">{icon}</div>'
+                '<div>'
+                f'<div style="font-weight:600;color:#8A6F1F;font-size:1rem;margin-bottom:4px;">{title}</div>'
+                f'<div style="color:#5C5651;font-size:0.95rem;line-height:1.5;">{text}</div>'
+                '</div></div>'
+            )
+        return (
+            '<aside class="naturmacher-tips-box" '
+            'style="margin:36px auto;max-width:680px;background:linear-gradient(135deg,#FBF6E5 0%,#F5EDD0 100%);'
+            'border:1px solid rgba(212,171,50,0.3);border-left:4px solid #D4AB32;'
+            'border-radius:12px;padding:24px 28px;'
+            'box-shadow:0 2px 12px rgba(212,171,50,0.1);font-family:inherit;">'
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+            '<div style="font-size:1.3rem;">✨</div>'
+            '<h3 style="margin:0;font-size:1.15rem;color:#8A6F1F;font-weight:600;letter-spacing:-0.01em;">Tipps & Tricks</h3>'
+            '</div>'
+            f'<div>{items}</div>'
+            '</aside>'
+        )
+
     def _faqs_html(self, faqs: list) -> str:
         if not faqs:
             return ''
@@ -474,8 +569,7 @@ class MagvisBlogAssembler:
         target_blog_id = live['id']
         target_blog_handle = live.get('handle', 'news')
 
-        url = f'https://{store.shop_domain}/admin/api/2023-10/blogs/{target_blog_id}/articles.json'
-        payload = {
+        article_payload = {
             'article': {
                 'title': blog.seo_title,
                 'author': 'Naturmacher',
@@ -488,12 +582,22 @@ class MagvisBlogAssembler:
             'X-Shopify-Access-Token': store.access_token,
             'Content-Type': 'application/json',
         }
+
+        # PUT wenn Article schon existiert, sonst POST
+        if blog.shopify_article_id:
+            url = (f'https://{store.shop_domain}/admin/api/2023-10/blogs/'
+                   f'{target_blog_id}/articles/{blog.shopify_article_id}.json')
+            method = 'PUT'
+        else:
+            url = f'https://{store.shop_domain}/admin/api/2023-10/blogs/{target_blog_id}/articles.json'
+            method = 'POST'
+
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            resp = requests.request(method, url, headers=headers, json=article_payload, timeout=60)
             resp.raise_for_status()
             data = resp.json().get('article', {})
             blog.shopify_blog_id = str(target_blog_id)
-            blog.shopify_article_id = str(data.get('id', ''))
+            blog.shopify_article_id = str(data.get('id', blog.shopify_article_id))
             handle = data.get('handle', '')
             if handle:
                 blog.shopify_published_url = (
@@ -501,5 +605,29 @@ class MagvisBlogAssembler:
                     f'/blogs/{target_blog_handle}/{handle}'
                 )
             blog.save(update_fields=['shopify_blog_id', 'shopify_article_id', 'shopify_published_url'])
+            logger.info(f'Shopify Article {method} OK: {blog.shopify_published_url}')
         except Exception as exc:
-            logger.warning('Shopify Article-Erstellung: %s', exc)
+            logger.warning(f'Shopify Article-{method}: {exc}')
+
+
+def _fallback_facts(topic: str) -> list:
+    return [
+        {'icon': '🌱', 'title': 'Lebenslang sichtbar',
+         'text': 'Ein gravierter Topf bleibt jahrelang im Alltag — anders als Konsumgeschenke.'},
+        {'icon': '🎁', 'title': 'Persoenlich', 'text': 'Personalisierte Geschenke wirken nachweislich wertvoller als Standardprodukte.'},
+        {'icon': '🌍', 'title': 'Made in Germany', 'text': 'Die Toepfe stammen aus deutscher Manufaktur und werden hier graviert.'},
+        {'icon': '💚', 'title': 'Nachhaltig', 'text': 'Keramik ist langlebig, recycelbar und voellig kunststofffrei.'},
+    ]
+
+
+def _fallback_tips(topic: str) -> list:
+    return [
+        {'icon': '✏️', 'title': 'Kurz halten',
+         'text': 'Waehle einen kurzen Spruch (max. 25 Zeichen) — er bleibt besser lesbar.'},
+        {'icon': '🌸', 'title': 'Pflanze beilegen',
+         'text': 'Verschenke den Topf bepflanzt mit einer pflegeleichten Pflanze fuer den Wow-Effekt.'},
+        {'icon': '🎀', 'title': 'Liebevoll verpacken',
+         'text': 'Eine Schleife und Geschenkpapier in Erdtoenen unterstreichen die natuerliche Optik.'},
+        {'icon': '📅', 'title': 'Zeit einplanen',
+         'text': 'Bestelle 1 Woche vor dem Anlass — dann reicht die Zeit fuer Gravur und Versand.'},
+    ]
