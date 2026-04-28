@@ -6,7 +6,7 @@ neu via GLM-5.1 generiert. Inline-CSS+JS, Shopify-Theme-agnostisch.
 import json
 from typing import Dict
 
-from .glm_client import repair_and_parse
+from .llm_client import repair_and_parse
 
 
 _BG_CARD = "#FAF6EC"

@@ -16,7 +16,7 @@ import requests
 from django.conf import settings as django_settings
 
 from ..models import MagvisImageAsset
-from .glm_client import MagvisGLMClient
+from .llm_client import MagvisLLMClient
 from .gemini_helper import MagvisGeminiHelper
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ class MagvisImagePostPipeline:
     # --- helpers --------------------------------------------------------------
 
     def _generate_title_description(self) -> dict:
-        glm = MagvisGLMClient(self.user, self.settings)
+        glm = MagvisLLMClient(self.user, self.settings)
         prompt = (
             f"Erstelle für ein Social-Media-Bild zum Thema \"{self.project.topic}\" "
             f"einen kurzen Titel (max. 60 Zeichen) und eine knackige Beschreibung "

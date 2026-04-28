@@ -35,6 +35,23 @@ class MagvisGeminiHelper:
             self._service = GeminiImageService(api_key=api_key)
         return self._service
 
+    def generate_title_image(self, topic: str, summary: str = '') -> dict:
+        """Erzeugt das Hero-Titelbild des Blogs (oben). Preiswert, breit angelegt."""
+        prompt = (
+            f'Generate an image (NOT TEXT) — a wide, modern hero image for a German blog post '
+            f'about "{topic}". Theme: a thoughtfully personal gift for the recipient.\n\n'
+            f'Composition: editorial blog header, slight cinematic feel, two-thirds '
+            f'feel where main subject sits left-of-center. {summary}\n\n'
+            f'Style: warm natural light, soft earth-tone palette (sage green, warm beige, '
+            f'cream, light terracotta), shallow depth of field, lifestyle photography aesthetic. '
+            f'Subtle bokeh background. No on-image text, no watermark, no logos.\n\n'
+            f'STRICT NEGATIVES: no harsh studio lighting, no synthetic look, no surreal art, '
+            f'no English captions overlaid on the image. The image must look like a real '
+            f'editorial photo from a lifestyle magazine.\n\n'
+            f'Output: ONLY the image. Do not respond with text.'
+        )
+        return self._generate_and_save(prompt, prefix='title')
+
     def generate_diagram(self, topic: str, content_summary: str = '') -> dict:
         """Erzeugt ein Infografik-/Diagramm-Bild für den Blog (Bar-Chart, Flow oder Mindmap-Style)."""
         prompt = (
@@ -65,11 +82,16 @@ class MagvisGeminiHelper:
 
     def _generate_and_save(self, prompt: str, prefix: str) -> dict:
         """Ruft Gemini, speichert Bild in MEDIA_ROOT/magvis/blog_images/, liefert dict."""
+        # Titelbild querformat (16:9), Diagramm/Brainstorm quadratisch
+        if prefix == 'title':
+            width, height = 1280, 720
+        else:
+            width, height = 1024, 1024
         try:
             result = self.service.generate_image(
                 prompt=prompt,
-                width=1024,
-                height=1024,
+                width=width,
+                height=height,
                 model=self.model,
             )
         except Exception as exc:

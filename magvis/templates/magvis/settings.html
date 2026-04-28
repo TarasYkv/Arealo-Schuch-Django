@@ -23,43 +23,108 @@
 
   <!-- ============== KI-MODELLE ============== -->
   <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;">🧠 KI-Modelle</h3>
-  <p style="color:#7A7264;font-size:0.92rem;">Welche LLM/Bild-Modelle Magvis für die Inhaltsgenerierung nutzt.</p>
+  <p style="color:#7A7264;font-size:0.92rem;">
+    Welcher KI-Anbieter und welches Modell für Text-Generierung (Blog, Quiz, FAQs, Gravur-Vorschläge) verwendet wird.
+    Bild-Modelle bleiben separat konfigurierbar.
+  </p>
 
-  <div class="mb-3">
-    <label class="form-label"><strong>GLM-Modell</strong> <span style="color:#7A7264;font-weight:normal;">(für Texte)</span></label>
-    {{ form.glm_model }}
-    <div class="form-text">
-      <strong>Verwendung:</strong> Erzeugt Blog-Texte, Quiz-Fragen, Mini-Spiel, FAQs, Gravur-Vorschläge, Auto-Titel/-Beschreibungen für Social-Media-Posts.<br>
-      <strong>Beispiele:</strong> <code>glm-5.1</code> (Standard, beste Qualität), <code>glm-4.6</code>, <code>glm-4-plus</code>, <code>glm-4-air</code> (günstiger).<br>
-      <strong>API-Key:</strong> wird aus <code>user.zhipu_api_key</code> gelesen (in <a href="/accounts/neue-api-einstellungen/">API-Einstellungen</a> setzen).
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label class="form-label"><strong>KI-Anbieter</strong></label>
+      {{ form.text_provider }}
+      <div class="form-text">
+        Nur Anbieter, für die du einen <strong>API-Key</strong> in
+        <a href="/accounts/neue-api-einstellungen/">API-Einstellungen</a> hinterlegt hast, sind nutzbar.
+        <br>
+        {% if available_providers %}
+          <span style="color:#5BA85B;">✓ Verfügbar:</span>
+          {% for slug, cfg in available_providers.items %}<code>{{ slug }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+        {% else %}
+          <span style="color:#C85A5A;">⚠️ Kein API-Key konfiguriert! Setze mindestens einen in den API-Einstellungen.</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-md-6 mb-3">
+      <label class="form-label"><strong>KI-Modell</strong></label>
+      {{ form.text_model }}
+      <div class="form-text" id="model-help">
+        Modell-Auswahl ändert sich je nach Anbieter. Aktuelles Modell:
+        <code id="current-model-display">{{ form.text_model.value|default:"glm-5.1" }}</code>
+      </div>
     </div>
   </div>
 
   <div class="mb-3">
-    <label class="form-label"><strong>GLM Base-URL</strong></label>
-    {{ form.glm_base_url }}
-    <div class="form-text">
-      OpenAI-kompatibler Endpoint. <strong>Standard:</strong> <code>https://api.z.ai/api/coding/paas/v4</code> (z.AI Coding-Plan).<br>
-      Nur ändern, wenn du einen anderen Provider/Endpoint nutzt (z.B. eigener BigModel-Account, OpenRouter, etc.).
-    </div>
-  </div>
-
-  <div class="mb-3">
-    <label class="form-label"><strong>Gemini Bild-Modell</strong></label>
+    <label class="form-label"><strong>Gemini Bild-Modell</strong> <span style="color:#7A7264;font-weight:normal;">(separat — für Diagramm + Brainstorming-Bilder)</span></label>
     {{ form.gemini_image_model }}
     <div class="form-text">
-      <strong>Verwendung:</strong> Erzeugt Diagramm-Bilder &amp; Brainstorming-Bilder im Blog, optional auch KI-Text-Overlays beim Bild-Posting.<br>
-      <strong>Empfehlungen (von günstig nach hochwertig):</strong>
+      <strong>Verwendung:</strong> Diagramm + Brainstorming-Bilder im Blog, optional KI-Text-Overlays beim Bild-Posten.<br>
+      <strong>Empfehlungen:</strong>
       <ul style="margin:6px 0;">
-        <li><code>gemini-2.5-flash-image</code> — günstig, schnell, gute Qualität (Standard, ~$0.039/Bild)</li>
-        <li><code>gemini-3-pro-image-preview</code> — höchste Qualität, langsamer, teurer</li>
-        <li><code>imagen-4.0-fast-generate-001</code> — schnelle Imagen 4 Variante</li>
-        <li><code>imagen-4.0-generate-001</code> — Standard Imagen 4</li>
-        <li><code>imagen-4.0-ultra-generate-001</code> — beste Imagen-Qualität</li>
+        <li><code>gemini-2.5-flash-image</code> — günstig, schnell, ~$0.039/Bild (Standard)</li>
+        <li><code>gemini-3-pro-image-preview</code> — höchste Qualität</li>
+        <li><code>imagen-4.0-fast-generate-001</code> — Imagen 4 schnell</li>
+        <li><code>imagen-4.0-generate-001</code> — Imagen 4 Standard</li>
+        <li><code>imagen-4.0-ultra-generate-001</code> — Imagen 4 beste Qualität</li>
       </ul>
-      Für Magvis-Blog-Bilder reicht <code>gemini-2.5-flash-image</code> völlig.
+      Für Magvis reicht <code>gemini-2.5-flash-image</code> völlig.
     </div>
   </div>
+
+  <script id="provider-models-data" type="application/json">
+    {
+      {% for slug, cfg in all_providers.items %}
+      "{{ slug }}": {
+        "label": "{{ cfg.label }}",
+        "available": {% if slug in available_providers %}true{% else %}false{% endif %},
+        "models": [
+          {% for m in cfg.models %}{"id": "{{ m.id }}", "label": "{{ m.label }}"}{% if not forloop.last %},{% endif %}{% endfor %}
+        ]
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    }
+  </script>
+  <script>
+  (function() {
+    const data = JSON.parse(document.getElementById('provider-models-data').textContent);
+    const providerSelect = document.getElementById('id_text_provider');
+    const modelSelect = document.getElementById('id_text_model');
+    const display = document.getElementById('current-model-display');
+    const currentModel = "{{ form.text_model.value|default:'glm-5.1' }}";
+
+    function populateModels(providerSlug) {
+      modelSelect.innerHTML = '';
+      const cfg = data[providerSlug];
+      if (!cfg) return;
+      cfg.models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.label + ' (' + m.id + ')';
+        if (m.id === currentModel) opt.selected = true;
+        modelSelect.appendChild(opt);
+      });
+      // Falls aktuelles Modell nicht in der Liste ist: erstes wählen
+      if (!Array.from(modelSelect.options).find(o => o.selected) && modelSelect.options.length) {
+        modelSelect.options[0].selected = true;
+      }
+      display.textContent = modelSelect.value;
+    }
+
+    providerSelect.addEventListener('change', () => populateModels(providerSelect.value));
+    modelSelect.addEventListener('change', () => display.textContent = modelSelect.value);
+
+    // Initial
+    populateModels(providerSelect.value);
+    // Markiere unverfügbare Provider visuell
+    Array.from(providerSelect.options).forEach(opt => {
+      const cfg = data[opt.value];
+      if (cfg && !cfg.available) {
+        opt.textContent = opt.textContent + ' (kein API-Key)';
+        opt.style.color = '#aaa';
+      }
+    });
+  })();
+  </script>
 
   <!-- ============== VIDEO-DEFAULTS ============== -->
   <h3 style="border-bottom:2px solid #D4AB32;padding-bottom:6px;margin-top:32px;">🎬 Video-Defaults (vidgen)</h3>

@@ -26,7 +26,7 @@ from ..prompts.blog_prompts import (
     tips_prompt,
 )
 from .gemini_helper import MagvisGeminiHelper
-from .glm_client import MagvisGLMClient
+from .llm_client import MagvisLLMClient
 from .minigame_generator import generate_minigame, minigame_html
 from .quiz_generator import generate_quiz, quiz_html
 from .toc_generator import estimate_minutes, render_toc, slugify
@@ -44,7 +44,7 @@ class MagvisBlogAssembler:
 
         from ..models import MagvisSettings
         self.settings, _ = MagvisSettings.objects.get_or_create(user=self.user)
-        self.glm = MagvisGLMClient(self.user, self.settings)
+        self.glm = MagvisLLMClient(self.user, self.settings)
         self.gemini = MagvisGeminiHelper(self.user, self.settings)
         self._shopify_product_cache = {}   # product_id → {handle, image_src}
 
@@ -64,6 +64,18 @@ class MagvisBlogAssembler:
 
         # 2. Headings (Struktur-Skelett)
         headings = self._generate_headings(topic)
+
+        # 0. TITELBILD (Hero, ganz oben)
+        title_url = self._generate_blog_image(
+            kind='title',
+            topic_summary=f'Hero image for "{topic}", elegant editorial photo.',
+        )
+        if title_url:
+            sections.append({
+                'type': 'title_image', 'id': 'hero',
+                'src': title_url,
+                'html': self._title_image_html(title_url, blog.seo_title or topic),
+            })
 
         # 3. Intro
         intro_html = self._call_glm(intro_prompt(topic))
@@ -420,8 +432,18 @@ class MagvisBlogAssembler:
   </div>
 </div>'''
 
+    def _title_image_html(self, src: str, alt_title: str) -> str:
+        """Hero-Titelbild im Blog (16:9, full-width)."""
+        return (
+            f'<figure style="margin:0 0 28px 0;border-radius:14px;overflow:hidden;'
+            f'box-shadow:0 6px 24px rgba(0,0,0,0.08);">'
+            f'<img src="{escape(src)}" alt="{escape(alt_title)}" '
+            f'style="width:100%;height:auto;display:block;object-fit:cover;">'
+            f'</figure>'
+        )
+
     def _facts_box_html(self, facts: list) -> str:
-        """Fakten-Box: dezent-modernes Salbei/Sand-Schema."""
+        """Fakten-Box (kompakt, Grid 2x2)."""
         if not facts:
             return ''
         items = ''
@@ -434,31 +456,30 @@ class MagvisBlogAssembler:
             if not text:
                 continue
             items += (
-                '<div style="display:flex;gap:14px;align-items:flex-start;'
-                'padding:14px 0;border-bottom:1px solid rgba(125,156,128,0.15);">'
-                f'<div style="font-size:1.6rem;line-height:1;flex-shrink:0;">{icon}</div>'
-                '<div>'
-                f'<div style="font-weight:600;color:#3D5A40;font-size:1rem;margin-bottom:4px;">{title}</div>'
-                f'<div style="color:#5C5651;font-size:0.95rem;line-height:1.5;">{text}</div>'
+                '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;'
+                'background:rgba(255,255,255,0.5);border-radius:6px;">'
+                f'<span style="font-size:1.05rem;line-height:1.2;flex-shrink:0;">{icon}</span>'
+                '<div style="font-size:0.85rem;line-height:1.4;">'
+                f'<strong style="color:#3D5A40;">{title}:</strong> '
+                f'<span style="color:#5C5651;">{text}</span>'
                 '</div></div>'
             )
-        # Letzte Border-Bottom entfernen via :last-child geht nicht inline → akzeptabel
         return (
             '<aside class="naturmacher-facts-box" '
-            'style="margin:36px auto;max-width:680px;background:linear-gradient(135deg,#F4F8F0 0%,#E8EDDF 100%);'
-            'border:1px solid rgba(125,156,128,0.25);border-left:4px solid #7D9C80;'
-            'border-radius:12px;padding:24px 28px;'
-            'box-shadow:0 2px 12px rgba(125,156,128,0.08);font-family:inherit;">'
-            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
-            '<div style="font-size:1.3rem;">📚</div>'
-            '<h3 style="margin:0;font-size:1.15rem;color:#3D5A40;font-weight:600;letter-spacing:-0.01em;">Wusstest du schon?</h3>'
+            'style="margin:24px auto;max-width:680px;'
+            'background:linear-gradient(135deg,#F4F8F0 0%,#E8EDDF 100%);'
+            'border-left:3px solid #7D9C80;border-radius:8px;padding:14px 16px;'
+            'font-family:inherit;">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+            '<span style="font-size:1.05rem;">📚</span>'
+            '<strong style="color:#3D5A40;font-size:0.95rem;letter-spacing:0.02em;text-transform:uppercase;">Wusstest du schon?</strong>'
             '</div>'
-            f'<div>{items}</div>'
+            f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">{items}</div>'
             '</aside>'
         )
 
     def _tips_box_html(self, tips: list) -> str:
-        """Tipps-Box: dezent-modernes Sand/Gold-Schema (warm, aktiv)."""
+        """Tipps-Box (kompakt, Grid 2x2)."""
         if not tips:
             return ''
         items = ''
@@ -471,25 +492,25 @@ class MagvisBlogAssembler:
             if not text:
                 continue
             items += (
-                '<div style="display:flex;gap:14px;align-items:flex-start;'
-                'padding:14px 0;border-bottom:1px solid rgba(212,171,50,0.15);">'
-                f'<div style="font-size:1.6rem;line-height:1;flex-shrink:0;">{icon}</div>'
-                '<div>'
-                f'<div style="font-weight:600;color:#8A6F1F;font-size:1rem;margin-bottom:4px;">{title}</div>'
-                f'<div style="color:#5C5651;font-size:0.95rem;line-height:1.5;">{text}</div>'
+                '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;'
+                'background:rgba(255,255,255,0.5);border-radius:6px;">'
+                f'<span style="font-size:1.05rem;line-height:1.2;flex-shrink:0;">{icon}</span>'
+                '<div style="font-size:0.85rem;line-height:1.4;">'
+                f'<strong style="color:#8A6F1F;">{title}:</strong> '
+                f'<span style="color:#5C5651;">{text}</span>'
                 '</div></div>'
             )
         return (
             '<aside class="naturmacher-tips-box" '
-            'style="margin:36px auto;max-width:680px;background:linear-gradient(135deg,#FBF6E5 0%,#F5EDD0 100%);'
-            'border:1px solid rgba(212,171,50,0.3);border-left:4px solid #D4AB32;'
-            'border-radius:12px;padding:24px 28px;'
-            'box-shadow:0 2px 12px rgba(212,171,50,0.1);font-family:inherit;">'
-            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
-            '<div style="font-size:1.3rem;">✨</div>'
-            '<h3 style="margin:0;font-size:1.15rem;color:#8A6F1F;font-weight:600;letter-spacing:-0.01em;">Tipps & Tricks</h3>'
+            'style="margin:24px auto;max-width:680px;'
+            'background:linear-gradient(135deg,#FBF6E5 0%,#F5EDD0 100%);'
+            'border-left:3px solid #D4AB32;border-radius:8px;padding:14px 16px;'
+            'font-family:inherit;">'
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+            '<span style="font-size:1.05rem;">✨</span>'
+            '<strong style="color:#8A6F1F;font-size:0.95rem;letter-spacing:0.02em;text-transform:uppercase;">Tipps & Tricks</strong>'
             '</div>'
-            f'<div>{items}</div>'
+            f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">{items}</div>'
             '</aside>'
         )
 
@@ -528,11 +549,18 @@ class MagvisBlogAssembler:
         )
 
     def _compose_html(self, blog: MagvisBlog) -> str:
+        # H2 in Naturmacher-Salbeigruen (passt zu Faktenbox), elegant unterstrichen
         parts: list[str] = [blog.toc_html or '']
         for sec in blog.sections:
             t = sec.get('type')
             if t == 'h2':
-                parts.append(f'<h2 id="{sec["id"]}" style="margin-top:2rem;color:#2A2A2A;">{escape(sec["title"])}</h2>')
+                parts.append(
+                    f'<h2 id="{sec["id"]}" '
+                    f'style="margin:2.4rem 0 0.8rem 0;color:#3D5A40;'
+                    f'font-weight:600;letter-spacing:-0.01em;'
+                    f'border-bottom:2px solid rgba(125,156,128,0.25);padding-bottom:6px;">'
+                    f'{escape(sec["title"])}</h2>'
+                )
             else:
                 parts.append(sec.get('html', ''))
         return '\n\n'.join(p for p in parts if p)

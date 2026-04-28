@@ -1,6 +1,7 @@
 """Forms für Magvis-Wizard."""
 from django import forms
 
+from .llm_providers import provider_choices
 from .models import MagvisProject, MagvisReportConfig, MagvisSettings, MagvisTopicQueue
 
 
@@ -45,13 +46,19 @@ class MagvisSettingsForm(forms.ModelForm):
                                       'placeholder': 'z.B. pinterest,instagram,facebook'}),
         required=False, label='Default-Plattformen für Bilder (kommagetrennt)',
     )
+    text_provider = forms.ChoiceField(
+        choices=provider_choices(),
+        widget=forms.Select(attrs={'class': 'form-select', 'id': 'id_text_provider'}),
+        label='KI-Anbieter',
+    )
 
     class Meta:
         model = MagvisSettings
-        exclude = ['user', 'fixed_cdn_image_urls', 'default_image_platforms', 'created_at', 'updated_at']
+        exclude = ['user', 'fixed_cdn_image_urls', 'default_image_platforms',
+                   'glm_model', 'glm_base_url',
+                   'created_at', 'updated_at']
         widgets = {
-            'glm_model': forms.TextInput(attrs={'class': 'form-control'}),
-            'glm_base_url': forms.URLInput(attrs={'class': 'form-control'}),
+            'text_model': forms.Select(attrs={'class': 'form-select', 'id': 'id_text_model'}),
             'gemini_image_model': forms.TextInput(attrs={'class': 'form-control'}),
             'default_video_template': forms.TextInput(attrs={'class': 'form-control'}),
             'default_video_duration': forms.NumberInput(attrs={'class': 'form-control'}),

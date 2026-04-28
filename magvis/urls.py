@@ -27,6 +27,7 @@ urlpatterns = [
     # Settings + Report
     path('einstellungen/', views.settings_view, name='settings'),
     path('einstellungen/report/', views.report_config_view, name='report_config'),
+    path('einstellungen/api/providers/', views.api_available_providers, name='api_available_providers'),
 
     # Topics
     path('themen/', views.topics_list, name='topics_list'),

@@ -118,6 +118,7 @@ def project_status(request, project_id):
 
 @login_required
 def settings_view(request):
+    from .llm_providers import PROVIDERS, available_providers_for
     obj, _ = MagvisSettings.objects.get_or_create(user=request.user)
     if request.method == 'POST':
         form = MagvisSettingsForm(request.POST, instance=obj)
@@ -127,7 +128,27 @@ def settings_view(request):
             return redirect('magvis:settings')
     else:
         form = MagvisSettingsForm(instance=obj)
-    return render(request, 'magvis/settings.html', {'form': form, 'settings': obj})
+
+    available = available_providers_for(request.user)
+    return render(request, 'magvis/settings.html', {
+        'form': form, 'settings': obj,
+        'all_providers': PROVIDERS,
+        'available_providers': available,
+    })
+
+
+@login_required
+def api_available_providers(request):
+    """Liefert JSON: welche Provider hat der User konfiguriert + welche Modelle."""
+    from .llm_providers import available_providers_for
+    avail = available_providers_for(request.user)
+    return JsonResponse({
+        'providers': [
+            {'slug': k, 'label': v['label'],
+             'models': v['models']}
+            for k, v in avail.items()
+        ],
+    })
 
 
 @login_required

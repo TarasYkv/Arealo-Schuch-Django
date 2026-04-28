@@ -29,7 +29,7 @@ from ..prompts.product_prompts import (
     KI_VARIANTS_PHASE_3,
     scene_for,
 )
-from .glm_client import MagvisGLMClient
+from .llm_client import MagvisLLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class MagvisProductPipeline:
 
         from ..models import MagvisSettings
         self.magvis_settings, _ = MagvisSettings.objects.get_or_create(user=self.user)
-        self.glm = MagvisGLMClient(self.user, self.magvis_settings)
+        self.glm = MagvisLLMClient(self.user, self.magvis_settings)
 
     def run(self) -> dict:
         """Erstellt 2 Produkte parallel."""

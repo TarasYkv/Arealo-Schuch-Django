@@ -6,7 +6,7 @@ Liefert ein interaktives JS-Quiz im Naturmacher-Farbschema, Shopify-Theme-agnost
 import json
 from typing import Dict, List
 
-from .glm_client import repair_and_parse
+from .llm_client import repair_and_parse
 
 
 _BG_CARD = "#FAF6EC"

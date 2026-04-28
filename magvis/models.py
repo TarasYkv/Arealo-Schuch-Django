@@ -17,7 +17,14 @@ class MagvisSettings(models.Model):
         related_name='magvis_settings',
     )
 
-    # GLM-5.1 (z.AI)
+    # KI-Provider + Modell fuer Texte (Multi-Provider, configurable)
+    text_provider = models.CharField(
+        max_length=32, default='zhipu',
+        help_text='openai, anthropic, gemini, zhipu, deepseek, openrouter',
+    )
+    text_model = models.CharField(max_length=64, default='glm-5.1')
+
+    # Legacy (backward compat, wird in v2-Migration entfernt):
     glm_model = models.CharField(max_length=64, default='glm-5.1')
     glm_base_url = models.URLField(default='https://api.z.ai/api/coding/paas/v4')
 
