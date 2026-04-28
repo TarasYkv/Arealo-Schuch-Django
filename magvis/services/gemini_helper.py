@@ -88,9 +88,9 @@ class MagvisGeminiHelper:
             f'no English text, no misspelled words.\n\n'
             f'Output: ONLY the image. Do not respond with text.'
         )
-        # Use premium model for text quality (avoids spelling errors)
+        # Nano Banana 2 — gute Text-Qualitaet zu mittlerem Preis
         return self._generate_and_save(prompt, prefix='diagram',
-                                        model_override='gemini-3-pro-image-preview')
+                                        model_override='gemini-3.1-flash-image-preview')
 
     def generate_brainstorm(self, topic: str) -> dict:
         """Brainstorm-Bild MIT deutscher Handschrift via Nano Banana Pro."""
@@ -108,9 +108,9 @@ class MagvisGeminiHelper:
             f'objects, no English labels, no misspelled words.\n\n'
             f'Output: ONLY the image. Do not respond with text.'
         )
-        # Use premium model for text quality
+        # Nano Banana 2 — gute Text-Qualitaet zu mittlerem Preis
         return self._generate_and_save(prompt, prefix='brainstorm',
-                                        model_override='gemini-3-pro-image-preview')
+                                        model_override='gemini-3.1-flash-image-preview')
 
     def _generate_and_save(self, prompt: str, prefix: str,
                             model_override: str | None = None) -> dict:
