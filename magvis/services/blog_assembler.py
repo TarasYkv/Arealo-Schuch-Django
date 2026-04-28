@@ -481,11 +481,34 @@ class MagvisBlogAssembler:
                                 stat.get('label', '?'), stat.get('value', '?'))
             except Exception as exc:
                 logger.warning('Stat-Verifikation Fehler: %s', exc)
-        if not verified:
-            logger.info('0 verifizierte Stats — Stat-Box wird ausgelassen')
-            return []
-        logger.info('%d Stats verifiziert — Box wird gerendert', len(verified))
-        return verified[:4]
+        if verified:
+            logger.info('%d Stats verifiziert — Box wird gerendert', len(verified))
+            return verified[:4]
+
+        # Plan-B: Keine GLM-Stats verifizierbar → zeige Brave-Treffer
+        # als 'Kuratierte Recherche-Quellen' (ohne Zahl, nur Titel + URL + Snippet)
+        logger.info('GLM-Extraktion 0 — Plan-B: zeige Brave-Treffer direkt')
+        plan_b = []
+        for r in stat_results[:4]:
+            url = r.get('url', '')
+            title = r.get('title', '').strip()
+            snippet = (r.get('snippet', '') or r.get('content', ''))[:140].strip()
+            if not url or not self.research.is_whitelisted(url):
+                continue
+            if not title and not snippet:
+                continue
+            # Domain als source_name extrahieren
+            from urllib.parse import urlparse
+            host = urlparse(url).netloc.replace('www.', '')
+            plan_b.append({
+                'value': title[:60] or 'Quelle zum Thema',
+                'label': snippet,
+                'source_url': url,
+                'source_name': host,
+            })
+        if plan_b:
+            logger.info('Plan-B Stat-Box mit %d Brave-Quellen', len(plan_b))
+        return plan_b
 
     def _statistics_box_html(self, stats: list[dict]) -> str:
         """Sichtbare 'Belastbare Aussagen'-Box mit Quell-Links.

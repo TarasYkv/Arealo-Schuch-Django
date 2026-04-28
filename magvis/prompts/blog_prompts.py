@@ -183,19 +183,21 @@ def seo_prompt(topic: str) -> str:
 
 
 def statistics_extraction_prompt(topic: str, research_text: str) -> str:
-    """STRICT-Prompt fuer Halluzinations-sichere Stat- + Aussagen-Extraktion."""
+    """Prompt fuer Stat- + Aussagen-Extraktion (Halluzinations-sicher aber optimistisch)."""
     return (
         f'Extrahiere 2-5 belegbare Aussagen zum Thema "{topic}" aus dem '
-        f"RECHERCHE-TEXT. Mix aus Zahlen-Statistiken UND qualitativen Aussagen "
-        f"(z.B. 'Studien zeigen, dass...', 'gilt als...', 'Top-3-Wahl...').\n\n"
-        f"=== ABSOLUT WICHTIGE REGELN — HALLUZINATIONS-SCHUTZ ===\n"
-        f"1. ERFINDE NICHTS. Nutze AUSSCHLIESSLICH Aussagen, die im Recherche-Text "
-        f"   wortwoertlich stehen. Wenn keine passende Aussage da ist — liefere []\n"
-        f"2. quote_excerpt MUSS exakt eine Passage aus dem Recherche-Text sein "
-        f"   (mindestens 40 Zeichen), die die Aussage enthaelt.\n"
-        f"3. Lieber 0 statt 3 Eintraege, wenn du nicht 100% sicher bist.\n"
-        f"4. value: entweder konkrete Zahl ('686.000', '38%') ODER kurze Kern-"
-        f"   Aussage in 3-7 Woertern ('Persönliches haelt laenger', 'Top-Wahl').\n\n"
+        f"RECHERCHE-TEXT. Mix aus Zahlen-Statistiken UND qualitativen Aussagen.\n\n"
+        f"=== REGELN ===\n"
+        f"1. Nutze NUR Aussagen, die im Recherche-Text vorkommen (wortwoertlich oder "
+        f"   sinngemaess paraphrasiert). KEIN frei erfinden.\n"
+        f"2. quote_excerpt: PASSAGE aus dem Recherche-Text (>= 40 Zeichen), "
+        f"   die die Aussage stuetzt.\n"
+        f"3. Liefere LIEBER 2-3 brauchbare Stats als 0! Im Recherche-Text gibt es "
+        f"   meist mindestens ein paar Zahlen/Fakten — nutze sie.\n"
+        f"4. value: konkrete Zahl ('686.000', '38%') ODER prägnante 3-7-Wort-Aussage "
+        f"   ('Persönliches haelt laenger', 'Top-3-Wahl', 'gewachsen seit 2010').\n"
+        f"5. Bei Vagheit ('viele', 'oft'): NICHT extrahieren. Suche stattdessen "
+        f"   konkrete Zahlen oder klare Aussagen.\n\n"
         f"=== RECHERCHE-TEXT ===\n"
         f"{research_text}\n"
         f"=== ENDE RECHERCHE-TEXT ===\n\n"
