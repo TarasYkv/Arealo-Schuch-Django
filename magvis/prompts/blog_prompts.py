@@ -183,29 +183,35 @@ def seo_prompt(topic: str) -> str:
 
 
 def statistics_extraction_prompt(topic: str, research_text: str) -> str:
-    """STRICT-Prompt fuer Halluzinations-sichere Stat-Extraktion."""
+    """STRICT-Prompt fuer Halluzinations-sichere Stat- + Aussagen-Extraktion."""
     return (
-        f'Extrahiere 2-5 belastbare Statistiken zum Thema "{topic}" '
-        f"aus dem unten stehenden RECHERCHE-TEXT. Liefere so viele wie moeglich.\n\n"
+        f'Extrahiere 2-5 belegbare Aussagen zum Thema "{topic}" aus dem '
+        f"RECHERCHE-TEXT. Mix aus Zahlen-Statistiken UND qualitativen Aussagen "
+        f"(z.B. 'Studien zeigen, dass...', 'gilt als...', 'Top-3-Wahl...').\n\n"
         f"=== ABSOLUT WICHTIGE REGELN — HALLUZINATIONS-SCHUTZ ===\n"
-        f"1. ERFINDE NICHTS. Nutze AUSSCHLIESSLICH Zahlen, die WORTWOERTLICH im "
-        f"   Recherche-Text stehen. Wenn keine passende Zahl da ist — liefere ein leeres Array.\n"
-        f"2. quote_excerpt MUSS exakt eine Passage aus dem Recherche-Text sein, "
-        f"   die die Zahl enthaelt (mindestens 50 Zeichen).\n"
-        f"3. Lieber 0 statt 3 Stats, wenn du nicht 100% sicher bist.\n"
-        f"4. Bevorzuge konkrete Zahlen ('686.000', '38%', '1,8 Mio.'), nicht 'viele' oder 'einige'.\n\n"
+        f"1. ERFINDE NICHTS. Nutze AUSSCHLIESSLICH Aussagen, die im Recherche-Text "
+        f"   wortwoertlich stehen. Wenn keine passende Aussage da ist — liefere []\n"
+        f"2. quote_excerpt MUSS exakt eine Passage aus dem Recherche-Text sein "
+        f"   (mindestens 40 Zeichen), die die Aussage enthaelt.\n"
+        f"3. Lieber 0 statt 3 Eintraege, wenn du nicht 100% sicher bist.\n"
+        f"4. value: entweder konkrete Zahl ('686.000', '38%') ODER kurze Kern-"
+        f"   Aussage in 3-7 Woertern ('Persönliches haelt laenger', 'Top-Wahl').\n\n"
         f"=== RECHERCHE-TEXT ===\n"
         f"{research_text}\n"
         f"=== ENDE RECHERCHE-TEXT ===\n\n"
-        f"Antworte AUSSCHLIESSLICH als JSON-Array (max. 3 Eintraege, oder leeres Array):\n"
+        f"Antworte als JSON-Array (max. 5 Eintraege oder leer):\n"
+        f"BEISPIELE (gemischt — Zahlen + Aussagen):\n"
         f'[{{"value": "686.000", "label": "Erzieher in Deutschland (2023)", '
         f'"source_url": "https://...", "source_name": "Statistisches Bundesamt", '
-        f'"quote_excerpt": "Im Jahr 2023 waren in Deutschland rund 686.000 Personen als Erzieher beschäftigt..."}}, ...]\n\n'
-        f"value: nur die Zahl mit Einheit (z.B. '38%', '1,8 Mio.', '686.000').\n"
-        f"label: 4-8 Woerter Kurzbeschreibung (Was beschreibt die Zahl?).\n"
-        f"source_url: VOLLSTAENDIGE URL aus den Q-Bloecken oben.\n"
-        f"source_name: kurzer Quellname (z.B. 'Statistisches Bundesamt', 'BMFSFJ', 'Eurostat').\n"
-        f"quote_excerpt: WORTWOERTLICHER Auszug aus dem Recherche-Text mit der Zahl drin."
+        f'"quote_excerpt": "Im Jahr 2023 waren in Deutschland rund 686.000 Personen als Erzieher beschäftigt..."}},\n'
+        f' {{"value": "Persönliches wirkt länger", "label": "Forschung zur Geschenkpsychologie", '
+        f'"source_url": "https://...", "source_name": "Max-Planck-Institut", '
+        f'"quote_excerpt": "Studien zeigen: Persoenlich gestaltete Geschenke wirken nachhaltig emotionaler als..."}}]\n\n'
+        f"value: konkrete Zahl mit Einheit ODER 3-7-Wort-Aussage.\n"
+        f"label: 4-8 Woerter Kurzbeschreibung.\n"
+        f"source_url: VOLLSTAENDIGE URL aus den Q-Bloecken.\n"
+        f"source_name: kurzer Quellname.\n"
+        f"quote_excerpt: WORTWOERTLICHER Auszug aus dem Recherche-Text."
     )
 
 

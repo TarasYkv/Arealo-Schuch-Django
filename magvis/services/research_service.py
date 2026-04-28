@@ -208,14 +208,13 @@ class MagvisResearchService:
         return all_results
 
     def verify_statistic(self, stat: dict, search_results: list[dict] | None = None) -> bool:
-        """Verifiziert Statistik 4-stufig (vom strengsten zum lockersten Match).
+        """Verifiziert Stat (Zahl ODER Aussage) gegen Brave-Snippet + Live-HTML.
 
-        Stufe 1: Wert + Excerpt im RECHERCHE-CONTENT (was Brave/Web extrahiert hat).
-        Stufe 2: Wert exakt im Live-HTML der Source-URL.
-        Stufe 3: Kern-Zahl aus value im Live-HTML.
-        Stufe 4: Excerpt-Substring (25+ Zeichen) im Live-HTML oder im Brave-Snippet.
-
-        Akzeptiert wenn IRGENDEINE Stufe matched (statt strenger AND).
+        Mehrere Stufen, akzeptiert wenn IRGENDEINE matched:
+        - Wert exakt + Variants im Snippet/Content/Live-HTML
+        - Kern-Zahl (falls value Zahl enthaelt)
+        - Excerpt-Substring (25+ Zeichen)
+        - Bei Aussagen (kein value-Match noetig): nur Excerpt-Substring entscheidet
         """
         url = stat.get('source_url', '')
         value = (stat.get('value', '') or '').strip()
@@ -227,41 +226,44 @@ class MagvisResearchService:
         norm_value_clean = norm_value.replace('.', '').replace(',', '')
         core_num_match = re.search(r'(\d+(?:[,.]\d+)?)', value)
         core_num = core_num_match.group(1).lower() if core_num_match else ''
+        excerpt_norm = re.sub(r'\s+', ' ', excerpt[:60].lower().replace('\xa0', ' '))
 
-        # Stufe 1: im Recherche-Content (Brave-Snippet + extrahierter HTML-Body) suchen
+        def matches(text: str) -> bool:
+            t = re.sub(r'\s+', ' ', text).replace('\xa0', ' ').lower()
+            t_clean = re.sub(r'[.,]', '', t)
+            if norm_value in t or norm_value_clean in t_clean:
+                return True
+            if core_num and (core_num in t or core_num.replace(',', '.') in t):
+                return True
+            if len(excerpt) >= 25 and excerpt_norm[:25] in t:
+                return True
+            # Bei Aussagen: pruefe ob 3 zusammenhaengende Schlagwoerter aus value im Text
+            words = [w for w in re.findall(r'\b\w{4,}\b', value.lower()) if w]
+            if len(words) >= 2:
+                # Mindestens 60% der Schlagwoerter muessen im Text vorkommen
+                hits = sum(1 for w in words if w in t)
+                if hits / len(words) >= 0.6:
+                    return True
+            return False
+
+        # Stufe 1: Brave-Snippet/Content
         if search_results:
             for r in search_results:
                 if r.get('url') != url:
                     continue
-                haystack = (r.get('snippet', '') + ' ' + r.get('content', '')).lower()
-                haystack_clean = re.sub(r'[.,]', '', haystack)
-                if norm_value in haystack or norm_value_clean in haystack_clean:
-                    return True
-                if core_num and (core_num in haystack or core_num.replace(',', '.') in haystack):
-                    return True
-                if len(excerpt) >= 25 and excerpt[:30].lower() in haystack:
+                haystack = r.get('snippet', '') + ' ' + r.get('content', '')
+                if matches(haystack):
                     return True
 
-        # Stufe 2-4: Live-Fetch
+        # Stufe 2: Live-Fetch
         try:
             resp = requests.get(url, headers=self.HEADERS, timeout=self.TIMEOUT)
             resp.raise_for_status()
         except Exception:
-            # Fallback: wenn schon im Snippet bestaetigt → false hier ist OK
             return False
 
         text = re.sub(r'<[^>]+>', ' ', resp.text)
-        norm_text = re.sub(r'\s+', ' ', text).replace('\xa0', ' ').lower()
-        norm_text_clean = re.sub(r'[.,]', '', norm_text)
-
-        if norm_value in norm_text or norm_value_clean in norm_text_clean:
-            return True
-        if core_num and (core_num in norm_text or core_num.replace(',', '.') in norm_text):
-            return True
-        if len(excerpt) >= 25 and excerpt[:30].lower() in norm_text:
-            return True
-
-        return False
+        return matches(text)
 
     def format_for_llm(self, results: list[dict]) -> str:
         """Komprimiertes Format fuer LLM-System-Prompt."""

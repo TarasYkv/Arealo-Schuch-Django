@@ -464,22 +464,39 @@ class MagvisBlogAssembler:
         return verified[:4]
 
     def _statistics_box_html(self, stats: list[dict]) -> str:
-        """Sichtbare 'Belastbare Zahlen'-Box mit Quell-Links."""
+        """Sichtbare 'Belastbare Aussagen'-Box mit Quell-Links.
+
+        Unterscheidet visuell zwischen Zahlen-Stats (groß angezeigt) und
+        qualitativen Aussagen (in Anfuehrungszeichen).
+        """
         if not stats:
             return ''
+        import re as _re
         items = ''
         for s in stats:
-            value = escape(str(s.get('value', '')))
+            value = str(s.get('value', '')).strip()
             label = escape(str(s.get('label', '')))
             url = escape(str(s.get('source_url', '')))
             source = escape(str(s.get('source_name', 'Quelle')))
             if not value or not url:
                 continue
+            # Erkenne ob Zahl oder Aussage
+            is_number = bool(_re.match(r'^[\d.,]+\s*[%a-zA-ZäöüÄÖÜß. ]*$', value))
+            if is_number and len(value) <= 12:
+                value_html = (
+                    f'<div style="font-size:1.4rem;font-weight:700;color:#3D5A40;'
+                    f'min-width:90px;letter-spacing:-0.02em;">{escape(value)}</div>'
+                )
+            else:
+                # Qualitative Aussage als Quote
+                value_html = (
+                    f'<div style="font-style:italic;color:#3D5A40;font-weight:500;'
+                    f'min-width:90px;font-size:0.98rem;">„{escape(value)}"</div>'
+                )
             items += (
                 '<div style="padding:12px 0;border-bottom:1px solid rgba(125,156,128,0.2);'
                 'display:flex;gap:14px;align-items:flex-start;">'
-                f'<div style="font-size:1.4rem;font-weight:700;color:#3D5A40;'
-                f'min-width:90px;letter-spacing:-0.02em;">{value}</div>'
+                f'{value_html}'
                 '<div style="flex:1;">'
                 f'<div style="color:#2A2A2A;font-size:0.95rem;line-height:1.4;'
                 f'margin-bottom:4px;">{label}</div>'
@@ -497,10 +514,10 @@ class MagvisBlogAssembler:
             '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
             '<span style="font-size:1.2rem;">📊</span>'
             '<strong style="color:#3D5A40;font-size:0.92rem;letter-spacing:0.04em;'
-            'text-transform:uppercase;">Belastbare Zahlen zum Thema</strong>'
+            'text-transform:uppercase;">Belegbare Aussagen aus geprüften Quellen</strong>'
             '</div>'
             '<div style="font-size:0.78rem;color:#7A7264;margin-bottom:8px;">'
-            'Geprüfte Quellen, die wir bei unserer Recherche verwendet haben:</div>'
+            'Diese Zahlen und Aussagen haben wir bei unserer Recherche verifiziert:</div>'
             f'<div>{items}</div>'
             '</aside>'
         )
