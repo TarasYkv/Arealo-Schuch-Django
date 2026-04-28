@@ -135,7 +135,7 @@ class MagvisBlogAssembler:
             product_card_1 = self._product_card_html(self.project.product_1)
             sections.append({
                 'type': 'product', 'id': 'product-1',
-                'product_id': self.project.product_1.id, 'html': product_card_1,
+                'product_id': str(self.project.product_1.id), 'html': product_card_1,
             })
 
         # 13. Brainstorming-Bild (Gemini)
@@ -176,7 +176,7 @@ class MagvisBlogAssembler:
             product_card_2 = self._product_card_html(self.project.product_2)
             sections.append({
                 'type': 'product', 'id': 'product-2',
-                'product_id': self.project.product_2.id, 'html': product_card_2,
+                'product_id': str(self.project.product_2.id), 'html': product_card_2,
             })
 
         # 18. FAQs
