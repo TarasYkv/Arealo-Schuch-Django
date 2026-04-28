@@ -103,12 +103,12 @@ class MagvisProductPipeline:
             f"- Persönlich, herzlich, NICHT kitschig.\n"
             f"- Beide Texte deutlich verschieden im Stil.\n"
             f"- VERBOTEN: Konkrete Eigennamen (Anna, Max, Lisa, Tom, ...). Auch keine "
-            f"  Platzhalter wie [Name] oder „Name". KEINE Daten/Jahreszahlen.\n"
+            f"  Platzhalter wie [Name] oder Name-Variablen. KEINE Daten/Jahreszahlen.\n"
             f"- Stattdessen: Rollen-/Beziehungsbezeichnungen aus dem Topic verwenden "
-            f'  (z.B. "Lieblings-Erzieherin", "Beste Freundin", "Danke, Mama"), '
+            f"  (z.B. 'Lieblings-Erzieherin', 'Beste Freundin', 'Danke, Mama'), "
             f"  oder reine Botschaft ohne Anrede.\n"
-            f"- Optional 2. Zeile mit Komma getrennt für eine kurze Botschaft "
-            f"  (z.B. „Danke fürs Mit-Großziehen") — KEIN Name.\n\n"
+            f"- Optional 2. Zeile mit Komma getrennt fuer eine kurze Botschaft "
+            f"  (z.B. 'Danke fuers Mit-Grossziehen') — KEIN Name.\n\n"
             f'Antworte nur als JSON-Array mit 2 Strings: ["Text 1", "Text 2"]'
         )
         try:
