@@ -185,8 +185,8 @@ def seo_prompt(topic: str) -> str:
 def statistics_extraction_prompt(topic: str, research_text: str) -> str:
     """STRICT-Prompt fuer Halluzinations-sichere Stat-Extraktion."""
     return (
-        f'Extrahiere bis zu 3 belastbare Statistiken zum Thema "{topic}" '
-        f"aus dem unten stehenden RECHERCHE-TEXT.\n\n"
+        f'Extrahiere 2-5 belastbare Statistiken zum Thema "{topic}" '
+        f"aus dem unten stehenden RECHERCHE-TEXT. Liefere so viele wie moeglich.\n\n"
         f"=== ABSOLUT WICHTIGE REGELN — HALLUZINATIONS-SCHUTZ ===\n"
         f"1. ERFINDE NICHTS. Nutze AUSSCHLIESSLICH Zahlen, die WORTWOERTLICH im "
         f"   Recherche-Text stehen. Wenn keine passende Zahl da ist — liefere ein leeres Array.\n"

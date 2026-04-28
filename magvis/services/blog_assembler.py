@@ -422,18 +422,19 @@ class MagvisBlogAssembler:
         4. Filtert auf Whitelist-Domains
         """
         try:
-            stat_results = self.research.search_statistics(topic, num_results=6)
+            stat_results = self.research.search_statistics(topic, num_results=8)
         except Exception as exc:
             logger.warning('Stat-Search fehlgeschlagen: %s', exc)
             return []
         if not stat_results:
+            logger.info('Keine Stat-Quellen aus Whitelist gefunden')
             return []
         research_text = self.research.format_for_llm(stat_results)
 
         try:
             extracted = self.glm.json_chat_with_retry(
                 statistics_extraction_prompt(topic, research_text),
-                expect='array', max_tokens=2000, retries=2,
+                expect='array', max_tokens=3000, retries=3,
             ) or []
         except Exception as exc:
             logger.warning('Stat-Extraktion via GLM fehlgeschlagen: %s', exc)
@@ -441,27 +442,26 @@ class MagvisBlogAssembler:
         if not isinstance(extracted, list):
             return []
 
-        # Verifikation
+        # Verifikation MIT Recherche-Kontext (Snippet-First)
         verified = []
-        for stat in extracted[:5]:
+        for stat in extracted[:6]:
             if not isinstance(stat, dict):
                 continue
             try:
-                if self.research.verify_statistic(stat):
+                if self.research.verify_statistic(stat, search_results=stat_results):
                     verified.append(stat)
                     logger.info('✓ Stat verifiziert: %s = %s',
                                 stat.get('label', '?'), stat.get('value', '?'))
                 else:
-                    logger.info('✗ Stat verworfen (nicht verifizierbar): %s',
-                                stat.get('label', '?'))
+                    logger.info('✗ Stat verworfen: %s = %s',
+                                stat.get('label', '?'), stat.get('value', '?'))
             except Exception as exc:
                 logger.warning('Stat-Verifikation Fehler: %s', exc)
-        # Mind. 1 Stat — Box wird auch bei nur einer angezeigt (besser als nix)
         if not verified:
             logger.info('0 verifizierte Stats — Stat-Box wird ausgelassen')
             return []
         logger.info('%d Stats verifiziert — Box wird gerendert', len(verified))
-        return verified[:3]
+        return verified[:4]
 
     def _statistics_box_html(self, stats: list[dict]) -> str:
         """Sichtbare 'Belastbare Zahlen'-Box mit Quell-Links."""

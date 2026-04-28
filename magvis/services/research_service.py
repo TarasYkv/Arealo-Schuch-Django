@@ -164,46 +164,37 @@ class MagvisResearchService:
         text = re.sub(r'\s+', ' ', text).strip()
         return text[:max_length]
 
-    def search_statistics(self, topic: str, num_results: int = 6) -> list[dict]:
+    def search_statistics(self, topic: str, num_results: int = 8) -> list[dict]:
         """Sucht gezielt Statistik-Quellen aus der Whitelist.
 
-        Kombiniert: Brave-Search mit Stat-Query + Whitelist-Filter.
-        Holt zusaetzlich PDF-/HTML-Content, damit GLM Zahlen darin
-        finden und mit quote_excerpt belegen kann.
+        Mehrere parallele Queries mit Pausen + Whitelist-Filter.
+        Holt HTML-Content fuer Live-Verifikation. Snippets bleiben primaere
+        Verifikations-Quelle (was Brave aus der Live-Seite extrahiert hat).
         """
-        # 1 kombinierte Query (statt 3 parallel) — verhindert Brave 429-Rate-Limit
-        query = f'{topic} statistik OR studie OR zahlen'
+        queries = [
+            f'{topic} statistik',
+            f'{topic} studie zahlen',
+            f'{topic} prozent anzahl',
+            f'{topic} site:destatis.de OR site:statista.com OR site:eurostat.ec.europa.eu',
+        ]
         all_results = []
         seen_urls = set()
-        try:
-            results = self._brave(query, num_results * 2) if self.brave_key else self._ddg_html(query, num_results * 2)
-        except Exception as exc:
-            logger.warning('Stat-Search fehlgeschlagen: %s', exc)
-            return []
-        for r in results:
-            url = r.get('url', '')
-            if url in seen_urls or not self.is_whitelisted(url):
+        for i, query in enumerate(queries):
+            if i > 0:
+                time.sleep(1.5)  # Rate-Limit respektieren
+            try:
+                results = self._brave(query, num_results) if self.brave_key else self._ddg_html(query, num_results)
+            except Exception as exc:
+                logger.warning('Stat-Search Query %d fehlgeschlagen: %s', i + 1, exc)
                 continue
-            seen_urls.add(url)
-            all_results.append(r)
+            for r in results:
+                url = r.get('url', '')
+                if url in seen_urls or not self.is_whitelisted(url):
+                    continue
+                seen_urls.add(url)
+                all_results.append(r)
             if len(all_results) >= num_results:
                 break
-        # Fallback: wenn nichts in Whitelist gefunden, zweite Query mit explizitem Domain-Filter
-        if len(all_results) < 2:
-            time.sleep(1.2)  # Rate-Limit respektieren
-            try:
-                fallback_q = f'{topic} site:destatis.de OR site:bmfsfj.de OR site:eurostat.ec.europa.eu OR site:statista.com'
-                fallback = self._brave(fallback_q, num_results) if self.brave_key else self._ddg_html(fallback_q, num_results)
-                for r in fallback:
-                    url = r.get('url', '')
-                    if url in seen_urls or not self.is_whitelisted(url):
-                        continue
-                    seen_urls.add(url)
-                    all_results.append(r)
-                    if len(all_results) >= num_results:
-                        break
-            except Exception:
-                pass
 
         # Content extrahieren
         for i, r in enumerate(all_results):
@@ -216,48 +207,59 @@ class MagvisResearchService:
 
         return all_results
 
-    def verify_statistic(self, stat: dict) -> bool:
-        """Live-Verifikation einer extrahierten Statistik (lockerer Modus).
+    def verify_statistic(self, stat: dict, search_results: list[dict] | None = None) -> bool:
+        """Verifiziert Statistik 4-stufig (vom strengsten zum lockersten Match).
 
-        Holt die Quell-URL frisch ab und prueft ob die Zahl ODER der Excerpt
-        wirklich darin vorkommen. Schuetzt vor LLM-Halluzinationen.
+        Stufe 1: Wert + Excerpt im RECHERCHE-CONTENT (was Brave/Web extrahiert hat).
+        Stufe 2: Wert exakt im Live-HTML der Source-URL.
+        Stufe 3: Kern-Zahl aus value im Live-HTML.
+        Stufe 4: Excerpt-Substring (25+ Zeichen) im Live-HTML oder im Brave-Snippet.
+
+        Akzeptiert wenn IRGENDEINE Stufe matched (statt strenger AND).
         """
         url = stat.get('source_url', '')
         value = (stat.get('value', '') or '').strip()
         excerpt = (stat.get('quote_excerpt', '') or '').strip()
         if not url or not value or not self.is_whitelisted(url):
             return False
+
+        norm_value = re.sub(r'\s+', '', value).lower()
+        norm_value_clean = norm_value.replace('.', '').replace(',', '')
+        core_num_match = re.search(r'(\d+(?:[,.]\d+)?)', value)
+        core_num = core_num_match.group(1).lower() if core_num_match else ''
+
+        # Stufe 1: im Recherche-Content (Brave-Snippet + extrahierter HTML-Body) suchen
+        if search_results:
+            for r in search_results:
+                if r.get('url') != url:
+                    continue
+                haystack = (r.get('snippet', '') + ' ' + r.get('content', '')).lower()
+                haystack_clean = re.sub(r'[.,]', '', haystack)
+                if norm_value in haystack or norm_value_clean in haystack_clean:
+                    return True
+                if core_num and (core_num in haystack or core_num.replace(',', '.') in haystack):
+                    return True
+                if len(excerpt) >= 25 and excerpt[:30].lower() in haystack:
+                    return True
+
+        # Stufe 2-4: Live-Fetch
         try:
             resp = requests.get(url, headers=self.HEADERS, timeout=self.TIMEOUT)
             resp.raise_for_status()
         except Exception:
+            # Fallback: wenn schon im Snippet bestaetigt → false hier ist OK
             return False
 
         text = re.sub(r'<[^>]+>', ' ', resp.text)
-        text = re.sub(r'\s+', ' ', text)
-        norm_text = text.replace('\xa0', ' ').lower()
-        norm_value = re.sub(r'\s+', '', value).lower()
-
-        # Versuch 1: Wert exakt + Variants (mit/ohne Tausender-Trenner)
-        norm_value_clean = norm_value.replace('.', '').replace(',', '')
+        norm_text = re.sub(r'\s+', ' ', text).replace('\xa0', ' ').lower()
         norm_text_clean = re.sub(r'[.,]', '', norm_text)
+
         if norm_value in norm_text or norm_value_clean in norm_text_clean:
             return True
-
-        # Versuch 2: nur die "Kern-Zahl" extrahieren und im Text suchen
-        # z.B. "1,8 Mio." → "1,8" oder "1.8" suchen; "38%" → "38"
-        core_num_match = re.search(r'(\d+(?:[,.]\d+)?)', value)
-        if core_num_match:
-            core = core_num_match.group(1).lower()
-            core_alt = core.replace(',', '.')
-            if core in norm_text or core_alt in norm_text:
-                return True
-
-        # Versuch 3: Excerpt-Match (mind. 25 Zeichen davon)
-        if len(excerpt) >= 25:
-            excerpt_clean = re.sub(r'\s+', ' ', excerpt[:60].lower().replace('\xa0', ' '))
-            if excerpt_clean[:25] in norm_text:
-                return True
+        if core_num and (core_num in norm_text or core_num.replace(',', '.') in norm_text):
+            return True
+        if len(excerpt) >= 25 and excerpt[:30].lower() in norm_text:
+            return True
 
         return False
 
