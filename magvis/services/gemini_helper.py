@@ -36,21 +36,42 @@ class MagvisGeminiHelper:
         return self._service
 
     def generate_title_image(self, topic: str, summary: str = '') -> dict:
-        """Erzeugt das Hero-Titelbild des Blogs (oben). Preiswert, breit angelegt."""
-        prompt = (
-            f'Generate an image (NOT TEXT) — a wide, modern hero image for a German blog post '
-            f'about "{topic}". Theme: a thoughtfully personal gift for the recipient.\n\n'
-            f'Composition: editorial blog header, slight cinematic feel, two-thirds '
-            f'feel where main subject sits left-of-center. {summary}\n\n'
-            f'Style: warm natural light, soft earth-tone palette (sage green, warm beige, '
-            f'cream, light terracotta), shallow depth of field, lifestyle photography aesthetic. '
-            f'Subtle bokeh background. No on-image text, no watermark, no logos.\n\n'
-            f'STRICT NEGATIVES: no harsh studio lighting, no synthetic look, no surreal art, '
-            f'no English captions overlaid on the image. The image must look like a real '
-            f'editorial photo from a lifestyle magazine.\n\n'
-            f'Output: ONLY the image. Do not respond with text.'
-        )
-        return self._generate_and_save(prompt, prefix='title')
+        """Erzeugt das Hero-Titelbild des Blogs. Mit Retry bei Text-Response."""
+        prompts = [
+            # 1. Versuch: ausfuehrlicher Prompt
+            (
+                f'IMAGE GENERATION ONLY — DO NOT WRITE TEXT. Generate a wide '
+                f'lifestyle hero photo for a German blog about "{topic}". '
+                f'Theme: thoughtfully personal handmade gift moment.\n\n'
+                f'Composition: editorial blog header, real photograph aesthetic. '
+                f'{summary}\n\n'
+                f'Style: warm natural light, soft earth-tone palette (sage, beige, '
+                f'cream, terracotta), shallow depth of field, magazine photo. '
+                f'No text on image, no watermark, no logos.\n\n'
+                f'OUTPUT MUST BE A PHOTO. NO TEXT IN RESPONSE.'
+            ),
+            # 2. Versuch: kuerzer + direkter
+            (
+                f'Photograph: a beautifully arranged personal handmade gift '
+                f'related to "{topic}". Editorial lifestyle composition, soft '
+                f'natural light, earth tones, shallow depth of field. '
+                f'No text or logos in the image. Generate a photo, do not write text.'
+            ),
+            # 3. Versuch: minimal
+            (
+                f'Lifestyle photo, gift theme: {topic}. Soft warm light. '
+                f'Earth tones. Shallow depth of field. No text in image. '
+                f'IMAGE OUTPUT ONLY.'
+            ),
+        ]
+        for attempt, prompt in enumerate(prompts, start=1):
+            result = self._generate_and_save(prompt, prefix='title')
+            if result.get('success'):
+                if attempt > 1:
+                    logger.info('Title-image succeeded on attempt %d', attempt)
+                return result
+            logger.warning('Title-image attempt %d failed: %s', attempt, result.get('error', '?'))
+        return {'success': False, 'error': 'all 3 attempts failed'}
 
     def generate_diagram(self, topic: str, content_summary: str = '') -> dict:
         """Erzeugt ein Infografik-/Diagramm-Bild für den Blog (Bar-Chart, Flow oder Mindmap-Style)."""

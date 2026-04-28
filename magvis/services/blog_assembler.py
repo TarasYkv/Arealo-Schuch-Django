@@ -85,7 +85,7 @@ class MagvisBlogAssembler:
         self.project.log_stage('blog', '🧠 Suchintention klassifizieren + LSI-Keywords')
         self._classify_intent(topic)
 
-        # 0. TITELBILD (Hero, ganz oben)
+        # 0. TITELBILD (Hero, ganz oben) — mit Fallback auf Brainstorm/Diagramm
         self.project.log_stage('blog', '🖼️ Hero-Titelbild via Gemini generieren')
         title_url = self._generate_blog_image(
             kind='title',
@@ -97,6 +97,8 @@ class MagvisBlogAssembler:
                 'src': title_url,
                 'html': self._title_image_html(title_url, blog.seo_title or topic),
             })
+        else:
+            self.project.log_stage('blog', '⚠ Hero-Titelbild fehlgeschlagen — kommt spaeter via Brainstorm/Diagramm', level='warning')
 
         # 0b. TL;DR-BOX (vor Intro — Featured-Snippet- + LLM-Optimierung)
         self.project.log_stage('blog', '⚡️ TL;DR-Box generieren (Kernantwort)')
@@ -165,7 +167,7 @@ class MagvisBlogAssembler:
         sections.append({'type': 'h2', 'id': slug2, 'title': head2})
         sections.append({'type': 'paragraph', 'id': f'{slug2}-p', 'html': para2})
 
-        # 8. Diagramm (Gemini)
+        # 8. Diagramm (Gemini) — wird bei Bedarf zum Title-Bild-Fallback
         self.project.log_stage('blog', '🎨 Diagramm-Bild via Gemini + Shopify-CDN-Upload')
         diagram_url = self._generate_blog_image(
             kind='diagram',
@@ -235,6 +237,20 @@ class MagvisBlogAssembler:
                 'alt': f'Brainstorming: {topic}',
                 'html': self._image_html(brainstorm_url, f'Brainstorming zum Thema {topic}'),
             })
+
+        # 13b. Fallback fuer Hero-Titelbild: wenn keins generiert wurde,
+        # nutze brainstorm_url (oder diagram_url) als Hero ganz oben
+        has_hero = any(s.get('type') == 'title_image' for s in sections)
+        if not has_hero:
+            fallback = brainstorm_url or diagram_url
+            if fallback:
+                hero_section = {
+                    'type': 'title_image', 'id': 'hero', 'src': fallback,
+                    'html': self._title_image_html(fallback, blog.seo_title or topic),
+                }
+                # An Position 0 einsetzen (vor TL;DR)
+                sections.insert(0, hero_section)
+                self.project.log_stage('blog', '✓ Hero-Bild aus Brainstorm/Diagramm-Fallback übernommen')
 
         # 14. Sektion 5
         self.project.log_stage('blog', f'✍️ Sektion 5/6: {(headings[4] if len(headings) > 4 else "")[:50]}')
