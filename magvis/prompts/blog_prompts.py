@@ -88,16 +88,19 @@ def intro_prompt(topic: str) -> str:
 def tldr_prompt(topic: str) -> str:
     """Kompakte TL;DR-Box am Anfang — Featured-Snippet- + LLM-Goldgrube."""
     return (
-        f"{NATURMACHER_VOICE}\n\n"
-        f'Erstelle eine TL;DR-Zusammenfassung fuer einen Blog zum Thema "{topic}".\n'
-        f"- 1 Kern-Antwort-Satz: prägnante, definitive Antwort auf die Hauptfrage. "
-        f"  (Genau dieser Satz wird von ChatGPT/Perplexity zitiert!)\n"
-        f"- 3-4 Bullet-Highlights (je max. 12 Woerter, mit aktivem Verb).\n"
-        f"- Naturmacher-Empfehlung in 1 Satz.\n\n"
-        f"Antworte als JSON:\n"
-        f'{{"core_answer": "...", "bullets": ["...", "...", "..."], '
-        f'"recommendation": "..."}}\n'
-        f"core_answer + recommendation: jeweils eine Zeile, je max. 25 Woerter."
+        f'Erstelle eine ultra-kurze Zusammenfassung fuer einen Naturmacher-Blog '
+        f'zum Thema "{topic}".\n\n'
+        f"FORMAT (genau einhalten):\n"
+        f"- core_answer: 1 Satz, max. 25 Woerter — die Hauptaussage des Beitrags.\n"
+        f"- bullets: Liste mit GENAU 3 Highlights (je 4-10 Woerter, aktives Verb).\n"
+        f"- recommendation: 1 Naturmacher-Empfehlung, max. 15 Woerter.\n\n"
+        f"Beispiel:\n"
+        f'{{"core_answer": "Ein gravierter Blumentopf ist das ideale Geschenk fuer Erzieherinnen — '
+        f'persoenlich und langlebig.", "bullets": ["Pflegeleicht und frostfest", '
+        f'"Gravur frei waehlbar", "Lieferung in 5 Tagen"], "recommendation": '
+        f'"Mit einer pflegeleichten Pflanze bepflanzen fuer Wow-Effekt."}}\n\n'
+        f'Antworte AUSSCHLIESSLICH als JSON-Objekt mit GENAU diesen 3 Keys: '
+        f'core_answer (string), bullets (array of 3 strings), recommendation (string).'
     )
 
 

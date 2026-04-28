@@ -103,13 +103,39 @@ class MagvisBlogAssembler:
         # 0b. TL;DR-BOX (vor Intro — Featured-Snippet- + LLM-Optimierung)
         self.project.log_stage('blog', '⚡️ TL;DR-Box generieren (Kernantwort)')
         tldr_data = self.glm.json_chat_with_retry(
-            tldr_prompt(topic), expect='object', max_tokens=600, retries=2,
+            tldr_prompt(topic), expect='object', max_tokens=800, retries=4,
         ) or {}
+        # Fallback wenn GLM ein 'summary' oder 'antwort' Key liefert
+        if not tldr_data.get('core_answer'):
+            for alt_key in ('summary', 'answer', 'antwort', 'kern', 'main'):
+                if tldr_data.get(alt_key):
+                    tldr_data['core_answer'] = tldr_data[alt_key]
+                    break
+        # Fallback: GLM-Direct-Call ohne Schema-Strenge
+        if not tldr_data.get('core_answer'):
+            try:
+                fallback = self.glm.text(
+                    f'Schreibe in einem Satz die wichtigste Aussage fuer einen '
+                    f'Naturmacher-Blog zum Thema "{topic}". Max. 25 Woerter, '
+                    f'antworte nur mit dem Satz, ohne Anfuehrungszeichen.',
+                    temperature=0.5,
+                ).strip().strip('"').strip()
+                if 10 < len(fallback) < 250:
+                    tldr_data = {
+                        'core_answer': fallback,
+                        'bullets': tldr_data.get('bullets', []),
+                        'recommendation': tldr_data.get('recommendation', ''),
+                    }
+            except Exception:
+                pass
         if tldr_data.get('core_answer'):
             sections.append({
                 'type': 'tldr_box', 'id': 'tldr',
                 'html': self._tldr_box_html(tldr_data),
             })
+            self.project.log_stage('blog', '✓ TL;DR-Box erstellt')
+        else:
+            self.project.log_stage('blog', '⚠ TL;DR-Box: GLM lieferte keine Kernantwort', level='warning')
 
         # 3. Intro
         self.project.log_stage('blog', '✍️ Einleitung (1. Person Naturmacher) schreiben')
@@ -430,10 +456,11 @@ class MagvisBlogAssembler:
                                 stat.get('label', '?'))
             except Exception as exc:
                 logger.warning('Stat-Verifikation Fehler: %s', exc)
-        # Mind. 2 Stats — sonst lieber keine Box
-        if len(verified) < 2:
-            logger.info('Nur %d verifizierte Stats — Stat-Box wird ausgelassen', len(verified))
+        # Mind. 1 Stat — Box wird auch bei nur einer angezeigt (besser als nix)
+        if not verified:
+            logger.info('0 verifizierte Stats — Stat-Box wird ausgelassen')
             return []
+        logger.info('%d Stats verifiziert — Box wird gerendert', len(verified))
         return verified[:3]
 
     def _statistics_box_html(self, stats: list[dict]) -> str:

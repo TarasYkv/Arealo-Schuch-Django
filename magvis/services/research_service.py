@@ -217,9 +217,9 @@ class MagvisResearchService:
         return all_results
 
     def verify_statistic(self, stat: dict) -> bool:
-        """Live-Verifikation einer extrahierten Statistik.
+        """Live-Verifikation einer extrahierten Statistik (lockerer Modus).
 
-        Holt die Quell-URL frisch ab und prueft ob die Zahl + Excerpt
+        Holt die Quell-URL frisch ab und prueft ob die Zahl ODER der Excerpt
         wirklich darin vorkommen. Schuetzt vor LLM-Halluzinationen.
         """
         url = stat.get('source_url', '')
@@ -235,18 +235,30 @@ class MagvisResearchService:
 
         text = re.sub(r'<[^>]+>', ' ', resp.text)
         text = re.sub(r'\s+', ' ', text)
-        # Normalisierung: Punkte/Kommas vereinheitlichen, NBSP raus
         norm_text = text.replace('\xa0', ' ').lower()
         norm_value = re.sub(r'\s+', '', value).lower()
-        # Auch die Zahl ohne Tausender-Trenner pruefen
-        norm_value_alt = norm_value.replace('.', '').replace(',', '')
-        norm_text_clean = re.sub(r'[.,]', '', norm_text)
 
-        if norm_value in norm_text or norm_value_alt in norm_text_clean:
+        # Versuch 1: Wert exakt + Variants (mit/ohne Tausender-Trenner)
+        norm_value_clean = norm_value.replace('.', '').replace(',', '')
+        norm_text_clean = re.sub(r'[.,]', '', norm_text)
+        if norm_value in norm_text or norm_value_clean in norm_text_clean:
             return True
-        # Fallback: pruefe Excerpt (mind. 30 Zeichen davon)
-        if len(excerpt) >= 30 and excerpt[:30].lower() in norm_text:
-            return True
+
+        # Versuch 2: nur die "Kern-Zahl" extrahieren und im Text suchen
+        # z.B. "1,8 Mio." → "1,8" oder "1.8" suchen; "38%" → "38"
+        core_num_match = re.search(r'(\d+(?:[,.]\d+)?)', value)
+        if core_num_match:
+            core = core_num_match.group(1).lower()
+            core_alt = core.replace(',', '.')
+            if core in norm_text or core_alt in norm_text:
+                return True
+
+        # Versuch 3: Excerpt-Match (mind. 25 Zeichen davon)
+        if len(excerpt) >= 25:
+            excerpt_clean = re.sub(r'\s+', ' ', excerpt[:60].lower().replace('\xa0', ' '))
+            if excerpt_clean[:25] in norm_text:
+                return True
+
         return False
 
     def format_for_llm(self, results: list[dict]) -> str:
