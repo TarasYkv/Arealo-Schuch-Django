@@ -1,0 +1,22 @@
+{% extends "magvis/base_wizard.html" %}
+
+{% block wizard_title %}Topic{% endblock %}
+{% block wizard_subtitle %}— Topic bearbeiten{% endblock %}
+
+{% block wizard_body %}
+<form method="post" class="magvis-card" style="max-width:680px;">
+  {% csrf_token %}
+  <h2>{% if topic %}Topic bearbeiten{% else %}Neues Topic{% endif %}</h2>
+  {% for field in form %}
+    <div class="mb-3">
+      <label class="form-label">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+    </div>
+  {% endfor %}
+  <div class="magvis-actions">
+    <button type="submit" class="magvis-btn primary">Speichern</button>
+    <a href="{% url 'magvis:topics_list' %}" class="magvis-btn ghost">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

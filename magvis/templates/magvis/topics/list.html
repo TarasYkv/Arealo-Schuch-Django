@@ -1,0 +1,58 @@
+{% extends "magvis/base_wizard.html" %}
+
+{% block wizard_title %}Themen-Queue{% endblock %}
+{% block wizard_subtitle %}— Themen-Queue{% endblock %}
+
+{% block wizard_body %}
+<div class="magvis-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="margin:0;">Themen-Queue</h2>
+      <div style="color:#7A7264;font-size:0.9rem;">Pflege Themen, die Agenten oder Auto-Runs verwenden können.</div>
+    </div>
+    <div class="magvis-actions">
+      <a href="{% url 'magvis:topic_create' %}" class="magvis-btn primary">+ Neu</a>
+      <a href="{% url 'magvis:topic_bulk_import' %}" class="magvis-btn ghost">📥 Bulk-Import</a>
+      <a href="{% url 'magvis:project_list' %}" class="magvis-btn ghost">← Zurück</a>
+    </div>
+  </div>
+
+  <div style="margin:14px 0;">
+    <a href="?" class="magvis-btn ghost {% if not status_filter %}primary{% endif %}">Alle</a>
+    <a href="?status=pending" class="magvis-btn ghost {% if status_filter == 'pending' %}primary{% endif %}">Offen</a>
+    <a href="?status=used" class="magvis-btn ghost {% if status_filter == 'used' %}primary{% endif %}">Verwendet</a>
+    <a href="?status=skipped" class="magvis-btn ghost {% if status_filter == 'skipped' %}primary{% endif %}">Übersprungen</a>
+    <a href="?status=failed" class="magvis-btn ghost {% if status_filter == 'failed' %}primary{% endif %}">Fehlgeschlagen</a>
+  </div>
+</div>
+
+<div class="magvis-card">
+  {% if topics %}
+    <table class="table">
+      <thead>
+        <tr><th>Prio</th><th>Topic</th><th>Keywords</th><th>Status</th><th>Genutzt am</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for t in topics %}
+        <tr>
+          <td>{{ t.priority }}</td>
+          <td><strong>{{ t.topic }}</strong>{% if t.target_audience %}<br><small>{{ t.target_audience }}</small>{% endif %}</td>
+          <td>{% for k in t.keywords %}<span class="badge bg-light text-dark">{{ k }}</span>{% endfor %}</td>
+          <td><span class="magvis-stage-pill {% if t.status == 'pending' %}active{% elif t.status == 'used' %}done{% elif t.status == 'failed' %}failed{% endif %}">{{ t.get_status_display }}</span></td>
+          <td>{% if t.used_at %}{{ t.used_at|date:"d.m.Y H:i" }}{% else %}–{% endif %}</td>
+          <td>
+            <a href="{% url 'magvis:topic_edit' t.id %}" class="magvis-btn ghost">✏️</a>
+            <form method="post" action="{% url 'magvis:topic_delete' t.id %}" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="magvis-btn danger" onclick="return confirm('Topic löschen?')">🗑</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#7A7264;">Keine Topics. Klick "Neu" oder "Bulk-Import" zum Hinzufügen.</p>
+  {% endif %}
+</div>
+{% endblock %}

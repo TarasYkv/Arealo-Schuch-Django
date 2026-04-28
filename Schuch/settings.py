@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     'loomtalk',
     'learnloom',
     'video',
+    'magvis',
 ]
 
 

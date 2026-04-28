@@ -1,0 +1,60 @@
+{% extends "magvis/base_wizard.html" %}
+
+{% block wizard_title %}Übersicht{% endblock %}
+{% block wizard_subtitle %}— Projekte{% endblock %}
+
+{% block wizard_body %}
+<div class="magvis-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="margin:0;">Deine Magvis-Projekte</h2>
+      <div style="color:#7A7264;font-size:0.9rem;">{{ pending_topic_count }} Themen in der Queue offen</div>
+    </div>
+    <div class="magvis-actions">
+      <a href="{% url 'magvis:project_create' %}" class="magvis-btn primary">+ Neues Projekt</a>
+      <a href="{% url 'magvis:topics_list' %}" class="magvis-btn ghost">📋 Themen-Queue</a>
+      <a href="{% url 'magvis:settings' %}" class="magvis-btn ghost">⚙️ Einstellungen</a>
+      <a href="{% url 'magvis:report_config' %}" class="magvis-btn ghost">✉️ Report</a>
+    </div>
+  </div>
+</div>
+
+<div class="magvis-card">
+  {% if projects %}
+    <table class="table" style="width:100%;">
+      <thead>
+        <tr>
+          <th>Titel</th>
+          <th>Topic</th>
+          <th>Stage</th>
+          <th>Fortschritt</th>
+          <th>Geplant</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in projects %}
+          <tr>
+            <td><a href="{% url 'magvis:project_detail' p.id %}">{{ p.title }}</a></td>
+            <td>{{ p.topic|truncatechars:50 }}</td>
+            <td>
+              <span class="magvis-stage-pill {% if p.stage == 'completed' %}done{% elif p.stage == 'failed' %}failed{% else %}active{% endif %}">
+                {{ p.get_stage_display }}
+              </span>
+            </td>
+            <td>
+              <div class="magvis-progress" style="width:120px;">
+                <div class="magvis-progress-bar" style="width:{{ p.progress_pct }}%"></div>
+              </div>
+            </td>
+            <td>{% if p.scheduled_at %}{{ p.scheduled_at|date:"d.m.Y H:i" }}{% else %}–{% endif %}</td>
+            <td><a href="{% url 'magvis:project_detail' p.id %}" class="magvis-btn ghost">Öffnen</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p style="color:#7A7264;">Noch keine Projekte. Klick oben auf "+ Neues Projekt" zum Starten.</p>
+  {% endif %}
+</div>
+{% endblock %}

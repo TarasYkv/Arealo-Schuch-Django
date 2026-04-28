@@ -86,6 +86,7 @@ urlpatterns = [
     path('blogprep/', include('blogprep.urls')),
     path('backloom/', include('backloom.urls')),
     path('ploom/', include('ploom.urls')),
+    path('magvis/', include('magvis.urls', namespace='magvis')),
     path('vskript/', include('vskript.urls')),
     path('loommarket/', include('loommarket.urls')),
     path('talk/', include('loomtalk.urls')),

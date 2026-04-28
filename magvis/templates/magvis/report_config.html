@@ -1,0 +1,41 @@
+{% extends "magvis/base_wizard.html" %}
+
+{% block wizard_title %}Report-Konfiguration{% endblock %}
+{% block wizard_subtitle %}— Report-Konfiguration{% endblock %}
+
+{% block wizard_body %}
+<form method="post" class="magvis-card" style="max-width:720px;">
+  {% csrf_token %}
+  <h2>📧 Report-Einstellungen</h2>
+  <p style="color:#7A7264;">Was nach dem Workflow-Ende per E-Mail an dich gesendet wird.</p>
+
+  <div class="mb-3">
+    <label class="form-label">Empfänger</label>
+    {{ form.report_email }}
+  </div>
+  <div class="mb-3">
+    <label class="form-label">CC-Empfänger</label>
+    {{ form.cc_emails_text }}
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Betreff-Vorlage</label>
+    {{ form.subject_template }}
+    <div class="form-text">Variable: <code>{project_title}</code></div>
+  </div>
+
+  <h3 style="margin-top:24px;">Inhalte des Reports</h3>
+  {% for field in form %}
+    {% if field.field.widget|class_name == 'CheckboxInput' %}
+      <div class="form-check">
+        {{ field }}
+        <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <div class="magvis-actions" style="margin-top:24px;">
+    <button type="submit" class="magvis-btn primary">Speichern</button>
+    <a href="{% url 'magvis:project_list' %}" class="magvis-btn ghost">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

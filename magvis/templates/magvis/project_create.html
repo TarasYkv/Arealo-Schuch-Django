@@ -1,0 +1,54 @@
+{% extends "magvis/base_wizard.html" %}
+
+{% block wizard_title %}Neues Projekt{% endblock %}
+{% block wizard_subtitle %}— Neues Projekt{% endblock %}
+
+{% block wizard_body %}
+<form method="post" class="magvis-card" style="max-width:720px;">
+  {% csrf_token %}
+  <h2>Projekt-Eckdaten</h2>
+
+  <div class="form-check mb-3" style="background:#FAF6EC;padding:14px 16px;border-radius:8px;">
+    {{ form.use_queue }}
+    <label class="form-check-label" for="id_use_queue" style="font-weight:600;">
+      📋 Aus Themen-Queue ziehen
+    </label>
+    <div class="form-text">Wenn aktiv, wird das nächste pending Topic aus deiner Queue verwendet (Eingabefelder unten werden ignoriert).</div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Titel</label>
+    {{ form.title }}
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Topic / Thema</label>
+    {{ form.topic }}
+    <div class="form-text">Treibt Video, Produkte und Blog. z.B. "Geschenk Erzieherin Kindergarten-Abschied".</div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Keywords</label>
+    {{ form.keywords_text }}
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Zielgruppe (optional)</label>
+    {{ form.target_audience }}
+  </div>
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Geplant für (optional)</label>
+      {{ form.scheduled_at }}
+    </div>
+    <div class="col-md-6 mb-3 d-flex align-items-end">
+      <div class="form-check">
+        {{ form.auto_advance }}
+        <label class="form-check-label" for="id_auto_advance">Auto-Advance (Pipeline läuft komplett durch)</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="magvis-actions">
+    <button type="submit" class="magvis-btn primary">Projekt starten</button>
+    <a href="{% url 'magvis:project_list' %}" class="magvis-btn ghost">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

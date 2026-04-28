@@ -239,6 +239,12 @@ MENU_STRUCTURE = {
                 'auth_url_name': 'vidgen:dashboard',
             },
             {
+                'app_name': 'magvis',
+                'label': 'MagVis',
+                'icon': 'bi bi-magic text-warning',
+                'auth_url_name': 'magvis:project_list',
+            },
+            {
                 'app_name': 'vskript',
                 'label': 'VSkript',
                 'icon': 'bi bi-camera-video text-success',

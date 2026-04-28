@@ -1,0 +1,178 @@
+{% extends "magvis/base_wizard.html" %}
+
+{% block wizard_title %}{{ project.title }}{% endblock %}
+{% block wizard_subtitle %}— {{ project.title }}{% endblock %}
+
+{% block wizard_body %}
+<div class="magvis-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="margin:0;">{{ project.title }}</h2>
+      <div style="color:#7A7264;font-size:0.95rem;">Topic: {{ project.topic }}</div>
+    </div>
+    <div>
+      <span class="magvis-stage-pill {% if project.stage == 'completed' %}done{% elif project.stage == 'failed' %}failed{% else %}active{% endif %}">
+        {{ project.get_stage_display }}
+      </span>
+    </div>
+  </div>
+  <div class="magvis-progress"><div class="magvis-progress-bar" style="width:{{ project.progress_pct }}%"></div></div>
+
+  <div class="magvis-stages">
+    {% for slug, label in project.STAGE_CHOICES %}
+      <span class="magvis-stage-pill {% if project.stage == slug %}active{% elif slug in 'completed' %}done{% endif %}">{{ label }}</span>
+    {% endfor %}
+  </div>
+
+  <div class="magvis-actions">
+    {% if project.next_stage_slug %}
+      <button id="btn-advance" class="magvis-btn primary">▶ Nächsten Stage starten</button>
+    {% endif %}
+    <a href="{% url 'magvis:project_list' %}" class="magvis-btn ghost">← Zurück zur Übersicht</a>
+  </div>
+
+  {% if project.error_message %}
+    <div class="alert alert-danger" style="margin-top:14px;">
+      <strong>Fehler:</strong> {{ project.error_message }}
+    </div>
+  {% endif %}
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="magvis-card">
+      <h2>🎬 Video</h2>
+      {% if project.posted_video %}
+        <p>Video ID: {{ project.posted_video.id }}</p>
+        {% if project.youtube_url %}<p>YouTube: <a href="{{ project.youtube_url }}" target="_blank">{{ project.youtube_url }}</a></p>{% endif %}
+      {% else %}
+        <p style="color:#7A7264;">Noch nicht erstellt.</p>
+      {% endif %}
+    </div>
+
+    <div class="magvis-card">
+      <h2>📦 Produkte</h2>
+      {% if project.product_1 or project.product_2 %}
+        <ul>
+          {% if project.product_1 %}<li>{{ project.product_1.title }}{% if project.product_1.shopify_product_id %} <small>(Shopify {{ project.product_1.shopify_product_id }})</small>{% endif %}</li>{% endif %}
+          {% if project.product_2 %}<li>{{ project.product_2.title }}{% if project.product_2.shopify_product_id %} <small>(Shopify {{ project.product_2.shopify_product_id }})</small>{% endif %}</li>{% endif %}
+        </ul>
+      {% else %}<p style="color:#7A7264;">Noch nicht erstellt.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="magvis-card">
+      <h2>📝 Blog</h2>
+      {% if blog %}
+        <p><strong>{{ blog.seo_title }}</strong></p>
+        <p style="color:#7A7264;">{{ blog.seo_description }}</p>
+        {% if blog.shopify_published_url %}<p><a href="{{ blog.shopify_published_url }}" target="_blank" class="magvis-btn ghost">In Shopify öffnen →</a></p>{% endif %}
+      {% else %}<p style="color:#7A7264;">Noch nicht erstellt.</p>{% endif %}
+    </div>
+
+    <div class="magvis-card">
+      <h2>📋 Stage-Logs</h2>
+      <div class="magvis-stage-log">
+        {% for log in project.stage_logs %}{{ log.ts }} [{{ log.level }}] {{ log.stage }}: {{ log.message }}<br>{% empty %}<em>Noch keine Logs.</em>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="magvis-card">
+  <h2>🖼 Bilder posten ({{ assets|length }})</h2>
+  {% if assets %}
+    {% for asset in assets %}
+      <details style="margin:8px 0;background:#FAF6EC;border-radius:8px;padding:12px;">
+        <summary><strong>{{ asset.title_de|default:asset.source }}</strong> — {{ asset.get_source_display }}
+          {% if asset.posted_status %}<span style="color:#5BA85B;font-size:0.85rem;">✓ gepostet</span>{% endif %}
+        </summary>
+        <form method="post" action="{% url 'magvis:image_post' project.id asset.id %}" class="row g-2 mt-2 image-post-form" data-asset-id="{{ asset.id }}">
+          {% csrf_token %}
+          <div class="col-md-12">
+            <label class="form-label">Plattformen (mehrfach wählbar)</label>
+            <select name="platforms" multiple class="form-select" size="4">
+              <option value="pinterest">Pinterest</option>
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="tiktok">TikTok</option>
+              <option value="x">X</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="threads">Threads</option>
+              <option value="bluesky">Bluesky</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-check-label">
+              <input type="checkbox" name="use_overlay" class="form-check-input"> Text-Overlay
+            </label>
+            <select name="overlay_method" class="form-select form-select-sm mt-1">
+              <option value="pil">PIL (Text auf Bild)</option>
+              <option value="gemini">Gemini (KI integriert Text)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Overlay-Text</label>
+            <input type="text" name="overlay_text" class="form-control" placeholder="z.B. 'Geschenkidee'">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Titel (leer = auto via GLM)</label>
+            <input type="text" name="title" class="form-control" value="{{ asset.title_de }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Beschreibung (leer = auto via GLM)</label>
+            <input type="text" name="description" class="form-control" value="{{ asset.description_de }}">
+          </div>
+          <div class="col-md-12">
+            <button type="submit" class="magvis-btn primary">📤 Posten</button>
+          </div>
+        </form>
+        {% if asset.posted_status %}
+          <div style="margin-top:10px;font-size:0.88rem;">
+            {% for platform, st in asset.posted_status.items %}
+              <div>{{ platform }}: {% if st.success %}✓ <a href="{{ st.url }}" target="_blank">{{ st.url }}</a>{% else %}✗ {{ st.error }}{% endif %}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </details>
+    {% endfor %}
+  {% else %}
+    <p style="color:#7A7264;">Noch keine Bilder vorhanden — werden in Stages "Produkte" und "Blog" erzeugt.</p>
+  {% endif %}
+</div>
+
+<script>
+document.getElementById('btn-advance')?.addEventListener('click', async () => {
+  const r = await fetch('{% url "magvis:project_advance" project.id %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''},
+  });
+  const d = await r.json();
+  if (d.task_id) location.reload();
+});
+
+// Stage-Polling
+setInterval(async () => {
+  try {
+    const r = await fetch('{% url "magvis:project_status" project.id %}');
+    const d = await r.json();
+    if (d.stage !== '{{ project.stage }}') location.reload();
+  } catch(e){}
+}, 8000);
+
+// Image-Post-Submit (AJAX)
+document.querySelectorAll('.image-post-form').forEach(form => {
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(form);
+    const r = await fetch(form.action, {
+      method: 'POST', body: fd,
+      headers: {'X-CSRFToken': fd.get('csrfmiddlewaretoken') || ''}
+    });
+    const d = await r.json();
+    alert(d.task_id ? 'Posting läuft im Hintergrund (Task ' + d.task_id + ')' : 'Fehler');
+  });
+});
+</script>
+{% endblock %}

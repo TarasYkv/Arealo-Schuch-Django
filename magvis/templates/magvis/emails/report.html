@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Magvis-Report — {{ project.title }}</title></head>
+<body style="font-family:Arial,sans-serif;color:#2A2A2A;background:#FAF6EC;padding:24px;">
+  <div style="max-width:640px;margin:0 auto;background:#fff;padding:32px;border-radius:12px;border:1px solid #E8DFC9;">
+    <h1 style="color:#D4AB32;margin-top:0;">✨ Magvis-Report</h1>
+    <h2 style="margin-bottom:4px;">{{ project.title }}</h2>
+    <div style="color:#7A7264;font-size:0.95rem;">Topic: {{ project.topic }}</div>
+
+    {% if failed %}
+      <div style="background:#fdecea;color:#a04040;padding:14px;border-radius:6px;margin:18px 0;">
+        <strong>⚠️ Workflow-Fehler:</strong><br>{{ error_message }}
+      </div>
+    {% endif %}
+
+    {% if show_video_link or show_youtube_link %}
+      <h3 style="margin-top:28px;color:#2A2A2A;">🎬 Video</h3>
+      {% if show_video_link %}<p>Workloom-Video: <a href="{{ video_link }}">{{ video_link }}</a></p>{% endif %}
+      {% if show_youtube_link %}<p>YouTube: <a href="{{ youtube_url }}">{{ youtube_url }}</a></p>{% endif %}
+    {% endif %}
+
+    {% if products %}
+      <h3 style="margin-top:28px;color:#2A2A2A;">📦 Produkte</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        {% for p in products %}
+        <tr style="border-top:1px solid #f0f0f0;">
+          {% if p.thumbnail_url %}<td style="width:80px;padding:8px;"><img src="{{ p.thumbnail_url }}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;"></td>{% endif %}
+          <td style="padding:8px;"><strong>{{ p.title }}</strong>{% if p.shopify_url %}<br><a href="{{ p.shopify_url }}">{{ p.shopify_url }}</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    {% if show_blog_link or show_blog_excerpt %}
+      <h3 style="margin-top:28px;color:#2A2A2A;">📝 Blog</h3>
+      {% if show_blog_link %}<p><a href="{{ blog_url }}">{{ blog_url }}</a></p>{% endif %}
+      {% if show_blog_excerpt %}<p style="color:#5C5651;">{{ blog_excerpt }}</p>{% endif %}
+    {% endif %}
+
+    {% if show_diagram %}<p>📊 <em>Diagramm im Anhang.</em></p>{% endif %}
+    {% if show_brainstorm %}<p>🧠 <em>Brainstorming-Bild im Anhang.</em></p>{% endif %}
+
+    {% if image_post_summary %}
+      <h3 style="margin-top:28px;color:#2A2A2A;">📤 Posting-Übersicht</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:0.93rem;">
+        <thead><tr><th align="left" style="padding:6px;border-bottom:1px solid #ccc;">Bild</th><th align="left" style="padding:6px;border-bottom:1px solid #ccc;">Plattform</th><th align="left" style="padding:6px;border-bottom:1px solid #ccc;">URL</th></tr></thead>
+        {% for ip in image_post_summary %}
+        <tr><td style="padding:6px;">{{ ip.image_title }}</td><td style="padding:6px;">{{ ip.platform }}</td><td style="padding:6px;"><a href="{{ ip.url }}">{{ ip.url|truncatechars:40 }}</a></td></tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    {% if show_costs %}
+      <h3 style="margin-top:28px;color:#2A2A2A;">💰 Kosten</h3>
+      <p>Gesamt: {{ cost_total }} €</p>
+    {% endif %}
+
+    <hr style="border:0;border-top:1px solid #E8DFC9;margin:32px 0;">
+    <p style="color:#7A7264;font-size:0.85rem;">Dieser Report wurde automatisch von <a href="https://www.workloom.de/magvis/" style="color:#D4AB32;">MagVis (Workloom)</a> generiert.</p>
+  </div>
+</body>
+</html>
