@@ -93,6 +93,47 @@ class MagvisProductPipeline:
 
         return {'success': all(r[1].get('success') for r in results), 'results': results}
 
+    def _override_seo_mid_volume(self, base_seo: dict, engraving_text: str) -> dict | None:
+        """Optimiert SEO-Felder auf Mid-Volume-Long-Tail-Keywords (statt generisch)."""
+        prompt = (
+            f"Erstelle Produkt-SEO fuer einen personalisierten Blumentopf mit Gravur "
+            f'auf Naturmacher.de zum Thema "{self.project.topic}".\n\n'
+            f'Gravur: "{engraving_text}"\n\n'
+            f"WICHTIG — Mid-Volume-Long-Tail-Strategie:\n"
+            f"- Produkt-Title 60-80 Zeichen mit 3-5 Wort-Long-Tail "
+            f"  (Kombination Topf + Anlass + Modifier).\n"
+            f"  Beispiele: 'Personalisierter Blumentopf zum Abschied — Geschenk fuer "
+            f"  Erzieherin', 'Gravierter Keramik-Topf Geschenk Geburtstag persoenlich'.\n"
+            f"- KEINE generischen High-Volume-Keywords ('Geschenk', 'Personalisiertes "
+            f"  Geschenk' allein), sondern Spezifitaet ('zum Abitur', 'Kindergarten-"
+            f"  Abschied', 'Mama Geburtstag').\n"
+            f"- Description 140-160 Zeichen, Long-Tail + Material-USP + CTA.\n"
+            f"- Tags 5-8 Stueck, Mix aus Mid-Tails: 'Geschenk {self.project.topic}', "
+            f"  'Blumentopf mit Gravur', 'persoenliches Geschenk', '{self.project.topic} "
+            f"  Abschied', etc.\n"
+            f"- Zielsuchvolumen 100-2000/Monat (realistisch rankbar).\n\n"
+            f"Antwort als JSON:\n"
+            f'{{"title": "...", "description": "...", "seo_title": "...", '
+            f'"seo_description": "...", "tags": "tag1, tag2, ..."}}\n\n'
+            f"description: laenger (300-500 Zeichen), erklaerend mit Mid-Tail-Keywords "
+            f"natuerlich verteilt; seo_description: kurz fuer Meta-Tag (140-160 Zeichen)."
+        )
+        try:
+            data = self.glm.json_chat(prompt, temperature=0.45)
+            if not isinstance(data, dict):
+                return None
+            # Wahl: GLM-Output ueberschreibt, aber Fallback auf base_seo wenn fehlt
+            return {
+                'title': data.get('title') or base_seo.get('title'),
+                'description': data.get('description') or base_seo.get('description'),
+                'seo_title': (data.get('seo_title') or base_seo.get('seo_title') or '')[:70],
+                'seo_description': (data.get('seo_description') or base_seo.get('seo_description') or '')[:160],
+                'tags': data.get('tags') or base_seo.get('tags', ''),
+            }
+        except Exception as exc:
+            logger.warning('Mid-Volume-SEO-Override fehlgeschlagen: %s', exc)
+            return None
+
     def _generate_engraving_texts(self) -> list[str]:
         """Lässt GLM 2 unterschiedliche Gravur-Vorschläge zum Topic generieren."""
         prompt = (
@@ -145,11 +186,12 @@ class MagvisProductPipeline:
         if not base_pot_path:
             return {'success': False, 'error': 'Basis-Topf-Generierung fehlgeschlagen', 'session': session}
 
-        # SEO-Content
+        # SEO-Content (ploom-Default + Mid-Volume-Override via GLM)
         seo_content = ai_service.generate_all_seo_content(
             keyword=self.project.topic,
             context=f'Gravur: {engraving_text}',
         ) or {}
+        seo_content = self._override_seo_mid_volume(seo_content, engraving_text) or seo_content
 
         # Produkt anlegen (vorerst ohne Shopify)
         ploom_settings_obj = ploom_settings

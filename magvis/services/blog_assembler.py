@@ -23,6 +23,7 @@ from ..prompts.blog_prompts import (
     headings_prompt,
     intro_prompt,
     section_prompt,
+    seo_prompt,
     tips_prompt,
 )
 from .gemini_helper import MagvisGeminiHelper
@@ -327,14 +328,8 @@ class MagvisBlogAssembler:
             logger.warning('Internal-Linking fehlgeschlagen: %s', exc)
 
     def _generate_seo(self) -> dict:
-        prompt = (
-            f"{NATURMACHER_VOICE}\n\n"
-            f"Erstelle SEO-Titel (max. 60 Zeichen) und Meta-Description (max. 160 Zeichen) "
-            f"für einen Blogbeitrag zum Thema \"{self.project.topic}\".\n"
-            f'Antwort als JSON: {{"title": "...", "description": "..."}}'
-        )
         try:
-            data = self.glm.json_chat(prompt)
+            data = self.glm.json_chat(seo_prompt(self.project.topic))
             return data if isinstance(data, dict) else {}
         except Exception:
             return {'title': self.project.topic, 'description': self.project.topic}

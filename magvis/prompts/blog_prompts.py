@@ -84,6 +84,29 @@ def tips_prompt(topic: str, num_tips: int = 4) -> str:
     )
 
 
+def seo_prompt(topic: str) -> str:
+    """SEO-Titel + Meta-Description, optimiert auf MID-VOLUME-Long-Tail-Keywords."""
+    return (
+        f"{NATURMACHER_VOICE}\n\n"
+        f"Erstelle SEO-Titel und Meta-Description fuer einen Blogbeitrag zum Thema "
+        f'"{topic}" (Naturmacher.de — gravierte Blumentoepfe).\n\n'
+        f"WICHTIG — Mid-Volume-Strategie (nicht super-kompetitive Keywords, "
+        f"sondern realistisch rankbare Long-Tails):\n"
+        f"- Title 50-60 Zeichen, mit 3-4 Wort-Long-Tail (z.B. statt 'Geschenk Erzieherin' "
+        f"  besser 'Geschenk Erzieherin Kindergarten Abschied' oder 'Persoenliches "
+        f"  Abschiedsgeschenk Erzieherin').\n"
+        f"- Modifier zur Eingrenzung verwenden: 'persoenlich', 'individuell', 'kreativ', "
+        f"  'mit Gravur', 'zum Abschied', 'fuer den Geburtstag', 'guenstig'.\n"
+        f"- Im Title gerne Zahlen oder Frage-Form ('5 Ideen fuer...', 'Was schenken...?').\n"
+        f"- Description 140-160 Zeichen, Long-Tail-Keyword + Vorteil + Call-to-Action "
+        f"  ('jetzt entdecken', 'mit Gravur', 'in 5 Tagen').\n"
+        f"- Description darf 1-2 Long-Tail-Keywords enthalten (nicht stuffing).\n"
+        f"- Zielsuchvolumen: 100-2000/Monat (mid-tail), KEINE generischen Top-Keywords.\n\n"
+        f'Antwort als JSON: {{"title": "...", "description": "...", '
+        f'"target_keyword": "das Long-Tail-Keyword auf das du optimiert hast"}}'
+    )
+
+
 def faqs_prompt(topic: str, num_faqs: int = 5) -> str:
     return (
         f"{NATURMACHER_VOICE}\n\n"
