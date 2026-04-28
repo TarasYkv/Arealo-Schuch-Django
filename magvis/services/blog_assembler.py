@@ -44,6 +44,7 @@ class MagvisBlogAssembler:
         self.settings, _ = MagvisSettings.objects.get_or_create(user=self.user)
         self.glm = MagvisGLMClient(self.user, self.settings)
         self.gemini = MagvisGeminiHelper(self.user, self.settings)
+        self._shopify_product_cache = {}   # product_id → {handle, image_src}
 
     # ------------------------------------------------------------------ public
 
@@ -283,11 +284,68 @@ class MagvisBlogAssembler:
             return ''
         if not result.get('success'):
             return ''
-        return result.get('rel_path', '') or result.get('url', '')
 
-    def _image_html(self, rel_path: str, alt: str) -> str:
+        # Bild zu Shopify-Files hochladen (CDN-URL fuer den Blog-Embed)
+        cdn_url = self._upload_to_shopify_files(
+            result.get('abs_path', ''),
+            f'magvis_{kind}_{self.project.id}',
+            alt_text=f'{kind} - {self.project.topic}',
+        )
+        return cdn_url or result.get('rel_path', '') or result.get('url', '')
+
+    def _upload_to_shopify_files(self, abs_path: str, filename: str, alt_text: str = '') -> str:
+        """Laedt ein Bild zu Shopify-Files hoch und liefert CDN-URL."""
+        import base64
+        import os
+        if not abs_path or not os.path.exists(abs_path):
+            return ''
+        try:
+            from ploom.models import PLoomSettings
+            from blogprep.shopify_files import ShopifyFilesService
+            ploom_s = PLoomSettings.objects.filter(user=self.user).first()
+            if not ploom_s or not ploom_s.default_store:
+                return ''
+            with open(abs_path, 'rb') as fh:
+                b64 = base64.b64encode(fh.read()).decode('utf-8')
+            svc = ShopifyFilesService(ploom_s.default_store)
+            ok, url, _ = svc.upload_image_from_base64(b64, filename, alt_text=alt_text)
+            return url if ok else ''
+        except Exception as exc:
+            logger.warning('Shopify-Files-Upload fehlgeschlagen (%s): %s', filename, exc)
+            return ''
+
+    def _shopify_product_info(self, product) -> dict:
+        """Holt Live-Daten (handle, featured-image-src) eines Shopify-Produkts."""
+        import requests
+        if not product or not product.shopify_product_id:
+            return {'handle': '', 'image_src': ''}
+        if product.shopify_product_id in self._shopify_product_cache:
+            return self._shopify_product_cache[product.shopify_product_id]
+        store = product.shopify_store
+        url = (f'https://{store.shop_domain}/admin/api/2023-10/products/'
+               f'{product.shopify_product_id}.json?fields=handle,image,images')
+        info = {'handle': '', 'image_src': ''}
+        try:
+            r = requests.get(url, headers={'X-Shopify-Access-Token': store.access_token}, timeout=15)
+            r.raise_for_status()
+            sd = r.json().get('product', {}) or {}
+            info['handle'] = sd.get('handle', '')
+            img = sd.get('image') or {}
+            info['image_src'] = img.get('src', '') or (
+                (sd.get('images') or [{}])[0].get('src', '')
+            )
+        except Exception as exc:
+            logger.warning('Shopify-Produkt-Live-Abfrage fehlgeschlagen: %s', exc)
+        self._shopify_product_cache[product.shopify_product_id] = info
+        return info
+
+    def _image_html(self, src_or_rel: str, alt: str) -> str:
         from django.conf import settings as django_settings
-        url = django_settings.MEDIA_URL + rel_path if not rel_path.startswith(('/', 'http')) else rel_path
+        # http(s) → CDN, sonst lokal /media/
+        if src_or_rel.startswith(('http://', 'https://', '/')):
+            url = src_or_rel
+        else:
+            url = django_settings.MEDIA_URL + src_or_rel
         return (
             f'<figure style="margin:2.5rem 0;text-align:center;">'
             f'<img src="{url}" alt="{escape(alt)}" '
@@ -297,23 +355,28 @@ class MagvisBlogAssembler:
         )
 
     def _product_card_html(self, product) -> str:
-        """Produkt-Embed-Card im Naturmacher-Stil (Bild links, Text+CTA rechts)."""
+        """Produkt-Embed-Card im Naturmacher-Stil (Bild links, Text+CTA rechts).
+
+        Holt handle + Featured-Image-CDN-URL live aus Shopify (nicht aus DB,
+        weil die Bilder dort als lokale /media-Pfade gespeichert sind).
+        """
         store = getattr(product, 'shopify_store', None)
-        handle = getattr(product, 'handle', '') or ''
+        info = self._shopify_product_info(product)
+        handle = info.get('handle') or getattr(product, 'handle', '') or ''
+        img_url = info.get('image_src', '')
+
+        # Storefront-URL (nicht Admin!)
         if store and handle:
-            url = f'https://{store.shop_domain}/products/{handle}'
-        elif store and getattr(product, 'shopify_product_id', ''):
-            url = f'https://{store.shop_domain}/admin/products/{product.shopify_product_id}'
+            domain = store.custom_domain or store.shop_domain
+            url = f'https://{domain}/products/{handle}'
         else:
             url = '#'
 
-        featured = product.images.filter(is_featured=True).first() or product.images.first()
-        if featured and featured.image:
-            img_url = featured.image.url
-        elif featured and featured.external_url:
-            img_url = featured.external_url
-        else:
-            img_url = ''
+        # Fallback: lokale Bilder aus PLoomProductImage
+        if not img_url:
+            featured = product.images.filter(is_featured=True).first() or product.images.first()
+            if featured and featured.external_url:
+                img_url = featured.external_url
 
         title = escape(product.title or 'Produkt')
         desc = escape((product.seo_description or product.description or '')[:140])
