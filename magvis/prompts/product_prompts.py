@@ -7,7 +7,9 @@ volle Topfgrößen-Klausel (14cm × 14cm). Wir liefern nur den
 """
 
 # Reihenfolge der 4 KI-Bilder (Phase 1: 3 KI, Phase 2: 3 CDN, Phase 3: 1 KI)
-KI_VARIANTS_PHASE_1 = ['topf_gravur', 'lifestyle', 'geschenk_uebergabe']
+# Position 1 = Featured-Image (Hauptbild). Lifestyle (Mensch haelt Topf) zuerst,
+# damit Shopify-Galerie mit Personen-Aufnahme oeffnet.
+KI_VARIANTS_PHASE_1 = ['lifestyle', 'topf_gravur', 'geschenk_uebergabe']
 KI_VARIANTS_PHASE_3 = ['nahaufnahme']
 ALL_KI_VARIANTS = KI_VARIANTS_PHASE_1 + KI_VARIANTS_PHASE_3
 

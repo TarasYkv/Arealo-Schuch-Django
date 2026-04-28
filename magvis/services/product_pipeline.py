@@ -160,7 +160,7 @@ class MagvisProductPipeline:
             price=ploom_settings_obj.default_price_komplett or 19.90 if ploom_settings_obj else 19.90,
             inventory_quantity=100,
             shopify_store=ploom_settings_obj.default_store if ploom_settings_obj else None,
-            status='draft',
+            status='active',  # active = direkt veroeffentlicht in Shopify (nicht 'draft')
         )
 
         # Phase 1: 3 KI-Bilder
@@ -194,8 +194,8 @@ class MagvisProductPipeline:
                 ok, shopify_id, msg = shopify.create_draft_product(product)
                 if ok:
                     product.shopify_product_id = shopify_id
-                    product.status = 'uploaded'
-                    product.save(update_fields=['shopify_product_id', 'status'])
+                    # status bleibt 'active' (so wurde Shopify-Produkt erstellt)
+                    product.save(update_fields=['shopify_product_id'])
                     # Sales-Channels publizieren
                     ok2, pubs, _ = shopify.get_publications()
                     if ok2 and pubs:
