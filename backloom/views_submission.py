@@ -342,8 +342,10 @@ def api_attempt_handback(request, attempt_id):
 def api_attempt_resume(request, attempt_id):
     """User signalisiert: Bot soll weiter machen (z.B. nach manuellem Captcha-Loesen).
 
-    Setzt Status zurueck auf RUNNING. Der Wait-Loop im BotRunner bricht ab
-    und der Captcha-Cascade-Callback faehrt weiter im Agent-Schleifen-Loop.
+    Sinnvoll nur waehrend Captcha-Cascade-Wait (Bot mitten im Agent-Loop).
+    Wenn Bot schon agent.run() beendet hat: Resume hat keine echte Wirkung,
+    der Wait-Loop endet, finally schliesst Browser. Wir geben dem User
+    einen Hinweis im UI.
     """
     a = get_object_or_404(SubmissionAttempt, pk=attempt_id)
     if not request.user.is_superuser and a.profile.user_id != request.user.id:
@@ -353,5 +355,13 @@ def api_attempt_resume(request, attempt_id):
                               status=400)
     a.status = SubmissionAttemptStatus.RUNNING
     a.save(update_fields=['status', 'updated_at'])
-    a.add_step('User: Bot soll weitermachen', level='info')
-    return JsonResponse({'ok': True})
+    a.add_step(
+        'User: Bot soll weitermachen — falls Agent-Loop bereits beendet ist, '
+        'wird Status automatisch zurueck auf NEEDS_MANUAL gesetzt. Bitte '
+        '"Erfolgreich beenden" oder "Skip" wenn du selbst fertig bist.',
+        level='info',
+    )
+    return JsonResponse({'ok': True, 'hint': (
+        'Falls der Bot keine weitere Aktion macht, war der Agent-Loop schon vorbei. '
+        'Klick "Erfolgreich beenden" wenn du selbst fertig bist.'
+    )})

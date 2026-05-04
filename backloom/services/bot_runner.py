@@ -298,6 +298,20 @@ class BotRunner:
                     self._log('Agent ist nicht "done" gegangen — manuelles Eingreifen empfohlen', 'warn')
                     # Browser bleibt OFFEN — User kann ueber noVNC eingreifen.
                     self._wait_for_user_intervention()
+                    # Edge-Case: User klickte "Bot weitermachen", aber der Agent
+                    # ist schon zurueckgekehrt — wir koennen nicht einfach neu
+                    # agenten. Wenn Status nach Wait-Loop auf RUNNING ist,
+                    # korrigiere das auf NEEDS_MANUAL damit der Eintrag nicht als
+                    # Zombie haengt.
+                    a.refresh_from_db()
+                    if a.status == SubmissionAttemptStatus.RUNNING:
+                        a.status = SubmissionAttemptStatus.NEEDS_MANUAL
+                        a.save(update_fields=['status', 'updated_at'])
+                        self._log(
+                            'Resume-Klick angekommen, aber Agent-Loop war schon vorbei. '
+                            'Bitte "Erfolgreich beenden" oder "Skip" druecken wenn du fertig bist.',
+                            'warn',
+                        )
             except _BrowserUseUnavailable as exc:
                 # Soft-Fallback: nur Foundation-Test, kein echter Submit
                 a.status = SubmissionAttemptStatus.SUCCESS
