@@ -75,7 +75,10 @@ def _build_chromium_cmd(req: SessionStartRequest) -> list[str]:
         f"--remote-debugging-port={DEVTOOLS_PORT}",
         "--remote-debugging-address=0.0.0.0",
         # Damit browser-use vom Host aus auf 127.0.0.1:9222 attachen darf.
+        # --remote-allow-origins erlaubt CORS-Origins (fuer DevTools-UI)
+        # --remote-allow-hosts erlaubt Host-Header-Werte (Chrome-Sicherheit)
         '--remote-allow-origins=*',
+        '--remote-allow-hosts=*',
         f"--user-data-dir={PROFILE_DIR}",
         "--no-first-run",
         "--no-default-browser-check",
