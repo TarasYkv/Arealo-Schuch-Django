@@ -14,13 +14,11 @@ services:
     restart: unless-stopped
     shm_size: 1gb
     init: true
-    environment:
-      SCREEN_RESOLUTION: "1280x800x24"
-      TZ: "Europe/Berlin"
-    ports:
-      - "127.0.0.1:6080:6080"   # noVNC WebSocket — gehört nur durch nginx-proxy raus
-      - "127.0.0.1:8888:8888"   # Control-API — nur fuer Workloom-Worker auf demselben Host
-      - "127.0.0.1:9222:9222"   # Chrome DevTools — nur intern fuer browser-use
+    # network_mode: host damit Chromium auf 127.0.0.1:9222 (im Container)
+    # gleichzeitig vom Host-Worker erreichbar ist. Chrome >=111 ignoriert
+    # --remote-debugging-address=0.0.0.0 aus Sicherheitsgruenden und bindet
+    # nur an 127.0.0.1 — das wuerde mit Standard-Bridge-Network blockieren.
+    network_mode: host
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8888/healthz"]
       interval: 30s
