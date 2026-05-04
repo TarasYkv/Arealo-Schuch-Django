@@ -262,7 +262,11 @@ class BotRunner:
 
         self._log(f'Initialisiere browser-use mit Modell {GLM_MODEL} via Z.AI', 'info')
 
-        session = BrowserSession(cdp_url=cdp_url)
+        # browser-use will den HTTP-Discover-Endpoint (z.B. http://host:9222)
+        # — die Control-API liefert direkt den ws://-Endpoint, der ist fuer
+        # den initialen Discovery-Call ungeeignet.
+        cdp_http = 'http://127.0.0.1:9222'
+        session = BrowserSession(cdp_url=cdp_http)
         agent = Agent(task=task, llm=llm, browser_session=session)
 
         try:
