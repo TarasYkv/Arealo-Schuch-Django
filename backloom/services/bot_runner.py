@@ -312,11 +312,27 @@ class BotRunner:
 
         return (
             f'Du bist auf der Seite {self.source.url}.\n\n'
-            f'AUFGABE: Trage die Firma "{p.firma}" als Anbieter/Unternehmen in dieses '
-            f'Verzeichnis ein. Wenn die Seite eine Registrierung verlangt, registriere '
-            f'einen neuen Account mit den unten gegebenen Daten und fuelle danach das '
-            f'Profil aus. Wenn die Seite ein direktes Submission-Formular hat, fuelle es '
-            f'aus und schicke es ab.\n\n'
+            f'AUFGABE: Trage die Firma "{p.firma}" in dieses Verzeichnis ein, '
+            f'so dass am Ende ein FUNKTIONIERENDER OEFFENTLICHER PROFIL-LINK existiert.\n\n'
+            f'⚠️ KRITISCH — TYPISCHER ZWEISTUFIGER FLOW:\n'
+            f'1. Account registrieren (Email + Passwort + ggf. Captcha)\n'
+            f'2. **DANACH** ein separates "Firma eintragen" / "Eintrag erstellen" / '
+            f'   "Mein Eintrag" / "Profil ausfuellen"-Formular ausfuellen\n\n'
+            f'Eine erfolgreiche Registrierung ALLEIN reicht NICHT — das erzeugt nur '
+            f'einen Login, aber KEINEN oeffentlichen Eintrag und damit KEINEN Backlink.\n\n'
+            f'NACH DER REGISTRIERUNG ist deine Aufgabe NICHT FERTIG. Suche aktiv nach '
+            f'Buttons/Links mit Begriffen wie:\n'
+            f'  • "Firma eintragen", "Eintrag erstellen", "Eintrag hinzufuegen"\n'
+            f'  • "Profil ausfuellen", "Mein Profil bearbeiten", "Branche eintragen"\n'
+            f'  • "Add Listing", "Create Entry", "Submit Business"\n'
+            f'Klicke und fuelle dieses Formular aus — DAS ist der Backlink-erzeugende Schritt.\n\n'
+            f'ERFOLGS-KRITERIUM (nur dann done(success=true) aufrufen):\n'
+            f'- Du siehst eine Bestaetigungsmeldung wie "Eintrag wurde gespeichert", '
+            f'  "Erfolgreich veroeffentlicht", "Profil ist online"\n'
+            f'- ODER du siehst die oeffentliche Profilseite mit den Naturmacher-Daten\n'
+            f'- ODER der Eintrag erscheint in einer "Meine Eintraege"-Liste\n\n'
+            f'Wenn du nur registriert hast, aber den Eintragsschritt nicht gefunden/'
+            f'gemacht hast: done(success=false) mit Erklaerung, NICHT mit success=true.\n\n'
             f'WICHTIG:\n'
             f'- Im Beschreibungs-/Bio-Feld nutze EXAKT diesen Text:\n'
             f'  "{bio_text}"\n'
@@ -395,7 +411,14 @@ class BotRunner:
             self._log(f'agent.run-Fehler: {exc}', 'error')
             raise
 
-        # Schema einer browser-use AgentHistoryList: result.is_done(), result.final_result()
+        # Schema einer browser-use AgentHistoryList:
+        # - is_done(): Agent rief done-Action (kann success=True ODER False sein!)
+        # - is_successful(): is_done UND success=True
+        # - final_result(): finaler Text
+        try:
+            success_flag = result.is_successful()
+        except Exception:
+            success_flag = None
         try:
             done = result.is_done()
         except Exception:
@@ -406,10 +429,25 @@ class BotRunner:
         except Exception:
             pass
 
+        # is_successful() liefert True | False | None.
+        # None heisst: Agent hat done() aufgerufen ohne success-Parameter
+        # → behandeln wir als unsicher/needs_manual.
+        is_real_success = (success_flag is True)
+
+        # URL aus final extrahieren (oft im Plain-Text)
+        backlink_url = ''
+        if final:
+            import re
+            m = re.search(r'https?://[^\s<>"\'\)]+', final)
+            if m:
+                backlink_url = m.group(0).rstrip('.,;:)')
+
         return {
-            'done': bool(done),
+            'done': is_real_success,  # nur echte Erfolge -> SUCCESS Status
+            'agent_called_done': bool(done),
+            'success_flag': success_flag,
             'final': final,
-            'backlink_url': '',  # ggf. aus final extrahieren in Phase 6
+            'backlink_url': backlink_url,
         }
 
     # ---- helpers ------------------------------------------------------------
