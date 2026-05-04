@@ -50,7 +50,8 @@ class BacklinkSourceAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'domain', 'first_found', 'created_at', 'updated_at', 'favicon_url')
     date_hierarchy = 'last_found'
     list_per_page = 50
-    actions = ['mark_as_processed', 'mark_as_successful', 'mark_as_rejected', 'reset_status']
+    actions = ['mark_as_processed', 'mark_as_successful', 'mark_as_rejected',
+               'reset_status', 'start_submission']
 
     fieldsets = (
         ('URL-Informationen', {
@@ -136,6 +137,49 @@ class BacklinkSourceAdmin(admin.ModelAdmin):
     def reset_status(self, request, queryset):
         updated = queryset.update(is_processed=False, is_successful=False, is_rejected=False)
         self.message_user(request, f'Status von {updated} Quellen zurückgesetzt.')
+
+    @admin.action(description='🤖 Submission starten (Celery)')
+    def start_submission(self, request, queryset):
+        """Stoesst pro markierter Source einen submit_backlink-Task an.
+
+        Source darf nicht gerade in einem laufenden Attempt stecken.
+        """
+        from .tasks import submit_backlink_task
+        from .models import NaturmacherProfile, SubmissionAttemptStatus
+
+        try:
+            profile = NaturmacherProfile.objects.get(user=request.user)
+        except NaturmacherProfile.DoesNotExist:
+            self.message_user(
+                request,
+                'Kein NaturmacherProfile fuer dich gefunden. Erst unter '
+                'Backloom → Naturmacher-Profile eines anlegen.',
+                level='error',
+            )
+            return
+
+        scheduled = 0
+        skipped = 0
+        for source in queryset:
+            running = source.submission_attempts.filter(
+                status__in=[
+                    SubmissionAttemptStatus.QUEUED,
+                    SubmissionAttemptStatus.RUNNING,
+                ],
+            ).exists()
+            if running:
+                skipped += 1
+                continue
+            submit_backlink_task.delay(
+                source_id=str(source.id),
+                profile_id=profile.id,
+            )
+            scheduled += 1
+
+        msg = f'{scheduled} Submission(s) geplant.'
+        if skipped:
+            msg += f' {skipped} bereits in Pipeline (uebersprungen).'
+        self.message_user(request, msg)
 
 
 @admin.register(BacklinkSearch)
