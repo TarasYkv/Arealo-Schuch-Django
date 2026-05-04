@@ -371,8 +371,16 @@ class BotRunner:
                         )
                         return a
                     a.status = SubmissionAttemptStatus.NEEDS_MANUAL
-                    a.save(update_fields=['status', 'updated_at'])
-                    self._log('Agent ist nicht "done" gegangen — manuelles Eingreifen empfohlen', 'warn')
+                    # Konkrete Begruendung des Agents speichern damit User im UI
+                    # sofort sieht woran es haengt
+                    final_reason = (agent_result.get('final') or '').strip()
+                    if final_reason:
+                        a.error_message = final_reason[:500]
+                    a.save(update_fields=['status', 'error_message', 'updated_at'])
+                    self._log(
+                        f'Agent gibt auf: {final_reason[:200] if final_reason else "(keine Begruendung)"}',
+                        'warn',
+                    )
                     # Browser bleibt OFFEN — User kann ueber noVNC eingreifen.
                     self._wait_for_user_intervention()
                     # Edge-Case: User klickte "Bot weitermachen", aber der Agent
