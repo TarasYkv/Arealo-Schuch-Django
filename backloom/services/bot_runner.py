@@ -39,8 +39,9 @@ from ..models import (
 ZAI_BASE_URL = 'https://api.z.ai/api/coding/paas/v4'
 
 # Default Modell — der Coding Plan billt unabhaengig vom Modell, also
-# nehmen wir das stabilste fuer Browser-Tasks.
-GLM_MODEL = 'glm-4.6'
+# nehmen wir das staerkste fuer Browser-Tasks (Vision + Reasoning).
+GLM_MODEL = 'glm-4.6'  # Fallback
+GLM_MODEL_PRIMARY = 'glm-5.1'  # bevorzugt
 
 # Wie viele Schritte darf der Agent maximal machen, bevor abgebrochen wird?
 MAX_AGENT_STEPS = 25
@@ -258,9 +259,9 @@ class BotRunner:
         # ueber die ENV-Vars die das interne openai-SDK nutzt.
         os.environ['OPENAI_API_KEY'] = glm_key
         os.environ['OPENAI_BASE_URL'] = ZAI_BASE_URL
-        llm = ChatOpenAI(model=GLM_MODEL, temperature=0.2)
+        llm = ChatOpenAI(model=GLM_MODEL_PRIMARY, temperature=0.2)
 
-        self._log(f'Initialisiere browser-use mit Modell {GLM_MODEL} via Z.AI', 'info')
+        self._log(f'Initialisiere browser-use mit Modell {GLM_MODEL_PRIMARY} via Z.AI', 'info')
 
         # browser-use will den HTTP-Discover-Endpoint (z.B. http://host:9222)
         # — die Control-API liefert direkt den ws://-Endpoint, der ist fuer
