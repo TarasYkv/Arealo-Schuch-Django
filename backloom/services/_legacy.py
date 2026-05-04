@@ -24,7 +24,7 @@ try:
 except ImportError:
     YOUTUBE_TRANSCRIPT_AVAILABLE = False
 
-from .models import (
+from ..models import (
     BacklinkCategory,
     BacklinkSearch,
     BacklinkSource,
