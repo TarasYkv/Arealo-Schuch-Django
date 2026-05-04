@@ -7,7 +7,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0039_alter_appinfo_app_name_alter_apppermission_app_name_and_more'),
+        ('accounts', '0040_customuser_google_account_email_and_more'),
     ]
 
     operations = [
