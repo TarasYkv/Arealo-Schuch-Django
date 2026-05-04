@@ -457,9 +457,21 @@ class BotRunner:
         # ueber die ENV-Vars die das interne openai-SDK nutzt.
         os.environ['OPENAI_API_KEY'] = glm_key
         os.environ['OPENAI_BASE_URL'] = ZAI_BASE_URL
-        llm = ChatOpenAI(model=GLM_MODEL_PRIMARY, temperature=0.2)
+        # GLM wraps strukturiertes JSON manchmal in ```json ... ``` Markdown-
+        # Fences. browser-use's strikter JSON-Parser akzeptiert das nicht
+        # → Agent verliert Aktionen. Mit dont_force_structured_output wird
+        # browser-use toleranter und stripped Fences automatisch.
+        llm = ChatOpenAI(
+            model=GLM_MODEL_PRIMARY,
+            temperature=0.2,
+            dont_force_structured_output=True,
+        )
 
-        self._log(f'Initialisiere browser-use mit Modell {GLM_MODEL_PRIMARY} via Z.AI', 'info')
+        self._log(
+            f'Initialisiere browser-use mit Modell {GLM_MODEL_PRIMARY} via Z.AI '
+            f'(dont_force_structured_output=True gegen Markdown-Fence-Issue)',
+            'info',
+        )
 
         # browser-use will den HTTP-Discover-Endpoint (z.B. http://host:9222)
         # — die Control-API liefert direkt den ws://-Endpoint, der ist fuer
