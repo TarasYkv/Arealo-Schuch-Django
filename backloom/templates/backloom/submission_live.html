@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Submission Live: {{ attempt.source.domain }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .step-log {
+    max-height: 600px; overflow-y: auto; background: #0a0a0a; color: #d4d4d4;
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace; font-size: 12px;
+    padding: 10px; border-radius: 8px;
+  }
+  .step-log .info { color: #88c0d0; }
+  .step-log .warn { color: #ebcb8b; }
+  .step-log .error { color: #bf616a; }
+  .step-screenshot { max-height: 80px; border: 1px solid #444; margin-left: 8px; }
+  .live-frame { width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">
+      <i class="fas fa-broadcast-tower me-2 text-primary"></i>
+      Live: {{ attempt.source.domain }}
+    </h3>
+    <div>
+      <a href="{% url 'backloom:submission_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left"></i> Zur Liste
+      </a>
+      <a href="{{ attempt.source.url }}" target="_blank" class="btn btn-outline-info btn-sm">
+        <i class="fas fa-external-link-alt"></i> Source öffnen
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    {# Live-Browser #}
+    <div class="col-lg-8">
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="fas fa-desktop me-1"></i> Live-Browser (noVNC)</span>
+          <a href="{{ novnc_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-expand"></i> Vollbild
+          </a>
+        </div>
+        <div class="card-body p-0">
+          <iframe class="live-frame" src="{{ novnc_url }}?autoconnect=1&resize=scale" title="Live-Browser"></iframe>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><i class="fas fa-list me-1"></i> Step-Log</div>
+        <div class="card-body p-0">
+          <div id="stepLog" class="step-log">Lade Schritte ...</div>
+        </div>
+      </div>
+    </div>
+
+    {# Status + Meta #}
+    <div class="col-lg-4">
+      <div class="card mb-3">
+        <div class="card-header">Status</div>
+        <div class="card-body">
+          <div class="mb-2">
+            <strong>Aktuell:</strong> <span id="status">{{ attempt.get_status_display }}</span>
+          </div>
+          <div class="mb-2">
+            <strong>Dauer:</strong> <span id="duration">{% if attempt.duration_seconds %}{{ attempt.duration_seconds }}s{% else %}-{% endif %}</span>
+          </div>
+          <div class="mb-2">
+            <strong>Anchor:</strong> {{ attempt.anchor_text_used|default:"-" }}
+          </div>
+          <div class="mb-2">
+            <strong>Kosten:</strong> <span id="cost">{{ attempt.cost_eur|default:0 }}</span> €
+          </div>
+          {% if attempt.bio_variant %}
+          <div class="mb-2">
+            <strong>Bio (Bucket {{ attempt.bio_variant.length_bucket }}):</strong>
+            <p class="small text-muted mb-0">{{ attempt.bio_variant.text|truncatechars:160 }}</p>
+          </div>
+          {% endif %}
+          {% if attempt.error_message %}
+          <div class="alert alert-danger small mt-3 mb-0">
+            <strong>Fehler:</strong> {{ attempt.error_message }}
+          </div>
+          {% endif %}
+          <div id="finalLink" class="mt-3 d-none">
+            <strong>Backlink:</strong>
+            <a id="finalLinkA" href="#" target="_blank" rel="noopener"></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">Source</div>
+        <div class="card-body">
+          <div><strong>{{ attempt.source.domain }}</strong></div>
+          <div class="small text-muted">{{ attempt.source.title|default:"" }}</div>
+          <div class="small text-muted">Kategorie: {{ attempt.source.get_category_display }}</div>
+          <div class="small text-muted">Captcha: {{ attempt.source.captcha_type|default:"unbekannt" }}</div>
+        </div>
+      </div>
+
+      <div class="d-grid gap-2">
+        <button id="btnSkip" class="btn btn-outline-warning">
+          <i class="fas fa-forward"></i> Skip / Manuell beenden
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const ATTEMPT_ID = "{{ attempt.id }}";
+  const csrf = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+  const stepLog = document.getElementById('stepLog');
+  const statusEl = document.getElementById('status');
+  const durationEl = document.getElementById('duration');
+  const costEl = document.getElementById('cost');
+  const finalLink = document.getElementById('finalLink');
+  const finalLinkA = document.getElementById('finalLinkA');
+
+  let stepsLoaded = 0;
+  let stopPolling = false;
+
+  function escapeHtml (s) {
+    return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+
+  async function poll () {
+    if (stopPolling) return;
+    try {
+      const r = await fetch(`/backloom/api/submissions/${ATTEMPT_ID}/status/?since=${stepsLoaded}`);
+      const data = await r.json();
+      if (!data.ok) return;
+
+      statusEl.textContent = data.status_display;
+      if (data.duration_s) durationEl.textContent = data.duration_s + 's';
+      if (data.cost_eur) costEl.textContent = data.cost_eur;
+      if (data.backlink_url) {
+        finalLinkA.href = data.backlink_url;
+        finalLinkA.textContent = data.backlink_url;
+        finalLink.classList.remove('d-none');
+      }
+
+      // Neue Steps anhaengen
+      if (stepsLoaded === 0) stepLog.innerHTML = '';
+      for (const step of data.steps || []) {
+        const div = document.createElement('div');
+        div.className = step.level || 'info';
+        const ts = (step.ts || '').slice(11, 19);
+        let html = `[${ts}] ${escapeHtml(step.msg)}`;
+        if (step.screenshot) {
+          html += ` <a href="${step.screenshot}" target="_blank">📸</a>`;
+        }
+        div.innerHTML = html;
+        stepLog.appendChild(div);
+      }
+      stepsLoaded = data.total_steps;
+      stepLog.scrollTop = stepLog.scrollHeight;
+
+      if (data.is_terminal) {
+        stopPolling = true;
+        document.getElementById('btnSkip').disabled = true;
+      }
+    } catch (e) {
+      console.error('poll err', e);
+    }
+  }
+  setInterval(poll, 2000);
+  poll();
+
+  document.getElementById('btnSkip').addEventListener('click', async () => {
+    if (!confirm('Diesen Submission-Attempt als Skipped markieren?')) return;
+    const r = await fetch(`/backloom/api/submissions/${ATTEMPT_ID}/skip/`, {
+      method: 'POST', headers: {'X-CSRFToken': csrf},
+    });
+    const data = await r.json();
+    if (data.ok) location.reload();
+    else alert('Fehler: ' + (data.error || ''));
+  });
+})();
+</script>
+{% endblock %}

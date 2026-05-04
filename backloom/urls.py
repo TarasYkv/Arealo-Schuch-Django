@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, views_submission
 
 app_name = 'backloom'
 
@@ -12,6 +12,20 @@ urlpatterns = [
 
     # Detail
     path('source/<uuid:pk>/', views.BackloomSourceDetailView.as_view(), name='source_detail'),
+
+    # Submission-Pipeline (Phase 5)
+    path('submissions/', views_submission.SubmissionDashboardView.as_view(),
+         name='submission_dashboard'),
+    path('submissions/<uuid:pk>/live/', views_submission.SubmissionLiveView.as_view(),
+         name='submission_live'),
+    path('api/submissions/start/', views_submission.api_start_submission,
+         name='api_start_submission'),
+    path('api/submissions/<uuid:attempt_id>/status/',
+         views_submission.api_attempt_status, name='api_attempt_status'),
+    path('api/submissions/<uuid:attempt_id>/skip/',
+         views_submission.api_attempt_skip, name='api_attempt_skip'),
+    path('api/sources/search/', views_submission.api_source_search,
+         name='api_source_search'),
 
     # Suchhistorie
     path('history/', views.BackloomSearchHistoryView.as_view(), name='search_history'),

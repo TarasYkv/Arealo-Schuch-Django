@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}BackLoom Submissions{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+      <i class="fas fa-robot me-2 text-primary"></i>
+      BackLoom Submissions
+    </h2>
+    <div>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#startSubmissionModal">
+        <i class="fas fa-play me-1"></i> Submission starten
+      </button>
+      <a class="btn btn-outline-secondary" href="{% url 'backloom:dashboard' %}">
+        <i class="fas fa-arrow-left me-1"></i> Zurück zum Backloom-Feed
+      </a>
+    </div>
+  </div>
+
+  {# Stats #}
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card text-center"><div class="card-body py-3">
+        <div class="text-muted small">Gesamt</div>
+        <div class="fs-3 fw-bold">{{ stats.total }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card text-center border-success"><div class="card-body py-3">
+        <div class="text-muted small">Erfolgreich</div>
+        <div class="fs-3 fw-bold text-success">{{ stats.success }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card text-center border-warning"><div class="card-body py-3">
+        <div class="text-muted small">Manuell nötig</div>
+        <div class="fs-3 fw-bold text-warning">{{ stats.manual }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card text-center border-danger"><div class="card-body py-3">
+        <div class="text-muted small">Fehlgeschlagen</div>
+        <div class="fs-3 fw-bold text-danger">{{ stats.failed }}</div>
+      </div></div>
+    </div>
+  </div>
+
+  {# Aktuelle laufende Sessions #}
+  {% if running_attempts %}
+  <div class="alert alert-info">
+    <strong><i class="fas fa-broadcast-tower me-2"></i>Live laufende Submissions:</strong>
+    <ul class="mb-0 mt-2">
+      {% for r in running_attempts %}
+      <li>
+        <a href="{% url 'backloom:submission_live' r.id %}">{{ r.source.domain }}</a>
+        — Status: <span class="badge bg-secondary">{{ r.get_status_display }}</span>
+        {% if r.started_at %} (seit {{ r.started_at|timesince }}){% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {# Filter #}
+  <form method="get" class="card card-body mb-3">
+    <div class="row g-2">
+      <div class="col-md-3">
+        <label class="form-label small">Status</label>
+        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Alle ({{ stats.total }})</option>
+          {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if value == active_status %}selected{% endif %}>
+            {{ label }} ({{ status_counts|default_if_none:""|default:""|stringformat:"s" }}{{ status_counts|default_if_none:0 }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small">Domain enthält</label>
+        <input type="text" name="domain" value="{{ active_domain }}"
+               class="form-control form-control-sm" placeholder="z.B. yelp">
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-sm btn-secondary">Filtern</button>
+      </div>
+    </div>
+  </form>
+
+  {# Liste #}
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Status</th>
+            <th>Source</th>
+            <th>Anchor</th>
+            <th>Bio</th>
+            <th>Captcha</th>
+            <th>Dauer</th>
+            <th>€</th>
+            <th>Backlink</th>
+            <th>Erstellt</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in attempts %}
+          <tr>
+            <td>{% include "backloom/_status_badge.html" with status=a.status display=a.get_status_display %}</td>
+            <td>
+              <a href="{{ a.source.url }}" target="_blank" rel="noopener">
+                <small>{{ a.source.domain }}</small>
+              </a>
+            </td>
+            <td><small class="text-muted">{{ a.anchor_text_used|default:"-" }}</small></td>
+            <td><small class="text-muted">{% if a.bio_variant %}{{ a.bio_variant.length_bucket }}c{% else %}-{% endif %}</small></td>
+            <td><small>{{ a.captcha_solver_used|default:"-" }}</small></td>
+            <td><small>{% if a.duration_seconds %}{{ a.duration_seconds }}s{% else %}-{% endif %}</small></td>
+            <td><small>{{ a.cost_eur|default:0 }}</small></td>
+            <td>
+              {% if a.backlink_url %}
+                <a href="{{ a.backlink_url }}" target="_blank" rel="noopener" title="{{ a.backlink_url }}">
+                  <i class="fas fa-external-link-alt"></i>
+                </a>
+                {% if a.is_dofollow %}<span class="badge bg-success">Dofollow</span>{% endif %}
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td><small>{{ a.created_at|date:"d.m. H:i" }}</small></td>
+            <td>
+              <a href="{% url 'backloom:submission_live' a.id %}"
+                 class="btn btn-sm btn-outline-primary" title="Live-View">
+                <i class="fas fa-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="10" class="text-center text-muted py-4">
+            Noch keine Submissions. Klicke oben "Submission starten" um die erste anzulegen.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Pagination #}
+  {% if is_paginated %}
+  <nav class="mt-3">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if active_status %}&status={{ active_status }}{% endif %}{% if active_domain %}&domain={{ active_domain }}{% endif %}">←</a>
+      </li>
+      {% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if active_status %}&status={{ active_status }}{% endif %}{% if active_domain %}&domain={{ active_domain }}{% endif %}">→</a>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+
+{# Modal: Submission starten #}
+<div class="modal fade" id="startSubmissionModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-play me-2"></i>Submission starten</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Source-Domain (Suche)</label>
+          <input type="text" id="sourceSearch" class="form-control" placeholder="z.B. add-link, yelp, gelbeseiten ...">
+        </div>
+        <div id="sourceResults" class="list-group" style="max-height:400px; overflow-y:auto;"></div>
+        <div id="startError" class="alert alert-danger mt-3 d-none"></div>
+        <div id="startSuccess" class="alert alert-success mt-3 d-none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const csrf = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+  const search = document.getElementById('sourceSearch');
+  const results = document.getElementById('sourceResults');
+  const errorBox = document.getElementById('startError');
+  const successBox = document.getElementById('startSuccess');
+
+  let timer = null;
+  search.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(loadSources, 300);
+  });
+
+  async function loadSources () {
+    const q = search.value.trim();
+    if (q.length < 2) { results.innerHTML = ''; return; }
+    const r = await fetch(`{% url "backloom:api_source_search" %}?q=${encodeURIComponent(q)}`);
+    const data = await r.json();
+    if (!data.ok || !data.results.length) {
+      results.innerHTML = '<div class="text-muted small p-3">Keine Treffer</div>';
+      return;
+    }
+    results.innerHTML = data.results.map(s => `
+      <button type="button" data-source-id="${s.id}"
+              class="list-group-item list-group-item-action d-flex justify-content-between">
+        <span>
+          <strong>${escapeHtml(s.domain)}</strong>
+          <small class="text-muted ms-2">${escapeHtml(s.title.slice(0, 50))}</small>
+          <br>
+          <small class="text-muted">${escapeHtml(s.url.slice(0, 90))}</small>
+        </span>
+        <span class="text-end">
+          <span class="badge bg-info">${escapeHtml(s.category)}</span>
+          ${s.is_processed ? '<span class="badge bg-secondary">processed</span>' : ''}
+          <br>
+          <small>Q: ${s.quality_score}</small>
+        </span>
+      </button>
+    `).join('');
+  }
+  function escapeHtml (s) {
+    return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+
+  results.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-source-id]');
+    if (!btn) return;
+    await startSubmission(btn.dataset.sourceId);
+  });
+
+  async function startSubmission (sourceId) {
+    errorBox.classList.add('d-none');
+    successBox.classList.add('d-none');
+    const r = await fetch('{% url "backloom:api_start_submission" %}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+      body: JSON.stringify({source_id: sourceId}),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      successBox.textContent = `Task ${data.task_id} gestartet für ${data.source.domain}`;
+      successBox.classList.remove('d-none');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      errorBox.textContent = data.error || 'Fehler';
+      errorBox.classList.remove('d-none');
+    }
+  }
+})();
+</script>
+{% endblock %}
