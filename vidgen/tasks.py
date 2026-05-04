@@ -743,20 +743,45 @@ def render_video(project, audio_path, clips, duration):
     
     # === LOKALES RENDERING (Original-Code) ===
     print(f"💻 Verwende lokales Rendering (Hetzner Server)...")
-    
+
+    # Helper: kopiert + verifiziert mtime + setzt Owner damit
+    # naechster Worker-Run die Datei ueberschreiben kann (sonst
+    # Permission-Bug wenn alte Datei root-owned ist).
+    def _safe_copy(src, dest):
+        # Wenn Ziel existiert + nicht writable: erst loeschen.
+        if os.path.exists(dest) and not os.access(dest, os.W_OK):
+            try:
+                os.unlink(dest)
+            except PermissionError as e:
+                raise RuntimeError(
+                    f"Cannot overwrite shared file {dest} (root-owned?): {e}. "
+                    f"Run: chown -R www-data:www-data /var/www/workloom/remotion/public/"
+                )
+        shutil_result = subprocess.run(['cp', src, dest], capture_output=True, text=True)
+        if shutil_result.returncode != 0:
+            raise RuntimeError(f"cp failed: {shutil_result.stderr}")
+        # Verify dass die Datei wirklich neu ist (mtime aktuell)
+        import time
+        mtime_age = time.time() - os.path.getmtime(dest)
+        if mtime_age > 60:
+            raise RuntimeError(
+                f"Copy seemed to fail silently — {dest} mtime is {mtime_age:.0f}s old"
+            )
+
     # Clips kopieren
     for i, clip in enumerate(clips):
         dest = os.path.join(remotion_dir, 'public', f'clip{i+1}.mp4')
-        subprocess.run(['cp', clip['path'], dest])
-    
+        _safe_copy(clip['path'], dest)
+
     # Audio kopieren
-    subprocess.run(['cp', audio_path, os.path.join(remotion_dir, 'public', 'voiceover.mp3')])
-    
-    # Timestamps kopieren
+    _safe_copy(audio_path, os.path.join(remotion_dir, 'public', 'voiceover.mp3'))
+
+    # Timestamps kopieren — KRITISCH: das hier ist der Subtitle-Sync,
+    # bei Fail kommen Subtitles mit altem Skript heraus!
     timestamps_path = os.path.join(temp_dir, 'timestamps.json')
-    subprocess.run(['cp', timestamps_path, os.path.join(remotion_dir, 'public', 'timestamps.json')])
-    
-    # Config schreiben
+    _safe_copy(timestamps_path, os.path.join(remotion_dir, 'public', 'timestamps.json'))
+
+    # Config schreiben (write-Mode, sollte immer klappen)
     with open(os.path.join(remotion_dir, 'public', 'config.json'), 'w') as f:
         json.dump(config, f)
     
@@ -785,8 +810,21 @@ def render_video(project, audio_path, clips, duration):
     )
     
     if result.returncode != 0:
-        raise RuntimeError(f"Remotion Render fehlgeschlagen: {result.stderr}")
-    
+        # Diagnose-tauglicher Fehler: stderr ist bei Remotion-Crashes oft leer
+        # (z.B. OOM-Kill, SIGKILL durch OS, npm-Subprocess gestorben). Wir loggen
+        # zusätzlich stdout-Tail + return-code + Output-Path-Existenz.
+        stderr_tail = (result.stderr or '').strip()[-1500:]
+        stdout_tail = (result.stdout or '').strip()[-1500:]
+        out_exists = os.path.exists(output_path)
+        out_size = os.path.getsize(output_path) if out_exists else 0
+        diag = (
+            f"Remotion Render fehlgeschlagen (rc={result.returncode}, "
+            f"output_exists={out_exists}, output_size={out_size}B)\n"
+            f"--- STDERR (last 1500B) ---\n{stderr_tail or '(leer)'}\n"
+            f"--- STDOUT (last 1500B) ---\n{stdout_tail or '(leer)'}"
+        )
+        raise RuntimeError(diag)
+
     return output_path
 
 def compress_video(video_path):
@@ -802,6 +840,7 @@ def compress_video(video_path):
         '-preset', 'fast',
         '-c:a', 'aac',
         '-b:a', '128k',
+        '-movflags', '+faststart',
         output_path
     ], check=True)
     
