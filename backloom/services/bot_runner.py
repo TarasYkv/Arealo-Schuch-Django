@@ -254,11 +254,21 @@ class BotRunner:
                 agent_result = asyncio.run(self._run_browser_use(cdp_url, agent_task))
                 self._log(f'browser-use Agent fertig: {agent_result.get("done", False)}')
                 if agent_result.get('done'):
-                    a.status = SubmissionAttemptStatus.SUCCESS
-                    a.backlink_url = agent_result.get('backlink_url', '') or ''
+                    # Bot meldet success — aber wir glauben das erst wenn der
+                    # Link auf der Source-Seite tatsaechlich existiert.
+                    a.status = SubmissionAttemptStatus.PENDING_VERIFY
+                    candidate_url = agent_result.get('backlink_url', '') or ''
+                    a.backlink_url = candidate_url
                     a.save(update_fields=['status', 'backlink_url', 'updated_at'])
-                    # Email-Confirmation versuchen (Phase 4.4)
-                    self._run_email_verification()
+                    self._log(
+                        f'Bot meldet Erfolg → starte Link-Verifizierung '
+                        f'(URL: {candidate_url[:80] or "—"})',
+                        'info',
+                    )
+                    self._run_link_verification(candidate_url)
+                    # Email-Confirmation nur wenn Link verifiziert wurde
+                    if a.status == SubmissionAttemptStatus.SUCCESS:
+                        self._run_email_verification()
                 else:
                     a.status = SubmissionAttemptStatus.NEEDS_MANUAL
                     a.save(update_fields=['status', 'updated_at'])
@@ -591,6 +601,61 @@ class BotRunner:
             f'Browser wird gestoppt.',
             'warn',
         )
+
+    # ---- Link-Verifikation -------------------------------------------------
+
+    def _run_link_verification(self, candidate_url: str):
+        """Prueft ob auf der Source-Seite ein naturmacher.de-Backlink existiert.
+
+        Setzt Status:
+        - SUCCESS wenn gefunden  (mit is_dofollow + final URL)
+        - FAILED_NO_LINK wenn nirgends gefunden
+        - NEEDS_MANUAL wenn der Verifier komplett crashed (z.B. Site offline)
+        """
+        from .link_verifier import verify_backlink
+        a = self.attempt
+        start_urls = []
+        if candidate_url:
+            start_urls.append(candidate_url)
+        # Fallback: Source-Anmelde-URL — manchmal landet der Eintrag direkt dort
+        # in einer Listenansicht.
+        if self.source.url and self.source.url not in start_urls:
+            start_urls.append(self.source.url)
+        try:
+            result = verify_backlink(start_urls, same_domain_only=True)
+        except Exception as exc:
+            a.status = SubmissionAttemptStatus.NEEDS_MANUAL
+            a.error_message = f'LinkVerifier-Crash: {exc}'
+            a.save(update_fields=['status', 'error_message', 'updated_at'])
+            self._log(f'LinkVerifier-Fehler: {exc}', 'error')
+            return
+        if result.found:
+            a.status = SubmissionAttemptStatus.SUCCESS
+            a.is_verified_live = True
+            a.is_dofollow = result.is_dofollow
+            a.last_verified_at = timezone.now()
+            a.backlink_url = result.public_url
+            a.save(update_fields=[
+                'status', 'is_verified_live', 'is_dofollow', 'last_verified_at',
+                'backlink_url', 'updated_at',
+            ])
+            label = 'DoFollow ✅' if result.is_dofollow else 'NoFollow'
+            self._log(
+                f'Backlink VERIFIZIERT auf {result.public_url[:90]} ({label})',
+                'info',
+            )
+        else:
+            a.status = SubmissionAttemptStatus.FAILED_NO_LINK
+            a.error_message = (
+                f'Kein naturmacher.de-Link auf den geprueften Seiten gefunden: '
+                f'{", ".join(result.pages_checked[:5])}'
+            )
+            a.save(update_fields=['status', 'error_message', 'updated_at'])
+            self._log(
+                f'Kein Backlink auf {len(result.pages_checked)} Seite(n) gefunden — '
+                f'Bot dachte er war fertig, aber Link existiert nirgends',
+                'warn',
+            )
 
     # ---- Email-Confirmation ------------------------------------------------
 

@@ -513,9 +513,11 @@ class SubmissionAttemptStatus(models.TextChoices):
     QUEUED = 'queued', 'In Warteschlange'
     RUNNING = 'running', 'Läuft'
     NEEDS_MANUAL = 'needs_manual', 'Manuell eingreifen'
-    SUCCESS = 'success', 'Erfolgreich'
+    PENDING_VERIFY = 'pending_verify', '🔍 Verifiziere Link'
+    SUCCESS = 'success', '✅ Verifiziert (Backlink live)'
     FAILED_CAPTCHA = 'failed_captcha', 'Captcha-Fehler'
     FAILED_OTHER = 'failed_other', 'Fehler'
+    FAILED_NO_LINK = 'failed_no_link', '❌ Kein Backlink gefunden'
     SKIPPED = 'skipped', 'Übersprungen'
 
 

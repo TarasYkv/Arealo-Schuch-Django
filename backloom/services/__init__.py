@@ -25,3 +25,4 @@ from .captcha_cascade import (  # noqa: F401
     CaptchaCascade, CaptchaContext, CaptchaSolution, CaptchaKind,
 )
 from .email_verifier import verify_for_domain, VerifyResult  # noqa: F401
+from .link_verifier import verify_backlink, LinkVerifyResult  # noqa: F401
