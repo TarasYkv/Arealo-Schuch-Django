@@ -255,6 +255,9 @@ class BotRunner:
                 if agent_result.get('done'):
                     a.status = SubmissionAttemptStatus.SUCCESS
                     a.backlink_url = agent_result.get('backlink_url', '') or ''
+                    a.save(update_fields=['status', 'backlink_url', 'updated_at'])
+                    # Email-Confirmation versuchen (Phase 4.4)
+                    self._run_email_verification()
                 else:
                     a.status = SubmissionAttemptStatus.NEEDS_MANUAL
                     self._log('Agent ist nicht "done" gegangen — manuelles Eingreifen empfohlen', 'warn')
@@ -443,6 +446,47 @@ class BotRunner:
             self.attempt.add_step(msg, screenshot_url=screenshot_url, level=level)
         except Exception as exc:
             logger.warning('add_step fehlgeschlagen: %s', exc)
+
+    # ---- Email-Confirmation ------------------------------------------------
+
+    def _run_email_verification(self):
+        """Sucht nach Confirm-Mail im IMAP-Postfach des Profils und klickt den Link.
+
+        Wird nach erfolgreicher Submission aufgerufen — viele Verzeichnisse
+        schicken eine Bestaetigungs-Mail, die geklickt werden muss damit der
+        Eintrag wirklich live geht. Wenn IMAP-Creds fehlen oder keine Mail
+        kommt: Skip-Log, kein Hard-Fail (Submission-Status bleibt success).
+        """
+        if not self.profile.imap_password:
+            self._log('Email-Confirm uebersprungen — keine IMAP-Creds im Profil', 'info')
+            return
+        from .email_verifier import verify_for_domain
+        domain = self.source.domain or ''
+        if not domain:
+            return
+        # Kurzer Vorlauf damit die Confirm-Mail ankommen kann
+        time.sleep(8)
+        self._log(f'Suche Confirm-Mail von {domain}...', 'info')
+        try:
+            result = verify_for_domain(self.profile, domain, max_wait_s=120, poll_interval_s=5)
+        except Exception as exc:
+            self._log(f'EmailVerifier-Fehler: {exc}', 'error')
+            return
+        if result.success:
+            self._log(
+                f'Email bestaetigt → {result.confirmation_url[:80]} (Mail: "{result.mail_subject[:60]}")',
+                'info',
+            )
+            # backlink_url priorisieren: Confirm-URL ist oft die "active" page
+            if not self.attempt.backlink_url:
+                self.attempt.backlink_url = result.confirmation_url
+                self.attempt.save(update_fields=['backlink_url', 'updated_at'])
+        elif result.skipped_reason == 'mail_not_found':
+            self._log(f'Keine Confirm-Mail von {domain} gefunden (in 2 min)', 'warn')
+        elif result.skipped_reason == 'no_imap_creds':
+            self._log('IMAP-Creds fehlen — Email-Confirm skipped', 'info')
+        else:
+            self._log(f'EmailVerifier-Fehler: {result.error}', 'warn')
 
     # ---- Captcha-Detection -------------------------------------------------
 

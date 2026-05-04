@@ -8,6 +8,9 @@ from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta
 
+# Encrypted field fuer Passwoerter (z.B. IMAP-Password im NaturmacherProfile)
+from encrypted_model_fields.fields import EncryptedCharField as _EncryptedCharField
+
 User = get_user_model()
 
 
@@ -403,6 +406,21 @@ class NaturmacherProfile(models.Model):
     # Achtung: Klartext nur weil Verzeichnis-Accounts Throwaway-Niveau haben.
     # Bei sensiblen Logins separat erfassen.
     default_password = models.CharField(max_length=255, blank=True, verbose_name='Standard-Passwort')
+
+    # IMAP-Zugang fuer Email-Bestaetigungs-Workflow (Phase 4.4)
+    # Der Bot loggt nach Registrierung in dieses Postfach ein und sucht
+    # die Confirmation-Mail mit "klicken Sie auf den folgenden Link..."
+    imap_host = models.CharField(max_length=128, blank=True, default='imappro.zoho.eu',
+                                  verbose_name='IMAP-Server')
+    imap_port = models.PositiveIntegerField(default=993, verbose_name='IMAP-Port (SSL)')
+    imap_username = models.CharField(max_length=255, blank=True,
+                                      verbose_name='IMAP-Username (=Email)',
+                                      help_text='Wenn leer: profile.email')
+    # Encrypted (analog zu CustomUser-API-Keys, EncryptedCharField vom encrypted_model_fields-Paket).
+    imap_password = _EncryptedCharField(
+        max_length=255, blank=True, null=True, verbose_name='IMAP-Passwort',
+        help_text='App-Passwort von Zoho/etc. — niemals Account-Hauptpasswort verwenden',
+    )
 
     # Beschreibungen sind in BioVariant ausgelagert (Variation gegen Spam-Pattern)
 

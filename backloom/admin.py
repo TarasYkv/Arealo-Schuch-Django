@@ -278,6 +278,11 @@ class NaturmacherProfileAdmin(admin.ModelAdmin):
             'fields': ('default_username', 'default_password'),
             'classes': ('collapse',),
         }),
+        ('IMAP fuer Email-Confirm-Workflow', {
+            'fields': ('imap_host', 'imap_port', 'imap_username', 'imap_password'),
+            'classes': ('collapse',),
+            'description': 'App-Passwort verwenden (Zoho: My Account → Security → Mail-Apps → Generate App Password)',
+        }),
         ('Zeitstempel', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',),
@@ -394,3 +399,28 @@ class SubmissionAttemptAdmin(admin.ModelAdmin):
             rows.append(f'<div><code>{ts}</code> [{level}] {msg}{ss_html}</div>')
         return mark_safe('\n'.join(rows))
     step_log_pretty.short_description = 'Schritt-Log (letzte 50)'
+
+    actions = ['retry_email_confirm']
+
+    @admin.action(description='✉️ Email-Confirm jetzt nachholen')
+    def retry_email_confirm(self, request, queryset):
+        from .services.email_verifier import verify_for_domain
+        ok = 0
+        skipped = 0
+        for a in queryset:
+            try:
+                r = verify_for_domain(a.profile, a.source.domain or '',
+                                       max_wait_s=30, poll_interval_s=5)
+            except Exception as exc:
+                a.add_step(f'EmailVerifier-Exception: {exc}', 'error')
+                continue
+            if r.success:
+                ok += 1
+                a.add_step(f'Email manuell bestaetigt: {r.confirmation_url[:100]}', 'info')
+                if not a.backlink_url:
+                    a.backlink_url = r.confirmation_url
+                    a.save(update_fields=['backlink_url', 'updated_at'])
+            else:
+                skipped += 1
+                a.add_step(f'Email-Confirm: {r.error or r.skipped_reason}', 'warn')
+        self.message_user(request, f'{ok} bestaetigt, {skipped} ohne Erfolg.')
