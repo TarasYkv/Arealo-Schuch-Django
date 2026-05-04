@@ -109,6 +109,7 @@ INSTALLED_APPS = [
     'learnloom',
     'video',
     'magvis',
+    'lasergravur',
 ]
 
 
@@ -406,6 +407,21 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
+# Reliability bei Worker-Crashes:
+# task_acks_late=True → Task wird erst NACH erfolgreichem Ende ack'd. Bei Crash
+# kommt der Task zurueck in die Queue (nicht verloren).
+# task_reject_on_worker_lost=True → Bei SIGKILL/Timeout wird der Task zurueck
+# in die Queue gestellt statt als "Erledigt mit Fehler" markiert.
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+# Task-Routing: Magvis-Tasks in eigene Queue, damit sie nicht von vidgen-
+# Long-Render-Tasks blockiert werden. Eigener Worker (celery-magvis.service)
+# konsumiert nur die magvis-Queue.
+CELERY_TASK_ROUTES = {
+    'magvis.tasks.*': {'queue': 'magvis'},
+}
+
 # Site Configuration für E-Mail Links
 SITE_DOMAIN = 'www.workloom.de'
 SITE_NAME = 'WorkLoom'
@@ -431,5 +447,20 @@ CELERY_BEAT_SCHEDULE = {
     'hard-cap-gpu-shutdown': {
         'task': 'video.tasks.hard_cap_gpu_shutdown',
         'schedule': 300.0,  # Every 5 min - force stop after 3h uptime (safety net)
+    },
+    'cleanup-stuck-magvis-stages': {
+        'task': 'magvis.tasks.cleanup_stuck_magvis_stages',
+        'schedule': 300.0,  # Every 5 min — Magvis-Projects in *_running mit
+                            # alter updated_at automatisch auf 'failed' setzen
+    },
+    'resume-unfinished-magvis-projects': {
+        'task': 'magvis.tasks.resume_unfinished_magvis_projects',
+        'schedule': 600.0,  # Every 10 min — re-triggert hängende *_done-Stages.
+                            # Idempotenz auf Stage-Ebene verhindert Doppel-Posts.
+    },
+    'reverify-pending-backlinks': {
+        'task': 'backloom.reverify_pending_attempts',
+        'schedule': 3600.0,  # 1× pro Stunde — Phase 6.2 periodische Re-Verifikation
+                            # von PENDING_VERIFY + FAILED_NO_LINK (max 7 Tage alt)
     },
 }
