@@ -260,7 +260,10 @@ class BotRunner:
                     self._run_email_verification()
                 else:
                     a.status = SubmissionAttemptStatus.NEEDS_MANUAL
+                    a.save(update_fields=['status', 'updated_at'])
                     self._log('Agent ist nicht "done" gegangen — manuelles Eingreifen empfohlen', 'warn')
+                    # Browser bleibt OFFEN — User kann ueber noVNC eingreifen.
+                    self._wait_for_user_intervention()
             except _BrowserUseUnavailable as exc:
                 # Soft-Fallback: nur Foundation-Test, kein echter Submit
                 a.status = SubmissionAttemptStatus.SUCCESS
@@ -461,6 +464,51 @@ class BotRunner:
         except Exception as exc:
             logger.warning('add_step fehlgeschlagen: %s', exc)
 
+    # ---- Wait-Loop fuer manuellen Eingriff ---------------------------------
+
+    MANUAL_WAIT_MAX_S = 30 * 60      # max 30 Minuten warten
+    MANUAL_WAIT_POLL_S = 5            # alle 5 Sekunden DB pollen
+    MANUAL_SCREENSHOT_INTERVAL_S = 30  # alle 30s Screenshot fuer Live-Tracking
+
+    def _wait_for_user_intervention(self):
+        """Polling-Loop solange Status = NEEDS_MANUAL ist.
+
+        Browser bleibt offen, User kann via noVNC eingreifen. Loop endet wenn:
+        - User markiert manuell als SUCCESS (oder anderes Terminal-Status)
+        - User skipped → SKIPPED
+        - Timeout MANUAL_WAIT_MAX_S → bleibt NEEDS_MANUAL, Browser dann gestoppt
+        """
+        from ..models import SubmissionAttempt
+        deadline = time.time() + self.MANUAL_WAIT_MAX_S
+        last_screenshot = 0.0
+        self._log(
+            f'Bot wartet auf manuellen Eingriff (max {self.MANUAL_WAIT_MAX_S//60} Min). '
+            f'Live-View: {BrowserContainerClient.public_novnc_url()}',
+            'warn',
+        )
+        while time.time() < deadline:
+            # Status aus DB neu laden — User-Action via API setzt das
+            fresh = SubmissionAttempt.objects.only('status').get(pk=self.attempt.id)
+            if fresh.status != SubmissionAttemptStatus.NEEDS_MANUAL:
+                self._log(f'User-Aktion empfangen: Status -> {fresh.status}', 'info')
+                # Sync auf das in-memory-Objekt
+                self.attempt.refresh_from_db()
+                # Bei Erfolg: Email-Confirm laufen lassen
+                if fresh.status == SubmissionAttemptStatus.SUCCESS:
+                    self._run_email_verification()
+                return
+            # Periodisch Screenshot fuer Step-Log/Live-Tracking
+            if time.time() - last_screenshot > self.MANUAL_SCREENSHOT_INTERVAL_S:
+                last_screenshot = time.time()
+                self._capture_screenshot(label='waiting')
+            time.sleep(self.MANUAL_WAIT_POLL_S)
+        # Timeout — Browser wird im finally gestoppt
+        self._log(
+            f'Wait-Loop Timeout nach {self.MANUAL_WAIT_MAX_S//60} Min — keine User-Aktion. '
+            f'Browser wird gestoppt.',
+            'warn',
+        )
+
     # ---- Email-Confirmation ------------------------------------------------
 
     def _run_email_verification(self):
@@ -555,14 +603,19 @@ class BotRunner:
                 except Exception as exc:
                     self._log(f'Token-Injection fehlgeschlagen: {exc}', 'error')
             elif sol.needs_manual:
-                self._log('Captcha → manueller Eingriff noetig (Bot bleibt stehen)', 'warn')
+                self._log('Captcha → manueller Eingriff noetig (Bot pausiert)', 'warn')
                 # Status-Update damit User es im Dashboard sieht
                 self.attempt.status = SubmissionAttemptStatus.NEEDS_MANUAL
                 self.attempt.captcha_solver_used = 'manual'
                 self.attempt.save(update_fields=[
                     'status', 'captcha_solver_used', 'updated_at',
                 ])
-                # browser-use weiter steppen lassen, aber Status ist gesetzt
+                # Wait-Loop direkt im Callback — User kann Captcha im noVNC selbst loesen.
+                # Wir bleiben hier blocked bis User-Action via API kommt.
+                await asyncio.get_event_loop().run_in_executor(
+                    None, self._wait_for_user_intervention,
+                )
+                # Nach User-Action: weiter mit Agent-Steps wenn Status zurueck auf RUNNING gesetzt
             else:
                 self._log(f'Captcha-Solver {sol.solver_used}: {sol.error}', 'error')
         return _callback

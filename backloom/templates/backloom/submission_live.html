@@ -103,9 +103,31 @@
         </div>
       </div>
 
+      <div id="manualPanel" class="card mb-3 border-warning d-none">
+        <div class="card-header bg-warning text-dark">
+          <strong>⚠️ Bot wartet auf dich</strong>
+        </div>
+        <div class="card-body small">
+          Der Bot kommt nicht weiter (Captcha, unbekanntes Feld, …). Du kannst:
+          <ol class="mb-3 mt-2 ps-3">
+            <li>Im Live-Browser oben selbst klicken/tippen (noVNC)</li>
+            <li>Wenn fertig, unten <strong>"Erfolgreich beenden"</strong> klicken</li>
+            <li>Oder Bot weitermachen lassen</li>
+          </ol>
+          <div class="d-grid gap-2">
+            <button id="btnSuccess" class="btn btn-success">
+              <i class="fas fa-check"></i> Erfolgreich beenden
+            </button>
+            <button id="btnResume" class="btn btn-primary">
+              <i class="fas fa-play"></i> Bot weitermachen lassen
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="d-grid gap-2">
         <button id="btnSkip" class="btn btn-outline-warning">
-          <i class="fas fa-forward"></i> Skip / Manuell beenden
+          <i class="fas fa-forward"></i> Skip / Abbruch
         </button>
       </div>
     </div>
@@ -140,6 +162,13 @@
       statusEl.textContent = data.status_display;
       if (data.duration_s) durationEl.textContent = data.duration_s + 's';
       if (data.cost_eur) costEl.textContent = data.cost_eur;
+      // Manual-Panel ein-/ausblenden je nach Status
+      const manual = document.getElementById('manualPanel');
+      if (data.status === 'needs_manual') {
+        manual.classList.remove('d-none');
+      } else {
+        manual.classList.add('d-none');
+      }
       if (data.backlink_url) {
         finalLinkA.href = data.backlink_url;
         finalLinkA.textContent = data.backlink_url;
@@ -181,6 +210,29 @@
     const data = await r.json();
     if (data.ok) location.reload();
     else alert('Fehler: ' + (data.error || ''));
+  });
+
+  document.getElementById('btnSuccess').addEventListener('click', async () => {
+    const url = prompt('Optional: URL des erstellten Profils (leer lassen wenn unbekannt):', '');
+    const r = await fetch(`/backloom/api/submissions/${ATTEMPT_ID}/mark-success/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+      body: JSON.stringify({backlink_url: url || '', note: 'manuell vom User'}),
+    });
+    const data = await r.json();
+    if (data.ok) location.reload();
+    else alert('Fehler: ' + (data.error || ''));
+  });
+
+  document.getElementById('btnResume').addEventListener('click', async () => {
+    const r = await fetch(`/backloom/api/submissions/${ATTEMPT_ID}/resume/`, {
+      method: 'POST', headers: {'X-CSRFToken': csrf},
+    });
+    const data = await r.json();
+    if (data.ok) {
+      // Banner sofort weg, nicht reload — Bot macht weiter
+      document.getElementById('manualPanel').classList.add('d-none');
+    } else alert('Fehler: ' + (data.error || ''));
   });
 })();
 </script>

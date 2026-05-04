@@ -243,10 +243,67 @@ def api_attempt_skip(request, attempt_id):
     if not request.user.is_superuser and a.profile.user_id != request.user.id:
         return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
     if a.status not in [SubmissionAttemptStatus.NEEDS_MANUAL,
-                        SubmissionAttemptStatus.QUEUED]:
+                        SubmissionAttemptStatus.QUEUED,
+                        SubmissionAttemptStatus.RUNNING]:
         return JsonResponse({'ok': False, 'error': f'kann von {a.status} nicht skippen'},
                               status=400)
     a.status = SubmissionAttemptStatus.SKIPPED
     a.save(update_fields=['status', 'updated_at'])
     a.add_step('Vom User uebersprungen', level='warn')
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def api_attempt_mark_success(request, attempt_id):
+    """User markiert manuell, dass die Submission erfolgreich war.
+
+    Setzt Status -> SUCCESS, optional backlink_url + Notiz aus Body.
+    Bricht damit den Wait-Loop des BotRunners (sofern aktiv) und beendet
+    die Browser-Session.
+    """
+    import json
+    try:
+        body = json.loads(request.body) if request.body else {}
+    except Exception:
+        body = {}
+    a = get_object_or_404(SubmissionAttempt, pk=attempt_id)
+    if not request.user.is_superuser and a.profile.user_id != request.user.id:
+        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+    if a.status not in [SubmissionAttemptStatus.NEEDS_MANUAL,
+                        SubmissionAttemptStatus.RUNNING]:
+        return JsonResponse({'ok': False, 'error': f'kann von {a.status} nicht success'},
+                              status=400)
+
+    backlink_url = (body.get('backlink_url') or '').strip()
+    note = (body.get('note') or '').strip()
+
+    a.status = SubmissionAttemptStatus.SUCCESS
+    if backlink_url:
+        a.backlink_url = backlink_url
+    a.save(update_fields=['status', 'backlink_url', 'updated_at'])
+    a.add_step(
+        f'Manuell als ERFOLGREICH markiert' + (f' — {note}' if note else ''),
+        level='info',
+    )
+    return JsonResponse({'ok': True, 'status': a.status, 'backlink_url': a.backlink_url})
+
+
+@login_required
+@require_POST
+def api_attempt_resume(request, attempt_id):
+    """User signalisiert: Bot soll weiter machen (z.B. nach manuellem Captcha-Loesen).
+
+    Setzt Status zurueck auf RUNNING. Der Wait-Loop im BotRunner bricht ab
+    und der Captcha-Cascade-Callback faehrt weiter im Agent-Schleifen-Loop.
+    """
+    a = get_object_or_404(SubmissionAttempt, pk=attempt_id)
+    if not request.user.is_superuser and a.profile.user_id != request.user.id:
+        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+    if a.status != SubmissionAttemptStatus.NEEDS_MANUAL:
+        return JsonResponse({'ok': False, 'error': f'kann von {a.status} nicht resume'},
+                              status=400)
+    a.status = SubmissionAttemptStatus.RUNNING
+    a.save(update_fields=['status', 'updated_at'])
+    a.add_step('User: Bot soll weitermachen', level='info')
     return JsonResponse({'ok': True})
