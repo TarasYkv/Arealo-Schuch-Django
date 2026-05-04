@@ -518,6 +518,7 @@ class SubmissionAttemptStatus(models.TextChoices):
     FAILED_CAPTCHA = 'failed_captcha', 'Captcha-Fehler'
     FAILED_OTHER = 'failed_other', 'Fehler'
     FAILED_NO_LINK = 'failed_no_link', '❌ Kein Backlink gefunden'
+    ALREADY_REGISTERED = 'already_registered', 'ℹ️ Bereits registriert'
     SKIPPED = 'skipped', 'Übersprungen'
 
 

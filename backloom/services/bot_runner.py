@@ -270,6 +270,29 @@ class BotRunner:
                     if a.status == SubmissionAttemptStatus.SUCCESS:
                         self._run_email_verification()
                 else:
+                    # Sonderfall: Bot hat erkannt dass Email bereits registriert ist
+                    final_text = (agent_result.get('final', '') or '').upper()
+                    if 'ALREADY_REGISTERED' in final_text:
+                        a.status = SubmissionAttemptStatus.ALREADY_REGISTERED
+                        a.error_message = agent_result.get('final', '')[:400]
+                        a.save(update_fields=['status', 'error_message', 'updated_at'])
+                        # Source als "schon abgehakt" markieren, nicht skipped
+                        try:
+                            from ..models import BacklinkSource
+                            self.source.is_processed = True
+                            self.source.notes = (
+                                (self.source.notes or '') +
+                                '\n[Bot] Account war schon registriert — Site uebersprungen'
+                            ).strip()
+                            self.source.save(update_fields=['is_processed', 'notes', 'updated_at'])
+                        except Exception:
+                            pass
+                        self._log(
+                            'Site meldet "Email bereits registriert" → '
+                            'Status ALREADY_REGISTERED, kein Wait-Loop',
+                            'info',
+                        )
+                        return a
                     a.status = SubmissionAttemptStatus.NEEDS_MANUAL
                     a.save(update_fields=['status', 'updated_at'])
                     self._log('Agent ist nicht "done" gegangen — manuelles Eingreifen empfohlen', 'warn')
@@ -357,7 +380,13 @@ class BotRunner:
             f'  → done(success=false, text="Eintrag gespeichert aber Profilseite '
             f'  nicht erreichbar — evtl. Moderation pending")\n'
             f'- Gemerkt dass /mein-konto Login-walled ist und keinen "Profil ansehen"-'
-            f'  Button hat → done(success=false, text=...)\n\n'
+            f'  Button hat → done(success=false, text=...)\n'
+            f'- **Site meldet "Email bereits registriert" / "Account existiert bereits" / '
+            f'  "Diese E-Mail-Adresse wird bereits verwendet" / "user already exists" '
+            f'  → SOFORT abbrechen mit done(success=false, text="ALREADY_REGISTERED: '
+            f'  <kurze Erklaerung>"). KEIN Versuch sich einzuloggen — wir wissen das '
+            f'  Passwort eines etwaig vorhandenen Accounts nicht zwingend, und wir '
+            f'  wollen ein klares Signal dass diese Site schon abgehakt ist**\n\n'
             f'WICHTIG:\n'
             f'- Im Beschreibungs-/Bio-Feld nutze EXAKT diesen Text:\n'
             f'  "{bio_text}"\n'

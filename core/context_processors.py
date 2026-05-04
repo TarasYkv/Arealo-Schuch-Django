@@ -119,6 +119,7 @@ MENU_STRUCTURE = {
                 'sub_items': [
                     {'label': 'Dashboard', 'icon': 'fas fa-tachometer-alt', 'url_name': 'backloom:dashboard'},
                     {'label': 'Feed', 'icon': 'fas fa-rss', 'url_name': 'backloom:feed'},
+                    {'label': 'Submissions (Bot)', 'icon': 'fas fa-robot', 'url_name': 'backloom:submission_dashboard'},
                     {'label': 'Suchhistorie', 'icon': 'fas fa-history', 'url_name': 'backloom:search_history'},
                 ],
             },
@@ -243,6 +244,12 @@ MENU_STRUCTURE = {
                 'label': 'MagVis',
                 'icon': 'bi bi-magic text-warning',
                 'auth_url_name': 'magvis:project_list',
+            },
+            {
+                'app_name': 'lasergravur',
+                'label': 'Lasergravur',
+                'icon': 'bi bi-fire text-danger',
+                'auth_url_name': 'lasergravur:order_list',
             },
             {
                 'app_name': 'vskript',
