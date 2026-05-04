@@ -132,6 +132,28 @@ class BacklinkSource(models.Model):
     )
     notes = models.TextField(blank=True, verbose_name='Notizen')
 
+    # Submission-Pipeline-Felder (Phase 1)
+    captcha_type = models.CharField(
+        max_length=24, blank=True, default='',
+        verbose_name='Erkannter Captcha-Typ',
+        help_text='Wird beim ersten Bot-Lauf gesetzt (recaptcha_v2, hcaptcha, ...)',
+    )
+    requires_account = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Erfordert Account-Anlage?',
+        help_text='Null = unbekannt, True/False = nach erstem Lauf bekannt',
+    )
+    form_schema = models.JSONField(
+        default=dict, blank=True,
+        verbose_name='Gelerntes Formular-Schema',
+        help_text='LLM/Bot speichert hier Selektoren-Mapping für deterministisches Replay',
+    )
+    submission_blocked_until = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Cooldown bis',
+        help_text='Solange darf der Bot diese Source nicht erneut anfassen',
+    )
+
     # Zeitstempel
     first_found = models.DateTimeField(
         default=timezone.now,
@@ -317,3 +339,262 @@ class BacklinkSearch(models.Model):
         timestamp = timezone.now().strftime('%H:%M:%S')
         self.progress_log += f"[{timestamp}] {message}\n"
         self.save(update_fields=['progress_log'])
+
+
+# ===========================================================================
+# Phase 1: Submission-Pipeline (Bot, Bios, Profil)
+# ===========================================================================
+
+
+class CaptchaType(models.TextChoices):
+    """Erkannter Captcha-Typ einer Source"""
+    NONE = 'none', 'Kein Captcha'
+    RECAPTCHA_V2 = 'recaptcha_v2', 'reCAPTCHA v2'
+    RECAPTCHA_V3 = 'recaptcha_v3', 'reCAPTCHA v3'
+    HCAPTCHA = 'hcaptcha', 'hCaptcha'
+    TURNSTILE = 'turnstile', 'Cloudflare Turnstile'
+    CLOUDFLARE = 'cloudflare', 'Cloudflare Challenge'
+    CUSTOM = 'custom', 'Custom (Math/Image)'
+    UNKNOWN = 'unknown', 'Unbekannt'
+
+
+class NaturmacherProfile(models.Model):
+    """Zentrale Firmen-/Profil-Daten, die der Bot beim Ausfüllen verwendet.
+
+    Pro Workloom-User eine Instanz (für Multi-Tenant-Fähigkeit).
+    Felder analog zu typischen Verzeichnis-Anmeldeformularen.
+    """
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE,
+        related_name='backloom_profile',
+        verbose_name='Workloom-User',
+    )
+    # Firmenkennzeichen
+    firma = models.CharField(max_length=255, verbose_name='Firmenname')
+    inhaber = models.CharField(max_length=255, blank=True, verbose_name='Inhaber/Geschäftsführer')
+    vorname = models.CharField(max_length=100, blank=True, verbose_name='Vorname')
+    nachname = models.CharField(max_length=100, blank=True, verbose_name='Nachname')
+    rechtsform = models.CharField(max_length=100, blank=True, verbose_name='Rechtsform',
+                                   help_text='z.B. GbR, GmbH, e.K., Einzelunternehmen')
+    ust_id = models.CharField(max_length=32, blank=True, verbose_name='USt-ID')
+    handelsregister = models.CharField(max_length=64, blank=True, verbose_name='Handelsregister')
+
+    # Kontakt
+    website = models.URLField(verbose_name='Website')
+    email = models.EmailField(verbose_name='Kontakt-E-Mail (für Registrierungen)')
+    email_shop = models.EmailField(blank=True, verbose_name='Shop-E-Mail (öffentlich)')
+    telefon = models.CharField(max_length=64, blank=True, verbose_name='Telefon')
+
+    # Adresse
+    strasse = models.CharField(max_length=255, blank=True, verbose_name='Straße + Hausnummer')
+    plz = models.CharField(max_length=16, blank=True, verbose_name='PLZ')
+    ort = models.CharField(max_length=128, blank=True, verbose_name='Ort')
+    land = models.CharField(max_length=64, default='Deutschland', verbose_name='Land')
+
+    # Kategorisierung
+    kategorie = models.CharField(max_length=255, blank=True, verbose_name='Default-Kategorie',
+                                  help_text='z.B. "Shopping / Geschenke / Personalisiert"')
+    keywords = models.TextField(blank=True, verbose_name='Keywords/Tags',
+                                 help_text='Komma-getrennt für Verzeichnisse')
+
+    # Default-Login-Daten (für Account-basierte Sites)
+    default_username = models.CharField(max_length=128, blank=True, verbose_name='Standard-Username',
+                                          help_text='Wird verwendet wenn Site nicht "Email als Username" akzeptiert')
+    # Achtung: Klartext nur weil Verzeichnis-Accounts Throwaway-Niveau haben.
+    # Bei sensiblen Logins separat erfassen.
+    default_password = models.CharField(max_length=255, blank=True, verbose_name='Standard-Passwort')
+
+    # Beschreibungen sind in BioVariant ausgelagert (Variation gegen Spam-Pattern)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Naturmacher-Profil'
+        verbose_name_plural = 'Naturmacher-Profile'
+
+    def __str__(self):
+        return f'{self.firma} ({self.user.username})'
+
+    def to_field_map(self) -> dict:
+        """Liefert ein Dict mit allen relevanten Feldern, die der Bot in Forms eintragen kann.
+
+        Keys sind die kanonischen Feldnamen, die das LLM bei der Form-Erkennung
+        zurückgibt (z.B. "company_name", "email", "phone").
+        """
+        return {
+            'company_name': self.firma,
+            'owner_name': self.inhaber or f'{self.vorname} {self.nachname}'.strip(),
+            'first_name': self.vorname,
+            'last_name': self.nachname,
+            'website': self.website,
+            'email': self.email,
+            'email_shop': self.email_shop,
+            'phone': self.telefon,
+            'street': self.strasse,
+            'postal_code': self.plz,
+            'city': self.ort,
+            'country': self.land,
+            'vat_id': self.ust_id,
+            'category': self.kategorie,
+            'keywords': self.keywords,
+            'username': self.default_username or self.email,
+            'password': self.default_password,
+        }
+
+
+class BioVariant(models.Model):
+    """Beschreibungstext-Varianten für Anti-Spam-Pattern-Diversität.
+
+    Pro Submission picked der Bot zufällig eine Variante in passender Länge.
+    Längen-Buckets entsprechen typischen Verzeichnis-Limits (Twitter-/IG-Style 160,
+    Standard-Verzeichnis 300, Lange Beschreibung 500 Zeichen).
+    """
+    LENGTH_SHORT = 160
+    LENGTH_MEDIUM = 300
+    LENGTH_LONG = 500
+    LENGTH_CHOICES = [
+        (LENGTH_SHORT, 'Kurz (≤160)'),
+        (LENGTH_MEDIUM, 'Mittel (≤300)'),
+        (LENGTH_LONG, 'Lang (≤500)'),
+    ]
+
+    profile = models.ForeignKey(
+        NaturmacherProfile, on_delete=models.CASCADE,
+        related_name='bio_variants',
+        verbose_name='Profil',
+    )
+    text = models.TextField(verbose_name='Bio-Text')
+    length_bucket = models.PositiveIntegerField(
+        choices=LENGTH_CHOICES, default=LENGTH_MEDIUM, verbose_name='Längen-Kategorie',
+    )
+    use_count = models.PositiveIntegerField(default=0, verbose_name='Anzahl Verwendungen')
+    last_used_at = models.DateTimeField(null=True, blank=True, verbose_name='Zuletzt verwendet')
+    is_active = models.BooleanField(default=True, verbose_name='Aktiv')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Bio-Variante'
+        verbose_name_plural = 'Bio-Varianten'
+        ordering = ['length_bucket', 'use_count', 'created_at']
+        indexes = [
+            models.Index(fields=['profile', 'length_bucket', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f'[{self.length_bucket}] {self.text[:60]}…'
+
+    def mark_used(self):
+        self.use_count += 1
+        self.last_used_at = timezone.now()
+        self.save(update_fields=['use_count', 'last_used_at'])
+
+
+class SubmissionAttemptStatus(models.TextChoices):
+    QUEUED = 'queued', 'In Warteschlange'
+    RUNNING = 'running', 'Läuft'
+    NEEDS_MANUAL = 'needs_manual', 'Manuell eingreifen'
+    SUCCESS = 'success', 'Erfolgreich'
+    FAILED_CAPTCHA = 'failed_captcha', 'Captcha-Fehler'
+    FAILED_OTHER = 'failed_other', 'Fehler'
+    SKIPPED = 'skipped', 'Übersprungen'
+
+
+class SubmissionAttempt(models.Model):
+    """Ein einzelner Bot-Lauf für eine Source.
+
+    Eine BacklinkSource kann mehrere Attempts haben (Retry/manuelle Wiederholung).
+    Jeder Attempt protokolliert: Schritte, Screenshots, finalen Backlink-URL,
+    Verify-Status, Kosten.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source = models.ForeignKey(
+        BacklinkSource, on_delete=models.CASCADE,
+        related_name='submission_attempts',
+        verbose_name='Source',
+    )
+    profile = models.ForeignKey(
+        NaturmacherProfile, on_delete=models.PROTECT,
+        related_name='submissions',
+        verbose_name='Profil',
+    )
+    bio_variant = models.ForeignKey(
+        BioVariant, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='submissions',
+        verbose_name='Verwendete Bio',
+    )
+
+    # Status
+    status = models.CharField(
+        max_length=24, choices=SubmissionAttemptStatus.choices,
+        default=SubmissionAttemptStatus.QUEUED, verbose_name='Status',
+    )
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name='Gestartet')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Beendet')
+
+    # Resultate
+    backlink_url = models.URLField(max_length=600, blank=True,
+                                    verbose_name='Erstellter Backlink (URL der Profilseite)')
+    is_dofollow = models.BooleanField(null=True, blank=True, verbose_name='DoFollow?')
+    is_verified_live = models.BooleanField(null=True, blank=True, verbose_name='Verifiziert live?')
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+
+    # Browser-Container
+    container_id = models.CharField(max_length=64, blank=True,
+                                     verbose_name='Docker-Container-ID',
+                                     help_text='Für Live-View')
+    novnc_url = models.URLField(max_length=400, blank=True,
+                                 verbose_name='noVNC Live-View URL')
+
+    # Anchor-Text (was als Linktext verwendet wurde)
+    anchor_text_used = models.CharField(max_length=255, blank=True, verbose_name='Anchor-Text')
+
+    # Step-Log und Screenshots
+    step_log = models.JSONField(default=list, blank=True,
+                                 verbose_name='Schritt-Log',
+                                 help_text='Liste von {ts, msg, screenshot_url}')
+    error_message = models.TextField(blank=True, verbose_name='Fehlermeldung')
+    captcha_solver_used = models.CharField(max_length=32, blank=True,
+                                            verbose_name='Captcha-Solver',
+                                            help_text='flaresolverr/buster/capsolver/2captcha/manual')
+
+    # Kosten
+    cost_eur = models.DecimalField(max_digits=8, decimal_places=4, default=0,
+                                    verbose_name='Kosten (€)')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Submission-Attempt'
+        verbose_name_plural = 'Submission-Attempts'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['source', '-created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['-created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.source.domain} | {self.get_status_display()} | {self.created_at:%d.%m. %H:%M}'
+
+    @property
+    def duration_seconds(self):
+        if self.started_at and self.completed_at:
+            return int((self.completed_at - self.started_at).total_seconds())
+        return None
+
+    def add_step(self, message: str, screenshot_url: str = '', level: str = 'info'):
+        """Fügt einen Schritt zum Log hinzu (UI-Stream nutzt das)."""
+        entry = {
+            'ts': timezone.now().isoformat(),
+            'level': level,
+            'msg': message,
+        }
+        if screenshot_url:
+            entry['screenshot'] = screenshot_url
+        log = list(self.step_log or [])
+        log.append(entry)
+        self.step_log = log
+        self.save(update_fields=['step_log', 'updated_at'])

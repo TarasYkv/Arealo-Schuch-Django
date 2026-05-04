@@ -3,7 +3,10 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
-from .models import SearchQuery, BacklinkSource, BacklinkSearch
+from .models import (
+    SearchQuery, BacklinkSource, BacklinkSearch,
+    NaturmacherProfile, BioVariant, SubmissionAttempt,
+)
 
 
 @admin.register(SearchQuery)
@@ -190,3 +193,160 @@ class BacklinkSearchAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         """Keine Bearbeitung erlauben"""
         return False
+
+
+# ===========================================================================
+# Phase 1: Submission-Pipeline Admin
+# ===========================================================================
+
+
+class BioVariantInline(admin.TabularInline):
+    model = BioVariant
+    extra = 0
+    fields = ('length_bucket', 'text', 'use_count', 'last_used_at', 'is_active')
+    readonly_fields = ('use_count', 'last_used_at')
+    ordering = ('length_bucket', 'use_count')
+
+
+@admin.register(NaturmacherProfile)
+class NaturmacherProfileAdmin(admin.ModelAdmin):
+    list_display = ('firma', 'user', 'website', 'email', 'plz', 'ort', 'updated_at')
+    search_fields = ('firma', 'user__username', 'email', 'website')
+    readonly_fields = ('created_at', 'updated_at')
+    inlines = [BioVariantInline]
+
+    fieldsets = (
+        ('User', {'fields': ('user',)}),
+        ('Firma', {
+            'fields': ('firma', 'inhaber', 'vorname', 'nachname',
+                       'rechtsform', 'ust_id', 'handelsregister'),
+        }),
+        ('Kontakt', {
+            'fields': ('website', 'email', 'email_shop', 'telefon'),
+        }),
+        ('Adresse', {
+            'fields': ('strasse', 'plz', 'ort', 'land'),
+        }),
+        ('Kategorisierung', {
+            'fields': ('kategorie', 'keywords'),
+        }),
+        ('Default-Login', {
+            'fields': ('default_username', 'default_password'),
+            'classes': ('collapse',),
+        }),
+        ('Zeitstempel', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+
+@admin.register(BioVariant)
+class BioVariantAdmin(admin.ModelAdmin):
+    list_display = ('profile', 'length_bucket', 'text_preview',
+                    'use_count', 'last_used_at', 'is_active')
+    list_filter = ('length_bucket', 'is_active', 'profile')
+    search_fields = ('text', 'profile__firma')
+    readonly_fields = ('use_count', 'last_used_at', 'created_at')
+    list_editable = ('is_active',)
+
+    def text_preview(self, obj):
+        return obj.text[:100] + ('…' if len(obj.text) > 100 else '')
+    text_preview.short_description = 'Bio (Vorschau)'
+
+
+@admin.register(SubmissionAttempt)
+class SubmissionAttemptAdmin(admin.ModelAdmin):
+    list_display = ('source_domain', 'status_badge', 'started_at', 'duration_label',
+                    'is_verified_live', 'cost_eur', 'live_view_link')
+    list_filter = ('status', 'is_dofollow', 'is_verified_live',
+                   'captcha_solver_used')
+    search_fields = ('source__domain', 'source__url', 'backlink_url',
+                     'error_message')
+    readonly_fields = ('id', 'created_at', 'updated_at', 'duration_label',
+                       'live_view_link', 'step_log_pretty')
+    date_hierarchy = 'created_at'
+    list_per_page = 50
+
+    fieldsets = (
+        ('Übersicht', {
+            'fields': ('id', 'source', 'profile', 'bio_variant', 'status'),
+        }),
+        ('Zeit', {
+            'fields': ('started_at', 'completed_at', 'duration_label'),
+        }),
+        ('Resultat', {
+            'fields': ('backlink_url', 'is_dofollow', 'is_verified_live',
+                       'last_verified_at', 'anchor_text_used'),
+        }),
+        ('Browser-Container', {
+            'fields': ('container_id', 'novnc_url', 'live_view_link'),
+            'classes': ('collapse',),
+        }),
+        ('Captcha', {
+            'fields': ('captcha_solver_used',),
+        }),
+        ('Log', {
+            'fields': ('step_log_pretty', 'error_message'),
+        }),
+        ('Kosten', {
+            'fields': ('cost_eur',),
+        }),
+        ('Zeitstempel', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def source_domain(self, obj):
+        return obj.source.domain
+    source_domain.short_description = 'Domain'
+    source_domain.admin_order_field = 'source__domain'
+
+    def status_badge(self, obj):
+        colors = {
+            'queued': '#6c757d',
+            'running': '#007bff',
+            'needs_manual': '#ff9800',
+            'success': '#28a745',
+            'failed_captcha': '#dc3545',
+            'failed_other': '#dc3545',
+            'skipped': '#9e9e9e',
+        }
+        color = colors.get(obj.status, '#6c757d')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 2px 8px; '
+            'border-radius: 4px; font-size: 11px;">{}</span>',
+            color, obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+    def duration_label(self, obj):
+        s = obj.duration_seconds
+        if s is None:
+            return '-'
+        m, sec = divmod(s, 60)
+        return f'{m}m {sec}s'
+    duration_label.short_description = 'Dauer'
+
+    def live_view_link(self, obj):
+        if obj.novnc_url:
+            return format_html('<a href="{}" target="_blank">🖥 Live-View öffnen</a>',
+                               obj.novnc_url)
+        return '-'
+    live_view_link.short_description = 'Live-View'
+
+    def step_log_pretty(self, obj):
+        if not obj.step_log:
+            return '-'
+        rows = []
+        for entry in obj.step_log[-50:]:
+            ts = entry.get('ts', '')[:19].replace('T', ' ')
+            level = entry.get('level', 'info')
+            msg = entry.get('msg', '')
+            ss = entry.get('screenshot', '')
+            ss_html = f' <a href="{ss}" target="_blank">📸</a>' if ss else ''
+            rows.append(f'<div><code>{ts}</code> [{level}] {msg}{ss_html}</div>')
+        return mark_safe('\n'.join(rows))
+    step_log_pretty.short_description = 'Schritt-Log (letzte 50)'
