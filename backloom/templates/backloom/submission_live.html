@@ -60,6 +60,29 @@
 
     {# Status + Meta #}
     <div class="col-lg-4">
+      <div class="card mb-3" id="controlCard">
+        <div class="card-header d-flex justify-content-between align-items-center"
+             style="background:#e8f4ff;">
+          <span><i class="fas fa-hand-paper me-1"></i> Steuerung</span>
+          <span id="controllerBadge" class="badge bg-primary fs-6">
+            {{ attempt.get_controlled_by_display|default:"🤖 Bot" }}
+          </span>
+        </div>
+        <div class="card-body">
+          <p class="small text-muted mb-2" id="controlHint">
+            Bot steuert gerade. Du kannst jederzeit übernehmen.
+          </p>
+          <div class="d-grid gap-2">
+            <button id="btnTakeover" class="btn btn-warning">
+              <i class="fas fa-hand-paper"></i> Steuerung übernehmen
+            </button>
+            <button id="btnHandback" class="btn btn-primary d-none">
+              <i class="fas fa-robot"></i> Steuerung an Bot zurückgeben
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="card mb-3">
         <div class="card-header">Status</div>
         <div class="card-body">
@@ -169,6 +192,33 @@
       } else {
         manual.classList.add('d-none');
       }
+      // Controller-Badge + Takeover/Handback-Buttons
+      const badge = document.getElementById('controllerBadge');
+      const btnTakeover = document.getElementById('btnTakeover');
+      const btnHandback = document.getElementById('btnHandback');
+      const hint = document.getElementById('controlHint');
+      const controlCard = document.getElementById('controlCard');
+      if (data.controlled_by === 'human') {
+        badge.textContent = '👤 Du steuerst';
+        badge.className = 'badge bg-warning text-dark fs-6';
+        btnTakeover.classList.add('d-none');
+        btnHandback.classList.remove('d-none');
+        hint.textContent = 'Du steuerst gerade den Browser. Bot wartet bis du fertig bist.';
+        controlCard.classList.add('border-warning');
+      } else {
+        badge.textContent = '🤖 Bot steuert';
+        badge.className = 'badge bg-primary fs-6';
+        btnTakeover.classList.remove('d-none');
+        btnHandback.classList.add('d-none');
+        hint.textContent = 'Bot steuert gerade. Du kannst jederzeit übernehmen.';
+        controlCard.classList.remove('border-warning');
+      }
+      // Takeover-Button nur sinnvoll bei laufenden Submissions
+      if (data.is_terminal) {
+        btnTakeover.disabled = true;
+        btnHandback.disabled = true;
+        controlCard.classList.add('opacity-50');
+      }
       if (data.backlink_url) {
         finalLinkA.href = data.backlink_url;
         finalLinkA.textContent = data.backlink_url;
@@ -233,6 +283,23 @@
       // Banner sofort weg, nicht reload — Bot macht weiter
       document.getElementById('manualPanel').classList.add('d-none');
     } else alert('Fehler: ' + (data.error || ''));
+  });
+
+  document.getElementById('btnTakeover').addEventListener('click', async () => {
+    const r = await fetch(`/backloom/api/submissions/${ATTEMPT_ID}/takeover/`, {
+      method: 'POST', headers: {'X-CSRFToken': csrf},
+    });
+    const data = await r.json();
+    if (!data.ok) alert('Fehler: ' + (data.error || ''));
+    // poll() picks the new state up automatisch
+  });
+
+  document.getElementById('btnHandback').addEventListener('click', async () => {
+    const r = await fetch(`/backloom/api/submissions/${ATTEMPT_ID}/handback/`, {
+      method: 'POST', headers: {'X-CSRFToken': csrf},
+    });
+    const data = await r.json();
+    if (!data.ok) alert('Fehler: ' + (data.error || ''));
   });
 })();
 </script>

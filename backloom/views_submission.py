@@ -19,6 +19,7 @@ from django.views.generic import DetailView, ListView
 
 from .models import (
     BacklinkSource,
+    ControlledBy,
     NaturmacherProfile,
     SubmissionAttempt,
     SubmissionAttemptStatus,
@@ -191,6 +192,8 @@ def api_attempt_status(request, attempt_id):
         'ok': True,
         'status': a.status,
         'status_display': a.get_status_display(),
+        'controlled_by': a.controlled_by,
+        'controlled_by_display': a.get_controlled_by_display(),
         'is_terminal': a.status in [
             SubmissionAttemptStatus.SUCCESS,
             SubmissionAttemptStatus.FAILED_CAPTCHA,
@@ -287,6 +290,50 @@ def api_attempt_mark_success(request, attempt_id):
         level='info',
     )
     return JsonResponse({'ok': True, 'status': a.status, 'backlink_url': a.backlink_url})
+
+
+@login_required
+@require_POST
+def api_attempt_takeover(request, attempt_id):
+    """User uebernimmt die Steuerung des Browsers.
+
+    Bot bleibt vor naechstem Step stehen und wartet, bis controlled_by
+    wieder auf BOT gesetzt wird (api_attempt_handback).
+    """
+    a = get_object_or_404(SubmissionAttempt, pk=attempt_id)
+    if not request.user.is_superuser and a.profile.user_id != request.user.id:
+        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+    if a.status not in (SubmissionAttemptStatus.RUNNING,
+                         SubmissionAttemptStatus.NEEDS_MANUAL):
+        return JsonResponse({'ok': False, 'error': f'kann von {a.status} nicht uebernehmen'},
+                              status=400)
+    from django.utils import timezone as tz
+    a.controlled_by = ControlledBy.HUMAN
+    a.control_taken_at = tz.now()
+    a.save(update_fields=['controlled_by', 'control_taken_at', 'updated_at'])
+    a.add_step('User hat Steuerung uebernommen', level='warn')
+    return JsonResponse({'ok': True, 'controlled_by': a.controlled_by})
+
+
+@login_required
+@require_POST
+def api_attempt_handback(request, attempt_id):
+    """User gibt Steuerung an den Bot zurueck. Bot macht beim naechsten Poll weiter."""
+    a = get_object_or_404(SubmissionAttempt, pk=attempt_id)
+    if not request.user.is_superuser and a.profile.user_id != request.user.id:
+        return JsonResponse({'ok': False, 'error': 'forbidden'}, status=403)
+    if a.controlled_by != ControlledBy.HUMAN:
+        return JsonResponse({'ok': False, 'error': 'Steuerung war schon beim Bot'},
+                              status=400)
+    a.controlled_by = ControlledBy.BOT
+    # status zurueck auf running falls needs_manual war
+    if a.status == SubmissionAttemptStatus.NEEDS_MANUAL:
+        a.status = SubmissionAttemptStatus.RUNNING
+        a.save(update_fields=['controlled_by', 'status', 'updated_at'])
+    else:
+        a.save(update_fields=['controlled_by', 'updated_at'])
+    a.add_step('User hat Steuerung an Bot zurueckgegeben', level='info')
+    return JsonResponse({'ok': True, 'controlled_by': a.controlled_by, 'status': a.status})
 
 
 @login_required

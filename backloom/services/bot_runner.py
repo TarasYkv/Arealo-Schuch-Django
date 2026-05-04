@@ -33,6 +33,7 @@ from .captcha_cascade import (
 from ..models import (
     BacklinkSource,
     BioVariant,
+    ControlledBy,
     NaturmacherProfile,
     SubmissionAttempt,
     SubmissionAttemptStatus,
@@ -464,6 +465,50 @@ class BotRunner:
         except Exception as exc:
             logger.warning('add_step fehlgeschlagen: %s', exc)
 
+    # ---- Takeover/Handback (controlled_by) ---------------------------------
+
+    HUMAN_CONTROL_MAX_S = 30 * 60  # max 30 Min Mensch-Steuerung
+    HUMAN_CONTROL_POLL_S = 3
+
+    def _wait_while_human_controls(self):
+        """Blockiert solange controlled_by == HUMAN. Beendet sich wenn
+        der User per Handback (controlled_by=BOT) die Steuerung zurueckgibt
+        ODER 30 Min Timeout erreicht.
+
+        Damit kann der User jederzeit (nicht nur bei NEEDS_MANUAL) eingreifen:
+        Takeover-API setzt controlled_by=HUMAN → Bot bleibt vor naechstem Step
+        stehen → User klickt im noVNC → User klickt "Steuerung zurueckgeben".
+        """
+        # Quick-Check: Bot in Control? Dann nichts tun, Step laeuft.
+        fresh = SubmissionAttempt.objects.only('controlled_by').get(pk=self.attempt.id)
+        if fresh.controlled_by != ControlledBy.HUMAN:
+            return
+        self._log('User hat Steuerung uebernommen — Bot pausiert', 'warn')
+        deadline = time.time() + self.HUMAN_CONTROL_MAX_S
+        while time.time() < deadline:
+            time.sleep(self.HUMAN_CONTROL_POLL_S)
+            fresh = SubmissionAttempt.objects.only('controlled_by', 'status').get(
+                pk=self.attempt.id,
+            )
+            # Wenn Status terminal wurde (User hat Success/Skip gedrueckt),
+            # NICHT zum Bot zurueck — outer-Schleife kuemmert sich
+            if fresh.status in (
+                SubmissionAttemptStatus.SUCCESS,
+                SubmissionAttemptStatus.SKIPPED,
+                SubmissionAttemptStatus.FAILED_OTHER,
+            ):
+                self.attempt.refresh_from_db()
+                return
+            if fresh.controlled_by == ControlledBy.BOT:
+                self.attempt.refresh_from_db()
+                self._log('User hat Steuerung zurueckgegeben — Bot uebernimmt', 'info')
+                return
+        self._log('Takeover-Timeout (30 Min) — Bot uebernimmt automatisch', 'warn')
+        SubmissionAttempt.objects.filter(pk=self.attempt.id).update(
+            controlled_by=ControlledBy.BOT,
+        )
+        self.attempt.refresh_from_db()
+
     # ---- Wait-Loop fuer manuellen Eingriff ---------------------------------
 
     MANUAL_WAIT_MAX_S = 30 * 60      # max 30 Minuten warten
@@ -554,12 +599,19 @@ class BotRunner:
 
     def _make_captcha_step_callback(self, browser_session):
         """Erzeugt einen Callback den der browser-use Agent nach jedem Step
-        aufruft. Dort pruefen wir per JS, ob ein Captcha-Widget erschienen ist
-        und feuern bei Bedarf die Cascade.
+        aufruft. Dort pruefen wir:
+
+        1. Steuert der Bot ueberhaupt? (controlled_by) — wenn HUMAN, blockieren
+        2. Ist ein Captcha aufgetaucht? — Cascade aufrufen
 
         Signatur (browser-use 0.12.x): callback(state, model_output, step_index)
         """
         async def _callback(state, model_output, step_index):
+            # 1. Wenn User die Steuerung uebernommen hat: warten bis er sie zurueck gibt
+            await asyncio.get_event_loop().run_in_executor(
+                None, self._wait_while_human_controls,
+            )
+            # 2. Captcha-Check
             try:
                 page = await browser_session.get_current_page()
                 detect = await page.evaluate(CAPTCHA_DETECT_JS)

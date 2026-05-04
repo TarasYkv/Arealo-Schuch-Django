@@ -519,6 +519,12 @@ class SubmissionAttemptStatus(models.TextChoices):
     SKIPPED = 'skipped', 'Übersprungen'
 
 
+class ControlledBy(models.TextChoices):
+    """Wer steuert gerade den Browser-Tab eines aktiven Submissions-Attempts."""
+    BOT = 'bot', '🤖 Bot'
+    HUMAN = 'human', '👤 Mensch'
+
+
 class SubmissionAttempt(models.Model):
     """Ein einzelner Bot-Lauf für eine Source.
 
@@ -548,6 +554,15 @@ class SubmissionAttempt(models.Model):
         max_length=24, choices=SubmissionAttemptStatus.choices,
         default=SubmissionAttemptStatus.QUEUED, verbose_name='Status',
     )
+    controlled_by = models.CharField(
+        max_length=8, choices=ControlledBy.choices,
+        default=ControlledBy.BOT,
+        verbose_name='Aktive Steuerung',
+        help_text='Wer steuert gerade den Browser. BOT = Agent macht Schritte. '
+                  'HUMAN = User hat per Takeover die Steuerung uebernommen.',
+    )
+    control_taken_at = models.DateTimeField(null=True, blank=True,
+                                              verbose_name='Steuerung uebernommen am')
     started_at = models.DateTimeField(null=True, blank=True, verbose_name='Gestartet')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='Beendet')
 

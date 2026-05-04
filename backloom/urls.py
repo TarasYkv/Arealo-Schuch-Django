@@ -28,6 +28,10 @@ urlpatterns = [
          views_submission.api_attempt_mark_success, name='api_attempt_mark_success'),
     path('api/submissions/<uuid:attempt_id>/resume/',
          views_submission.api_attempt_resume, name='api_attempt_resume'),
+    path('api/submissions/<uuid:attempt_id>/takeover/',
+         views_submission.api_attempt_takeover, name='api_attempt_takeover'),
+    path('api/submissions/<uuid:attempt_id>/handback/',
+         views_submission.api_attempt_handback, name='api_attempt_handback'),
     path('api/sources/search/', views_submission.api_source_search,
          name='api_source_search'),
 
