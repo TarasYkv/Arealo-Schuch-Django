@@ -34,6 +34,9 @@
                         <i class="fas fa-expand me-1"></i>Alle anzeigen
                     </a>
                     {% endif %}
+                    <a href="{% url 'backloom:submission_dashboard' %}" class="btn btn-primary">
+                        <i class="fas fa-robot me-1"></i>Submissions
+                    </a>
                     <a href="{% url 'backloom:dashboard' %}" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left me-1"></i>Dashboard
                     </a>
@@ -262,6 +265,14 @@
                             <a href="{% url 'backloom:source_detail' source.pk %}" class="btn btn-sm btn-outline-secondary ms-1" title="Details">
                                 <i class="fas fa-info-circle"></i>
                             </a>
+                            <button type="button"
+                                    class="btn btn-sm btn-warning ms-1 btn-auto-submit"
+                                    data-source-id="{{ source.pk }}"
+                                    data-domain="{{ source.domain }}"
+                                    title="🤖 Bot startet jetzt eine Auto-Submission auf diese Site">
+                                <i class="fas fa-robot"></i> Auto-Submit
+                            </button>
+                            <span class="auto-submit-status text-muted small ms-2 d-none"></span>
                         </div>
                     </div>
 
@@ -366,6 +377,54 @@
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
                       document.querySelector('meta[name="csrf-token"]')?.content;
+
+    // ==================
+    // AUTO-SUBMIT-BUTTONS (Phase 5)
+    // ==================
+    document.querySelectorAll('.btn-auto-submit').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            const sourceId = this.dataset.sourceId;
+            const domain = this.dataset.domain;
+            const card = this.closest('.source-card');
+            const status = card.querySelector('.auto-submit-status');
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starte...';
+            try {
+                const r = await fetch('/backloom/api/submissions/start/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                    body: JSON.stringify({source_id: sourceId}),
+                });
+                const data = await r.json();
+                if (data.ok) {
+                    this.classList.replace('btn-warning', 'btn-success');
+                    this.innerHTML = '<i class="fas fa-check"></i> Läuft';
+                    status.classList.remove('d-none');
+                    status.innerHTML = '<a href="/backloom/submissions/" target="_blank">→ Live ansehen</a>';
+                } else if (r.status === 409 && data.attempt_id) {
+                    // Schon laufend
+                    this.classList.replace('btn-warning', 'btn-info');
+                    this.innerHTML = '<i class="fas fa-spinner"></i> Läuft schon';
+                    status.classList.remove('d-none');
+                    status.innerHTML = `<a href="/backloom/submissions/${data.attempt_id}/live/" target="_blank">→ Live</a>`;
+                } else {
+                    this.classList.replace('btn-warning', 'btn-danger');
+                    this.innerHTML = '<i class="fas fa-times"></i> Fehler';
+                    status.classList.remove('d-none');
+                    status.textContent = data.error || 'unbekannter Fehler';
+                    setTimeout(() => {
+                        this.disabled = false;
+                        this.classList.replace('btn-danger', 'btn-warning');
+                        this.innerHTML = '<i class="fas fa-robot"></i> Auto-Submit';
+                    }, 3000);
+                }
+            } catch (e) {
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-robot"></i> Auto-Submit';
+                alert('Netzwerk-Fehler: ' + e.message);
+            }
+        });
+    });
 
     // ==================
     // STATUS-BUTTONS
