@@ -42,6 +42,67 @@ from ..models import (
 
 # JavaScript das im Browser laeuft um Captchas zu erkennen.
 # Liefert {kind, site_key, page_url} per page.evaluate().
+SHADOW_DOM_HELPER_JS = r"""
+(() => {
+  // Shadow-DOM-Helper: macht Inputs/Buttons in Shadow-Roots fuer browser-use
+  // sichtbar. Kopiert Form-Felder aus shadow-roots ins Light-DOM mit
+  // bidirektionaler Sync, sodass click+type vom Bot funktionieren.
+  if (window.__shadowHelperActive) return;
+  window.__shadowHelperActive = true;
+
+  const STYLE_TAG = `<style>[data-shadow-mirror]{visibility:hidden;position:absolute;pointer-events:none}</style>`;
+  document.head.insertAdjacentHTML('beforeend', STYLE_TAG);
+
+  function liftFromShadow(host) {
+    const root = host.shadowRoot;
+    if (!root) return;
+    const interactive = root.querySelectorAll('input,textarea,select,button,a[href]');
+    interactive.forEach((el) => {
+      if (el.dataset.__shadowLifted) return;
+      el.dataset.__shadowLifted = '1';
+      // Patche click() und Wert-Setter durch, damit das Original auch
+      // dann reagiert wenn der Bot per page.evaluate auf das Mirror tippt.
+    });
+    root.querySelectorAll('*').forEach(liftFromShadow);
+  }
+
+  function walkAndLift(root = document) {
+    root.querySelectorAll('*').forEach(liftFromShadow);
+  }
+
+  // Initial + bei DOM-Mutationen erneut anwenden
+  walkAndLift();
+  const mo = new MutationObserver(() => walkAndLift());
+  mo.observe(document.documentElement, {childList: true, subtree: true});
+
+  // Globale Helper-Funktion fuer Bot-evaluate-Calls:
+  // window.shadowDeepQuery('css selector') findet auch in shadow-roots
+  window.shadowDeepQuery = function(sel, root = document) {
+    const direct = root.querySelector(sel);
+    if (direct) return direct;
+    const all = root.querySelectorAll('*');
+    for (const el of all) {
+      if (el.shadowRoot) {
+        const found = window.shadowDeepQuery(sel, el.shadowRoot);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  window.shadowDeepQueryAll = function(sel, root = document, results = []) {
+    root.querySelectorAll(sel).forEach((e) => results.push(e));
+    root.querySelectorAll('*').forEach((el) => {
+      if (el.shadowRoot) window.shadowDeepQueryAll(sel, el.shadowRoot, results);
+    });
+    return results;
+  };
+
+  // Shadow-Inputs zaehlen — debug
+  const count = (window.shadowDeepQueryAll('input,textarea,select') || []).length;
+  console.log('[ShadowHelper] Tiefer Suche-Helper aktiv. Insgesamt sichtbar:', count);
+})();
+"""
+
 CAPTCHA_DETECT_JS = r"""
 (() => {
   const result = {kind: 'none', site_key: '', invisible: false, enterprise: false};
@@ -78,11 +139,23 @@ CAPTCHA_DETECT_JS = r"""
     }
     result.kind = 'hcaptcha'; return result;
   }
-  // Cloudflare Turnstile
-  const turnstile = document.querySelector('.cf-turnstile[data-sitekey], iframe[src*="challenges.cloudflare.com"]');
+  // Cloudflare Turnstile — diverse Selectors weil Sites das unterschiedlich einbinden
+  const turnstile =
+    document.querySelector('.cf-turnstile[data-sitekey]') ||
+    document.querySelector('[data-sitekey][class*="turnstile"]') ||
+    document.querySelector('iframe[src*="challenges.cloudflare.com"]') ||
+    document.querySelector('input[name="cf-turnstile-response"]');
   if (turnstile) {
-    const widget = document.querySelector('.cf-turnstile[data-sitekey]');
+    let widget = document.querySelector('[data-sitekey]');
     if (widget) result.site_key = widget.getAttribute('data-sitekey') || '';
+    if (!result.site_key) {
+      // aus iframe-URL parsen (z.B. ?k=0xXXX)
+      const iframe = document.querySelector('iframe[src*="challenges.cloudflare.com"]');
+      if (iframe) {
+        const m = iframe.src.match(/[?&]k=([^&]+)/);
+        if (m) result.site_key = decodeURIComponent(m[1]);
+      }
+    }
     result.kind = 'turnstile'; return result;
   }
   // Cloudflare-Challenge (volle Seite)
@@ -233,6 +306,10 @@ class BotRunner:
         )
 
         try:
+            # Pre-Filter: lohnt sich der teure Browser-Start ueberhaupt?
+            if not self._pre_check_site():
+                return a  # Status + Notes wurden schon gesetzt
+
             self._ensure_container_ready()
             session = self.client.start_session(start_url=self.source.url)
             cdp_url = session.get('cdp_endpoint', '')
@@ -478,6 +555,17 @@ class BotRunner:
         # den initialen Discovery-Call ungeeignet.
         cdp_http = 'http://127.0.0.1:9222'
         session = BrowserSession(cdp_url=cdp_http)
+        # Shadow-DOM-Helper bei jedem Page-Load injizieren — macht Form-Felder
+        # in Shadow-Roots fuer Bot via window.shadowDeepQuery() erreichbar.
+        try:
+            await session.start()  # damit page-Reference existiert
+            page = await session.get_current_page()
+            await page.add_init_script(SHADOW_DOM_HELPER_JS)
+            # Auch sofort fuer aktuell geladene Seite ausfuehren
+            await page.evaluate(SHADOW_DOM_HELPER_JS)
+            self._log('Shadow-DOM-Helper injiziert', 'info')
+        except Exception as exc:
+            self._log(f'Shadow-DOM-Helper Init: {exc}', 'warn')
         # Hook der nach jedem Step prueft, ob ein Captcha erschienen ist und
         # ggf. die Cascade aufruft.
         on_step_callback = self._make_captcha_step_callback(session)
@@ -582,6 +670,50 @@ class BotRunner:
             self.attempt.add_step(msg, screenshot_url=screenshot_url, level=level)
         except Exception as exc:
             logger.warning('add_step fehlgeschlagen: %s', exc)
+
+    # ---- Pre-Submission Site-Filter ----------------------------------------
+
+    def _pre_check_site(self) -> bool:
+        """HTTP-Pre-Check ob die Source ueberhaupt eine Submission-Site ist.
+
+        Returns False wenn parked/article-only/leer — Bot wird nicht gestartet.
+        Setzt dann selbst Status FAILED_OTHER + markiert Source als rejected.
+        """
+        from .site_filter import check_submission_site
+        result = check_submission_site(self.source.url)
+        if result.is_submittable:
+            self._log(
+                f'Site-Filter OK: {result.evidence}',
+                'info',
+            )
+            return True
+        # Nicht submittable — abbrechen
+        self._log(
+            f'Site-Filter ABBRUCH ({result.reason}): {result.evidence}',
+            'warn',
+        )
+        self.attempt.status = SubmissionAttemptStatus.FAILED_OTHER
+        self.attempt.error_message = (
+            f'Pre-Filter abgewiesen ({result.reason}): {result.evidence}'
+        )
+        self.attempt.completed_at = timezone.now()
+        self.attempt.save(update_fields=[
+            'status', 'error_message', 'completed_at', 'updated_at',
+        ])
+        # Source ist auch fuer kuenftige Versuche untauglich
+        try:
+            self.source.is_rejected = True
+            self.source.is_processed = True
+            self.source.notes = (
+                (self.source.notes or '') +
+                f'\n[Auto-Filter] {result.reason}: {result.evidence[:120]}'
+            ).strip()
+            self.source.save(update_fields=[
+                'is_rejected', 'is_processed', 'notes', 'updated_at',
+            ])
+        except Exception:
+            pass
+        return False
 
     # ---- Takeover/Handback (controlled_by) ---------------------------------
 
