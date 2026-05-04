@@ -68,8 +68,14 @@ _proc: Optional[subprocess.Popen] = None
 def _build_chromium_cmd(req: SessionStartRequest) -> list[str]:
     args = [
         CHROMIUM_CMD,
+        # Sandbox in Docker abgeschaltet — Container ist die Sandbox.
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
         f"--remote-debugging-port={DEVTOOLS_PORT}",
-        f"--remote-debugging-address=0.0.0.0",
+        "--remote-debugging-address=0.0.0.0",
+        # Damit browser-use vom Host aus auf 127.0.0.1:9222 attachen darf.
+        '--remote-allow-origins=*',
         f"--user-data-dir={PROFILE_DIR}",
         "--no-first-run",
         "--no-default-browser-check",
@@ -78,7 +84,8 @@ def _build_chromium_cmd(req: SessionStartRequest) -> list[str]:
         "--password-store=basic",
         "--use-mock-keychain",
         f"--lang={req.locale or 'de-DE'}",
-        "--start-maximized",
+        "--window-size=1280,800",
+        "--window-position=0,0",
     ]
     if req.user_agent:
         args.append(f"--user-agent={req.user_agent}")
