@@ -44,6 +44,9 @@ TEMPLATE_CHOICES = [
     ('myth_busting', '🔍 Mythen aufdecken'),
     ('secrets', '🤫 Geheimtipps'),
     
+    # === EMOTIONAL ===
+    ('heartfelt', '💖 Herzlich/Emotional'),
+
     # === SPEZIAL-FORMATE ===
     ('news_style', '📺 News-Format'),
     ('story_vertical', '📱 Story (9:16)'),

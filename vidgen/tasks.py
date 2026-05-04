@@ -161,6 +161,30 @@ NUR gesprochener Text, maximal 450 Zeichen.""",
 Mutig, ehrlich, diskussionswürdig.
 NUR gesprochener Text, maximal 400 Zeichen.""",
 
+    'heartfelt': """Erstelle ein {duration}-Sekunden EMOTIONALES, HERZERGREIFENDES Video zum Thema "{title}".
+
+Ziel: Beim Zuschauer ein Gefühl auslösen — Dankbarkeit, Wertschätzung, Wärme. Nicht "verkaufen", sondern berühren.
+
+Struktur (genau einhalten):
+1. HOOK (5 Sek): Persönlicher emotionaler Einstieg.
+   Beispiele: "Erinnerst du dich noch an den Moment..." / "Manche Menschen verändern dein Leben — leise."
+2. ANERKENNUNG (15 Sek): WARUM diese Person/dieser Anlass so wichtig ist.
+   Konkrete Bilder, Geste, Eigenschaft die du beobachtet hast — keine Generalitäten.
+3. EMOTIONALER MOMENT (15 Sek): Eine Erinnerung/Szene die zeigt was diese Person für dich bedeutet hat.
+   Sinnliches Detail (Geräusch, Tageszeit, Worte die fielen).
+4. WERTSCHÄTZUNGS-BRÜCKE (15 Sek): Sanfter Übergang — wie ein persönliches, durchdachtes Geschenk
+   diese unausgesprochenen Gefühle in etwas Greifbares verwandelt.
+   Idee: Lasergravur, Wunschworte, Datum, Symbol das nur ihr beide kennt.
+5. OUTRO (10 Sek): Leiser, warmer Schluss. Kein "kauf jetzt!", eher
+   "Manche Worte gehört, manche graviert.";  "Damit das Gefühl bleibt."
+
+Marken-Voice: du-Form, herzlich, naturverbunden, leise, wahrhaftig.
+KEINE Werbe-Sprache. KEINE Übertreibungen. KEINE Emojis. Nur reiner gesprochener Text.
+
+Stil-Inspiration: wie ein Brief an die Person, vorgelesen mit gedämpfter Stimme.
+
+Maximal 850 Zeichen.""",
+
     'things_nobody_tells': """Erstelle ein {duration}-Sekunden Video: "Dinge über {title} die dir keiner sagt".
 
 4-5 Insider-Infos die Anfänger nicht wissen.
