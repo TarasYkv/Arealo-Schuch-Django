@@ -17,6 +17,16 @@ from .models import MusicTrack
 
 # === SCRIPT TEMPLATES ===
 
+def _strip_gift_prefix(title: str) -> str:
+    """Strippt 'Geschenk '-Praefix damit Skript-Prompt nicht das Wort als Beruf
+    versteht. Beispiel: 'Geschenk Ausbilderin' -> 'Ausbilderin'.
+    """
+    import re
+    if not title:
+        return title or ''
+    return re.sub(r'^(geschenk[\s\-:]+)', '', title.strip(), count=1, flags=re.IGNORECASE).strip()
+
+
 SCRIPT_PROMPTS = {
     'job_intro': """Erstelle ein {duration}-Sekunden Videoskript über den Beruf "{title}".
 
@@ -392,16 +402,22 @@ def generate_script(project):
         raise ValueError("Kein OpenAI API-Key hinterlegt")
     
     client = OpenAI(api_key=api_key)
-    
-    # Prompt aus Template
+
+    # Prompt aus Template — title saeubern damit GPT keine "Geschenk Ausbilderin"
+    # = Beruf-Halluzination produziert (passierte 04.05 Ausbilderin: GPT
+    # erfand "Geschenk-Einwickel-Spezialistinnen").
     template = project.template
     prompt_template = SCRIPT_PROMPTS.get(template, SCRIPT_PROMPTS['facts'])
-    prompt = prompt_template.format(title=project.title, duration=project.target_duration)
-    
+    clean_title = _strip_gift_prefix(project.title)
+    if clean_title != project.title:
+        # Hinweis ergaenzen damit GPT versteht: hier geht's um GESCHENKE FUER X
+        clean_title = f'Geschenke fuer {clean_title}'
+    prompt = prompt_template.format(title=clean_title, duration=project.target_duration)
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Du bist ein erfahrener Video-Skript-Autor für TikTok und YouTube Shorts. Schreibe kurze, packende Skripte. WICHTIG: Verwende KEINE Emojis oder Sonderzeichen, nur reinen Text!"},
+            {"role": "system", "content": "Du bist ein erfahrener Video-Skript-Autor für TikTok und YouTube Shorts. Schreibe kurze, packende Skripte über GESCHENK-IDEEN für die genannte Zielperson. Verwechsle nie 'Geschenke für X' mit dem Beruf 'X-Geschenke'. WICHTIG: Verwende KEINE Emojis oder Sonderzeichen, nur reinen Text!"},
             {"role": "user", "content": prompt}
         ],
         max_tokens=500,
@@ -980,15 +996,21 @@ def generate_script_only(project):
     client = OpenAI(api_key=api_key)
     
     template = project.template
-    title = project.title
     duration = project.target_duration
-    
+    # 'Geschenk Ausbilderin' -> 'Geschenke fuer Ausbilderin' (gegen GPT-Halluzination)
+    raw_title = project.title
+    clean = _strip_gift_prefix(raw_title)
+    title = f'Geschenke fuer {clean}' if clean != raw_title else raw_title
+
     prompt = SCRIPT_PROMPTS.get(template, SCRIPT_PROMPTS['job_intro'])
     prompt = prompt.format(title=title, duration=duration)
-    
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": "Du schreibst Video-Skripte ueber GESCHENK-IDEEN fuer eine Zielperson. Verwechsle nie 'Geschenke fuer X' mit dem Beruf 'X-Geschenke'."},
+            {"role": "user", "content": prompt},
+        ],
         max_tokens=1000,
         temperature=0.8
     )
