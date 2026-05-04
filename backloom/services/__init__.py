@@ -21,3 +21,6 @@ from ._legacy import (  # noqa: F401
 # Neue Submission-Services explizit verfuegbar machen
 from .bot_runner import BotRunner  # noqa: F401
 from .browser_client import BrowserContainerClient, BrowserContainerError  # noqa: F401
+from .captcha_cascade import (  # noqa: F401
+    CaptchaCascade, CaptchaContext, CaptchaSolution, CaptchaKind,
+)
