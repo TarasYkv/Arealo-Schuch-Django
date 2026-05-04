@@ -27,6 +27,9 @@ from django.conf import settings
 from django.utils import timezone
 
 from .browser_client import BrowserContainerClient, BrowserContainerError
+from .captcha_cascade import (
+    CaptchaCascade, CaptchaContext, CaptchaKind, CaptchaSolution,
+)
 from ..models import (
     BacklinkSource,
     BioVariant,
@@ -34,6 +37,96 @@ from ..models import (
     SubmissionAttempt,
     SubmissionAttemptStatus,
 )
+
+
+# JavaScript das im Browser laeuft um Captchas zu erkennen.
+# Liefert {kind, site_key, page_url} per page.evaluate().
+CAPTCHA_DETECT_JS = r"""
+(() => {
+  const result = {kind: 'none', site_key: '', invisible: false, enterprise: false};
+  // reCAPTCHA v2 (sichtbar oder invisible)
+  const recaptcha = document.querySelector('.g-recaptcha[data-sitekey], iframe[src*="recaptcha/api2/anchor"], iframe[src*="recaptcha/enterprise/anchor"]');
+  if (recaptcha) {
+    const widget = document.querySelector('.g-recaptcha[data-sitekey]');
+    if (widget) {
+      result.site_key = widget.getAttribute('data-sitekey') || '';
+      result.invisible = (widget.getAttribute('data-size') === 'invisible');
+    } else {
+      const iframe = recaptcha;
+      const m = iframe.src.match(/[?&]k=([^&]+)/);
+      if (m) result.site_key = decodeURIComponent(m[1]);
+      result.invisible = /size=invisible/.test(iframe.src);
+      result.enterprise = /enterprise/.test(iframe.src);
+    }
+    result.kind = 'recaptcha_v2';
+    return result;
+  }
+  // reCAPTCHA v3 — als versteckter Token, oft an forms gebunden
+  if (window.grecaptcha && document.querySelector('script[src*="recaptcha/api.js?render="]')) {
+    const m = (document.documentElement.outerHTML.match(/render=([\w\-]+)/) || [])[1];
+    if (m) { result.kind = 'recaptcha_v3'; result.site_key = m; return result; }
+  }
+  // hCaptcha
+  const hcaptcha = document.querySelector('.h-captcha[data-sitekey], iframe[src*="hcaptcha.com"]');
+  if (hcaptcha) {
+    const widget = document.querySelector('.h-captcha[data-sitekey]');
+    if (widget) result.site_key = widget.getAttribute('data-sitekey') || '';
+    else {
+      const m = hcaptcha.src && hcaptcha.src.match(/[?&]sitekey=([^&]+)/);
+      if (m) result.site_key = decodeURIComponent(m[1]);
+    }
+    result.kind = 'hcaptcha'; return result;
+  }
+  // Cloudflare Turnstile
+  const turnstile = document.querySelector('.cf-turnstile[data-sitekey], iframe[src*="challenges.cloudflare.com"]');
+  if (turnstile) {
+    const widget = document.querySelector('.cf-turnstile[data-sitekey]');
+    if (widget) result.site_key = widget.getAttribute('data-sitekey') || '';
+    result.kind = 'turnstile'; return result;
+  }
+  // Cloudflare-Challenge (volle Seite)
+  if (document.title.includes('Just a moment') || document.querySelector('#challenge-form')) {
+    result.kind = 'cloudflare'; return result;
+  }
+  return result;
+})()
+"""
+
+# JavaScript um den Captcha-Token einzuspeisen (reCAPTCHA / hCaptcha)
+CAPTCHA_INJECT_JS = r"""
+(token, kind) => {
+  if (!token) return false;
+  if (kind === 'recaptcha_v2' || kind === 'recaptcha_v3') {
+    document.querySelectorAll('textarea[name="g-recaptcha-response"]').forEach(el => {
+      el.value = token; el.style.display = 'block';
+    });
+    if (window.___grecaptcha_cfg) {
+      Object.entries(window.___grecaptcha_cfg.clients || {}).forEach(([id, c]) => {
+        try {
+          for (const k of Object.keys(c)) {
+            const obj = c[k];
+            if (obj && obj.callback) obj.callback(token);
+          }
+        } catch (e) {}
+      });
+    }
+    return true;
+  }
+  if (kind === 'hcaptcha') {
+    document.querySelectorAll('textarea[name="h-captcha-response"]').forEach(el => {
+      el.value = token; el.style.display = 'block';
+    });
+    return true;
+  }
+  if (kind === 'turnstile') {
+    document.querySelectorAll('input[name="cf-turnstile-response"]').forEach(el => {
+      el.value = token;
+    });
+    return true;
+  }
+  return false;
+}
+"""
 
 # Z.AI Coding Plan Endpoint (selbe URL wie magvis/llm_providers.py:zhipu)
 ZAI_BASE_URL = 'https://api.z.ai/api/coding/paas/v4'
@@ -268,7 +361,12 @@ class BotRunner:
         # den initialen Discovery-Call ungeeignet.
         cdp_http = 'http://127.0.0.1:9222'
         session = BrowserSession(cdp_url=cdp_http)
-        agent = Agent(task=task, llm=llm, browser_session=session)
+        # Hook der nach jedem Step prueft, ob ein Captcha erschienen ist und
+        # ggf. die Cascade aufruft.
+        on_step_callback = self._make_captcha_step_callback(session)
+
+        agent = Agent(task=task, llm=llm, browser_session=session,
+                       register_new_step_callback=on_step_callback)
 
         try:
             result = await agent.run(max_steps=MAX_AGENT_STEPS)
@@ -345,6 +443,71 @@ class BotRunner:
             self.attempt.add_step(msg, screenshot_url=screenshot_url, level=level)
         except Exception as exc:
             logger.warning('add_step fehlgeschlagen: %s', exc)
+
+    # ---- Captcha-Detection -------------------------------------------------
+
+    def _make_captcha_step_callback(self, browser_session):
+        """Erzeugt einen Callback den der browser-use Agent nach jedem Step
+        aufruft. Dort pruefen wir per JS, ob ein Captcha-Widget erschienen ist
+        und feuern bei Bedarf die Cascade.
+
+        Signatur (browser-use 0.12.x): callback(state, model_output, step_index)
+        """
+        async def _callback(state, model_output, step_index):
+            try:
+                page = await browser_session.get_current_page()
+                detect = await page.evaluate(CAPTCHA_DETECT_JS)
+            except Exception as exc:
+                logger.debug('captcha-detect skip: %s', exc)
+                return
+            kind = detect.get('kind', 'none')
+            if kind == 'none':
+                return
+            site_key = detect.get('site_key', '')
+            page_url = page.url
+            self._log(f'Captcha erkannt: {kind} (site_key={site_key[:20]}...)', 'warn')
+
+            # Cascade aufrufen
+            cascade = CaptchaCascade(
+                capsolver_key=getattr(self.user, 'capsolver_api_key', '') or '',
+                twocaptcha_key=getattr(self.user, 'twocaptcha_api_key', '') or '',
+            )
+            ctx = CaptchaContext(
+                kind=CaptchaKind(kind),
+                page_url=page_url,
+                site_key=site_key,
+                invisible=bool(detect.get('invisible', False)),
+                enterprise=bool(detect.get('enterprise', False)),
+            )
+            sol: CaptchaSolution = await asyncio.get_event_loop().run_in_executor(
+                None, cascade.solve, ctx,
+            )
+            if sol.success and sol.token:
+                try:
+                    await page.evaluate(CAPTCHA_INJECT_JS, sol.token, kind)
+                    self._log(
+                        f'Captcha-Token injiziert via {sol.solver_used} ({sol.cost_eur} €)',
+                        'info',
+                    )
+                    self.attempt.captcha_solver_used = sol.solver_used
+                    self.attempt.cost_eur = (self.attempt.cost_eur or 0) + sol.cost_eur
+                    self.attempt.save(update_fields=[
+                        'captcha_solver_used', 'cost_eur', 'updated_at',
+                    ])
+                except Exception as exc:
+                    self._log(f'Token-Injection fehlgeschlagen: {exc}', 'error')
+            elif sol.needs_manual:
+                self._log('Captcha → manueller Eingriff noetig (Bot bleibt stehen)', 'warn')
+                # Status-Update damit User es im Dashboard sieht
+                self.attempt.status = SubmissionAttemptStatus.NEEDS_MANUAL
+                self.attempt.captcha_solver_used = 'manual'
+                self.attempt.save(update_fields=[
+                    'status', 'captcha_solver_used', 'updated_at',
+                ])
+                # browser-use weiter steppen lassen, aber Status ist gesetzt
+            else:
+                self._log(f'Captcha-Solver {sol.solver_used}: {sol.error}', 'error')
+        return _callback
 
 
 class _BrowserUseUnavailable(RuntimeError):
