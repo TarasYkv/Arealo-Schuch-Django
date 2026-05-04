@@ -635,23 +635,43 @@ class SubmissionAttempt(models.Model):
         self.step_log = log
         self.save(update_fields=['step_log', 'updated_at'])
 
+    # Step-Log-Messages die nur "Verwaltung" sind und KEINE echte Begruendung
+    # liefern — die ueberspringen wir bei reason_short.
+    _SKIP_REASON_PATTERNS = (
+        'Bot wartet auf manuellen Eingriff',
+        'Wait-Loop Timeout',
+        'Zombie-Status korrigiert',
+        'Status korrigiert: war ein false-positive',
+        'Auto-Skip',
+        'User hat Steuerung',
+        'Resume-Klick angekommen',
+        'User-Aktion empfangen',
+    )
+
     @property
     def reason_short(self) -> str:
         """Kurzbegruendung warum der Attempt im aktuellen Status ist.
 
         Bevorzugt:
         - error_message wenn gesetzt
-        - sonst: letzte Step-Log-Zeile mit level=warn oder error
+        - sonst: letzte WARN/ERROR Step-Log-Zeile, ABER skipped Verwaltungs-Messages
+          (Wait-Loop, Status-Korrekturen, User-Aktionen — die sind nur Folgen)
         - sonst: letzte Step-Log-Zeile (egal welcher Level)
         """
         if self.error_message:
             return self.error_message[:200]
         log = self.step_log or []
-        # Suche rueckwaerts nach warn/error
+        # Suche rueckwaerts nach warn/error die NICHT nur Verwaltung sind
         for entry in reversed(log):
             if entry.get('level') in ('warn', 'error'):
-                return entry.get('msg', '')[:200]
-        # Fallback: letzte info-Zeile
+                msg = entry.get('msg', '')
+                if not any(p in msg for p in self._SKIP_REASON_PATTERNS):
+                    return msg[:200]
+        # Wenn keine echte Begruendung in warn/error: letzte info-Zeile die nicht "Screenshot" ist
+        for entry in reversed(log):
+            msg = entry.get('msg', '')
+            if msg and 'Screenshot gespeichert' not in msg:
+                return msg[:200]
         if log:
             return log[-1].get('msg', '')[:200]
         return ''
