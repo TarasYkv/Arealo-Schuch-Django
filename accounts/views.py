@@ -986,6 +986,24 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen Zhipu API-Key ein.')
 
+        elif action == 'update_capsolver':
+            capsolver_key = request.POST.get('capsolver_api_key', '').strip()
+            if capsolver_key:
+                user.capsolver_api_key = capsolver_key
+                user.save()
+                messages.success(request, 'CapSolver API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen CapSolver API-Key ein.')
+
+        elif action == 'update_twocaptcha':
+            twocaptcha_key = request.POST.get('twocaptcha_api_key', '').strip()
+            if twocaptcha_key:
+                user.twocaptcha_api_key = twocaptcha_key
+                user.save()
+                messages.success(request, '2Captcha API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen 2Captcha API-Key ein.')
+
         elif action == 'update_nvidia':
             nvidia_key = request.POST.get('nvidia_api_key', '').strip()
             if nvidia_key:
@@ -1102,6 +1120,10 @@ def neue_api_einstellungen_view(request):
         'openrouter_configured': bool(user.openrouter_api_key),
         'zhipu_configured': bool(user.zhipu_api_key),
         'nvidia_configured': bool(user.nvidia_api_key),
+        'capsolver_key_masked': '••••••••' + user.capsolver_api_key[-4:] if user.capsolver_api_key and len(user.capsolver_api_key) > 4 else '',
+        'capsolver_configured': bool(user.capsolver_api_key),
+        'twocaptcha_key_masked': '••••••••' + user.twocaptcha_api_key[-4:] if user.twocaptcha_api_key and len(user.twocaptcha_api_key) > 4 else '',
+        'twocaptcha_configured': bool(user.twocaptcha_api_key),
         # Supadata (TikTok) - nur für Superuser
         'supadata_key_masked': '••••••••' + user.supadata_api_key[-4:] if user.supadata_api_key and len(user.supadata_api_key) > 4 else '',
         'supadata_configured': bool(user.supadata_api_key),

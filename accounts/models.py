@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from encrypted_model_fields.fields import EncryptedCharField
+from encrypted_model_fields.fields import EncryptedCharField, EncryptedTextField
 from django.db.models import Sum, Q
 
 
@@ -23,6 +23,21 @@ class CustomUser(AbstractUser):
     zhipu_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Zhipu / GLM API Key")
     nvidia_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="NVIDIA NIM API Key")
     pexels_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Pexels API Key")
+    capsolver_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="CapSolver API Key")
+    twocaptcha_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="2Captcha API Key")
+
+    # Zentrales Google-OAuth (Drive, Gmail, Calendar, Sheets) — pro User
+    # einmal verbunden, alle Workloom-Skills nutzen denselben Token.
+    google_account_email = models.CharField(
+        max_length=255, blank=True, null=True,
+        verbose_name="Verbundener Google-Account",
+        help_text="Wird automatisch beim OAuth-Connect gesetzt.",
+    )
+    google_oauth_credentials = EncryptedTextField(
+        blank=True, null=True,
+        verbose_name="Google OAuth Token (verschlüsselt JSON)",
+        help_text="refresh_token + access_token + scopes — wird im Hintergrund verwaltet.",
+    )
 
     upload_post_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Upload-Post API Key")
     upload_post_user_id = models.CharField(max_length=100, blank=True, null=True, verbose_name="Upload-Post User ID")
@@ -216,6 +231,7 @@ class AppPermission(models.Model):
         ('questionfinder', 'QuestionFinder'),
         ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
         ('magvis', 'MagVis - Video-Produkt-Blog-Pipeline'),
+        ('lasergravur', 'Lasergravur - Topf-Bestellungen automatisch designen'),
         ('backloom', 'BackLoom - Feed Management'),
         ('loommarket', 'LoomMarket - Business Marketing'),
         ('loomtalk', 'LoomTalk - Forum'),
@@ -934,6 +950,7 @@ class AppInfo(models.Model):
         ('shopify_uploads', 'Shopify - Fotogravur Uploads'),
         ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
         ('magvis', 'MagVis - Video-Produkt-Blog-Pipeline'),
+        ('lasergravur', 'Lasergravur - Topf-Bestellungen automatisch designen'),
         ('backloom', 'BackLoom - Feed Management'),
         ('loommarket', 'LoomMarket - Business Marketing'),
         ('loomtalk', 'LoomTalk - Forum'),
@@ -1033,6 +1050,7 @@ class FeatureAccess(models.Model):
         ('linkloom', 'LinkLoom - Link in Bio'),
         ('ploom', 'P-Loom - Shopify Produkt-Erstellung'),
         ('magvis', 'MagVis - Video-Produkt-Blog-Pipeline'),
+        ('lasergravur', 'Lasergravur - Topf-Bestellungen automatisch designen'),
         ('backloom', 'BackLoom - Feed Management'),
         ('loommarket', 'LoomMarket - Business Marketing'),
         ('loomtalk', 'LoomTalk - Forum'),
