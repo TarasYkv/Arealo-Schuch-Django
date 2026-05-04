@@ -131,6 +131,9 @@
           <strong>⚠️ Bot wartet auf dich</strong>
         </div>
         <div class="card-body small">
+          <div id="reasonBox" class="alert alert-warning py-2 mb-2 d-none">
+            <strong>Grund:</strong> <span id="reasonText"></span>
+          </div>
           Der Bot kommt nicht weiter (Captcha, unbekanntes Feld, …). Du kannst:
           <ol class="mb-3 mt-2 ps-3">
             <li>Im Live-Browser oben selbst klicken/tippen (noVNC)</li>
@@ -187,8 +190,16 @@
       if (data.cost_eur) costEl.textContent = data.cost_eur;
       // Manual-Panel ein-/ausblenden je nach Status
       const manual = document.getElementById('manualPanel');
+      const reasonBox = document.getElementById('reasonBox');
+      const reasonText = document.getElementById('reasonText');
       if (data.status === 'needs_manual') {
         manual.classList.remove('d-none');
+        if (data.reason_short) {
+          reasonText.textContent = data.reason_short;
+          reasonBox.classList.remove('d-none');
+        } else {
+          reasonBox.classList.add('d-none');
+        }
       } else {
         manual.classList.add('d-none');
       }

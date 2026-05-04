@@ -634,3 +634,24 @@ class SubmissionAttempt(models.Model):
         log.append(entry)
         self.step_log = log
         self.save(update_fields=['step_log', 'updated_at'])
+
+    @property
+    def reason_short(self) -> str:
+        """Kurzbegruendung warum der Attempt im aktuellen Status ist.
+
+        Bevorzugt:
+        - error_message wenn gesetzt
+        - sonst: letzte Step-Log-Zeile mit level=warn oder error
+        - sonst: letzte Step-Log-Zeile (egal welcher Level)
+        """
+        if self.error_message:
+            return self.error_message[:200]
+        log = self.step_log or []
+        # Suche rueckwaerts nach warn/error
+        for entry in reversed(log):
+            if entry.get('level') in ('warn', 'error'):
+                return entry.get('msg', '')[:200]
+        # Fallback: letzte info-Zeile
+        if log:
+            return log[-1].get('msg', '')[:200]
+        return ''

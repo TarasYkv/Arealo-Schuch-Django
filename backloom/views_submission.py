@@ -207,6 +207,7 @@ def api_attempt_status(request, attempt_id):
         'anchor_text': a.anchor_text_used,
         'cost_eur': str(a.cost_eur),
         'error_message': a.error_message,
+        'reason_short': a.reason_short,
         'total_steps': len(full_log),
         'steps': new_steps,
     })

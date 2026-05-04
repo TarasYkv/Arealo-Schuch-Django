@@ -56,8 +56,13 @@
       {% for r in running_attempts %}
       <li>
         <a href="{% url 'backloom:submission_live' r.id %}">{{ r.source.domain }}</a>
-        — Status: <span class="badge bg-secondary">{{ r.get_status_display }}</span>
-        {% if r.started_at %} (seit {{ r.started_at|timesince }}){% endif %}
+        — Status: {% include "backloom/_status_badge.html" with status=r.status display=r.get_status_display %}
+        {% if r.started_at %}<small class="text-muted">(seit {{ r.started_at|timesince }})</small>{% endif %}
+        {% if r.status == 'needs_manual' and r.reason_short %}
+          <div class="small text-muted ms-4">
+            ⚠️ {{ r.reason_short|truncatechars:140 }}
+          </div>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>
@@ -110,7 +115,17 @@
         <tbody>
           {% for a in attempts %}
           <tr>
-            <td>{% include "backloom/_status_badge.html" with status=a.status display=a.get_status_display %}</td>
+            <td>
+              {% include "backloom/_status_badge.html" with status=a.status display=a.get_status_display %}
+              {% if a.status == 'needs_manual' or a.status == 'failed_no_link' or a.status == 'failed_other' or a.status == 'failed_captcha' %}
+                {% if a.reason_short %}
+                <div class="small text-muted mt-1" style="max-width: 300px; line-height: 1.2;"
+                     title="{{ a.reason_short }}">
+                  <i class="fas fa-info-circle me-1"></i>{{ a.reason_short|truncatechars:90 }}
+                </div>
+                {% endif %}
+              {% endif %}
+            </td>
             <td>
               <a href="{{ a.source.url }}" target="_blank" rel="noopener">
                 <small>{{ a.source.domain }}</small>
