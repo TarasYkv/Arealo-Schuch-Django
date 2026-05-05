@@ -34,6 +34,30 @@ from .llm_client import MagvisLLMClient
 logger = logging.getLogger(__name__)
 
 
+# Menschenlesbare Alt-Text-Beschreibungen pro KI-Variant.
+# Frueher: "{title} — lifestyle" (technischer Suffix, Google-sichtbar, schlecht).
+# Jetzt:  beschreibender deutscher Suffix, gut fuer Bildersuche + Accessibility.
+VARIANT_ALT_SUFFIX = {
+    'topf_gravur': 'Detailansicht der Lasergravur',
+    'lifestyle': 'im Wohnambiente',
+    'geschenk_uebergabe': 'als persoenliche Geschenk-Uebergabe',
+    'nahaufnahme': 'Detailaufnahme',
+}
+
+
+def _alt_for_variant(title: str, variant: str) -> str:
+    """Sauberer Alt-Text: '{title} — {beschreibender Suffix}', max 125 char."""
+    suffix = VARIANT_ALT_SUFFIX.get(variant, '')
+    base = (title or '').strip()
+    if not suffix:
+        return base[:125]
+    full = f'{base} — {suffix}'
+    # Wenn zu lang, lieber Suffix kuerzen statt Title.
+    if len(full) > 125:
+        return f'{base[:125 - len(suffix) - 5]}... — {suffix}'
+    return full
+
+
 # Statisches Naturmacher-Hersteller-HTML (Pflichtangabe Produktbundle).
 HERSTELLER_INFO_HTML = (
     '<p><span style=\'text-align: start;color: rgb(0, 0, 0);background-color: rgb(255, 255, 255);font-size: 15px;font-family: Proximanova, -apple-system, BlinkMacSystemFont, ";\'>Bei diesem Artikel handelt es sich um ein Produktbundle.</span>'
@@ -477,11 +501,12 @@ class MagvisProductPipeline:
         # Variant-Mapping: KI-Bild dieses Typs → variant_id
         variant_id = (self._ki_to_variant.get(variant, '')
                       if hasattr(self, '_ki_to_variant') else '')
+        clean_alt = _alt_for_variant(product.title, variant)
         ploom_img = PLoomProductImage.objects.create(
             product=product,
             source='gemini_workflow',
             position=position,
-            alt_text=f'{product.title} — {variant}',
+            alt_text=clean_alt,
             variant_id=variant_id,
         )
         with open(abs_path, 'rb') as fh:
@@ -492,19 +517,22 @@ class MagvisProductPipeline:
             source=MagvisImageAsset.SOURCE_PRODUCT_AI,
             source_ref=str(ploom_img.id),
             src_path=ploom_img.image.path if ploom_img.image else abs_path,
-            title_de=f'{product.title} — {variant}',
+            title_de=clean_alt,
         )
 
     def _add_cdn_image(self, product, url: str, position: int, cdn_idx: int = 0) -> None:
         from ploom.models import PLoomProductImage
         variant_id = (self._cdn_to_variant.get(cdn_idx, '')
                       if hasattr(self, '_cdn_to_variant') else '')
+        # CDN-Bilder bekommen den reinen Produkttitel als Alt — der technische
+        # 'CDN-Bild'-Suffix ist Google-sichtbar gewesen und brachte keine SEO-Info.
+        clean_alt = (product.title or '').strip()[:125]
         ploom_img = PLoomProductImage.objects.create(
             product=product,
             source='external_url',
             external_url=url,
             position=position,
-            alt_text=f'{product.title} — CDN-Bild',
+            alt_text=clean_alt,
             variant_id=variant_id,
         )
         MagvisImageAsset.objects.create(
@@ -513,7 +541,7 @@ class MagvisProductPipeline:
             source_ref=str(ploom_img.id),
             src_path='',
             src_url=url,
-            title_de=f'{product.title} — CDN',
+            title_de=clean_alt,
         )
 
     # ---- Shopify-Post-Process: Variant-Bilder + Video --------------------
