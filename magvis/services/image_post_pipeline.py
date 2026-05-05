@@ -143,14 +143,21 @@ class MagvisImagePostPipeline:
         except Exception as exc:
             logger.warning('GLM-Init für Captions: %s', exc)
             return self._fallback_captions(topic)
+        # 6 Felder × bis zu 1500 Zeichen → Token-Budget grosszuegig.
+        # json_chat (ohne max_tokens) wurde vom Provider-Default abgeschnitten,
+        # JSON kam unvollstaendig zurueck → Parser failed → Fallback.
         try:
-            data = glm.json_chat(prompt, temperature=0.75)
-            if isinstance(data, dict) and data.get('description'):
+            data = glm.json_chat_with_retry(
+                prompt, expect='object', max_tokens=4096, retries=3,
+            )
+            if isinstance(data, dict) and (data.get('description') or data.get('instagram_caption')):
+                ig_cap = str(data.get('instagram_caption', ''))[:2000]
+                pin_cap = str(data.get('pinterest_caption', ''))[:500]
                 return {
                     'title': str(data.get('title', ''))[:100],
-                    'description': str(data.get('description', ''))[:500],
-                    'instagram_caption': str(data.get('instagram_caption', ''))[:2000],
-                    'pinterest_caption': str(data.get('pinterest_caption', ''))[:500],
+                    'description': str(data.get('description') or pin_cap)[:500],
+                    'instagram_caption': ig_cap,
+                    'pinterest_caption': pin_cap,
                     'tiktok_caption': str(data.get('tiktok_caption', ''))[:2200],
                     'facebook_caption': str(
                         data.get('facebook_caption') or data.get('instagram_caption', '')
@@ -159,6 +166,7 @@ class MagvisImagePostPipeline:
                 }
         except Exception as exc:
             logger.warning('GLM-Captions: %s', exc)
+        logger.warning('GLM-Captions: kein gueltiges JSON nach Retries — Fallback aktiv')
         return self._fallback_captions(topic)
 
     def _fallback_captions(self, topic: str) -> dict:

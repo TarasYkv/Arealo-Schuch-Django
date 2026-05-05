@@ -226,15 +226,6 @@ class MagvisOrchestrator:
         Wizard-Override: explizite asset.target_platforms gewinnt.
         """
         from .image_post_pipeline import MagvisImagePostPipeline
-        from ..models import MagvisImageAsset
-        from .llm_client import MagvisLLMClient
-        from ..models import MagvisSettings
-
-        ms, _ = MagvisSettings.objects.get_or_create(user=self.project.user)
-        glm = MagvisLLMClient(self.project.user, ms)
-        topic = self.project.topic
-        blog_url = (getattr(self.project, 'blog', None)
-                    and self.project.blog.shopify_published_url) or ''
 
         results = []
         skipped = 0
@@ -262,22 +253,18 @@ class MagvisOrchestrator:
                 continue
             platforms = todo_platforms
 
-            # GLM erzeugt SEO-optimierten Title + Description universell
-            # (Pinterest, IG, FB, Threads). Blog-URL wird nur dort eingefügt,
-            # wo Links in der Description sinnvoll/klickbar sind.
-            post_title, post_description = self._generate_post_caption(
-                glm, topic, asset, platforms, blog_url,
-            )
-            post_title = post_title or asset.title_de
-            post_description = post_description or asset.description_de
+            # KEINE Caption-Generierung hier — image_post_pipeline._generate_captions
+            # liefert plattformspezifische Captions (instagram_caption mit Hook+Story
+            # +Hashtags, pinterest_caption keyword-rich, facebook_caption etc).
+            # Frueher gab es hier einen schwaecheren orchestrator-Caption-Layer
+            # der den guten image_post_pipeline-Layer blockiert hat (post() ueberspringt
+            # _generate_captions wenn title+description schon gesetzt sind).
             try:
                 r = MagvisImagePostPipeline(asset).post(
                     platforms=platforms,
                     use_overlay=asset.use_overlay,
                     overlay_text=asset.overlay_text,
                     overlay_method=asset.overlay_method,
-                    title=post_title,
-                    description=post_description,
                 )
                 results.append({'asset_id': asset.id, 'platforms': platforms, 'result': r})
             except Exception as exc:
@@ -316,62 +303,6 @@ class MagvisOrchestrator:
             if 'geschenk_uebergabe' in tag or 'geschenk' in tag.split('—')[-1].strip():
                 return ['pinterest']
         return []
-
-    def _generate_post_caption(self, glm, topic: str, asset,
-                               platforms: list, blog_url: str) -> tuple[str, str]:
-        """SEO-optimierter Title + Description via GLM, plattform-aware.
-
-        Title: max 100 Zeichen (Pinterest-Limit ist striktest).
-        Description: max 500 Zeichen, mit Mid-Tail-Long-Keywords + 5-7 Hashtags
-        + Blog-URL am Ende, falls 'pinterest', 'facebook' oder 'threads' (dort
-        sind Links nützlich/klickbar; Instagram-Captions verlinken nicht klickbar
-        — Blog-URL trotzdem als Text, weil sie kontextuell sinnvoll bleibt).
-        """
-        from ..models import MagvisImageAsset
-        kind_hint = {
-            MagvisImageAsset.SOURCE_PRODUCT_AI: 'Personalisierter Naturmacher-Blumentopf mit Gravur — Geschenk-Übergabe-Szene',
-            MagvisImageAsset.SOURCE_BLOG_DIAGRAM: 'Infografik mit Kernpunkten zum Thema',
-            MagvisImageAsset.SOURCE_BLOG_BRAINSTORM: 'Brainstorming-Mind-Map zum Thema',
-        }.get(asset.source, 'Bild zum Thema')
-        platform_hint = ', '.join(platforms)
-        link_clause = (f'\n- Verlinke den Blogbeitrag am Ende der Description: "{blog_url}"'
-                       if blog_url else '')
-        prompt = (
-            f'Erstelle einen Title und eine Description für einen Social-Media-Post '
-            f'auf den Plattformen: {platform_hint}.\n\n'
-            f'Thema: "{topic}"\n'
-            f'Bild-Typ: {kind_hint}\n'
-            f'Marke: Naturmacher.de — personalisierte Blumentöpfe mit Lasergravur, '
-            f'herzlich, persönlich, du-Form, deutscher Familienbetrieb.\n\n'
-            f'Anforderungen:\n'
-            f'- **Title**: max 100 Zeichen, hookig, deutsch, suchfreundlich '
-            f'  (Long-Tail-Keyword zum Topic), kein Marketing-Geschwurbel.\n'
-            f'- **Description**: max 500 Zeichen GESAMT (inkl. Blog-URL & Hashtags). '
-            f'  SEO-optimiert mit Mid-Tail-Keywords zum Topic, beschreibt was das '
-            f'  Bild zeigt + warum es relevant ist + Call-to-Action zum Mehr-Lesen. '
-            f'  Endet mit 5-7 passenden deutschen Hashtags '
-            f'  (#Geschenkidee #PersonalisiertesGeschenk #Naturmacher etc).'
-            f'{link_clause}\n\n'
-            f'Antworte AUSSCHLIESSLICH mit diesem JSON:\n'
-            f'{{"title": "...", "description": "..."}}'
-        )
-        try:
-            data = glm.json_chat_with_retry(
-                prompt, expect='object', max_tokens=700, retries=2,
-            ) or {}
-        except Exception as exc:
-            logger.warning('Post-Caption-Generation fehlgeschlagen: %s', exc)
-            data = {}
-        title = (data.get('title') or '').strip()[:100]
-        description = (data.get('description') or '').strip()
-        # Failsafe: wenn GLM die Blog-URL nicht eingebaut hat, hänge sie an
-        if blog_url and blog_url not in description:
-            tail = f'\n→ {blog_url}'
-            if len(description) + len(tail) <= 500:
-                description = description + tail
-            else:
-                description = (description[:500 - len(tail)].rstrip() + tail)
-        return title, description[:500]
 
     def _stage_sync(self, **kwargs) -> dict:
         """Synchronisiert die im Run erstellten Items in die shopify_manager-DB."""
