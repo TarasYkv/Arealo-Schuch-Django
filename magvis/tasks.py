@@ -11,15 +11,122 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, soft_time_limit=7200, time_limit=7260)
 def run_full_chain(self, project_id):
-    """Führt den kompletten Magvis-Workflow für ein Projekt aus."""
+    """Führt den kompletten Magvis-Workflow für ein Projekt aus.
+
+    Project-Lock: pro Project laeuft maximal 1 run_full_chain gleichzeitig.
+    Wenn ein anderer Task fuer dasselbe Project bereits aktiv ist, wird der
+    neue Trigger ohne Wirkung verworfen — verhindert Doppel-Posting bei
+    akkumulierten Re-Triggers.
+    """
+    from django.db import transaction
     from .models import MagvisProject
     from .services.orchestrator import MagvisOrchestrator
 
-    project = MagvisProject.objects.get(id=project_id)
-    project.celery_eta_task_id = self.request.id
-    project.save(update_fields=['celery_eta_task_id'])
-    MagvisOrchestrator(project).run_full_chain()
+    # Atomar: pruefe ob ein anderer aktiver Task fuer dieses Project laeuft
+    with transaction.atomic():
+        project = MagvisProject.objects.select_for_update().get(id=project_id)
+        active_task = project.celery_eta_task_id or ''
+        if active_task and active_task != self.request.id:
+            # Pruefen ob der angebliche aktive Task wirklich noch laeuft
+            from celery.result import AsyncResult
+            existing = AsyncResult(active_task)
+            if existing.state in ('PENDING', 'STARTED', 'RECEIVED'):
+                logger.warning(
+                    'run_full_chain SKIPPED — Project %s hat bereits aktiven Task %s',
+                    project_id, active_task,
+                )
+                return {'project_id': str(project_id), 'skipped': True,
+                        'reason': f'duplicate_task (active={active_task})'}
+            # Sonst: Stale Lock, freigeben
+        project.celery_eta_task_id = self.request.id
+        project.save(update_fields=['celery_eta_task_id'])
+
+    try:
+        MagvisOrchestrator(project).run_full_chain()
+    finally:
+        # Lock loesen — auch bei Fehler
+        project.refresh_from_db()
+        if project.celery_eta_task_id == self.request.id:
+            project.celery_eta_task_id = ''
+            project.save(update_fields=['celery_eta_task_id'])
     return {'project_id': str(project_id), 'final_stage': project.stage}
+
+
+@shared_task
+def cleanup_stuck_magvis_stages():
+    """Beat-Task: Setzt Magvis-Projects mit Stage *_running und alter
+    updated_at (>30 Min) auf 'failed'. Raeumt Geister-Stages auf — falls ein
+    Worker abgestuerzt ist und die DB im Running-State haengt.
+    """
+    from datetime import timedelta
+    from .models import MagvisProject
+    threshold = timezone.now() - timedelta(minutes=30)
+    stuck = MagvisProject.objects.filter(
+        stage__contains='_running', updated_at__lt=threshold,
+    )
+    count = 0
+    for p in stuck:
+        old_stage = p.stage
+        p.stage = MagvisProject.STAGE_FAILED
+        p.error_message = (
+            f'Auto-Cleanup: Stage "{old_stage}" hing über 30 Min ohne Update — '
+            f'Worker vermutlich abgestuerzt. (Aufgeräumt {timezone.now():%H:%M})'
+        )
+        p.celery_eta_task_id = ''  # Lock freigeben
+        p.save(update_fields=['stage', 'error_message', 'celery_eta_task_id'])
+        count += 1
+        logger.warning('Stuck-Cleanup: Project %s (%s) auf failed gesetzt', p.id, old_stage)
+    return {'cleaned': count}
+
+
+@shared_task
+def resume_unfinished_magvis_projects():
+    """Beat-Task: Findet Projekte in *_done-Stages (NICHT 'completed'/'failed')
+    und re-triggert run_full_chain.
+
+    Ursachen warum Projekte hier landen:
+    - Worker-Crash zwischen Stages (Done-Save erfolgreich, aber for-Loop unterbrochen)
+    - Code-Deploy mit Worker-Restart mitten in der Pipeline
+    - Celery-Task-Lost ohne Retry (z.B. soft_time_limit erreicht)
+
+    Sicherheits-Garantien:
+    - Project-Lock in run_full_chain verhindert Doppel-Trigger
+    - Stage-Idempotenz (products: shopify_product_id-Check, blog: article_id-Check,
+      image_posts: posted_status-Check, collection: shopify_collection_id-Check)
+      verhindern Doppel-Erstellung
+    - Mindest-Alter 10 min — verhindert Eingriff in noch laufende Tasks
+    """
+    from datetime import timedelta
+    from .models import MagvisProject
+
+    DONE_STAGES_TO_RESUME = [
+        MagvisProject.STAGE_VIDEO_DONE,
+        MagvisProject.STAGE_POST_VIDEO_DONE,
+        MagvisProject.STAGE_PRODUCTS_DONE,
+        MagvisProject.STAGE_COLLECTION_DONE,
+        MagvisProject.STAGE_BLOG_DONE,
+        MagvisProject.STAGE_IMAGE_POSTS_DONE,
+        MagvisProject.STAGE_SYNC_DONE,
+    ]
+    threshold = timezone.now() - timedelta(minutes=10)
+    candidates = MagvisProject.objects.filter(
+        stage__in=DONE_STAGES_TO_RESUME, updated_at__lt=threshold,
+    )
+    resumed = []
+    for p in candidates:
+        # Lock prüfen — wenn schon ein aktiver Task läuft, nicht erneut triggern
+        if p.celery_eta_task_id:
+            from celery.result import AsyncResult
+            existing = AsyncResult(p.celery_eta_task_id)
+            if existing.state in ('PENDING', 'STARTED', 'RECEIVED'):
+                continue  # Lebt noch, nichts tun
+        try:
+            res = run_full_chain.delay(str(p.id))
+            resumed.append({'id': str(p.id), 'stage': p.stage, 'task': res.id})
+            logger.info('Auto-Resume: Project %s (%s) → Task %s', p.id, p.stage, res.id)
+        except Exception as exc:
+            logger.warning('Auto-Resume Project %s fehlgeschlagen: %s', p.id, exc)
+    return {'resumed': len(resumed), 'projects': resumed}
 
 
 @shared_task(bind=True, soft_time_limit=3600, time_limit=3660)
