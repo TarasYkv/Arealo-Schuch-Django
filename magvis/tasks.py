@@ -103,10 +103,8 @@ def resume_unfinished_magvis_projects():
         MagvisProject.STAGE_VIDEO_DONE,
         MagvisProject.STAGE_POST_VIDEO_DONE,
         MagvisProject.STAGE_PRODUCTS_DONE,
-        MagvisProject.STAGE_COLLECTION_DONE,
         MagvisProject.STAGE_BLOG_DONE,
         MagvisProject.STAGE_IMAGE_POSTS_DONE,
-        MagvisProject.STAGE_SYNC_DONE,
     ]
     threshold = timezone.now() - timedelta(minutes=10)
     candidates = MagvisProject.objects.filter(

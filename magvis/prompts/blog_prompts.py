@@ -1,28 +1,28 @@
 """GLM-Prompts für Blog-Sektionen (Naturmacher-Stil)."""
 
 NATURMACHER_VOICE = (
-    "Du schreibst aus erster Person für Naturmacher.de — wir sind ein "
-    "deutscher Familienbetrieb (graviert seit 2019 Blumentöpfe als "
-    "personalisierte Geschenke).\n\n"
-    "PERSPEKTIVE — STRENG:\n"
-    "- Schreibe in 'wir' / 'uns' / 'bei Naturmacher': "
-    "  'Wir bei Naturmacher gravieren...', 'Bei uns hat sich gezeigt...', "
-    "  'Aus unserer Werkstatt-Erfahrung...'\n"
+    "Du schreibst einen umfassenden Geschenk-Ratgeber. Naturmacher ist eine "
+    "von vielen möglichen Quellen — KEIN reiner Werbe-Text.\n\n"
+    "PERSPEKTIVE & MISCHUNG (wichtig):\n"
+    "- ~70% der Sektion: ALLGEMEINE Geschenkideen, Tipps, Hintergründe, "
+    "  Inspiration — was generell zum Thema passt, mehrere Optionen, "
+    "  verschiedene Preisklassen, unterschiedliche Anlässe und Empfängertypen.\n"
+    "- ~30% der Sektion: Naturmacher-Erfahrung in 1. Person ('wir', 'uns'), "
+    "  aber NUR wo sie wirklich Mehrwert bringt — als zusätzliche Stimme, "
+    "  nicht als Hauptstoff.\n"
     "- Spreche den Leser mit 'du' / 'dich' / 'dein' an.\n"
-    "- KEINE neutralen Sachtexte ohne Stimme, KEINE 'Sie'-Form, KEINE "
-    "  generischen Floskeln wie 'Es ist allgemein bekannt...'\n\n"
-    "EIGENE ERFAHRUNG einstreuen (E-E-A-T):\n"
-    "- Mindestens 2-3 konkrete Praxis-Mini-Anekdoten pro Beitrag, z.B.:\n"
-    "  • 'Letztens hat uns eine Kundin geschrieben, sie habe ihren...'\n"
-    "  • 'In unserer Werkstatt sehen wir oft, dass...'\n"
-    "  • 'Wir haben schon hunderte Töpfe graviert und wissen daher...'\n"
-    "  • 'Eine Mama erzählte uns, ihre Tochter habe...'\n"
-    "- Die Anekdoten müssen plausibel sein und zum Thema des Abschnitts passen.\n\n"
+    "- KEINE 'Sie'-Form, KEINE leeren Floskeln.\n\n"
+    "EIGENE ERFAHRUNG sparsam einstreuen (E-E-A-T):\n"
+    "- Pro BEITRAG insgesamt MAX. 2-3 konkrete Anekdoten, NICHT pro Sektion.\n"
+    "- Anekdoten plausibel, kurz, zum Thema des Abschnitts. Beispiele:\n"
+    "  • 'Eine Kundin schrieb uns, ihre Tochter habe...'\n"
+    "  • 'Aus hunderten Gravuren wissen wir, dass...'\n"
+    "- In den meisten Sektionen reichen ALLGEMEINE Tipps, ohne 'wir bei Naturmacher'.\n\n"
     "STIL:\n"
-    "- Warm, herzlich, ehrlich, naturverbunden.\n"
+    "- Warm, sachlich, kompetent — wie ein guter Ratgeber-Artikel.\n"
     "- Korrektes Deutsch, flüssige Sätze, max. 25 Wörter pro Satz.\n"
     "- KEINE hohlen Marketing-Phrasen ('zeitlose Eleganz', 'erstklassige Qualität').\n"
-    "- Konkrete Bilder, sinnliche Sprache, kleine Beispiele aus dem Alltag."
+    "- Konkrete Beispiele, Preisrahmen, Alternativen, Pro/Contra."
 )
 
 
@@ -45,11 +45,13 @@ def section_prompt(topic: str, heading: str, position_hint: str = '') -> str:
         f"{position_hint}\n\n"
         f"INVERTED PYRAMID (kritisch für SEO + LLM-Snippet-Ranking):\n"
         f"- Die ersten 1-2 Sätze beantworten die Sektions-Frage DIREKT und "
-        f"  prägnant (definitive Antwort). Erst DANACH kommen Details, Beispiele "
-        f"  und Praxis-Anekdoten.\n"
+        f"  prägnant (definitive Antwort). Erst DANACH kommen Details, Beispiele.\n"
         f"- Wenn möglich: 1-2 H3-Unterüberschriften (<h3 style=\"color:#3D5A40;"
         f"margin:1.4rem 0 0.6rem;font-size:1.1rem;\">) zur Strukturierung.\n"
-        f"- Mindestens 1 Praxis-Mini-Anekdote in 1. Person ('Letztens hat uns...').\n\n"
+        f"- Mehrere konkrete Geschenkideen, Preisrahmen, Alternativen für "
+        f"  unterschiedliche Empfänger-Typen und Anlässe.\n"
+        f"- Eine Naturmacher-Anekdote NUR wenn sie wirklich passt — nicht in "
+        f"  jeder Sektion (max. 2-3 im ganzen Beitrag).\n\n"
         f"WICHTIG — Strukturierte Inhalte: Wenn dieser Abschnitt thematisch passt, "
         f"baue UNBEDINGT eines der folgenden Strukturelemente ein:\n"
         f"- Eine Aufzählung mit 4-6 Stichpunkten als <ul><li>...</li></ul> "
@@ -160,19 +162,52 @@ def tips_prompt(topic: str, num_tips: int = 4) -> str:
 
 
 def seo_prompt(topic: str) -> str:
-    """SEO-Titel + Meta-Description, optimiert auf MID-VOLUME-Long-Tail-Keywords."""
+    """SEO-Titel + Meta-Description, optimiert auf MID-VOLUME-Long-Tail-Keywords.
+
+    Title-Stil-Rotation (gegen Listicle-Monotonie): GLM soll EINEN von 7 Stilen
+    zufällig wählen, NICHT immer Zahlen-Listicle.
+    """
+    import random
+    title_styles = [
+        # 1. Ratgeber-Frage
+        '"Was schenken Erzieherinnen wirklich Freude bereitet" (Frage-Form, ohne Zahl, neugierig)',
+        # 2. How-to / Anleitung
+        '"So findest du das perfekte Geschenk für Anlagenmechaniker" (How-to, du-Anrede)',
+        # 3. Emotion / Bedeutung (ohne Produkt-Wort wie "Topf")
+        '"Warum manche Geschenke Erzieherinnen ein Leben lang begleiten" (Emotion, ohne Produkt-Wort, ohne Zahl)',
+        # 4. Vergleich / Negation
+        '"Schluss mit lieblosen Standardgeschenken — Ideen für Antiquare" (Negation + Lösung)',
+        # 5. Benefit-Fokus
+        '"Kleines Geschenk, große Wirkung: Persönliche Ideen für Anwälte" (Benefit-Versprechen)',
+        # 6. Listicle (klassisch — nur 1 von 7 Optionen, nicht Standard!)
+        '"7 ungewöhnliche Geschenkideen für Animateurinnen" (Zahl-Liste, OK aber NICHT Default)',
+        # 7. Insider/Tipp (ohne Jahresangabe)
+        '"Das Abschiedsgeschenk, das Altenpflegerinnen wirklich rührt" (Insider + Empfehlung, KEINE Jahreszahl)',
+    ]
+    chosen_style = random.choice(title_styles)
     return (
         f"{NATURMACHER_VOICE}\n\n"
         f"Erstelle SEO-Titel und Meta-Description für einen Blogbeitrag zum Thema "
         f'"{topic}" (Naturmacher.de — gravierte Blumentöpfe).\n\n'
         f"WICHTIG — Mid-Volume-Strategie (nicht super-kompetitive Keywords, "
         f"sondern realistisch rankbare Long-Tails):\n"
-        f"- Title 50-60 Zeichen, mit 3-4 Wort-Long-Tail (z.B. statt 'Geschenk Erzieherin' "
-        f"  besser 'Geschenk Erzieherin Kindergarten Abschied' oder 'Persönliches "
-        f"  Abschiedsgeschenk Erzieherin').\n"
+        f"- Title 50-65 Zeichen, mit 3-4 Wort-Long-Tail.\n"
         f"- Modifier zur Eingrenzung verwenden: 'persönlich', 'individuell', 'kreativ', "
-        f"  'mit Gravur', 'zum Abschied', 'für den Geburtstag', 'günstig'.\n"
-        f"- Im Title gerne Zahlen oder Frage-Form ('5 Ideen fuer...', 'Was schenken...?').\n"
+        f"  'mit Gravur', 'zum Abschied', 'für den Geburtstag', 'günstig'.\n\n"
+        f"=== TITLE-STIL FÜR DIESEN BEITRAG ===\n"
+        f"Verwende DIESEN Stil: {chosen_style}\n"
+        f"NICHT immer Zahlen-Listicle ('5 Ideen', '7 Geschenke')! "
+        f"Halte dich an den vorgegebenen Stil oben — bringt Variation in die "
+        f"Blog-Liste.\n\n"
+        f"=== HARTE REGELN (verboten im Title) ===\n"
+        f"- KEINE Produktbezeichnung im Title (verboten: 'Blumentopf', 'Topf', "
+        f"  'Pflanzgefäß', 'Keramik') — der Topf wird im Inhalt erwähnt, im Title "
+        f"  aber soll der Anlass/die Person Fokus sein, nicht das Produkt.\n"
+        f"- KEINE Jahreszahl im Title (verboten: '2026', '2025', '2027', "
+        f"  'in diesem Jahr') — Titel sollen zeitlos bleiben, sonst wirken sie "
+        f"  in 6 Monaten veraltet.\n"
+        f"- KEIN '__' oder '|' als Trenner — nur ':' oder '—' oder Komma.\n\n"
+        f"=== DESCRIPTION ===\n"
         f"- Description 140-160 Zeichen, Long-Tail-Keyword + Vorteil + Call-to-Action "
         f"  ('jetzt entdecken', 'mit Gravur', 'in 5 Tagen').\n"
         f"- Description darf 1-2 Long-Tail-Keywords enthalten (nicht stuffing).\n"
@@ -182,22 +217,48 @@ def seo_prompt(topic: str) -> str:
     )
 
 
+def dos_donts_prompt(topic: str) -> str:
+    """Generiert Do's and Don'ts für eine 2-Spalten-Tabelle vor den FAQs."""
+    return (
+        f"{NATURMACHER_VOICE}\n\n"
+        f'Erstelle Do\'s and Don\'ts für ein Geschenk zum Thema "{topic}". '
+        f"Genau 5 Do\'s und 5 Don\'ts, die thematisch zum Topic passen.\n\n"
+        f"Do's = was sollte man beim Geschenk tun (positive Tipps).\n"
+        f"Don'ts = was sollte man vermeiden (negative Pitfalls).\n\n"
+        f"Stil:\n"
+        f"- Jede Zeile max 60 Zeichen, klar + actionable.\n"
+        f"- Keine generischen Sprüche, immer Topic-spezifisch.\n"
+        f'- Beispiele für "Geschenk Erzieherin Abschied":\n'
+        f'  Do: "Karte mit allen Kindernamen unterschreiben lassen"\n'
+        f'  Don\'t: "Standard-Pralinen ohne persönliche Note"\n\n'
+        f'Antwort als JSON: {{"dos": ["...", "...", ...], "donts": ["...", "...", ...]}}'
+    )
+
+
 def statistics_extraction_prompt(topic: str, research_text: str) -> str:
     """Prompt für Stat- + Aussagen-Extraktion (Halluzinations-sicher aber optimistisch)."""
     return (
-        f'Extrahiere 2-5 belegbare Aussagen zum Thema "{topic}" aus dem '
-        f"RECHERCHE-TEXT. Mix aus Zahlen-Statistiken UND qualitativen Aussagen.\n\n"
+        f'Extrahiere 3-5 belegbare Aussagen zum Thema "{topic}" aus dem '
+        f"RECHERCHE-TEXT. Mix aus Zahlen-Statistiken UND qualitativen Aussagen — "
+        f"BEVORZUGE Aussagen, wenn die Zahl sich nicht 1:1 im Snippet wiederfindet.\n\n"
         f"=== REGELN ===\n"
         f"1. Nutze NUR Aussagen, die im Recherche-Text vorkommen (wortwoertlich oder "
         f"   sinngemaess paraphrasiert). KEIN frei erfinden.\n"
-        f"2. quote_excerpt: PASSAGE aus dem Recherche-Text (>= 40 Zeichen), "
-        f"   die die Aussage stützt.\n"
-        f"3. Liefere LIEBER 2-3 brauchbare Stats als 0! Im Recherche-Text gibt es "
-        f"   meist mindestens ein paar Zahlen/Fakten — nutze sie.\n"
-        f"4. value: konkrete Zahl ('686.000', '38%') ODER prägnante 3-7-Wort-Aussage "
-        f"   ('Persönliches haelt länger', 'Top-3-Wahl', 'gewachsen seit 2010').\n"
-        f"5. Bei Vagheit ('viele', 'oft'): NICHT extrahieren. Suche stattdessen "
-        f"   konkrete Zahlen oder klare Aussagen.\n\n"
+        f"2. quote_excerpt: PASSAGE aus dem Recherche-Text (>= 30 Zeichen), "
+        f"   die die Aussage stützt — moeglichst WORTWOERTLICH aus dem Snippet.\n"
+        f"3. Liefere mindestens 2-3 brauchbare Aussagen — KEINE leere Liste. "
+        f"   Im Recherche-Text gibt es fast immer Aussagen, die wir stuetzen koennen.\n"
+        f"4. value-PRIORITAET in dieser Reihenfolge:\n"
+        f"   a) Praegnante 3-7-Wort-AUSSAGE (robust, leicht zu verifizieren) — "
+        f"      'Studienberechtigte sinken seit 2022', "
+        f"      'Pflanzen halten Jahre laenger als Schnittblumen', "
+        f"      'Personalisierte Geschenke werden bevorzugt'\n"
+        f"   b) Konkrete Zahl mit Einheit — nur wenn sie EXAKT im Snippet steht: "
+        f"      '686.000', '38%', '2024'\n"
+        f"5. Bei Zahlen: schreibe sie EXAKT wie im Snippet "
+        f"   (also '373.000' wenn da '373.000' steht — nicht 'rund 373 000').\n"
+        f"6. Bei Vagheit ('viele', 'oft'): nur extrahieren, wenn der Recherche-Text "
+        f"   eine konkrete Beleg-Phrase liefert ('die Mehrheit der Befragten').\n\n"
         f"=== RECHERCHE-TEXT ===\n"
         f"{research_text}\n"
         f"=== ENDE RECHERCHE-TEXT ===\n\n"

@@ -31,10 +31,15 @@ def _score(text: str, keywords: list[str]) -> float:
         # Exact match
         if kw_n in t:
             score += 3.0
-        # Wort-fuer-Wort
+        # Wort-fuer-Wort + Substring-Match (faengt z.B. 'abitur' in 'abiturientin')
         for word in kw_n.split():
             if len(word) >= 4 and word in t:
                 score += 0.5
+            elif len(word) >= 5:
+                # Stamm-Match: 'abiturientin' -> 'abitur' wuerde matchen
+                stem = word[:5]
+                if stem in t:
+                    score += 0.25
     return score
 
 
@@ -49,7 +54,8 @@ class MagvisInternalLinkingService:
     # ---------- BLOG-ARTIKEL ----------
 
     def find_relevant_blog_posts(self, keyword: str,
-                                  secondary: list[str] | None = None) -> list[dict]:
+                                  secondary: list[str] | None = None,
+                                  exclude_shopify_id: str = '') -> list[dict]:
         from shopify_manager.models import ShopifyBlogPost
 
         keywords = [keyword] + (secondary or [])
@@ -60,6 +66,8 @@ class MagvisInternalLinkingService:
                          published_at__isnull=False)
                  .exclude(shopify_id='').exclude(shopify_id__isnull=True)
                  .select_related('blog', 'blog__store'))
+        if exclude_shopify_id:
+            posts = posts.exclude(shopify_id=str(exclude_shopify_id))
 
         scored = []
         for post in posts:
@@ -69,10 +77,18 @@ class MagvisInternalLinkingService:
                 self._text_preview(post.content, 600),
             ])
             s = _score(haystack, keywords)
-            if s >= 1.5:
+            # Schwelle gesenkt: 1.5 → 0.6 (greift, wenn auch nur 2 Schluesselworte
+            # je 0.5 Punkte matchen). Sortierung & Top-N bleiben — Spam gibt's nicht.
+            if s >= 0.5:
                 scored.append((s, post))
 
-        scored.sort(key=lambda x: x[0], reverse=True)
+        # Sortierung: erst Score (hoch), dann published_at (neuesten zuerst)
+        # → bei gleichem Score gewinnt der frischere Beitrag.
+        from datetime import datetime, timezone as _tz
+        scored.sort(key=lambda x: (
+            x[0],
+            (x[1].published_at or datetime(1970, 1, 1, tzinfo=_tz.utc)).timestamp(),
+        ), reverse=True)
         out = []
         for s, post in scored[:self.max_blog_results]:
             try:
@@ -130,10 +146,12 @@ class MagvisInternalLinkingService:
 
     # ---------- KOMBINIERT ----------
 
-    def collect(self, keyword: str, secondary: list[str] | None = None) -> dict:
-        """Liefert dict mit blogs + products."""
+    def collect(self, keyword: str, secondary: list[str] | None = None,
+                 exclude_shopify_id: str = '') -> dict:
+        """Liefert dict mit blogs + products. exclude_shopify_id schliesst
+        den aktuellen Beitrag aus (sonst linkt sich der Beitrag auf sich selbst)."""
         return {
-            'blogs': self.find_relevant_blog_posts(keyword, secondary),
+            'blogs': self.find_relevant_blog_posts(keyword, secondary, exclude_shopify_id),
             'products': self.find_relevant_products(keyword, secondary),
         }
 

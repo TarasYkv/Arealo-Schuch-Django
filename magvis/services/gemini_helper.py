@@ -64,6 +64,9 @@ class MagvisGeminiHelper:
                 f'IMAGE OUTPUT ONLY.'
             ),
         ]
+        # Title-Bild ist ein Foto OHNE Text -> günstiges Nano Banana
+        # (gemini-2.5-flash-image) reicht. Nano Banana 2 nur fuer Diagramm/Brainstorm,
+        # weil dort deutsche Beschriftungen auf dem Bild stehen muessen.
         for attempt, prompt in enumerate(prompts, start=1):
             result = self._generate_and_save(prompt, prefix='title')
             if result.get('success'):

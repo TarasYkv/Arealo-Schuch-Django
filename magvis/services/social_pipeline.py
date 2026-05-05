@@ -63,6 +63,11 @@ class MagvisSocialPipeline:
             }
 
         platforms = platforms or self.magvis_settings.default_image_platforms or ['youtube']
+        # Pinterest gehört NICHT zur Video-Pipeline (braucht pinterest_board_id
+        # der hier nicht mitgeschickt werden kann → 400 Bad Request).
+        # Pinterest-Posts laufen via image_post_pipeline.py mit Brainstorm/
+        # Diagram/Product-AI-Bildern, da gibt's das pinterest_board_id-Handling.
+        platforms = [p for p in platforms if p != 'pinterest']
         if 'youtube' not in platforms:
             platforms = list(platforms) + ['youtube']  # YouTube für Embed zwingend
 

@@ -13,10 +13,26 @@
       </div>
     {% endif %}
 
-    {% if show_video_link or show_youtube_link %}
+    {% if show_video_link or show_youtube_link or video_socials %}
       <h3 style="margin-top:28px;color:#2A2A2A;">🎬 Video</h3>
       {% if show_video_link %}<p>Workloom-Video: <a href="{{ video_link }}">{{ video_link }}</a></p>{% endif %}
-      {% if show_youtube_link %}<p>YouTube: <a href="{{ youtube_url }}">{{ youtube_url }}</a></p>{% endif %}
+      {% if video_socials %}
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+        {% for s in video_socials %}
+        <tr style="border-top:1px solid #f0f0f0;">
+          <td style="padding:6px 10px;width:90px;color:#5C5651;">{{ s.platform }}</td>
+          <td style="padding:6px 10px;">
+            {% if s.success %}
+              <span style="color:#3D5A40;">✓</span> <a href="{{ s.url }}">{{ s.url }}</a>
+            {% else %}
+              <span style="color:#a04040;">✗ Nicht gepostet</span>
+              {% if s.error %}<br><span style="color:#7A7264;font-size:0.85em;">{{ s.error|truncatechars:240 }}</span>{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% endif %}
     {% endif %}
 
     {% if products %}
@@ -29,6 +45,13 @@
         </tr>
         {% endfor %}
       </table>
+    {% endif %}
+
+    {% if show_collection %}
+      <h3 style="margin-top:28px;color:#2A2A2A;">📂 Kollektion {% if collection_was_existing %}<span style="font-size:0.8rem;color:#888;">(bestehend erweitert)</span>{% else %}<span style="font-size:0.8rem;color:#5BA84B;">(neu erstellt)</span>{% endif %}</h3>
+      <p><strong>{{ collection_title }}</strong>{% if collection_product_count %} · {{ collection_product_count }} Produkte{% endif %}<br>
+      <a href="{{ collection_url }}">{{ collection_url }}</a></p>
+      {% if collection_short_desc %}<p style="color:#5C5651;font-size:0.93rem;">{{ collection_short_desc }}</p>{% endif %}
     {% endif %}
 
     {% if show_blog_link or show_blog_excerpt %}
@@ -50,10 +73,49 @@
       </table>
     {% endif %}
 
-    {% if show_costs %}
-      <h3 style="margin-top:28px;color:#2A2A2A;">💰 Kosten</h3>
-      <p>Gesamt: {{ cost_total }} €</p>
-    {% endif %}
+    <h3 style="margin-top:28px;color:#2A2A2A;">🤖 Verwendete KI-Modelle</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:0.93rem;">
+      <thead>
+        <tr style="background:#FAF6EC;">
+          <th align="left" style="padding:8px;border-bottom:1px solid #E8DFC9;">Einsatz</th>
+          <th align="left" style="padding:8px;border-bottom:1px solid #E8DFC9;">Modell</th>
+          <th align="left" style="padding:8px;border-bottom:1px solid #E8DFC9;">Anbieter</th>
+        </tr>
+      </thead>
+      {% for m in models_used %}
+      <tr style="border-top:1px solid #f0f0f0;">
+        <td style="padding:8px;">{{ m.role }}</td>
+        <td style="padding:8px;font-family:monospace;font-size:0.85rem;color:#5C5651;">{{ m.model }}</td>
+        <td style="padding:8px;color:#7A7264;">{{ m.provider }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <h3 style="margin-top:28px;color:#2A2A2A;">💰 Kostenschätzung</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:0.93rem;">
+      <thead>
+        <tr style="background:#FAF6EC;">
+          <th align="left" style="padding:8px;border-bottom:1px solid #E8DFC9;">Position</th>
+          <th align="left" style="padding:8px;border-bottom:1px solid #E8DFC9;">Modell</th>
+          <th align="right" style="padding:8px;border-bottom:1px solid #E8DFC9;">USD</th>
+        </tr>
+      </thead>
+      {% for c in cost_breakdown %}
+      <tr style="border-top:1px solid #f0f0f0;">
+        <td style="padding:8px;">{{ c.item }}</td>
+        <td style="padding:8px;color:#7A7264;">{{ c.model }}</td>
+        <td style="padding:8px;text-align:right;font-family:monospace;">{{ c.cost_str }}</td>
+      </tr>
+      {% endfor %}
+      <tr style="border-top:2px solid #D4AB32;background:#FAF6EC;">
+        <td colspan="2" style="padding:10px;font-weight:bold;">Gesamt</td>
+        <td style="padding:10px;text-align:right;font-family:monospace;font-weight:bold;color:#D4AB32;">${{ cost_total_usd }}</td>
+      </tr>
+    </table>
+    <p style="color:#7A7264;font-size:0.82rem;margin-top:6px;">
+      Schätzung auf Basis aktueller Listenpreise. Tatsächliche Kosten können bei Retries
+      oder fehlgeschlagenen Bildaufrufen abweichen.
+    </p>
 
     <hr style="border:0;border-top:1px solid #E8DFC9;margin:32px 0;">
     <p style="color:#7A7264;font-size:0.85rem;">Dieser Report wurde automatisch von <a href="https://www.workloom.de/magvis/" style="color:#D4AB32;">MagVis (Workloom)</a> generiert.</p>

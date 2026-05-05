@@ -10,10 +10,18 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from html import escape
+from urllib.parse import urlparse
 
 from django.template.loader import render_to_string
+from django.utils import timezone as django_timezone
 from django.utils.text import slugify as django_slugify
+
+
+def _now_isoformat() -> str:
+    """ISO-Zeitstempel jetzt — für Shopify published_at, immer mit TZ."""
+    return django_timezone.localtime().isoformat(timespec='seconds')
 
 from ..models import MagvisBlog, MagvisImageAsset, MagvisProject
 from ..prompts.blog_prompts import (
@@ -59,6 +67,9 @@ class MagvisBlogAssembler:
         self._research_context = ''         # gefüllt vor Sektionen-Generierung
         self._internal_links_text = ''
         self._internal_links_data: dict = {}
+        self._section_link_counter = 0       # Rotation der Blog-Vorschlaege pro Sektion
+        self._competitor_analysis = ''       # Skyscraper-Map: Themen, Lücken, Differenzierung
+        self._competitor_must_topics: list = []  # H2-Themen die fast alle abdecken
         self._search_intent: dict = {}       # informational/transactional + LSI-Keywords
         self._verified_facts: list = []      # Stat-Box-Stats fuer Inline-Verlinkung im Text
 
@@ -66,6 +77,16 @@ class MagvisBlogAssembler:
 
     def assemble(self) -> MagvisBlog:
         blog, _ = MagvisBlog.objects.get_or_create(project=self.project)
+
+        # Idempotenz: wenn der Blog bereits in Shopify veröffentlicht ist
+        # (shopify_article_id gesetzt), Stage komplett überspringen.
+        # Verhindert Doppel-Blog bei Worker-Crash + Celery-Retry.
+        if blog.shopify_article_id and blog.shopify_published_url:
+            self.project.log_stage(
+                'blog',
+                f'⏭️ Blog bereits veröffentlicht ({blog.shopify_published_url}) — übersprungen',
+            )
+            return blog
 
         topic = self.project.topic
         sections: list[dict] = []
@@ -100,6 +121,13 @@ class MagvisBlogAssembler:
             })
         else:
             self.project.log_stage('blog', '⚠ Hero-Titelbild fehlgeschlagen — kommt spaeter via Brainstorm/Diagramm', level='warning')
+
+        # 0a. AUTHOR-BIO-BOX direkt nach Hero — sichtbares E-E-A-T-Author-Signal
+        # (Schema-Person ist da, aber Google + Leser brauchen sichtbaren Block).
+        sections.append({
+            'type': 'author_bio', 'id': 'author-bio',
+            'html': self._author_bio_html(),
+        })
 
         # 0b. TL;DR-BOX (vor Intro — Featured-Snippet- + LLM-Optimierung)
         self.project.log_stage('blog', '⚡️ TL;DR-Box generieren (Kernantwort)')
@@ -143,28 +171,24 @@ class MagvisBlogAssembler:
         intro_html = self._call_glm(intro_prompt(topic))
         sections.append({'type': 'intro', 'id': 'intro', 'html': intro_html})
 
-        # 3a. STATISTIK-BOX (nach TL;DR, vor Fakten — verifizierte Quellen)
+        # 3a. STATISTIK-Extraktion (verifizierte Quellen — fuer Inline-Verlinkung
+        # in den Sektionen). Die Stat-BOX selbst wird erst AM ENDE des Beitrags
+        # platziert (nach FAQs), damit der Lesefluss nicht unterbrochen wird.
         self.project.log_stage('blog', '📊 Statistiken aus Whitelist-Quellen extrahieren')
         verified_stats = self._extract_verified_statistics(topic)
-        # Fuer Inline-Verlinkung in Sektionen speichern
         self._verified_facts = verified_stats or []
         if verified_stats:
-            self.project.log_stage('blog', f'✓ {len(verified_stats)} Stats — auch fuer Inline-Verlinkung im Text')
-            sections.append({
-                'type': 'statistics_box', 'id': 'stats',
-                'html': self._statistics_box_html(verified_stats),
-            })
+            self.project.log_stage('blog', f'✓ {len(verified_stats)} Stats — fuer Inline-Verlinkung im Text + Stat-Box am Ende')
 
-        # 3b. FAKTEN-BOX (nach Intro, vor TOC)
-        self.project.log_stage('blog', '📚 Fakten-Box (4 Wusstest-du-schon)')
-        facts = self.glm.json_chat_with_retry(
-            facts_prompt(topic, num_facts=4), expect='array',
-            max_tokens=1500, retries=3,
-        ) or _fallback_facts(topic)
-        sections.append({
-            'type': 'facts_box', 'id': 'facts',
-            'html': self._facts_box_html(facts),
-        })
+        # 3b. PRODUKT-EMBED #1 (statt Fakten-Box "Wusstest du schon" — User-Wunsch
+        # 2026-04-30: Produkt soll Top-Position übernehmen, höhere CTR auf Sale-Funnel)
+        if self.project.product_1:
+            self.project.log_stage('blog', '🛒 Produkt-Embed #1 (oben, statt Fakten-Box)')
+            sections.append({
+                'type': 'product', 'id': 'product-1',
+                'product_id': str(self.project.product_1.id),
+                'html': self._product_card_html(self.project.product_1),
+            })
 
         # 4. Inhaltsverzeichnis (TOC) zwischen Intro und Hauptteil
         toc_headings = [(2, h, slugify(h)) for h in headings]
@@ -177,15 +201,18 @@ class MagvisBlogAssembler:
         head1 = headings[0] if headings else 'Worum geht es?'
         slug1 = slugify(head1)
         para1 = self._call_glm(section_prompt(topic, head1))
-        sections.append({'type': 'h2', 'id': slug1, 'title': head1})
-        sections.append({'type': 'paragraph', 'id': f'{slug1}-p', 'html': para1})
+        self._append_section_safe(sections, head1, slug1, para1, label='Sektion 1')
 
         # 6. YouTube-Short-Embed
         if self.project.youtube_video_id:
             sections.append({
                 'type': 'youtube', 'id': 'yt-embed',
                 'video_id': self.project.youtube_video_id,
-                'html': embed_html(self.project.youtube_video_id, is_short=True),
+                'html': embed_html(
+                    self.project.youtube_video_id, is_short=True,
+                    schema_name=blog.seo_title or self.project.topic,
+                    schema_description=blog.seo_description or self.project.topic,
+                ),
             })
 
         # 7. Sektion 2
@@ -193,8 +220,7 @@ class MagvisBlogAssembler:
         head2 = headings[1] if len(headings) > 1 else 'Hintergrund'
         slug2 = slugify(head2)
         para2 = self._call_glm(section_prompt(topic, head2))
-        sections.append({'type': 'h2', 'id': slug2, 'title': head2})
-        sections.append({'type': 'paragraph', 'id': f'{slug2}-p', 'html': para2})
+        self._append_section_safe(sections, head2, slug2, para2, label='Sektion 2')
 
         # 8. Diagramm (Gemini) — mit DB-Fallback bei Fehlschlag
         self.project.log_stage('blog', '🎨 Diagramm-Bild via Gemini + Shopify-CDN-Upload')
@@ -208,10 +234,12 @@ class MagvisBlogAssembler:
             self.project.log_stage('blog', '✓ Diagramm-Bild aus DB-Fallback übernommen')
         if diagram_url:
             blog.diagram_image_path = diagram_url
+            diagram_alt = (f'Infografik: Wichtigste Aspekte zum Thema "{topic}" '
+                            f'mit Geschenkkategorien, Preisrahmen und Tipps — Naturmacher')
             sections.append({
                 'type': 'image', 'id': 'diagram', 'src': diagram_url,
-                'alt': f'Infografik: {topic}',
-                'html': self._image_html(diagram_url, f'Infografik zum Thema {topic}'),
+                'alt': diagram_alt,
+                'html': self._image_html(diagram_url, diagram_alt),
             })
 
         # 9. Sektion 3
@@ -219,8 +247,7 @@ class MagvisBlogAssembler:
         head3 = headings[2] if len(headings) > 2 else 'Was du beachten solltest'
         slug3 = slugify(head3)
         para3 = self._call_glm(section_prompt(topic, head3))
-        sections.append({'type': 'h2', 'id': slug3, 'title': head3})
-        sections.append({'type': 'paragraph', 'id': f'{slug3}-p', 'html': para3})
+        self._append_section_safe(sections, head3, slug3, para3, label='Sektion 3')
 
         # 9b. W-FRAGEN-BLOCK (nach Sektion 3 — typische Google-Suchanfragen direkt beantwortet)
         self.project.log_stage('blog', '❓ W-Fragen-Block (5 Was/Wie/Wann/Warum/Wer)')
@@ -249,15 +276,15 @@ class MagvisBlogAssembler:
         head4 = headings[3] if len(headings) > 3 else 'Tipps & Ideen'
         slug4 = slugify(head4)
         para4 = self._call_glm(section_prompt(topic, head4))
-        sections.append({'type': 'h2', 'id': slug4, 'title': head4})
-        sections.append({'type': 'paragraph', 'id': f'{slug4}-p', 'html': para4})
+        self._append_section_safe(sections, head4, slug4, para4, label='Sektion 4')
 
-        # 12. PRODUKT-EMBED #1 (ca. Mitte des Beitrags)
-        if self.project.product_1:
-            product_card_1 = self._product_card_html(self.project.product_1)
+        # 12. PRODUKT-EMBED #2 (ca. Mitte des Beitrags — war früher Produkt 1,
+        # ist jetzt Produkt 2, weil Produkt 1 nach oben gewandert ist statt Fakten-Box)
+        if self.project.product_2:
+            product_card_2_mid = self._product_card_html(self.project.product_2)
             sections.append({
-                'type': 'product', 'id': 'product-1',
-                'product_id': str(self.project.product_1.id), 'html': product_card_1,
+                'type': 'product', 'id': 'product-2',
+                'product_id': str(self.project.product_2.id), 'html': product_card_2_mid,
             })
 
         # 13. Brainstorming-Bild (Gemini) — mit DB-Fallback bei Fehlschlag
@@ -269,38 +296,30 @@ class MagvisBlogAssembler:
             self.project.log_stage('blog', '✓ Brainstorm-Bild aus DB-Fallback übernommen')
         if brainstorm_url:
             blog.brainstorm_image_path = brainstorm_url
+            brainstorm_alt = (f'Mind-Map: Brainstorming-Ideen zum Thema "{topic}" '
+                               f'als Übersicht persönlicher Geschenkmöglichkeiten — Naturmacher')
             sections.append({
                 'type': 'image', 'id': 'brainstorm', 'src': brainstorm_url,
-                'alt': f'Brainstorming: {topic}',
-                'html': self._image_html(brainstorm_url, f'Brainstorming zum Thema {topic}'),
+                'alt': brainstorm_alt,
+                'html': self._image_html(brainstorm_url, brainstorm_alt),
             })
 
-        # 13b. Fallback für Hero-Titelbild: wenn keins generiert wurde,
-        # nutze brainstorm_url (oder diagram_url) als Hero ganz oben
-        # UND entferne die ursprüngliche Sektion (vermeidet Duplikat).
+        # KEIN Hero-Fallback mehr aus Brainstorm/Diagramm.
+        # Wenn das echte Title-Image nicht erzeugt werden konnte, bleibt der Blog
+        # ohne Hero — ein Mind-Map oder eine Infografik als Featured-Image waere
+        # falsch und passt visuell nicht.
         has_hero = any(s.get('type') == 'title_image' for s in sections)
         if not has_hero:
-            fallback = brainstorm_url or diagram_url
-            fallback_kind = 'brainstorm' if brainstorm_url else 'diagram'
-            if fallback:
-                hero_section = {
-                    'type': 'title_image', 'id': 'hero', 'src': fallback,
-                    'html': self._title_image_html(fallback, blog.seo_title or topic),
-                }
-                sections.insert(0, hero_section)
-                # Originale Brainstorm-/Diagramm-Sektion entfernen (Duplikat-Fix)
-                sections[:] = [s for s in sections
-                               if not (s.get('type') == 'image' and s.get('id') == fallback_kind)]
-                self.project.log_stage('blog',
-                    f'✓ Hero-Bild aus {fallback_kind}-Fallback übernommen + originale Sektion entfernt')
+            self.project.log_stage('blog',
+                '⚠ Kein Hero — Title-Image-Generierung fehlgeschlagen, kein Fallback verwendet',
+                level='warning')
 
         # 14. Sektion 5
         self.project.log_stage('blog', f'✍️ Sektion 5/6: {(headings[4] if len(headings) > 4 else "")[:50]}')
         head5 = headings[4] if len(headings) > 4 else 'Ein wenig zum Spielen'
         slug5 = slugify(head5)
         para5 = self._call_glm(section_prompt(topic, head5))
-        sections.append({'type': 'h2', 'id': slug5, 'title': head5})
-        sections.append({'type': 'paragraph', 'id': f'{slug5}-p', 'html': para5})
+        self._append_section_safe(sections, head5, slug5, para5, label='Sektion 5')
 
         # 15. MINI-SPIEL
         self.project.log_stage('blog', '🎯 Mini-Spiel (5-Schritt-Sortier-Spiel)')
@@ -317,16 +336,10 @@ class MagvisBlogAssembler:
         head6 = headings[5] if len(headings) > 5 else 'Persönliche Geschenkideen'
         slug6 = slugify(head6)
         para6 = self._call_glm(section_prompt(topic, head6))
-        sections.append({'type': 'h2', 'id': slug6, 'title': head6})
-        sections.append({'type': 'paragraph', 'id': f'{slug6}-p', 'html': para6})
+        self._append_section_safe(sections, head6, slug6, para6, label='Sektion 6')
 
-        # 17. PRODUKT-EMBED #2 (letztes Drittel)
-        if self.project.product_2:
-            product_card_2 = self._product_card_html(self.project.product_2)
-            sections.append({
-                'type': 'product', 'id': 'product-2',
-                'product_id': str(self.project.product_2.id), 'html': product_card_2,
-            })
+        # 17. (entfernt) — Produkt 2 ist jetzt in der Mitte (Pos #12),
+        # Produkt 1 ist oben (Pos #3b). 2 Cards reichen — sonst Sale-Spam.
 
         # 17b. TIPPS-BOX (vor FAQs, im letzten Drittel)
         self.project.log_stage('blog', '✨ Tipps-Box (4 praktische Tipps)')
@@ -338,6 +351,19 @@ class MagvisBlogAssembler:
             'type': 'tips_box', 'id': 'tips',
             'html': self._tips_box_html(tips),
         })
+
+        # 17c. DO'S AND DON'TS (User-Wunsch 2026-05-01: 2-Spalten-Tabelle vor FAQs)
+        self.project.log_stage('blog', '✅❌ Do\'s and Don\'ts (5+5)')
+        from ..prompts.blog_prompts import dos_donts_prompt
+        dd = self.glm.json_chat_with_retry(
+            dos_donts_prompt(topic), expect='object',
+            max_tokens=1500, retries=3,
+        ) or {}
+        if isinstance(dd, dict) and (dd.get('dos') or dd.get('donts')):
+            sections.append({
+                'type': 'dos_donts', 'id': 'dos-donts',
+                'html': self._dos_donts_html(dd.get('dos') or [], dd.get('donts') or []),
+            })
 
         # 18. FAQs (mit Retry + robust JSON parsing)
         self.project.log_stage('blog', '❓ 5 FAQs + JSON-LD Schema')
@@ -366,6 +392,13 @@ class MagvisBlogAssembler:
             ]
         blog.faqs = faqs
         sections.append({'type': 'faqs', 'id': 'faqs', 'html': self._faqs_html(faqs)})
+
+        # Stat-Box GANZ AM ENDE — sammelnde Quellenangabe nach den FAQs
+        if verified_stats:
+            sections.append({
+                'type': 'statistics_box', 'id': 'stats',
+                'html': self._statistics_box_html(verified_stats),
+            })
 
         blog.sections = sections
         blog.final_html = self._compose_html(blog)
@@ -398,6 +431,62 @@ class MagvisBlogAssembler:
 
     # ----------------------------------------------------------------- helper
 
+    def _format_rotated_internal_links(self) -> str:
+        """Liefert pro GLM-Aufruf 2 ROTIERTE Blog-Vorschläge + alle Produkte.
+
+        Damit der GLM nicht in jeder Sektion den gleichen Blog wählt, geben wir
+        pro Aufruf nur ein Fenster aus 2 Blogs (rotiert per Counter). Die
+        Produkt-Liste bleibt komplett, weil nur 2 Produkte vorhanden sind.
+        """
+        if not self._internal_links_data:
+            return ''
+        blogs = self._internal_links_data.get('blogs') or []
+        products = self._internal_links_data.get('products') or []
+        if not blogs and not products:
+            return ''
+
+        parts = []
+        if blogs:
+            n = len(blogs)
+            i1 = self._section_link_counter % n
+            picked = [blogs[i1]]
+            if n >= 2:
+                i2 = (self._section_link_counter + 1) % n
+                if i2 != i1:
+                    picked.append(blogs[i2])
+            self._section_link_counter += 1
+            parts.append('VERWANDTE NATURMACHER-BLOG-ARTIKEL (zum Verlinken):')
+            for b in picked:
+                anchor = (b['anchors'][0] if b.get('anchors') else b.get('title', ''))[:60]
+                parts.append(f'  - "{anchor}" → {b["url"]}')
+        if products:
+            parts.append('\nVERWANDTE NATURMACHER-PRODUKTE (zum Verlinken):')
+            for p in products:
+                anchor = (p['anchors'][0] if p.get('anchors') else p.get('title', ''))[:60]
+                parts.append(f'  - "{anchor}" → {p["url"]}')
+        return '\n'.join(parts)
+
+    def _append_section_safe(self, sections: list, title: str, slug: str,
+                              html: str, label: str = 'Sektion') -> None:
+        """Haengt H2 + Paragraph an die Sektionen — nur wenn der Paragraph
+        echten Inhalt hat. Bei leerem html (GLM-Failure nach 3 Retries) wird
+        die ganze Sektion ausgelassen, damit kein Heading ohne Text uebrig
+        bleibt.
+        """
+        clean = (html or '').strip()
+        # Mindestens 80 Zeichen echten Text — sonst nicht renderbar
+        text_only_len = len(re.sub(r'<[^>]+>', '', clean))
+        if not clean or text_only_len < 80:
+            self.project.log_stage(
+                'blog',
+                f'⚠ {label} ausgelassen ("{title[:40]}…") — '
+                f'GLM lieferte keinen Text nach 3 Versuchen',
+                level='warning',
+            )
+            return
+        sections.append({'type': 'h2', 'id': slug, 'title': title})
+        sections.append({'type': 'paragraph', 'id': f'{slug}-p', 'html': clean})
+
     def _call_glm(self, prompt: str) -> str:
         # Research + Links + Intent als System-Erweiterung anhaengen
         system = NATURMACHER_VOICE
@@ -415,12 +504,34 @@ class MagvisBlogAssembler:
                 'sondern als Naturmacher in 1. Person mit eigener Stimme einbauen):\n'
                 + self._research_context
             )
-        if self._internal_links_text:
+        if self._competitor_analysis:
             system += (
-                '\n\n' + self._internal_links_text + '\n'
-                'WICHTIG: Wenn ein Anker thematisch passt, baue ihn als HTML-Link '
-                '<a href="URL">Ankertext</a> NATUERLICH in den Text ein. Erzwinge '
-                'KEINE Links — pro Absatz max 1 Link, im ganzen Beitrag max 5.'
+                '\n\n' + self._competitor_analysis + '\n\n'
+                'WICHTIG: Decke alle Pflicht-Themen ab und fülle MINDESTENS eine Content-Lücke '
+                'pro Beitrag. Hebe dich durch Naturmacher-Erfahrung (echte Kunden-Anekdoten, '
+                'gravierte Töpfe, persönlicher Ton) ab — niemals abschreiben oder kopieren.'
+            )
+        # Rotation: pro Sektion ein anderes Set von 1-2 Blog-Vorschlaegen anbieten,
+        # damit GLM nicht immer denselben Link nimmt.
+        rotated_links_text = self._format_rotated_internal_links()
+        if rotated_links_text:
+            system += (
+                '\n\n' + rotated_links_text + '\n\n'
+                'INTERNE VERLINKUNGEN — Mittelweg:\n'
+                '- Im ganzen Beitrag sollen am Ende ungefähr 2-3 Verweise auf '
+                '  verwandte Naturmacher-Beiträge stehen (z.B. „weitere Geschenk-'
+                '  Inspiration für andere Berufsgruppen"). Verteile die Links '
+                '  über mehrere Sektionen — NICHT alle in dieselbe.\n'
+                '- Wenn ein Vorschlag oben thematisch ungefähr zum Sektion-Inhalt '
+                '  passt (gleicher Anlass, ähnliche Zielgruppe, verwandtes '
+                '  Geschenk-Thema), baue EINEN Link ein. Format: '
+                '  <a href="URL">natürlicher Ankertext im Satz</a>.\n'
+                '- Bevorzugt am Schluss-Absatz einer Sektion mit einem Satz wie '
+                '  „Du suchst weitere Inspiration? Schau auch bei [Anker]".\n'
+                '- Anker frei und natürlich umformulieren — NIE 1:1 den '
+                '  Vorschlags-Anker übernehmen.\n'
+                '- Wenn dieses Thema gar nicht passt: KEINEN Link erzwingen — '
+                '  andere Sektionen werden Links bringen.'
             )
 
         # Verifizierte Fakten fuer Inline-Quellenverlinkung
@@ -442,11 +553,23 @@ class MagvisBlogAssembler:
                 'Pro Sektion max. 1 Faktenzitat.'
             )
             system += '\n'.join(facts_block)
-        try:
-            return self.glm.text(prompt, system=system, temperature=0.75).strip()
-        except Exception as exc:
-            logger.warning('GLM-Call fehlgeschlagen: %s', exc)
-            return f'<p><em>(Hinweis: Sektion konnte nicht generiert werden.)</em></p>'
+        # 3-faches Retry mit exponential backoff — schuetzt gegen Z.AI 500er,
+        # Timeouts und voruebergehende Netzwerk-Probleme.
+        import time as _time
+        for attempt in range(3):
+            try:
+                result = self.glm.text(prompt, system=system, temperature=0.75).strip()
+                if result and len(result) >= 80:
+                    return result
+                logger.warning('GLM-Call Versuch %d: leere/zu kurze Antwort (%d Zeichen)',
+                               attempt + 1, len(result) if result else 0)
+            except Exception as exc:
+                logger.warning('GLM-Call Versuch %d fehlgeschlagen: %s',
+                               attempt + 1, exc)
+            if attempt < 2:
+                _time.sleep(2 * (attempt + 1))
+        # Alle 3 Versuche fehlgeschlagen — leerer String, Sektion wird ausgelassen.
+        return ''
 
     def _extract_verified_statistics(self, topic: str) -> list[dict]:
         """Holt 1-4 verifizierte Statistiken/Aussagen aus Whitelist-Quellen.
@@ -521,100 +644,15 @@ class MagvisBlogAssembler:
             logger.info('%d Stats verifiziert — Box wird gerendert', len(verified))
             return verified[:4]
 
-        # Plan-B: GLM-Stats nicht verifizierbar → GLM generiert SAUBERE
-        # Beschreibungen fuer die Brave-Treffer (statt rohem Snippet, das oft
-        # Wiki-Edit-Notes oder Anzeigeoptionen-Text enthaelt).
-        logger.info('GLM-Extraktion 0 — Plan-B: GLM-Beschreibungen fuer Quellen')
-        from urllib.parse import urlparse
-
-        # Quell-Liste fuer GLM-Aufgabe vorbereiten
-        candidates = []
-        for r in stat_results[:5]:
-            url = r.get('url', '')
-            title = r.get('title', '').strip()
-            snippet = (r.get('snippet', '') or '').strip()[:300]
-            if not url or not self.research.is_whitelisted(url):
-                continue
-            host = urlparse(url).netloc.replace('www.', '')
-            candidates.append({'url': url, 'title': title, 'snippet': snippet, 'host': host})
-
-        if not candidates:
-            return []
-
-        # GLM generiert pro Quelle eine prägnante Beschreibung
-        sources_text = '\n'.join([
-            f'[{i+1}] {c["title"]}\nDomain: {c["host"]}\nSnippet: {c["snippet"]}'
-            for i, c in enumerate(candidates)
-        ])
-        prompt = (
-            f'Erstelle für jede der folgenden {len(candidates)} Quellen zum Thema '
-            f'"{topic}" eine SAUBERE 1-Satz-Beschreibung (max. 18 Wörter), die in einer '
-            f'"Recherche-Quellen"-Box neben dem Domainnamen steht.\n\n'
-            f"Anweisungen:\n"
-            f"- IGNORIERE generische Wikipedia-Edit-Notes ('bedarf einer Überarbeitung'), "
-            f"  Anzeigeoptionen-Text ('Tabelle Säulendiagramm'), Cookie-Banner.\n"
-            f"- Beschreibe stattdessen WAS in dieser Quelle thematisch zu finden ist "
-            f'(z.B. "Statistiken zur Abiturientenquote nach Bundesland 2024").\n'
-            f"- Korrektes Deutsch mit Umlauten.\n\n"
-            f"=== QUELLEN ===\n{sources_text}\n=== ENDE ===\n\n"
-            f'Antwort als JSON-Array (genau {len(candidates)} Eintraege, gleiche Reihenfolge):\n'
-            f'[{{"description": "..."}}, ...]'
-        )
-        try:
-            descs = self.glm.json_chat_with_retry(
-                prompt, expect='array', max_tokens=1500, retries=2,
-            ) or []
-        except Exception as exc:
-            logger.warning('GLM-Beschreibungen fehlgeschlagen: %s', exc)
-            descs = []
-
-        plan_b = []
-        for i, c in enumerate(candidates):
-            # GLM-Beschreibung wenn moeglich, sonst gekuerzter Snippet
-            desc = ''
-            if i < len(descs) and isinstance(descs[i], dict):
-                desc = (descs[i].get('description') or '').strip()
-            if not desc:
-                # Cleanup: Wiki-Notes + andere Junk-Texte filtern
-                snippet = c['snippet']
-                if 'bedarf einer' in snippet.lower() or 'überarbeitung' in snippet.lower():
-                    desc = f'Übersicht und Inhalt zum Thema "{topic}"'
-                elif 'anzeigeoptionen' in snippet.lower() or 'säulendiagramm' in snippet.lower():
-                    desc = f'Statistik-Tabelle und Diagramme zum Thema "{topic}"'
-                else:
-                    # Erste 100 Zeichen als Notbehelf
-                    desc = (snippet[:100].rsplit(' ', 1)[0] + '…') if len(snippet) > 100 else snippet
-            # Source-Name kuerzen + bekannte Domains schoener machen
-            domain_pretty = {
-                'destatis.de': 'Statistisches Bundesamt',
-                'de.wikipedia.org': 'Wikipedia',
-                'statista.com': 'Statista',
-                'bmfsfj.de': 'BMFSFJ',
-                'bundesregierung.de': 'Bundesregierung',
-                'rki.de': 'Robert Koch-Institut',
-                'arbeitsagentur.de': 'Arbeitsagentur',
-                'kmk.org': 'Kultusministerkonferenz',
-                'oecd.org': 'OECD',
-                'who.int': 'WHO',
-            }.get(c['host'], c['host'])
-            plan_b.append({
-                'value': domain_pretty,  # value = klare Quellennennung
-                'label': desc,
-                'source_url': c['url'],
-                'source_name': domain_pretty,
-            })
-        logger.info('Plan-B Stat-Box mit %d kuratierten Quellen', len(plan_b))
-        return plan_b[:4]
+        # Keine echten Zahlen verifizierbar → Stat-Box komplett weglassen.
+        # Eine Quellenliste ohne konkrete Werte ist keine Statistik-Box.
+        logger.info('Keine verifizierten Zahlen — Stat-Box wird ausgelassen')
+        return []
 
     def _statistics_box_html(self, stats: list[dict]) -> str:
-        """Sichtbare 'Belastbare Aussagen'-Box mit Quell-Links.
-
-        Unterscheidet visuell zwischen Zahlen-Stats (groß angezeigt) und
-        qualitativen Aussagen (in Anführungszeichen).
-        """
+        """Kompakte Quellenangabe am Ende des Beitrags — als Footnote-Liste."""
         if not stats:
             return ''
-        import re as _re
         items = ''
         for s in stats:
             value = str(s.get('value', '')).strip()
@@ -623,45 +661,24 @@ class MagvisBlogAssembler:
             source = escape(str(s.get('source_name', 'Quelle')))
             if not value or not url:
                 continue
-            # Erkenne ob Zahl oder Aussage
-            is_number = bool(_re.match(r'^[\d.,]+\s*[%a-zA-ZäöüÄÖÜß. ]*$', value))
-            if is_number and len(value) <= 12:
-                value_html = (
-                    f'<div style="font-size:1.4rem;font-weight:700;color:#3D5A40;'
-                    f'min-width:90px;letter-spacing:-0.02em;">{escape(value)}</div>'
-                )
-            else:
-                # Qualitative Aussage als Quote
-                value_html = (
-                    f'<div style="font-style:italic;color:#3D5A40;font-weight:500;'
-                    f'min-width:90px;font-size:0.98rem;">„{escape(value)}"</div>'
-                )
+            # Kompakte Listen-Zeile: „Wert — Beschreibung. Quelle: X ↗"
             items += (
-                '<div style="padding:12px 0;border-bottom:1px solid rgba(125,156,128,0.2);'
-                'display:flex;gap:14px;align-items:flex-start;">'
-                f'{value_html}'
-                '<div style="flex:1;">'
-                f'<div style="color:#2A2A2A;font-size:0.95rem;line-height:1.4;'
-                f'margin-bottom:4px;">{label}</div>'
+                '<li style="margin:4px 0;line-height:1.4;color:#5C5651;">'
+                f'<strong style="color:#3D5A40;">{escape(value)}</strong> — '
+                f'{label}. '
                 f'<a href="{url}" target="_blank" rel="noopener" '
-                f'style="font-size:0.82rem;color:#7D9C80;text-decoration:none;'
-                f'border-bottom:1px dotted #7D9C80;">→ {source} ↗</a>'
-                '</div></div>'
+                f'style="color:#7D9C80;text-decoration:none;'
+                f'border-bottom:1px dotted #7D9C80;">{source} ↗</a>'
+                '</li>'
             )
         return (
             '<aside class="naturmacher-statistics" '
-            'style="margin:36px auto;max-width:680px;background:#fff;'
-            'border:1px solid rgba(125,156,128,0.3);border-left:4px solid #7D9C80;'
-            'border-radius:12px;padding:18px 24px 8px;'
-            'box-shadow:0 2px 14px rgba(0,0,0,0.04);">'
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
-            '<span style="font-size:1.2rem;">📊</span>'
-            '<strong style="color:#3D5A40;font-size:0.92rem;letter-spacing:0.04em;'
-            'text-transform:uppercase;">Belegbare Aussagen aus geprüften Quellen</strong>'
-            '</div>'
-            '<div style="font-size:0.78rem;color:#7A7264;margin-bottom:8px;">'
-            'Diese Zahlen und Aussagen haben wir bei unserer Recherche verifiziert:</div>'
-            f'<div>{items}</div>'
+            'style="margin:32px auto 0;max-width:680px;'
+            'border-top:1px solid rgba(125,156,128,0.3);'
+            'padding:14px 4px 0;font-size:0.82rem;">'
+            '<div style="color:#7A7264;font-weight:600;margin-bottom:4px;'
+            'letter-spacing:0.02em;">📊 Belegbare Aussagen aus geprüften Quellen</div>'
+            f'<ul style="margin:0;padding-left:1.2rem;list-style:disc;">{items}</ul>'
             '</aside>'
         )
 
@@ -692,16 +709,112 @@ class MagvisBlogAssembler:
         except Exception as exc:
             logger.warning('Research fehlgeschlagen: %s', exc)
 
-        # Internal Links (Blogs + Produkte)
+        # Internal Links (Blogs + Produkte) — eigenen Beitrag ausschließen
         try:
             secondary = self.project.keywords or []
-            self._internal_links_data = self.linking.collect(topic, secondary)
+            current_article_id = (self.project.blog.shopify_article_id
+                                   if hasattr(self.project, 'blog') else '')
+            self._internal_links_data = self.linking.collect(
+                topic, secondary, exclude_shopify_id=current_article_id,
+            )
             self._internal_links_text = self.linking.format_for_llm(self._internal_links_data)
             n_blogs = len(self._internal_links_data.get('blogs', []))
             n_prods = len(self._internal_links_data.get('products', []))
             logger.info('Internal-Linking: %d Blogs + %d Produkte gefunden', n_blogs, n_prods)
         except Exception as exc:
             logger.warning('Internal-Linking fehlgeschlagen: %s', exc)
+
+        # Skyscraper-Wettbewerbs-Analyse (Top-Treffer auslesen + Lücken finden)
+        self._analyze_competitors(topic)
+
+    def _analyze_competitors(self, topic: str) -> None:
+        """Skyscraper-Methode: Top-Wettbewerber-Beiträge auslesen, GLM identifiziert
+        verbreitete H2-Themen, Argumente und Content-Lücken.
+
+        Füllt self._competitor_analysis (Text-Block für Sektion-Prompts) und
+        self._competitor_must_topics (Liste der Pflicht-Themen).
+        """
+        self.project.log_stage('blog', '🔬 Wettbewerbs-Analyse: Top-Beiträge auslesen')
+        try:
+            competitors = self.research.analyze_top_competitors(topic, n=8)
+        except Exception as exc:
+            logger.warning('Wettbewerbs-Analyse fehlgeschlagen: %s', exc)
+            return
+        if not competitors:
+            self.project.log_stage('blog', '⚠ Keine analysierbaren Wettbewerber-Beiträge gefunden', level='warning')
+            return
+
+        bodies = []
+        for i, c in enumerate(competitors[:7], 1):
+            body = (c.get('body_text') or '')[:1500]
+            if not body:
+                continue
+            host = urlparse(c.get('url', '')).netloc.replace('www.', '')
+            bodies.append(f'=== [{i}] {host} — {c.get("title", "")[:80]} ===\n{body}')
+        if not bodies:
+            return
+
+        self.project.log_stage('blog', f'📥 {len(bodies)} Wettbewerber-Beiträge geladen — GLM analysiert')
+        prompt = (
+            f'Analysiere die folgenden {len(bodies)} TOP-Wettbewerber-Beiträge zum Thema '
+            f'"{topic}". Wir wollen einen Beitrag schreiben, der besser ist als jeder einzelne — '
+            f'alle wichtigen Themen abdeckt UND zusätzliche Aspekte einbringt, die keiner hat.\n\n'
+            f'{chr(10).join(bodies)}\n\n'
+            f'Liefere als JSON-Objekt:\n'
+            f'{{\n'
+            f'  "common_h2_topics": ["Thema 1", "Thema 2", ...],\n'
+            f'    // 5-8 H2-Themen, die fast alle Beiträge abdecken (PFLICHT für unseren Beitrag)\n'
+            f'  "key_arguments": ["Argument 1", ...],\n'
+            f'    // 4-6 Kern-Argumente, die mehrfach vorkommen\n'
+            f'  "concrete_examples": ["Beispiel 1", ...],\n'
+            f'    // 4-6 konkrete Beispiele/Daten/Geschenkideen aus den Beiträgen\n'
+            f'  "content_gaps": ["Lücke 1", ...],\n'
+            f'    // 3-5 Aspekte, die FEHLEN — unsere SEO-Chance, dort zu glänzen\n'
+            f'  "differentiation_ideas": ["Idee 1", ...]\n'
+            f'    // 3-4 wie wir uns mit Naturmacher-Erfahrung (gravierte Töpfe, persönlich) abheben\n'
+            f'}}\n\n'
+            f'Antworte AUSSCHLIESSLICH mit dem JSON-Objekt. Korrektes Deutsch mit Umlauten.'
+        )
+        try:
+            analysis = self.glm.json_chat_with_retry(
+                prompt, expect='object', max_tokens=2500, retries=2,
+            ) or {}
+        except Exception as exc:
+            logger.warning('GLM-Wettbewerbsanalyse fehlgeschlagen: %s', exc)
+            return
+        if not isinstance(analysis, dict) or not analysis:
+            return
+
+        self._competitor_must_topics = list(analysis.get('common_h2_topics', []))[:8]
+        n_topics = len(self._competitor_must_topics)
+        n_gaps = len(analysis.get('content_gaps', []))
+        self.project.log_stage('blog',
+            f'📐 Wettbewerber-Map: {n_topics} verbreitete H2-Themen, {n_gaps} Content-Lücken identifiziert')
+
+        # Kompakter Text-Block fuer alle GLM-Sektion-Prompts
+        parts = ['=== WETTBEWERBER-ANALYSE (Skyscraper-Map) ===']
+        if analysis.get('common_h2_topics'):
+            parts.append('Themen die fast alle TOP-Beiträge abdecken — bei uns auch:')
+            for t in analysis['common_h2_topics'][:8]:
+                parts.append(f'  • {t}')
+        if analysis.get('key_arguments'):
+            parts.append('\nKern-Argumente die in mehreren Beiträgen vorkommen:')
+            for a in analysis['key_arguments'][:6]:
+                parts.append(f'  • {a}')
+        if analysis.get('concrete_examples'):
+            parts.append('\nKonkrete Beispiele/Geschenkideen aus den TOP-Beiträgen:')
+            for e in analysis['concrete_examples'][:6]:
+                parts.append(f'  • {e}')
+        if analysis.get('content_gaps'):
+            parts.append('\n>>> CONTENT-LÜCKEN — UNSERE CHANCE (unbedingt mit reinnehmen):')
+            for g in analysis['content_gaps'][:5]:
+                parts.append(f'  • {g}')
+        if analysis.get('differentiation_ideas'):
+            parts.append('\n>>> DIFFERENZIERUNG mit Naturmacher-Erfahrung:')
+            for d in analysis['differentiation_ideas'][:4]:
+                parts.append(f'  • {d}')
+        parts.append('=== ENDE Wettbewerber-Map ===')
+        self._competitor_analysis = '\n'.join(parts)
 
     def _generate_seo(self) -> dict:
         try:
@@ -711,26 +824,40 @@ class MagvisBlogAssembler:
             return {'title': self.project.topic, 'description': self.project.topic}
 
     def _generate_headings(self, topic: str) -> list[str]:
+        # Robuster: 3 Retries via json_chat_with_retry + max_tokens hoch.
         try:
-            data = self.glm.json_chat(headings_prompt(topic))
-            if isinstance(data, list):
-                return [str(h).strip() for h in data if h]
+            data = self.glm.json_chat_with_retry(
+                headings_prompt(topic), expect='array',
+                max_tokens=1500, retries=3,
+            )
+            if isinstance(data, list) and len(data) >= 4:
+                cleaned = [str(h).strip() for h in data if h]
+                if cleaned:
+                    return cleaned
         except Exception as exc:
             logger.warning('Headings-Generation fehlgeschlagen: %s', exc)
+        # Fallback: Topic Title-Case + sinnvollere Formulierungen, KEIN
+        # "Was ist {topic} eigentlich?" (klingt wie eine Tautologie).
+        topic_tc = topic.strip().title()
         return [
-            f'Was ist {topic} eigentlich?',
-            f'Warum ist {topic} so besonders?',
-            'Worauf solltest du beim Geschenk achten?',
-            'Tipps für die persönliche Note',
-            'Mit Spaß lernen',
-            'Mehr Geschenkideen',
+            f'Was {topic_tc} besonders macht',
+            f'Worauf du bei einem Geschenk für {topic_tc} achten solltest',
+            f'Persönliche Geschenkideen mit Bedeutung',
+            f'Tipps für die richtige Auswahl',
+            f'Häufige Anlässe und ideale Geschenke',
+            f'Weitere Geschenkideen rund um {topic_tc}',
         ]
 
     def _generate_blog_image(self, kind: str, topic_summary: str = '') -> str:
         try:
-            if kind == 'diagram':
+            if kind == 'title':
+                result = self.gemini.generate_title_image(self.project.topic, topic_summary)
+            elif kind == 'diagram':
                 result = self.gemini.generate_diagram(self.project.topic, topic_summary)
+            elif kind == 'brainstorm':
+                result = self.gemini.generate_brainstorm(self.project.topic)
             else:
+                logger.warning('Unbekannter Bild-kind=%r — fallback Brainstorm', kind)
                 result = self.gemini.generate_brainstorm(self.project.topic)
         except Exception as exc:
             logger.warning('Gemini-%s fehlgeschlagen: %s', kind, exc)
@@ -738,11 +865,26 @@ class MagvisBlogAssembler:
         if not result.get('success'):
             return ''
 
-        # Bild zu Shopify-Files hochladen (CDN-URL für den Blog-Embed)
+        # SEO-freundlicher Filename + Alt-Text statt magvis_<kind>_<uuid>
+        topic_slug = django_slugify(self.project.topic)[:60]
+        kind_label = {
+            'title': 'titelbild',
+            'diagram': 'infografik',
+            'brainstorm': 'mindmap',
+        }.get(kind, kind)
+        kind_alt = {
+            'title': f'{self.project.topic} — persönliche Geschenkideen von Naturmacher',
+            'diagram': f'Infografik: Wichtigste Punkte zu {self.project.topic}',
+            'brainstorm': f'Mind-Map: Brainstorming zu {self.project.topic}',
+        }.get(kind, f'{self.project.topic} — {kind}')
+        # Kurzer Hash hinten dran, damit Shopify keine Konflikte hat
+        short_id = self.project.id.hex[:6] if hasattr(self.project.id, 'hex') else str(self.project.id)[:6]
+        seo_filename = f'{topic_slug}-{kind_label}-{short_id}'
+
         cdn_url = self._upload_to_shopify_files(
             result.get('abs_path', ''),
-            f'magvis_{kind}_{self.project.id}',
-            alt_text=f'{kind} - {self.project.topic}',
+            seo_filename,
+            alt_text=kind_alt,
         )
         return cdn_url or result.get('rel_path', '') or result.get('url', '')
 
@@ -848,6 +990,76 @@ class MagvisBlogAssembler:
         self._shopify_product_cache[product.shopify_product_id] = info
         return info
 
+    def _author_bio_html(self) -> str:
+        """Kompakter Author-Bio-Block — mobile-optimiert via Media Query.
+
+        Mobile (≤640px): klein (48px Foto, Bio-Lang ausgeblendet, nur Bio-Kurz).
+        Desktop: volle Bio sichtbar. Schema.Person mit Foto + sameAs (IG).
+        """
+        return (
+            '<style>'
+            '.mb-auth{padding:0.3rem;margin:0.8rem 0;background:#FAF6EC;'
+            'border-left:3px solid #5C8A6B;border-radius:6px;font-size:0.85rem;}'
+            '.mb-auth-head{display:flex;align-items:center;gap:0.55rem;'
+            'margin-bottom:0.15rem;}'
+            '.mb-auth img{width:90px;height:90px;border-radius:50%;'
+            'object-fit:cover;flex-shrink:0;}'
+            '.mb-auth-name{font-weight:600;color:#2A2A2A;line-height:1.25;}'
+            '.mb-auth-role{color:#7A7264;font-size:0.75rem;display:block;}'
+            '.mb-auth-bio{margin:0;color:#5C5651;font-size:0.82rem;'
+            'line-height:1.45;}'
+            '.mb-auth-bio-long{display:none;}'
+            '.mb-auth-links{margin-top:0.3rem;display:flex;flex-wrap:wrap;'
+            'gap:0.2rem 0.9rem;align-items:center;}'
+            '.mb-auth-links a{font-size:0.78rem;text-decoration:none;}'
+            '.mb-auth-links a:first-child{color:#5C8A6B;font-weight:500;}'
+            '.mb-auth-links a:last-child{color:#7A7264;}'
+            '@media (min-width:641px){'
+            '.mb-auth{padding:0.85rem 1rem;font-size:0.9rem;}'
+            '.mb-auth img{width:110px;height:110px;}'
+            '.mb-auth-head{gap:0.85rem;}'
+            '.mb-auth-bio-short{display:none;}'
+            '.mb-auth-bio-long{display:block;}'
+            '.mb-auth-bio{font-size:0.88rem;line-height:1.55;margin-top:0.5rem;}'
+            '}'
+            '</style>'
+            '<aside class="mb-auth" itemprop="author" itemscope '
+            'itemtype="https://schema.org/Person">'
+            '<div class="mb-auth-head">'
+            '<img src="https://cdn.shopify.com/s/files/1/0696/9494/7595/files/'
+            'lernrfi4k3sv47iojnea7iat9m._SX300_CR0_0_300_300.jpg?v=1734014095" '
+            'alt="Lisa Yuzkiv — Autorin und Mitgründerin Naturmacher" itemprop="image" '
+            'loading="lazy" width="52" height="52">'
+            '<div>'
+            '<span class="mb-auth-name" itemprop="name">Lisa Yuzkiv</span>'
+            '<span class="mb-auth-role" itemprop="jobTitle">'
+            'Autorin / Mitgründerin Naturmacher</span>'
+            '</div>'
+            '</div>'
+            '<p class="mb-auth-bio" itemprop="description">'
+            '<span class="mb-auth-bio-short">'
+            'Geboren 1989 in Darmstadt, staatlich anerkannte Erzieherin und Mutter von '
+            'zwei Söhnen. 2019 gründete sie mit ihrem Mann den Online-Shop Naturmacher '
+            'für gravierte Blumentöpfe. Lebt mit Familie und Haustieren an der Bergstraße.'
+            '</span>'
+            '<span class="mb-auth-bio-long">'
+            'Lisa Janina Yuzkiv, geboren 1989 in Darmstadt, ist staatlich anerkannte '
+            'Erzieherin und Mutter von zwei Söhnen. 2019 gründete sie mit ihrem Mann den '
+            'Online-Shop „Naturmacher", in welchem heute gravierte Blumentöpfe verkauft '
+            'werden. Sie lebt mit ihrer Familie und Haustieren an der Bergstraße.'
+            '</span>'
+            '</p>'
+            '<div class="mb-auth-links">'
+            '<a href="https://naturmacher.de/pages/uber-uns" itemprop="url">'
+            'Mehr über Lisa →</a>'
+            '<a href="https://www.instagram.com/lisa_migraene_und_ernaehrung" '
+            'itemprop="sameAs" target="_blank" rel="noopener" '
+            'aria-label="Lisa auf Instagram folgen">'
+            '📷 Instagram</a>'
+            '</div>'
+            '</aside>'
+        )
+
     def _image_html(self, src_or_rel: str, alt: str) -> str:
         from django.conf import settings as django_settings
         # http(s) → CDN, sonst lokal /media/
@@ -891,20 +1103,36 @@ class MagvisBlogAssembler:
         desc = escape((product.seo_description or product.description or '')[:140])
 
         return f'''<!-- NM-PRODUCT-CARD -->
-<div class="naturmacher-product-card" style="display:flex;gap:18px;align-items:stretch;background:#FAF6EC;border:1px solid #E8DFC9;border-radius:14px;padding:20px;margin:32px 0;flex-wrap:wrap;box-shadow:0 4px 18px rgba(0,0,0,0.05);">
-  <a href="{url}" style="flex:0 0 200px;display:block;border-radius:10px;overflow:hidden;">
-    <img src="{img_url}" alt="{title}" style="width:100%;height:200px;object-fit:cover;display:block;">
-  </a>
-  <div style="flex:1;min-width:240px;display:flex;flex-direction:column;justify-content:space-between;">
-    <div>
-      <div style="font-size:0.85rem;color:#7A7264;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">💡 Geschenkidee</div>
-      <h3 style="margin:0 0 10px 0;font-size:1.2rem;color:#2A2A2A;line-height:1.3;">{title}</h3>
-      <p style="margin:0 0 16px 0;font-size:0.95rem;color:#5C5651;line-height:1.5;">{desc}</p>
-    </div>
-    <div>
-      <a href="{url}" style="display:inline-block;background:#D4AB32;color:#fff;padding:12px 28px;text-decoration:none;border-radius:6px;font-weight:600;font-size:0.95rem;">Mehr erfahren →</a>
-    </div>
+<style>
+.nm-pc{{background:#FAF6EC;border:1px solid #E8DFC9;border-radius:10px;padding:0.25rem;margin:1.4rem 0;box-shadow:0 2px 10px rgba(0,0,0,0.04);}}
+.nm-pc-head{{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;}}
+.nm-pc-img{{flex:0 0 160px;display:block;border-radius:8px;overflow:hidden;}}
+.nm-pc-img img{{width:100%;height:160px;object-fit:cover;display:block;}}
+.nm-pc-label{{font-size:0.7rem;color:#7A7264;text-transform:uppercase;letter-spacing:0.05em;font-weight:500;}}
+.nm-pc-title{{margin:0 0 0.35rem;font-size:0.95rem;color:#2A2A2A;line-height:1.3;font-weight:600;}}
+.nm-pc-desc{{margin:0 0 0.55rem;font-size:0.82rem;color:#5C5651;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}}
+.nm-pc-cta{{display:inline-block;background:#D4AB32;color:#fff;padding:0.45rem 0.9rem;text-decoration:none;border-radius:5px;font-weight:600;font-size:0.78rem;}}
+@media (min-width:641px){{
+.nm-pc{{padding:1.1rem 1.25rem;border-radius:14px;margin:1.8rem 0;box-shadow:0 4px 18px rgba(0,0,0,0.05);}}
+.nm-pc-head{{gap:0.85rem;margin-bottom:0.7rem;}}
+.nm-pc-img{{flex:0 0 110px;}}
+.nm-pc-img img{{height:110px;}}
+.nm-pc-label{{font-size:0.78rem;}}
+.nm-pc-title{{font-size:1.15rem;margin-bottom:0.5rem;}}
+.nm-pc-desc{{font-size:0.92rem;line-height:1.5;-webkit-line-clamp:unset;margin-bottom:0.9rem;}}
+.nm-pc-cta{{padding:0.65rem 1.4rem;font-size:0.9rem;border-radius:6px;}}
+}}
+</style>
+<div class="nm-pc">
+  <div class="nm-pc-head">
+    <a href="{url}" class="nm-pc-img" aria-label="{title}">
+      <img src="{img_url}" alt="{title}">
+    </a>
+    <div class="nm-pc-label">💡 Geschenkidee</div>
   </div>
+  <h3 class="nm-pc-title">{title}</h3>
+  <p class="nm-pc-desc">{desc}</p>
+  <a href="{url}" class="nm-pc-cta">Mehr erfahren →</a>
 </div>'''
 
     def _tldr_box_html(self, data: dict) -> str:
@@ -1016,20 +1244,21 @@ class MagvisBlogAssembler:
             '<span style="font-size:1.05rem;">📚</span>'
             '<strong style="color:#3D5A40;font-size:0.95rem;letter-spacing:0.02em;text-transform:uppercase;">Wusstest du schon?</strong>'
             '</div>'
-            f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">{items}</div>'
+            f'<div style="display:flex;flex-direction:column;gap:8px;">{items}</div>'
             '</aside>'
         )
 
     def _tips_box_html(self, tips: list) -> str:
-        """Tipps-Box (kompakt, Grid 2x2)."""
+        """Tipps-Box mit HowTo-JSON-LD-Schema."""
         if not tips:
             return ''
         items = ''
-        for t in tips:
+        howto_steps = []
+        for i, t in enumerate(tips, 1):
             if not isinstance(t, dict):
                 continue
             icon = escape(str(t.get('icon', '💡')))
-            title = escape(str(t.get('title', '')))
+            title_t = escape(str(t.get('title', '')))
             text = escape(str(t.get('text', '')))
             if not text:
                 continue
@@ -1038,11 +1267,29 @@ class MagvisBlogAssembler:
                 'background:rgba(255,255,255,0.5);border-radius:6px;">'
                 f'<span style="font-size:1.05rem;line-height:1.2;flex-shrink:0;">{icon}</span>'
                 '<div style="font-size:0.85rem;line-height:1.4;">'
-                f'<strong style="color:#8A6F1F;">{title}:</strong> '
+                f'<strong style="color:#8A6F1F;">{title_t}:</strong> '
                 f'<span style="color:#5C5651;">{text}</span>'
                 '</div></div>'
             )
-        return (
+            howto_steps.append({
+                '@type': 'HowToStep',
+                'position': i,
+                'name': str(t.get('title', '')),
+                'text': str(t.get('text', '')),
+            })
+        # HowTo JSON-LD
+        howto_schema = ''
+        if howto_steps:
+            howto = {
+                '@context': 'https://schema.org',
+                '@type': 'HowTo',
+                'name': f'Praktische Tipps zum Thema {self.project.topic}',
+                'step': howto_steps,
+            }
+            howto_schema = (
+                f'<script type="application/ld+json">{json.dumps(howto, ensure_ascii=False)}</script>'
+            )
+        return howto_schema + (
             '<aside class="naturmacher-tips-box" '
             'style="margin:24px auto;max-width:680px;'
             'background:linear-gradient(135deg,#FBF6E5 0%,#F5EDD0 100%);'
@@ -1052,7 +1299,45 @@ class MagvisBlogAssembler:
             '<span style="font-size:1.05rem;">✨</span>'
             '<strong style="color:#8A6F1F;font-size:0.95rem;letter-spacing:0.02em;text-transform:uppercase;">Tipps & Tricks</strong>'
             '</div>'
-            f'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">{items}</div>'
+            f'<div style="display:flex;flex-direction:column;gap:8px;">{items}</div>'
+            '</aside>'
+        )
+
+    def _dos_donts_html(self, dos: list, donts: list) -> str:
+        """2-Spalten-Tabelle mit Do's and Don'ts vor den FAQs."""
+        if not dos and not donts:
+            return ''
+        max_rows = max(len(dos), len(donts))
+        rows = ''
+        for i in range(max_rows):
+            do_text = escape(str(dos[i])) if i < len(dos) else ''
+            dont_text = escape(str(donts[i])) if i < len(donts) else ''
+            rows += (
+                '<tr>'
+                f'<td style="padding:10px 14px;border-bottom:1px solid #DDE7DB;'
+                f'color:#2A4A2A;line-height:1.5;font-size:0.95rem;">'
+                f'{("✓ " + do_text) if do_text else ""}</td>'
+                f'<td style="padding:10px 14px;border-bottom:1px solid #F2DCD9;'
+                f'color:#5A2A2A;line-height:1.5;font-size:0.95rem;">'
+                f'{("✗ " + dont_text) if dont_text else ""}</td>'
+                '</tr>'
+            )
+        return (
+            '<aside style="margin:28px 0;background:#FAF6EC;border-radius:14px;'
+            'padding:18px 14px;border:1px solid #E8DFC9;">'
+            '<h3 style="margin:0 0 14px;color:#3D5A40;font-size:1.05rem;'
+            'letter-spacing:0.02em;text-transform:uppercase;">Do\'s and Don\'ts</h3>'
+            '<table style="width:100%;border-collapse:collapse;">'
+            '<thead><tr>'
+            '<th align="left" style="padding:10px 14px;background:#E8F2E0;'
+            'color:#2A4A2A;border-radius:8px 0 0 0;font-size:0.9rem;'
+            'letter-spacing:0.05em;">DO\'S</th>'
+            '<th align="left" style="padding:10px 14px;background:#FBE4E0;'
+            'color:#5A2A2A;border-radius:0 8px 0 0;font-size:0.9rem;'
+            'letter-spacing:0.05em;">DON\'TS</th>'
+            '</tr></thead>'
+            f'<tbody>{rows}</tbody>'
+            '</table>'
             '</aside>'
         )
 
@@ -1091,10 +1376,14 @@ class MagvisBlogAssembler:
         )
 
     def _compose_html(self, blog: MagvisBlog) -> str:
-        # Reihenfolge: TOC → restliche Sektionen.
+        # Reihenfolge: BlogPosting-Schema → TOC → restliche Sektionen.
         # title_image NICHT in body_html — wird als Article-Featured-Image
         # an Shopify übergeben (Theme rendert es als Hero, vermeidet Duplikat).
         parts: list[str] = []
+        # BlogPosting JSON-LD ganz am Anfang
+        bp_schema = self._blogposting_schema(blog)
+        if bp_schema:
+            parts.append(bp_schema)
         if blog.toc_html:
             parts.append(blog.toc_html)
         for sec in blog.sections:
@@ -1112,6 +1401,60 @@ class MagvisBlogAssembler:
             else:
                 parts.append(sec.get('html', ''))
         return '\n\n'.join(p for p in parts if p)
+
+    def _blogposting_schema(self, blog: MagvisBlog) -> str:
+        """BlogPosting JSON-LD — Pflicht-Schema fuer SERP-Rich-Snippets."""
+        from datetime import datetime, timezone as _tz
+        # Hero-Bild URL
+        hero_section = next((s for s in blog.sections
+                              if s.get('type') == 'title_image'), None)
+        image_url = (hero_section.get('src') if hero_section else
+                     blog.diagram_image_path or '')
+        published_iso = (blog.created_at or datetime.now(_tz.utc)).isoformat()
+        # dateModified = jetzt (jeder Re-Run aktualisiert den Artikel-Inhalt).
+        # Google bevorzugt aktuell-gepflegte Inhalte; statisches dateModified =
+        # datePublished signalisiert "wurde nie aktualisiert".
+        modified_iso = datetime.now(_tz.utc).isoformat()
+        canonical_url = blog.shopify_published_url or ''
+        schema = {
+            '@context': 'https://schema.org',
+            '@type': 'BlogPosting',
+            'headline': blog.seo_title or self.project.topic,
+            'description': blog.seo_description or '',
+            'author': {
+                '@type': 'Person',
+                'name': 'Lisa Yuzkiv',
+                'url': 'https://naturmacher.de/pages/uber-uns',
+                'jobTitle': 'Mitgründerin Naturmacher',
+                'sameAs': [
+                    'https://www.instagram.com/lisa_migraene_und_ernaehrung',
+                ],
+                'worksFor': {
+                    '@type': 'Organization',
+                    'name': 'Naturmacher',
+                    'url': 'https://naturmacher.de',
+                },
+            },
+            'publisher': {
+                '@type': 'Organization',
+                'name': 'Naturmacher',
+                'logo': {
+                    '@type': 'ImageObject',
+                    'url': 'https://naturmacher.de/cdn/shop/files/Logo_Naturmacher.png',
+                },
+            },
+            'datePublished': published_iso,
+            'dateModified': modified_iso,
+        }
+        if image_url:
+            schema['image'] = image_url
+        if canonical_url:
+            schema['mainEntityOfPage'] = {
+                '@type': 'WebPage',
+                '@id': canonical_url,
+            }
+        schema_json = json.dumps(schema, ensure_ascii=False)
+        return f'<script type="application/ld+json">{schema_json}</script>'
 
     def _publish_to_shopify(self, blog: MagvisBlog) -> None:
         """Veröffentlicht den Blog-Artikel über shopify_manager (best effort)."""
@@ -1153,18 +1496,45 @@ class MagvisBlogAssembler:
                 title_url = sec['src']
                 break
 
+        # Author = "Lisa Yuzkiv" für Author-Box-App.
+        # Markierung (zusätzlich zum standard 'author' Field):
+        # - Tag 'author:lisa-yuzkiv' (gängiges Pattern für Shopify-Author-Apps)
+        # - Tag 'magvis' (zur Identifikation aller Magvis-Posts)
+        article_tags = [self.project.topic, 'author:lisa-yuzkiv', 'magvis']
+        # Shopify-SEO-Felder als globale Metafields. Ohne diese baut Shopify die
+        # Meta-Description automatisch aus dem body_html-Anfang (= aktuell der TOC,
+        # was CTR in den SERPs zerstört).
+        seo_desc = (blog.seo_description or '')[:320]
+        seo_title = (blog.seo_title or self.project.topic or '')[:70]
         article_payload = {
             'article': {
                 'title': blog.seo_title,
-                'author': 'Naturmacher',
+                'author': 'Lisa Yuzkiv',
                 'body_html': blog.final_html,
-                'tags': self.project.topic,
+                'tags': ', '.join(article_tags),
                 'published': True,
+                # published_at NUR beim ERSTEN Publish setzen — bei späteren PUTs
+                # (Re-Run der Stage) den ursprünglichen Wert behalten, damit Shopify
+                # 'updated_at' korrekt setzt und Google 'dateModified' erkennt.
+                # (siehe Schema-Section: dateModified wird separat gepflegt)
+                **({} if blog.shopify_article_id else {'published_at': _now_isoformat()}),
                 'metafields': [
                     {
                         'namespace': 'custom',
                         'key': 'blog_tool',
                         'value': 'minisolo-gravurvorschau',
+                        'type': 'single_line_text_field',
+                    },
+                    {
+                        'namespace': 'global',
+                        'key': 'description_tag',
+                        'value': seo_desc,
+                        'type': 'single_line_text_field',
+                    },
+                    {
+                        'namespace': 'global',
+                        'key': 'title_tag',
+                        'value': seo_title,
                         'type': 'single_line_text_field',
                     },
                 ],
@@ -1175,6 +1545,11 @@ class MagvisBlogAssembler:
                 'src': title_url,
                 'alt': blog.seo_title or self.project.topic,
             }
+        else:
+            # Kein echtes Title-Image — Featured-Image explizit entfernen,
+            # damit bei PUT-Update kein altes Hero-Fallback (z.B. Brainstorm)
+            # haengen bleibt.
+            article_payload['article']['image'] = None
         headers = {
             'X-Shopify-Access-Token': store.access_token,
             'Content-Type': 'application/json',

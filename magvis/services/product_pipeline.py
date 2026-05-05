@@ -67,8 +67,23 @@ class MagvisProductPipeline:
         self.glm = MagvisLLMClient(self.user, self.magvis_settings)
 
     def run(self) -> dict:
-        """Erstellt 2 Produkte parallel."""
+        """Erstellt 2 Produkte parallel — idempotent gegen Re-Trigger.
+
+        Wenn beide Magvis-Produkte bereits Shopify-IDs haben, wird der Stage
+        komplett übersprungen (verhindert Doppel-Erstellung bei Worker-Crash
+        + Celery-Retry).
+        """
         from ploom.models import PLoomSettings
+
+        if (self.project.product_1 and self.project.product_1.shopify_product_id
+                and self.project.product_2 and self.project.product_2.shopify_product_id):
+            self.project.log_stage(
+                'products',
+                f'⏭️ Beide Produkte bereits in Shopify '
+                f'({self.project.product_1.shopify_product_id}, '
+                f'{self.project.product_2.shopify_product_id}) — Stage übersprungen',
+            )
+            return {'success': True, 'skipped': True}
 
         if not self.magvis_settings.default_ploom_settings:
             self.magvis_settings.default_ploom_settings = PLoomSettings.objects.filter(
@@ -144,38 +159,60 @@ class MagvisProductPipeline:
         ]
 
     def _override_seo_mid_volume(self, base_seo: dict, engraving_text: str) -> dict | None:
-        """Optimiert SEO-Felder auf Mid-Volume-Long-Tail-Keywords (statt generisch)."""
+        """Erstellt SEO-Inhalte im Naturmacher-Stil: strukturierte HTML-Beschreibung
+        mit Intro + Highlights + Material + Anlässen + CTA, plus Mid-Volume-Long-Tail-Title.
+
+        Format orientiert sich an mein-blumentopf-designer-geschenk-blumentopf-graviert.
+        """
         prompt = (
-            f"Erstelle Produkt-SEO für einen personalisierten Blumentopf mit Gravur "
-            f'auf Naturmacher.de zum Thema "{self.project.topic}".\n\n'
-            f'Gravur: "{engraving_text}"\n\n'
-            f"WICHTIG — Mid-Volume-Long-Tail-Strategie:\n"
-            f"- Produkt-Title 60-80 Zeichen mit 3-5 Wort-Long-Tail "
-            f"  (Kombination Topf + Anlass + Modifier).\n"
-            f"  Beispiele: 'Personalisierter Blumentopf zum Abschied — Geschenk für "
-            f"  Erzieherin', 'Gravierter Keramik-Topf Geschenk Geburtstag persönlich'.\n"
-            f"- KEINE generischen High-Volume-Keywords ('Geschenk', 'Personalisiertes "
-            f"  Geschenk' allein), sondern Spezifitaet ('zum Abitur', 'Kindergarten-"
-            f"  Abschied', 'Mama Geburtstag').\n"
-            f"- Description 140-160 Zeichen, Long-Tail + Material-USP + CTA.\n"
-            f"- Tags 5-8 Stück, Mix aus Mid-Tails: 'Geschenk {self.project.topic}', "
-            f"  'Blumentopf mit Gravur', 'persönliches Geschenk', '{self.project.topic} "
-            f"  Abschied', etc.\n"
-            f"- Zielsuchvolumen 100-2000/Monat (realistisch rankbar).\n\n"
-            f"Antwort als JSON:\n"
-            f'{{"title": "...", "description": "...", "seo_title": "...", '
-            f'"seo_description": "...", "tags": "tag1, tag2, ..."}}\n\n'
-            f"description: länger (300-500 Zeichen), erklaerend mit Mid-Tail-Keywords "
-            f"natuerlich verteilt; seo_description: kurz für Meta-Tag (140-160 Zeichen)."
+            f"Erstelle vollständigen Produktinhalt für einen personalisierten Blumentopf "
+            f"mit Lasergravur auf Naturmacher.de.\n\n"
+            f'Thema/Anlass: "{self.project.topic}"\n'
+            f'Gravur auf dem Topf: "{engraving_text}"\n\n'
+            f"=== TITLE ===\n"
+            f"60-80 Zeichen, Long-Tail-Kombi (Produkt + Anlass + Zielgruppe). "
+            f"Beispiel: 'Personalisierter Blumentopf — Geschenk Erzieherin Abschied'.\n"
+            f"KEIN generisches 'Geschenk' allein, immer mit Spezifität zum Topic.\n\n"
+            f"=== DESCRIPTION (HTML, Naturmacher-Stil) ===\n"
+            f"Strukturiert mit Absätzen, Listen, sub-headings — KEIN Fließtext-Block.\n"
+            f"Pflicht-Sektionen, in dieser Reihenfolge:\n"
+            f"1. <p>Eingangs-Absatz (2-3 Sätze, emotional, Anlass aufgreifen).</p>\n"
+            f"2. <h3>Das macht diesen Topf besonders</h3><ul><li>4-5 Bullets mit USPs/Highlights</li></ul>\n"
+            f"   Beispiel-Bullets: 'Persönliche Lasergravur — kratzfest und langlebig', "
+            f"   'Hochwertige Keramik aus deutscher Manufaktur', 'Maße: ca. 14 cm Höhe & Durchmesser', "
+            f"   'Liebevoll handverpackt mit Pflegeanleitung', 'Sofort verschenkbar — Karte & Geschenknotiz inklusive'.\n"
+            f"3. <h3>Perfekt als Geschenk für</h3><ul><li>3-5 spezifische Anlässe rund um Topic</li></ul>\n"
+            f"4. <h3>Material & Fertigung</h3><p>Kurzer Absatz: Cremefarbene Keramik, "
+            f"   Lasergravur in unserer Manufaktur in Bensheim, witterungsbeständig.</p>\n"
+            f"5. <p>Abschluss-CTA mit Wertgefühl (1-2 Sätze, ohne 'Jetzt kaufen!'-Plattheit).</p>\n\n"
+            f"Kein Marketing-Geschwafel ('hochwertig', 'premium' nur in Material-Block ok). "
+            f"Keine Emojis im HTML. Saubere Tags: <p>, <h3>, <ul>, <li>, <strong>.\n\n"
+            f"=== SEO-TITLE ===\n"
+            f"50-65 Zeichen, Long-Tail wie title aber kürzer, Keyword vorne.\n\n"
+            f"=== SEO-DESCRIPTION ===\n"
+            f"140-160 Zeichen Meta-Tag: Long-Tail + USP + CTA in einem Satz.\n\n"
+            f"=== TAGS ===\n"
+            f"6-9 Mid-Tail-Tags Komma-separiert. Mix: '{self.project.topic} Geschenk', "
+            f"'Blumentopf mit Gravur', 'personalisiertes Geschenk', '{self.project.topic} Abschied', "
+            f"'Lasergravur Topf', etc.\n\n"
+            f"=== AUSGABE ===\n"
+            f"Antwort als JSON-Objekt:\n"
+            f'{{"title": "...", "description": "<p>...</p><h3>...</h3>...", '
+            f'"seo_title": "...", "seo_description": "...", "tags": "..."}}\n'
+            f"Wichtig: description-Wert ist gültiges HTML als String (Tags escaped wo nötig).\n"
         )
         try:
-            data = self.glm.json_chat(prompt, temperature=0.45)
+            data = self.glm.json_chat(prompt, temperature=0.55)
             if not isinstance(data, dict):
                 return None
-            # Wahl: GLM-Output überschreibt, aber Fallback auf base_seo wenn fehlt
+            desc = data.get('description') or base_seo.get('description', '')
+            # Sicherstellen dass HTML-Struktur drin ist (Fallback wenn LLM Plain-Text liefert)
+            if desc and '<' not in desc and '>' not in desc:
+                paras = [p.strip() for p in desc.split('\n\n') if p.strip()]
+                desc = ''.join(f'<p>{p}</p>' for p in paras) if paras else f'<p>{desc}</p>'
             return {
                 'title': data.get('title') or base_seo.get('title'),
-                'description': data.get('description') or base_seo.get('description'),
+                'description': desc,
                 'seo_title': (data.get('seo_title') or base_seo.get('seo_title') or '')[:70],
                 'seo_description': (data.get('seo_description') or base_seo.get('seo_description') or '')[:160],
                 'tags': data.get('tags') or base_seo.get('tags', ''),
@@ -237,38 +274,84 @@ class MagvisProductPipeline:
         if not base_pot_path:
             return {'success': False, 'error': 'Basis-Topf-Generierung fehlgeschlagen', 'session': session}
 
-        # SEO-Content (ploom-Default + Mid-Volume-Override via GLM)
+        # SEO-Content — wie OpenClaw mit product_description_context als Hint
+        ploom_settings_obj = ploom_settings
+        ctx = (ploom_settings_obj.product_description_context if ploom_settings_obj else '') or ''
+        keyword_ctx = f'{self.project.topic} - Gravur: {engraving_text}'
         seo_content = ai_service.generate_all_seo_content(
-            keyword=self.project.topic,
-            context=f'Gravur: {engraving_text}',
+            keyword=keyword_ctx, language='de', context=ctx,
         ) or {}
         seo_content = self._override_seo_mid_volume(seo_content, engraving_text) or seo_content
 
         # 3 Kurzbeschreibung-Highlights via GLM (List-Field)
         kurzbeschreibung = self._generate_kurzbeschreibung_eigene(engraving_text)
 
-        # Produkt anlegen (vorerst ohne Shopify)
-        ploom_settings_obj = ploom_settings
+        # Produkt anlegen — alle OpenClaw-Defaults aus PLoomSettings übernehmen
         product = PLoomProduct.objects.create(
             user=self.user,
-            title=seo_content.get('title') or
-                  f'Geschenk {self.project.topic} — Gravierter Blumentopf {engraving_text[:50]}',
+            title=(seo_content.get('title') or
+                   f'Geschenk {self.project.topic} — Gravierter Blumentopf {engraving_text[:50]}')[:255],
             description=seo_content.get('description', '') or '',
-            seo_title=(seo_content.get('seo_title') or '')[:60],
+            seo_title=(seo_content.get('seo_title') or seo_content.get('title') or '')[:70],
             seo_description=(seo_content.get('seo_description') or '')[:160],
-            tags=seo_content.get('tags', '') or '',
+            tags=seo_content.get('tags', '') or 'personaliserbar,Name(n)',
             vendor=ploom_settings_obj.default_vendor if ploom_settings_obj else 'Naturmacher',
-            product_type=ploom_settings_obj.default_product_type if ploom_settings_obj else 'Blumentopf',
-            price=ploom_settings_obj.default_price_komplett or 19.90 if ploom_settings_obj else 19.90,
+            product_type=ploom_settings_obj.default_product_type if ploom_settings_obj else '',
+            collection_id=ploom_settings_obj.default_collection_id if ploom_settings_obj else '',
+            collection_name=ploom_settings_obj.default_collection_name if ploom_settings_obj else '',
+            weight=ploom_settings_obj.default_weight if ploom_settings_obj else 0.95,
+            weight_unit=ploom_settings_obj.default_weight_unit if ploom_settings_obj else 'kg',
+            # 'creative_design' — Magvis-Topf ist NICHT personalisierbar
+            # (hat bereits fixe Gravur), daher KEIN designer-mit-assistent.
+            template_suffix=ploom_settings_obj.default_template_suffix or 'creative_design',
             inventory_quantity=100,
             shopify_store=ploom_settings_obj.default_store if ploom_settings_obj else None,
-            status='active',  # active = direkt veröffentlicht in Shopify (nicht 'draft')
+            status='active',
             product_metafields={
                 'custom.herstellerinformationen_': HERSTELLER_INFO_HTML,
                 'custom._warn_hinweise': WARN_HINWEISE,
                 'custom.kurzbeschreibung_eigene': kurzbeschreibung,
             },
         )
+
+        # Varianten erstellen — wie OpenClaw 'Nur Topf' + 'Komplettset'
+        from ploom.models import PLoomProductVariant
+        uid_hex = str(product.id).replace('-', '')[:8].upper()
+        price_topf = float(ploom_settings_obj.default_price_topf) if (
+            ploom_settings_obj and ploom_settings_obj.default_price_topf) else 24.99
+        price_komplett = float(ploom_settings_obj.default_price_komplett) if (
+            ploom_settings_obj and ploom_settings_obj.default_price_komplett) else 34.99
+        variant_specs = [
+            {'title': 'Nur Topf', 'price': price_topf, 'image_ref': 'ki:lifestyle'},
+            {'title': 'Komplettset', 'price': price_komplett, 'image_ref': 'cdn:0'},
+        ]
+        variant_uuid_by_idx = []
+        for v_idx, v_spec in enumerate(variant_specs):
+            sku_suffix = chr(ord('A') + v_idx)
+            v_obj = PLoomProductVariant.objects.create(
+                product=product,
+                title=v_spec['title'],
+                price=v_spec['price'],
+                sku=f'NM{uid_hex}{sku_suffix}',
+                option1_name='Ausführung',
+                option1_value=v_spec['title'],
+                position=v_idx + 1,
+            )
+            variant_uuid_by_idx.append(str(v_obj.id))
+        # Bild→Variant-Mapping
+        self._ki_to_variant = {}
+        self._cdn_to_variant = {}
+        for v_idx, v_spec in enumerate(variant_specs):
+            ref = v_spec.get('image_ref', '')
+            if not ref:
+                continue
+            if ref.startswith('ki:'):
+                self._ki_to_variant[ref[3:]] = variant_uuid_by_idx[v_idx]
+            elif ref.startswith('cdn:'):
+                try:
+                    self._cdn_to_variant[int(ref[4:])] = variant_uuid_by_idx[v_idx]
+                except ValueError:
+                    pass
 
         # Phase 1: 3 KI-Bilder
         position = 1
@@ -279,8 +362,8 @@ class MagvisProductPipeline:
 
         # Phase 2: 3 CDN-Bilder
         self.project.log_stage('products', f'🪧 Produkt {index}: 3 fixe CDN-Bilder anhaengen')
-        for url in (self.magvis_settings.fixed_cdn_image_urls or [])[:3]:
-            self._add_cdn_image(product, url, position)
+        for cdn_idx, url in enumerate((self.magvis_settings.fixed_cdn_image_urls or [])[:3]):
+            self._add_cdn_image(product, url, position, cdn_idx=cdn_idx)
             position += 1
 
         # Phase 3: 1 KI-Bild (nahaufnahme)
@@ -315,6 +398,16 @@ class MagvisProductPipeline:
                             shopify.publish_to_channels(shopify_id, publication_ids)
                         except Exception as exc:
                             logger.warning('publish_to_channels: %s', exc)
+                    # Variant-Bilder explizit setzen (image.variant_ids reicht in Shopify nicht)
+                    try:
+                        self._set_variant_images_on_shopify(product, shopify_id)
+                    except Exception as exc:
+                        logger.warning('Variant-Image-Setzung: %s', exc)
+                    # Video als letztes Media-Item anhängen
+                    try:
+                        self._attach_video_to_shopify_product(product, shopify_id)
+                    except Exception as exc:
+                        logger.warning('Video-Anhang: %s', exc)
                     shopify_url = (
                         f'https://{product.shopify_store.shop_domain}/products/{product.handle}'
                         if hasattr(product, 'handle') and product.handle
@@ -381,11 +474,15 @@ class MagvisProductPipeline:
         with open(abs_path, 'wb') as fh:
             fh.write(base64.b64decode(result['image_data']))
 
+        # Variant-Mapping: KI-Bild dieses Typs → variant_id
+        variant_id = (self._ki_to_variant.get(variant, '')
+                      if hasattr(self, '_ki_to_variant') else '')
         ploom_img = PLoomProductImage.objects.create(
             product=product,
             source='gemini_workflow',
             position=position,
             alt_text=f'{product.title} — {variant}',
+            variant_id=variant_id,
         )
         with open(abs_path, 'rb') as fh:
             ploom_img.image.save(filename, ContentFile(fh.read()), save=True)
@@ -398,14 +495,17 @@ class MagvisProductPipeline:
             title_de=f'{product.title} — {variant}',
         )
 
-    def _add_cdn_image(self, product, url: str, position: int) -> None:
+    def _add_cdn_image(self, product, url: str, position: int, cdn_idx: int = 0) -> None:
         from ploom.models import PLoomProductImage
+        variant_id = (self._cdn_to_variant.get(cdn_idx, '')
+                      if hasattr(self, '_cdn_to_variant') else '')
         ploom_img = PLoomProductImage.objects.create(
             product=product,
             source='external_url',
             external_url=url,
             position=position,
             alt_text=f'{product.title} — CDN-Bild',
+            variant_id=variant_id,
         )
         MagvisImageAsset.objects.create(
             project=self.project,
@@ -415,3 +515,125 @@ class MagvisProductPipeline:
             src_url=url,
             title_de=f'{product.title} — CDN',
         )
+
+    # ---- Shopify-Post-Process: Variant-Bilder + Video --------------------
+
+    NATURMACHER_VIDEO_URL = (
+        'https://cdn.shopify.com/videos/c/o/v/4255d323970f47b9924c98fb0829768e.mp4'
+    )
+
+    def _set_variant_images_on_shopify(self, product, shopify_id: str) -> None:
+        """Setzt variant.image_id direkt auf Shopify, da der image.variant_ids-Pfad
+        in der ploom-Pipeline nicht zuverlässig ankommt.
+
+        Map: 'Nur Topf' -> erstes KI-Lifestyle-Bild, 'Komplettset' -> erstes CDN-Bild.
+        """
+        import requests as _rq
+        store = product.shopify_store
+        if not store:
+            return
+        base = f'https://{store.shop_domain}/admin/api/2023-10'
+        h = {'X-Shopify-Access-Token': store.access_token,
+             'Content-Type': 'application/json'}
+        r = _rq.get(f'{base}/products/{shopify_id}.json', headers=h, timeout=20)
+        sp = r.json().get('product', {})
+        sp_imgs = sorted(sp.get('images', []), key=lambda x: x.get('position', 99))
+        sp_variants = sp.get('variants', [])
+        local_imgs = list(product.images.all().order_by('position'))
+        if not sp_imgs or not local_imgs or len(sp_imgs) != len(local_imgs):
+            return
+        pos_to_shopify = {i + 1: sp['id'] for i, sp in enumerate(sp_imgs)}
+        topf_img = komplett_img = None
+        for li in local_imgs:
+            name = (li.image.name if li.image else '') + (li.external_url or '')
+            if 'lifestyle' in name and not topf_img:
+                topf_img = pos_to_shopify.get(li.position)
+            elif li.source == 'external_url' and not komplett_img:
+                komplett_img = pos_to_shopify.get(li.position)
+        if not topf_img and local_imgs:
+            for li in local_imgs:
+                if li.source == 'gemini_workflow':
+                    topf_img = pos_to_shopify.get(li.position)
+                    break
+        for sv in sp_variants:
+            target = topf_img if sv['title'] == 'Nur Topf' else (
+                komplett_img if sv['title'] == 'Komplettset' else None)
+            if not target:
+                continue
+            _rq.put(
+                f'{base}/variants/{sv["id"]}.json',
+                headers=h,
+                json={'variant': {'id': sv['id'], 'image_id': target}},
+                timeout=20,
+            )
+
+    def _attach_video_to_shopify_product(self, product, shopify_id: str) -> None:
+        """Hängt das Naturmacher-Video als letztes Media-Item ans Produkt.
+
+        Nutzt stagedUploadsCreate (Shopify lehnt direkte cdn.shopify.com-URLs
+        bei productCreateMedia ab) + productCreateMedia mit resourceUrl.
+        Video wird nur einmal pro Pipeline-Run heruntergeladen (Klassen-Cache).
+        """
+        import requests as _rq
+        store = product.shopify_store
+        if not store:
+            return
+        # Video lokal cachen (Klassen-Attribut, einmal pro Run)
+        cache_path = getattr(self, '_video_cache_path', None)
+        if not cache_path or not os.path.exists(cache_path):
+            cache_path = '/tmp/naturmacher_product_video.mp4'
+            if not os.path.exists(cache_path):
+                vr = _rq.get(self.NATURMACHER_VIDEO_URL, timeout=180, stream=True)
+                with open(cache_path, 'wb') as fh:
+                    for chunk in vr.iter_content(8192):
+                        fh.write(chunk)
+            self._video_cache_path = cache_path
+        video_size = os.path.getsize(cache_path)
+        with open(cache_path, 'rb') as fh:
+            video_bytes = fh.read()
+
+        graphql_url = f'https://{store.shop_domain}/admin/api/2023-10/graphql.json'
+        h = {'X-Shopify-Access-Token': store.access_token,
+             'Content-Type': 'application/json'}
+
+        stage_q = (
+            'mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {'
+            ' stagedUploadsCreate(input: $input) {'
+            ' stagedTargets { url resourceUrl parameters { name value } }'
+            ' userErrors { field message } } }'
+        )
+        sp = _rq.post(graphql_url, headers=h, json={
+            'query': stage_q,
+            'variables': {'input': [{
+                'filename': 'naturmacher_video.mp4',
+                'mimeType': 'video/mp4',
+                'resource': 'VIDEO',
+                'fileSize': str(video_size),
+                'httpMethod': 'POST',
+            }]},
+        }, timeout=30).json()
+        targets = (sp.get('data') or {}).get('stagedUploadsCreate', {}).get('stagedTargets') or []
+        if not targets:
+            return
+        t = targets[0]
+        files_data = {p['name']: (None, p['value']) for p in t.get('parameters') or []}
+        files_data['file'] = ('naturmacher_video.mp4', video_bytes, 'video/mp4')
+        up = _rq.post(t['url'], files=files_data, timeout=180)
+        if up.status_code not in (200, 201, 204):
+            return
+        create_q = (
+            'mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {'
+            ' productCreateMedia(productId: $productId, media: $media) {'
+            ' media { ... on Video { id status } } mediaUserErrors { field message } } }'
+        )
+        _rq.post(graphql_url, headers=h, json={
+            'query': create_q,
+            'variables': {
+                'productId': f'gid://shopify/Product/{shopify_id}',
+                'media': [{
+                    'originalSource': t['resourceUrl'],
+                    'mediaContentType': 'VIDEO',
+                    'alt': 'Naturmacher-Produktvideo',
+                }],
+            },
+        }, timeout=30)

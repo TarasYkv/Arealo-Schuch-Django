@@ -58,6 +58,19 @@ class MagvisSettings(models.Model):
     default_image_platforms = models.JSONField(default=list)
     upload_post_user = models.CharField(max_length=64, blank=True)
 
+    # Defaults Kollektion (Stage zwischen Produkt und Blog)
+    default_collection_template = models.CharField(
+        max_length=64, default='blumentopf_unterkategorie',
+        help_text='Shopify-Template-Suffix für neue Magvis-Kollektionen',
+    )
+    default_collection_extra_product_handles = models.JSONField(
+        default=list, blank=True,
+        help_text=(
+            'Liste von Shopify-Produkt-Handles, die zusätzlich zu den 2 Magvis-Produkten '
+            'in jede neu erstellte Kollektion eingefügt werden (Stamm-Sortiment).'
+        ),
+    )
+
     # Auto-Run aus Themen-Queue
     auto_run_enabled = models.BooleanField(default=False)
     auto_run_schedule = models.CharField(
@@ -195,16 +208,22 @@ class MagvisTopicQueue(models.Model):
 class MagvisProject(models.Model):
     STAGE_CREATED = 'created'
     STAGE_SCHEDULED = 'scheduled'
+    STAGE_PREFLIGHT_RUNNING = 'preflight_running'
+    STAGE_PREFLIGHT_DONE = 'preflight_done'
     STAGE_VIDEO_RUNNING = 'video_running'
     STAGE_VIDEO_DONE = 'video_done'
     STAGE_POST_VIDEO_RUNNING = 'post_video_running'
     STAGE_POST_VIDEO_DONE = 'post_video_done'
     STAGE_PRODUCTS_RUNNING = 'products_running'
     STAGE_PRODUCTS_DONE = 'products_done'
+    STAGE_COLLECTION_RUNNING = 'collection_running'
+    STAGE_COLLECTION_DONE = 'collection_done'
     STAGE_BLOG_RUNNING = 'blog_running'
     STAGE_BLOG_DONE = 'blog_done'
     STAGE_IMAGE_POSTS_RUNNING = 'image_posts_running'
     STAGE_IMAGE_POSTS_DONE = 'image_posts_done'
+    STAGE_SYNC_RUNNING = 'sync_running'
+    STAGE_SYNC_DONE = 'sync_done'
     STAGE_REPORT_SENT = 'report_sent'
     STAGE_COMPLETED = 'completed'
     STAGE_FAILED = 'failed'
@@ -212,16 +231,22 @@ class MagvisProject(models.Model):
     STAGE_CHOICES = [
         (STAGE_CREATED, 'Erstellt'),
         (STAGE_SCHEDULED, 'Geplant'),
+        (STAGE_PREFLIGHT_RUNNING, 'Preflight-Checks laufen'),
+        (STAGE_PREFLIGHT_DONE, 'Preflight OK'),
         (STAGE_VIDEO_RUNNING, 'Video läuft'),
         (STAGE_VIDEO_DONE, 'Video fertig'),
         (STAGE_POST_VIDEO_RUNNING, 'Posten läuft'),
         (STAGE_POST_VIDEO_DONE, 'Gepostet'),
         (STAGE_PRODUCTS_RUNNING, 'Produkte werden erstellt'),
         (STAGE_PRODUCTS_DONE, 'Produkte veröffentlicht'),
+        (STAGE_COLLECTION_RUNNING, 'Kollektion läuft'),
+        (STAGE_COLLECTION_DONE, 'Kollektion fertig'),
         (STAGE_BLOG_RUNNING, 'Blog wird erstellt'),
         (STAGE_BLOG_DONE, 'Blog fertig'),
         (STAGE_IMAGE_POSTS_RUNNING, 'Bilder werden gepostet'),
         (STAGE_IMAGE_POSTS_DONE, 'Bilder gepostet'),
+        (STAGE_SYNC_RUNNING, 'Workloom-Sync läuft'),
+        (STAGE_SYNC_DONE, 'Workloom-Sync fertig'),
         (STAGE_REPORT_SENT, 'Report verschickt'),
         (STAGE_COMPLETED, 'Abgeschlossen'),
         (STAGE_FAILED, 'Fehler'),
@@ -230,11 +255,14 @@ class MagvisProject(models.Model):
     # Logische Stage-Reihenfolge für advance()
     STAGE_ORDER = [
         STAGE_CREATED,
+        STAGE_PREFLIGHT_RUNNING, STAGE_PREFLIGHT_DONE,
         STAGE_VIDEO_RUNNING, STAGE_VIDEO_DONE,
         STAGE_POST_VIDEO_RUNNING, STAGE_POST_VIDEO_DONE,
         STAGE_PRODUCTS_RUNNING, STAGE_PRODUCTS_DONE,
+        STAGE_COLLECTION_RUNNING, STAGE_COLLECTION_DONE,
         STAGE_BLOG_RUNNING, STAGE_BLOG_DONE,
         STAGE_IMAGE_POSTS_RUNNING, STAGE_IMAGE_POSTS_DONE,
+        STAGE_SYNC_RUNNING, STAGE_SYNC_DONE,
         STAGE_REPORT_SENT, STAGE_COMPLETED,
     ]
 
@@ -331,12 +359,15 @@ class MagvisProject(models.Model):
     def next_stage_slug(self):
         """Liefert den nächsten Stage-Slug für advance()."""
         mapping = {
-            self.STAGE_CREATED: 'video',
+            self.STAGE_CREATED: 'preflight',
+            self.STAGE_PREFLIGHT_DONE: 'video',
             self.STAGE_VIDEO_DONE: 'post_video',
             self.STAGE_POST_VIDEO_DONE: 'products',
-            self.STAGE_PRODUCTS_DONE: 'blog',
+            self.STAGE_PRODUCTS_DONE: 'collection',
+            self.STAGE_COLLECTION_DONE: 'blog',
             self.STAGE_BLOG_DONE: 'image_posts',
-            self.STAGE_IMAGE_POSTS_DONE: 'report',
+            self.STAGE_IMAGE_POSTS_DONE: 'sync',
+            self.STAGE_SYNC_DONE: 'report',
         }
         return mapping.get(self.stage)
 
@@ -436,3 +467,61 @@ class MagvisImageAsset(models.Model):
     def effective_path(self):
         """Liefert Pfad zum aktuell relevanten Bild (Overlay-Version falls vorhanden)."""
         return self.processed_path or self.src_path
+
+
+class MagvisCollection(models.Model):
+    """Eine Shopify-Kollektion, die zu einem Magvis-Projekt gehört.
+
+    Kann entweder eine NEU erstellte Custom-Collection sein oder ein Match
+    auf eine bestehende Kollektion (was_existing=True) — in beiden Fällen
+    werden mindestens product_1 + product_2 zugewiesen.
+    """
+    project = models.OneToOneField(
+        MagvisProject, on_delete=models.CASCADE, related_name='collection',
+    )
+    shopify_collection_id = models.CharField(max_length=64, blank=True)
+    shopify_handle = models.CharField(max_length=255, blank=True)
+    shopify_url = models.URLField(blank=True)
+    was_existing = models.BooleanField(
+        default=False,
+        help_text='True = bestehende Kollektion erweitert, False = neu erstellt',
+    )
+    template_suffix = models.CharField(
+        max_length=64, default='blumentopf_unterkategorie',
+    )
+
+    # GLM-generierte Inhalte (nur wenn was_existing=False)
+    title = models.CharField(max_length=255, blank=True)
+    handle = models.SlugField(max_length=255, blank=True)
+    body_html = models.TextField(blank=True)
+    short_description = models.TextField(
+        blank=True, help_text='Inhalt für Metafeld custom.kurze_kategoriebeschreibung',
+    )
+    seo_title = models.CharField(max_length=255, blank=True)
+    seo_description = models.CharField(max_length=320, blank=True)
+
+    # Cross-Links: Liste von Shopify-Collection-Handles, die in body_html verlinkt sind
+    cross_link_handles = models.JSONField(default=list, blank=True)
+
+    # Bild
+    image_path = models.CharField(max_length=500, blank=True)
+    image_alt = models.CharField(max_length=255, blank=True)
+
+    # Produkt-Zuweisung & Sales-Channels
+    assigned_product_ids = models.JSONField(
+        default=list, blank=True,
+        help_text='Liste der Shopify-Produkt-IDs in der Kollektion',
+    )
+    sales_channels_published = models.JSONField(default=list, blank=True)
+
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Magvis-Kollektion'
+        verbose_name_plural = 'Magvis-Kollektionen'
+
+    def __str__(self):
+        prefix = '🔗 ' if self.was_existing else '🆕 '
+        return f'{prefix}{self.title or self.shopify_handle or "?"}'

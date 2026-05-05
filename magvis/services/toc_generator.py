@@ -1,7 +1,8 @@
 """Inhaltsverzeichnis-Generator (portiert aus blog-product-autopilot/steps/s12_toc.py).
 
-Liefert TOC-HTML mit Lesezeit-Schätzung im Naturmacher-Stil.
+Liefert TOC-HTML mit Lesezeit-Schätzung im Naturmacher-Stil + ItemList JSON-LD.
 """
+import json
 import re
 from typing import List, Tuple
 
@@ -37,7 +38,27 @@ def estimate_minutes(text: str, wpm: int = 220) -> int:
 
 
 def render_toc(headings: List[Tuple[int, str, str]], minutes: int,
-               color: str = "#F3ECDE", accent: str = "#D4AB32") -> str:
-    """headings = [(level, title, slug), ...]"""
+               color: str = "#F3ECDE", accent: str = "#D4AB32",
+               page_url: str = "") -> str:
+    """headings = [(level, title, slug), ...]
+
+    Liefert TOC-HTML + ItemList JSON-LD-Schema (vorne).
+    """
     items = "\n".join(ITEM_TEMPLATE.format(slug=slug, title=title) for _, title, slug in headings)
-    return TOC_TEMPLATE.format(color=color, accent=accent, minutes=minutes, items=items)
+    toc_html = TOC_TEMPLATE.format(color=color, accent=accent, minutes=minutes, items=items)
+    # ItemList JSON-LD (Bonus-Schema fuer SERP)
+    item_list = {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        'itemListElement': [
+            {
+                '@type': 'ListItem',
+                'position': i + 1,
+                'name': title,
+                'url': f'{page_url}#{slug}' if page_url else f'#{slug}',
+            }
+            for i, (_, title, slug) in enumerate(headings)
+        ],
+    }
+    schema = f'<script type="application/ld+json">{json.dumps(item_list, ensure_ascii=False)}</script>'
+    return schema + '\n' + toc_html

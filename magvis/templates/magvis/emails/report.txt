@@ -5,12 +5,19 @@ Topic: {{ project.topic }}
 {% if failed %}!! WORKFLOW-FEHLER: {{ error_message }}{% endif %}
 
 {% if show_video_link %}Video: {{ video_link }}{% endif %}
-{% if show_youtube_link %}YouTube: {{ youtube_url }}{% endif %}
+{% if video_socials %}--- VIDEO-POSTING ---
+{% for s in video_socials %}{% if s.success %}[OK]   {{ s.platform }}: {{ s.url }}{% else %}[FAIL] {{ s.platform }}: nicht gepostet{% if s.error %} — {{ s.error|truncatechars:200 }}{% endif %}{% endif %}
+{% endfor %}{% endif %}
 
 {% if products %}--- PRODUKTE ---
 {% for p in products %}{{ p.title }}{% if p.shopify_url %} → {{ p.shopify_url }}{% endif %}
 {% endfor %}{% endif %}
 
+{% if show_collection %}--- KOLLEKTION {% if collection_was_existing %}(bestehend erweitert){% else %}(neu erstellt){% endif %} ---
+{{ collection_title }}{% if collection_product_count %} · {{ collection_product_count }} Produkte{% endif %}
+{{ collection_url }}
+{% if collection_short_desc %}{{ collection_short_desc }}{% endif %}
+{% endif %}
 {% if show_blog_link %}Blog: {{ blog_url }}{% endif %}
 {% if show_blog_excerpt %}Auszug: {{ blog_excerpt }}{% endif %}
 
@@ -18,7 +25,12 @@ Topic: {{ project.topic }}
 {% for ip in image_post_summary %}{{ ip.image_title }} → {{ ip.platform }}: {{ ip.url }}
 {% endfor %}{% endif %}
 
-{% if show_costs %}Kosten gesamt: {{ cost_total }} €{% endif %}
+--- VERWENDETE KI-MODELLE ---
+{% for m in models_used %}- {{ m.role }}: {{ m.model }} ({{ m.provider }})
+{% endfor %}
+--- KOSTENSCHÄTZUNG ---
+{% for c in cost_breakdown %}- {{ c.item }} [{{ c.model }}]: {{ c.cost_str }}
+{% endfor %}Gesamt: ${{ cost_total_usd }}
 
 —
 Magvis (Workloom)
