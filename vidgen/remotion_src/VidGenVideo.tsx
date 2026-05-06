@@ -613,6 +613,8 @@ const Title: React.FC<{ title: string; position: string }> = ({ title, position 
             fontWeight: "bold",
             fontFamily: "Arial, sans-serif",
             textTransform: "uppercase",
+            textAlign: "center",
+            display: "block",
           }}
         >
           {title}
