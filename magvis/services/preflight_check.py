@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import time
 
 import requests
 
@@ -33,11 +34,36 @@ class MagvisPreflightCheck:
 
     MIN_DISK_FREE_GB = 5
     MIN_RAM_FREE_MB = 1024
+    HTTP_RETRIES = 3
+    HTTP_BACKOFF_BASE_S = 1.0  # 1s, 2s, 4s zwischen Versuchen
 
     def __init__(self, project: MagvisProject):
         self.project = project
         self.user = project.user
         self.results = []  # Liste von (name, ok, message) Tupeln
+
+    def _http_with_retry(self, request_fn) -> tuple[bool, str]:
+        """Fuehrt HTTP-Call mit Retry + exponential backoff aus.
+
+        Verhindert transient outages (z.B. Z.AI 13s+ Latenz, OpenAI 5xx)
+        eine ganze Pipeline zu stoppen.
+
+        request_fn: callable -> requests.Response (oder raise).
+        Liefert (ok, msg). ok=True nur bei status 200.
+        """
+        last_err = ''
+        for attempt in range(1, self.HTTP_RETRIES + 1):
+            try:
+                r = request_fn()
+                if r.status_code == 200:
+                    suffix = f' (Versuch {attempt})' if attempt > 1 else ''
+                    return True, f'erreichbar (200){suffix}'
+                last_err = f'HTTP {r.status_code}'
+            except Exception as exc:
+                last_err = f'{type(exc).__name__}: {str(exc)[:80]}'
+            if attempt < self.HTTP_RETRIES:
+                time.sleep(self.HTTP_BACKOFF_BASE_S * (2 ** (attempt - 1)))
+        return False, f'{last_err} (nach {self.HTTP_RETRIES} Versuchen)'
 
     def run(self) -> dict:
         checks = [
@@ -96,115 +122,84 @@ class MagvisPreflightCheck:
                    or getattr(self.user, 'uploadpost_api_key', None))
         if not api_key:
             return False, 'API-Key fehlt'
-        try:
-            r = requests.get(
-                'https://api.upload-post.com/api/uploadposts/users',
-                headers={'Authorization': f'Apikey {api_key.strip()}'},
-                timeout=15,
-            )
-            if r.status_code == 200:
-                return True, 'erreichbar (200)'
-            return False, f'HTTP {r.status_code}'
-        except requests.exceptions.SSLError as exc:
-            return False, f'SSL-Error: {str(exc)[:80]}'
-        except Exception as exc:
-            return False, f'{type(exc).__name__}: {str(exc)[:80]}'
+        return self._http_with_retry(lambda: requests.get(
+            'https://api.upload-post.com/api/uploadposts/users',
+            headers={'Authorization': f'Apikey {api_key.strip()}'},
+            timeout=20,
+        ))
 
     def _check_gemini(self) -> tuple[bool, str]:
         api_key = (getattr(self.user, 'gemini_api_key', None)
                    or getattr(self.user, 'google_api_key', None))
         if not api_key:
             return False, 'API-Key fehlt'
-        try:
-            r = requests.get(
-                'https://generativelanguage.googleapis.com/v1beta/models',
-                params={'key': api_key},
-                timeout=15,
-            )
-            if r.status_code == 200:
-                return True, 'erreichbar (200)'
-            return False, f'HTTP {r.status_code}'
-        except Exception as exc:
-            return False, f'{type(exc).__name__}: {str(exc)[:80]}'
+        return self._http_with_retry(lambda: requests.get(
+            'https://generativelanguage.googleapis.com/v1beta/models',
+            params={'key': api_key},
+            timeout=20,
+        ))
 
     def _check_openai(self) -> tuple[bool, str]:
         api_key = getattr(self.user, 'openai_api_key', None)
         if not api_key:
             return False, 'API-Key fehlt'
-        try:
-            r = requests.get(
-                'https://api.openai.com/v1/models',
-                headers={'Authorization': f'Bearer {api_key.strip()}'},
-                timeout=15,
-            )
-            if r.status_code == 200:
-                return True, 'erreichbar (200)'
-            return False, f'HTTP {r.status_code}'
-        except Exception as exc:
-            return False, f'{type(exc).__name__}: {str(exc)[:80]}'
+        return self._http_with_retry(lambda: requests.get(
+            'https://api.openai.com/v1/models',
+            headers={'Authorization': f'Bearer {api_key.strip()}'},
+            timeout=20,
+        ))
 
     def _check_glm(self) -> tuple[bool, str]:
+        # GLM/Z.AI hat oft 10-30s Latenz auf chat-completions — Timeout 60s,
+        # plus 3 Retries mit Backoff — wenn der Service kurz hustet, machen
+        # wir die Pipeline nicht kaputt.
         from ..models import MagvisSettings
         ms = MagvisSettings.objects.filter(user=self.user).first()
         api_key = getattr(self.user, 'zhipu_api_key', None)
         if not api_key:
             return False, 'zhipu_api_key fehlt'
         base = (ms.glm_base_url if ms else '') or 'https://api.z.ai/api/coding/paas/v4'
-        try:
-            # Cheapest possible call: 1-token chat completion
-            r = requests.post(
-                f'{base}/chat/completions',
-                headers={'Authorization': f'Bearer {api_key.strip()}',
-                         'Content-Type': 'application/json'},
-                json={
-                    'model': (ms.glm_model if ms else 'glm-5.1'),
-                    'messages': [{'role': 'user', 'content': 'hi'}],
-                    'max_tokens': 1,
-                },
-                timeout=20,
-            )
-            if r.status_code == 200:
-                return True, 'erreichbar (200)'
-            return False, f'HTTP {r.status_code}'
-        except Exception as exc:
-            return False, f'{type(exc).__name__}: {str(exc)[:80]}'
+        model = (ms.glm_model if ms else 'glm-5.1')
+        return self._http_with_retry(lambda: requests.post(
+            f'{base}/chat/completions',
+            headers={'Authorization': f'Bearer {api_key.strip()}',
+                     'Content-Type': 'application/json'},
+            json={
+                'model': model,
+                'messages': [{'role': 'user', 'content': 'hi'}],
+                'max_tokens': 1,
+            },
+            timeout=60,
+        ))
 
     def _check_shopify(self) -> tuple[bool, str]:
-        try:
-            from ploom.models import PLoomSettings
-            ps = PLoomSettings.objects.filter(user=self.user).first()
-            if not ps or not ps.default_store:
-                return False, 'kein Shopify-Store konfiguriert'
-            store = ps.default_store
-            r = requests.get(
-                f'https://{store.shop_domain}/admin/api/2023-10/shop.json',
-                headers={'X-Shopify-Access-Token': store.access_token},
-                timeout=15,
-            )
-            if r.status_code == 200:
-                return True, f'{store.shop_domain} erreichbar (200)'
-            return False, f'HTTP {r.status_code}'
-        except Exception as exc:
-            return False, f'{type(exc).__name__}: {str(exc)[:80]}'
+        from ploom.models import PLoomSettings
+        ps = PLoomSettings.objects.filter(user=self.user).first()
+        if not ps or not ps.default_store:
+            return False, 'kein Shopify-Store konfiguriert'
+        store = ps.default_store
+        ok, msg = self._http_with_retry(lambda: requests.get(
+            f'https://{store.shop_domain}/admin/api/2023-10/shop.json',
+            headers={'X-Shopify-Access-Token': store.access_token},
+            timeout=20,
+        ))
+        if ok:
+            return True, f'{store.shop_domain} {msg}'
+        return ok, msg
 
     def _check_pexels(self) -> tuple[bool, str]:
-        # Pexels-Key über vidgen — schauen ob er gesetzt ist
+        from django.conf import settings as django_settings
+        api_key = getattr(django_settings, 'PEXELS_API_KEY', None) or ''
+        if not api_key:
+            api_key = getattr(self.user, 'pexels_api_key', '') or ''
+        if not api_key:
+            return False, 'API-Key fehlt (PEXELS_API_KEY in settings)'
         try:
-            from django.conf import settings as django_settings
-            api_key = getattr(django_settings, 'PEXELS_API_KEY', None) or ''
-            if not api_key:
-                # Aus User-Settings probieren
-                api_key = getattr(self.user, 'pexels_api_key', '') or ''
-            if not api_key:
-                return False, 'API-Key fehlt (PEXELS_API_KEY in settings)'
-            r = requests.get(
+            return self._http_with_retry(lambda: requests.get(
                 'https://api.pexels.com/videos/search',
                 params={'query': 'test', 'per_page': 1},
                 headers={'Authorization': api_key.strip()},
-                timeout=15,
-            )
-            if r.status_code == 200:
-                return True, 'erreichbar (200)'
-            return False, f'HTTP {r.status_code}'
+                timeout=20,
+            ))
         except Exception as exc:
             return False, f'{type(exc).__name__}: {str(exc)[:80]}'
