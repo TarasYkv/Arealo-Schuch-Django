@@ -109,13 +109,28 @@ class MagvisVideoPipeline:
             count = 0
         return VIDEO_TEMPLATES[count % len(VIDEO_TEMPLATES)]
 
+    @staticmethod
+    def _display_title(raw: str) -> str:
+        """Saeubert 'Geschenk X' -> 'X' fuer die sichtbare Video-Title-Box.
+        GLM-Promts (Skript, Quote, Fact) bekommen weiter den Original-Title
+        damit sie wissen dass es um "Geschenke fuer X" geht — nur die
+        Title-Overlay im Video soll den Beruf alleine zeigen.
+        """
+        import re
+        stripped = re.sub(
+            r'^(geschenk[\s\-:]+)', '', raw.strip(),
+            count=1, flags=re.IGNORECASE,
+        ).strip()
+        return stripped or raw
+
     def create_video_project(self) -> 'vidgen.models.VideoProject':
         """Erstellt das vidgen-VideoProject im OpenClaw-Stil."""
         from vidgen.models import VideoProject
 
-        title = (self.project.title or self.project.topic)[:200]
-        # Quote + Fact via GLM
-        quote_text, quote_author, fact_text = self._generate_quote_and_fact(title)
+        title_raw = (self.project.title or self.project.topic)[:200]
+        # Quote + Fact via GLM bekommen den vollen Topic-Kontext ("Geschenk X"),
+        # damit Fakten + Zitate thematisch passen.
+        quote_text, quote_author, fact_text = self._generate_quote_and_fact(title_raw)
         # Template-Rotation — IGNORIERE alte default_video_template-Settings
         # ('youtube_short' war Magvis-Default, OpenClaw rotiert über 5 Templates).
         template = self._next_template()
@@ -128,9 +143,12 @@ class MagvisVideoPipeline:
                 f'Keywords: {", ".join(self.project.keywords)}'
             )
 
+        # Sichtbarer Video-Title (rote Box) ohne 'Geschenk '-Prefix —
+        # 'GESCHENK AUSSENDIENST' -> 'AUSSENDIENST'.
+        display_title = self._display_title(title_raw)
         vidgen_project = VideoProject.objects.create(
             user=self.user,
-            title=title,
+            title=display_title,
             custom_script=custom_script,
             template=template,
             platform='tiktok',
