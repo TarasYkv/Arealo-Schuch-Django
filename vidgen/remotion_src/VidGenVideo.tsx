@@ -502,22 +502,47 @@ const EMOJI_MAP: Record<string, string> = {
 };
 
 // Subtitle Component
+// Phrasen-basiert statt Wort-basiert: gruppiert zu Chunks von max 5 Woertern
+// oder 2.5s Dauer und zeigt jeden Chunk STABIL fuer seine ganze Laufzeit.
+// Das aktuell gesprochene Wort wird hervorgehoben (Gold), aber der gesamte
+// Phrasen-Text bleibt stehen — kein Flickern bei jedem Wort.
 const Subtitle: React.FC<{ words: Word[] }> = ({ words }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const currentTime = frame / fps;
 
-  const currentWord = words.find(
+  // Phrasen-Chunks aus Word-Timestamps bauen (memoized, einmal pro Render)
+  const phrases = React.useMemo(() => {
+    const out: Word[][] = [];
+    let chunk: Word[] = [];
+    let chunkStart = 0;
+    const MAX_WORDS = 5;
+    const MAX_DURATION_S = 2.5;
+    for (const w of words) {
+      if (chunk.length === 0) chunkStart = w.start;
+      chunk.push(w);
+      const spanS = w.end - chunkStart;
+      if (chunk.length >= MAX_WORDS || spanS >= MAX_DURATION_S) {
+        out.push(chunk);
+        chunk = [];
+      }
+    }
+    if (chunk.length) out.push(chunk);
+    return out;
+  }, [words]);
+
+  // Aktuelle Phrase: erstes Wort-start <= currentTime <= letztes Wort-end + 0.3s Hold
+  const currentPhrase = phrases.find(
+    (p) =>
+      currentTime >= p[0].start &&
+      currentTime <= p[p.length - 1].end + 0.3
+  );
+  if (!currentPhrase) return null;
+
+  // Innerhalb der Phrase: welches Wort wird gerade gesprochen
+  const currentWord = currentPhrase.find(
     (w) => currentTime >= w.start && currentTime <= w.end
   );
-
-  if (!currentWord) return null;
-
-  // Find context (3 words before and after)
-  const currentIndex = words.indexOf(currentWord);
-  const contextStart = Math.max(0, currentIndex - 2);
-  const contextEnd = Math.min(words.length, currentIndex + 3);
-  const contextWords = words.slice(contextStart, contextEnd);
 
   return (
     <div
@@ -547,14 +572,14 @@ const Subtitle: React.FC<{ words: Word[] }> = ({ words }) => {
             fontFamily: "Arial, sans-serif",
             textAlign: "center",
             lineHeight: 1.3,
+            display: "block",
           }}
         >
-          {contextWords.map((w, i) => (
+          {currentPhrase.map((w, i) => (
             <span
               key={i}
               style={{
-                color:
-                  w.word === currentWord.word ? "#FFD700" : "white",
+                color: w === currentWord ? "#FFD700" : "white",
               }}
             >
               {w.word}{" "}
