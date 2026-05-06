@@ -56,6 +56,7 @@ class GeminiImageService:
     AVAILABLE_MODELS = {
         # Gemini Image Generation Modelle (Nano Banana)
         'gemini-3-pro-image-preview': 'Gemini 3 Pro Image (Nano Banana Pro - Beste Qualität)',
+        'gemini-3.1-flash-image-preview': 'Gemini 3.1 Flash Image (Nano Banana 2 - Robust)',
         'gemini-2.5-flash-image': 'Gemini 2.5 Flash Image (Nano Banana - Schnell)',
         # Imagen 4 Familie (spezialisierte Bildgenerierung)
         'imagen-4.0-ultra-generate-001': 'Imagen 4 Ultra',
