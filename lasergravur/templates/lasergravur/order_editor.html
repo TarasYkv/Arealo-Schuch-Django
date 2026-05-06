@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Auftrag #{{ order.shopify_order_number }} — Lasergravur{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --laser-cream: #FAF6EC;
+    --laser-sage: #5C8A6B;
+    --laser-sage-dark: #3D5A40;
+    --laser-text: #2A2A2A;
+    --laser-text-soft: #5C5651;
+    --laser-border: #E8DFC9;
+    --laser-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  body { background: #F4F1E8; }
+
+  .laser-shell { max-width: 1280px; margin: 0 auto; padding: 32px 24px; }
+
+  .laser-back-link {
+    color: var(--laser-text-soft); text-decoration: none; font-size: 0.9rem;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: color 0.15s;
+  }
+  .laser-back-link:hover { color: var(--laser-sage-dark); }
+
+  .laser-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; margin: 12px 0 32px;
+  }
+  .laser-header h1 {
+    font-size: 1.6rem; margin: 4px 0 6px; color: var(--laser-text);
+    font-weight: 600; letter-spacing: -0.01em;
+  }
+  .laser-header h1 small {
+    color: var(--laser-text-soft); font-weight: 400; font-size: 1rem;
+  }
+  .laser-meta {
+    color: var(--laser-text-soft); font-size: 0.85rem; margin: 0 0 12px;
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .laser-meta-pill {
+    background: white; padding: 4px 12px; border-radius: 999px;
+    border: 1px solid var(--laser-border);
+  }
+
+  .laser-status-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .laser-status-bar label { font-size: 0.85rem; color: var(--laser-text-soft); margin: 0; }
+  .laser-status-bar select {
+    background: white; border: 1px solid var(--laser-border);
+    border-radius: 8px; padding: 6px 12px; font-size: 0.9rem;
+    transition: border-color 0.15s;
+  }
+  .laser-status-bar select:hover { border-color: var(--laser-sage); }
+
+  .laser-grid {
+    display: grid; gap: 24px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 992px) {
+    .laser-grid { grid-template-columns: 1.1fr 1fr; }
+  }
+
+  .laser-card {
+    background: white; border-radius: 14px; box-shadow: var(--laser-shadow);
+    overflow: hidden; border: 1px solid var(--laser-border);
+  }
+  .laser-card-header {
+    padding: 14px 20px; border-bottom: 1px solid var(--laser-border);
+    background: var(--laser-cream); font-weight: 600; font-size: 0.95rem;
+    color: var(--laser-sage-dark); letter-spacing: 0.01em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .laser-card-body { padding: 20px; }
+
+  .laser-preview-wrap {
+    background: linear-gradient(135deg, #F8F5EC 0%, #EDE8DA 100%);
+    padding: 16px; min-height: 360px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .laser-preview-wrap img {
+    max-width: 100%; height: auto; border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+  .laser-preview-hint {
+    font-size: 0.8rem; color: var(--laser-text-soft); margin: 8px 4px 0;
+    text-align: center;
+  }
+
+  .laser-field { margin-bottom: 14px; }
+  .laser-field:last-child { margin-bottom: 0; }
+  .laser-field label {
+    display: block; font-size: 0.78rem; color: var(--laser-text-soft);
+    margin-bottom: 4px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .laser-field input, .laser-field select {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--laser-border);
+    border-radius: 8px; font-size: 0.95rem; background: white;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .laser-field input:focus, .laser-field select:focus {
+    outline: none; border-color: var(--laser-sage);
+    box-shadow: 0 0 0 3px rgba(92,138,107,0.12);
+  }
+
+  .laser-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .laser-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+
+  .laser-btn {
+    padding: 12px 20px; border-radius: 10px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer;
+    font-size: 0.95rem; display: flex; align-items: center; justify-content: center;
+    gap: 8px; transition: all 0.15s;
+  }
+  .laser-btn-primary {
+    background: var(--laser-sage); color: white;
+  }
+  .laser-btn-primary:hover {
+    background: var(--laser-sage-dark); transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(61,90,64,0.25);
+    color: white;
+  }
+  .laser-btn-secondary {
+    background: white; color: var(--laser-text);
+    border: 1px solid var(--laser-border);
+  }
+  .laser-btn-secondary:hover {
+    background: var(--laser-cream); border-color: var(--laser-sage);
+    color: var(--laser-text);
+  }
+  .laser-btn-engrave {
+    background: white; color: #B85C00;
+    border: 1px solid #E8C6A0;
+  }
+  .laser-btn-engrave:hover {
+    background: #FFF4E5; border-color: #B85C00;
+    color: #B85C00;
+  }
+
+  .laser-properties {
+    margin-top: 18px; background: var(--laser-cream); border-radius: 10px;
+    padding: 14px 18px; font-size: 0.82rem; border: 1px solid var(--laser-border);
+  }
+  .laser-properties strong { color: var(--laser-sage-dark); display: block; margin-bottom: 8px; }
+  .laser-properties .prop-row {
+    padding: 4px 0; border-top: 1px dashed rgba(0,0,0,0.06);
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .laser-properties .prop-row:first-of-type { border-top: none; }
+  .laser-properties code {
+    background: white; padding: 1px 8px; border-radius: 4px;
+    color: var(--laser-sage-dark); font-size: 0.78rem;
+    border: 1px solid var(--laser-border);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+{% endblock %}
+
+{% block content %}
+<div class="laser-shell">
+
+  <a href="{% url 'lasergravur:order_list' %}" class="laser-back-link">
+    ← Zur Auftragsliste
+  </a>
+
+  {% if order.topf_model == 'unknown' %}
+  <div style="background:#FFF4E5; border:1px solid #E8C6A0; color:#8C5A1A;
+              padding:14px 18px; border-radius:10px; margin:14px 0; font-size:0.92rem;">
+    ⚠️ <strong>Unbekanntes Topf-Modell.</strong> Dieses Produkt ist nicht
+    in der Lasergravur-App konfiguriert — bitte das Design <strong>manuell</strong>
+    erstellen. Live-Vorschau zeigt nur Text/Icon ohne Topf-Hintergrund.
+  </div>
+  {% endif %}
+
+  <div class="laser-header">
+    <div style="flex:1;">
+      <h1>Auftrag #{{ order.shopify_order_number }} <small>— {{ order.shopify_customer_name }}</small></h1>
+      <div class="laser-meta">
+        <span class="laser-meta-pill">📦 {{ order.get_topf_model_display }}</span>
+        <span class="laser-meta-pill">📐 {{ order.gravur_size_cm.0 }}×{{ order.gravur_size_cm.1 }} cm</span>
+        {% if order.shopify_order_created_at %}
+        <span class="laser-meta-pill">🕒 {{ order.shopify_order_created_at|date:"d.m.Y" }}</span>
+        {% endif %}
+      </div>
+
+      <form method="post" action="{% url 'lasergravur:order_change_status' order.pk %}" class="laser-status-bar">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'lasergravur:order_editor' order.pk %}">
+        <label>Status:</label>
+        <select name="status" onchange="this.form.submit()">
+          {% for slug, label in order.STATUS_CHOICES %}
+          <option value="{{ slug }}" {% if order.status == slug %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  </div>
+
+  <div class="laser-grid">
+
+    {# ===== LIVE-PREVIEW ===== #}
+    <div>
+      <div class="laser-card">
+        <div class="laser-card-header">📸 Live-Vorschau (wie im Shop)</div>
+        <div class="laser-preview-wrap" id="preview-container">
+          <img id="preview-img"
+               src="{% url 'lasergravur:order_preview_png' order.pk %}"
+               alt="Live-Preview">
+        </div>
+      </div>
+      <p class="laser-preview-hint">
+        Aktualisiert sich automatisch beim Ändern der Felder rechts.
+      </p>
+    </div>
+
+    {# ===== EDITOR ===== #}
+    <div>
+      <form id="design-form"
+            method="post"
+            action="{% url 'lasergravur:order_save' order.pk %}"
+            hx-post="{% url 'lasergravur:order_save' order.pk %}"
+            hx-target="#preview-container"
+            hx-trigger="change delay:500ms from:input, change delay:500ms from:select, keyup delay:800ms from:input">
+        {% csrf_token %}
+
+        <div class="laser-card" style="margin-bottom:16px;">
+          <div class="laser-card-header">📝 Texte</div>
+          <div class="laser-card-body">
+            <div class="laser-field">
+              <label>Zeile 1 (größte)</label>
+              <input type="text" name="text_1" maxlength="200" value="{{ design.text_1 }}">
+            </div>
+            <div class="laser-field">
+              <label>Zeile 2</label>
+              <input type="text" name="text_2" maxlength="200" value="{{ design.text_2 }}">
+            </div>
+            <div class="laser-field">
+              <label>Zeile 3</label>
+              <input type="text" name="text_3" maxlength="200" value="{{ design.text_3 }}">
+            </div>
+            <div class="laser-field">
+              <label>Zeile 4 (kleinste)</label>
+              <input type="text" name="text_4" maxlength="200" value="{{ design.text_4 }}">
+            </div>
+          </div>
+        </div>
+
+        <div class="laser-card" style="margin-bottom:16px;">
+          <div class="laser-card-header">🔤 Schrift &amp; Icon</div>
+          <div class="laser-card-body">
+            <div class="laser-field">
+              <label>Schriftart</label>
+              <select name="font">
+                {% for slug, label in font_choices %}
+                <option value="{{ slug }}" {% if design.font == slug %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% if icon_choices %}
+            <div class="laser-field">
+              <label>Icon ({{ icon_choices|length }} verfügbar)</label>
+              <select name="icon_id">
+                <option value="">— Kein Icon —</option>
+                {% for icon_id, label in icon_choices %}
+                <option value="{{ icon_id }}" {% if design.icon_id == icon_id %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="laser-card" style="margin-bottom:16px;">
+          <div class="laser-card-header">📐 Position (Feinjustierung in mm)</div>
+          <div class="laser-card-body">
+            <div class="laser-row">
+              <div class="laser-field" style="margin-bottom:0;">
+                <label>Offset X</label>
+                <input type="number" step="0.5" name="offset_x_mm" value="{{ design.offset_x_mm|default:0 }}">
+              </div>
+              <div class="laser-field" style="margin-bottom:0;">
+                <label>Offset Y</label>
+                <input type="number" step="0.5" name="offset_y_mm" value="{{ design.offset_y_mm|default:0 }}">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="laser-actions">
+          <button type="submit" name="action" value="confirm" class="laser-btn laser-btn-primary">
+            ✓ Bestätigen &amp; PNG herunterladen
+          </button>
+          <a href="{% url 'lasergravur:order_download_png' order.pk %}" class="laser-btn laser-btn-secondary">
+            🔻 PNG ohne Bestätigung herunterladen
+          </a>
+        </div>
+      </form>
+
+      {# Separater Engraved-Button — visuell abgesetzt #}
+      <form method="post" action="{% url 'lasergravur:order_mark_engraved' order.pk %}" style="margin-top:10px;">
+        {% csrf_token %}
+        <button type="submit" class="laser-btn laser-btn-engrave" style="width:100%;">
+          🔥 Als graviert markieren
+        </button>
+      </form>
+
+      {# Original Properties — URLs werden als Bild-Vorschau + Link gerendert #}
+      <div class="laser-properties">
+        <strong>Original-Eingaben des Kunden</strong>
+        {% for k, v in order.raw_properties.items %}
+        <div class="prop-row">
+          <code>{{ k }}</code>
+          {% if 'http' in v|stringformat:'s' and '.png' in v|stringformat:'s' or '.jpg' in v|stringformat:'s' or '.jpeg' in v|stringformat:'s' %}
+          <span>
+            <a href="{{ v }}" target="_blank" rel="noopener" style="color:var(--laser-sage-dark);">
+              <img src="{{ v }}" alt="{{ k }}" style="max-height:60px; vertical-align:middle; border:1px solid var(--laser-border); border-radius:4px;">
+              ↗
+            </a>
+          </span>
+          {% elif 'http' in v|stringformat:'s' %}
+          <span><a href="{{ v }}" target="_blank" rel="noopener" style="color:var(--laser-sage-dark);">{{ v|truncatechars:60 }} ↗</a></span>
+          {% else %}
+          <span>{{ v|truncatechars:80 }}</span>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="prop-row"><em>Keine Properties — manuell konfigurieren.</em></div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

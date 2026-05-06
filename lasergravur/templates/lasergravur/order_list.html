@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+
+{% block title %}Lasergravur-Aufträge{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --laser-cream: #FAF6EC;
+    --laser-sage: #5C8A6B;
+    --laser-sage-dark: #3D5A40;
+    --laser-text: #2A2A2A;
+    --laser-text-soft: #5C5651;
+    --laser-border: #E8DFC9;
+    --laser-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
+  }
+  body { background: #F4F1E8; }
+
+  .laser-shell { max-width: 1280px; margin: 0 auto; padding: 32px 24px; }
+
+  .laser-page-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 24px; gap: 16px; flex-wrap: wrap;
+  }
+  .laser-page-header h1 {
+    font-size: 1.7rem; font-weight: 600; color: var(--laser-text);
+    letter-spacing: -0.01em; margin: 0;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .laser-filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .laser-pill {
+    background: white; border: 1px solid var(--laser-border);
+    color: var(--laser-text-soft); padding: 6px 14px; border-radius: 999px;
+    font-size: 0.85rem; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.15s;
+  }
+  .laser-pill:hover {
+    background: var(--laser-cream); color: var(--laser-sage-dark);
+    border-color: var(--laser-sage);
+  }
+  .laser-pill.active {
+    background: var(--laser-sage); color: white; border-color: var(--laser-sage-dark);
+  }
+  .laser-pill-count {
+    background: rgba(255,255,255,0.7); padding: 1px 7px; border-radius: 999px;
+    font-size: 0.72rem; color: var(--laser-text);
+  }
+  .laser-pill.active .laser-pill-count {
+    background: rgba(255,255,255,0.25); color: white;
+  }
+
+  .laser-table-card {
+    background: white; border-radius: 14px; box-shadow: var(--laser-shadow);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--laser-border);
+  }
+  .laser-table {
+    width: 100%; min-width: 720px; border-collapse: collapse;
+  }
+  @media (max-width: 768px) {
+    .laser-shell { padding: 16px 12px; }
+    .laser-page-header h1 { font-size: 1.3rem; }
+    .laser-page-header { margin-bottom: 16px; }
+    .laser-table th, .laser-table td { padding: 10px 12px; font-size: 0.85rem; }
+    .laser-pill { padding: 5px 10px; font-size: 0.78rem; }
+  }
+  .laser-table th {
+    background: var(--laser-cream); padding: 14px 18px;
+    color: var(--laser-sage-dark); font-size: 0.78rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--laser-border); text-align: left;
+  }
+  .laser-table th.text-end { text-align: right; }
+  .laser-table td {
+    padding: 14px 18px; border-bottom: 1px solid var(--laser-border);
+    font-size: 0.93rem; vertical-align: middle;
+  }
+  .laser-table tr:last-child td { border-bottom: none; }
+  .laser-table tr:hover td { background: rgba(250, 246, 236, 0.5); }
+
+  .laser-order-num { font-weight: 600; color: var(--laser-sage-dark); }
+  .laser-customer { color: var(--laser-text); }
+  .laser-topf-tag {
+    background: var(--laser-cream); color: var(--laser-sage-dark);
+    padding: 3px 10px; border-radius: 6px; font-size: 0.78rem;
+    border: 1px solid var(--laser-border); display: inline-block;
+  }
+  .laser-topf-tag.unknown {
+    background: #FFF4E5; color: #8C5A1A; border-color: #E8C6A0;
+  }
+
+  .laser-status {
+    padding: 4px 12px; border-radius: 999px; font-size: 0.78rem;
+    font-weight: 500; display: inline-block;
+  }
+  .laser-status.s-auto_designed { background: #E0F0F8; color: #0D6E8C; }
+  .laser-status.s-needs_manual { background: #FFF4D6; color: #946B00; }
+  .laser-status.s-confirmed { background: #DDF2DC; color: #2A6B2A; }
+  .laser-status.s-downloaded { background: #DDE8F4; color: #1A4D8C; }
+  .laser-status.s-engraved { background: #EDE3F4; color: #5A2D8C; }
+  .laser-status.s-failed { background: #F8D7D7; color: #8C1A1A; }
+  .laser-status.s-pending { background: #ECECEC; color: #555; }
+
+  .laser-row-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+  .laser-row-actions .laser-edit-btn {
+    background: white; border: 1px solid var(--laser-sage); color: var(--laser-sage-dark);
+    padding: 6px 14px; border-radius: 8px; text-decoration: none;
+    font-size: 0.85rem; font-weight: 500; transition: all 0.15s;
+  }
+  .laser-row-actions .laser-edit-btn:hover {
+    background: var(--laser-sage); color: white;
+  }
+  .laser-row-actions select {
+    background: white; border: 1px solid var(--laser-border);
+    border-radius: 8px; padding: 5px 10px; font-size: 0.82rem;
+  }
+  .laser-row-actions select:hover { border-color: var(--laser-sage); }
+
+  .laser-empty {
+    background: white; border-radius: 14px; padding: 48px 32px;
+    text-align: center; box-shadow: var(--laser-shadow);
+    border: 1px solid var(--laser-border);
+  }
+  .laser-empty-icon { font-size: 2.5rem; margin-bottom: 16px; opacity: 0.4; }
+  .laser-empty p { color: var(--laser-text-soft); margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="laser-shell">
+
+  <div class="laser-page-header">
+    <h1>🔥 Lasergravur</h1>
+    <div class="laser-filter-pills">
+      <a href="?" class="laser-pill {% if not status_filter %}active{% endif %}">
+        Alle
+      </a>
+      {% for slug, label in status_choices %}
+      <a href="?status={{ slug }}" class="laser-pill {% if status_filter == slug %}active{% endif %}">
+        {{ label }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if orders %}
+  <div class="laser-table-card">
+    <table class="laser-table">
+      <thead>
+        <tr>
+          <th>Bestellung</th>
+          <th>Kunde</th>
+          <th>Topf-Modell</th>
+          <th>Status</th>
+          <th>Eingegangen</th>
+          <th class="text-end">Aktion</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for o in orders %}
+      <tr>
+        <td><span class="laser-order-num">#{{ o.shopify_order_number }}</span></td>
+        <td><span class="laser-customer">{{ o.shopify_customer_name|default:"—" }}</span></td>
+        <td>
+          <span class="laser-topf-tag {% if o.topf_model == 'unknown' %}unknown{% endif %}">
+            {% if o.topf_model == 'unknown' %}⚠️ {% endif %}{{ o.get_topf_model_display }}
+          </span>
+        </td>
+        <td><span class="laser-status s-{{ o.status }}">{{ o.get_status_display }}</span></td>
+        <td>{{ o.created_at|date:"d.m.Y H:i" }}</td>
+        <td>
+          <div class="laser-row-actions">
+            <a href="{% url 'lasergravur:order_editor' o.pk %}" class="laser-edit-btn">Editor →</a>
+            <form method="post" action="{% url 'lasergravur:order_change_status' o.pk %}" style="display:inline;">
+              {% csrf_token %}
+              <select name="status" onchange="this.form.submit()">
+                {% for slug, label in o.STATUS_CHOICES %}
+                <option value="{{ slug }}" {% if o.status == slug %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="laser-empty">
+    <div class="laser-empty-icon">📭</div>
+    <p><strong>Noch keine Aufträge.</strong></p>
+    <p>Sobald eine Bestellung mit einem konfigurierten Topf-Produkt eingeht,<br>erscheint sie hier (Polling alle 2 Min).</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

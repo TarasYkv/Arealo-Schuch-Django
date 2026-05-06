@@ -87,6 +87,7 @@ urlpatterns = [
     path('backloom/', include('backloom.urls')),
     path('ploom/', include('ploom.urls')),
     path('magvis/', include('magvis.urls', namespace='magvis')),
+    path('lasergravur/', include('lasergravur.urls', namespace='lasergravur')),
     path('vskript/', include('vskript.urls')),
     path('loommarket/', include('loommarket.urls')),
     path('talk/', include('loomtalk.urls')),
