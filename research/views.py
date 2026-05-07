@@ -3,7 +3,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -237,6 +237,69 @@ def query_detail(request, pk):
         'q': rq,
         'council_results': council_results,
     })
+
+
+@login_required
+def query_download(request, pk):
+    """Liefert die ganze Anfrage + Antwort + Council-Rohantworten + Quellen
+    als Markdown-Datei zum Download."""
+    rq = get_object_or_404(ResearchQuery, pk=pk, owner=request.user)
+    lines = [
+        f'# Anfrage #{rq.pk}',
+        '',
+        f'**Datum:** {rq.created_at:%d.%m.%Y %H:%M}',
+        f'**Modus:** {rq.get_mode_display()}',
+    ]
+    if rq.models_used:
+        lines.append(f'**Modelle:** {", ".join(rq.models_used)}')
+    if rq.duration_s:
+        lines.append(f'**Dauer:** {rq.duration_s:.1f}s')
+    if rq.total_cost_usd:
+        lines.append(f'**Kosten:** ${rq.total_cost_usd:.4f}')
+    lines += ['', '---', '', '## Frage', '', rq.question, '']
+
+    if rq.answer:
+        lines += ['## Antwort', '', rq.answer, '']
+
+    raw = rq.raw_responses if isinstance(rq.raw_responses, dict) else {}
+    council = raw.get('council')
+    if isinstance(council, list) and council:
+        lines += ['---', '', '## Council-Rohantworten (alle Modelle)', '']
+        for r in council:
+            name = r.get('display') or r.get('model', '?')
+            dur = f' · {r["duration_s"]:.1f}s' if r.get('duration_s') is not None else ''
+            lines.append(f'### {name}{dur}')
+            lines.append('')
+            if r.get('ok'):
+                lines.append((r.get('text') or '').strip())
+            else:
+                lines.append(f'_Fehler: {r.get("error", "-")}_')
+            lines.append('')
+
+    redak = raw.get('redakteur') or raw.get('primary_validation')
+    if isinstance(redak, dict) and redak.get('text'):
+        lines += ['---', '',
+                  f'## Redakteur-/Primaer-Modell-Output ({redak.get("display") or redak.get("model","?")})',
+                  '', redak['text'], '']
+
+    if rq.sources:
+        lines += ['---', '', '## Quellen (RAG)', '']
+        for s in rq.sources:
+            if not isinstance(s, dict):
+                continue
+            title = s.get('title') or '-'
+            authors = s.get('authors') or '?'
+            year = s.get('year') or '?'
+            lines.append(f'- **{title}** — {authors} ({year})')
+            if s.get('text'):
+                snippet = (s['text'] or '').strip().replace('\n', ' ')[:300]
+                lines.append(f'  > {snippet}...')
+        lines.append('')
+
+    body = '\n'.join(lines)
+    response = HttpResponse(body, content_type='text/markdown; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="research-{rq.pk}.md"'
+    return response
 
 
 @login_required
