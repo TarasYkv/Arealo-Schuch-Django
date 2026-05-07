@@ -451,7 +451,7 @@ def calculate_cost(model_id: str, tokens: dict) -> float:
 
 
 def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
-              timeout: int = 120) -> dict:
+              timeout: int = 120, no_continuation: bool = False) -> dict:
     cfg = MODELS.get(model_id)
     if not cfg:
         return {'model': model_id, 'ok': False, 'error': f'Unbekanntes Modell: {model_id}'}
@@ -495,7 +495,9 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
         # Max 2 Continuations: bei max_tokens=8000 + 2 Continuations sind das
         # bereits 24k Output. Mehr verlaengert Latenz unverhaeltnismaessig
         # (wir blockieren ja den Council-Pool).
-        while tokens.get('truncated') and cont_count < 2:
+        # no_continuation=True wird gesetzt fuer Strukturierte-Output-Calls
+        # (z.B. graph_meta JSON), wo Stuecken die Antwort kaputt macht.
+        while tokens.get('truncated') and cont_count < 2 and not no_continuation:
             cont_count += 1
             tail = ''.join(pieces)[-3000:]
             cont_prompt = (

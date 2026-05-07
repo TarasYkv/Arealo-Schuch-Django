@@ -387,30 +387,64 @@ def _generate_graph_meta(question: str, council_results: list, user,
         + 'Verwende AUSSCHLIESSLICH die Modell-IDs aus den Sektionen oben '
         + f'({", ".join(valid_ids)}).'
     )
+    # Wichtig: no_continuation=True — Continuation zerstoert JSON (zweiter
+    # Call kommt mit "fortsetzen"-Prompt der nicht JSON liefert -> kaputtes
+    # Stueckwerk). max_tokens=12000 damit JSON in einem Rutsch passt.
+    # timeout=360s damit GLM auch bei viel Input genug Zeit hat.
     try:
-        res = council_service._call_one('glm', prompt, user, max_tokens=4000, timeout=180)
+        res = council_service._call_one(
+            'glm', prompt, user, max_tokens=12000, timeout=360,
+            no_continuation=True,
+        )
     except Exception as exc:
         logger.warning('graph_meta GLM-Call fehlgeschlagen: %s', exc)
-        return {'models': {}, 'clusters': []}
+        return {'models': {}, 'clusters': [], 'redakteur_summary': []}
     if not res.get('ok'):
         logger.warning('graph_meta GLM-Antwort nicht ok: %s', res.get('error'))
-        return {'models': {}, 'clusters': []}
+        return {'models': {}, 'clusters': [], 'redakteur_summary': []}
     text = (res.get('text') or '').strip()
-    # JSON aus dem Text extrahieren — manchmal kommt Markdown ```json...``` drumherum
-    import re as _re
-    m = _re.search(r'\{[\s\S]*\}', text)
-    if not m:
-        return {'models': {}, 'clusters': []}
-    try:
-        data = json.loads(m.group(0))
-    except Exception as exc:
-        logger.warning('graph_meta JSON-Parse-Fehler: %s — text: %s', exc, text[:300])
-        return {'models': {}, 'clusters': []}
+    data = _parse_graph_meta_json(text)
+    if not data:
+        logger.warning(
+            'graph_meta JSON-Parse fehlgeschlagen — text-len=%s, head: %s, tail: %s',
+            len(text), text[:200], text[-200:] if len(text) > 200 else '',
+        )
+        return {'models': {}, 'clusters': [], 'redakteur_summary': []}
     return {
         'models': data.get('models', {}) or {},
         'clusters': data.get('clusters', []) or [],
         'redakteur_summary': data.get('redakteur_summary', []) or [],
     }
+
+
+def _parse_graph_meta_json(text: str) -> dict | None:
+    """Robuste JSON-Extraktion fuer graph_meta-Output:
+    1. Markdown-Codeblock-Wrapper (```json ... ```) entfernen.
+    2. Versuche kompletten Text als JSON.
+    3. Fallback: outermost {} Pair extrahieren.
+    """
+    if not text:
+        return None
+    s = text.strip()
+    if s.startswith('```'):
+        lines = s.split('\n')
+        if lines and lines[0].startswith('```'):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith('```'):
+            lines = lines[:-1]
+        s = '\n'.join(lines).strip()
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    start = s.find('{')
+    end = s.rfind('}')
+    if start >= 0 and end > start:
+        try:
+            return json.loads(s[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    return None
 
 
 @login_required
