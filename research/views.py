@@ -313,13 +313,16 @@ def _parse_redakteur_clusters(redakteur_text: str, council_results: list[dict]) 
     return cluster_map
 
 
-def _generate_graph_meta(question: str, council_results: list, user) -> dict:
-    """Ein einziger GLM-Call der pro Modell 3 Stichpunkte (Hover-Anzeige) und
-    fuer alle Modelle zusammen die Cluster-Zuordnung liefert.
+def _generate_graph_meta(question: str, council_results: list, user,
+                          redakteur_text: str = '') -> dict:
+    """Ein einziger GLM-Call der pro Modell Stichpunkte (Hover-Anzeige) und
+    fuer alle Modelle zusammen die Cluster-Zuordnung liefert. Optional auch
+    Stichpunkte fuer den Redakteur-Output.
 
     Returns dict mit:
-      models: { model_id: { summary: [str, str, str], cluster: int } }
+      models: { model_id: { summary: [str, ...], cluster: int } }
       clusters: [ { id: int, name: str, model_ids: [str] } ]
+      redakteur_summary: [str, ...] (falls redakteur_text vorhanden)
     """
     from .services import council as council_service
     # Antworten kompakt zusammenstellen — IDs + display-Name + Antwort gekürzt
@@ -336,16 +339,25 @@ def _generate_graph_meta(question: str, council_results: list, user) -> dict:
         valid_ids.append(mid)
         blocks.append(f'### {mid} ({name})\n{text[:2500]}')
     if not blocks:
-        return {'models': {}, 'clusters': []}
+        return {'models': {}, 'clusters': [], 'redakteur_summary': []}
+    redakteur_block = ''
+    if redakteur_text:
+        redakteur_block = f'\n\n=== REDAKTEUR-SYNTHESE (eigener Text, brauche ich auch in Stichpunkten) ===\n{redakteur_text[:4000]}'
     prompt = (
         'Du bist Redakteur. Mehrere KI-Modelle haben dieselbe Frage beantwortet.\n'
-        'Deine zwei Aufgaben — STRIKT aus den Antworten, nichts dazudichten:\n\n'
-        '1. Pro Modell: liefere 2-3 SEHR KURZE Stichpunkte (max 3-4 Wörter pro\n'
-        '   Stichpunkt, KEINE ganzen Sätze) die den KERN der Antwort dieses\n'
-        '   Modells zusammenfassen. KEIN Fließtext, KEINE Erklärungen.\n'
-        '   Beispiel gut: ["Cyan-Licht hemmt Ethylen", "Banane-spezifisch", "Wang 2019"]\n'
-        '   Beispiel schlecht: ["Cyan-Licht (480 nm) hemmt die Ethylen-Synthese...",\n'
-        '   "Eine Banane reagiert anders als andere Früchte auf bestimmte..."]\n\n'
+        'Deine drei Aufgaben — STRIKT aus den Antworten, nichts dazudichten:\n\n'
+        '1. Pro Modell: liefere 4-6 Stichpunkte (jeweils ca. 5-10 Wörter, also\n'
+        '   knappe Halbsätze — KEINE ganzen Sätze, aber auch nicht nur 3 Wörter).\n'
+        '   Sie sollen den Kern UND die spezifischen Akzente der Antwort dieses\n'
+        '   Modells zeigen. Schreibe so, dass man im Hover beim Lesen versteht\n'
+        '   WAS das Modell konkret gesagt hat.\n'
+        '   Beispiel gut: ["Cyan-Licht 480nm hemmt Ethylen-Synthese",\n'
+        '                  "Wirkung speziell bei Banane gezeigt",\n'
+        '                  "Stützt sich auf Wang et al. 2019",\n'
+        '                  "Empfohlene Lichtdosis: 50 µmol/m²/s",\n'
+        '                  "Effekt nimmt nach 7 Tagen ab"]\n'
+        '   Beispiel schlecht (zu kurz): ["Ethylen", "Banane", "Wang 2019"]\n'
+        '   Beispiel schlecht (zu lang): ganze Sätze mit "Das Modell argumentiert..."\n\n'
         '2. Cluster die Modelle nach inhaltlicher Ähnlichkeit ihrer Antworten.\n'
         '   Gleiche/sehr ähnliche Antworten -> gleiches Cluster.\n'
         '   Unterschiedliche Schwerpunkte -> verschiedene Cluster.\n'
@@ -354,17 +366,23 @@ def _generate_graph_meta(question: str, council_results: list, user) -> dict:
         '   Es muss NICHT jedes Modell in einem Cluster mit anderen sein —\n'
         '   ein einzelnes Modell kann auch ein Solo-Cluster bilden.\n'
         '   Ziel: 2-5 Cluster bei mehreren Modellen.\n\n'
+        '3. Falls eine REDAKTEUR-SYNTHESE-Sektion unten vorhanden ist:\n'
+        '   liefere ebenfalls 4-6 Halbsatz-Stichpunkte (5-10 Wörter) im Feld\n'
+        '   "redakteur_summary" — selbe Stilregeln wie bei den Modellen.\n'
+        '   Falls keine Redakteur-Sektion: leeres Array.\n\n'
         f'FRAGE:\n{question}\n\n'
         '=== ANTWORTEN DER MODELLE (mit ID) ===\n'
         + '\n\n'.join(blocks)
+        + redakteur_block
         + '\n\n=== OUTPUT-FORMAT (NUR dieses JSON, keine Erklaerung drumherum) ===\n'
         + '{\n'
         + '  "models": {\n'
-        + '    "<model_id>": { "summary": ["...", "...", "..."], "cluster": <int> }\n'
+        + '    "<model_id>": { "summary": ["...", "...", "...", "..."], "cluster": <int> }\n'
         + '  },\n'
         + '  "clusters": [\n'
         + '    { "id": <int>, "name": "<kurzer Cluster-Name>", "model_ids": ["<id1>", "<id2>"] }\n'
-        + '  ]\n'
+        + '  ],\n'
+        + '  "redakteur_summary": ["...", "...", "...", "..."]\n'
         + '}\n'
         + 'Verwende AUSSCHLIESSLICH die Modell-IDs aus den Sektionen oben '
         + f'({", ".join(valid_ids)}).'
@@ -391,6 +409,7 @@ def _generate_graph_meta(question: str, council_results: list, user) -> dict:
     return {
         'models': data.get('models', {}) or {},
         'clusters': data.get('clusters', []) or [],
+        'redakteur_summary': data.get('redakteur_summary', []) or [],
     }
 
 
@@ -412,7 +431,7 @@ def query_graph(request, pk):
     graph_meta = raw.get('graph_meta') or None
     refresh = request.GET.get('refresh') == '1'
     if (not graph_meta or refresh) and council_results:
-        graph_meta = _generate_graph_meta(rq.question, council_results, request.user)
+        graph_meta = _generate_graph_meta(rq.question, council_results, request.user, redakteur_text=redakteur_text)
         # In raw_responses cachen — only update if tatsaechlich was kam
         if graph_meta.get('models') or graph_meta.get('clusters'):
             raw['graph_meta'] = graph_meta
@@ -457,10 +476,14 @@ def query_graph(request, pk):
     if redakteur_text:
         red_id = redak.get('model') or 'redakteur'
         red_name = redak.get('display') or 'Redakteur'
+        red_summary = (graph_meta or {}).get('redakteur_summary') or []
+        if not red_summary:
+            red_summary = [(redakteur_text[:160] + ('…' if len(redakteur_text) > 160 else ''))]
         redakteur_node = {
             'id': red_id,
             'name': red_name,
             'full_text': redakteur_text,
+            'summary': red_summary,
             'duration_s': redak.get('duration_s'),
         }
     return render(request, 'research/query_graph.html', {
