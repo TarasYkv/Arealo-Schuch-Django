@@ -5,6 +5,7 @@ from django.conf import settings
 MODE_CHOICES = (
     ('rag', 'RAG (aus eigener Bibliothek)'),
     ('council', 'Council (mehrere Modelle)'),
+    ('council_edited', 'Council + Redakteur (Primär-Modell strukturiert)'),
     ('hybrid', 'Hybrid (RAG + Council)'),
 )
 

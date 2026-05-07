@@ -39,6 +39,63 @@ def execute_research_query(self, query_id: int):
             lines.append('')
         return '\n'.join(lines)
 
+    def _redaktion_prompt(question, council_results):
+        """Strikt redaktioneller Prompt — Primaer-Modell ordnet die Council-
+        Antworten in einen lesbaren Bericht, OHNE eigene Inhalte zu erfinden.
+
+        Im Unterschied zu _validation_prompt:
+          - keine RAG-Quellen, keine Faktencheck-Aufgabe
+          - keine Aufforderung zu eigener Synthese / Konsolidierung
+          - ausdrueckliches "nichts dazudichten"
+        """
+        parts = [
+            'Du bist Redakteur. Deine EINZIGE Aufgabe ist, die Antworten der',
+            'verschiedenen KI-Modelle zur folgenden Frage in einen lesbaren',
+            'Bericht zu STRUKTURIEREN.',
+            '',
+            'ABSOLUT VERBOTEN:',
+            '- Eigene Ideen, Hypothesen oder Behauptungen erfinden, die nicht',
+            '  in mindestens einer Modell-Antwort stehen.',
+            '- Quellen, Studien oder DOIs ergaenzen, die nicht in den',
+            '  Antworten erwaehnt sind.',
+            '- "Vermutlich"/"Wahrscheinlich"/"Es ist anzunehmen" ohne dass ein',
+            '  Modell genau dies behauptet hat.',
+            '',
+            'ERLAUBT:',
+            '- Aehnliche Ideen mehrerer Modelle zu einem Cluster zusammenfassen.',
+            '- Modelle EXPLIZIT mit Namen nennen ("Claude Opus meint X,',
+            '  GPT meint Y, Gemini fuegt Z hinzu").',
+            '- Originalformulierungen leicht straffen fuer Lesbarkeit.',
+            '- Widersprueche zwischen Modellen sichtbar machen.',
+            '',
+            f'FRAGE:\n{question}',
+            '',
+            '=== ANTWORTEN DER MODELLE ===',
+        ]
+        for i, r in enumerate(council_results, 1):
+            name = r.get('display', r.get('model'))
+            if r.get('ok'):
+                text = (r.get('text') or '').strip()
+                parts.append(f'\n--- {name} ---\n{text[:3500]}')
+            else:
+                parts.append(f'\n--- {name} — Fehler: {r.get("error")} ---')
+        parts.append('\n\nOUTPUT-FORMAT (Markdown):')
+        parts.append(
+            '\n## Idee 1: [kurzer Titel der Idee]\n'
+            '**Vorgeschlagen von:** [Modell-Name explizit]\n'
+            '**Mitgetragen von:** [andere Modelle, falls aehnliche Idee — sonst weglassen]\n\n'
+            '[2-4 Saetze Beschreibung — STRIKT aus den Antworten, keine eigene Anreicherung]\n\n'
+            '**Was daran besonders:** [Begruendung warum diese Idee bemerkenswert '
+            'ist — STRIKT auf Basis der Modell-Antworten]\n\n'
+            '[Falls Widerspruch zu einer anderen Idee: "⚠ Konflikt mit Idee X: ..."]\n'
+        )
+        parts.append(
+            '\nWiederhole das Format fuer jede eigenstaendige Idee. '
+            'Beginne mit den Ideen, die mehrere Modelle gemeinsam haben '
+            '(hoehere Konfidenz), dann einzeln vorgeschlagene Ideen.'
+        )
+        return '\n'.join(parts)
+
     def _validation_prompt(question, council_results, rag_sources):
         # Konservativer Cut: Council-Antworten auf 3500 Zeichen, RAG-Quellen
         # auf volle Länge (nur Top-5). Typische Council-Antwort ist 1500-3000
@@ -123,6 +180,33 @@ def execute_research_query(self, query_id: int):
             rq.duration_s = res['duration_s']
             rq.total_cost_usd = res.get('total_cost_usd', 0.0)
             rq.answer = _format_council_summary(res['results'])
+
+        elif mode == 'council_edited':
+            # Council parallel, dann primary_model als Redakteur — strukturiert
+            # die Antworten ohne eigene Inhalte zu erfinden.
+            if not council_ids:
+                raise ValueError('Bitte mindestens ein Council-Modell auswählen.')
+            cfg = council_service.MODELS.get(primary)
+            if not cfg:
+                raise ValueError(f'Unbekanntes Primär-Modell: {primary}')
+            cres = council_service.ask_council(rq.question, user, council_ids)
+            redaktion_prompt = _redaktion_prompt(rq.question, cres['results'])
+            red_res = council_service._call_one(
+                primary, redaktion_prompt, user, max_tokens=3000, timeout=300)
+            if red_res.get('ok'):
+                rq.answer = red_res['text']
+            else:
+                # Falls Redakteur ausfaellt: fallback auf rohe Council-Liste mit Hinweis.
+                rq.answer = (f'(Redakteur-Synthese fehlgeschlagen: {red_res.get("error")})\n\n'
+                             + _format_council_summary(cres['results']))
+            rq.raw_responses = {
+                'redakteur': red_res,
+                'council': cres['results'],
+            }
+            rq.models_used = [primary] + list(council_ids)
+            rq.duration_s = cres['duration_s'] + (red_res.get('duration_s') or 0)
+            rq.total_cost_usd = (cres.get('total_cost_usd', 0.0)
+                                 + (red_res.get('cost_usd') or 0.0))
 
         elif mode == 'hybrid':
             cfg = council_service.MODELS.get(primary)

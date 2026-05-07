@@ -6,6 +6,7 @@ from .services.council import MODELS as COUNCIL_MODELS
 MODE_CHOICES = (
     ('rag', 'RAG — aus deiner Library antworten (mit Zitaten)'),
     ('council', 'Council — mehrere Modelle parallel fragen'),
+    ('council_edited', 'Council + Redakteur — Primär-Modell strukturiert die Antworten'),
     ('hybrid', 'Hybrid — RAG-Kontext + Council-Perspektiven'),
 )
 
@@ -27,7 +28,7 @@ class AskForm(forms.Form):
         widget=forms.RadioSelect,
     )
     primary_model = forms.ChoiceField(
-        label='Primär-Modell (RAG + Hybrid-Synthese)',
+        label='Primär-Modell (RAG + Hybrid + Council-Redakteur)',
         choices=[], initial='glm',
         widget=forms.Select(attrs={'class': 'form-select'}),
         required=False,
