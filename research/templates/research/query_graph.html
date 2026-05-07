@@ -386,21 +386,64 @@ const cy = cytoscape({
       }
     }
   ],
-  layout: {
-    name: 'cose',
-    animate: false,
-    nodeRepulsion: 12000,
-    idealEdgeLength: 180,
-    nodeOverlap: 8,
-    componentSpacing: 80,
-    gravity: 0.4,
-    nestingFactor: 1.4,
-    randomize: false,
-    fit: true,
-    padding: 30,
-  },
+  layout: { name: 'preset', positions: computePositions(), fit: true, padding: 50 },
   wheelSensitivity: 0.2,
 });
+
+// Manuelles Layout: Redakteur im Zentrum, Cluster-Bubbles auf einem Ring,
+// Modelle in einem kleinen Kreis innerhalb ihrer Cluster-Bubble.
+// Deterministisch, sieht garantiert gut aus — Compound-Bubbles wickeln
+// automatisch um die Kind-Nodes.
+function computePositions() {
+  const positions = {};
+  const cx = 0, cy = 0;
+  const ringRadius = 320; // Abstand Cluster-Zentren zum Redakteur
+  const innerRadius = 75; // Abstand Modelle vom Cluster-Zentrum
+
+  // Cluster-Zentren auf einem Ring berechnen
+  const clusterCenters = {};
+  const ungroupedCenter = clusterIdsActive.length > 0
+    ? { x: cx, y: cy + ringRadius * 1.6 } // ungroupierte unter dem Hauptring
+    : { x: cx + 200, y: cy };
+  clusterIdsActive.forEach((cid, i) => {
+    const angle = (2 * Math.PI * i) / Math.max(clusterIdsActive.length, 1) - Math.PI / 2;
+    clusterCenters[cid] = {
+      x: cx + ringRadius * Math.cos(angle),
+      y: cy + ringRadius * Math.sin(angle),
+    };
+  });
+
+  // Modelle in ihrem Cluster auf kleinem Kreis positionieren
+  const ungrouped = NODES.filter(n => n.cluster < 0);
+  NODES.forEach(n => {
+    if (n.cluster < 0) {
+      const idx = ungrouped.findIndex(m => m.id === n.id);
+      const angle = (2 * Math.PI * idx) / Math.max(ungrouped.length, 1);
+      positions[n.id] = {
+        x: ungroupedCenter.x + innerRadius * Math.cos(angle),
+        y: ungroupedCenter.y + innerRadius * Math.sin(angle),
+      };
+      return;
+    }
+    const center = clusterCenters[n.cluster];
+    const members = NODES.filter(m => m.cluster === n.cluster);
+    const idx = members.findIndex(m => m.id === n.id);
+    // Innerer Radius dynamisch: bei mehr Modellen groesser
+    const r = innerRadius + (members.length > 4 ? (members.length - 4) * 6 : 0);
+    const angle = (2 * Math.PI * idx) / members.length - Math.PI / 2;
+    positions[n.id] = {
+      x: center.x + r * Math.cos(angle),
+      y: center.y + r * Math.sin(angle),
+    };
+  });
+
+  if (HAS_REDAKTEUR) {
+    positions[REDAKTEUR.id] = { x: cx, y: cy };
+  }
+  // Cluster-Compound-Nodes brauchen KEINE Position — Cytoscape berechnet
+  // ihre Bounding-Box automatisch aus den Kindern.
+  return positions;
+}
 
 // Hover-Highlight (leichte Animation der Border)
 cy.on('mouseover', 'node[type = "model"]', evt => evt.target.addClass('gv-hover'));
