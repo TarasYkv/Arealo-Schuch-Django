@@ -438,6 +438,10 @@ def query_graph(request, pk):
         if not bullets:
             # Fallback-Summary: erste 200 Zeichen wenn keine Stichpunkte
             bullets = [(full_text[:180] + ('…' if len(full_text) > 180 else ''))] if full_text else []
+        # Truncation-Indikator: explizites Flag aus _call_one ODER heuristisch
+        # wenn output-Tokens exakt am alten 1500-Limit kleben (Legacy-Anfragen).
+        out_toks = (r.get('tokens') or {}).get('output', 0)
+        truncated = bool(r.get('truncated')) or (out_toks in (1500, 2000, 4000) and full_text and not full_text.rstrip().endswith(('.', '!', '?', ')', ']')))
         nodes.append({
             'id': mid,
             'name': r.get('display') or mid,
@@ -447,6 +451,7 @@ def query_graph(request, pk):
             'ok': bool(r.get('ok')),
             'error': r.get('error') or '',
             'duration_s': r.get('duration_s'),
+            'truncated': truncated,
         })
     redakteur_node = None
     if redakteur_text:

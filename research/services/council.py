@@ -351,7 +351,7 @@ def _missing_key_msg(provider_id: str) -> str:
 # -- Protokoll-Adapter ---------------------------------------------------------
 
 def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
-                        max_tokens: int = 4000, timeout: int = 120) -> tuple[str, dict]:
+                        max_tokens: int = 8000, timeout: int = 120) -> tuple[str, dict]:
     payload = {
         'model': model,
         'messages': [{'role': 'user', 'content': prompt}],
@@ -365,7 +365,8 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
                                  })
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = json.loads(r.read())
-    msg = body['choices'][0].get('message', {}) or {}
+    choice = body['choices'][0]
+    msg = choice.get('message', {}) or {}
     # Bei Reasoning-Modellen (kimi-thinking, qwen-thinking, sonar-reasoning, ...)
     # ist 'content' oft leer wenn alle Tokens im internen Chain-of-Thought
     # verbraucht wurden — Fallback auf reasoning_content/reasoning.
@@ -376,12 +377,14 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
     tokens = {
         'input': int(usage.get('prompt_tokens', 0)),
         'output': int(usage.get('completion_tokens', 0)),
+        'finish_reason': choice.get('finish_reason') or '',
+        'truncated': choice.get('finish_reason') == 'length',
     }
     return text, tokens
 
 
 def _call_anthropic(url: str, api_key: str, model: str, prompt: str,
-                    max_tokens: int = 4000, timeout: int = 120) -> tuple[str, dict]:
+                    max_tokens: int = 8000, timeout: int = 120) -> tuple[str, dict]:
     payload = {
         'model': model,
         'max_tokens': max_tokens,
@@ -398,15 +401,18 @@ def _call_anthropic(url: str, api_key: str, model: str, prompt: str,
         body = json.loads(r.read())
     text = body['content'][0]['text']
     usage = body.get('usage', {})
+    stop_reason = body.get('stop_reason') or ''
     tokens = {
         'input': int(usage.get('input_tokens', 0)),
         'output': int(usage.get('output_tokens', 0)),
+        'finish_reason': stop_reason,
+        'truncated': stop_reason == 'max_tokens',
     }
     return text, tokens
 
 
 def _call_gemini(url_template: str, api_key: str, model: str, prompt: str,
-                 max_tokens: int = 4000, timeout: int = 120) -> tuple[str, dict]:
+                 max_tokens: int = 8000, timeout: int = 120) -> tuple[str, dict]:
     url = url_template.format(model=model) + f'?key={api_key}'
     payload = {
         'contents': [{'parts': [{'text': prompt}]}],
@@ -417,11 +423,15 @@ def _call_gemini(url_template: str, api_key: str, model: str, prompt: str,
                                  headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = json.loads(r.read())
-    text = body['candidates'][0]['content']['parts'][0]['text']
+    cand = body['candidates'][0]
+    text = cand['content']['parts'][0]['text']
     um = body.get('usageMetadata', {})
+    finish = cand.get('finishReason') or ''
     tokens = {
         'input': int(um.get('promptTokenCount', 0)),
         'output': int(um.get('candidatesTokenCount', 0)),
+        'finish_reason': finish,
+        'truncated': finish == 'MAX_TOKENS',
     }
     return text, tokens
 
@@ -436,7 +446,7 @@ def calculate_cost(model_id: str, tokens: dict) -> float:
            (tokens.get('output', 0) / 1_000_000) * pout
 
 
-def _call_one(model_id: str, prompt: str, user, max_tokens: int = 4000,
+def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
               timeout: int = 120) -> dict:
     cfg = MODELS.get(model_id)
     if not cfg:
@@ -445,11 +455,10 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 4000,
     provider_id = cfg['provider']
     model_name = cfg['model']
     # Reasoning-Modelle verbrauchen Tokens fuer Chain-of-Thought BEVOR sie
-    # eine sichtbare Antwort produzieren. Bei 1500 Tokens kommen sie oft
-    # nicht durch — Budget verdreifachen, damit nach Reasoning noch Platz
-    # fuer die finale Antwort bleibt.
+    # eine sichtbare Antwort produzieren — auf min. 12000 anheben damit nach
+    # dem internen Thinking noch genug Platz fuer den finalen Content bleibt.
     if any(s in model_name.lower() for s in ('-thinking', '-reasoning', 'sonar-reasoning')):
-        max_tokens = max(max_tokens, 6000)
+        max_tokens = max(max_tokens, 12000)
     api_key = _get_api_key(user, provider_id)
     if not api_key:
         return {'model': model_id, 'display': name, 'provider': provider_id,
@@ -458,18 +467,33 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 4000,
     prov = PROVIDERS[provider_id]
     url = prov['url']
     api = prov['api']
+
+    def _do_call(mt):
+        if api == 'anthropic':
+            return _call_anthropic(url, api_key, model_name, prompt, mt, timeout)
+        if api == 'gemini':
+            return _call_gemini(url, api_key, model_name, prompt, mt, timeout)
+        return _call_openai_compat(url, api_key, model_name, prompt, mt, timeout)
+
     t0 = time.time()
     try:
-        if api == 'anthropic':
-            text, tokens = _call_anthropic(url, api_key, model_name, prompt, max_tokens, timeout)
-        elif api == 'gemini':
-            text, tokens = _call_gemini(url, api_key, model_name, prompt, max_tokens, timeout)
-        else:
-            text, tokens = _call_openai_compat(url, api_key, model_name, prompt, max_tokens, timeout)
+        text, tokens = _do_call(max_tokens)
+        # Auto-Retry bei truncation: Modell hat das Limit erreicht und
+        # mid-content gestoppt. Verdoppeln und nochmal — gibt es mit Cap 32k.
+        if tokens.get('truncated') and max_tokens < 32000:
+            retry_mt = min(max_tokens * 2, 32000)
+            try:
+                text2, tokens2 = _do_call(retry_mt)
+                if not tokens2.get('truncated') or len(text2) > len(text):
+                    text, tokens = text2, tokens2
+                    tokens['retry'] = True
+            except Exception:
+                pass  # behalten was wir aus dem ersten Call hatten
         cost = calculate_cost(model_id, tokens)
         return {'model': model_id, 'display': name, 'provider': provider_id,
                 'ok': True, 'text': text, 'duration_s': time.time() - t0,
-                'tokens': tokens, 'cost_usd': cost}
+                'tokens': tokens, 'cost_usd': cost,
+                'truncated': bool(tokens.get('truncated'))}
     except urllib.error.HTTPError as e:
         body_preview = e.read()[:300].decode(errors="ignore")
         if e.code == 429:
@@ -492,7 +516,7 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 4000,
 
 
 def ask_council(question: str, user, model_ids: list[str],
-                max_tokens: int = 4000, timeout: int = 120) -> dict:
+                max_tokens: int = 8000, timeout: int = 120) -> dict:
     """Parallel an alle Modelle. Gibt strukturierte Ergebnisliste zurück."""
     t0 = time.time()
     results: list[dict] = []

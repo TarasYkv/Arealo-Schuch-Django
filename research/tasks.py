@@ -192,7 +192,7 @@ def execute_research_query(self, query_id: int):
             cres = council_service.ask_council(rq.question, user, council_ids)
             redaktion_prompt = _redaktion_prompt(rq.question, cres['results'])
             red_res = council_service._call_one(
-                primary, redaktion_prompt, user, max_tokens=3000, timeout=300)
+                primary, redaktion_prompt, user, max_tokens=8000, timeout=300)
             if red_res.get('ok'):
                 rq.answer = red_res['text']
             else:
@@ -222,7 +222,7 @@ def execute_research_query(self, query_id: int):
             rq.sources = [s.as_dict() for s in sources]
             validation_prompt = _validation_prompt(rq.question, cres['results'], sources)
             val_res = council_service._call_one(
-                primary, validation_prompt, user, max_tokens=2500, timeout=300)
+                primary, validation_prompt, user, max_tokens=8000, timeout=300)
             if val_res.get('ok'):
                 rq.answer = val_res['text']
             else:

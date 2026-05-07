@@ -290,7 +290,18 @@ function openModal(d) {
   if (d.type === 'redakteur') sub = 'Redakteur · Synthese aller Council-Antworten';
   else if (d.duration_s != null) sub = `Antwortzeit: ${d.duration_s.toFixed(1)}s`;
   document.getElementById('modalSub').textContent = sub;
-  document.getElementById('modalBody').textContent = d.full_text || (d.error || '');
+  const body = document.getElementById('modalBody');
+  body.textContent = d.full_text || (d.error || '');
+  // Vorherige Warnung entfernen damit nichts akkumuliert
+  const oldWarn = document.querySelector('.gv-modal-warn');
+  if (oldWarn) oldWarn.remove();
+  if (d.truncated) {
+    const warn = document.createElement('div');
+    warn.className = 'gv-modal-warn';
+    warn.style.cssText = 'background:#fef3c7;border-left:4px solid #d97706;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px;color:#92400e;';
+    warn.innerHTML = '⚠ <strong>Antwort wurde abgeschnitten</strong> — das Modell hat das Token-Limit erreicht. Mit "Weiterforschen" kannst du gezielt eine Folgefrage stellen, oder die Anfrage komplett neu starten.';
+    body.parentNode.insertBefore(warn, body);
+  }
 
   // Drill-down-Button: Link zu /research/ask/?source_query=<pk>&source_model=<id>
   const drillBtn = document.getElementById('modalDrillBtn');
@@ -371,7 +382,8 @@ sortedGroups.forEach(g => {
     `;
     b.addEventListener('click', () => openModal({
       id: n.id, label: n.name, type: 'model', full_text: n.full_text,
-      duration_s: n.duration_s, error: n.error, ok: n.ok
+      duration_s: n.duration_s, error: n.error, ok: n.ok,
+      truncated: n.truncated
     }));
     bubbleGrid.appendChild(b);
   });
