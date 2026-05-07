@@ -365,7 +365,13 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
                                  })
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = json.loads(r.read())
-    text = body['choices'][0]['message']['content']
+    msg = body['choices'][0].get('message', {}) or {}
+    # Bei Reasoning-Modellen (kimi-thinking, qwen-thinking, sonar-reasoning, ...)
+    # ist 'content' oft leer wenn alle Tokens im internen Chain-of-Thought
+    # verbraucht wurden — Fallback auf reasoning_content/reasoning.
+    text = (msg.get('content') or '').strip()
+    if not text:
+        text = (msg.get('reasoning_content') or msg.get('reasoning') or '').strip()
     usage = body.get('usage', {})
     tokens = {
         'input': int(usage.get('prompt_tokens', 0)),
@@ -438,6 +444,12 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
     name = cfg['name']
     provider_id = cfg['provider']
     model_name = cfg['model']
+    # Reasoning-Modelle verbrauchen Tokens fuer Chain-of-Thought BEVOR sie
+    # eine sichtbare Antwort produzieren. Bei 1500 Tokens kommen sie oft
+    # nicht durch — Budget verdreifachen, damit nach Reasoning noch Platz
+    # fuer die finale Antwort bleibt.
+    if any(s in model_name.lower() for s in ('-thinking', '-reasoning', 'sonar-reasoning')):
+        max_tokens = max(max_tokens, 6000)
     api_key = _get_api_key(user, provider_id)
     if not api_key:
         return {'model': model_id, 'display': name, 'provider': provider_id,
