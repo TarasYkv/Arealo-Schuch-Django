@@ -488,7 +488,10 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
         in_total = tokens.get('input', 0) or 0
         out_total = tokens.get('output', 0) or 0
         cont_count = 0
-        while tokens.get('truncated') and cont_count < 3:
+        # Max 2 Continuations: bei max_tokens=8000 + 2 Continuations sind das
+        # bereits 24k Output. Mehr verlaengert Latenz unverhaeltnismaessig
+        # (wir blockieren ja den Council-Pool).
+        while tokens.get('truncated') and cont_count < 2:
             cont_count += 1
             tail = ''.join(pieces)[-3000:]
             cont_prompt = (
@@ -524,7 +527,7 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
                 'ok': True, 'text': full_text, 'duration_s': time.time() - t0,
                 'tokens': merged_tokens, 'cost_usd': cost,
                 'continuations': cont_count,
-                'truncated': bool(tokens.get('truncated')) and cont_count >= 3}
+                'truncated': bool(tokens.get('truncated')) and cont_count >= 2}
     except urllib.error.HTTPError as e:
         body_preview = e.read()[:300].decode(errors="ignore")
         if e.code == 429:
