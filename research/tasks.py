@@ -16,6 +16,32 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
+@shared_task(time_limit=600, soft_time_limit=540, queue='research')
+def refresh_graph_meta(query_id: int):
+    """Re-generiert graph_meta fuer eine bestehende ResearchQuery.
+    Wird von der query_graph-View bei ?refresh=1 angetrieben — async damit
+    der Web-Request nicht in den Cloudflare-100s-Timeout laeuft.
+    """
+    from .models import ResearchQuery
+    from .views import _generate_graph_meta
+    try:
+        rq = ResearchQuery.objects.get(pk=query_id)
+    except ResearchQuery.DoesNotExist:
+        return
+    raw = rq.raw_responses if isinstance(rq.raw_responses, dict) else {}
+    council_results = raw.get('council') or []
+    redak = raw.get('redakteur') or raw.get('primary_validation') or {}
+    redakteur_text = redak.get('text', '') if isinstance(redak, dict) else ''
+    graph_meta = _generate_graph_meta(
+        rq.question, council_results, rq.owner, redakteur_text=redakteur_text,
+    )
+    if graph_meta.get('models') or graph_meta.get('clusters'):
+        raw['graph_meta'] = graph_meta
+        rq.raw_responses = raw
+        rq.save(update_fields=['raw_responses'])
+    return {'pk': query_id, 'ok': bool(graph_meta.get('models'))}
+
+
 @shared_task(bind=True, time_limit=2400, soft_time_limit=2280,
              queue='research')
 def execute_research_query(self, query_id: int):
@@ -199,9 +225,22 @@ def execute_research_query(self, query_id: int):
                 # Falls Redakteur ausfaellt: fallback auf rohe Council-Liste mit Hinweis.
                 rq.answer = (f'(Redakteur-Synthese fehlgeschlagen: {red_res.get("error")})\n\n'
                              + _format_council_summary(cres['results']))
+            # graph_meta vorab generieren — damit Brain-Graph-Aufruf instant
+            # rendert (Cloudflare hat 100s Origin-Timeout, GLM-Call dauert
+            # 30-90s — wuerde 524 ausloesen wenn synchron in der View).
+            graph_meta = {}
+            try:
+                from .views import _generate_graph_meta
+                graph_meta = _generate_graph_meta(
+                    rq.question, cres['results'], user,
+                    redakteur_text=(red_res.get('text') or '') if red_res.get('ok') else '',
+                )
+            except Exception as exc:
+                logger.warning('graph_meta-Vorabgenerierung fehlgeschlagen: %s', exc)
             rq.raw_responses = {
                 'redakteur': red_res,
                 'council': cres['results'],
+                'graph_meta': graph_meta,
             }
             rq.models_used = [primary] + list(council_ids)
             rq.duration_s = cres['duration_s'] + (red_res.get('duration_s') or 0)

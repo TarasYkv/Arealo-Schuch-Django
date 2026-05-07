@@ -426,17 +426,23 @@ def query_graph(request, pk):
     redak = raw.get('redakteur') or raw.get('primary_validation') or {}
     redakteur_text = redak.get('text', '') if isinstance(redak, dict) else ''
 
-    # Graph-Meta (Stichpunkte + Cluster) — gecached in raw_responses['graph_meta'].
-    # Erster Aufruf: GLM-Call. Folge-Aufrufe: aus DB.
+    # Graph-Meta (Stichpunkte + Cluster) — wird beim Council-Run in tasks.py
+    # vorab generiert und in raw_responses['graph_meta'] gecached.
+    # Beim ?refresh=1 wird neu generiert — ABER NUR via async Celery-Task,
+    # niemals synchron in der View (Cloudflare 100s-Origin-Timeout = 524).
     graph_meta = raw.get('graph_meta') or None
     refresh = request.GET.get('refresh') == '1'
-    if (not graph_meta or refresh) and council_results:
-        graph_meta = _generate_graph_meta(rq.question, council_results, request.user, redakteur_text=redakteur_text)
-        # In raw_responses cachen — only update if tatsaechlich was kam
-        if graph_meta.get('models') or graph_meta.get('clusters'):
-            raw['graph_meta'] = graph_meta
-            rq.raw_responses = raw
-            rq.save(update_fields=['raw_responses'])
+    if refresh and council_results:
+        # Async re-generation: triggere im celery-research Worker
+        try:
+            from .tasks import refresh_graph_meta
+            refresh_graph_meta.delay(rq.pk)
+            messages.info(
+                request,
+                'Brain-Graph wird neu analysiert — bitte in 30-90 Sekunden die Seite neu laden.'
+            )
+        except Exception as exc:
+            logger.warning('refresh_graph_meta-Trigger fehlgeschlagen: %s', exc)
 
     # Fallback: alte regex-Logik aus dem Redakteur-Markdown
     cluster_map_fallback = _parse_redakteur_clusters(redakteur_text, council_results)
