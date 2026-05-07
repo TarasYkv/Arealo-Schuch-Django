@@ -351,7 +351,7 @@ def _missing_key_msg(provider_id: str) -> str:
 # -- Protokoll-Adapter ---------------------------------------------------------
 
 def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
-                        max_tokens: int = 1500, timeout: int = 120) -> tuple[str, dict]:
+                        max_tokens: int = 4000, timeout: int = 120) -> tuple[str, dict]:
     payload = {
         'model': model,
         'messages': [{'role': 'user', 'content': prompt}],
@@ -381,7 +381,7 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
 
 
 def _call_anthropic(url: str, api_key: str, model: str, prompt: str,
-                    max_tokens: int = 1500, timeout: int = 120) -> tuple[str, dict]:
+                    max_tokens: int = 4000, timeout: int = 120) -> tuple[str, dict]:
     payload = {
         'model': model,
         'max_tokens': max_tokens,
@@ -406,7 +406,7 @@ def _call_anthropic(url: str, api_key: str, model: str, prompt: str,
 
 
 def _call_gemini(url_template: str, api_key: str, model: str, prompt: str,
-                 max_tokens: int = 1500, timeout: int = 120) -> tuple[str, dict]:
+                 max_tokens: int = 4000, timeout: int = 120) -> tuple[str, dict]:
     url = url_template.format(model=model) + f'?key={api_key}'
     payload = {
         'contents': [{'parts': [{'text': prompt}]}],
@@ -436,7 +436,7 @@ def calculate_cost(model_id: str, tokens: dict) -> float:
            (tokens.get('output', 0) / 1_000_000) * pout
 
 
-def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
+def _call_one(model_id: str, prompt: str, user, max_tokens: int = 4000,
               timeout: int = 120) -> dict:
     cfg = MODELS.get(model_id)
     if not cfg:
@@ -492,7 +492,7 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 1500,
 
 
 def ask_council(question: str, user, model_ids: list[str],
-                max_tokens: int = 1500, timeout: int = 120) -> dict:
+                max_tokens: int = 4000, timeout: int = 120) -> dict:
     """Parallel an alle Modelle. Gibt strukturierte Ergebnisliste zurück."""
     t0 = time.time()
     results: list[dict] = []
