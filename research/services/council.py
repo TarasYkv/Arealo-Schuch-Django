@@ -468,25 +468,63 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
     url = prov['url']
     api = prov['api']
 
-    def _do_call(mt):
+    def _do_call(p, mt):
         if api == 'anthropic':
-            return _call_anthropic(url, api_key, model_name, prompt, mt, timeout)
+            return _call_anthropic(url, api_key, model_name, p, mt, timeout)
         if api == 'gemini':
-            return _call_gemini(url, api_key, model_name, prompt, mt, timeout)
-        return _call_openai_compat(url, api_key, model_name, prompt, mt, timeout)
+            return _call_gemini(url, api_key, model_name, p, mt, timeout)
+        return _call_openai_compat(url, api_key, model_name, p, mt, timeout)
 
     t0 = time.time()
     try:
-        text, tokens = _do_call(max_tokens)
-        # Kein Auto-Retry mehr: doppelter Call kostet bei teuren Modellen
-        # spuerbar. Mit Default 8000 / Reasoning 12000 sind echte Cutoffs
-        # selten — wenn doch, sieht User die Warnung im UI und kann gezielt
-        # mit "Weiterforschen" eine kuerzere Folgefrage stellen.
-        cost = calculate_cost(model_id, tokens)
+        text, tokens = _do_call(prompt, max_tokens)
+        # Continuation-Loop: bei Cutoff schicken wir einen Folge-Call mit
+        # "Setze GENAU fort wo du aufgehoert hast" — bis das Modell selbst
+        # finish_reason='stop' liefert oder das Limit von 4 Teilen erreicht ist.
+        # Spart Tokens vs. naivem Retry mit doppeltem Budget: nur die letzten
+        # ~3000 Zeichen kommen als Tail in den Folge-Prompt, nicht der ganze
+        # Original-Prompt nochmal.
+        pieces = [text]
+        in_total = tokens.get('input', 0) or 0
+        out_total = tokens.get('output', 0) or 0
+        cont_count = 0
+        while tokens.get('truncated') and cont_count < 3:
+            cont_count += 1
+            tail = ''.join(pieces)[-3000:]
+            cont_prompt = (
+                f'Du beantwortest folgende Frage:\n"{prompt[:300]}{"…" if len(prompt) > 300 else ""}"\n\n'
+                f'Du hast bereits begonnen — hier ist deine bisherige Teilantwort '
+                f'(letzte ~3000 Zeichen):\n\n{tail}\n\n'
+                f'ANWEISUNG: Schreibe die Antwort GENAU dort weiter wo sie '
+                f'mitten im Satz/Absatz/Tabellenzeile abgebrochen ist. '
+                f'KEINE neue Einleitung, KEINE Wiederholung des bereits Gesagten, '
+                f'KEINE abschliessende Zusammenfassung — nur die direkte Fortsetzung. '
+                f'Wenn du fertig bist, signalisiere das mit einem klaren Schlusssatz.'
+            )
+            try:
+                t2, k2 = _do_call(cont_prompt, max_tokens)
+            except Exception:
+                tokens['truncated'] = True
+                tokens['continuations_failed'] = True
+                break
+            if not (t2 or '').strip():
+                break
+            pieces.append(t2)
+            in_total += k2.get('input', 0) or 0
+            out_total += k2.get('output', 0) or 0
+            tokens = k2
+        full_text = '\n'.join(p for p in pieces if p)
+        # finalisierte Token-Summe ueber alle Teil-Calls
+        merged_tokens = dict(tokens)
+        merged_tokens['input'] = in_total
+        merged_tokens['output'] = out_total
+        merged_tokens['continuations'] = cont_count
+        cost = calculate_cost(model_id, merged_tokens)
         return {'model': model_id, 'display': name, 'provider': provider_id,
-                'ok': True, 'text': text, 'duration_s': time.time() - t0,
-                'tokens': tokens, 'cost_usd': cost,
-                'truncated': bool(tokens.get('truncated'))}
+                'ok': True, 'text': full_text, 'duration_s': time.time() - t0,
+                'tokens': merged_tokens, 'cost_usd': cost,
+                'continuations': cont_count,
+                'truncated': bool(tokens.get('truncated')) and cont_count >= 3}
     except urllib.error.HTTPError as e:
         body_preview = e.read()[:300].decode(errors="ignore")
         if e.code == 429:
