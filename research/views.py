@@ -52,7 +52,41 @@ def ask(request):
         if form.is_valid():
             return _execute_ask_async(request, form)
     else:
-        form = AskForm()
+        # Pre-fill aus einer bestehenden Anfrage + spezifischer Modell-Antwort —
+        # erlaubt "Drill-down": vom Brain-Graph-Modal aus weiterforschen.
+        initial = {}
+        src_pk = request.GET.get('source_query')
+        src_model = request.GET.get('source_model')
+        if src_pk:
+            try:
+                src_q = ResearchQuery.objects.get(pk=src_pk, owner=request.user)
+            except (ResearchQuery.DoesNotExist, ValueError):
+                src_q = None
+            if src_q:
+                src_text = ''
+                src_label = ''
+                if src_model and isinstance(src_q.raw_responses, dict):
+                    council = src_q.raw_responses.get('council') or []
+                    for r in council:
+                        if r.get('model') == src_model:
+                            src_text = (r.get('text') or '').strip()
+                            src_label = r.get('display') or src_model
+                            break
+                # Falls kein spezifisches Modell oder text leer: fallback auf
+                # Hauptantwort der Source-Query
+                if not src_text:
+                    src_text = (src_q.answer or '').strip()
+                    src_label = 'Synthese-Antwort'
+                if src_text:
+                    initial['question'] = (
+                        f'Vertiefe folgenden Aspekt aus Anfrage #{src_q.pk} '
+                        f'({src_label}):\n\n'
+                        f'>>> {src_text[:1500]}{"…" if len(src_text) > 1500 else ""} <<<\n\n'
+                        f'Originale Frage war: "{src_q.question[:200]}"\n\n'
+                        f'Meine Folgefrage: '
+                    )
+                    initial['mode'] = 'council_edited'
+        form = AskForm(initial=initial) if initial else AskForm()
     return render(request, 'research/ask.html', {
         'form': form,
         'council_models': council_service.MODELS,

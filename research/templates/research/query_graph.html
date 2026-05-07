@@ -85,6 +85,9 @@
   .gv-modal__sub { color: var(--rs-ink-faint); font-size: 13px; margin-bottom: 16px; }
   .gv-modal__body { color: var(--rs-ink); line-height: 1.7; white-space: pre-wrap;
                     font-size: 14px; }
+  .gv-modal__actions { margin-top: 24px; padding-top: 16px;
+                       border-top: 1px solid var(--rs-border); display: flex;
+                       gap: 10px; flex-wrap: wrap; }
 
   .gv-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
   .gv-legend-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
@@ -127,6 +130,12 @@
     <h2 class="gv-modal__title" id="modalTitle">—</h2>
     <div class="gv-modal__sub" id="modalSub"></div>
     <div class="gv-modal__body" id="modalBody"></div>
+    <div class="gv-modal__actions">
+      <a href="#" id="modalDrillBtn" class="rs-btn rs-btn--primary" target="_blank"
+         title="Neues Council mit dieser Antwort als Kontext starten">
+        <i class="fas fa-microscope"></i> Mit diesem Text weiterforschen
+      </a>
+    </div>
   </div>
 </div>
 
@@ -272,6 +281,9 @@ cy.on('tap', 'node', evt => {
   openModal(d);
 });
 
+const QUERY_PK = {{ q.pk }};
+const ASK_URL = "{% url 'research:ask' %}";
+
 function openModal(d) {
   document.getElementById('modalTitle').textContent = d.label;
   let sub = '';
@@ -279,6 +291,17 @@ function openModal(d) {
   else if (d.duration_s != null) sub = `Antwortzeit: ${d.duration_s.toFixed(1)}s`;
   document.getElementById('modalSub').textContent = sub;
   document.getElementById('modalBody').textContent = d.full_text || (d.error || '');
+
+  // Drill-down-Button: Link zu /research/ask/?source_query=<pk>&source_model=<id>
+  const drillBtn = document.getElementById('modalDrillBtn');
+  if (d.full_text && d.full_text.length > 0) {
+    const params = new URLSearchParams({ source_query: QUERY_PK });
+    if (d.id && d.type !== 'redakteur') params.set('source_model', d.id);
+    drillBtn.href = ASK_URL + '?' + params.toString();
+    drillBtn.style.display = '';
+  } else {
+    drillBtn.style.display = 'none';
+  }
   document.getElementById('modal').classList.add('open');
 }
 function closeModal() {
@@ -347,7 +370,7 @@ sortedGroups.forEach(g => {
       <div class="gv-bubble__text">${n.ok ? (n.full_text || '(leer)') : '<em>Fehler: ' + (n.error || '-') + '</em>'}</div>
     `;
     b.addEventListener('click', () => openModal({
-      label: n.name, type: 'model', full_text: n.full_text,
+      id: n.id, label: n.name, type: 'model', full_text: n.full_text,
       duration_s: n.duration_s, error: n.error, ok: n.ok
     }));
     bubbleGrid.appendChild(b);
