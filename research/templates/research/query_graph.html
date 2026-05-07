@@ -1,0 +1,339 @@
+{% extends 'research/base.html' %}
+
+{% block extra_css %}{{ block.super }}
+<script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<style>
+  .gv-hero { display: flex; justify-content: space-between; align-items: center;
+             margin: 24px 0 12px; flex-wrap: wrap; gap: 16px; }
+  .gv-hero h1 { margin: 0; font-size: 22px; color: var(--rs-ink); }
+  .gv-hero .gv-sub { color: var(--rs-ink-soft); font-size: 14px; }
+  .gv-actions a.rs-btn { margin-left: 8px; }
+
+  .gv-graph-wrap {
+    position: relative;
+    background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 100%);
+    border: 1px solid var(--rs-border);
+    border-radius: 16px;
+    height: 540px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  #cy { width: 100%; height: 100%; }
+
+  .gv-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.95);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 300px;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.15s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+  .gv-tooltip.show { opacity: 1; }
+  .gv-tooltip .gv-tooltip-name { font-weight: 600; margin-bottom: 6px; color: #cbd5e1; }
+
+  .gv-bubbles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+  .gv-bubble {
+    background: var(--rs-surface);
+    border: 1px solid var(--rs-border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: var(--rs-shadow-sm);
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    border-left: 4px solid var(--gv-cluster-color, var(--rs-accent));
+  }
+  .gv-bubble:hover { transform: translateY(-2px); box-shadow: var(--rs-shadow-md); }
+  .gv-bubble__head { display: flex; justify-content: space-between; align-items: center;
+                     margin-bottom: 8px; }
+  .gv-bubble__name { font-weight: 600; color: var(--rs-ink); font-size: 14px; }
+  .gv-bubble__cluster { font-size: 11px; color: var(--rs-ink-faint); text-transform: uppercase;
+                        letter-spacing: 0.04em; }
+  .gv-bubble__text { color: var(--rs-ink-soft); font-size: 13px; line-height: 1.55;
+                     display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
+                     overflow: hidden; }
+
+  .gv-cluster-section { margin-bottom: 28px; }
+  .gv-cluster-title { font-size: 14px; font-weight: 600; color: var(--rs-ink-soft);
+                      text-transform: uppercase; letter-spacing: 0.05em;
+                      margin: 0 0 12px; padding: 6px 12px; border-radius: 8px;
+                      display: inline-block; }
+
+  .gv-modal { position: fixed; inset: 0; background: rgba(15,23,42,0.7); display: none;
+              z-index: 1000; align-items: center; justify-content: center; padding: 24px; }
+  .gv-modal.open { display: flex; }
+  .gv-modal__panel { background: var(--rs-surface); border-radius: 16px; max-width: 720px;
+                     width: 100%; max-height: 85vh; overflow-y: auto; padding: 28px 32px;
+                     box-shadow: 0 24px 60px rgba(0,0,0,0.3); position: relative; }
+  .gv-modal__close { position: absolute; top: 16px; right: 16px; border: none; background: none;
+                     font-size: 22px; cursor: pointer; color: var(--rs-ink-soft); }
+  .gv-modal__title { margin: 0 0 6px; font-size: 18px; color: var(--rs-ink); }
+  .gv-modal__sub { color: var(--rs-ink-faint); font-size: 13px; margin-bottom: 16px; }
+  .gv-modal__body { color: var(--rs-ink); line-height: 1.7; white-space: pre-wrap;
+                    font-size: 14px; }
+
+  .gv-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .gv-legend-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+                    border-radius: 999px; background: var(--rs-surface-soft);
+                    border: 1px solid var(--rs-border); font-size: 12px; color: var(--rs-ink-soft); }
+  .gv-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gv-hero">
+  <div>
+    <h1>Brain-Graph · Anfrage #{{ q.pk }}</h1>
+    <div class="gv-sub">{{ q.question|truncatewords:25 }}</div>
+  </div>
+  <div class="gv-actions">
+    <a href="{% url 'research:query_detail' q.pk %}" class="rs-btn rs-btn--ghost">
+      <i class="fas fa-arrow-left"></i> Zurück
+    </a>
+  </div>
+</div>
+
+<div class="gv-legend" id="legend"></div>
+
+<div class="gv-graph-wrap">
+  <div id="cy"></div>
+  <div class="gv-tooltip" id="tooltip"></div>
+</div>
+
+<h3 style="margin: 0 0 16px; color: var(--rs-ink);">Antworten gruppiert nach Cluster</h3>
+<div id="bubblesArea"></div>
+
+<div class="gv-modal" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="gv-modal__panel">
+    <button type="button" class="gv-modal__close" onclick="closeModal()">×</button>
+    <h2 class="gv-modal__title" id="modalTitle">—</h2>
+    <div class="gv-modal__sub" id="modalSub"></div>
+    <div class="gv-modal__body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+const NODES = {{ nodes_json|safe }};
+const REDAKTEUR = {{ redakteur_json|safe }};
+const HAS_REDAKTEUR = {{ has_redakteur|yesno:"true,false" }};
+
+// Cluster-Farben (deterministische Palette)
+const CLUSTER_COLORS = [
+  '#6366f1', '#10b981', '#f59e0b', '#ef4444',
+  '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16',
+  '#f97316', '#0ea5e9'
+];
+const REDAKTEUR_COLOR = '#0f172a';
+const NO_CLUSTER_COLOR = '#94a3b8';
+
+function colorFor(cluster) {
+  if (cluster < 0) return NO_CLUSTER_COLOR;
+  return CLUSTER_COLORS[cluster % CLUSTER_COLORS.length];
+}
+
+// Cytoscape Setup
+const cyElements = [];
+if (HAS_REDAKTEUR) {
+  cyElements.push({
+    data: { id: REDAKTEUR.id, label: REDAKTEUR.name, type: 'redakteur',
+            color: REDAKTEUR_COLOR, full_text: REDAKTEUR.full_text || '' }
+  });
+}
+NODES.forEach(n => {
+  cyElements.push({
+    data: { id: n.id, label: n.name, type: 'model', cluster: n.cluster,
+            color: colorFor(n.cluster), summary: n.summary,
+            full_text: n.full_text, ok: n.ok, error: n.error,
+            duration_s: n.duration_s }
+  });
+  if (HAS_REDAKTEUR) {
+    cyElements.push({
+      data: { id: 'e_' + n.id, source: REDAKTEUR.id, target: n.id,
+              cluster: n.cluster }
+    });
+  }
+});
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements: cyElements,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        'background-color': 'data(color)',
+        'label': 'data(label)',
+        'color': '#0f172a',
+        'font-size': '13px',
+        'font-weight': 600,
+        'text-valign': 'bottom',
+        'text-margin-y': 8,
+        'text-outline-color': '#fff',
+        'text-outline-width': 2,
+        'border-width': 2,
+        'border-color': '#fff',
+      }
+    },
+    {
+      selector: 'node[type = "redakteur"]',
+      style: {
+        'width': 70, 'height': 70,
+        'font-size': '15px',
+        'border-width': 4,
+        'border-color': '#fbbf24',
+      }
+    },
+    {
+      selector: 'node[type = "model"]',
+      style: { 'width': 44, 'height': 44 }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': 2,
+        'line-color': '#cbd5e1',
+        'curve-style': 'bezier',
+        'opacity': 0.6,
+      }
+    }
+  ],
+  layout: HAS_REDAKTEUR ? {
+    name: 'concentric',
+    concentric: function(node) { return node.data('type') === 'redakteur' ? 10 : 1; },
+    levelWidth: function() { return 1; },
+    minNodeSpacing: 60,
+    spacingFactor: 1.4,
+    animate: false,
+  } : {
+    name: 'cose',
+    animate: false,
+    nodeRepulsion: 8000,
+    idealEdgeLength: 120,
+  },
+  wheelSensitivity: 0.2,
+});
+
+// Hover-Tooltip
+const tooltipEl = document.getElementById('tooltip');
+cy.on('mouseover', 'node', evt => {
+  const d = evt.target.data();
+  let text = '';
+  if (d.type === 'redakteur') {
+    text = `<div class="gv-tooltip-name">${d.label} (Redakteur)</div>${truncate(d.full_text, 200)}`;
+  } else {
+    if (d.ok) text = `<div class="gv-tooltip-name">${d.label}</div>${d.summary || '(keine Antwort)'}`;
+    else text = `<div class="gv-tooltip-name">${d.label}</div><em>Fehler: ${d.error || '-'}</em>`;
+  }
+  tooltipEl.innerHTML = text;
+  tooltipEl.classList.add('show');
+});
+cy.on('mouseout', 'node', () => tooltipEl.classList.remove('show'));
+cy.on('mousemove', 'node', evt => {
+  const wrap = document.querySelector('.gv-graph-wrap').getBoundingClientRect();
+  const x = evt.originalEvent.clientX - wrap.left;
+  const y = evt.originalEvent.clientY - wrap.top;
+  tooltipEl.style.left = (x + 14) + 'px';
+  tooltipEl.style.top = (y + 14) + 'px';
+});
+
+// Click → Modal
+cy.on('tap', 'node', evt => {
+  const d = evt.target.data();
+  openModal(d);
+});
+
+function openModal(d) {
+  document.getElementById('modalTitle').textContent = d.label;
+  let sub = '';
+  if (d.type === 'redakteur') sub = 'Redakteur · Synthese aller Council-Antworten';
+  else if (d.duration_s != null) sub = `Antwortzeit: ${d.duration_s.toFixed(1)}s`;
+  document.getElementById('modalSub').textContent = sub;
+  document.getElementById('modalBody').textContent = d.full_text || (d.error || '');
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+function truncate(s, n) {
+  if (!s) return '(leer)';
+  return s.length > n ? s.substring(0, n) + '…' : s;
+}
+
+// Legende
+const legendEl = document.getElementById('legend');
+const clusterIds = [...new Set(NODES.map(n => n.cluster))].filter(c => c >= 0).sort();
+clusterIds.forEach((c, i) => {
+  const pill = document.createElement('span');
+  pill.className = 'gv-legend-pill';
+  pill.innerHTML = `<span class="gv-legend-dot" style="background:${colorFor(c)}"></span>Cluster ${c + 1}`;
+  legendEl.appendChild(pill);
+});
+const hasUngrouped = NODES.some(n => n.cluster < 0);
+if (hasUngrouped) {
+  const pill = document.createElement('span');
+  pill.className = 'gv-legend-pill';
+  pill.innerHTML = `<span class="gv-legend-dot" style="background:${NO_CLUSTER_COLOR}"></span>nicht gruppiert`;
+  legendEl.appendChild(pill);
+}
+if (HAS_REDAKTEUR) {
+  const pill = document.createElement('span');
+  pill.className = 'gv-legend-pill';
+  pill.innerHTML = `<span class="gv-legend-dot" style="background:${REDAKTEUR_COLOR}"></span>Redakteur`;
+  legendEl.appendChild(pill);
+}
+
+// Bubbles unten — gruppiert nach Cluster
+const bubblesArea = document.getElementById('bubblesArea');
+const groups = new Map();
+NODES.forEach(n => {
+  const key = n.cluster >= 0 ? `c${n.cluster}` : 'none';
+  if (!groups.has(key)) groups.set(key, { cluster: n.cluster, items: [] });
+  groups.get(key).items.push(n);
+});
+const sortedGroups = [...groups.values()].sort((a, b) => {
+  if (a.cluster < 0) return 1;
+  if (b.cluster < 0) return -1;
+  return a.cluster - b.cluster;
+});
+sortedGroups.forEach(g => {
+  const sec = document.createElement('div');
+  sec.className = 'gv-cluster-section';
+  const titleText = g.cluster >= 0 ? `Cluster ${g.cluster + 1} · ${g.items.length} Modell(e)` : `Einzelne Antworten · ${g.items.length}`;
+  const c = colorFor(g.cluster);
+  sec.innerHTML = `<div class="gv-cluster-title" style="background:${c}22;color:${c};">${titleText}</div><div class="gv-bubbles"></div>`;
+  const bubbleGrid = sec.querySelector('.gv-bubbles');
+  g.items.forEach(n => {
+    const b = document.createElement('div');
+    b.className = 'gv-bubble';
+    b.style.setProperty('--gv-cluster-color', colorFor(n.cluster));
+    const dur = n.duration_s != null ? `${n.duration_s.toFixed(1)}s` : '';
+    b.innerHTML = `
+      <div class="gv-bubble__head">
+        <span class="gv-bubble__name">${n.name}</span>
+        <span class="gv-bubble__cluster">${dur}</span>
+      </div>
+      <div class="gv-bubble__text">${n.ok ? (n.full_text || '(leer)') : '<em>Fehler: ' + (n.error || '-') + '</em>'}</div>
+    `;
+    b.addEventListener('click', () => openModal({
+      label: n.name, type: 'model', full_text: n.full_text,
+      duration_s: n.duration_s, error: n.error, ok: n.ok
+    }));
+    bubbleGrid.appendChild(b);
+  });
+  bubblesArea.appendChild(sec);
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+{% endblock %}

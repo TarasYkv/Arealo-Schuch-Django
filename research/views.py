@@ -1,3 +1,4 @@
+import json
 import logging
 
 from django.contrib import messages
@@ -236,6 +237,94 @@ def query_detail(request, pk):
     return render(request, 'research/query_detail.html', {
         'q': rq,
         'council_results': council_results,
+    })
+
+
+def _parse_redakteur_clusters(redakteur_text: str, council_results: list[dict]) -> dict[str, int]:
+    """Aus dem Redakteur-Markdown extrahieren, welche Modelle gemeinsam an
+    welcher Idee beteiligt waren. Gibt Mapping model_id -> cluster_idx zurück.
+    """
+    import re
+    if not redakteur_text or not council_results:
+        return {}
+    # display-name -> model_id, plus model_id -> model_id (Falls Modell direkt
+    # mit ID erwaehnt wurde).
+    name_to_id: dict[str, str] = {}
+    for r in council_results:
+        mid = r.get('model') or ''
+        name = r.get('display') or ''
+        if name and mid:
+            name_to_id[name.lower()] = mid
+        if mid:
+            name_to_id[mid.lower()] = mid
+    cluster_map: dict[str, int] = {}
+    sections = re.split(r'^##\s*Idee\s*\d+', redakteur_text, flags=re.MULTILINE)
+    cluster_idx = 0
+    for sec in sections[1:]:  # erste Sektion vor erster "## Idee" ignorieren
+        proposers_text = ''
+        for label in ('Vorgeschlagen von', 'Mitgetragen von'):
+            m = re.search(rf'\*\*{label}:\*\*\s*([^\n]+)', sec)
+            if m:
+                proposers_text += ' ' + m.group(1)
+        if not proposers_text.strip():
+            continue
+        ptxt = proposers_text.lower()
+        any_match = False
+        for name, mid in name_to_id.items():
+            if name in ptxt and mid not in cluster_map:
+                cluster_map[mid] = cluster_idx
+                any_match = True
+        if any_match:
+            cluster_idx += 1
+    return cluster_map
+
+
+@login_required
+def query_graph(request, pk):
+    """Brain-Graph der Council-Antworten mit Cluster-Layout."""
+    rq = get_object_or_404(ResearchQuery, pk=pk, owner=request.user)
+    raw = rq.raw_responses if isinstance(rq.raw_responses, dict) else {}
+    council = raw.get('council') or []
+    if isinstance(council, list) and council:
+        council_results = council
+    else:
+        council_results = []
+    redak = raw.get('redakteur') or raw.get('primary_validation') or {}
+    redakteur_text = redak.get('text', '') if isinstance(redak, dict) else ''
+    cluster_map = _parse_redakteur_clusters(redakteur_text, council_results)
+
+    # Daten fuer JS aufbereiten
+    nodes = []
+    for r in council_results:
+        mid = r.get('model') or '?'
+        cluster = cluster_map.get(mid, -1)
+        full_text = (r.get('text') or '').strip()
+        summary = full_text[:200] + ('…' if len(full_text) > 200 else '')
+        nodes.append({
+            'id': mid,
+            'name': r.get('display') or mid,
+            'cluster': cluster,
+            'summary': summary,
+            'full_text': full_text,
+            'ok': bool(r.get('ok')),
+            'error': r.get('error') or '',
+            'duration_s': r.get('duration_s'),
+        })
+    redakteur_node = None
+    if redakteur_text:
+        red_id = redak.get('model') or 'redakteur'
+        red_name = redak.get('display') or 'Redakteur'
+        redakteur_node = {
+            'id': red_id,
+            'name': red_name,
+            'full_text': redakteur_text,
+            'duration_s': redak.get('duration_s'),
+        }
+    return render(request, 'research/query_graph.html', {
+        'q': rq,
+        'nodes_json': json.dumps(nodes, ensure_ascii=False),
+        'redakteur_json': json.dumps(redakteur_node, ensure_ascii=False) if redakteur_node else 'null',
+        'has_redakteur': bool(redakteur_node),
     })
 
 
