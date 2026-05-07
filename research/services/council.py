@@ -478,17 +478,10 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
     t0 = time.time()
     try:
         text, tokens = _do_call(max_tokens)
-        # Auto-Retry bei truncation: Modell hat das Limit erreicht und
-        # mid-content gestoppt. Verdoppeln und nochmal — gibt es mit Cap 32k.
-        if tokens.get('truncated') and max_tokens < 32000:
-            retry_mt = min(max_tokens * 2, 32000)
-            try:
-                text2, tokens2 = _do_call(retry_mt)
-                if not tokens2.get('truncated') or len(text2) > len(text):
-                    text, tokens = text2, tokens2
-                    tokens['retry'] = True
-            except Exception:
-                pass  # behalten was wir aus dem ersten Call hatten
+        # Kein Auto-Retry mehr: doppelter Call kostet bei teuren Modellen
+        # spuerbar. Mit Default 8000 / Reasoning 12000 sind echte Cutoffs
+        # selten — wenn doch, sieht User die Warnung im UI und kann gezielt
+        # mit "Weiterforschen" eine kuerzere Folgefrage stellen.
         cost = calculate_cost(model_id, tokens)
         return {'model': model_id, 'display': name, 'provider': provider_id,
                 'ok': True, 'text': text, 'duration_s': time.time() - t0,

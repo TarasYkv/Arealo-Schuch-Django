@@ -2,6 +2,8 @@
 
 {% block extra_css %}{{ block.super }}
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@14.1.4/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
 <style>
   .gv-hero { display: flex; justify-content: space-between; align-items: center;
              margin: 24px 0 12px; flex-wrap: wrap; gap: 16px; }
@@ -83,8 +85,40 @@
                      font-size: 22px; cursor: pointer; color: var(--rs-ink-soft); }
   .gv-modal__title { margin: 0 0 6px; font-size: 18px; color: var(--rs-ink); }
   .gv-modal__sub { color: var(--rs-ink-faint); font-size: 13px; margin-bottom: 16px; }
-  .gv-modal__body { color: var(--rs-ink); line-height: 1.7; white-space: pre-wrap;
-                    font-size: 14px; }
+  .gv-modal__body { color: var(--rs-ink); line-height: 1.65; font-size: 14px; }
+  .gv-modal__body h1, .gv-modal__body h2, .gv-modal__body h3 {
+    margin: 18px 0 8px; font-weight: 600; color: var(--rs-ink); line-height: 1.3;
+  }
+  .gv-modal__body h1 { font-size: 20px; }
+  .gv-modal__body h2 { font-size: 17px; }
+  .gv-modal__body h3 { font-size: 15px; }
+  .gv-modal__body p  { margin: 8px 0; }
+  .gv-modal__body ul, .gv-modal__body ol { margin: 8px 0; padding-left: 22px; }
+  .gv-modal__body li { margin: 3px 0; }
+  .gv-modal__body code {
+    background: var(--rs-surface-soft); border: 1px solid var(--rs-border);
+    padding: 1px 5px; border-radius: 4px; font-size: 12.5px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .gv-modal__body pre {
+    background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 8px;
+    overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+  }
+  .gv-modal__body pre code { background: none; border: none; padding: 0; color: inherit; }
+  .gv-modal__body table {
+    border-collapse: collapse; margin: 12px 0; width: 100%; font-size: 13px;
+  }
+  .gv-modal__body th, .gv-modal__body td {
+    border: 1px solid var(--rs-border); padding: 6px 10px; text-align: left;
+  }
+  .gv-modal__body th { background: var(--rs-surface-soft); font-weight: 600; }
+  .gv-modal__body blockquote {
+    border-left: 4px solid var(--rs-border); padding: 6px 14px; margin: 10px 0;
+    color: var(--rs-ink-soft); background: var(--rs-surface-soft); border-radius: 4px;
+  }
+  .gv-modal__body strong { font-weight: 600; }
+  .gv-modal__body a { color: var(--rs-accent); text-decoration: none; }
+  .gv-modal__body a:hover { text-decoration: underline; }
   .gv-modal__actions { margin-top: 24px; padding-top: 16px;
                        border-top: 1px solid var(--rs-border); display: flex;
                        gap: 10px; flex-wrap: wrap; }
@@ -266,6 +300,37 @@ cy.on('mouseover', 'node', evt => {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// Plain-Text-Preview aus Markdown (fuer Bubble-Cards): Headers/Bold/Listen
+// rauswerfen, sodass die ersten Zeichen lesbar sind.
+function stripMd(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/^#{1,6}\s+/gm, '')      // headlines
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // bold
+    .replace(/\*([^*]+)\*/g, '$1')     // italic
+    .replace(/`([^`]+)`/g, '$1')       // inline code
+    .replace(/^[-*+]\s+/gm, '• ')      // listen
+    .replace(/^>\s+/gm, '')            // blockquote
+    .replace(/\|/g, ' ')               // tabellen-pipes weg
+    .replace(/^[-=]{3,}$/gm, '')       // separator-lines
+    .replace(/\n{3,}/g, '\n\n')        // mehrfach-leerzeilen
+    .trim();
+}
+
+// Markdown rendern + DOMPurify-sanitizen damit kein XSS aus KI-Output durchschluepft
+function renderMd(text) {
+  if (!text) return '';
+  if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+    return escapeHtml(text).replace(/\n/g, '<br>');
+  }
+  try {
+    const html = marked.parse(String(text), { breaks: true, gfm: true });
+    return DOMPurify.sanitize(html);
+  } catch (e) {
+    return escapeHtml(text).replace(/\n/g, '<br>');
+  }
+}
 cy.on('mouseout', 'node', () => tooltipEl.classList.remove('show'));
 cy.on('mousemove', 'node', evt => {
   const wrap = document.querySelector('.gv-graph-wrap').getBoundingClientRect();
@@ -291,7 +356,7 @@ function openModal(d) {
   else if (d.duration_s != null) sub = `Antwortzeit: ${d.duration_s.toFixed(1)}s`;
   document.getElementById('modalSub').textContent = sub;
   const body = document.getElementById('modalBody');
-  body.textContent = d.full_text || (d.error || '');
+  body.innerHTML = renderMd(d.full_text || (d.error || ''));
   // Vorherige Warnung entfernen damit nichts akkumuliert
   const oldWarn = document.querySelector('.gv-modal-warn');
   if (oldWarn) oldWarn.remove();
@@ -378,7 +443,7 @@ sortedGroups.forEach(g => {
         <span class="gv-bubble__name">${n.name}</span>
         <span class="gv-bubble__cluster">${dur}</span>
       </div>
-      <div class="gv-bubble__text">${n.ok ? (n.full_text || '(leer)') : '<em>Fehler: ' + (n.error || '-') + '</em>'}</div>
+      <div class="gv-bubble__text">${n.ok ? escapeHtml(stripMd(n.full_text) || '(leer)') : '<em>Fehler: ' + escapeHtml(n.error || '-') + '</em>'}</div>
     `;
     b.addEventListener('click', () => openModal({
       id: n.id, label: n.name, type: 'model', full_text: n.full_text,
