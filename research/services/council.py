@@ -365,6 +365,10 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
                                  })
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = json.loads(r.read())
+    if 'choices' not in body or not body.get('choices'):
+        err_obj = body.get('error') or {}
+        err_msg = err_obj.get('message') if isinstance(err_obj, dict) else err_obj
+        raise RuntimeError(f'Provider-Antwort ohne choices: {str(err_msg or body)[:200]}')
     choice = body['choices'][0]
     msg = choice.get('message', {}) or {}
     # Bei Reasoning-Modellen (kimi-thinking, qwen-thinking, sonar-reasoning, ...)

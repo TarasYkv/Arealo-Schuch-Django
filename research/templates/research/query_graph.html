@@ -13,12 +13,16 @@
 
   .gv-graph-wrap {
     position: relative;
-    background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 100%);
+    background:
+      radial-gradient(circle at 20% 20%, rgba(99,102,241,0.06), transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(16,185,129,0.05), transparent 50%),
+      linear-gradient(135deg, #fbfcff 0%, #f4f7ff 100%);
     border: 1px solid var(--rs-border);
-    border-radius: 16px;
-    height: 540px;
+    border-radius: 18px;
+    height: 620px;
     margin-bottom: 24px;
     overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
   }
   #cy { width: 100%; height: 100%; }
 
@@ -224,8 +228,27 @@ function colorFor(cluster) {
   return CLUSTER_COLORS[cluster % CLUSTER_COLORS.length];
 }
 
-// Cytoscape Setup
+// Cytoscape Setup mit Compound-Nodes:
+// - Cluster werden als Parent-Nodes (round-rectangle Bubbles) dargestellt,
+//   Modelle sind ihre Kinder. Cytoscape zeichnet automatisch eine Bubble
+//   um die Gruppe.
+// - Redakteur (wenn vorhanden) ist ein zentraler Hub-Knoten der zu jedem
+//   Cluster-Parent verbindet (eine Edge pro Cluster, nicht pro Modell).
+// - Modelle ohne Cluster verbinden sich direkt zum Redakteur.
 const cyElements = [];
+
+// 1. Cluster-Compound-Nodes
+const clusterIdsActive = [...new Set(NODES.map(n => n.cluster))]
+  .filter(c => c >= 0).sort((a, b) => a - b);
+clusterIdsActive.forEach(cid => {
+  const cname = CLUSTER_NAMES[cid] || CLUSTER_NAMES[String(cid)] || `Cluster ${cid + 1}`;
+  cyElements.push({
+    data: { id: `cluster_${cid}`, label: cname, type: 'cluster',
+            color: colorFor(cid), cluster: cid }
+  });
+});
+
+// 2. Redakteur als zentraler Hub
 if (HAS_REDAKTEUR) {
   cyElements.push({
     data: { id: REDAKTEUR.id, label: REDAKTEUR.name, type: 'redakteur',
@@ -233,83 +256,159 @@ if (HAS_REDAKTEUR) {
             summary: REDAKTEUR.summary || [], ok: true }
   });
 }
+
+// 3. Modelle als Kinder ihrer Cluster-Parents
 NODES.forEach(n => {
-  cyElements.push({
-    data: { id: n.id, label: n.name, type: 'model', cluster: n.cluster,
-            color: colorFor(n.cluster), summary: n.summary,
-            full_text: n.full_text, ok: n.ok, error: n.error,
-            duration_s: n.duration_s }
-  });
-  if (HAS_REDAKTEUR) {
-    cyElements.push({
-      data: { id: 'e_' + n.id, source: REDAKTEUR.id, target: n.id,
-              cluster: n.cluster }
-    });
-  }
+  const data = {
+    id: n.id, label: n.name, type: 'model', cluster: n.cluster,
+    color: colorFor(n.cluster), summary: n.summary,
+    full_text: n.full_text, ok: n.ok, error: n.error,
+    duration_s: n.duration_s, truncated: n.truncated
+  };
+  if (n.cluster >= 0) data.parent = `cluster_${n.cluster}`;
+  cyElements.push({ data });
 });
+
+// 4. Edges: Redakteur ↔ Cluster-Parents (1 Edge pro Cluster, nicht pro Modell)
+//    Modelle ohne Cluster verbinden sich direkt zum Redakteur
+if (HAS_REDAKTEUR) {
+  clusterIdsActive.forEach(cid => {
+    cyElements.push({
+      data: { id: `e_red_c${cid}`, source: REDAKTEUR.id, target: `cluster_${cid}`,
+              cluster: cid }
+    });
+  });
+  NODES.filter(n => n.cluster < 0).forEach(n => {
+    cyElements.push({
+      data: { id: 'e_red_' + n.id, source: REDAKTEUR.id, target: n.id }
+    });
+  });
+}
 
 const cy = cytoscape({
   container: document.getElementById('cy'),
   elements: cyElements,
   style: [
+    // Modell-Knoten: Kreise mit weichem Schatten
     {
-      selector: 'node',
+      selector: 'node[type = "model"]',
       style: {
         'background-color': 'data(color)',
         'label': 'data(label)',
         'color': '#0f172a',
-        'font-size': '13px',
+        'font-size': '12px',
         'font-weight': 600,
         'text-valign': 'bottom',
-        'text-margin-y': 8,
+        'text-margin-y': 9,
         'text-outline-color': '#fff',
-        'text-outline-width': 2,
-        'border-width': 2,
-        'border-color': '#fff',
+        'text-outline-width': 3,
+        'border-width': 3,
+        'border-color': '#ffffff',
+        'border-opacity': 1,
+        'width': 46, 'height': 46,
+        'shadow-blur': 12,
+        'shadow-color': '#000',
+        'shadow-opacity': 0.18,
+        'shadow-offset-x': 0,
+        'shadow-offset-y': 2,
+        'transition-property': 'border-color, border-width, width, height',
+        'transition-duration': '0.15s',
       }
     },
+    // Cluster-Compound: weiche, halb-transparente Bubble
+    {
+      selector: 'node[type = "cluster"]',
+      style: {
+        'background-color': 'data(color)',
+        'background-opacity': 0.10,
+        'border-color': 'data(color)',
+        'border-width': 2,
+        'border-style': 'solid',
+        'border-opacity': 0.45,
+        'shape': 'round-rectangle',
+        'corner-radius': '24',
+        'label': 'data(label)',
+        'text-valign': 'top',
+        'text-halign': 'center',
+        'text-margin-y': -10,
+        'font-size': '12px',
+        'font-weight': 700,
+        'color': 'data(color)',
+        'text-transform': 'uppercase',
+        'text-outline-width': 0,
+        'padding': 26,
+        'min-width': 80,
+        'min-height': 80,
+      }
+    },
+    // Redakteur: groesser, gold-Border, dunkler Background
     {
       selector: 'node[type = "redakteur"]',
       style: {
-        'width': 70, 'height': 70,
-        'font-size': '15px',
+        'background-color': 'data(color)',
+        'label': 'data(label)',
+        'color': '#fff',
+        'font-size': '13px',
+        'font-weight': 700,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'text-outline-color': '#0f172a',
+        'text-outline-width': 0,
+        'width': 88, 'height': 88,
         'border-width': 4,
         'border-color': '#fbbf24',
+        'shadow-blur': 22,
+        'shadow-color': '#fbbf24',
+        'shadow-opacity': 0.35,
+        'shadow-offset-x': 0,
+        'shadow-offset-y': 0,
       }
     },
-    {
-      selector: 'node[type = "model"]',
-      style: { 'width': 44, 'height': 44 }
-    },
+    // Edges: gestrichelt, dezent
     {
       selector: 'edge',
       style: {
-        'width': 2,
+        'width': 1.6,
         'line-color': '#cbd5e1',
+        'line-style': 'dashed',
+        'line-dash-pattern': [6, 4],
         'curve-style': 'bezier',
-        'opacity': 0.6,
+        'opacity': 0.55,
+      }
+    },
+    // Hover-Zustand
+    {
+      selector: 'node[type = "model"]:active, node[type = "model"].gv-hover',
+      style: {
+        'border-color': 'data(color)',
+        'border-width': 5,
+        'width': 52, 'height': 52,
       }
     }
   ],
-  layout: HAS_REDAKTEUR ? {
-    name: 'concentric',
-    concentric: function(node) { return node.data('type') === 'redakteur' ? 10 : 1; },
-    levelWidth: function() { return 1; },
-    minNodeSpacing: 60,
-    spacingFactor: 1.4,
-    animate: false,
-  } : {
+  layout: {
     name: 'cose',
     animate: false,
-    nodeRepulsion: 8000,
-    idealEdgeLength: 120,
+    nodeRepulsion: 12000,
+    idealEdgeLength: 180,
+    nodeOverlap: 8,
+    componentSpacing: 80,
+    gravity: 0.4,
+    nestingFactor: 1.4,
+    randomize: false,
+    fit: true,
+    padding: 30,
   },
   wheelSensitivity: 0.2,
 });
 
-// Hover-Tooltip
+// Hover-Highlight (leichte Animation der Border)
+cy.on('mouseover', 'node[type = "model"]', evt => evt.target.addClass('gv-hover'));
+cy.on('mouseout', 'node[type = "model"]', evt => evt.target.removeClass('gv-hover'));
+
+// Hover-Tooltip — nur fuer Modell + Redakteur, nicht fuer Cluster-Bubbles
 const tooltipEl = document.getElementById('tooltip');
-cy.on('mouseover', 'node', evt => {
+cy.on('mouseover', 'node[type != "cluster"]', evt => {
   const d = evt.target.data();
   let html = '';
   const headerLabel = d.type === 'redakteur'
@@ -364,8 +463,8 @@ function renderMd(text) {
     return escapeHtml(text).replace(/\n/g, '<br>');
   }
 }
-cy.on('mouseout', 'node', () => tooltipEl.classList.remove('show'));
-cy.on('mousemove', 'node', evt => {
+cy.on('mouseout', 'node[type != "cluster"]', () => tooltipEl.classList.remove('show'));
+cy.on('mousemove', 'node[type != "cluster"]', evt => {
   const wrap = document.querySelector('.gv-graph-wrap').getBoundingClientRect();
   const x = evt.originalEvent.clientX - wrap.left;
   const y = evt.originalEvent.clientY - wrap.top;
@@ -373,8 +472,8 @@ cy.on('mousemove', 'node', evt => {
   tooltipEl.style.top = (y + 14) + 'px';
 });
 
-// Click → Modal
-cy.on('tap', 'node', evt => {
+// Click → Modal — nur fuer Modell + Redakteur, nicht fuer Cluster-Bubbles
+cy.on('tap', 'node[type != "cluster"]', evt => {
   const d = evt.target.data();
   openModal(d);
 });
