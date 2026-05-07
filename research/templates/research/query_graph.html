@@ -98,6 +98,10 @@
     <div class="gv-sub">{{ q.question|truncatewords:25 }}</div>
   </div>
   <div class="gv-actions">
+    <a href="?refresh=1" class="rs-btn rs-btn--ghost"
+       title="Stichpunkte und Cluster mit GLM-5.1 neu berechnen">
+      <i class="fas fa-rotate"></i> Neu analysieren
+    </a>
     <a href="{% url 'research:query_detail' q.pk %}" class="rs-btn rs-btn--ghost">
       <i class="fas fa-arrow-left"></i> Zurück
     </a>
@@ -127,6 +131,7 @@
 const NODES = {{ nodes_json|safe }};
 const REDAKTEUR = {{ redakteur_json|safe }};
 const HAS_REDAKTEUR = {{ has_redakteur|yesno:"true,false" }};
+const CLUSTER_NAMES = {{ cluster_names_json|safe }};
 
 // Cluster-Farben (deterministische Palette)
 const CLUSTER_COLORS = [
@@ -228,16 +233,27 @@ const cy = cytoscape({
 const tooltipEl = document.getElementById('tooltip');
 cy.on('mouseover', 'node', evt => {
   const d = evt.target.data();
-  let text = '';
+  let html = '';
   if (d.type === 'redakteur') {
-    text = `<div class="gv-tooltip-name">${d.label} (Redakteur)</div>${truncate(d.full_text, 200)}`;
+    html = `<div class="gv-tooltip-name">${escapeHtml(d.label)} (Redakteur)</div>${escapeHtml(truncate(d.full_text, 240))}`;
+  } else if (!d.ok) {
+    html = `<div class="gv-tooltip-name">${escapeHtml(d.label)}</div><em>Fehler: ${escapeHtml(d.error || '-')}</em>`;
   } else {
-    if (d.ok) text = `<div class="gv-tooltip-name">${d.label}</div>${d.summary || '(keine Antwort)'}`;
-    else text = `<div class="gv-tooltip-name">${d.label}</div><em>Fehler: ${d.error || '-'}</em>`;
+    const bullets = Array.isArray(d.summary) ? d.summary : (d.summary ? [d.summary] : []);
+    if (bullets.length === 0) {
+      html = `<div class="gv-tooltip-name">${escapeHtml(d.label)}</div><em>(keine Stichpunkte verfuegbar)</em>`;
+    } else {
+      const items = bullets.map(b => `<li>${escapeHtml(String(b).replace(/^[•\-*]\s*/, ''))}</li>`).join('');
+      html = `<div class="gv-tooltip-name">${escapeHtml(d.label)}</div><ul style="margin:0;padding-left:18px;">${items}</ul>`;
+    }
   }
-  tooltipEl.innerHTML = text;
+  tooltipEl.innerHTML = html;
   tooltipEl.classList.add('show');
 });
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 cy.on('mouseout', 'node', () => tooltipEl.classList.remove('show'));
 cy.on('mousemove', 'node', evt => {
   const wrap = document.querySelector('.gv-graph-wrap').getBoundingClientRect();
@@ -276,7 +292,8 @@ const clusterIds = [...new Set(NODES.map(n => n.cluster))].filter(c => c >= 0).s
 clusterIds.forEach((c, i) => {
   const pill = document.createElement('span');
   pill.className = 'gv-legend-pill';
-  pill.innerHTML = `<span class="gv-legend-dot" style="background:${colorFor(c)}"></span>Cluster ${c + 1}`;
+  const cname = CLUSTER_NAMES[c] || CLUSTER_NAMES[String(c)] || `Cluster ${c + 1}`;
+  pill.innerHTML = `<span class="gv-legend-dot" style="background:${colorFor(c)}"></span>${escapeHtml(cname)}`;
   legendEl.appendChild(pill);
 });
 const hasUngrouped = NODES.some(n => n.cluster < 0);
@@ -309,7 +326,8 @@ const sortedGroups = [...groups.values()].sort((a, b) => {
 sortedGroups.forEach(g => {
   const sec = document.createElement('div');
   sec.className = 'gv-cluster-section';
-  const titleText = g.cluster >= 0 ? `Cluster ${g.cluster + 1} · ${g.items.length} Modell(e)` : `Einzelne Antworten · ${g.items.length}`;
+  const cname = g.cluster >= 0 ? (CLUSTER_NAMES[g.cluster] || CLUSTER_NAMES[String(g.cluster)] || `Cluster ${g.cluster + 1}`) : 'Einzelne Antworten';
+  const titleText = `${cname} · ${g.items.length} Modell(e)`;
   const c = colorFor(g.cluster);
   sec.innerHTML = `<div class="gv-cluster-title" style="background:${c}22;color:${c};">${titleText}</div><div class="gv-bubbles"></div>`;
   const bubbleGrid = sec.querySelector('.gv-bubbles');

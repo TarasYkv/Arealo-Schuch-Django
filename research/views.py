@@ -279,6 +279,85 @@ def _parse_redakteur_clusters(redakteur_text: str, council_results: list[dict]) 
     return cluster_map
 
 
+def _generate_graph_meta(question: str, council_results: list, user) -> dict:
+    """Ein einziger GLM-Call der pro Modell 3 Stichpunkte (Hover-Anzeige) und
+    fuer alle Modelle zusammen die Cluster-Zuordnung liefert.
+
+    Returns dict mit:
+      models: { model_id: { summary: [str, str, str], cluster: int } }
+      clusters: [ { id: int, name: str, model_ids: [str] } ]
+    """
+    from .services import council as council_service
+    # Antworten kompakt zusammenstellen — IDs + display-Name + Antwort gekürzt
+    blocks = []
+    valid_ids = []
+    for r in council_results:
+        if not r.get('ok'):
+            continue
+        text = (r.get('text') or '').strip()
+        if not text:
+            continue
+        mid = r.get('model') or '?'
+        name = r.get('display') or mid
+        valid_ids.append(mid)
+        blocks.append(f'### {mid} ({name})\n{text[:2500]}')
+    if not blocks:
+        return {'models': {}, 'clusters': []}
+    prompt = (
+        'Du bist Redakteur. Mehrere KI-Modelle haben dieselbe Frage beantwortet.\n'
+        'Deine zwei Aufgaben — STRIKT aus den Antworten, nichts dazudichten:\n\n'
+        '1. Pro Modell: liefere 2-3 sehr kurze Stichpunkte (max 7 Wörter pro\n'
+        '   Stichpunkt) die den KERN der Antwort dieses Modells zusammenfassen.\n'
+        '   KEIN Fließtext, NUR Stichpunkte. Beispiel:\n'
+        '   ["Cyan-Licht hemmt Ethylen", "Banane spezifisch", "Zitiert Wang 2019"]\n\n'
+        '2. Cluster die Modelle nach inhaltlicher Ähnlichkeit ihrer Antworten.\n'
+        '   Gleiche/sehr ähnliche Antworten -> gleiches Cluster.\n'
+        '   Unterschiedliche Schwerpunkte -> verschiedene Cluster.\n'
+        '   Pro Cluster ein kurzer beschreibender Name (max 4 Wörter).\n'
+        '   Wichtig: TATSÄCHLICHE Ähnlichkeit, nicht nur ein einzelnes Stichwort.\n'
+        '   Es muss NICHT jedes Modell in einem Cluster mit anderen sein —\n'
+        '   ein einzelnes Modell kann auch ein Solo-Cluster bilden.\n'
+        '   Ziel: 2-5 Cluster bei mehreren Modellen.\n\n'
+        f'FRAGE:\n{question}\n\n'
+        '=== ANTWORTEN DER MODELLE (mit ID) ===\n'
+        + '\n\n'.join(blocks)
+        + '\n\n=== OUTPUT-FORMAT (NUR dieses JSON, keine Erklaerung drumherum) ===\n'
+        + '{\n'
+        + '  "models": {\n'
+        + '    "<model_id>": { "summary": ["...", "...", "..."], "cluster": <int> }\n'
+        + '  },\n'
+        + '  "clusters": [\n'
+        + '    { "id": <int>, "name": "<kurzer Cluster-Name>", "model_ids": ["<id1>", "<id2>"] }\n'
+        + '  ]\n'
+        + '}\n'
+        + 'Verwende AUSSCHLIESSLICH die Modell-IDs aus den Sektionen oben '
+        + f'({", ".join(valid_ids)}).'
+    )
+    try:
+        res = council_service._call_one('glm', prompt, user, max_tokens=4000, timeout=180)
+    except Exception as exc:
+        logger.warning('graph_meta GLM-Call fehlgeschlagen: %s', exc)
+        return {'models': {}, 'clusters': []}
+    if not res.get('ok'):
+        logger.warning('graph_meta GLM-Antwort nicht ok: %s', res.get('error'))
+        return {'models': {}, 'clusters': []}
+    text = (res.get('text') or '').strip()
+    # JSON aus dem Text extrahieren — manchmal kommt Markdown ```json...``` drumherum
+    import re as _re
+    m = _re.search(r'\{[\s\S]*\}', text)
+    if not m:
+        return {'models': {}, 'clusters': []}
+    try:
+        data = json.loads(m.group(0))
+    except Exception as exc:
+        logger.warning('graph_meta JSON-Parse-Fehler: %s — text: %s', exc, text[:300])
+        return {'models': {}, 'clusters': []}
+    return {
+        'models': data.get('models', {}) or {},
+        'clusters': data.get('clusters', []) or [],
+    }
+
+
 @login_required
 def query_graph(request, pk):
     """Brain-Graph der Council-Antworten mit Cluster-Layout."""
@@ -291,20 +370,43 @@ def query_graph(request, pk):
         council_results = []
     redak = raw.get('redakteur') or raw.get('primary_validation') or {}
     redakteur_text = redak.get('text', '') if isinstance(redak, dict) else ''
-    cluster_map = _parse_redakteur_clusters(redakteur_text, council_results)
+
+    # Graph-Meta (Stichpunkte + Cluster) — gecached in raw_responses['graph_meta'].
+    # Erster Aufruf: GLM-Call. Folge-Aufrufe: aus DB.
+    graph_meta = raw.get('graph_meta') or None
+    refresh = request.GET.get('refresh') == '1'
+    if (not graph_meta or refresh) and council_results:
+        graph_meta = _generate_graph_meta(rq.question, council_results, request.user)
+        # In raw_responses cachen — only update if tatsaechlich was kam
+        if graph_meta.get('models') or graph_meta.get('clusters'):
+            raw['graph_meta'] = graph_meta
+            rq.raw_responses = raw
+            rq.save(update_fields=['raw_responses'])
+
+    # Fallback: alte regex-Logik aus dem Redakteur-Markdown
+    cluster_map_fallback = _parse_redakteur_clusters(redakteur_text, council_results)
+    meta_models = (graph_meta or {}).get('models', {})
+    clusters = (graph_meta or {}).get('clusters', [])
+    cluster_names = {c.get('id'): c.get('name', '') for c in clusters if isinstance(c, dict)}
 
     # Daten fuer JS aufbereiten
     nodes = []
     for r in council_results:
         mid = r.get('model') or '?'
-        cluster = cluster_map.get(mid, -1)
+        meta = meta_models.get(mid) or {}
+        cluster = meta.get('cluster')
+        if cluster is None:
+            cluster = cluster_map_fallback.get(mid, -1)
         full_text = (r.get('text') or '').strip()
-        summary = full_text[:200] + ('…' if len(full_text) > 200 else '')
+        bullets = meta.get('summary') or []
+        if not bullets:
+            # Fallback-Summary: erste 200 Zeichen wenn keine Stichpunkte
+            bullets = [(full_text[:180] + ('…' if len(full_text) > 180 else ''))] if full_text else []
         nodes.append({
             'id': mid,
             'name': r.get('display') or mid,
             'cluster': cluster,
-            'summary': summary,
+            'summary': bullets,  # jetzt ein Array von Stichpunkten
             'full_text': full_text,
             'ok': bool(r.get('ok')),
             'error': r.get('error') or '',
@@ -325,6 +427,7 @@ def query_graph(request, pk):
         'nodes_json': json.dumps(nodes, ensure_ascii=False),
         'redakteur_json': json.dumps(redakteur_node, ensure_ascii=False) if redakteur_node else 'null',
         'has_redakteur': bool(redakteur_node),
+        'cluster_names_json': json.dumps(cluster_names, ensure_ascii=False),
     })
 
 
