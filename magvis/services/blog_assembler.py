@@ -96,7 +96,14 @@ class MagvisBlogAssembler:
         seo = self._generate_seo()
         blog.seo_title = seo.get('title', topic)[:255]
         blog.seo_description = seo.get('description', '')[:500]
-        blog.slug = django_slugify(blog.seo_title)[:255]
+        # SEO-Slug: deterministisch aus topic, Keyword am Anfang. Damit faellt
+        # "schluss-mit-standardgeschenken-personliche-ideen-fur-bauingenieure"
+        # weg und wird zu "geschenk-bauingenieur-persoenliche-ideen".
+        topic_slug = django_slugify(topic)
+        if topic_slug.startswith('geschenk-'):
+            blog.slug = (topic_slug + '-persoenliche-ideen')[:60]
+        else:
+            blog.slug = django_slugify(f'geschenk-{topic} persoenliche ideen')[:60]
 
         # 2. Headings (Struktur-Skelett)
         headings = self._generate_headings(topic)
@@ -442,10 +449,19 @@ class MagvisBlogAssembler:
             return ''
         blogs = self._internal_links_data.get('blogs') or []
         products = self._internal_links_data.get('products') or []
-        if not blogs and not products:
+        collections = self._internal_links_data.get('collections') or []
+        if not blogs and not products and not collections:
             return ''
 
         parts = []
+        # Collections IMMER zeigen — nicht rotieren, da maximal 3 vorhanden und
+        # die Pflicht-Collection (is_required=True) muss in jeder Sektion auftauchen koennen.
+        if collections:
+            parts.append('VERWANDTE NATURMACHER-COLLECTIONS (zum Verlinken):')
+            for c in collections:
+                anchor = (c['anchors'][0] if c.get('anchors') else c.get('title', ''))[:60]
+                marker = '  [PFLICHT-LINK] ' if c.get('is_required') else '  - '
+                parts.append(f'{marker}"{anchor}" → {c["url"]}')
         if blogs:
             n = len(blogs)
             i1 = self._section_link_counter % n
@@ -455,7 +471,7 @@ class MagvisBlogAssembler:
                 if i2 != i1:
                     picked.append(blogs[i2])
             self._section_link_counter += 1
-            parts.append('VERWANDTE NATURMACHER-BLOG-ARTIKEL (zum Verlinken):')
+            parts.append('\nVERWANDTE NATURMACHER-BLOG-ARTIKEL (zum Verlinken):')
             for b in picked:
                 anchor = (b['anchors'][0] if b.get('anchors') else b.get('title', ''))[:60]
                 parts.append(f'  - "{anchor}" → {b["url"]}')
@@ -517,21 +533,20 @@ class MagvisBlogAssembler:
         if rotated_links_text:
             system += (
                 '\n\n' + rotated_links_text + '\n\n'
-                'INTERNE VERLINKUNGEN — Mittelweg:\n'
-                '- Im ganzen Beitrag sollen am Ende ungefähr 2-3 Verweise auf '
-                '  verwandte Naturmacher-Beiträge stehen (z.B. „weitere Geschenk-'
-                '  Inspiration für andere Berufsgruppen"). Verteile die Links '
-                '  über mehrere Sektionen — NICHT alle in dieselbe.\n'
-                '- Wenn ein Vorschlag oben thematisch ungefähr zum Sektion-Inhalt '
-                '  passt (gleicher Anlass, ähnliche Zielgruppe, verwandtes '
-                '  Geschenk-Thema), baue EINEN Link ein. Format: '
-                '  <a href="URL">natürlicher Ankertext im Satz</a>.\n'
-                '- Bevorzugt am Schluss-Absatz einer Sektion mit einem Satz wie '
-                '  „Du suchst weitere Inspiration? Schau auch bei [Anker]".\n'
-                '- Anker frei und natürlich umformulieren — NIE 1:1 den '
-                '  Vorschlags-Anker übernehmen.\n'
-                '- Wenn dieses Thema gar nicht passt: KEINEN Link erzwingen — '
-                '  andere Sektionen werden Links bringen.'
+                'INTERNE VERLINKUNGEN — verbindlich:\n'
+                '- [PFLICHT-LINK]-Collections MUESSEN in mindestens EINER Sektion '
+                '  des Beitrags als Link erscheinen (z.B. „in unserer Sammlung X" '
+                '  oder „die passenden Geschenke findest du gebuendelt hier"). '
+                '  Bevorzugt im Schluss-Absatz oder in einer empfehlenden Sektion.\n'
+                '- Insgesamt MIND. 3 interne Links im ganzen Beitrag (verteilt '
+                '  ueber mehrere Sektionen — NICHT alle in dieselbe).\n'
+                '- Wenn ein Blog-/Produkt-/Collection-Vorschlag oben thematisch '
+                '  zum Sektion-Inhalt passt, baue EINEN Link ein. Format: '
+                '  <a href="URL">natuerlicher Ankertext im Satz</a>.\n'
+                '- Anker frei und natuerlich umformulieren — NIE 1:1 den '
+                '  Vorschlags-Anker uebernehmen, NIE als „Klick hier".\n'
+                '- Andere Collections (ohne PFLICHT-Marker) sind optional, aber '
+                '  willkommen wenn sie zum Sektion-Thema passen.'
             )
 
         # Verifizierte Fakten fuer Inline-Quellenverlinkung
@@ -709,18 +724,24 @@ class MagvisBlogAssembler:
         except Exception as exc:
             logger.warning('Research fehlgeschlagen: %s', exc)
 
-        # Internal Links (Blogs + Produkte) — eigenen Beitrag ausschließen
+        # Internal Links (Blogs + Produkte + Collections) — eigenen Beitrag ausschließen.
+        # Die im selben Magvis-Projekt erstellte Collection wird als PFLICHT-Link
+        # uebergeben, damit jeder Blog mindestens einen Link auf seine Hauptkategorie hat.
         try:
             secondary = self.project.keywords or []
             current_article_id = (self.project.blog.shopify_article_id
                                    if hasattr(self.project, 'blog') else '')
+            project_collection = getattr(self.project, 'collection', None)
             self._internal_links_data = self.linking.collect(
                 topic, secondary, exclude_shopify_id=current_article_id,
+                project_collection=project_collection,
             )
             self._internal_links_text = self.linking.format_for_llm(self._internal_links_data)
             n_blogs = len(self._internal_links_data.get('blogs', []))
             n_prods = len(self._internal_links_data.get('products', []))
-            logger.info('Internal-Linking: %d Blogs + %d Produkte gefunden', n_blogs, n_prods)
+            n_colls = len(self._internal_links_data.get('collections', []))
+            logger.info('Internal-Linking: %d Blogs + %d Produkte + %d Collections gefunden',
+                        n_blogs, n_prods, n_colls)
         except Exception as exc:
             logger.warning('Internal-Linking fehlgeschlagen: %s', exc)
 

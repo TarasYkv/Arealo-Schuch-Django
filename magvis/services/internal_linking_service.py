@@ -144,22 +144,121 @@ class MagvisInternalLinkingService:
             })
         return out
 
+    # ---------- COLLECTIONS ----------
+
+    def find_relevant_collections(self, keyword: str,
+                                   secondary: list[str] | None = None,
+                                   exclude_handle: str = '') -> list[dict]:
+        """Sucht thematisch passende ShopifyCollections (z.B. fuer Cross-Linking
+        zwischen Beitraegen verschiedener Berufsgruppen)."""
+        from shopify_manager.models import ShopifyCollection
+
+        keywords = [keyword] + (secondary or [])
+        colls = (ShopifyCollection.objects
+                 .filter(store__user=self.user, store__is_active=True,
+                         status='active', published=True)
+                 .exclude(handle=''))
+        if exclude_handle:
+            colls = colls.exclude(handle=exclude_handle)
+
+        scored = []
+        for c in colls:
+            haystack = ' '.join([c.title or '', c.seo_title or '',
+                                 c.seo_description or '',
+                                 self._text_preview(c.description or '', 400)])
+            s = _score(haystack, keywords)
+            if s >= 0.5:
+                scored.append((s, c))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        out = []
+        for s, c in scored[:3]:
+            try:
+                domain = (getattr(c.store, 'custom_domain', None)
+                          or {'naturkind-de.myshopify.com': 'naturmacher.de'}.get(
+                              c.store.shop_domain, c.store.shop_domain))
+                url = f'https://{domain}/collections/{c.handle}'
+            except Exception:
+                url = ''
+            if not url:
+                continue
+            out.append({
+                'kind': 'collection',
+                'title': c.title,
+                'url': url,
+                'score': round(s, 2),
+                'summary': (c.seo_description or self._text_preview(c.description, 200))[:200],
+                'anchors': self._suggest_anchors(c.title, keyword),
+            })
+        return out
+
+    def collection_link_from_project(self, project_collection) -> dict | None:
+        """Baut den Pflicht-Link auf die im selben Magvis-Projekt erstellte
+        Collection. Liefert None wenn keine Collection vorhanden ist."""
+        if not project_collection or not project_collection.shopify_handle:
+            return None
+        try:
+            from ploom.models import PLoomSettings
+            ps = PLoomSettings.objects.filter(user=self.user).first()
+            if ps and ps.default_store:
+                domain = (getattr(ps.default_store, 'custom_domain', None)
+                          or {'naturkind-de.myshopify.com': 'naturmacher.de'}.get(
+                              ps.default_store.shop_domain, ps.default_store.shop_domain))
+            else:
+                domain = 'naturmacher.de'
+        except Exception:
+            domain = 'naturmacher.de'
+        url = f'https://{domain}/collections/{project_collection.shopify_handle}'
+        title = project_collection.title or 'unsere Sammlung'
+        return {
+            'kind': 'collection',
+            'title': title,
+            'url': url,
+            'score': 999.0,  # Pflicht
+            'summary': (project_collection.short_description or '')[:200],
+            'anchors': [title, f'Geschenke fuer {title.split()[-1] if title else ""}'.strip()],
+            'is_required': True,
+        }
+
     # ---------- KOMBINIERT ----------
 
     def collect(self, keyword: str, secondary: list[str] | None = None,
-                 exclude_shopify_id: str = '') -> dict:
-        """Liefert dict mit blogs + products. exclude_shopify_id schliesst
-        den aktuellen Beitrag aus (sonst linkt sich der Beitrag auf sich selbst)."""
-        return {
+                 exclude_shopify_id: str = '',
+                 project_collection=None) -> dict:
+        """Liefert dict mit blogs + products + collections.
+
+        project_collection: Die im selben Magvis-Projekt erstellte Collection
+        (PFLICHT-Link an erste Stelle). Andere thematisch passende Collections
+        werden danach angefuegt — fuer Cross-Linking zwischen Berufsgruppen."""
+        result = {
             'blogs': self.find_relevant_blog_posts(keyword, secondary, exclude_shopify_id),
             'products': self.find_relevant_products(keyword, secondary),
+            'collections': [],
         }
+        # Pflicht-Collection vorne anstellen (falls vorhanden)
+        required = self.collection_link_from_project(project_collection)
+        if required:
+            result['collections'].append(required)
+            exclude_handle = project_collection.shopify_handle if project_collection else ''
+        else:
+            exclude_handle = ''
+        # Andere thematisch passende Collections dazu (max 2 weitere)
+        related = self.find_relevant_collections(keyword, secondary, exclude_handle)
+        for c in related[:2]:
+            result['collections'].append(c)
+        return result
 
     def format_for_llm(self, links: dict) -> str:
         """Formatiert Links fuer LLM-Prompt-Injection."""
         parts = []
+        if links.get('collections'):
+            parts.append('VERWANDTE NATURMACHER-COLLECTIONS (zum Verlinken):')
+            for c in links['collections']:
+                anchor = (c['anchors'][0] if c['anchors'] else c['title'])[:60]
+                marker = '  [PFLICHT-LINK] ' if c.get('is_required') else '  - '
+                parts.append(f'{marker}"{anchor}" → {c["url"]}')
         if links.get('blogs'):
-            parts.append('VERWANDTE NATURMACHER-BLOG-ARTIKEL (zum Verlinken):')
+            parts.append('\nVERWANDTE NATURMACHER-BLOG-ARTIKEL (zum Verlinken):')
             for b in links['blogs']:
                 anchor = (b['anchors'][0] if b['anchors'] else b['title'])[:60]
                 parts.append(f'  - "{anchor}" → {b["url"]}')
