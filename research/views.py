@@ -411,10 +411,118 @@ def _generate_graph_meta(question: str, council_results: list, user,
             len(text), text[:200], text[-200:] if len(text) > 200 else '',
         )
         return {'models': {}, 'clusters': [], 'redakteur_summary': []}
+    return _normalize_graph_meta(data)
+
+
+def _normalize_graph_meta(data: dict) -> dict:
+    """GLM haelt sich nicht immer ans Schema. Normalisiere beide Formen:
+    - models als dict {id: {summary, cluster}} ODER list [{id, ...}]
+    - cluster als int ODER cluster_ids als Liste (nimm erstes)
+    - summary als Liste ODER kurzbeschreibung als String
+    - cluster-id-Strings wie "c2" -> 2
+    """
+    def _coerce_cluster_id(val):
+        if val is None:
+            return -1
+        if isinstance(val, int):
+            return val
+        if isinstance(val, str):
+            s = val.strip().lstrip('cC').lstrip('luster').lstrip()
+            try:
+                return int(s)
+            except ValueError:
+                return -1
+        if isinstance(val, list) and val:
+            return _coerce_cluster_id(val[0])
+        return -1
+
+    def _coerce_summary(meta):
+        if not isinstance(meta, dict):
+            return []
+        for key in ('summary', 'stichpunkte', 'bullets'):
+            v = meta.get(key)
+            if isinstance(v, list):
+                return [str(x).strip() for x in v if x]
+            if isinstance(v, str) and v.strip():
+                return [v.strip()]
+        for key in ('kurzbeschreibung', 'description', 'text'):
+            v = meta.get(key)
+            if isinstance(v, str) and v.strip():
+                return [v.strip()]
+        return []
+
+    def _coerce_cluster_value(meta):
+        if not isinstance(meta, dict):
+            return -1
+        for key in ('cluster', 'cluster_id'):
+            if key in meta:
+                return _coerce_cluster_id(meta[key])
+        if 'cluster_ids' in meta:
+            return _coerce_cluster_id(meta['cluster_ids'])
+        return -1
+
+    raw_models = data.get('models', {})
+    models: dict = {}
+    if isinstance(raw_models, dict):
+        for mid, meta in raw_models.items():
+            models[str(mid)] = {
+                'summary': _coerce_summary(meta),
+                'cluster': _coerce_cluster_value(meta),
+            }
+    elif isinstance(raw_models, list):
+        for entry in raw_models:
+            if not isinstance(entry, dict):
+                continue
+            mid = entry.get('id') or entry.get('model_id') or entry.get('model')
+            if not mid:
+                continue
+            models[str(mid)] = {
+                'summary': _coerce_summary(entry),
+                'cluster': _coerce_cluster_value(entry),
+            }
+
+    raw_clusters = data.get('clusters', [])
+    clusters: list = []
+    if isinstance(raw_clusters, list):
+        for c in raw_clusters:
+            if not isinstance(c, dict):
+                continue
+            cid = _coerce_cluster_id(c.get('id'))
+            if cid < 0:
+                continue
+            name = (c.get('name') or c.get('title') or c.get('label') or f'Cluster {cid + 1}').strip()
+            mids = c.get('model_ids') or c.get('models') or c.get('member_ids') or []
+            if not isinstance(mids, list):
+                mids = []
+            clusters.append({
+                'id': cid,
+                'name': name[:60],
+                'model_ids': [str(m) for m in mids if m],
+            })
+    elif isinstance(raw_clusters, dict):
+        # GLM könnte auch dict liefern: {"c0": {name, models}, "c1": ...}
+        for key, c in raw_clusters.items():
+            if not isinstance(c, dict):
+                continue
+            cid = _coerce_cluster_id(key)
+            name = (c.get('name') or c.get('title') or f'Cluster {cid + 1}').strip()
+            mids = c.get('model_ids') or c.get('models') or []
+            clusters.append({
+                'id': cid,
+                'name': name[:60],
+                'model_ids': [str(m) for m in mids if m] if isinstance(mids, list) else [],
+            })
+
+    redakteur_summary = data.get('redakteur_summary') or data.get('redakteur') or []
+    if isinstance(redakteur_summary, str):
+        redakteur_summary = [redakteur_summary]
+    elif not isinstance(redakteur_summary, list):
+        redakteur_summary = []
+
     return {
-        'models': data.get('models', {}) or {},
-        'clusters': data.get('clusters', []) or [],
-        'redakteur_summary': data.get('redakteur_summary', []) or [],
+        'models': models,
+        'clusters': clusters,
+        'redakteur_summary': redakteur_summary,
     }
 
 
