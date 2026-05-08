@@ -646,7 +646,9 @@ def _markdown_to_html(md_text: str) -> str:
     """Konvertiert Markdown zu HTML via markdown-it-py (gleiche Render-Engine
     wie marked.js im Frontend, gfm-Tabellen + breaks aktiviert)."""
     from markdown_it import MarkdownIt
-    md = MarkdownIt('gfm-like', {'breaks': True, 'html': False, 'linkify': True})
+    # 'linkify': True braucht das linkify-it-py-Modul (nicht installiert).
+    # gfm-like setzt es per Default auf True — wir muessen explizit auf False.
+    md = MarkdownIt('gfm-like', {'breaks': True, 'html': False, 'linkify': False})
     return md.render(md_text)
 
 

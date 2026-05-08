@@ -386,9 +386,16 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
     if not text:
         text = (msg.get('reasoning_content') or msg.get('reasoning') or '').strip()
     usage = body.get('usage', {})
+    # Reasoning-Tokens separat erfassen — bei Modellen wie kimi-k2.6, glm-5.1,
+    # deepseek-r1, o3, sonar-* werden interne Chain-of-Thought-Tokens oft nicht
+    # in completion_tokens enthalten und separat abgerechnet (gleiche Rate wie
+    # Output bei den meisten, $3/M speziell bei Sonar Deep Research).
+    completion_details = usage.get('completion_tokens_details') or {}
+    reasoning_tokens = int(completion_details.get('reasoning_tokens') or 0)
     tokens = {
         'input': int(usage.get('prompt_tokens', 0)),
         'output': int(usage.get('completion_tokens', 0)),
+        'reasoning': reasoning_tokens,
         'finish_reason': choice.get('finish_reason') or '',
         'truncated': choice.get('finish_reason') == 'length',
     }
@@ -471,8 +478,12 @@ def calculate_cost(model_id: str, tokens: dict) -> float:
     if not cfg:
         return 0.0
     pin, pout = cfg['pricing']
+    # Reasoning-Tokens werden bei den meisten Providern mit Output-Rate
+    # abgerechnet — sind aber separat ausgewiesen. Wir zaehlen sie zu output
+    # damit die Schaetzung naeher am echten Cost liegt.
+    output_total = (tokens.get('output', 0) or 0) + (tokens.get('reasoning', 0) or 0)
     return (tokens.get('input', 0) / 1_000_000) * pin + \
-           (tokens.get('output', 0) / 1_000_000) * pout
+           (output_total / 1_000_000) * pout
 
 
 def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
