@@ -271,6 +271,7 @@ def query_detail(request, pk):
     return render(request, 'research/query_detail.html', {
         'q': rq,
         'council_results': council_results,
+        'is_share': False,
     })
 
 
@@ -716,6 +717,113 @@ def query_status(request, pk):
         'elapsed_s': elapsed,
         'error': rq.error or None,
     })
+
+
+@login_required
+def query_toggle_share(request, pk):
+    """Toggelt is_public — schaltet Public-Share-Link an/aus."""
+    rq = get_object_or_404(ResearchQuery, pk=pk, owner=request.user)
+    rq.is_public = not rq.is_public
+    rq.save(update_fields=['is_public'])
+    return JsonResponse({
+        'is_public': rq.is_public,
+        'share_url': request.build_absolute_uri(
+            f"/research/share/{rq.share_token}/"
+        ) if rq.is_public else None,
+    })
+
+
+def _share_get(token):
+    """Holt eine ResearchQuery via share_token. Nur lesend, nur wenn is_public."""
+    rq = get_object_or_404(ResearchQuery, share_token=token, is_public=True)
+    return rq
+
+
+def share_detail(request, token):
+    """Public-Detail-Ansicht ohne Login. Gleiche Template wie query_detail,
+    aber mit is_share=True — UI versteckt interaktive Elemente."""
+    rq = _share_get(token)
+    council_results = rq.raw_responses.get('council', []) if isinstance(rq.raw_responses, dict) else []
+    return render(request, 'research/query_detail.html', {
+        'q': rq,
+        'council_results': council_results,
+        'is_share': True,
+    })
+
+
+def share_graph(request, token):
+    """Public-Brain-Graph ohne Login."""
+    rq = _share_get(token)
+    raw = rq.raw_responses if isinstance(rq.raw_responses, dict) else {}
+    council = raw.get('council') or []
+    council_results = council if isinstance(council, list) else []
+    redak = raw.get('redakteur') or raw.get('primary_validation') or {}
+    redakteur_text = redak.get('text', '') if isinstance(redak, dict) else ''
+    graph_meta = raw.get('graph_meta') or {}
+    cluster_map_fallback = _parse_redakteur_clusters(redakteur_text, council_results)
+    meta_models = (graph_meta or {}).get('models', {})
+    clusters = (graph_meta or {}).get('clusters', [])
+    cluster_names = {c.get('id'): c.get('name', '') for c in clusters if isinstance(c, dict)}
+    nodes = []
+    for r in council_results:
+        mid = r.get('model') or '?'
+        meta = meta_models.get(mid) or {}
+        cluster = meta.get('cluster')
+        if cluster is None:
+            cluster = cluster_map_fallback.get(mid, -1)
+        full_text = (r.get('text') or '').strip()
+        bullets = meta.get('summary') or []
+        if not bullets:
+            bullets = [(full_text[:180] + ('…' if len(full_text) > 180 else ''))] if full_text else []
+        out_toks = (r.get('tokens') or {}).get('output', 0)
+        truncated = bool(r.get('truncated')) or (out_toks in (1500, 2000, 4000) and full_text and not full_text.rstrip().endswith(('.', '!', '?', ')', ']')))
+        nodes.append({
+            'id': mid, 'name': r.get('display') or mid, 'cluster': cluster,
+            'summary': bullets, 'full_text': full_text,
+            'ok': bool(r.get('ok')), 'error': r.get('error') or '',
+            'duration_s': r.get('duration_s'), 'truncated': truncated,
+        })
+    redakteur_node = None
+    if redakteur_text:
+        red_summary = (graph_meta or {}).get('redakteur_summary') or []
+        if not red_summary:
+            red_summary = [(redakteur_text[:160] + ('…' if len(redakteur_text) > 160 else ''))]
+        redakteur_node = {
+            'id': redak.get('model') or 'redakteur',
+            'name': redak.get('display') or 'Redakteur',
+            'full_text': redakteur_text, 'summary': red_summary,
+            'duration_s': redak.get('duration_s'),
+        }
+    return render(request, 'research/query_graph.html', {
+        'q': rq,
+        'nodes_json': json.dumps(nodes, ensure_ascii=False),
+        'redakteur_json': json.dumps(redakteur_node, ensure_ascii=False) if redakteur_node else 'null',
+        'has_redakteur': bool(redakteur_node),
+        'cluster_names_json': json.dumps(cluster_names, ensure_ascii=False),
+        'is_share': True,
+    })
+
+
+def share_download(request, token):
+    """Public-Download (Markdown/HTML/PDF) ohne Login."""
+    rq = _share_get(token)
+    fmt = (request.GET.get('format') or 'md').lower()
+    if fmt == 'html':
+        html = _build_query_html(rq)
+        response = HttpResponse(html, content_type='text/html; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="research-{rq.pk}.html"'
+        return response
+    if fmt == 'pdf':
+        html = _build_query_html(rq)
+        from weasyprint import HTML
+        pdf_bytes = HTML(string=html, base_url=request.build_absolute_uri('/')).write_pdf()
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="research-{rq.pk}.pdf"'
+        return response
+    body = _build_query_markdown(rq)
+    response = HttpResponse(body, content_type='text/markdown; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="research-{rq.pk}.md"'
+    return response
 
 
 @login_required

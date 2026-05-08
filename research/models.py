@@ -1,5 +1,10 @@
+import secrets
 from django.db import models
 from django.conf import settings
+
+
+def _gen_share_token():
+    return secrets.token_urlsafe(16)
 
 
 MODE_CHOICES = (
@@ -40,6 +45,12 @@ class ResearchQuery(models.Model):
     # Form-Parameter, damit der Worker sie verarbeiten kann
     params = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Share-Funktionalitaet: Anfrage ohne Login teilbar via /research/share/<token>/
+    share_token = models.CharField(max_length=32, default=_gen_share_token,
+                                   unique=True, db_index=True)
+    is_public = models.BooleanField(default=False,
+                                    help_text='Wenn True, kann jeder mit dem share_token die Anfrage lesen.')
 
     class Meta:
         ordering = ['-created_at']
