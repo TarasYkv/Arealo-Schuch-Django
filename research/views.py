@@ -708,36 +708,97 @@ _QUERY_HTML_CSS = """
 html, body {
   margin: 0; padding: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 9.5pt; line-height: 1.45; color: #0f172a; background: #fff;
+  font-size: 9.5pt; line-height: 1.5; color: #0f172a; background: #fff;
 }
 body { padding: 18px 24px; max-width: 920px; margin: 0 auto; }
-h1 { font-size: 17pt; font-weight: 700; margin: 0 0 4pt; color: #0f172a;
-     letter-spacing: -0.01em; }
-h2 { font-size: 12.5pt; font-weight: 600; margin: 14pt 0 5pt;
-     padding-bottom: 3pt; border-bottom: 1.5px solid #e2e8f0; color: #1e293b; }
-h3 { font-size: 10.5pt; font-weight: 600; margin: 11pt 0 4pt; color: #334155; }
+
+/* H1 = Cover-Title mit Gradient-Akzent */
+h1 {
+  font-size: 18pt; font-weight: 700; margin: 0 0 6pt; color: #0f172a;
+  letter-spacing: -0.015em;
+  padding: 4pt 0 8pt;
+  border-bottom: 3px solid;
+  border-image: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899) 1;
+}
+
+/* H2 = Section-Title — Section-Pill mit Akzent-Bar */
+h2 {
+  font-size: 13pt; font-weight: 700; margin: 18pt 0 6pt;
+  padding: 4pt 0 4pt 10pt;
+  color: #1e293b;
+  border-left: 4px solid #6366f1;
+  background: linear-gradient(90deg, #eef2ff 0%, transparent 100%);
+  border-radius: 0 4px 4px 0;
+  page-break-after: avoid;
+}
+
+/* H3 = Modell-Header in Council-Sektion — farblich akzentuiert */
+h3 {
+  font-size: 11pt; font-weight: 600; margin: 12pt 0 4pt;
+  padding: 3pt 8pt;
+  color: #ffffff;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 6px;
+  display: inline-block;
+  letter-spacing: 0.005em;
+  page-break-after: avoid;
+}
+/* Variation für jede dritte H3 — abwechselnde Farbtöne */
+h3:nth-of-type(3n+1) { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
+h3:nth-of-type(3n+2) { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+h3:nth-of-type(3n)   { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+
 h4 { font-size: 9.5pt; font-weight: 600; margin: 8pt 0 3pt; color: #475569; }
-p { margin: 4pt 0; }
+p { margin: 5pt 0; }
 strong { font-weight: 600; color: #0f172a; }
 em { font-style: italic; color: #475569; }
 a { color: #4f46e5; text-decoration: none; border-bottom: 1px dotted #c7d2fe; }
-ul, ol { margin: 4pt 0; padding-left: 18px; }
-li { margin: 1pt 0; }
-hr { border: none; border-top: 1px solid #cbd5e1; margin: 12pt 0; }
-blockquote { margin: 6pt 0; padding: 4pt 10pt; border-left: 3px solid #cbd5e1;
-             background: #f8fafc; color: #475569; border-radius: 0 3px 3px 0;
-             font-size: 9pt; }
-code { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 0.5pt 3pt;
-       border-radius: 3px; font-family: 'JetBrains Mono', 'Courier New', monospace;
-       font-size: 8.5pt; }
-pre { background: #0f172a; color: #e2e8f0; padding: 8pt 10pt; border-radius: 5px;
-      overflow-x: auto; font-size: 8pt; line-height: 1.45;
-      page-break-inside: avoid; }
+ul, ol { margin: 5pt 0; padding-left: 18px; }
+li { margin: 1.5pt 0; }
+li::marker { color: #6366f1; }
+hr {
+  border: none; height: 1.5px; margin: 14pt 0;
+  background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
+}
+blockquote {
+  margin: 6pt 0; padding: 6pt 12pt;
+  border-left: 4px solid #6366f1;
+  background: #f8fafc; color: #475569;
+  border-radius: 0 6px 6px 0;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+code {
+  background: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca;
+  padding: 0.5pt 4pt;
+  border-radius: 3px; font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 8.5pt; font-weight: 500;
+}
+pre {
+  background: #0f172a; color: #e2e8f0; padding: 8pt 10pt; border-radius: 6px;
+  overflow-x: auto; font-size: 8pt; line-height: 1.5;
+  page-break-inside: avoid;
+  border-left: 3px solid #6366f1;
+}
 pre code { background: none; border: none; padding: 0; color: inherit; }
-table { border-collapse: collapse; margin: 7pt 0; width: 100%; font-size: 8.5pt;
-        page-break-inside: avoid; }
-th, td { border: 1px solid #e2e8f0; padding: 3pt 6pt; text-align: left; }
-th { background: #f8fafc; font-weight: 600; color: #1e293b; }
+
+table {
+  border-collapse: collapse; margin: 8pt 0; width: 100%; font-size: 8.5pt;
+  page-break-inside: avoid;
+  border-radius: 4px; overflow: hidden;
+}
+th, td { border: 1px solid #e2e8f0; padding: 4pt 7pt; text-align: left; }
+th {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff;
+  font-weight: 600; letter-spacing: 0.01em;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+
+/* Meta-Header oben (Datum/Modus/Modelle) — als Info-Pillen-Reihe */
+h1 + p { color: #64748b; font-size: 9pt; margin: 4pt 0 12pt; line-height: 1.7; }
+h1 + p strong { color: #4338ca; }
+
 @media print {
   body { padding: 0; }
   h2, h3 { page-break-after: avoid; }
