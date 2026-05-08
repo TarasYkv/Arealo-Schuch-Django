@@ -98,6 +98,16 @@
     <div class="iv-modal__sub" id="modalSub">—</div>
     <h2 class="iv-modal__title" id="modalTitle">—</h2>
     <div class="iv-modal__body" id="modalBody"></div>
+    {% if not is_share %}
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--rs-border);
+                display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="#" id="modalResearchBtn" class="rs-btn rs-btn--primary" target="_blank"
+         style="display:none;"
+         title="Neues Council mit dieser Idee als Kontext starten">
+        <i class="fas fa-microscope"></i> Weitere Recherche
+      </a>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -221,22 +231,24 @@ function computeIdeaPositions() {
 cy.on('mouseover', 'node', evt => evt.target.addClass('iv-hover'));
 cy.on('mouseout', 'node', evt => evt.target.removeClass('iv-hover'));
 
+const QUERY_PK = {{ q.pk }};
+const ASK_URL = "{% url 'research:ask' %}";
+
 cy.on('tap', 'node', evt => {
   const d = evt.target.data();
   if (d.type === 'question') {
-    openModal('Fragestellung', '', d.full_text || '(leer)');
+    openModal('Fragestellung', '', d.full_text || '(leer)', null);
   } else {
     const sub = 'Idee ' + (d.number || '?');
-    openModal(d.label, sub, d.body || '(leer)');
+    openModal(d.label, sub, d.body || '(leer)', d.number || null);
   }
 });
 
-function openModal(title, sub, body) {
+function openModal(title, sub, body, ideaNumber) {
   document.getElementById('modalTitle').textContent = title;
   const subEl = document.getElementById('modalSub');
   subEl.textContent = sub;
   subEl.style.display = sub ? '' : 'none';
-  // Markdown rendern fuer body
   const bodyEl = document.getElementById('modalBody');
   if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
     try {
@@ -246,6 +258,20 @@ function openModal(title, sub, body) {
     }
   } else {
     bodyEl.textContent = body;
+  }
+  // Weitere-Recherche-Button: Link mit source_idea-Param zum ask-View
+  const btn = document.getElementById('modalResearchBtn');
+  if (btn) {
+    if (ideaNumber) {
+      const params = new URLSearchParams({
+        source_query: QUERY_PK,
+        source_idea: ideaNumber,
+      });
+      btn.href = ASK_URL + '?' + params.toString();
+      btn.style.display = '';
+    } else {
+      btn.style.display = 'none';
+    }
   }
   document.getElementById('ideaModal').classList.add('open');
 }

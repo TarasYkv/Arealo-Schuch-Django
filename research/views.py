@@ -52,11 +52,13 @@ def ask(request):
         if form.is_valid():
             return _execute_ask_async(request, form)
     else:
-        # Pre-fill aus einer bestehenden Anfrage + spezifischer Modell-Antwort —
-        # erlaubt "Drill-down": vom Brain-Graph-Modal aus weiterforschen.
+        # Pre-fill aus einer bestehenden Anfrage — erlaubt "Drill-down":
+        # source_model=<id>  -> spezifische Modell-Antwort
+        # source_idea=<num>  -> spezifische Redakteur-Idee
         initial = {}
         src_pk = request.GET.get('source_query')
         src_model = request.GET.get('source_model')
+        src_idea = request.GET.get('source_idea')
         if src_pk:
             try:
                 src_q = ResearchQuery.objects.get(pk=src_pk, owner=request.user)
@@ -65,6 +67,7 @@ def ask(request):
             if src_q:
                 src_text = ''
                 src_label = ''
+                # Variante 1: spezifische Modell-Antwort
                 if src_model and isinstance(src_q.raw_responses, dict):
                     council = src_q.raw_responses.get('council') or []
                     for r in council:
@@ -72,8 +75,22 @@ def ask(request):
                             src_text = (r.get('text') or '').strip()
                             src_label = r.get('display') or src_model
                             break
-                # Falls kein spezifisches Modell oder text leer: fallback auf
-                # Hauptantwort der Source-Query
+                # Variante 2: spezifische Redakteur-Idee
+                if not src_text and src_idea:
+                    redak = (src_q.raw_responses or {}).get('redakteur') or {}
+                    redak_text = redak.get('text', '') if isinstance(redak, dict) else ''
+                    ideas = _parse_redakteur_ideas(redak_text)
+                    try:
+                        idea_num = int(src_idea)
+                    except (TypeError, ValueError):
+                        idea_num = None
+                    if idea_num is not None:
+                        for idea in ideas:
+                            if idea.get('number') == idea_num:
+                                src_text = f"{idea.get('title','')}\n\n{idea.get('body','')}"
+                                src_label = f"Idee {idea_num}: {idea.get('title','')[:60]}"
+                                break
+                # Fallback auf Hauptantwort
                 if not src_text:
                     src_text = (src_q.answer or '').strip()
                     src_label = 'Synthese-Antwort'
