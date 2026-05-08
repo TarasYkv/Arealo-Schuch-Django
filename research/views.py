@@ -595,46 +595,41 @@ def _build_query_markdown(rq) -> str:
 
 # Modernes Print-/Web-CSS fuer HTML- und PDF-Export
 _QUERY_HTML_CSS = """
-@page { size: A4; margin: 18mm 16mm 22mm 16mm; }
+@page { size: A4; margin: 14mm 14mm 16mm 14mm; }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 11pt; line-height: 1.55; color: #0f172a; background: #fff;
+  font-size: 9.5pt; line-height: 1.45; color: #0f172a; background: #fff;
 }
-body { padding: 24px 32px; max-width: 920px; margin: 0 auto; }
-h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6pt; color: #0f172a;
+body { padding: 18px 24px; max-width: 920px; margin: 0 auto; }
+h1 { font-size: 17pt; font-weight: 700; margin: 0 0 4pt; color: #0f172a;
      letter-spacing: -0.01em; }
-h2 { font-size: 15pt; font-weight: 600; margin: 22pt 0 8pt;
-     padding-bottom: 4pt; border-bottom: 2px solid #e2e8f0; color: #1e293b; }
-h3 { font-size: 12pt; font-weight: 600; margin: 16pt 0 6pt; color: #334155; }
-h4 { font-size: 11pt; font-weight: 600; margin: 12pt 0 4pt; color: #475569; }
-p { margin: 6pt 0; }
+h2 { font-size: 12.5pt; font-weight: 600; margin: 14pt 0 5pt;
+     padding-bottom: 3pt; border-bottom: 1.5px solid #e2e8f0; color: #1e293b; }
+h3 { font-size: 10.5pt; font-weight: 600; margin: 11pt 0 4pt; color: #334155; }
+h4 { font-size: 9.5pt; font-weight: 600; margin: 8pt 0 3pt; color: #475569; }
+p { margin: 4pt 0; }
 strong { font-weight: 600; color: #0f172a; }
 em { font-style: italic; color: #475569; }
 a { color: #4f46e5; text-decoration: none; border-bottom: 1px dotted #c7d2fe; }
-ul, ol { margin: 6pt 0; padding-left: 22px; }
-li { margin: 2pt 0; }
-hr { border: none; border-top: 1px solid #cbd5e1; margin: 18pt 0; }
-blockquote { margin: 8pt 0; padding: 6pt 14pt; border-left: 4px solid #cbd5e1;
-             background: #f8fafc; color: #475569; border-radius: 0 4px 4px 0; }
-code { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 1pt 4pt;
+ul, ol { margin: 4pt 0; padding-left: 18px; }
+li { margin: 1pt 0; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 12pt 0; }
+blockquote { margin: 6pt 0; padding: 4pt 10pt; border-left: 3px solid #cbd5e1;
+             background: #f8fafc; color: #475569; border-radius: 0 3px 3px 0;
+             font-size: 9pt; }
+code { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 0.5pt 3pt;
        border-radius: 3px; font-family: 'JetBrains Mono', 'Courier New', monospace;
-       font-size: 10pt; }
-pre { background: #0f172a; color: #e2e8f0; padding: 10pt 12pt; border-radius: 6px;
-      overflow-x: auto; font-size: 9.5pt; line-height: 1.5;
+       font-size: 8.5pt; }
+pre { background: #0f172a; color: #e2e8f0; padding: 8pt 10pt; border-radius: 5px;
+      overflow-x: auto; font-size: 8pt; line-height: 1.45;
       page-break-inside: avoid; }
 pre code { background: none; border: none; padding: 0; color: inherit; }
-table { border-collapse: collapse; margin: 10pt 0; width: 100%; font-size: 10pt;
+table { border-collapse: collapse; margin: 7pt 0; width: 100%; font-size: 8.5pt;
         page-break-inside: avoid; }
-th, td { border: 1px solid #e2e8f0; padding: 5pt 8pt; text-align: left; }
+th, td { border: 1px solid #e2e8f0; padding: 3pt 6pt; text-align: left; }
 th { background: #f8fafc; font-weight: 600; color: #1e293b; }
-.rs-cover { text-align: left; padding: 20pt 0; border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 18pt; }
-.rs-meta { color: #64748b; font-size: 10pt; margin-top: 4pt; }
-.rs-meta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 6pt; }
-.rs-meta-row span { display: inline-block; }
-.rs-meta-row strong { color: #1e293b; margin-right: 4px; }
 @media print {
   body { padding: 0; }
   h2, h3 { page-break-after: avoid; }

@@ -47,8 +47,10 @@ class ResearchQuery(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     # Share-Funktionalitaet: Anfrage ohne Login teilbar via /research/share/<token>/
+    # Kein unique=True wegen Migration-Issue bei bestehenden Rows — Kollision
+    # bei secrets.token_urlsafe(16) ist astronomisch unwahrscheinlich (~22 chars).
     share_token = models.CharField(max_length=32, default=_gen_share_token,
-                                   unique=True, db_index=True)
+                                   db_index=True)
     is_public = models.BooleanField(default=False,
                                     help_text='Wenn True, kann jeder mit dem share_token die Anfrage lesen.')
 

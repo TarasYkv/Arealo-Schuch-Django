@@ -118,10 +118,19 @@
     <p class="rs-hero__sub">{{ q.created_at|date:"d.m.Y · H:i" }}{% if q.duration_s %} · Dauer {{ q.duration_s|floatformat:1 }}s{% endif %}</p>
   </div>
   <div class="rs-hero__actions">
+    {% if not is_share %}
     <a href="{% url 'research:ask' %}" class="rs-btn rs-btn--primary">
       <i class="fas fa-plus"></i> Neue Frage
     </a>
-    <a href="{% url 'research:query_graph' q.pk %}" class="rs-btn rs-btn--ghost"
+    <button type="button" class="rs-btn rs-btn--ghost" id="rsShareBtn"
+            data-pk="{{ q.pk }}" data-public="{{ q.is_public|yesno:'true,false' }}"
+            title="Public-Share-Link zum Teilen ohne Login">
+      <i class="fas {% if q.is_public %}fa-share-square{% else %}fa-share-alt{% endif %}"></i>
+      <span id="rsShareLabel">{% if q.is_public %}Geteilt{% else %}Teilen{% endif %}</span>
+    </button>
+    {% endif %}
+    <a href="{% if is_share %}{% url 'research:share_graph' q.share_token %}{% else %}{% url 'research:query_graph' q.pk %}{% endif %}"
+       class="rs-btn rs-btn--ghost"
        title="Modell-Verbindungen als interaktiver Graph mit Clustern"
        onclick="document.getElementById('rsBrainGraphLoading').style.display='flex'; return true;">
       <i class="fas fa-project-diagram"></i> Brain-Graph
@@ -133,23 +142,25 @@
         <i class="fas fa-download"></i> Texte herunterladen <i class="fas fa-caret-down"></i>
       </button>
       <div class="rs-dl-menu" id="rsDlMenu">
-        <a href="{% url 'research:query_download' q.pk %}?format=md" class="rs-dl-item">
+        <a href="{% if is_share %}{% url 'research:share_download' q.share_token %}{% else %}{% url 'research:query_download' q.pk %}{% endif %}?format=md" class="rs-dl-item">
           <i class="fas fa-file-alt"></i>
           <div><strong>Markdown</strong><span>Roh-Text mit Auszeichnung</span></div>
         </a>
-        <a href="{% url 'research:query_download' q.pk %}?format=html" class="rs-dl-item">
+        <a href="{% if is_share %}{% url 'research:share_download' q.share_token %}{% else %}{% url 'research:query_download' q.pk %}{% endif %}?format=html" class="rs-dl-item">
           <i class="fas fa-file-code"></i>
           <div><strong>HTML</strong><span>Standalone-Datei mit Styling</span></div>
         </a>
-        <a href="{% url 'research:query_download' q.pk %}?format=pdf" class="rs-dl-item">
+        <a href="{% if is_share %}{% url 'research:share_download' q.share_token %}{% else %}{% url 'research:query_download' q.pk %}{% endif %}?format=pdf" class="rs-dl-item">
           <i class="fas fa-file-pdf"></i>
           <div><strong>PDF</strong><span>Druckfertig, modernes Layout</span></div>
         </a>
       </div>
     </div>
+    {% if not is_share %}
     <a href="{% url 'research:dashboard' %}" class="rs-btn rs-btn--ghost">
       <i class="fas fa-arrow-left"></i> Dashboard
     </a>
+    {% endif %}
   </div>
 </div>
 
@@ -399,9 +410,91 @@
   .rs-md-rendered hr { border: 0; border-top: 1px solid var(--rs-border); margin: 16px 0; }
 </style>
 
+<!-- Share-Banner (nur sichtbar in Share-Ansicht) -->
+{% if is_share %}
+<div style="position:fixed;top:0;left:0;right:0;background:#1e293b;color:#e2e8f0;
+            padding:8px 16px;font-size:13px;z-index:9999;text-align:center;
+            box-shadow:0 2px 12px rgba(0,0,0,0.15);">
+  <i class="fas fa-eye"></i>&nbsp; Geteilte Forschungs-Anfrage · schreibgeschützt ·
+  erstellt am {{ q.created_at|date:"d.m.Y" }}
+</div>
+<style>body { padding-top: 36px; }</style>
+{% endif %}
+
+{% if not is_share %}
+<!-- Share-Modal (nur fuer eingeloggten Owner) -->
+<div id="rsShareModal" style="position:fixed;inset:0;background:rgba(15,23,42,0.7);display:none;
+                              align-items:center;justify-content:center;z-index:99998;padding:24px;"
+     onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#fff;padding:28px 32px;border-radius:14px;max-width:560px;width:100%;
+              box-shadow:0 24px 60px rgba(0,0,0,0.3);">
+    <h2 style="margin:0 0 6px;font-size:18px;color:#0f172a;">Anfrage teilen</h2>
+    <p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.55;">
+      Wenn du das Teilen aktivierst, kann <strong>jeder mit diesem Link</strong> die Anfrage
+      sehen — Antworten, Brain-Graph und Downloads. Kein Login nötig. Keine Möglichkeit
+      neue Anfragen zu stellen oder weiterzuforschen.
+    </p>
+    <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#f8fafc;
+                  border:1px solid #e2e8f0;border-radius:10px;margin-bottom:14px;cursor:pointer;">
+      <input type="checkbox" id="rsShareToggle" {% if q.is_public %}checked{% endif %}>
+      <div style="font-size:13.5px;font-weight:600;color:#0f172a;">Public-Share-Link aktiv</div>
+    </label>
+    <div id="rsShareLinkWrap" style="{% if not q.is_public %}display:none;{% endif %}">
+      <label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;
+                    text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">Share-Link</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" readonly id="rsShareLinkInput"
+               value="{{ request.scheme }}://{{ request.get_host }}{% url 'research:share_detail' q.share_token %}"
+               style="flex:1;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;
+                      font-family:'JetBrains Mono',monospace;font-size:12px;background:#f8fafc;">
+        <button type="button" onclick="rsShareCopy()" class="rs-btn rs-btn--primary"
+                style="white-space:nowrap;">
+          <i class="fas fa-copy"></i> <span id="rsShareCopyLabel">Kopieren</span>
+        </button>
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:16px;">
+      <button type="button" onclick="document.getElementById('rsShareModal').style.display='none'"
+              class="rs-btn rs-btn--ghost">Schließen</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script src="https://cdn.jsdelivr.net/npm/marked@14.1.4/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
 <script>
+  {% if not is_share %}
+  // Share-Modal-Logik
+  function rsShareCopy() {
+    const inp = document.getElementById('rsShareLinkInput');
+    inp.select();
+    navigator.clipboard.writeText(inp.value).then(() => {
+      document.getElementById('rsShareCopyLabel').textContent = 'Kopiert!';
+      setTimeout(() => document.getElementById('rsShareCopyLabel').textContent = 'Kopieren', 1500);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('rsShareBtn');
+    if (btn) btn.addEventListener('click', () => {
+      document.getElementById('rsShareModal').style.display = 'flex';
+    });
+    const toggle = document.getElementById('rsShareToggle');
+    if (toggle) toggle.addEventListener('change', function() {
+      const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+        || document.cookie.split('csrftoken=')[1]?.split(';')[0] || '';
+      fetch("{% url 'research:query_toggle_share' q.pk %}", {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+        credentials: 'same-origin',
+      }).then(r => r.json()).then(data => {
+        document.getElementById('rsShareLinkWrap').style.display = data.is_public ? '' : 'none';
+        const label = document.getElementById('rsShareLabel');
+        if (label) label.textContent = data.is_public ? 'Geteilt' : 'Teilen';
+      });
+    });
+  });
+  {% endif %}
   // Markdown-Texte (Antwort + alle Council-Card-Texte) rendern
   document.addEventListener('DOMContentLoaded', function() {
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {

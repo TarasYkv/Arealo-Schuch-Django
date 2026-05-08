@@ -158,18 +158,30 @@
 {% endblock %}
 
 {% block content %}
+{% if is_share %}
+<div style="position:fixed;top:0;left:0;right:0;background:#1e293b;color:#e2e8f0;
+            padding:8px 16px;font-size:13px;z-index:9999;text-align:center;
+            box-shadow:0 2px 12px rgba(0,0,0,0.15);">
+  <i class="fas fa-eye"></i>&nbsp; Geteilter Brain-Graph · schreibgeschützt ·
+  erstellt am {{ q.created_at|date:"d.m.Y" }}
+</div>
+<style>body { padding-top: 36px; }</style>
+{% endif %}
 <div class="gv-hero">
   <div>
     <h1>Brain-Graph · Anfrage #{{ q.pk }}</h1>
     <div class="gv-sub">{{ q.question|truncatewords:25 }}</div>
   </div>
   <div class="gv-actions">
+    {% if not is_share %}
     <a href="?refresh=1" id="refreshBtn" class="rs-btn rs-btn--ghost"
        title="Stichpunkte und Cluster mit GLM-5.1 neu berechnen"
        onclick="showLoading('Recherche läuft', 'GLM-5.1 analysiert die Council-Antworten neu — kann 30-90 Sekunden dauern.'); return true;">
       <i class="fas fa-rotate"></i> Neu analysieren
     </a>
-    <a href="{% url 'research:query_detail' q.pk %}" class="rs-btn rs-btn--ghost">
+    {% endif %}
+    <a href="{% if is_share %}{% url 'research:share_detail' q.share_token %}{% else %}{% url 'research:query_detail' q.pk %}{% endif %}"
+       class="rs-btn rs-btn--ghost">
       <i class="fas fa-arrow-left"></i> Zurück
     </a>
   </div>
@@ -199,12 +211,14 @@
     <h2 class="gv-modal__title" id="modalTitle">—</h2>
     <div class="gv-modal__sub" id="modalSub"></div>
     <div class="gv-modal__body" id="modalBody"></div>
+    {% if not is_share %}
     <div class="gv-modal__actions">
       <a href="#" id="modalDrillBtn" class="rs-btn rs-btn--primary" target="_blank"
          title="Neues Council mit dieser Antwort als Kontext starten">
         <i class="fas fa-microscope"></i> Mit diesem Text weiterforschen
       </a>
     </div>
+    {% endif %}
   </div>
 </div>
 
@@ -544,14 +558,17 @@ function openModal(d) {
   }
 
   // Drill-down-Button: Link zu /research/ask/?source_query=<pk>&source_model=<id>
+  // Nur sichtbar in authenticated Ansicht (in Share-View existiert er nicht)
   const drillBtn = document.getElementById('modalDrillBtn');
-  if (d.full_text && d.full_text.length > 0) {
-    const params = new URLSearchParams({ source_query: QUERY_PK });
-    if (d.id && d.type !== 'redakteur') params.set('source_model', d.id);
-    drillBtn.href = ASK_URL + '?' + params.toString();
-    drillBtn.style.display = '';
-  } else {
-    drillBtn.style.display = 'none';
+  if (drillBtn) {
+    if (d.full_text && d.full_text.length > 0) {
+      const params = new URLSearchParams({ source_query: QUERY_PK });
+      if (d.id && d.type !== 'redakteur') params.set('source_model', d.id);
+      drillBtn.href = ASK_URL + '?' + params.toString();
+      drillBtn.style.display = '';
+    } else {
+      drillBtn.style.display = 'none';
+    }
   }
   document.getElementById('modal').classList.add('open');
 }
