@@ -116,12 +116,15 @@ MODELS = {
         'notes': 'Bestes Preis-/Leistungsverhältnis im Council.'
     },
     'glm': {
-        'name': 'GLM 5.1', 'provider': 'openrouter', 'model': 'z-ai/glm-5.1',
-        'pricing': (0.70, 4.40), 'context': '128k',
+        'name': 'GLM 5.1', 'provider': 'zhipu', 'model': 'glm-5.1',
+        # Pricing 0/0 — wir nutzen den Z.AI Coding Plan (flat-rate Abo)
+        # ueber api.z.ai/api/coding/paas/v4 direkt. Routet NICHT mehr ueber
+        # OpenRouter (wo es 0.70/4.40 USD/M kosten wuerde).
+        'pricing': (0.00, 0.00), 'context': '128k',
         'origin': 'Zhipu AI (China, Peking, aus Tsinghua-Uni ausgegründet). Enger Partner der chin. KI-Strategie.',
-        'strengths': 'Extrem günstig, sehr schnell, solide Gesamtqualität, oft unterschätzt.',
+        'strengths': 'Extrem günstig (Coding Plan flat-rate), sehr schnell, solide Gesamtqualität.',
         'weaknesses': 'Deutsch gelegentlich holprig; kulturelle Bias wie bei allen chin. Modellen; Instruction-Following weniger strikt.',
-        'notes': 'Guter Low-Cost-Baustein im Council.'
+        'notes': 'Im Z.AI Coding Plan inkludiert — keine zusaetzlichen Token-Kosten.'
     },
     'kimi': {
         'name': 'Kimi K2.6', 'provider': 'openrouter', 'model': 'moonshotai/kimi-k2.6',
@@ -356,6 +359,11 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
         'model': model,
         'messages': [{'role': 'user', 'content': prompt}],
         'max_tokens': max_tokens,
+        # OpenRouter liefert bei usage.include=True den echten Cost-Wert in USD —
+        # wichtig fuer Modelle mit komplexer Pricing-Struktur (Sonar-Reasoning,
+        # Sonar-Deep-Research mit Search + Reasoning-Tokens). Andere Provider
+        # ignorieren dieses Feld (kein Schaden).
+        'usage': {'include': True},
     }
     req = urllib.request.Request(url, method='POST',
                                  data=json.dumps(payload).encode(),
@@ -384,6 +392,15 @@ def _call_openai_compat(url: str, api_key: str, model: str, prompt: str,
         'finish_reason': choice.get('finish_reason') or '',
         'truncated': choice.get('finish_reason') == 'length',
     }
+    # OpenRouter liefert bei usage.include=True den ECHTEN Cost-Wert in USD —
+    # entscheidend fuer Modelle mit komplexer Pricing (Sonar Deep Research:
+    # Input + Output + Reasoning + Searches). Unsere Schaetzung input*pin +
+    # output*pout liegt bei diesen Modellen massiv zu niedrig.
+    if 'cost' in usage:
+        try:
+            tokens['provider_cost_usd'] = float(usage['cost'])
+        except (TypeError, ValueError):
+            pass
     return text, tokens
 
 
@@ -441,7 +458,15 @@ def _call_gemini(url_template: str, api_key: str, model: str, prompt: str,
 
 
 def calculate_cost(model_id: str, tokens: dict) -> float:
-    """Berechne Kosten in USD basierend auf MODELS[...].pricing (per 1M tokens)."""
+    """Berechne Kosten in USD. Wenn der Provider einen echten cost-Wert
+    geliefert hat (OpenRouter mit usage.include=True), nehmen wir den —
+    das ist akkurat auch bei Modellen mit komplexer Pricing-Struktur
+    (Sonar Deep Research: Input + Output + Reasoning + Searches).
+
+    Fallback: input*pin + output*pout aus MODELS[...].pricing.
+    """
+    if 'provider_cost_usd' in (tokens or {}):
+        return float(tokens['provider_cost_usd'])
     cfg = MODELS.get(model_id)
     if not cfg:
         return 0.0
