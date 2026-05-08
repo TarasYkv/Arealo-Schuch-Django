@@ -883,6 +883,66 @@ def query_status(request, pk):
     })
 
 
+def _parse_redakteur_ideas(redakteur_text: str) -> list[dict]:
+    """Parsed '## Idee N: Titel' Sektionen aus dem Redakteur-Markdown.
+    Liefert Liste von Ideen mit titel + body.
+    """
+    if not redakteur_text:
+        return []
+    import re
+    # Split nach "## Idee N:" Headlines (oder "## N." oder "## Idee N -")
+    pattern = r'^##\s*(?:Idee\s*)?(\d+)\s*[:\.\-—]\s*(.+?)\s*$'
+    parts = re.split(pattern, redakteur_text, flags=re.MULTILINE)
+    # parts: [pre-text, num1, title1, body1, num2, title2, body2, ...]
+    ideas = []
+    for i in range(1, len(parts) - 2, 3):
+        try:
+            num = int(parts[i])
+        except (ValueError, TypeError):
+            continue
+        title = parts[i + 1].strip()
+        body = parts[i + 2].strip()
+        # Body ggf. an nächster "##"-Headline kürzen (paranoid, sollte schon weg sein)
+        next_hash = re.search(r'^##\s', body, re.MULTILINE)
+        if next_hash:
+            body = body[:next_hash.start()].strip()
+        if title:
+            ideas.append({
+                'number': num,
+                'title': title[:120],
+                'body': body[:6000],  # Cap fuer JSON-Payload-Groesse
+            })
+    return ideas
+
+
+def _build_ideas_context(rq):
+    """Daten fuer query_ideas-Template aufbereiten."""
+    raw = rq.raw_responses if isinstance(rq.raw_responses, dict) else {}
+    redak = raw.get('redakteur') or raw.get('primary_validation') or {}
+    redakteur_text = redak.get('text', '') if isinstance(redak, dict) else ''
+    ideas = _parse_redakteur_ideas(redakteur_text)
+    return {
+        'q': rq,
+        'ideas_json': json.dumps(ideas, ensure_ascii=False),
+        'has_ideas': bool(ideas),
+    }
+
+
+@login_required
+def query_ideas(request, pk):
+    rq = get_object_or_404(ResearchQuery, pk=pk, owner=request.user)
+    ctx = _build_ideas_context(rq)
+    ctx['is_share'] = False
+    return render(request, 'research/query_ideas.html', ctx)
+
+
+def share_ideas(request, token):
+    rq = _share_get(token)
+    ctx = _build_ideas_context(rq)
+    ctx['is_share'] = True
+    return render(request, 'research/query_ideas.html', ctx)
+
+
 @login_required
 def query_toggle_share(request, pk):
     """Toggelt is_public — schaltet Public-Share-Link an/aus."""
