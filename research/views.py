@@ -535,11 +535,9 @@ def query_graph(request, pk):
     })
 
 
-@login_required
-def query_download(request, pk):
-    """Liefert die ganze Anfrage + Antwort + Council-Rohantworten + Quellen
-    als Markdown-Datei zum Download."""
-    rq = get_object_or_404(ResearchQuery, pk=pk, owner=request.user)
+def _build_query_markdown(rq) -> str:
+    """Baut die Markdown-Repraesentation einer ResearchQuery (Frage + Antwort
+    + Council-Rohantworten + Redakteur-Output + Quellen)."""
     lines = [
         f'# Anfrage #{rq.pk}',
         '',
@@ -591,8 +589,113 @@ def query_download(request, pk):
                 snippet = (s['text'] or '').strip().replace('\n', ' ')[:300]
                 lines.append(f'  > {snippet}...')
         lines.append('')
+    return '\n'.join(lines)
 
-    body = '\n'.join(lines)
+
+# Modernes Print-/Web-CSS fuer HTML- und PDF-Export
+_QUERY_HTML_CSS = """
+@page { size: A4; margin: 18mm 16mm 22mm 16mm; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11pt; line-height: 1.55; color: #0f172a; background: #fff;
+}
+body { padding: 24px 32px; max-width: 920px; margin: 0 auto; }
+h1 { font-size: 22pt; font-weight: 700; margin: 0 0 6pt; color: #0f172a;
+     letter-spacing: -0.01em; }
+h2 { font-size: 15pt; font-weight: 600; margin: 22pt 0 8pt;
+     padding-bottom: 4pt; border-bottom: 2px solid #e2e8f0; color: #1e293b; }
+h3 { font-size: 12pt; font-weight: 600; margin: 16pt 0 6pt; color: #334155; }
+h4 { font-size: 11pt; font-weight: 600; margin: 12pt 0 4pt; color: #475569; }
+p { margin: 6pt 0; }
+strong { font-weight: 600; color: #0f172a; }
+em { font-style: italic; color: #475569; }
+a { color: #4f46e5; text-decoration: none; border-bottom: 1px dotted #c7d2fe; }
+ul, ol { margin: 6pt 0; padding-left: 22px; }
+li { margin: 2pt 0; }
+hr { border: none; border-top: 1px solid #cbd5e1; margin: 18pt 0; }
+blockquote { margin: 8pt 0; padding: 6pt 14pt; border-left: 4px solid #cbd5e1;
+             background: #f8fafc; color: #475569; border-radius: 0 4px 4px 0; }
+code { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 1pt 4pt;
+       border-radius: 3px; font-family: 'JetBrains Mono', 'Courier New', monospace;
+       font-size: 10pt; }
+pre { background: #0f172a; color: #e2e8f0; padding: 10pt 12pt; border-radius: 6px;
+      overflow-x: auto; font-size: 9.5pt; line-height: 1.5;
+      page-break-inside: avoid; }
+pre code { background: none; border: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; margin: 10pt 0; width: 100%; font-size: 10pt;
+        page-break-inside: avoid; }
+th, td { border: 1px solid #e2e8f0; padding: 5pt 8pt; text-align: left; }
+th { background: #f8fafc; font-weight: 600; color: #1e293b; }
+.rs-cover { text-align: left; padding: 20pt 0; border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 18pt; }
+.rs-meta { color: #64748b; font-size: 10pt; margin-top: 4pt; }
+.rs-meta-row { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 6pt; }
+.rs-meta-row span { display: inline-block; }
+.rs-meta-row strong { color: #1e293b; margin-right: 4px; }
+@media print {
+  body { padding: 0; }
+  h2, h3 { page-break-after: avoid; }
+  pre, table, blockquote { page-break-inside: avoid; }
+}
+"""
+
+
+def _markdown_to_html(md_text: str) -> str:
+    """Konvertiert Markdown zu HTML via markdown-it-py (gleiche Render-Engine
+    wie marked.js im Frontend, gfm-Tabellen + breaks aktiviert)."""
+    from markdown_it import MarkdownIt
+    md = MarkdownIt('gfm-like', {'breaks': True, 'html': False, 'linkify': True})
+    return md.render(md_text)
+
+
+def _build_query_html(rq) -> str:
+    """Standalone-HTML der Anfrage mit eingebettetem Stylesheet — geeignet
+    fuer Download (.html) UND als WeasyPrint-Input fuers PDF."""
+    md_text = _build_query_markdown(rq)
+    body_html = _markdown_to_html(md_text)
+    title = f'Anfrage #{rq.pk} · {rq.get_mode_display()}'
+    return (
+        '<!DOCTYPE html>\n'
+        '<html lang="de"><head>\n'
+        '<meta charset="utf-8">\n'
+        f'<title>{title}</title>\n'
+        '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">\n'
+        '<style>' + _QUERY_HTML_CSS + '</style>\n'
+        '</head><body>\n'
+        + body_html
+        + '\n</body></html>'
+    )
+
+
+@login_required
+def query_download(request, pk):
+    """Markdown-Download (Format-Auswahl via ?format=md|html|pdf)."""
+    rq = get_object_or_404(ResearchQuery, pk=pk, owner=request.user)
+    fmt = (request.GET.get('format') or 'md').lower()
+
+    if fmt == 'html':
+        html = _build_query_html(rq)
+        response = HttpResponse(html, content_type='text/html; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="research-{rq.pk}.html"'
+        return response
+
+    if fmt == 'pdf':
+        html = _build_query_html(rq)
+        try:
+            from weasyprint import HTML
+            pdf_bytes = HTML(string=html, base_url=request.build_absolute_uri('/')).write_pdf()
+        except Exception as exc:
+            logger.exception('PDF-Render fehlgeschlagen')
+            return HttpResponse(f'PDF-Render-Fehler: {exc}', status=500,
+                                content_type='text/plain; charset=utf-8')
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="research-{rq.pk}.pdf"'
+        return response
+
+    # Default: markdown
+    body = _build_query_markdown(rq)
     response = HttpResponse(body, content_type='text/markdown; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="research-{rq.pk}.md"'
     return response

@@ -126,10 +126,27 @@
        onclick="document.getElementById('rsBrainGraphLoading').style.display='flex'; return true;">
       <i class="fas fa-project-diagram"></i> Brain-Graph
     </a>
-    <a href="{% url 'research:query_download' q.pk %}" class="rs-btn rs-btn--ghost"
-       title="Frage + alle Antworten + Quellen als Markdown herunterladen">
-      <i class="fas fa-download"></i> Texte herunterladen
-    </a>
+    <div class="rs-dl-wrap" style="position: relative; display: inline-block;">
+      <button type="button" class="rs-btn rs-btn--ghost" id="rsDlToggle"
+              onclick="document.getElementById('rsDlMenu').classList.toggle('open')"
+              title="Frage + alle Antworten + Quellen herunterladen">
+        <i class="fas fa-download"></i> Texte herunterladen <i class="fas fa-caret-down"></i>
+      </button>
+      <div class="rs-dl-menu" id="rsDlMenu">
+        <a href="{% url 'research:query_download' q.pk %}?format=md" class="rs-dl-item">
+          <i class="fas fa-file-alt"></i>
+          <div><strong>Markdown</strong><span>Roh-Text mit Auszeichnung</span></div>
+        </a>
+        <a href="{% url 'research:query_download' q.pk %}?format=html" class="rs-dl-item">
+          <i class="fas fa-file-code"></i>
+          <div><strong>HTML</strong><span>Standalone-Datei mit Styling</span></div>
+        </a>
+        <a href="{% url 'research:query_download' q.pk %}?format=pdf" class="rs-dl-item">
+          <i class="fas fa-file-pdf"></i>
+          <div><strong>PDF</strong><span>Druckfertig, modernes Layout</span></div>
+        </a>
+      </div>
+    </div>
     <a href="{% url 'research:dashboard' %}" class="rs-btn rs-btn--ghost">
       <i class="fas fa-arrow-left"></i> Dashboard
     </a>
@@ -322,6 +339,28 @@
 </div>
 
 <style>
+  /* Download-Dropdown */
+  .rs-dl-menu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    background: var(--rs-surface); border: 1px solid var(--rs-border);
+    border-radius: 12px; box-shadow: 0 12px 32px rgba(15,23,42,0.12);
+    min-width: 260px; padding: 6px; z-index: 50;
+    opacity: 0; pointer-events: none;
+    transform: translateY(-4px); transition: opacity 0.15s, transform 0.15s;
+  }
+  .rs-dl-menu.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+  .rs-dl-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 10px 12px; border-radius: 8px; text-decoration: none;
+    color: var(--rs-ink); transition: background 0.12s;
+  }
+  .rs-dl-item:hover { background: var(--rs-surface-soft); }
+  .rs-dl-item i { font-size: 18px; color: var(--rs-accent); padding-top: 2px;
+                  width: 22px; flex-shrink: 0; }
+  .rs-dl-item div { display: flex; flex-direction: column; gap: 2px; }
+  .rs-dl-item strong { font-size: 13.5px; font-weight: 600; }
+  .rs-dl-item span { font-size: 12px; color: var(--rs-ink-soft); }
+
   /* Markdown-Rendering fuer Answer + Council-Card-Texte */
   .rs-md-rendered h1, .rs-md-rendered h2, .rs-md-rendered h3, .rs-md-rendered h4 {
     margin: 18px 0 8px; font-weight: 600; color: var(--rs-ink); line-height: 1.3;
@@ -365,16 +404,21 @@
 <script>
   // Markdown-Texte (Antwort + alle Council-Card-Texte) rendern
   document.addEventListener('DOMContentLoaded', function() {
-    if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') return;
-    document.querySelectorAll('.rs-answer, .rs-council-card__text').forEach(el => {
-      const raw = el.textContent;
-      try {
-        const html = marked.parse(raw, { breaks: true, gfm: true });
-        el.innerHTML = DOMPurify.sanitize(html);
-        el.classList.add('rs-md-rendered');
-      } catch (e) {
-        // Fallback: Original-Text bleibt
-      }
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+      document.querySelectorAll('.rs-answer, .rs-council-card__text').forEach(el => {
+        const raw = el.textContent;
+        try {
+          const html = marked.parse(raw, { breaks: true, gfm: true });
+          el.innerHTML = DOMPurify.sanitize(html);
+          el.classList.add('rs-md-rendered');
+        } catch (e) {}
+      });
+    }
+    // Download-Dropdown: ausserhalb klicken schliesst es
+    document.addEventListener('click', function(e) {
+      const wrap = document.querySelector('.rs-dl-wrap');
+      const menu = document.getElementById('rsDlMenu');
+      if (wrap && menu && !wrap.contains(e.target)) menu.classList.remove('open');
     });
   });
 </script>
