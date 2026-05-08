@@ -180,6 +180,23 @@ def execute_research_query(self, query_id: int):
 
     user = rq.owner
 
+    # Incremental-Save-Helper: Nach jedem fertigen Modell die Antwort in
+    # die DB schreiben. Bei Worker-Crash sind so alle bis dahin gelieferten
+    # Antworten gerettet (statt komplett verloren).
+    def _incremental_save(result_dict):
+        try:
+            rq.refresh_from_db(fields=['raw_responses'])
+        except Exception:
+            pass
+        raw = rq.raw_responses if isinstance(rq.raw_responses, dict) else {}
+        council_list = raw.get('council') or []
+        # Duplikate ueberspringen falls Modell schon drin (z.B. nach Restart)
+        if not any(r.get('model') == result_dict.get('model') for r in council_list):
+            council_list.append(result_dict)
+        raw['council'] = council_list
+        rq.raw_responses = raw
+        rq.save(update_fields=['raw_responses', 'updated_at']) if hasattr(rq, 'updated_at') else rq.save(update_fields=['raw_responses'])
+
     try:
         if mode == 'rag':
             cfg = council_service.MODELS.get(primary)
@@ -200,8 +217,16 @@ def execute_research_query(self, query_id: int):
         elif mode == 'council':
             if not council_ids:
                 raise ValueError('Bitte mindestens ein Council-Modell auswählen.')
-            res = council_service.ask_council(rq.question, user, council_ids)
-            rq.raw_responses = {'council': res['results']}
+            res = council_service.ask_council(
+                rq.question, user, council_ids,
+                progress_callback=_incremental_save,
+            )
+            # raw_responses wurde schon incremental gespeichert, hier nur ueberschreiben
+            # damit results stabil sortiert sind.
+            rq.refresh_from_db(fields=['raw_responses'])
+            raw = rq.raw_responses or {}
+            raw['council'] = res['results']
+            rq.raw_responses = raw
             rq.models_used = council_ids
             rq.duration_s = res['duration_s']
             rq.total_cost_usd = res.get('total_cost_usd', 0.0)
@@ -215,7 +240,10 @@ def execute_research_query(self, query_id: int):
             cfg = council_service.MODELS.get(primary)
             if not cfg:
                 raise ValueError(f'Unbekanntes Primär-Modell: {primary}')
-            cres = council_service.ask_council(rq.question, user, council_ids)
+            cres = council_service.ask_council(
+                rq.question, user, council_ids,
+                progress_callback=_incremental_save,
+            )
             redaktion_prompt = _redaktion_prompt(rq.question, cres['results'])
             red_res = council_service._call_one(
                 primary, redaktion_prompt, user, max_tokens=8000, timeout=300)
@@ -253,7 +281,10 @@ def execute_research_query(self, query_id: int):
                 raise ValueError(f'Unbekanntes Primär-Modell: {primary}')
             if not council_ids:
                 council_ids = ['gpt', 'gemini', 'deepseek']
-            cres = council_service.ask_council(rq.question, user, council_ids)
+            cres = council_service.ask_council(
+                rq.question, user, council_ids,
+                progress_callback=_incremental_save,
+            )
             try:
                 sources = rag_service.retrieve(rq.question, top_k=top_k)
             except Exception:

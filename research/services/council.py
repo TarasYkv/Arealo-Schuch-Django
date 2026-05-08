@@ -556,15 +556,28 @@ def _call_one(model_id: str, prompt: str, user, max_tokens: int = 8000,
 
 
 def ask_council(question: str, user, model_ids: list[str],
-                max_tokens: int = 8000, timeout: int = 120) -> dict:
-    """Parallel an alle Modelle. Gibt strukturierte Ergebnisliste zurück."""
+                max_tokens: int = 8000, timeout: int = 120,
+                progress_callback=None) -> dict:
+    """Parallel an alle Modelle. Gibt strukturierte Ergebnisliste zurück.
+
+    progress_callback(result_dict) wird nach JEDEM fertigen Modell aufgerufen —
+    der Caller kann damit incremental in die DB schreiben, sodass bei Worker-
+    Crash bereits gelieferte Antworten nicht verloren gehen.
+    """
     t0 = time.time()
     results: list[dict] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(model_ids))) as pool:
         futs = {pool.submit(_call_one, m, question, user, max_tokens, timeout): m
                 for m in model_ids}
         for fut in concurrent.futures.as_completed(futs):
-            results.append(fut.result())
+            r = fut.result()
+            results.append(r)
+            if progress_callback:
+                try:
+                    progress_callback(r)
+                except Exception:
+                    # Callback-Fehler soll Council-Run nicht abbrechen
+                    pass
     # Stabile Sortierung wie in model_ids
     idx = {m: i for i, m in enumerate(model_ids)}
     results.sort(key=lambda r: idx.get(r['model'], 999))
