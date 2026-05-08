@@ -13,7 +13,7 @@ NATURMACHER_VOICE = (
     "- Spreche den Leser mit 'du' / 'dich' / 'dein' an.\n"
     "- KEINE 'Sie'-Form, KEINE leeren Floskeln.\n\n"
     "EIGENE ERFAHRUNG mit konkreten Anekdoten (E-E-A-T-Pflicht):\n"
-    "- Pro BEITRAG insgesamt MIND. 2, MAX. 4 konkrete Kunden-Anekdoten — verteilt\n"
+    "- Pro BEITRAG insgesamt MIND. 1, MAX. 3 konkrete Kunden-Anekdoten — verteilt\n"
     "  ueber unterschiedliche Sektionen (NICHT alle gebuendelt).\n"
     "- JEDE Anekdote MUSS enthalten: (a) Vorname (frei erfunden, plausibel deutsch:\n"
     "  Klaus, Sabine, Marko, Jana, Helmut, Lina, Tobias, Mia, ...), (b) konkreter\n"
