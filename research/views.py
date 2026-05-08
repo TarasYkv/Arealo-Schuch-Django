@@ -405,13 +405,16 @@ def _generate_graph_meta(question: str, council_results: list, user,
         + 'Verwende AUSSCHLIESSLICH die Modell-IDs aus den Sektionen oben '
         + f'({", ".join(valid_ids)}).'
     )
+    # max_tokens=24000 — bei 20+ Modellen mit Stichpunkten + Cluster-Info
+    # passt sonst nichts mehr (12k war zu eng — bei #15 wurde finish_reason
+    # 'length' getriggert + JSON abgeschnitten).
     # Wichtig: no_continuation=True — Continuation zerstoert JSON (zweiter
     # Call kommt mit "fortsetzen"-Prompt der nicht JSON liefert -> kaputtes
-    # Stueckwerk). max_tokens=12000 damit JSON in einem Rutsch passt.
-    # timeout=360s damit GLM auch bei viel Input genug Zeit hat.
+    # Stueckwerk). timeout=480s — GLM braucht bei 20+ Modellen + Reasoning
+    # gut 4-6 Min.
     try:
         res = council_service._call_one(
-            'glm', prompt, user, max_tokens=12000, timeout=360,
+            'glm', prompt, user, max_tokens=24000, timeout=480,
             no_continuation=True,
         )
     except Exception as exc:
@@ -545,9 +548,11 @@ def _normalize_graph_meta(data: dict) -> dict:
 
 def _parse_graph_meta_json(text: str) -> dict | None:
     """Robuste JSON-Extraktion fuer graph_meta-Output:
-    1. Markdown-Codeblock-Wrapper (```json ... ```) entfernen.
+    1. Markdown-Codeblock-Wrapper entfernen.
     2. Versuche kompletten Text als JSON.
     3. Fallback: outermost {} Pair extrahieren.
+    4. Letzter Fallback: bei truncated JSON Reparatur durch
+       Hinzufuegen fehlender Closing-Braces.
     """
     if not text:
         return None
@@ -568,6 +573,29 @@ def _parse_graph_meta_json(text: str) -> dict | None:
     if start >= 0 and end > start:
         try:
             return json.loads(s[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    # Reparatur-Versuch fuer truncated JSON: zaehle offene { und [, schliesse sie
+    if start >= 0:
+        candidate = s[start:].rstrip()
+        # Falls letzte Zeile ein offenes Token ist (z.B. mitten in String) -
+        # bis zur letzten geschlossenen "}" oder "]" zurueckschneiden
+        # Suche letzten safen Schnittpunkt: },\n oder ],\n oder }\n
+        for cut_marker in ['"\n      },', '"\n    },', '"\n    ]', '"\n  ]']:
+            last_cut = candidate.rfind(cut_marker)
+            if last_cut > 0:
+                candidate = candidate[:last_cut + len(cut_marker)].rstrip(',\n ')
+                break
+        # Closing-Braces ergaenzen basierend auf offenen Klammern
+        opens_curly = candidate.count('{') - candidate.count('}')
+        opens_square = candidate.count('[') - candidate.count(']')
+        # Falls letztes char Komma ist, weg damit
+        candidate = candidate.rstrip(',\n ')
+        # Closing-Braces in umgekehrter Reihenfolge der nesting-tiefe ergaenzen
+        candidate += ']' * max(0, opens_square)
+        candidate += '}' * max(0, opens_curly)
+        try:
+            return json.loads(candidate)
         except json.JSONDecodeError:
             pass
     return None
