@@ -1534,11 +1534,13 @@ class MagvisBlogAssembler:
                 'body_html': blog.final_html,
                 'tags': ', '.join(article_tags),
                 'published': True,
-                # published_at NUR beim ERSTEN Publish setzen — bei späteren PUTs
-                # (Re-Run der Stage) den ursprünglichen Wert behalten, damit Shopify
-                # 'updated_at' korrekt setzt und Google 'dateModified' erkennt.
-                # (siehe Schema-Section: dateModified wird separat gepflegt)
-                **({} if blog.shopify_article_id else {'published_at': _now_isoformat()}),
+                # published_at + handle NUR beim ERSTEN Publish setzen — bei
+                # spaeteren PUTs den urspruenglichen Wert behalten, sonst zerbricht
+                # die URL bestehender Beitraege (Ranking-Verlust).
+                **({} if blog.shopify_article_id else {
+                    'published_at': _now_isoformat(),
+                    'handle': blog.slug,
+                }),
                 'metafields': [
                     {
                         'namespace': 'custom',
