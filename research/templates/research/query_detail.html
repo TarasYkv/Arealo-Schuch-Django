@@ -204,6 +204,76 @@
 <div class="rs-answer">{{ q.answer }}</div>
 {% endif %}
 
+{% if q.raw_responses.final_score %}
+<div class="rs-section-title"><i class="fas fa-bullseye"></i> Aggregierter Final-Score (Literatur × Council)</div>
+<div style="margin: 12px 0 24px; padding: 16px 18px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 8px; border-left: 4px solid #10b981;">
+  <p style="margin: 0 0 12px; font-size: 14px;">
+    <strong>Methodische Triangulation:</strong> Pipeline-Literatur (bibliografische Evidenz) UND
+    Council-Konsens (Experten-Wissen aus 26 KI-Modellen) werden per geometrischem Mittel zu
+    einem finalen w<sub>(p,M)</sub>-Score kombiniert. Singleton-Mechanismen (Coverage &lt; 3
+    von 26 Modellen) wurden als wahrscheinliche Halluzinationen ausgefiltert.
+  </p>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px;">
+    <div style="padding: 14px; background: white; border-radius: 6px; text-align: center;">
+      <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Literatur (Pipeline)</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: #1e293b; margin-top: 6px;">
+        {% if q.raw_responses.final_score.w_lit is not None %}{{ q.raw_responses.final_score.w_lit|floatformat:3 }}{% else %}—{% endif %}
+      </div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">w<sub>lit</sub></div>
+    </div>
+    <div style="padding: 14px; background: white; border-radius: 6px; text-align: center;">
+      <div style="font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Council (Median 26)</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: #1e293b; margin-top: 6px;">
+        {% if q.raw_responses.final_score.w_council_median is not None %}{{ q.raw_responses.final_score.w_council_median|floatformat:3 }}{% else %}—{% endif %}
+      </div>
+      <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+        w<sub>council</sub>
+        {% if q.raw_responses.final_score.w_council_range %}
+          · Range [{{ q.raw_responses.final_score.w_council_range.0|floatformat:2 }} – {{ q.raw_responses.final_score.w_council_range.1|floatformat:2 }}]
+        {% endif %}
+      </div>
+    </div>
+    <div style="padding: 14px; background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-radius: 6px; text-align: center; color: white;">
+      <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px;">Final (Geom. Mittel)</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; margin-top: 6px;">
+        {% if q.raw_responses.final_score.w_final_geom_mean is not None %}{{ q.raw_responses.final_score.w_final_geom_mean|floatformat:3 }}{% else %}—{% endif %}
+      </div>
+      <div style="font-size: 11px; opacity: 0.85; margin-top: 4px;">w<sub>(p,M)_final</sub> = √(w<sub>lit</sub> × w<sub>council</sub>)</div>
+    </div>
+  </div>
+  <div style="display: flex; gap: 16px; font-size: 12.5px; color: #475569; flex-wrap: wrap;">
+    {% if q.raw_responses.final_score.n_models_valid is not None %}
+    <span><strong>n<sub>valid</sub>:</strong> {{ q.raw_responses.final_score.n_models_valid }}/26 Scores extrahiert</span>
+    {% endif %}
+    {% if q.raw_responses.final_score.n_models_no_score %}
+    <span style="color: #d97706;"><strong>n<sub>kein_score</sub>:</strong> {{ q.raw_responses.final_score.n_models_no_score }}</span>
+    {% endif %}
+    {% if q.raw_responses.final_score.n_konsens_mechanismen %}
+    <span><strong>Konsens-Mechanismen:</strong> {{ q.raw_responses.final_score.n_konsens_mechanismen }}</span>
+    {% endif %}
+    {% if q.raw_responses.final_score.n_singleton_filtered %}
+    <span style="color: #dc2626;"><strong>Singleton-Filter:</strong> {{ q.raw_responses.final_score.n_singleton_filtered }} verworfen</span>
+    {% endif %}
+  </div>
+  {% if q.raw_responses.aggregation.konsens_mechanismen %}
+  <details style="margin-top: 12px;">
+    <summary style="cursor: pointer; font-size: 12.5px; font-weight: 600; color: #047857;">Konsens-Mechanismen anzeigen ({{ q.raw_responses.aggregation.konsens_mechanismen|length }})</summary>
+    <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13px;">
+      {% for m in q.raw_responses.aggregation.konsens_mechanismen %}<li>{{ m }}</li>{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if q.raw_responses.aggregation.singleton_filtered_mechanismen %}
+  <details style="margin-top: 6px;">
+    <summary style="cursor: pointer; font-size: 12.5px; font-weight: 600; color: #b91c1c;">Singleton-gefilterte Mechanismen ({{ q.raw_responses.aggregation.singleton_filtered_mechanismen|length }}) — verworfen</summary>
+    <ul style="margin: 8px 0 0; padding-left: 20px; font-size: 13px; color: #6b7280;">
+      {% for m in q.raw_responses.aggregation.singleton_filtered_mechanismen %}<li>{{ m }} <em style="font-size:11px;">(Coverage &lt; 3/26 — wahrscheinlich Halluzination)</em></li>{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if q.raw_responses.primary_validation or q.raw_responses.rag or q.raw_responses.council %}
 <div class="rs-cost-breakdown">
   <div class="rs-cost-breakdown__title"><i class="fas fa-receipt"></i> Kosten-Aufschlüsselung</div>
@@ -284,7 +354,433 @@
 </style>
 {% endif %}
 
-{% if q.sources %}
+{% if q.mode == 'pipeline' and q.raw_responses.weighting %}
+<div class="rs-section-title"><i class="fas fa-weight-scale"></i> Mechanism-Weighting (w<sub>p,M</sub>)</div>
+<div style="margin: 12px 0 24px; padding: 18px 20px; background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%); border-radius: 10px; border-left: 5px solid #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,0.15);">
+  <style>
+    .w-tile { position: relative; }
+    .w-info-btn { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: #eff6ff; color: #2563eb; border: 1px solid #c7d2fe; cursor: pointer; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+    .w-info-btn:hover { background: #2563eb; color: white; }
+    .w-tooltip { display: none; position: absolute; top: 32px; right: 0; background: #1e293b; color: #f1f5f9; padding: 10px 12px; border-radius: 6px; width: 280px; font-size: 12px; line-height: 1.5; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-weight: 400; text-transform: none; letter-spacing: 0; }
+    .w-info-btn:focus + .w-tooltip, .w-info-btn:hover + .w-tooltip { display: block; }
+    .w-tooltip code { background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+  </style>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px;">
+    {% if q.raw_responses.weighting.specificity is not None %}
+    <div class="w-tile" style="background: white; padding: 10px 12px; border-radius: 6px;">
+      <button type="button" class="w-info-btn" aria-label="Spezifität-Info">i</button>
+      <div class="w-tooltip"><strong>Spezifität (Co-Occurrence)</strong><br>
+        Misst wie spezifisch die Verbindung zwischen Frage (M) und Filter (P) ist.<br>
+        <code>spec = count(M ∩ P) / √(count(M) × count(P))</code><br>
+        Werte nahe 1 = beide Begriffe kommen häufig gemeinsam vor; Werte nahe 0 = selten zusammen.
+        Median über alle aktiven Layer.
+      </div>
+      <div style="font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 600; letter-spacing: 0.5px;">Spezifität</div>
+      <div style="font-size: 22px; font-weight: 700; color: #1e40af; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.specificity|floatformat:4 }}
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">aus Co-Occurrence</div>
+    </div>
+    {% endif %}
+    <div class="w-tile" style="background: white; padding: 10px 12px; border-radius: 6px;">
+      <button type="button" class="w-info-btn" aria-label="Citation-Info">i</button>
+      <div class="w-tooltip"><strong>Citation-Score</strong><br>
+        Logarithmische Summe der Zitationszahlen aller geladenen Top-Papers, normalisiert auf [0,1].<br>
+        <code>cite = min( Σ log(1+c_i) / (n × 4) , 1.0 )</code><br>
+        Saturiert bei n×4 ≈ 4 Zitationen pro Paper im Mittel.
+        Indikator für etablierte Forschung statt Treffer-Anzahl.
+      </div>
+      <div style="font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 600; letter-spacing: 0.5px;">Citation</div>
+      <div style="font-size: 22px; font-weight: 700; color: #1e40af; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.citation|floatformat:3 }}
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Σ log-cites über {{ q.raw_responses.weighting.n_citations }} Papers</div>
+    </div>
+    <div class="w-tile" style="background: white; padding: 10px 12px; border-radius: 6px;">
+      <button type="button" class="w-info-btn" aria-label="Trend-Info">i</button>
+      <div class="w-tooltip"><strong>Trend-Score (Aktualität)</strong><br>
+        Anteil Papers aus den letzten 5 Jahren am Gesamttreffer.<br>
+        <code>trend = n_recent(last 5y) / n_dated</code><br>
+        Hoher Wert = Forschung aktuell sehr aktiv; niedriger Wert = etabliertes Wissen oder abklingender Bereich.
+      </div>
+      <div style="font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 600; letter-spacing: 0.5px;">Trend</div>
+      <div style="font-size: 22px; font-weight: 700; color: #1e40af; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.trend|floatformat:3 }}
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+        {{ q.raw_responses.weighting.n_recent }}/{{ q.raw_responses.weighting.n_dated }} letzte 5 Jahre
+      </div>
+    </div>
+    <div class="w-tile" style="background: white; padding: 10px 12px; border-radius: 6px;">
+      <button type="button" class="w-info-btn" aria-label="Konvergenz-Info">i</button>
+      <div class="w-tooltip"><strong>Konvergenz (Cross-Layer)</strong><br>
+        Anteil der aktiven Layer mit mindestens 10 Treffern.<br>
+        <code>conv = layers_with_hits / layers_total</code><br>
+        Wenn alle Layer den Mechanismus bestätigen → robuster Konsens; wenn nur 1 Layer Treffer hat → Vorsicht, möglicherweise einseitige Coverage.
+      </div>
+      <div style="font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 600; letter-spacing: 0.5px;">Konvergenz</div>
+      <div style="font-size: 22px; font-weight: 700; color: #1e40af; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.convergence|floatformat:3 }}
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+        {{ q.raw_responses.weighting.layers_hits }}/{{ q.raw_responses.weighting.layers_total }} Layer mit ≥10 Treffern
+      </div>
+    </div>
+    {% if q.raw_responses.weighting.patent is not None %}
+    <div class="w-tile" style="background: white; padding: 10px 12px; border-radius: 6px;">
+      <button type="button" class="w-info-btn" aria-label="Patent-Info">i</button>
+      <div class="w-tooltip"><strong>Patent-Score</strong><br>
+        Anzahl Patente die den Mechanismus für das Produkt referenzieren (Lens.org Patent-Endpoint).<br>
+        <code>patent = min( log(1+n) / log(101) , 1.0 )</code><br>
+        100+ Patente = max. Indikator für industrielle Anwendbarkeit, besonders wichtig für Frische-DC-Use-Case.
+      </div>
+      <div style="font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 600; letter-spacing: 0.5px;">Patent</div>
+      <div style="font-size: 22px; font-weight: 700; color: #1e40af; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.patent|floatformat:3 }}
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+        {{ q.raw_responses.weighting.patent_count }} Patente (Lens)
+      </div>
+    </div>
+    {% endif %}
+    <div class="w-tile" style="background: white; padding: 10px 12px; border-radius: 6px;">
+      <button type="button" class="w-info-btn" aria-label="Diversität-Info">i</button>
+      <div class="w-tooltip"><strong>Author-Diversity</strong><br>
+        Anteil unique Autoren an allen Autoren-Nennungen über alle geladenen Papers.<br>
+        <code>diversity = unique_authors / total_authors</code><br>
+        Wert nahe 1 = breite, unabhängige Forschergemeinschaft; nahe 0 = wenige Labs dominieren (methodisch unsicherer).
+      </div>
+      <div style="font-size: 11px; text-transform: uppercase; color: #475569; font-weight: 600; letter-spacing: 0.5px;">Diversität</div>
+      <div style="font-size: 22px; font-weight: 700; color: #1e40af; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.diversity|floatformat:3 }}
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+        {{ q.raw_responses.weighting.unique_authors }}/{{ q.raw_responses.weighting.total_authors }} unique Autoren
+      </div>
+    </div>
+  </div>
+  <div class="w-tile" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #1e40af; border-radius: 8px; color: white;">
+    <button type="button" class="w-info-btn" aria-label="Final-Score-Info" style="background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3);">i</button>
+    <div class="w-tooltip"><strong>Final w<sub>p,M</sub></strong><br>
+      Gewichtete Summe der bis zu 6 Indikatoren. Gewichte werden dynamisch normalisiert je nach verfügbaren Indikatoren.<br>
+      <strong>Basis-Gewichte (alle 6):</strong> <code>0.22·spec + 0.18·cite + 0.10·trend + 0.20·conv + 0.18·patent + 0.12·div</code><br>
+      Wenn Indikator fehlt → dessen Gewicht wird proportional auf die übrigen umverteilt.<br>
+      Mapping auf 7-Stufen-Skala: {0,0; 0,1; 0,3; 0,5; 0,7; 0,9; 1,0} an die Bins [0.05, 0.15, 0.35, 0.55, 0.75, 0.95].
+    </div>
+    <div>
+      <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85;">FINAL w<sub>p,M</sub></div>
+      <div style="font-size: 32px; font-weight: 800; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.final|floatformat:3 }}
+      </div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85;">7-Stufen-Skala</div>
+      <div style="font-size: 32px; font-weight: 800; font-family: 'JetBrains Mono', monospace;">
+        {{ q.raw_responses.weighting.final_7stufen }}
+      </div>
+    </div>
+  </div>
+  {% if not q.raw_responses.weighting.has_cooc %}
+  <p style="margin: 10px 0 0; font-size: 12.5px; color: #64748b; font-style: italic;">
+    Spezifität nicht aktiv (kein Filter oder Co-Occurrence-Checkbox nicht gesetzt) → reduzierte 3-Indikatoren-Formel
+  </p>
+  {% endif %}
+</div>
+
+<!-- Council-Eskalation: 26 KI-Modelle aus dem Memory feedback_council_models -->
+<div style="margin: 16px 0 24px; text-align: center;">
+  <button type="button" id="openCouncilModal"
+          style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 12px 28px; font-size: 15px; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(124,58,237,0.25);">
+    <i class="fas fa-users"></i>&nbsp; Mit Council vertiefen (26 KI-Modelle + GLM-Redakteur)
+  </button>
+  <p style="margin: 8px 0 0; font-size: 12px; color: #64748b;">
+    26 Modelle parallel; GLM 5.1 (aus dem z.ai-Abo) strukturiert die Antworten anschließend zu einem konsolidierten Endbericht.
+  </p>
+</div>
+
+<div id="councilModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:white; max-width:880px; width:100%; max-height:92vh; overflow-y:auto; border-radius:12px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="margin:0; font-size:20px; font-weight:700; color:#1e293b;">
+        <i class="fas fa-users" style="color:#7c3aed;"></i>&nbsp; Council vertiefen — 26 Modelle + GLM-Redakteur
+      </h3>
+      <button type="button" id="closeCouncilModal" style="background:transparent; border:none; font-size:22px; cursor:pointer; color:#64748b;">&times;</button>
+    </div>
+    <p style="margin:0 0 14px; font-size:13.5px; color:#475569; line-height:1.55;">
+      Der vorbereitete Prompt unten enthält <strong>nur die Frage und den Anwendungskontext</strong> —
+      bewusst <strong>OHNE</strong> die bibliographischen Pipeline-Ergebnisse. Das Council liefert dadurch eine
+      <strong>unabhängige zweite Säule</strong> aus reinem Trainingswissen, die mit der Bibliographie-Säule
+      methodisch entkoppelt vergleichbar wird (geom_mean-Aggregation). Du kannst den Prompt vor dem
+      Absenden noch anpassen. Beim Klick auf „Council starten" werden alle 26 Modelle parallel befragt;
+      anschließend strukturiert <strong>GLM 5.1</strong> (z.ai-Abo) die Antworten zu einem konsolidierten
+      Endbericht mit Konvergenz-/Dissens-Analyse. Laufzeit typisch 60 – 180 Sekunden.
+    </p>
+    <form method="POST" action="{% url 'research:ask' %}">
+      {% csrf_token %}
+      <input type="hidden" name="mode" value="council_edited">
+      <input type="hidden" name="primary_model" value="glm">
+      <input type="hidden" name="top_k" value="6">
+      {% if q.raw_responses.weighting.final is not None %}
+      <input type="hidden" name="pipeline_w_lit" value="{{ q.raw_responses.weighting.final }}">
+      {% endif %}
+
+      <label style="display:block; font-size:13px; font-weight:600; color:#334155; margin-bottom:6px;">
+        Frage an das Council (editierbar):
+      </label>
+      <textarea name="question" id="councilPromptText" rows="22"
+                style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-family:'JetBrains Mono', monospace; font-size:12.5px; line-height:1.5; box-sizing:border-box;"></textarea>
+
+      <!-- 26 Council-Modelle aus Memory feedback_council_models.md, alle vorgewählt -->
+      <input type="hidden" name="council_models" value="opus">
+      <input type="hidden" name="council_models" value="sonnet">
+      <input type="hidden" name="council_models" value="haiku">
+      <input type="hidden" name="council_models" value="gpt">
+      <input type="hidden" name="council_models" value="gemini">
+      <input type="hidden" name="council_models" value="grok">
+      <input type="hidden" name="council_models" value="deepseek">
+      <input type="hidden" name="council_models" value="glm">
+      <input type="hidden" name="council_models" value="kimi">
+      <input type="hidden" name="council_models" value="qwen">
+      <input type="hidden" name="council_models" value="mistral">
+      <input type="hidden" name="council_models" value="minimax">
+      <input type="hidden" name="council_models" value="nemotron">
+      <input type="hidden" name="council_models" value="mercury">
+      <input type="hidden" name="council_models" value="glm_air_free">
+      <input type="hidden" name="council_models" value="sonar_reasoning">
+      <input type="hidden" name="council_models" value="sonar_pro">
+      <input type="hidden" name="council_models" value="o3">
+      <input type="hidden" name="council_models" value="o4_mini">
+      <input type="hidden" name="council_models" value="qwen_max_thinking">
+      <input type="hidden" name="council_models" value="kimi_thinking">
+      <input type="hidden" name="council_models" value="grok_fast">
+      <input type="hidden" name="council_models" value="gpt_mini">
+      <input type="hidden" name="council_models" value="llama4">
+      <input type="hidden" name="council_models" value="palmyra">
+      <input type="hidden" name="council_models" value="nova">
+
+      <div style="margin-top:14px; padding:10px 14px; background:#f1f5f9; border-radius:6px; font-size:12px; color:#475569;">
+        <strong>Aktive Council-Modelle (26):</strong> Claude Opus 4.7, Claude Sonnet 4.6, Claude Haiku 4.5, GPT-5.4, Gemini 3.1 Pro, Grok 4.20, DeepSeek R1, GLM 5.1, Kimi K2.6, Qwen 3.6 Plus, Mistral Large, MiniMax M2.7, Nemotron 120B, Mercury 2, GLM 4.5 Air, Sonar Reasoning Pro, Sonar Pro, OpenAI o3, OpenAI o4-mini, Qwen3 Max Thinking, Kimi K2 Thinking, Grok 4.1 Fast, GPT-4.1 Mini, Llama 4 Maverick, Palmyra X5, Nova Premier.
+      </div>
+
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" id="cancelCouncilModal" style="background:#e2e8f0; color:#334155; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">Abbrechen</button>
+        <button type="submit" style="background:linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color:white; padding:10px 24px; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
+          <i class="fas fa-paper-plane"></i>&nbsp; Council starten
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  var btn = document.getElementById('openCouncilModal');
+  var modal = document.getElementById('councilModal');
+  var closeBtn = document.getElementById('closeCouncilModal');
+  var cancelBtn = document.getElementById('cancelCouncilModal');
+  var textarea = document.getElementById('councilPromptText');
+
+  // Daten aus dem Django-Template auslesen (als data-attributes oder Inline-Variablen)
+  var pipelineData = {
+    question: "{{ q.question|escapejs }}",
+    productFilter: "{{ q.params.pipeline_product_filter|default:""|escapejs }}",
+    layers: [
+      {% for r in q.raw_responses.pipeline %}
+      {layer: "{{ r.layer }}", count: {% if r.ok %}{{ r.hit_count }}{% else %}null{% endif %}}{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ],
+    weighting: {
+      specificity: {% if q.raw_responses.weighting.specificity is not None %}{{ q.raw_responses.weighting.specificity }}{% else %}null{% endif %},
+      citation: {{ q.raw_responses.weighting.citation }},
+      trend: {{ q.raw_responses.weighting.trend }},
+      convergence: {{ q.raw_responses.weighting.convergence }},
+      patent: {% if q.raw_responses.weighting.patent is not None %}{{ q.raw_responses.weighting.patent }}{% else %}null{% endif %},
+      diversity: {{ q.raw_responses.weighting.diversity }},
+      final: {{ q.raw_responses.weighting.final }},
+      final_7stufen: {{ q.raw_responses.weighting.final_7stufen }}
+    }
+  };
+
+  function buildPrompt() {
+    // UNABHAENGIGE Council-Bewertung: keine Pipeline-Daten als Kontext.
+    // Council soll eine zweite, von der Bibliographie ENTKOPPELTE Einschaetzung liefern.
+    return [
+      'Du bist ein interdisziplinaerer Experte fuer Postharvest-Physiologie, Photobiologie und',
+      'LED-Beleuchtungstechnik. Liefere eine UNABHAENGIGE Fachbewertung des folgenden',
+      'Mechanismus-Produkt-Zusammenhangs — strikt aus deinem Trainingswissen, ohne dass dir',
+      'eine vorgelagerte Literatur-Recherche zur Verfuegung steht. Die Bewertung dient als',
+      'zweite, von der bibliographischen Pipeline ENTKOPPELTE Saeule fuer den finalen',
+      'Gewichtungs-Score w_(p,M) im V(t)-Verkaeuflichkeitsmodell.',
+      '',
+      pipelineData.productFilter
+        ? 'LEBENSMITTEL / PRODUKT:\n  ' + pipelineData.productFilter + '\n\nMECHANISMUS / FRAGESTELLUNG:\n  ' + pipelineData.question
+        : 'FRAGESTELLUNG (Lebensmittel + Mechanismus zusammen):\n  ' + pipelineData.question,
+      '',
+      'ANWENDUNGS-KONTEXT:',
+      '  Adaptive RGBW-LED-Beleuchtung zur Reduktion postharvest-Lagerverluste in Frische-',
+      '  Distributionszentren. Lagerbedingungen: 4 degC, 95 % rel. Feuchte, 5 bis 7 Tage,',
+      '  modifizierte Schutzatmosphaere (MAP), spektral steuerbare 12-Kanal-LED-Leuchte mit',
+      '  Wellenlaengenabdeckung 400 bis 700 nm.',
+      '',
+      'BITTE BEWERTE AUS DEINER FACHEXPERTISE — STRIKT UNABHAENGIG VON EINER',
+      'LITERATURRECHERCHE:',
+      '',
+      '1. RELEVANZ-SCORE: Wie wichtig ist dieser Mechanismus fuer den Postharvest-Qualitaets-',
+      '   verlust dieses Produkts unter den genannten Bedingungen? Bewerte mit einer Zahl',
+      '   zwischen 0,0 (irrelevant) und 1,0 (Haupttreiber) und begruende kurz.',
+      '',
+      '2. WIRKUNGSPFAD: Beschreibe in 3 bis 5 Saetzen den biologischen Wirkmechanismus, sodass',
+      '   verstaendlich wird, WIE der Mechanismus zum Qualitaetsverlust beitraegt (Stoffwechsel,',
+      '   Signalweg, Substrat, Endprodukt).',
+      '',
+      '3. KRITISCHE FAKTOREN: Welche Confounder, methodischen Schwaechen oder Kontrollvariablen',
+      '   muessten bei einer experimentellen Validierung in einer Klimakammer beruecksichtigt',
+      '   werden? Welche Wechselwirkungen mit anderen Mechanismen sind zu erwarten?',
+      '',
+      '4. SPEKTRALE EMPFEHLUNG: Welche Wellenlaengenbereiche und Intensitaeten der 12-Kanal-LED-',
+      '   Leuchte wuerden den Mechanismus a) verstaerken oder b) abschwaechen? Konkrete Nanometer-',
+      '   Werte und Photonenflussdichte-Bereiche, sofern dir bekannt.',
+      '',
+      'Bitte antworte praezise, mit Quellen- oder Studienverweis wo moeglich, und maximal 350',
+      'Woerter pro Frage. Strukturiere die Antwort klar mit den vier Ueberschriften',
+      '„1. Relevanz-Score", „2. Wirkungspfad", „3. Kritische Faktoren", „4. Spektrale Empfehlung".',
+      '',
+      'WICHTIG fuer die Score-Aggregation: Unter Ueberschrift „1. Relevanz-Score" MUSS',
+      'die erste Zeile in genau diesem Format erscheinen: „Score: 0,XX" (Dezimalzahl',
+      'zwischen 0,00 und 1,00; deutsche Schreibung mit Komma). Der GLM-Redakteur',
+      'extrahiert diese Zahl automatisch und kombiniert sie per Median und geometrischem',
+      'Mittel mit dem Literatur-Score der Pipeline zu einem finalen w_(p,M)_final.'
+    ].join('\n');
+  }
+
+  if (btn) {
+    btn.addEventListener('click', function() {
+      textarea.value = buildPrompt();
+      modal.style.display = 'flex';
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', function() { modal.style.display = 'none'; });
+  if (cancelBtn) cancelBtn.addEventListener('click', function() { modal.style.display = 'none'; });
+  if (modal) modal.addEventListener('click', function(e) {
+    if (e.target === modal) modal.style.display = 'none';
+  });
+})();
+</script>
+{% endif %}
+
+{% if q.mode == 'pipeline' and q.raw_responses.cooccurrence %}
+<div class="rs-section-title"><i class="fas fa-bullseye"></i> Co-Occurrence-Spezifität</div>
+<div style="margin: 12px 0 24px; padding: 14px 16px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; border-left: 4px solid #f59e0b;">
+  <p style="margin: 0 0 12px; font-size: 14px;">
+    <strong>Gewichtungs-Indikator:</strong> wie spezifisch ist die Verbindung zwischen Frage und Filter?
+    Formel: <code>count(M ∩ P) / √(count(M) × count(P))</code>
+  </p>
+  <table class="table table-sm" style="width: 100%; font-size: 14px; background: white; border-radius: 6px; margin-bottom: 8px;">
+    <thead>
+      <tr style="border-bottom: 2px solid #e2e8f0;">
+        <th style="text-align: left; padding: 8px;">Layer</th>
+        <th style="text-align: right; padding: 8px;">count(M)</th>
+        <th style="text-align: right; padding: 8px;">count(P)</th>
+        <th style="text-align: right; padding: 8px;">count(M∩P)</th>
+        <th style="text-align: right; padding: 8px;">Spezifität</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in q.raw_responses.cooccurrence.per_layer %}
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 8px;"><strong>{{ r.layer }}</strong></td>
+        <td style="text-align: right; padding: 8px; font-family: 'JetBrains Mono', monospace;">
+          {% if r.count_M is not None %}{{ r.count_M }}{% else %}—{% endif %}
+        </td>
+        <td style="text-align: right; padding: 8px; font-family: 'JetBrains Mono', monospace;">
+          {% if r.count_P is not None %}{{ r.count_P }}{% else %}—{% endif %}
+        </td>
+        <td style="text-align: right; padding: 8px; font-family: 'JetBrains Mono', monospace;">
+          {% if r.count_MP is not None %}{{ r.count_MP }}{% else %}—{% endif %}
+        </td>
+        <td style="text-align: right; padding: 8px; font-family: 'JetBrains Mono', monospace; font-weight: 600;">
+          {% if r.specificity is not None %}{{ r.specificity|floatformat:5 }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="margin: 8px 0 0; font-size: 14px;">
+    <strong>Mittlere Spezifität ({{ q.raw_responses.cooccurrence.n_layers }} Layer):</strong>
+    <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 16px;">
+      {{ q.raw_responses.cooccurrence.mean_specificity|floatformat:5 }}
+    </span>
+  </p>
+</div>
+
+<div class="rs-section-title"><i class="fas fa-database"></i> Pipeline-Ergebnisse pro Layer</div>
+{% elif q.mode == 'pipeline' and q.raw_responses.pipeline %}
+<div class="rs-section-title"><i class="fas fa-database"></i> Pipeline-Ergebnisse pro Layer</div>
+{% endif %}
+
+{% if q.mode == 'pipeline' and q.raw_responses.pipeline %}
+<div class="rs-pipeline-overview" style="margin: 12px 0 24px;">
+  <table class="table table-sm" style="width: 100%; font-size: 14px;">
+    <thead>
+      <tr style="border-bottom: 2px solid #e2e8f0;">
+        <th style="text-align: left;">Layer</th>
+        <th style="text-align: right;">Treffer</th>
+        <th style="text-align: left;">Status</th>
+        <th style="text-align: left;">Beispiel-Paper</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in q.raw_responses.pipeline %}
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td><strong>{{ r.layer }}</strong></td>
+        <td style="text-align: right; font-family: 'JetBrains Mono', monospace;">
+          {% if r.ok %}{{ r.hit_count }}{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if r.ok %}
+            <span class="rs-pill rs-pill--ok">OK · {{ r.papers|length }} geladen</span>
+          {% else %}
+            <span class="rs-pill rs-pill--err">{{ r.error|default:"Fehler"|truncatechars:60 }}</span>
+          {% endif %}
+        </td>
+        <td style="color: #475569; font-size: 13px;">
+          {% if r.papers %}{{ r.papers.0.title|truncatechars:80 }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if q.raw_responses.query_used %}
+    <p style="margin-top: 8px; font-size: 12.5px; color: #64748b;">
+      <strong>Effektive Query:</strong> <code>{{ q.raw_responses.query_used }}</code>
+    </p>
+  {% endif %}
+</div>
+
+<div class="rs-section-title"><i class="fas fa-book"></i> Top-Papers · {{ q.sources|length }} aus {{ q.raw_responses.pipeline|length }} Layern</div>
+<div class="rs-sources">
+  {% for s in q.sources %}
+  <div class="rs-source">
+    <div class="rs-source__head">
+      <span class="rs-source__idx">{{ s.layer|upper }}</span>
+      <span class="rs-source__score">{{ s.score|floatformat:0 }} Zitationen</span>
+    </div>
+    <div class="rs-source__title">{{ s.title|default:"(ohne Titel)" }}</div>
+    <div class="rs-source__meta">
+      {{ s.authors|default:"—" }}{% if s.year %} · {{ s.year }}{% endif %}
+      {% if s.filename %} · <em>{{ s.filename }}</em>{% endif %}
+      {% if s.doi %} · DOI: {{ s.doi }}{% endif %}
+    </div>
+    {% if s.url %}
+    <a href="{{ s.url }}" target="_blank" rel="noopener" class="rs-source__link">
+      <i class="fas fa-arrow-up-right-from-square"></i> Quelle öffnen
+    </a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% elif q.sources %}
 <div class="rs-section-title"><i class="fas fa-book"></i> Quellen · {{ q.sources|length }}</div>
 <div class="rs-sources">
   {% for s in q.sources %}

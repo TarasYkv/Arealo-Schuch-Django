@@ -12,6 +12,7 @@ MODE_CHOICES = (
     ('council', 'Council (mehrere Modelle)'),
     ('council_edited', 'Council + Redakteur (Primär-Modell strukturiert)'),
     ('hybrid', 'Hybrid (RAG + Council)'),
+    ('pipeline', 'Pipeline (externe Quellen)'),
 )
 
 

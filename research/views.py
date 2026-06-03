@@ -121,6 +121,11 @@ def _execute_ask_async(request, form):
     primary = form.cleaned_data.get('primary_model') or 'glm'
     council_ids = list(form.cleaned_data.get('council_models') or [])
     top_k = int(form.cleaned_data.get('top_k') or 6)
+    pipeline_layers = list(form.cleaned_data.get('pipeline_layers') or [])
+    pipeline_product_filter = form.cleaned_data.get('pipeline_product_filter') or ''
+    pipeline_max_papers = int(form.cleaned_data.get('pipeline_max_papers') or 10)
+    pipeline_cooccurrence = bool(form.cleaned_data.get('pipeline_cooccurrence'))
+    pipeline_w_lit = form.cleaned_data.get('pipeline_w_lit')
 
     rq = ResearchQuery.objects.create(
         owner=request.user, question=question, mode=mode, status='pending',
@@ -129,6 +134,11 @@ def _execute_ask_async(request, form):
             'primary_model': primary,
             'council_models': council_ids,
             'top_k': top_k,
+            'pipeline_layers': pipeline_layers,
+            'pipeline_product_filter': pipeline_product_filter,
+            'pipeline_max_papers': pipeline_max_papers,
+            'pipeline_cooccurrence': pipeline_cooccurrence,
+            'pipeline_w_lit': pipeline_w_lit,
         },
     )
     try:

@@ -120,7 +120,74 @@ def execute_research_query(self, query_id: int):
             'Beginne mit den Ideen, die mehrere Modelle gemeinsam haben '
             '(hoehere Konfidenz), dann einzeln vorgeschlagene Ideen.'
         )
+        # === ZUSAETZLICHE AGGREGATIONS-SEKTION (Score + Singleton-Filter) ===
+        parts.append(
+            '\n\n=== ZUSAETZLICHE AUFGABE: SCORE-AGGREGATION + SINGLETON-FILTER ===\n\n'
+            'Jedes der oben aufgelisteten Modelle wurde aufgefordert, in seiner Antwort '
+            'einen Relevanz-Score zwischen 0,0 und 1,0 zu nennen (Punkt 1 des Prompts). '
+            'Extrahiere diese Scores und fuehre die folgende Aggregations-Pipeline aus:\n\n'
+            '1. SCORE-EXTRAKTION: Lies pro Modell die explizit genannte Zahl unter '
+            '"Relevanz-Score" / "1. Relevanz-Score" / "Score:" o. ae. heraus. Falls '
+            'ein Modell keine Zahl nennt oder das Antwortformat verfehlt, markiere '
+            'es als "kein Score extrahierbar" und schliesse es aus dem Median aus.\n\n'
+            '2. MECHANISMUS-COVERAGE (Konsens-Filter gegen Halluzinationen): '
+            'Sammle alle in den Wirkungspfaden (Punkt 2 jedes Modells) genannten '
+            'biologischen Teilmechanismen (Schluesselbegriffe wie z. B. "Chlorophyll-Abbau", '
+            '"Atmungsrate", "Ethylen-Biosynthese", "ROS-Bildung", "Anthocyan-Akkumulation"). '
+            'Zaehle, wie viele der 26 Modelle JEDEN dieser Mechanismen erwaehnen. '
+            'Mechanismen mit Coverage < 3 (also nur 1-2 Modelle nennen sie, waehrend die '
+            'restlichen 24-25 sie nicht erwaehnen) werden als SINGLETON_FILTERED markiert '
+            '— wahrscheinlich Halluzinationen, NICHT in den finalen Score einrechnen.\n\n'
+            '3. MEDIAN-BERECHNUNG: Nimm alle extrahierten Scores aus Schritt 1 und '
+            'berechne den Median (50. Perzentil). Median ist robuster gegen Ausreisser '
+            'als Mean. Berechne zusaetzlich die Range (Minimum, Maximum) und die '
+            'Anzahl valider Scores n_valid.\n\n'
+            'AM ENDE deiner Markdown-Antwort fuege EXAKT diesen Code-Block ein '
+            '(im JSON-Format, in dreifachen Backticks mit Sprachangabe "json"):\n\n'
+            '```json\n'
+            '{\n'
+            '  "w_council_median": <Float 0.0-1.0>,\n'
+            '  "w_council_range": [<Float min>, <Float max>],\n'
+            '  "n_models_valid": <Int>,\n'
+            '  "n_models_no_score": <Int>,\n'
+            '  "konsens_mechanismen": ["<Mechanismus mit Coverage >= 3>", ...],\n'
+            '  "singleton_filtered_mechanismen": ["<Mechanismus mit Coverage < 3>", ...],\n'
+            '  "scores_pro_modell": {"<Modellname>": <Float>, ...}\n'
+            '}\n'
+            '```\n\n'
+            'Dieser JSON-Block ist Pflicht und wird vom Backend automatisch geparst. '
+            'Wenn du keinen Score extrahieren kannst, setze w_council_median: null und '
+            'n_models_valid: 0 — KEINE erfundenen Zahlen.'
+        )
         return '\n'.join(parts)
+
+    def _parse_council_aggregation(redakteur_text):
+        """Extrahiert den JSON-Aggregations-Block aus der GLM-Redakteur-Antwort.
+        Sucht ```json ... ``` Block und gibt das geparste Dict zurueck.
+        Returns None wenn nicht parsebar.
+        """
+        import json
+        import re
+        if not redakteur_text:
+            return None
+        m = re.search(r'```json\s*(\{[\s\S]*?\})\s*```', redakteur_text)
+        if not m:
+            return None
+        try:
+            return json.loads(m.group(1))
+        except Exception:
+            return None
+
+    def _compute_geom_mean_score(w_lit, w_council):
+        """Geometrisches Mittel sqrt(w_lit * w_council). Bestraft Disagreement
+        staerker als arithmetisches Mittel — wenn eine Quelle 0.9 und die andere
+        0.2 liefert, ist geom_mean = 0.42 (vs. arith_mean = 0.55)."""
+        if w_lit is None or w_council is None:
+            return None
+        try:
+            return float((float(w_lit) * float(w_council)) ** 0.5)
+        except Exception:
+            return None
 
     def _validation_prompt(question, council_results, rag_sources):
         # Konservativer Cut: Council-Antworten auf 3500 Zeichen, RAG-Quellen
@@ -265,10 +332,32 @@ def execute_research_query(self, query_id: int):
                 )
             except Exception as exc:
                 logger.warning('graph_meta-Vorabgenerierung fehlgeschlagen: %s', exc)
+            # === SCORE-AGGREGATION + GEOM-MEAN MIT PIPELINE-LITERATUR-SCORE ===
+            # Parse JSON-Block aus Redakteur-Antwort (Singleton-Filter + Median)
+            aggregation_data = None
+            final_score_data = None
+            if red_res.get('ok'):
+                aggregation_data = _parse_council_aggregation(red_res.get('text') or '')
+                w_lit = (rq.params or {}).get('pipeline_w_lit')
+                w_council = (aggregation_data or {}).get('w_council_median')
+                geom = _compute_geom_mean_score(w_lit, w_council)
+                if w_lit is not None or w_council is not None:
+                    final_score_data = {
+                        'w_lit': w_lit,
+                        'w_council_median': w_council,
+                        'w_final_geom_mean': geom,
+                        'w_council_range': (aggregation_data or {}).get('w_council_range'),
+                        'n_models_valid': (aggregation_data or {}).get('n_models_valid'),
+                        'n_models_no_score': (aggregation_data or {}).get('n_models_no_score'),
+                        'n_konsens_mechanismen': len((aggregation_data or {}).get('konsens_mechanismen') or []),
+                        'n_singleton_filtered': len((aggregation_data or {}).get('singleton_filtered_mechanismen') or []),
+                    }
             rq.raw_responses = {
                 'redakteur': red_res,
                 'council': cres['results'],
                 'graph_meta': graph_meta,
+                'aggregation': aggregation_data,
+                'final_score': final_score_data,
             }
             rq.models_used = [primary] + list(council_ids)
             rq.duration_s = cres['duration_s'] + (red_res.get('duration_s') or 0)
@@ -307,6 +396,26 @@ def execute_research_query(self, query_id: int):
             rq.duration_s = cres['duration_s'] + (val_res.get('duration_s') or 0)
             rq.total_cost_usd = (cres.get('total_cost_usd', 0.0)
                                  + (val_res.get('cost_usd') or 0.0))
+        elif mode == 'pipeline':
+            # Externe Literatur-Quellen parallel abfragen.
+            from .services import pipeline as pipeline_service
+            t0 = timezone.now()
+            pipeline_params = {
+                'enabled_layers': params.get('pipeline_layers') or [
+                    'pubmed', 'semantic', 'openalex', 'epmc', 'crossref'],
+                'product_filter': params.get('pipeline_product_filter', ''),
+                'max_papers': int(params.get('pipeline_max_papers') or 10),
+                'cooccurrence': bool(params.get('pipeline_cooccurrence', False)),
+            }
+            res = pipeline_service.run_pipeline(rq.question, pipeline_params)
+            rq.answer = res['answer']
+            rq.sources = res['sources']
+            rq.raw_responses = res['raw_responses']
+            rq.models_used = res['models_used']
+            rq.duration_s = (timezone.now() - t0).total_seconds()
+            # Externe Open-APIs verursachen keine direkten USD-Kosten
+            rq.total_cost_usd = 0.0
+
         else:
             raise ValueError(f'Unbekannter Modus: {mode}')
 
@@ -317,6 +426,8 @@ def execute_research_query(self, query_id: int):
         rq.error = f'{type(e).__name__}: {e}'
         rq.status = 'failed'
 
+    if rq.answer is None:
+        rq.answer = ""
     rq.finished_at = timezone.now()
     rq.save()
     return rq.status
