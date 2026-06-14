@@ -458,6 +458,10 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 600.0,  # Every 10 min — re-triggert hängende *_done-Stages.
                             # Idempotenz auf Stage-Ebene verhindert Doppel-Posts.
     },
+    'spawn-next-magvis': {
+        'task': 'magvis.tasks.auto_run_from_queue',
+        'schedule': crontab(hour='6,10,14,18', minute=40),  # ~08:40, 12:40, 16:40, 20:40 Berlin (Sommerzeit)
+    },
     'reverify-pending-backlinks': {
         'task': 'backloom.reverify_pending_attempts',
         'schedule': 3600.0,  # 1× pro Stunde — Phase 6.2 periodische Re-Verifikation
