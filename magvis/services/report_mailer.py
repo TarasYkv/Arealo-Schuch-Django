@@ -223,7 +223,7 @@ def _collect_models_and_costs(project) -> tuple[list[dict], list[dict], float]:
     models_used = [
         {'role': 'Blog- + Produkt-Texte', 'model': text_model, 'provider': text_provider},
         {'role': 'Hero-Titelbild', 'model': 'gemini-2.5-flash-image', 'provider': 'Gemini (Nano Banana)'},
-        {'role': 'Diagramm + Brainstorming', 'model': 'gemini-3.1-flash-image-preview', 'provider': 'Gemini (Nano Banana 2)'},
+        {'role': 'Diagramm + Brainstorming', 'model': 'gemini-3-pro-image-preview', 'provider': 'Gemini (Nano Banana Pro)'},
         {'role': 'Produktbilder (Topf+Gravur)', 'model': image_model, 'provider': 'Gemini'},
     ]
 
@@ -235,8 +235,8 @@ def _collect_models_and_costs(project) -> tuple[list[dict], list[dict], float]:
     cost_breakdown.append({'item': 'Hero-Titelbild (1×)', 'model': 'Nano Banana', 'cost': p_title})
 
     # 2 Bilder Diagram + Brainstorm
-    p_nb2 = _IMAGE_PRICES.get('gemini-3.1-flash-image-preview', 0.07)
-    cost_breakdown.append({'item': 'Diagramm + Brainstorming (2×)', 'model': 'Nano Banana 2', 'cost': 2 * p_nb2})
+    p_nb2 = _IMAGE_PRICES.get('gemini-3-pro-image-preview', 0.135)
+    cost_breakdown.append({'item': 'Diagramm + Brainstorming (2×)', 'model': 'Nano Banana Pro', 'cost': 2 * p_nb2})
 
     # 8 Produkt-KI-Bilder (4 KI × 2 Produkte) — Modell wie image_model gesetzt
     p_prod = _IMAGE_PRICES.get(image_model, p_nb2)
@@ -244,7 +244,7 @@ def _collect_models_and_costs(project) -> tuple[list[dict], list[dict], float]:
     if n_prod:
         cost_breakdown.append({
             'item': f'Produktbilder ({n_prod}×)',
-            'model': 'Nano Banana 2' if image_model == 'gemini-3.1-flash-image-preview' else image_model,
+            'model': 'Nano Banana Pro' if image_model == 'gemini-3-pro-image-preview' else image_model,
             'cost': n_prod * p_prod,
         })
 

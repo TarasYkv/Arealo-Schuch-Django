@@ -68,7 +68,7 @@ class MagvisGeminiHelper:
         # (gemini-2.5-flash-image) reicht. Nano Banana 2 nur fuer Diagramm/Brainstorm,
         # weil dort deutsche Beschriftungen auf dem Bild stehen muessen.
         for attempt, prompt in enumerate(prompts, start=1):
-            result = self._generate_and_save(prompt, prefix='title')
+            result = self._generate_and_save(prompt, prefix='title', model_override='gemini-2.5-flash-image')
             if result.get('success'):
                 if attempt > 1:
                     logger.info('Title-image succeeded on attempt %d', attempt)
