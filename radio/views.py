@@ -533,7 +533,7 @@ def news_settings_save(request):
     for p in ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True):
         key = f'topic_{p.pk}'
         if key in request.POST:
-            p.topic = (request.POST.get(key) or '').strip()[:200]
+            p.topic = (request.POST.get(key) or '').strip()[:1000]
             p.save(update_fields=['topic'])
     n = _regenerate_news_pins(c)
     return redirect(reverse('radio:news_settings') + f'?saved=1&pins={n}')

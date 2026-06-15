@@ -787,9 +787,14 @@ def fetch_news(self, only_if_missing=False):
     _pin_topics = (_pin.topic if (_pin and _pin.topic) else '').strip()
     if _pin_topics:
         _opts = [t.strip() for t in _pin_topics.replace(',', '\n').splitlines() if t.strip()]
-        if len(_opts) > 1:
-            # Mehrere Themen je Termin -> taeglich EINES rotierend (gegen Tages-Wiederholung)
-            topics = [_opts[_date.today().toordinal() % len(_opts)]]
+        _TAKE = 4  # jeder Beitrag behandelt 4 Themen
+        if len(_opts) > _TAKE:
+            # groesserer Pool -> taeglich rotierende, nicht-ueberlappende 4er-Gruppe
+            import math as _m
+            _groups = _m.ceil(len(_opts) / _TAKE)
+            _g = _date.today().toordinal() % _groups
+            _ring = _opts + _opts  # Wrap-around fuer die letzte (evtl. kuerzere) Gruppe
+            topics = _ring[_g * _TAKE: _g * _TAKE + _TAKE]
         else:
             topics = _opts
     else:

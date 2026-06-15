@@ -480,8 +480,8 @@ class ScheduledItem(models.Model):
     days = models.CharField(max_length=20, blank=True, default='',
                             help_text='Wochentage 0=Mo..6=So kommasepariert, leer=täglich (nur wenn on_date leer)')
     enforce = models.CharField(max_length=10, choices=ENFORCE, default='anchor')
-    topic = models.CharField(max_length=200, blank=True, default='',
-                             help_text='Themenhinweis für GLM (nur rubrik_gen)')
+    topic = models.TextField(blank=True, default='',
+                             help_text='Themenhinweis(e) für GLM; mehrere kommagetrennt (News-Termine)')
     gen_spec = models.JSONField(default=dict, blank=True,
                                 help_text='Selbst definierte Beitrags-Vorgaben (Modus compose): '
                                           'kind/title/text/voice/target_sec/style/engine')
