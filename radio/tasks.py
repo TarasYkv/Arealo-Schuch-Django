@@ -83,6 +83,36 @@ def _synthesize(text, voice, kind=None, gemini_model=None, eleven_model=None):
     return tts.generate_piper(text, audio_model=voice)
 
 
+def _prepend_news_intro(news_bytes):
+    """Stellt das feste News-Intro (media/radio/news_intro.mp3) vor die Bytes.
+    Robust per ffmpeg-Resample+Concat; gibt Original zurück, wenn kein Intro da ist."""
+    import os
+    import subprocess
+    import tempfile
+    from django.conf import settings as _dj
+    intro = os.path.join(_dj.MEDIA_ROOT, 'radio', 'news_intro.mp3')
+    if not news_bytes or not os.path.exists(intro):
+        return news_bytes
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            npath = os.path.join(td, 'news.mp3')
+            out = os.path.join(td, 'out.mp3')
+            with open(npath, 'wb') as fh:
+                fh.write(news_bytes)
+            cmd = ['ffmpeg', '-y', '-i', intro, '-i', npath, '-filter_complex',
+                   '[0:a]aformat=sample_rates=44100:channel_layouts=stereo[a0];'
+                   '[1:a]aformat=sample_rates=44100:channel_layouts=stereo[a1];'
+                   '[a0][a1]concat=n=2:v=0:a=1[a]',
+                   '-map', '[a]', '-c:a', 'libmp3lame', '-b:a', '192k', out]
+            subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+            if os.path.exists(out) and os.path.getsize(out) > 0:
+                with open(out, 'rb') as fh:
+                    return fh.read()
+    except Exception as e:
+        logger.warning('News-Intro voranstellen fehlgeschlagen: %s', e)
+    return news_bytes
+
+
 @shared_task
 def generate_spoken_content(kind='wissen', topic=None, season=None, air_date=None, voice=None):
     """
@@ -788,6 +818,7 @@ def fetch_news(self, only_if_missing=False):
             voice = (r.voice if (r and r.voice and not r.voice.startswith('piper')) else '') or 'edge-de-DE-ConradNeural'
             _gm = (r.tts_model.strip() if (r and r.tts_model) else '') or None
             mp3 = _synthesize(jt, voice, kind='news', gemini_model=_gm)
+            mp3 = _prepend_news_intro(mp3)  # festes Intro (Jingle) voranstellen
             from django.utils import timezone as _tz2
             from zoneinfo import ZoneInfo as _ZI
             _h = _tz2.now().astimezone(_ZI('Europe/Berlin')).hour
@@ -802,7 +833,8 @@ def fetch_news(self, only_if_missing=False):
             sc.status = 'generated'
             try:
                 from .models import StationConfig as _SC2
-                sc.gen_model = _gm or (_SC2.get().gemini_tts_model or '')
+                sc.gen_model = ('edge' if str(voice).startswith('edge-')
+                                else (_gm or (_SC2.get().gemini_tts_model or '')))
             except Exception:
                 pass
             sc.save(update_fields=['audio_file', 'duration_sec', 'status', 'gen_model'])

@@ -456,18 +456,53 @@ def news_settings(request):
     })
 
 
+def _regenerate_news_pins(c):
+    """Erzeugt die wiederkehrenden News-Pins (ScheduledItem) neu gemäß Zeitplan.
+    Spielt je Pin die frischeste Tagesnews (rubrik_key='news')."""
+    import datetime as _dt
+    from .models import ScheduledItem
+    # nur die WIEDERKEHRENDEN News-Pins ersetzen (on_date leer); datums-spezifische bleiben
+    ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True).delete()
+    if not c.news_enabled:
+        return 0
+    minute = max(0, min(59, c.news_minute or 0))
+    step = max(1, c.news_interval_h or 1)
+    frm = max(0, min(23, c.news_from_hour or 0))
+    to = max(0, min(23, c.news_to_hour if c.news_to_hour is not None else 23))
+    made, hh = 0, frm
+    while hh <= to:
+        ScheduledItem.objects.create(
+            name=f'News {hh:02d}:{minute:02d}', mode='rubrik_auto', rubrik_key='news',
+            start_time=_dt.time(hh, minute), days='', enforce='anchor', is_active=True, order=0)
+        made += 1
+        hh += step
+    return made
+
+
 @_superuser_only
 @require_POST
 def news_settings_save(request):
     c = StationConfig.get()
     c.news_topics = (request.POST.get('news_topics') or '').strip()[:2000]
-    c.save(update_fields=['news_topics'])
+
+    def _ival(key, cur, lo, hi):
+        try:
+            return max(lo, min(hi, int(request.POST.get(key))))
+        except (TypeError, ValueError):
+            return cur
+    c.news_enabled = bool(request.POST.get('news_enabled'))
+    c.news_minute = _ival('news_minute', c.news_minute, 0, 59)
+    c.news_from_hour = _ival('news_from_hour', c.news_from_hour, 0, 23)
+    c.news_to_hour = _ival('news_to_hour', c.news_to_hour, 0, 23)
+    c.news_interval_h = _ival('news_interval_h', c.news_interval_h, 1, 24)
+    c.save()
     journal = _get_journal_rubrik()
     journal.voice = (request.POST.get('voice') or '').strip()
     journal.tts_model = (request.POST.get('tts_model') or '').strip()[:40]
-    journal.is_active = bool(request.POST.get('is_active'))
+    journal.is_active = c.news_enabled
     journal.save()
-    return redirect(reverse('radio:news_settings') + '?saved=1')
+    n = _regenerate_news_pins(c)
+    return redirect(reverse('radio:news_settings') + f'?saved=1&pins={n}')
 
 
 @_superuser_only

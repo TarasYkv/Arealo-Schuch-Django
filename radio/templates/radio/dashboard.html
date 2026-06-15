@@ -1,0 +1,880 @@
+{% extends 'base.html' %}
+{% block title %}Naturmacher Radio{% endblock %}
+
+{% block extra_css %}
+{% include 'radio/_theme.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container py-3 radio-wrap">
+
+  <style>
+    @media (max-width:640px){
+      .radio-hero{justify-content:center !important;text-align:center}
+      .radio-hero > div{width:100%}
+      .radio-hero .h3{justify-content:center}
+      .radio-hero .d-flex.gap-2{justify-content:center}
+      .radio-hero #visualthumb{display:block;margin:0 auto}
+      .radio-hero .text-end{text-align:center !important}
+    }
+  </style>
+  <div class="radio-hero d-flex flex-wrap justify-content-between align-items-center">
+    <div>
+      <div class="h3 mb-1 d-flex align-items-center gap-2"><img src="/media/radio/logo300.png" alt="" style="height:44px;width:44px;border-radius:10px"><span>{{ config.name }}</span></div>
+      <div class="d-flex gap-2 flex-wrap">
+        <form method="post" action="{% url 'radio:toggle_onair' %}" class="m-0"
+              data-mathconfirm="{% if config.on_air %}Sender wirklich auf PAUSE schalten?{% else %}Sender wirklich auf ON AIR schalten?{% endif %}">{% csrf_token %}
+          <button class="btn btn-sm {% if config.on_air %}btn-danger{% else %}btn-outline-light{% endif %}">
+            {% if config.on_air %}● ON AIR — pausieren{% else %}▶ Sender fortsetzen{% endif %}
+          </button>
+        </form>
+        <button id="wobtn" type="button" class="btn btn-sm btn-outline-info" style="width:auto;flex:0 0 auto;padding:.12rem .5rem;font-size:.8rem">🌍 Wo?</button>
+      </div>
+    </div>
+    <div class="text-center mx-2">
+      {% if visual_mode_now == 'visualizer' and viz_preview_ts %}
+      <video id="visualthumb" src="/media/radio/viz_preview.mp4?v={{ viz_preview_ts }}" autoplay muted loop playsinline
+             title="Visualizer läuft — klicken, um Stream-Bild/Video zu ändern"
+             style="height:84px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.25)"></video>
+      {% else %}
+      <img id="visualthumb" src="/media/radio/standbild.png?v={{ visual_ts }}" title="Klicken, um Stream-Bild/Video zu ändern"
+           style="height:84px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,.25)">
+      {% endif %}
+      <div class="small opacity-75">Stream-Visual{% if visual_mode_now == 'visualizer' %} · Visualizer (live){% elif config.visual_mode != 'image' %} · {{ config.get_visual_mode_display }}{% endif %}</div>
+    </div>
+    <div class="text-end">
+      <div class="small opacity-75 mb-1" id="radiostats">📡 Statistik wird geladen…</div>
+      <div class="radio-clock" id="clock">--:--:--</div>
+      <div class="small opacity-75" id="clockdate">Bensheim · {{ now_date_str }}</div>
+    </div>
+  </div>
+
+  <div id="visualform" class="card mb-3" style="display:none"><div class="card-body">
+    <form method="post" action="{% url 'radio:set_background' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="row g-2 align-items-center">
+        <div class="col-md-5"><input type="file" name="file" accept="image/*,video/mp4" class="form-control form-control-sm" required></div>
+        <div class="col-md-5">
+          <label class="me-2 small"><input type="radio" name="mode" value="image" checked> Bild</label>
+          <label class="me-2 small"><input type="radio" name="mode" value="video_loop"> Video-Schleife</label>
+          <label class="small"><input type="radio" name="mode" value="video_once"> Video einmalig</label>
+        </div>
+        <div class="col-md-2"><button class="btn btn-primary btn-sm w-100">Übernehmen</button></div>
+      </div>
+      <div class="small text-muted mt-1">Bild: JPG/PNG (wird auf 1280×720 zugeschnitten) · Video: MP4. Der Stream springt dabei kurz.</div>
+    </form>
+  </div></div>
+
+  {% if request.GET.built %}<div class="alert alert-success py-2">Sendeplan neu gebaut: {{ request.GET.built }} Einträge.</div>{% endif %}
+
+  <div class="d-flex flex-wrap gap-2 mb-3 radio-btnbar">
+    <div class="dropdown">
+      <button class="btn btn-success dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">➕ Erstellen</button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{% url 'radio:compose' %}">➕ Beitrag erstellen</a></li>
+        <li><a class="dropdown-item" href="{% url 'radio:wizard' %}">🪄 Inhalte-Wizard</a></li>
+      </ul>
+    </div>
+    <div class="dropdown">
+      <button class="btn btn-outline-success dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">🎧 Audio</button>
+      <ul class="dropdown-menu">
+        <li><button id="libbtn" type="button" class="dropdown-item" title="Aus der Bibliothek hinzufügen">📖 Bibliothek</button></li>
+        <li><a class="dropdown-item" href="{% url 'radio:music_search' %}" title="Freie Musik aus Openverse suchen und übernehmen">🎼 Musik finden</a></li>
+      </ul>
+    </div>
+    <a href="{% url 'radio:timeline' %}" class="btn btn-outline-primary">🗓️ Programm planen</a>
+    <a href="{% url 'radio:visualizer' %}" class="btn btn-outline-primary">🎆 Visualizer</a>
+    <button id="promobtn" type="button" class="btn btn-outline-warning" title="Naturmacher-Ankündigungen für App und Hörseite bearbeiten">📣 Ankündigungen</button>
+    <a href="{% url 'radio:notes_page' %}" class="btn btn-outline-secondary" title="Notiz-Pinnwand fürs Team">📝 Notizen</a>
+    <a href="{% url 'radio:news_settings' %}" class="btn btn-info">📰 News</a>
+    <a href="{% url 'radio:settings' %}" class="btn btn-outline-dark">⚙️ Einstellungen</a>
+  </div>
+  <style>
+    .radio-btnbar > .btn, .radio-btnbar > .dropdown{flex:1 1 160px}
+    .radio-btnbar .btn{white-space:nowrap}
+    .radio-btnbar .dropdown > .btn{width:100%}
+    .radio-btnbar .dropdown-menu{background:#10231a;border:1px solid rgba(255,255,255,.15);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+    .radio-btnbar .dropdown-item{color:#e8f6ee}
+    .radio-btnbar .dropdown-item:hover,.radio-btnbar .dropdown-item:focus{background:rgba(255,255,255,.08);color:#fff}
+  </style>
+
+  <!-- Rechenaufgabe-Bestätigung (vor ON AIR / Pause) -->
+  <div id="mathmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1098;padding:24px;overflow:auto">
+    <div class="rounded p-3 mx-auto glass" style="max-width:420px">
+      <h6 id="mathtitle" class="mb-2">🔒 Bitte bestätigen</h6>
+      <div id="mathprompt" class="mb-2 small text-muted"></div>
+      <label class="small mb-1">Zur Sicherheit bitte rechnen: <b id="mathq"></b></label>
+      <input id="mathans" type="number" class="form-control form-control-sm mb-2" placeholder="Ergebnis" autocomplete="off">
+      <div id="matherr" class="small text-danger mb-2" style="display:none">Falsch – bitte erneut versuchen.</div>
+      <div class="d-flex gap-2">
+        <button id="mathok" type="button" class="btn btn-danger btn-sm">Bestätigen</button>
+        <button id="mathcancel" type="button" class="btn btn-outline-secondary btn-sm">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    var modal=document.getElementById('mathmodal'), pending=null, a=0, b=0;
+    function gen(){ a=3+Math.floor(Math.random()*7); b=3+Math.floor(Math.random()*7);
+      document.getElementById('mathq').textContent=a+' × '+b+' = ?'; document.getElementById('mathans').value='';
+      document.getElementById('matherr').style.display='none'; }
+    function open(form){ pending=form; document.getElementById('mathprompt').textContent=form.getAttribute('data-mathconfirm')||'';
+      gen(); modal.style.display='flex'; setTimeout(function(){document.getElementById('mathans').focus();},50); }
+    function close(){ modal.style.display='none'; pending=null; }
+    document.querySelectorAll('form[data-mathconfirm]').forEach(function(f){
+      f.addEventListener('submit',function(e){ if(f.dataset.mathok==='1'){ return; } e.preventDefault(); open(f); });
+    });
+    document.getElementById('mathok').addEventListener('click',function(){
+      if(parseInt(document.getElementById('mathans').value,10)===a*b){ var f=pending; close(); f.dataset.mathok='1'; f.submit(); }
+      else { document.getElementById('matherr').style.display='block'; gen(); }
+    });
+    document.getElementById('mathans').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('mathok').click(); } });
+    document.getElementById('mathcancel').addEventListener('click',close);
+    modal.addEventListener('click',function(e){ if(e.target.id==='mathmodal') close(); });
+  })();
+  </script>
+
+  <div class="row g-3 mb-2">
+    <div class="col-md-3">
+      <div class="card h-100"><div class="card-body">
+        <div class="text-muted small text-uppercase">Gerade gelaufen</div>
+        <div id="pv-info"><div class="text-muted mt-2">—</div></div>
+      </div></div>
+    </div>
+    <div class="col-md-3 order-md-3">
+      <div class="card h-100"><div class="card-body">
+        <div class="text-muted small text-uppercase">Als Nächstes</div>
+        <div id="nx-info">
+        {% if next_entry %}
+          <div class="d-flex align-items-center gap-2 mt-1">
+            <span class="kind-badge k-{{ next_entry.kind }}">{{ next_entry.get_kind_display }}</span>
+            <span class="flex-grow-1 text-truncate">{{ next_entry.title }}</span>
+          </div>
+          <div class="small text-muted mt-1">ca. {{ next_proj_str }} Uhr</div>
+        {% else %}<div class="text-muted mt-2">Warteschlange leer.</div>{% endif %}
+        </div>
+      </div></div>
+    </div>
+    <div class="col-md-6 order-md-2">
+      <div class="card now-card h-100"><div class="card-body">
+        <div class="d-flex align-items-center gap-3">
+          <button id="liveplay" class="live-play" title="Live reinhören">▶</button>
+          <div class="flex-grow-1" style="min-width:0">
+            <div class="text-muted small text-uppercase">Läuft gerade <span id="livestate" class="ms-1"></span></div>
+            <div id="np-info" class="mt-1"
+                 data-onair="{% if config.on_air %}1{% else %}0{% endif %}">
+            {% if not config.on_air %}
+              <div class="h6 mb-0 text-muted">⏸ Pausiert — beim Fortsetzen geht es hier weiter.</div>
+            {% elif current %}
+              <div class="d-flex align-items-center gap-2">
+                <span class="kind-badge k-{{ current.kind }}" id="np-kind">{{ current.get_kind_display }}</span>
+                <span class="h5 mb-0 flex-grow-1 text-truncate" id="np-title">{{ current.title }}</span>
+              </div>
+            {% else %}
+              <div class="text-muted">— Stream evtl. noch nicht aktiv —</div>
+            {% endif %}
+            </div>
+          </div>
+        </div>
+        <div id="np-progress" class="mt-2" style="display:none">
+          <div class="progress" style="height:6px;background:rgba(255,255,255,.12)">
+            <div id="np-bar" class="progress-bar" style="width:0%;background:linear-gradient(90deg,#34e3a4,#159d68)"></div>
+          </div>
+          <div class="small text-muted mt-1"><span id="np-elapsed">0:00</span> / <span id="np-total">0:00</span></div>
+        </div>
+        <audio id="liveaudio" preload="none" src="/radio/live.mp3"></audio>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="card my-3" style="border-color:#b5562a"><div class="card-body">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <button id="livebtn" class="btn btn-danger">🔴 LIVE sprechen</button>
+      <span id="livestatus" class="badge bg-secondary">aus</span>
+      <div class="ms-auto" style="min-width:260px">
+        <label class="small text-muted d-block">🎚️ Musik-Lautstärke während LIVE: <span id="duckval">18 %</span></label>
+        <input id="duck" type="range" min="0" max="100" value="18" class="form-range">
+        <div class="small text-muted">0 % = Musik pausiert</div>
+      </div>
+    </div>
+    <div id="livehint" class="small text-muted mt-2">Tipp: Chrome oder Firefox + Kopfhörer verwenden (verhindert Echo). Beim ersten Klick Mikrofon erlauben.</div>
+  </div></div>
+
+  {% if upcoming_pins %}
+  <h5 class="mt-4 mb-1">🗓️ Geplante Sendungen <span class="text-muted fw-normal small">(Pins &amp; Wochenprogramm)</span></h5>
+  <div class="mb-2">
+    {% for p in upcoming_pins %}
+    <div class="d-flex align-items-center gap-2 py-1 small" style="border-bottom:1px solid rgba(255,255,255,.08)">
+      <span style="min-width:74px;color:#bfe8d8">{{ p.when }}</span>
+      <span style="min-width:46px;font-weight:700;font-variant-numeric:tabular-nums">{{ p.time }}</span>
+      <span class="flex-grow-1 text-truncate">{{ p.content }}{% if p.exact %} <span class="badge bg-warning text-dark">exakt</span>{% endif %}{% if p.recurring %} <span class="text-muted">· wöchentlich</span>{% endif %}</span>
+    </div>
+    {% endfor %}
+    <div class="small text-muted mt-1"><a href="{% url 'radio:timeline' %}">→ in der Timeline planen / ändern</a></div>
+  </div>
+  {% endif %}
+
+  <h5 class="mt-4 mb-1">Sendeplan <span class="text-muted fw-normal">(<span id="schedcount">{{ queued_count }}</span> anstehend · vorgeplant bis <span id="schedreach">{{ queue_reach }}</span>)</span></h5>
+  <div id="scheddays" class="d-flex gap-1 flex-wrap mb-2"></div>
+  <div id="schedhours" class="d-flex gap-1 flex-wrap mb-2"></div>
+  <div id="schedlist">{% include 'radio/_schedlist.html' %}</div>
+  <div id="schedpager" class="d-flex justify-content-between align-items-center mt-2"></div>
+
+  <script>
+  (function(){
+    var PER=30;
+    var $=function(id){return document.getElementById(id);};
+    var state={day:null, hour:'all', page:0};
+    function getRows(){ return Array.prototype.slice.call(document.querySelectorAll('#schedlist .sched-row')); }
+    function render(){
+      var rows=getRows();
+      if(!rows.length){ $('scheddays').innerHTML=''; $('schedhours').innerHTML=''; $('schedpager').innerHTML=''; return; }
+      // Tage in Reihenfolge sammeln
+      var days=[], seen={};
+      rows.forEach(function(r){ var d=r.getAttribute('data-day'); if(!seen[d]){ seen[d]=r.getAttribute('data-daylabel'); days.push(d); } });
+      if(!state.day || !seen[state.day]){ state.day=days[0]; state.hour='all'; state.page=0; }
+      // Tages-Tabs
+      $('scheddays').innerHTML=days.map(function(d){ return '<span class="sched-chip'+(d===state.day?' on':'')+'" data-day="'+d+'">'+seen[d]+'</span>'; }).join('');
+      // Stunden-Chips (für gewählten Tag)
+      var hrs=[]; var hseen={}; rows.forEach(function(r){ if(r.getAttribute('data-day')===state.day){ var h=r.getAttribute('data-hour'); if(!hseen[h]){hseen[h]=1;hrs.push(h);} } });
+      hrs.sort(function(a,b){return (+a)-(+b);});
+      if(state.hour!=='all' && hseen[state.hour]===undefined) state.hour='all';
+      $('schedhours').innerHTML='<span class="sched-chip'+(state.hour==='all'?' on':'')+'" data-hour="all">Alle Stunden</span>'+
+        hrs.map(function(h){ return '<span class="sched-chip'+(h===state.hour?' on':'')+'" data-hour="'+h+'">'+('0'+h).slice(-2)+':00</span>'; }).join('');
+      // Zeilen ein-/ausblenden + paginieren
+      rows.forEach(function(r){ r.style.display='none'; });
+      var list=rows.filter(function(r){ return r.getAttribute('data-day')===state.day &&
+        (state.hour==='all' || r.getAttribute('data-hour')===state.hour); });
+      var n=list.length, pages=Math.max(1,Math.ceil(n/PER));
+      if(state.page>=pages) state.page=pages-1; if(state.page<0) state.page=0;
+      list.slice(state.page*PER,(state.page+1)*PER).forEach(function(r){ r.style.display=''; });
+      // Pager
+      if(pages>1){
+        var s=state.page*PER;
+        $('schedpager').innerHTML='<button class="btn btn-sm btn-outline-secondary" id="spprev"'+(state.page<=0?' disabled':'')+'>← zurück</button>'+
+          '<span class="small text-muted">'+(s+1)+'–'+Math.min(s+PER,n)+' von '+n+' · Seite '+(state.page+1)+'/'+pages+'</span>'+
+          '<button class="btn btn-sm btn-outline-secondary" id="spnext"'+(state.page>=pages-1?' disabled':'')+'>weiter →</button>';
+        $('spprev').addEventListener('click',function(){ state.page--; render(); });
+        $('spnext').addEventListener('click',function(){ state.page++; render(); });
+      } else { $('schedpager').innerHTML='<span></span><span class="small text-muted">'+n+' Beitr.</span><span></span>'; }
+    }
+    $('scheddays').addEventListener('click',function(e){ var c=e.target.closest('[data-day]'); if(!c)return; state.day=c.getAttribute('data-day'); state.hour='all'; state.page=0; render(); });
+    $('schedhours').addEventListener('click',function(e){ var c=e.target.closest('[data-hour]'); if(!c)return; state.hour=c.getAttribute('data-hour'); state.page=0; render(); });
+    render();
+    window.__schedRender=render;  // für AJAX-Refresh
+  })();
+  </script>
+
+  <div class="mt-3 d-flex gap-2 flex-wrap">
+    <button id="autoprogbtn" class="btn btn-outline-primary" title="GLM stellt ~2 Std aus der Bibliothek zusammen">
+      🤖 Programm automatisch füllen (2 Std)
+    </button>
+    <span id="autoprogstatus" class="small text-muted align-self-center"></span>
+  </div>
+</div>
+
+<div id="libmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1080;padding:24px;overflow:auto">
+  <div class="rounded p-3 mx-auto glass" style="max-width:1200px;width:min(1200px,94vw)">
+    <div class="d-flex align-items-center mb-2">
+      <button id="libback" class="btn btn-outline-secondary btn-sm me-2" style="display:none">← Rubriken</button>
+      <h5 id="libtitle" class="mb-0 flex-grow-1">📖 Bibliothek</h5>
+      <a href="{% url 'radio:library_manage' %}" class="btn btn-outline-info btn-sm me-2" title="Bibliothek verwalten: filtern, bearbeiten, löschen">🛠 Verwalten</a>
+      <button id="libclose" class="btn btn-outline-secondary btn-sm">Schließen</button>
+    </div>
+    <div id="libstatus" class="small text-muted mb-2">lädt…</div>
+    <input id="libsearch" type="search" class="form-control form-control-sm mb-2" placeholder="🔍 Bibliothek durchsuchen (Titel, Beschreibung, Text)…" autocomplete="off">
+    <details class="mb-2"><summary class="small text-primary" style="cursor:pointer">⬆️ Audio hochladen</summary>
+      <div class="border rounded p-2 mt-2">
+        <input id="upfile" type="file" accept="audio/*" class="form-control form-control-sm mb-1">
+        <input id="uptitle" type="text" class="form-control form-control-sm mb-1" placeholder="Titel">
+        <input id="updesc" type="text" class="form-control form-control-sm mb-1" placeholder="Kurzbeschreibung">
+        <select id="uptype" class="form-select form-select-sm mb-1">
+          <option value="music">Musik (instrumental)</option>
+          <option value="song">Musik mit Gesang (Text = Lyrics)</option>
+          <option value="spoken">Sprache (Text = gesprochener Text)</option>
+        </select>
+        <textarea id="uptext" class="form-control form-control-sm mb-1" rows="2" placeholder="Text / Lyrics (optional)"></textarea>
+        <button id="upbtn" class="btn btn-sm btn-primary">Hochladen</button>
+        <span id="upstatus" class="small text-muted ms-2"></span>
+      </div>
+    </details>
+    <div id="librubriken" class="row g-2"></div>
+    <div id="libitems" style="display:none"></div>
+  </div>
+</div>
+
+<div id="libtextmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1090;padding:24px;overflow:auto">
+  <div class="rounded p-3 mx-auto glass" style="max-width:640px">
+    <div class="d-flex align-items-center mb-2">
+      <h6 id="libtexttitle" class="mb-0 flex-grow-1"></h6>
+      <button id="libtextclose" class="btn btn-outline-secondary btn-sm">Schließen</button>
+    </div>
+    <div id="libtextbody" style="white-space:pre-wrap;font-size:.95rem;max-height:60vh;overflow:auto"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var liveActive=false;
+  function tick(){
+    var now=new Date();
+    var t=new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(now);
+    var d=new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}).format(now);
+    var c=document.getElementById('clock'); if(c)c.textContent=t;
+    var cd=document.getElementById('clockdate'); if(cd)cd.textContent='Bensheim · '+d;
+  }
+  tick(); setInterval(tick,1000);
+
+  // ---- Live reinhören (Play-Button) ----
+  var liveBtn=document.getElementById('liveplay'), liveAudio=document.getElementById('liveaudio'),
+      liveState=document.getElementById('livestate');
+  if(liveBtn && liveAudio){
+    liveBtn.addEventListener('click',function(){
+      if(liveAudio.paused){
+        liveAudio.src='/radio/live.mp3?t='+Date.now();
+        liveState.textContent='… verbinde';
+        liveAudio.play().then(function(){
+          liveBtn.textContent='⏸'; liveBtn.classList.add('playing'); liveState.textContent='● LIVE';
+        }).catch(function(){ liveState.textContent='(Stream nicht erreichbar)'; });
+      } else {
+        liveAudio.pause(); liveBtn.textContent='▶'; liveBtn.classList.remove('playing'); liveState.textContent='';
+      }
+    });
+    liveAudio.addEventListener('pause',function(){ liveBtn.textContent='▶'; liveBtn.classList.remove('playing'); });
+  }
+  // Sendeplan im Hintergrund per AJAX aktualisieren – KEIN kompletter Seiten-Reload mehr.
+  function refreshSched(){
+    if(liveActive) return;
+    // nicht stören, während ein Sendeplan-Audio läuft (sonst Abbruch der Wiedergabe)
+    var schedPlaying=Array.prototype.some.call(document.querySelectorAll('#schedlist audio'),function(a){return !a.paused;});
+    if(schedPlaying) return;
+    fetch('/radio/schedule/fragment/',{headers:{'X-Requested-With':'fetch'}})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        var sl=document.getElementById('schedlist'); if(!sl||typeof j.html!=='string') return;
+        sl.innerHTML=j.html;
+        var cnt=document.getElementById('schedcount'); if(cnt) cnt.textContent=j.count;
+        var rch=document.getElementById('schedreach'); if(rch&&j.reach) rch.textContent=j.reach;
+        if(window.__schedRender) window.__schedRender();
+      })
+      .catch(function(){});
+  }
+  setInterval(refreshSched,60000);
+
+  // ---- LIVE sprechen ----
+  var TOKEN="{{ stream_token }}", CSRF="{{ csrf_token }}";
+  var ws=null, recorder=null, micStream=null;
+  var btn=document.getElementById('livebtn'), st=document.getElementById('livestatus');
+  var duck=document.getElementById('duck'), duckval=document.getElementById('duckval');
+
+  function setStatus(txt,cls){ st.textContent=txt; st.className='badge '+cls; }
+
+  function stopLive(){
+    liveActive=false;
+    try{ if(recorder && recorder.state!=='inactive') recorder.stop(); }catch(e){}
+    if(micStream){ micStream.getTracks().forEach(function(t){t.stop();}); micStream=null; }
+    try{ if(ws) ws.close(); }catch(e){}
+    ws=null; recorder=null;
+    btn.textContent='🔴 LIVE sprechen'; btn.classList.remove('btn-dark'); btn.classList.add('btn-danger');
+    setStatus('aus','bg-secondary');
+  }
+
+  function startLive(){
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}).then(function(stream){
+      micStream=stream;
+      var proto=(location.protocol==='https:')?'wss':'ws';
+      ws=new WebSocket(proto+'://'+location.host+'/radio/live-ws?token='+encodeURIComponent(TOKEN));
+      ws.binaryType='arraybuffer';
+      setStatus('verbinde…','bg-warning text-dark');
+      ws.onopen=function(){
+        var mime='audio/webm;codecs=opus';
+        if(!window.MediaRecorder || !MediaRecorder.isTypeSupported(mime)){ mime='audio/webm'; }
+        try{ recorder=new MediaRecorder(micStream,{mimeType:mime}); }
+        catch(e){ setStatus('Browser nicht unterstützt','bg-danger'); stopLive(); return; }
+        recorder.ondataavailable=function(e){ if(e.data && e.data.size>0 && ws && ws.readyState===1) ws.send(e.data); };
+        recorder.start(250);
+        liveActive=true;
+        btn.textContent='⏹ LIVE beenden'; btn.classList.remove('btn-danger'); btn.classList.add('btn-dark');
+        setStatus('● ON AIR (live)','bg-danger');
+      };
+      ws.onclose=function(ev){ if(liveActive){ setStatus('getrennt'+(ev.reason?' ('+ev.reason+')':''),'bg-secondary'); } stopLive(); };
+      ws.onerror=function(){ setStatus('Verbindungsfehler','bg-danger'); };
+    }).catch(function(err){ setStatus('Mikro verweigert','bg-danger'); });
+  }
+
+  btn.addEventListener('click',function(){ if(liveActive||ws){ stopLive(); } else { startLive(); } });
+  window.addEventListener('beforeunload',function(){ if(liveActive) stopLive(); });
+
+  // Lautstärke-/Ducking-Regler
+  var duckTimer=null;
+  duck.addEventListener('input',function(){
+    duckval.textContent=duck.value+' %';
+    clearTimeout(duckTimer);
+    duckTimer=setTimeout(function(){
+      fetch("{% url 'radio:live_duck' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify({value:duck.value/100})});
+    },200);
+  });
+
+  // Stream-Visual ändern (Klick aufs Vorschaubild)
+  var vt=document.getElementById('visualthumb'), vf=document.getElementById('visualform');
+  if(vt&&vf) vt.addEventListener('click',function(){ vf.style.display=(vf.style.display==='block')?'none':'block'; });
+
+  // ---- Bibliothek (Popup) ----
+  var LIBCSRF="{{ csrf_token }}";
+  var $L=function(id){return document.getElementById(id);};
+  var libData=null;
+  function openLib(){ $L('libmodal').style.display='flex'; showRubriken(); loadLib(); }
+  function closeLib(){ $L('libmodal').style.display='none'; }
+  function loadLib(){
+    $L('libstatus').textContent='lädt…';
+    fetch("{% url 'radio:library_list' %}").then(function(r){return r.json();}).then(function(j){
+      libData=j;
+      function fmtH(sec){var h=Math.floor(sec/3600),m=Math.round((sec%3600)/60);return h>0?(h+' h '+m+' min'):(m+' min');}
+      $L('libstatus').textContent=(j.total||0)+' Dateien · '+(j.categories||[]).length+' Rubriken · 🎵 Musik '+fmtH(j.music_sec||0)+' · 🗣 Sprache '+fmtH(j.speech_sec||0);
+      renderRubriken();
+    }).catch(function(){ $L('libstatus').textContent='Fehler beim Laden.'; });
+  }
+  function showRubriken(){ $L('librubriken').style.display='flex'; $L('libitems').style.display='none';
+    $L('libback').style.display='none'; $L('libtitle').textContent='📖 Bibliothek'; }
+  function renderRubriken(){
+    var box=$L('librubriken'); box.innerHTML='';
+    (libData.categories||[]).forEach(function(c){
+      var col=document.createElement('div'); col.className='col-6 col-md-4';
+      col.innerHTML='<button class="btn btn-outline-success w-100 text-start">'+c.label+
+        ' <span class="badge bg-secondary float-end">'+c.items.length+'</span></button>';
+      col.querySelector('button').addEventListener('click',function(){ openCat(c); });
+      box.appendChild(col);
+    });
+  }
+  var LIB_PAGE=20, libState={items:[],page:0,label:''};
+  function buildRow(it){
+    var row=document.createElement('div'); row.className='tl-row';
+    var txtBtn = it.text ? '<button class="btn btn-sm btn-outline-info libtext">'+(it.text_kind==='lyrics'?'🎵 Lyrics':'📄 Text')+'</button>' : '';
+    var durBadge = '<span class="libdur badge bg-secondary" style="min-width:46px">'+(it.dur||'–:––')+'</span>';
+    var played = it.played ? '<span class="small text-muted" title="zuletzt abgespielt" style="min-width:74px">▶ '+it.played+'</span>' : '<span class="small text-muted" style="min-width:74px">– nie –</span>';
+    var tagBadge = (it.tags&&it.tags.trim())?'<span class="small" style="color:#9fb3cc" title="Tags">🏷 '+it.tags+'</span>':'';
+    row.innerHTML='<span class="tl-title">'+it.title+(it.sub?' <span class="small text-muted">· '+it.sub+'</span>':'')+tagBadge+'</span>'+
+      played+durBadge+
+      (it.audio_url?'<audio controls preload="metadata" src="'+it.audio_url+'" style="width:200px;max-width:38vw"></audio>':'')+
+      txtBtn+
+      '<button class="btn btn-sm libauto" title="Automatisch einplanen an/aus"></button>'+
+      '<button class="btn btn-sm btn-outline-secondary libtags" title="Schlagworte/Saison-Tags bearbeiten">🏷</button>'+
+      '<button class="btn btn-sm btn-success libadd">＋ Sendeplan</button>'+
+      '<button class="btn btn-sm btn-outline-danger libdel" title="Aus Bibliothek löschen">🗑</button>';
+    var autoBtn=row.querySelector('.libauto');
+    function styleAuto(on){ autoBtn.textContent=on?'🟢 Auto':'🚫 Aus'; autoBtn.className='btn btn-sm libauto '+(on?'btn-outline-success':'btn-outline-warning'); }
+    styleAuto(it.auto!==false);
+    autoBtn.addEventListener('click',function(){
+      var nv=!(it.auto!==false); autoBtn.disabled=true;
+      fetch("{% url 'radio:library_toggle_auto' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':LIBCSRF},
+        body:JSON.stringify({type:it.type,pk:it.pk,on:nv})}).then(function(r){return r.json();}).then(function(j){
+          autoBtn.disabled=false; if(j.ok){ it.auto=j.on; styleAuto(j.on); }
+        }).catch(function(){ autoBtn.disabled=false; });
+    });
+    row.querySelector('.libtags').addEventListener('click',function(){
+      var nt=prompt('Schlagworte/Saison-Tags (kommasepariert), z.B. weihnachten, ruhig:', it.tags||'');
+      if(nt===null) return;
+      fetch("{% url 'radio:content_tags' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':LIBCSRF},
+        body:JSON.stringify({type:it.type,pk:it.pk,tags:nt})}).then(function(r){return r.json();}).then(function(j){
+          if(j.ok){ it.tags=j.tags; renderPage(); }
+        });
+    });
+    var au=row.querySelector('audio'), badge=row.querySelector('.libdur');
+    if(au && !it.dur){ au.addEventListener('loadedmetadata',function(){
+      if(isFinite(au.duration)&&au.duration>0){ var s=Math.round(au.duration);
+        badge.textContent=Math.floor(s/60)+':'+('0'+(s%60)).slice(-2); } }); }
+    var tb=row.querySelector('.libtext');
+    if(tb) tb.addEventListener('click',function(){ showText(it.title, it.text); });
+    row.querySelector('.libdel').addEventListener('click',function(){
+      if(!confirm('„'+it.title+'" endgültig aus der Bibliothek löschen?')) return;
+      var btn=row.querySelector('.libdel'); btn.disabled=true; btn.textContent='…';
+      fetch("{% url 'radio:library_delete' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':LIBCSRF},
+        body:JSON.stringify({type:it.type,pk:it.pk})}).then(function(r){return r.json();}).then(function(j){
+          if(j.ok){ row.style.opacity=.4; row.style.textDecoration='line-through'; btn.textContent='gelöscht'; }
+          else { btn.disabled=false; btn.textContent='🗑'; alert('Fehler: '+(j.error||'')); }
+        }).catch(function(){ btn.disabled=false; btn.textContent='🗑'; });
+    });
+    row.querySelector('.libadd').addEventListener('click',function(){
+      var btn=row.querySelector('.libadd'); btn.disabled=true; btn.textContent='…';
+      fetch("{% url 'radio:library_add' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':LIBCSRF},
+        body:JSON.stringify({type:it.type,pk:it.pk})}).then(function(r){return r.json();}).then(function(j){
+          if(j.ok){ btn.textContent='✓'; btn.classList.remove('btn-success'); btn.classList.add('btn-outline-secondary'); }
+          else { btn.disabled=false; btn.textContent='Fehler'; }
+        }).catch(function(){ btn.disabled=false; btn.textContent='Fehler'; });
+    });
+    return row;
+  }
+  function renderPage(){
+    var box=$L('libitems'); box.style.display='block'; box.innerHTML='';
+    $L('librubriken').style.display='none'; $L('libback').style.display='inline-block';
+    $L('libtitle').textContent=libState.label;
+    var items=libState.items, n=items.length;
+    if(!n){ box.innerHTML='<div class="text-muted">Keine Treffer.</div>'; return; }
+    var pages=Math.ceil(n/LIB_PAGE); if(libState.page>=pages) libState.page=pages-1; if(libState.page<0) libState.page=0;
+    var start=libState.page*LIB_PAGE, slice=items.slice(start, start+LIB_PAGE);
+    slice.forEach(function(it){ box.appendChild(buildRow(it)); });
+    if(pages>1){
+      var nav=document.createElement('div'); nav.className='d-flex justify-content-between align-items-center mt-2';
+      nav.innerHTML='<button class="btn btn-sm btn-outline-secondary libprev"'+(libState.page<=0?' disabled':'')+'>← zurück</button>'+
+        '<span class="small text-muted">'+(start+1)+'–'+(start+slice.length)+' von '+n+' · Seite '+(libState.page+1)+'/'+pages+'</span>'+
+        '<button class="btn btn-sm btn-outline-secondary libnext"'+(libState.page>=pages-1?' disabled':'')+'>weiter →</button>';
+      nav.querySelector('.libprev').addEventListener('click',function(){ libState.page--; renderPage(); box.scrollIntoView({block:'start'}); });
+      nav.querySelector('.libnext').addEventListener('click',function(){ libState.page++; renderPage(); box.scrollIntoView({block:'start'}); });
+      box.appendChild(nav);
+    }
+  }
+  function openCat(c){ libState={items:c.items, page:0, label:c.label}; renderPage(); }
+  function runSearch(q){
+    q=(q||'').trim().toLowerCase();
+    if(!q){ showRubriken(); return; }
+    var all=[]; (libData.categories||[]).forEach(function(c){ (c.items||[]).forEach(function(it){
+      var hay=((it.title||'')+' '+(it.sub||'')+' '+(it.text||'')).toLowerCase();
+      if(hay.indexOf(q)>=0) all.push(it); }); });
+    libState={items:all, page:0, label:'🔍 Suche: „'+q+'" ('+all.length+')'}; renderPage();
+  }
+  function showText(title, text){
+    $L('libtexttitle').textContent=title;
+    $L('libtextbody').textContent=text||'(kein Text)';
+    $L('libtextmodal').style.display='flex';
+  }
+  var lb=$L('libbtn'); if(lb) lb.addEventListener('click',openLib);
+  $L('libclose').addEventListener('click',closeLib);
+  $L('libback').addEventListener('click',function(){ var s=$L('libsearch'); if(s) s.value=''; showRubriken(); });
+  // Live-Suche (entprellt)
+  (function(){ var s=$L('libsearch'), t=null; if(!s) return;
+    s.addEventListener('input',function(){ clearTimeout(t); t=setTimeout(function(){ runSearch(s.value); }, 200); }); })();
+  $L('libtextclose').addEventListener('click',function(){ $L('libtextmodal').style.display='none'; });
+
+  // Upload in die Bibliothek
+  $L('upbtn').addEventListener('click',function(){
+    var f=$L('upfile').files[0]; if(!f){ $L('upstatus').textContent='Datei wählen.'; return; }
+    var fd=new FormData(); fd.append('file',f); fd.append('title',$L('uptitle').value);
+    fd.append('description',$L('updesc').value); fd.append('ctype',$L('uptype').value); fd.append('text',$L('uptext').value);
+    $L('upbtn').disabled=true; $L('upstatus').textContent='lädt hoch…';
+    fetch("{% url 'radio:library_upload' %}",{method:'POST',headers:{'X-CSRFToken':LIBCSRF},body:fd})
+      .then(function(r){return r.json();}).then(function(j){
+        $L('upbtn').disabled=false;
+        if(j.ok){ $L('upstatus').textContent='✓ hochgeladen'; $L('uptitle').value='';$L('updesc').value='';$L('uptext').value='';$L('upfile').value=''; loadLib(); }
+        else { $L('upstatus').textContent='Fehler: '+(j.error||''); }
+      }).catch(function(){ $L('upbtn').disabled=false; $L('upstatus').textContent='Netzwerkfehler.'; });
+  });
+
+  // Programm automatisch füllen (GLM, ~2 Std, hinten anhängen)
+  $L('autoprogbtn').addEventListener('click',function(){
+    $L('autoprogbtn').disabled=true; $L('autoprogstatus').textContent='GLM stellt das Programm zusammen…';
+    fetch("{% url 'radio:auto_program_now' %}",{method:'POST',headers:{'X-CSRFToken':LIBCSRF},body:new URLSearchParams({minutes:'120'})})
+      .then(function(r){return r.json();}).then(function(j){
+        $L('autoprogstatus').textContent = j.ok ? '✓ wird zusammengestellt – in ~1 Min aktualisieren' : ('Fehler: '+(j.error||''));
+        setTimeout(function(){ $L('autoprogbtn').disabled=false; }, 3000);
+      }).catch(function(){ $L('autoprogbtn').disabled=false; $L('autoprogstatus').textContent='Netzwerkfehler.'; });
+  });
+})();
+</script>
+<script>
+/* Fortschritt des laufenden Beitrags im „Läuft gerade"-Kästchen */
+(function(){
+  var box=document.getElementById('np-progress'); if(!box) return;
+  var bar=document.getElementById('np-bar'), el=document.getElementById('np-elapsed'), tot=document.getElementById('np-total');
+  var cur=null, skew=0;
+  function fmt(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2); }
+  function tick(){
+    if(!cur||!cur.started||!cur.dur){ box.style.display='none'; return; }
+    box.style.display='block';
+    var nowc=Date.now()/1000+skew, elapsed=Math.min(cur.dur,Math.max(0,nowc-cur.started));
+    bar.style.width=(elapsed/cur.dur*100)+'%';
+    el.textContent=fmt(elapsed); tot.textContent=fmt(cur.dur);
+  }
+  function npEsc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
+  var BOXCSRF="{{ csrf_token }}";
+  function ctlHtml(o, withSkip){
+    if(!o||!o.ref) return '';
+    var r=o.ref;
+    var h='<div class="mt-1 d-flex gap-2 flex-wrap">';
+    h+='<button type="button" class="btn btn-sm js-auto '+(r.auto?'btn-outline-success':'btn-outline-warning')+'" data-type="'+r.type+'" data-pk="'+r.pk+'" data-on="'+(r.auto?1:0)+'" title="Automatisch einplanen an/aus">'+(r.auto?'\uD83D\uDFE2 Auto':'\uD83D\uDEAB Aus')+'</button>';
+    if(withSkip&&o.entry_pk) h+='<button type="button" class="btn btn-sm btn-outline-danger js-skip" data-entry="'+o.entry_pk+'" title="Diesen Eintrag aus dem Sendeplan entfernen — der übernächste rückt nach">\u23ED \u00dcberspringen</button>';
+    h+='</div>';
+    return h;
+  }
+  function wireCtl(box){
+    box.querySelectorAll('.js-auto').forEach(function(b){
+      b.addEventListener('click',function(){
+        var nv=b.getAttribute('data-on')!=='1';
+        b.disabled=true;
+        fetch("{% url 'radio:library_toggle_auto' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':BOXCSRF},
+          body:JSON.stringify({type:b.getAttribute('data-type'),pk:parseInt(b.getAttribute('data-pk'),10),on:nv})})
+          .then(function(r){return r.json();}).then(function(j){
+            b.disabled=false;
+            if(j.ok){ b.setAttribute('data-on',j.on?'1':'0');
+              b.textContent=j.on?'\uD83D\uDFE2 Auto':'\uD83D\uDEAB Aus';
+              b.className='btn btn-sm js-auto '+(j.on?'btn-outline-success':'btn-outline-warning'); }
+          }).catch(function(){ b.disabled=false; });
+      });
+    });
+    box.querySelectorAll('.js-skip').forEach(function(b){
+      b.addEventListener('click',function(){
+        b.disabled=true; b.textContent='\u2026';
+        fetch('/radio/schedule/'+b.getAttribute('data-entry')+'/remove/',{method:'POST',headers:{'X-CSRFToken':BOXCSRF}})
+          .then(function(){ nxLast=''; poll(); if(typeof refreshSched==='function') refreshSched(); })
+          .catch(function(){ b.disabled=false; });
+      });
+    });
+  }
+  function metaHtml(o){
+    if(!o||!o.engine) return '';
+    var h='<div class="small mt-1" style="color:#8fa3b8">\u{1F916} '+npEsc(o.engine);
+    if(o.prompt){ h+=' <a href="#" style="color:#9fb3cc" onclick="var p=this.parentNode.nextElementSibling;p.style.display=p.style.display===\'block\'?\'none\':\'block\';return false;">Prompt</a>'; }
+    h+='</div>';
+    if(o.prompt){ h+='<div class="small" style="display:none;white-space:pre-wrap;color:#7e93a8;background:rgba(255,255,255,.05);border-radius:6px;padding:6px 8px;max-height:160px;overflow:auto">'+npEsc(o.prompt)+'</div>'; }
+    return h;
+  }
+  var pvLast='';
+  function updatePrev(j){
+    var box=document.getElementById('pv-info'); if(!box) return;
+    var n=j.prev||null;
+    var sig=n?(n.title+'|'+(n.time||'')):'';
+    if(sig===pvLast) return;
+    pvLast=sig;
+    if(!n){ box.innerHTML='<div class="text-muted mt-2">—</div>'; return; }
+    box.innerHTML='<div class="d-flex align-items-center gap-2 mt-1">'+
+      '<span class="kind-badge k-'+npEsc(n.kind_key||'')+'">'+npEsc(n.kind||'')+'</span>'+
+      '<span class="flex-grow-1 text-truncate">'+npEsc(n.title)+'</span></div>'+
+      (n.time?'<div class="small text-muted mt-1">'+npEsc(n.time)+' Uhr</div>':'')+
+      metaHtml(n)+ctlHtml(n,false);
+    wireCtl(box);
+  }
+  var nxLast='';
+  function updateNext(j){
+    var box=document.getElementById('nx-info'); if(!box) return;
+    var n=(j.next&&j.next[0])||null;
+    var sig=n?(n.title+'|'+(n.time||'')):'';
+    if(sig===nxLast) return;
+    nxLast=sig;
+    if(!n){ box.innerHTML='<div class="text-muted mt-2">Warteschlange leer.</div>'; return; }
+    box.innerHTML='<div class="d-flex align-items-center gap-2 mt-1">'+
+      '<span class="kind-badge k-'+npEsc(n.kind_key||'')+'">'+npEsc(n.kind||'')+'</span>'+
+      '<span class="flex-grow-1 text-truncate">'+npEsc(n.title)+'</span></div>'+
+      '<div class="small text-muted mt-1">ca. '+npEsc(n.time||'')+' Uhr</div>'+
+      metaHtml(n)+ctlHtml(n,true);
+    wireCtl(box);
+  }
+  var npLast='';
+  function updateNow(j){
+    var box=document.getElementById('np-info'); if(!box) return;
+    var sig=(j.on_air?'1':'0')+'|'+((j.now&&j.now.title)||'')+'|'+((j.now&&j.now.kind_key)||'');
+    if(sig===npLast) return;          // nur bei echter Änderung neu zeichnen
+    npLast=sig;
+    if(!j.on_air){ box.innerHTML='<div class="h6 mb-0 text-muted">⏸ Pausiert — beim Fortsetzen geht es hier weiter.</div>'; return; }
+    if(j.now && j.now.title){
+      box.innerHTML='<div class="d-flex align-items-center gap-2">'+
+        '<span class="kind-badge k-'+npEsc(j.now.kind_key||'')+'" id="np-kind">'+npEsc(j.now.kind||'')+'</span>'+
+        '<span class="h5 mb-0 flex-grow-1 text-truncate" id="np-title">'+npEsc(j.now.title)+'</span></div>'+
+        metaHtml(j.now)+ctlHtml(j.now,false);
+      wireCtl(box);
+    } else {
+      box.innerHTML='<div class="text-muted">— Stream evtl. noch nicht aktiv —</div>';
+    }
+  }
+  function poll(){
+    fetch('/radio/live-state/',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      updateNow(j);
+      updateNext(j);
+      updatePrev(j);
+      var wb=document.getElementById('radiowarn');
+      if(!wb){ wb=document.createElement('div'); wb.id='radiowarn'; wb.className='alert alert-warning py-2 px-3 mb-2'; wb.style.display='none';
+        var bar=document.querySelector('.radio-btnbar'); if(bar) bar.parentNode.insertBefore(wb, bar); }
+      if(j.warn){ wb.textContent='\u26A0 '+j.warn; wb.style.display='block'; } else { wb.style.display='none'; }
+      if(j.now&&j.now.started&&j.now.dur){ cur=j.now; if(j.now.server_now){ skew=j.now.server_now-Date.now()/1000; } }
+      else { cur=null; }
+      tick();
+    }).catch(function(){});
+  }
+  poll(); setInterval(poll,5000); setInterval(tick,1000);
+})();
+</script>
+<script>
+/* Hörer-/Traffic-Statistik aus Icecast */
+(function(){
+  var el=document.getElementById('radiostats'); if(!el) return;
+  function gb(b){ return (b/1e9).toFixed(b<1e9?2:1)+' GB'; }
+  function poll(){
+    fetch('/radio/stats/',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      if(!j.ok){ el.textContent='📡 Statistik aktuell nicht verfügbar'; return; }
+      var d=''; if(j.since){ try{ d=' seit '+new Date(j.since).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}); }catch(e){} }
+      el.innerHTML='📡 <b>'+j.listeners+'</b> Hörer'+(j.peak?(' <span class="text-muted">(Peak '+j.peak+')</span>'):'')+' · '+gb(j.bytes)+' gesendet'+d;
+    }).catch(function(){});
+  }
+  poll(); setInterval(poll,15000);
+})();
+</script>
+<!-- Naturmacher-Ankündigungen (App + Hörseite) bearbeiten -->
+<div id="promomodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1085;padding:24px;overflow:auto">
+  <div class="rounded p-3 mx-auto glass" style="max-width:820px">
+    <div class="d-flex align-items-center mb-2">
+      <h5 class="mb-0 flex-grow-1">📣 Naturmacher-Ankündigungen</h5>
+      <button id="promoclose" class="btn btn-outline-secondary btn-sm" type="button">✕</button>
+    </div>
+
+    <div class="small text-muted mb-1">Vorschau (so erscheint es in der App und auf der Hörseite — nur aktive Botschaften rotieren):</div>
+    <div id="promoprev" style="border:1.5px solid rgba(52,211,153,.5);border-radius:14px;padding:13px 14px;margin-bottom:14px;background:rgba(8,37,27,.55)">
+      <div style="display:flex;align-items:center;gap:10px;min-height:40px">
+        <span style="font-size:20px">🌱</span>
+        <span id="promoprevtext" style="flex:1;font-size:13.5px;line-height:1.5;color:#e7f3ee;transition:opacity .25s"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:9px">
+        <span id="promoprevcode" style="font-size:12px;font-weight:800;color:#bff5df;padding:5px 10px;border-radius:8px;background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.4)"></span>
+        <span id="promoprevlink" style="margin-left:auto;font-size:12px;color:#9fc7b6"></span>
+      </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+      <div class="col-md-4"><label class="small text-muted">Rabattcode</label>
+        <input id="promocodein" class="form-control form-control-sm" style="background:rgba(0,0,0,.3);color:#eaf4ee;border-color:rgba(255,255,255,.2)"></div>
+      <div class="col-md-3"><label class="small text-muted">Vorteil (optional)</label>
+        <input id="promobenefit" class="form-control form-control-sm" style="background:rgba(0,0,0,.3);color:#eaf4ee;border-color:rgba(255,255,255,.2)"></div>
+      <div class="col-md-5"><label class="small text-muted">Ziel-Link der Kachel</label>
+        <input id="promourl" class="form-control form-control-sm" style="background:rgba(0,0,0,.3);color:#eaf4ee;border-color:rgba(255,255,255,.2)"></div>
+    </div>
+
+    <div class="d-flex align-items-center mb-1">
+      <label class="small text-muted flex-grow-1">Botschaften (Haken = aktiv)</label>
+      <button id="promoadd" class="btn btn-outline-success btn-sm" type="button">＋ Neue Botschaft</button>
+    </div>
+    <div id="promorows" style="max-height:380px;overflow:auto"></div>
+
+    <div class="d-flex align-items-center mt-2">
+      <span id="promocount" class="small text-muted flex-grow-1"></span>
+      <button id="promosave" class="btn btn-success btn-sm" type="button">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var CSRF="{{ csrf_token }}";
+  var prevIdx=0, prevTimer=null;
+
+  function rowsData(){
+    var out=[];
+    $('promorows').querySelectorAll('.promo-row').forEach(function(r){
+      var t=r.querySelector('input[type=text]').value.trim();
+      if(t) out.push({text:t, active:r.querySelector('input[type=checkbox]').checked});
+    });
+    return out;
+  }
+  function activeLines(){ return rowsData().filter(function(x){return x.active;}).map(function(x){return x.text;}); }
+
+  function addRow(text, active){
+    var div=document.createElement('div');
+    div.className='promo-row d-flex align-items-center gap-2 mb-1';
+    div.innerHTML='<input type="checkbox" class="form-check-input m-0" title="aktiv / deaktiviert"'+(active?' checked':'')+'>'+
+      '<input type="text" class="form-control form-control-sm" style="background:rgba(0,0,0,.3);color:#eaf4ee;border-color:rgba(255,255,255,.2)">'+
+      '<button class="btn btn-outline-danger btn-sm" type="button" title="Botschaft löschen">🗑</button>';
+    div.querySelector('input[type=text]').value=text||'';
+    div.querySelector('input[type=checkbox]').addEventListener('change',function(){
+      div.querySelector('input[type=text]').style.opacity=this.checked?1:.45; refresh();
+    });
+    div.querySelector('input[type=text]').style.opacity=active?1:.45;
+    div.querySelector('input[type=text]').addEventListener('input',refresh);
+    div.querySelector('button').addEventListener('click',function(){ div.remove(); refresh(); });
+    $('promorows').appendChild(div);
+  }
+
+  function updatePrev(rotate){
+    var L=activeLines();
+    if(!L.length){ $('promoprevtext').textContent='(keine aktiven Botschaften)'; }
+    else {
+      if(rotate) prevIdx=(prevIdx+1)%L.length;
+      if(prevIdx>=L.length) prevIdx=0;
+      var el=$('promoprevtext');
+      el.style.opacity=0;
+      setTimeout(function(){ el.textContent=L[prevIdx]; el.style.opacity=1; },200);
+    }
+    var c=$('promocodein').value.trim(), b=$('promobenefit').value.trim();
+    $('promoprevcode').textContent=c?('Code: '+c+(b?' · '+b:'')):'';
+    var u=$('promourl').value.replace(/^https?:\/\//,'').split('/')[0];
+    $('promoprevlink').textContent=(u||'naturmacher.de')+' ›';
+  }
+  function refresh(){
+    var d=rowsData();
+    $('promocount').textContent=d.length+' Botschaften, '+d.filter(function(x){return x.active;}).length+' aktiv';
+    updatePrev(false);
+  }
+
+  $('promobtn').addEventListener('click',function(){
+    $('promomodal').style.display='flex';
+    $('promorows').innerHTML='<div class="small text-muted">lädt…</div>';
+    fetch('/radio/app/state/?all=1',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      var p=j.promo||{};
+      $('promorows').innerHTML='';
+      (p.all_lines||p.lines||[]).forEach(function(l){
+        if(l.charAt(0)==='#') addRow(l.substring(1).trim(), false); else addRow(l, true);
+      });
+      $('promocodein').value=p.code||'';
+      $('promobenefit').value=p.benefit||'';
+      $('promourl').value=p.url||'';
+      prevIdx=0; refresh();
+      if(prevTimer) clearInterval(prevTimer);
+      prevTimer=setInterval(function(){ updatePrev(true); },6000);
+    });
+  });
+  $('promoadd').addEventListener('click',function(){ addRow('', true); refresh();
+    var rows=$('promorows').querySelectorAll('.promo-row'); rows[rows.length-1].querySelector('input[type=text]').focus(); });
+  $('promoclose').addEventListener('click',function(){ $('promomodal').style.display='none'; if(prevTimer) clearInterval(prevTimer); });
+  $('promomodal').addEventListener('click',function(e){ if(e.target.id==='promomodal'){ $('promomodal').style.display='none'; if(prevTimer) clearInterval(prevTimer);} });
+  ['promocodein','promobenefit','promourl'].forEach(function(id){ $(id).addEventListener('input',function(){ updatePrev(false); }); });
+
+  $('promosave').addEventListener('click',function(){
+    var lines=rowsData().map(function(x){ return (x.active?'':'# ')+x.text; }).join('\n');
+    var btn=$('promosave'); btn.disabled=true; btn.textContent='speichert…';
+    fetch("{% url 'radio:promo_save' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body:JSON.stringify({lines:lines,code:$('promocodein').value,benefit:$('promobenefit').value,url:$('promourl').value})})
+      .then(function(r){return r.json();}).then(function(j){
+        btn.disabled=false;
+        btn.textContent=j.ok?('✓ Gespeichert ('+j.count+' aktiv)'):'Fehler';
+        setTimeout(function(){ btn.textContent='💾 Speichern'; },2000);
+      }).catch(function(){ btn.disabled=false; btn.textContent='Fehler'; });
+  });
+})();
+</script>
+
+<!-- Wo-sind-wir-Überblick -->
+<div id="womodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1085;padding:24px;overflow:auto">
+  <div class="rounded p-3 mx-auto glass" style="max-width:680px">
+    <div class="d-flex align-items-center mb-2">
+      <h5 class="mb-0 flex-grow-1">🌍 Wo ist Naturmacher Radio überall?</h5>
+      <button id="woclose" class="btn btn-outline-secondary btn-sm" type="button">✕</button>
+    </div>
+    <div id="wobody" class="small">lädt…</div>
+  </div>
+</div>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function badge(st,label){
+    var c = st==='ok' ? 'bg-success' : st==='warn' ? 'bg-danger' : st==='pend' ? 'bg-warning text-dark' : 'bg-secondary';
+    return '<span class="badge '+c+'">'+label+'</span>';
+  }
+  function esc(t){var d=document.createElement('div');d.textContent=t||'';return d.innerHTML;}
+  function load(){
+    $('wobody').textContent='lädt…';
+    fetch("{% url 'radio:presence_state' %}",{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      var h='';
+      (j.groups||[]).forEach(function(g){
+        h+='<div class="fw-bold mt-3 mb-1">'+esc(g.title)+'</div>';
+        g.items.forEach(function(it){
+          var name = it.url ? '<a href="'+it.url+'" target="_blank" rel="noopener" class="text-info text-decoration-none">'+esc(it.name)+' ↗</a>' : esc(it.name);
+          h+='<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid rgba(255,255,255,.06)">'+
+             '<span class="flex-grow-1">'+name+'</span>'+badge(it.state, it.label)+'</div>';
+        });
+      });
+      $('wobody').innerHTML=h;
+    }).catch(function(){ $('wobody').textContent='Fehler beim Laden.'; });
+  }
+  $('wobtn').addEventListener('click',function(){ $('womodal').style.display='flex'; load(); });
+  $('woclose').addEventListener('click',function(){ $('womodal').style.display='none'; });
+  $('womodal').addEventListener('click',function(e){ if(e.target.id==='womodal') $('womodal').style.display='none'; });
+})();
+</script>
+
+{% include 'radio/_assistant.html' %}
+{% endblock %}

@@ -54,14 +54,33 @@
     </div></div>
 
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">⚙️ Status</h5>
-      <label class="small d-block">
-        <input type="checkbox" name="is_active" {% if journal.is_active %}checked{% endif %}>
-        Tagesnews aktiv (werden recherchiert, vertont und ins Programm aufgenommen)
+      <h5 class="card-title">🕒 Sendezeiten</h5>
+      <label class="small d-block mb-2">
+        <input type="checkbox" name="news_enabled" {% if config.news_enabled %}checked{% endif %}>
+        Tagesnews aktiv (recherchieren, vertonen, automatisch einplanen)
       </label>
-      <p class="text-muted small mt-2 mb-0">
-        Sendezeiten (Morgen-/Mittags-/Abendausgabe) werden zentral über den
-        Sendeplan gesteuert.</p>
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-3">
+          <label class="small">Minute der Stunde</label>
+          <input type="number" name="news_minute" min="0" max="59" value="{{ config.news_minute }}" class="form-control form-control-sm">
+          <div class="form-text">50 = 10 vor voll</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="small">Alle … Stunden</label>
+          <input type="number" name="news_interval_h" min="1" max="24" value="{{ config.news_interval_h }}" class="form-control form-control-sm">
+          <div class="form-text">1 = jede Stunde</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="small">Von Stunde</label>
+          <input type="number" name="news_from_hour" min="0" max="23" value="{{ config.news_from_hour }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="small">Bis Stunde</label>
+          <input type="number" name="news_to_hour" min="0" max="23" value="{{ config.news_to_hour }}" class="form-control form-control-sm">
+        </div>
+      </div>
+      <p class="text-muted small mt-2 mb-0">Beispiel: Minute 50, alle 1 Std, von 0 bis 23 = jede Stunde um :50 (24×/Tag).
+        Beim Speichern werden die festen News-Termine im Sendeplan automatisch neu gesetzt.</p>
     </div></div>
 
     <button class="btn btn-primary">Speichern</button>
