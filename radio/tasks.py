@@ -786,7 +786,12 @@ def fetch_news(self, only_if_missing=False):
                               start_time__hour=_now_h).first()
     _pin_topics = (_pin.topic if (_pin and _pin.topic) else '').strip()
     if _pin_topics:
-        topics = [t.strip() for t in _pin_topics.replace(',', '\n').splitlines() if t.strip()]
+        _opts = [t.strip() for t in _pin_topics.replace(',', '\n').splitlines() if t.strip()]
+        if len(_opts) > 1:
+            # Mehrere Themen je Termin -> taeglich EINES rotierend (gegen Tages-Wiederholung)
+            topics = [_opts[_date.today().toordinal() % len(_opts)]]
+        else:
+            topics = _opts
     else:
         topics = [t.strip() for t in (StationConfig.get().news_topics or '').splitlines() if t.strip()]
     if not topics:
