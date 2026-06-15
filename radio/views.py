@@ -452,12 +452,16 @@ def news_settings(request):
     intro_path = os.path.join(settings.MEDIA_ROOT, 'radio', 'news_intro.mp3')
     intro_exists = os.path.exists(intro_path)
     intro_mtime = int(os.path.getmtime(intro_path)) if intro_exists else 0
+    from .models import ScheduledItem
+    news_pins = ScheduledItem.objects.filter(
+        rubrik_key='news', on_date__isnull=True).order_by('start_time')
     return render(request, 'radio/news_settings.html', {
         'config': config,
         'journal': journal,
         'voices': list(STUDIO_VOICES),  # Gemini + Edge (gratis)
         'intro_exists': intro_exists,
         'intro_mtime': intro_mtime,
+        'news_pins': news_pins,
     })
 
 
@@ -466,6 +470,9 @@ def _regenerate_news_pins(c):
     Spielt je Pin die frischeste Tagesnews (rubrik_key='news')."""
     import datetime as _dt
     from .models import ScheduledItem
+    # vorhandene Termin-Themen pro Stunde merken, damit sie beim Neuaufbau erhalten bleiben
+    old_topics = {p.start_time.hour: p.topic for p in
+                  ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True)}
     # nur die WIEDERKEHRENDEN News-Pins ersetzen (on_date leer); datums-spezifische bleiben
     ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True).delete()
     if not c.news_enabled:
@@ -478,7 +485,8 @@ def _regenerate_news_pins(c):
     while hh <= to:
         ScheduledItem.objects.create(
             name=f'News {hh:02d}:{minute:02d}', mode='rubrik_auto', rubrik_key='news',
-            start_time=_dt.time(hh, minute), days='', enforce='anchor', is_active=True, order=0)
+            start_time=_dt.time(hh, minute), days='', enforce='anchor', is_active=True, order=0,
+            topic=old_topics.get(hh, ''))
         made += 1
         hh += step
     return made
@@ -519,6 +527,14 @@ def news_settings_save(request):
     except (TypeError, ValueError):
         pass
     journal.save()
+    # Per-Termin-Themen speichern (Felder topic_<pin_id>) – vor dem Neuaufbau,
+    # damit _regenerate_news_pins sie pro Stunde übernimmt.
+    from .models import ScheduledItem
+    for p in ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True):
+        key = f'topic_{p.pk}'
+        if key in request.POST:
+            p.topic = (request.POST.get(key) or '').strip()[:200]
+            p.save(update_fields=['topic'])
     n = _regenerate_news_pins(c)
     return redirect(reverse('radio:news_settings') + f'?saved=1&pins={n}')
 

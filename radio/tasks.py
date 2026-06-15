@@ -776,7 +776,19 @@ def fetch_news(self, only_if_missing=False):
             return f'fetch_news: {_edg} existiert bereits — kein Nachzügler nötig'
     from . import glm, news
 
-    topics = [t.strip() for t in (StationConfig.get().news_topics or '').splitlines() if t.strip()]
+    # Themen: bevorzugt die des fälligen News-TERMINS (ScheduledItem der aktuellen
+    # Stunde) — so kann jede Ausgabe eigene Themen haben. Fallback: globale news_topics.
+    from zoneinfo import ZoneInfo as _ZIt
+    from django.utils import timezone as _tzt
+    from .models import ScheduledItem as _SI
+    _now_h = _tzt.now().astimezone(_ZIt('Europe/Berlin')).hour
+    _pin = _SI.objects.filter(rubrik_key='news', on_date__isnull=True, is_active=True,
+                              start_time__hour=_now_h).first()
+    _pin_topics = (_pin.topic if (_pin and _pin.topic) else '').strip()
+    if _pin_topics:
+        topics = [t.strip() for t in _pin_topics.replace(',', '\n').splitlines() if t.strip()]
+    else:
+        topics = [t.strip() for t in (StationConfig.get().news_topics or '').splitlines() if t.strip()]
     if not topics:
         return 'fetch_news: keine Themen konfiguriert'
 
