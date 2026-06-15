@@ -514,6 +514,10 @@ def news_settings_save(request):
     journal.voice = (request.POST.get('voice') or '').strip()
     journal.tts_model = (request.POST.get('tts_model') or '').strip()[:40]
     journal.is_active = c.news_enabled
+    try:
+        journal.target_sec = max(0, min(600, int(request.POST.get('news_length_sec'))))
+    except (TypeError, ValueError):
+        pass
     journal.save()
     n = _regenerate_news_pins(c)
     return redirect(reverse('radio:news_settings') + f'?saved=1&pins={n}')

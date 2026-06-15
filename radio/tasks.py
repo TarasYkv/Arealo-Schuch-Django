@@ -806,18 +806,21 @@ def fetch_news(self, only_if_missing=False):
         today = _date.today()
         if drafts:
             from .models import Rubrik as _Rb
-            combined = '\n\n'.join(f'[{d.description}]\n{d.text}' for d in drafts)
-            jt = glm.glm_chat(
-                'Forme aus den folgenden Themenblöcken ein zusammenhängendes, radiotaugliches '
-                '"Naturmacher-Journal" (ca. 90 Sekunden Vorlesezeit, etwa 200 bis 230 Wörter): '
-                'freundlicher Einstieg ("Willkommen zum Naturmacher-Journal"), die wichtigsten '
-                '3 bis 5 Meldungen fließend verbunden, kurzer warmer Abschluss. Sachlich und '
-                'freundlich, zum Vorlesen, keine URLs oder Quellenangaben:\n\n' + combined,
-                system='Du bist Nachrichtenredakteur eines familienfreundlichen Radiosenders.',
-                max_tokens=900).strip()
             # Tagesnews/Journal hat eine EIGENE Rubrik 'journal' (getrennt von der
             # saisonalen/zeitlosen 'news'-Rubrik). Fallback auf 'news' für Altbestand.
             r = _Rb.objects.filter(key='journal').first() or _Rb.objects.filter(key='news').first()
+            # Länge über die Rubrik einstellbar (target_sec); 0 = Standard 90 s.
+            _sec = (r.target_sec if (r and r.target_sec) else 0) or 90
+            _words = max(40, round(_sec * 2.3))
+            combined = '\n\n'.join(f'[{d.description}]\n{d.text}' for d in drafts)
+            jt = glm.glm_chat(
+                'Forme aus den folgenden Themenblöcken ein zusammenhängendes, radiotaugliches '
+                f'"Naturmacher-Journal" (ca. {_sec} Sekunden Vorlesezeit, etwa {_words} Wörter): '
+                'freundlicher Einstieg ("Willkommen zum Naturmacher-Journal"), die wichtigsten '
+                'Meldungen fließend verbunden, kurzer warmer Abschluss. Sachlich und '
+                'freundlich, zum Vorlesen, keine URLs oder Quellenangaben:\n\n' + combined,
+                system='Du bist Nachrichtenredakteur eines familienfreundlichen Radiosenders.',
+                max_tokens=max(900, _words * 3)).strip()
             voice = (r.voice if (r and r.voice and not r.voice.startswith('piper')) else '') or 'edge-de-DE-ConradNeural'
             _gm = (r.tts_model.strip() if (r and r.tts_model) else '') or None
             mp3 = _synthesize(jt, voice, kind='news', gemini_model=_gm)
