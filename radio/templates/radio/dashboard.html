@@ -29,6 +29,7 @@
           </button>
         </form>
         <button id="wobtn" type="button" class="btn btn-sm btn-outline-info" style="width:auto;flex:0 0 auto;padding:.12rem .5rem;font-size:.8rem">🌍 Wo?</button>
+        <button id="statbtn" type="button" class="btn btn-sm btn-outline-info" style="width:auto;flex:0 0 auto;padding:.12rem .5rem;font-size:.8rem">📊 Hörer</button>
       </div>
     </div>
     <div class="text-center mx-2">
@@ -873,6 +874,47 @@
   $('wobtn').addEventListener('click',function(){ $('womodal').style.display='flex'; load(); });
   $('woclose').addEventListener('click',function(){ $('womodal').style.display='none'; });
   $('womodal').addEventListener('click',function(e){ if(e.target.id==='womodal') $('womodal').style.display='none'; });
+})();
+</script>
+
+<!-- Hörer-Verlauf -->
+<div id="statmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1085;padding:24px;overflow:auto">
+  <div class="rounded p-3 mx-auto glass" style="max-width:760px">
+    <div class="d-flex align-items-center mb-2 gap-2">
+      <h5 class="mb-0 flex-grow-1">📊 Hörer-Verlauf</h5>
+      <select id="stathours" class="form-select form-select-sm" style="width:auto">
+        <option value="24">24 Stunden</option>
+        <option value="72">3 Tage</option>
+        <option value="168">7 Tage</option>
+        <option value="720">30 Tage</option>
+      </select>
+      <button id="statclose" class="btn btn-outline-secondary btn-sm" type="button">✕</button>
+    </div>
+    <canvas id="statchart" height="120"></canvas>
+    <div id="stathint" class="small text-muted mt-2"></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var chart=null;
+  function load(){
+    var h=$('stathours').value;
+    $('stathint').textContent='lädt…';
+    fetch("{% url 'radio:listener_history' %}?hours="+h,{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+      var pts=j.points||[];
+      var labels=pts.map(function(p){var d=new Date(p.t);return d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});});
+      var data=pts.map(function(p){return p.l;});
+      if(chart) chart.destroy();
+      chart=new Chart($('statchart'),{type:'line',data:{labels:labels,datasets:[{label:'Hörer',data:data,borderColor:'#2bb673',backgroundColor:'rgba(43,182,115,.15)',fill:true,tension:.25,pointRadius:0}]},options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{precision:0}}},plugins:{legend:{display:false}}}});
+      $('stathint').textContent = pts.length? (pts.length+' Messpunkte · Spitze: '+Math.max.apply(null,data)+' Hörer') : 'Noch keine Daten – die Erfassung läuft alle 5 Minuten, das Diagramm füllt sich mit der Zeit.';
+    }).catch(function(){ $('stathint').textContent='Fehler beim Laden.'; });
+  }
+  $('statbtn').addEventListener('click',function(){ $('statmodal').style.display='flex'; load(); });
+  $('statclose').addEventListener('click',function(){ $('statmodal').style.display='none'; });
+  $('statmodal').addEventListener('click',function(e){ if(e.target.id==='statmodal') $('statmodal').style.display='none'; });
+  $('stathours').addEventListener('change',load);
 })();
 </script>
 

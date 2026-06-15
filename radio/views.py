@@ -2934,3 +2934,18 @@ def weekprogram_data(request):
     items = (ScheduledItem.objects.filter(on_date__isnull=True)
              .select_related('track', 'spoken').order_by('start_time', 'order'))
     return JsonResponse({'entries': [_pin_dict(p) for p in items]})
+
+
+def listener_history(request):
+    """Hörer-Verlauf der letzten N Stunden als JSON (für das Dashboard-Diagramm)."""
+    from .models import ListenerStat
+    from django.utils import timezone as _tz
+    from datetime import timedelta as _td
+    try:
+        hours = max(1, min(720, int(request.GET.get('hours', 24))))
+    except (TypeError, ValueError):
+        hours = 24
+    since = _tz.now() - _td(hours=hours)
+    rows = ListenerStat.objects.filter(ts__gte=since).order_by('ts')
+    pts = [{'t': r.ts.isoformat(), 'l': r.listeners} for r in rows]
+    return JsonResponse({'points': pts, 'hours': hours})

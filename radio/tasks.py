@@ -1393,3 +1393,28 @@ def plan_ahead():
     if t.astimezone(B).hour >= 21 or rest_h < 1:
         made_next = scheduler.materialize_day(now.astimezone(B).date() + timedelta(days=1), replace=False, generate=False)
     return f"topup: +{made_today} heute, +{made_next} morgen (war {rest_h:.1f}h)"
+
+
+@shared_task
+def snapshot_listeners():
+    """Erfasst die aktuelle Hörerzahl von Icecast und speichert sie (Verlaufs-Diagramm)."""
+    import urllib.request as _ur, base64 as _b64, re as _re, os as _os
+    from .models import ListenerStat
+    from django.utils import timezone as _tz
+    from datetime import timedelta as _td
+    user = _os.environ.get('ICECAST_ADMIN_USER', 'admin')
+    pw = _os.environ.get('ICECAST_ADMIN_PW', '')
+    try:
+        req = _ur.Request('http://127.0.0.1:8000/admin/stats.xml')
+        req.add_header('Authorization', 'Basic ' + _b64.b64encode(('%s:%s' % (user, pw)).encode()).decode())
+        xml = _ur.urlopen(req, timeout=5).read().decode('utf-8', 'ignore')
+        seg = _re.search(r'<source mount="/radio\.mp3".*?</source>', xml, _re.S)
+        block = seg.group(0) if seg else xml
+        mm = _re.search(r'<listeners>(\d+)', block)
+        listeners = int(mm.group(1)) if mm else 0
+    except Exception as e:
+        return f'snapshot_listeners fail: {e}'
+    ListenerStat.objects.create(listeners=listeners)
+    # Aufräumen: Snapshots älter als 60 Tage entfernen
+    ListenerStat.objects.filter(ts__lt=_tz.now() - _td(days=60)).delete()
+    return f'snapshot_listeners: {listeners}'

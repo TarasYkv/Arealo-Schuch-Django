@@ -19,6 +19,7 @@ urlpatterns = [
     path('sw.js', views.radio_sw, name='radio_sw'),
     path('promo/save/', views.promo_save, name='promo_save'),
     path('presence/', views.presence_state, name='presence_state'),
+    path('stats/history/', views.listener_history, name='listener_history'),
     path('schedule/<int:pk>/move/', views.entry_move, name='entry_move'),
     path('schedule/<int:pk>/remove/', views.entry_remove, name='entry_remove'),
 

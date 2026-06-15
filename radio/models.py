@@ -652,3 +652,15 @@ class RadioNote(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ListenerStat(models.Model):
+    """Hörer-Snapshot des Senders (alle paar Minuten erfasst) für das Verlaufs-Diagramm."""
+    ts = models.DateTimeField(auto_now_add=True, db_index=True)
+    listeners = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-ts"]
+
+    def __str__(self):
+        return f"{self.ts:%Y-%m-%d %H:%M} – {self.listeners} Hörer"
