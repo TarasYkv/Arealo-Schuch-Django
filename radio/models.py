@@ -88,6 +88,7 @@ class StationConfig(models.Model):
     news_from_hour = models.PositiveSmallIntegerField(default=0, help_text='Erste Stunde (0-23)')
     news_to_hour = models.PositiveSmallIntegerField(default=23, help_text='Letzte Stunde (0-23)')
     news_interval_h = models.PositiveSmallIntegerField(default=1, help_text='Abstand in Stunden (1 = jede Stunde)')
+    news_intro_enabled = models.BooleanField(default=True, help_text='Festes Intro vor jede Tagesnews mischen')
 
     # Öffentliche YouTube-Live-Adresse (für „Ausweichen bei hoher Auslastung")
     youtube_url = models.CharField(

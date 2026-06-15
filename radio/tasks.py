@@ -90,6 +90,9 @@ def _prepend_news_intro(news_bytes):
     import subprocess
     import tempfile
     from django.conf import settings as _dj
+    from .models import StationConfig
+    if not StationConfig.get().news_intro_enabled:
+        return news_bytes
     intro = os.path.join(_dj.MEDIA_ROOT, 'radio', 'news_intro.mp3')
     if not news_bytes or not os.path.exists(intro):
         return news_bytes

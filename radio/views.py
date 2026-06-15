@@ -446,13 +446,18 @@ def _get_journal_rubrik():
 @_superuser_only
 def news_settings(request):
     """Eigene Seite für die TAGESNEWS (Journal) — getrennt von der saisonalen
-    'news'-Rubrik. Bündelt: recherchierte Themen, Stimme, TTS-Modell, an/aus."""
+    'news'-Rubrik. Bündelt: Themen, Stimme, TTS-Modell, Zeitplan, Intro."""
     config = StationConfig.get()
     journal = _get_journal_rubrik()
+    intro_path = os.path.join(settings.MEDIA_ROOT, 'radio', 'news_intro.mp3')
+    intro_exists = os.path.exists(intro_path)
+    intro_mtime = int(os.path.getmtime(intro_path)) if intro_exists else 0
     return render(request, 'radio/news_settings.html', {
         'config': config,
         'journal': journal,
         'voices': list(STUDIO_VOICES),  # Gemini + Edge (gratis)
+        'intro_exists': intro_exists,
+        'intro_mtime': intro_mtime,
     })
 
 
@@ -495,7 +500,16 @@ def news_settings_save(request):
     c.news_from_hour = _ival('news_from_hour', c.news_from_hour, 0, 23)
     c.news_to_hour = _ival('news_to_hour', c.news_to_hour, 0, 23)
     c.news_interval_h = _ival('news_interval_h', c.news_interval_h, 1, 24)
+    c.news_intro_enabled = bool(request.POST.get('news_intro_enabled'))
     c.save()
+    # Optionaler Intro-Upload: ersetzt media/radio/news_intro.mp3
+    f = request.FILES.get('intro_file')
+    if f:
+        dest_dir = os.path.join(settings.MEDIA_ROOT, 'radio')
+        os.makedirs(dest_dir, exist_ok=True)
+        with open(os.path.join(dest_dir, 'news_intro.mp3'), 'wb') as out:
+            for chunk in f.chunks():
+                out.write(chunk)
     journal = _get_journal_rubrik()
     journal.voice = (request.POST.get('voice') or '').strip()
     journal.tts_model = (request.POST.get('tts_model') or '').strip()[:40]
