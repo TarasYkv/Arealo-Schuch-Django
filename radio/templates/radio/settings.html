@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+{% block title %}Einstellungen – Naturmacher Radio{% endblock %}
+{% block extra_css %}{% include 'radio/_theme.html' %}{% endblock %}
+
+{% block content %}
+<div class="container py-4 radio-wrap" style="max-width:860px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">⚙️ Einstellungen</h2>
+    <div class="d-flex gap-2">
+      <a href="{% url 'radio:news_settings' %}" class="btn btn-info btn-sm">📰 News</a>
+      <a href="{% url 'radio:dashboard' %}" class="btn btn-outline-secondary btn-sm">← zum Sendeplan</a>
+    </div>
+  </div>
+
+  {% if request.GET.saved %}<div class="alert alert-success py-2">Einstellungen gespeichert.</div>{% endif %}
+
+  <!-- Rubriken -->
+  <div class="card mb-3" id="rubriken"><div class="card-body">
+    <h5 class="card-title">🗂️ Rubriken</h5>
+    <p class="text-muted small mb-2">Aus diesen Vorgaben erzeugt GLM 5.1 die Inhalte. Du kannst Prompts bearbeiten, eigene Rubriken anlegen und löschen.</p>
+    {% if request.GET.rubrik %}<div class="alert alert-success py-1">Rubrik gespeichert.</div>{% endif %}
+    {% if request.GET.rubrik_del %}<div class="alert alert-success py-1">Rubrik gelöscht.</div>{% endif %}
+
+    {% for r in rubriken %}
+    <details class="border rounded p-2 mb-2">
+      <summary><strong>{{ r.label }}</strong> <span class="badge bg-light text-dark">{{ r.get_rtype_display }}</span> <span class="text-muted small">{{ r.key }}</span>{% if not r.is_active %} <span class="badge bg-secondary">inaktiv</span>{% endif %}</summary>
+      <form method="post" action="{% url 'radio:rubrik_save' %}" class="mt-2">
+        {% csrf_token %}<input type="hidden" name="pk" value="{{ r.pk }}">
+        <div class="row g-2">
+          <div class="col-md-6"><label class="small">Name</label><input name="label" value="{{ r.label }}" class="form-control form-control-sm"></div>
+          <div class="col-md-3"><label class="small">Typ</label>
+            <select name="rtype" class="form-select form-select-sm">
+              <option value="speech" {% if r.rtype == 'speech' %}selected{% endif %}>Sprache</option>
+              <option value="music" {% if r.rtype == 'music' %}selected{% endif %}>Musik</option>
+            </select>
+          </div>
+          <div class="col-md-3"><label class="small">Stimme (Sprache)</label>
+            <select name="voice" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for v,vl in voices %}<option value="{{ v }}" {% if r.voice == v %}selected{% endif %}>{{ vl }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col-md-8"><label class="small rb-modellabel">KI-Modell</label>
+            <select name="tts_model" class="form-select form-select-sm rb-ttsmodel">
+              <option value="" {% if not r.tts_model %}selected{% endif %}>Standard (automatisch)</option>
+              <optgroup label="Sprache (TTS)" data-for="speech">
+                <option value="flash" {% if r.tts_model == 'flash' %}selected{% endif %}>Gemini flash – schnell/günstig</option>
+                <option value="pro" {% if r.tts_model == 'pro' %}selected{% endif %}>Gemini pro – höhere Qualität</option>
+                <option value="eleven_multilingual_v2" {% if r.tts_model == 'eleven_multilingual_v2' %}selected{% endif %}>ElevenLabs Multilingual v2</option>
+                <option value="eleven_turbo_v2_5" {% if r.tts_model == 'eleven_turbo_v2_5' %}selected{% endif %}>ElevenLabs Turbo v2.5</option>
+                <option value="eleven_flash_v2_5" {% if r.tts_model == 'eleven_flash_v2_5' %}selected{% endif %}>ElevenLabs Flash v2.5</option>
+              </optgroup>
+              <optgroup label="Musik" data-for="music">
+                <option value="lyria" {% if r.tts_model == 'lyria' %}selected{% endif %}>Google Lyria (Standard)</option>
+                <option value="minimax" {% if r.tts_model == 'minimax' %}selected{% endif %}>MiniMax (günstig)</option>
+                <option value="fal" {% if r.tts_model == 'fal' %}selected{% endif %}>fal.ai</option>
+                <option value="elevenlabs" {% if r.tts_model == 'elevenlabs' %}selected{% endif %}>ElevenLabs Music</option>
+              </optgroup>
+            </select>
+            <div class="small text-muted rb-modelhint">Bei Sprache passend zur Stimmen-Engine; sonst Standard.</div>
+          </div>
+          <div class="col-md-4"><label class="small">Länge (Sek.)</label>
+            <input name="target_sec" type="number" min="0" max="3600" value="{{ r.target_sec }}" class="form-control form-control-sm">
+            <div class="small text-muted">0 = auto</div>
+          </div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col-md-6"><label class="small">🎺 Intro (VOR jedem Beitrag)</label>
+            <div class="d-flex gap-1 intro-row">
+              <select name="intro" class="form-select form-select-sm">
+                <option value="">— kein Intro —</option>
+                {% for glabel, items in intro_groups %}<optgroup label="{{ glabel }}">
+                  {% for t in items %}<option value="{{ t.pk }}" data-url="{{ t.url }}" {% if r.intro_id == t.pk %}selected{% endif %}>{{ t.title }} ({{ t.dur }})</option>{% endfor %}
+                </optgroup>{% endfor %}
+              </select>
+              <button type="button" class="btn btn-outline-secondary btn-sm intro-play" title="Probehören">▶</button>
+            </div>
+          </div>
+          <div class="col-md-6"><label class="small">🎬 Outro (NACH jedem Beitrag)</label>
+            <div class="d-flex gap-1 intro-row">
+              <select name="outro" class="form-select form-select-sm">
+                <option value="">— kein Outro —</option>
+                {% for glabel, items in intro_groups %}<optgroup label="{{ glabel }}">
+                  {% for t in items %}<option value="{{ t.pk }}" data-url="{{ t.url }}" {% if r.outro_id == t.pk %}selected{% endif %}>{{ t.title }} ({{ t.dur }})</option>{% endfor %}
+                </optgroup>{% endfor %}
+              </select>
+              <button type="button" class="btn btn-outline-secondary btn-sm intro-play" title="Probehören">▶</button>
+            </div>
+          </div>
+          <div class="col-12"><div class="small text-muted">Gilt überall: Automatikprogramm, Pins, Wochenprogramm.</div></div>
+        </div>
+        {% if r.rtype == 'speech' %}
+        <details class="mt-2">
+          <summary class="small">🧠 Themen-Gedächtnis anzeigen/bearbeiten</summary>
+          <label class="small mt-1">Eine Zeile = ein bereits vergebenes Thema. Neue Beiträge meiden diese Themen automatisch. Zeile löschen = Thema wieder erlaubt; eigene Zeilen hinzufügen = Thema sperren.</label>
+          <textarea name="topic_memory" rows="6" class="form-control form-control-sm" placeholder="(noch keine Themen gemerkt)">{{ r.topic_memory }}</textarea>
+        </details>
+        {% endif %}
+        <label class="small mt-2">System-Prompt (Rolle/Stil für GLM)</label>
+        <textarea name="system_prompt" rows="3" class="form-control form-control-sm">{{ r.system_prompt }}</textarea>
+        <label class="small mt-2">Aufgabe / Schreibauftrag</label>
+        <textarea name="task_prompt" rows="2" class="form-control form-control-sm">{{ r.task_prompt }}</textarea>
+        <div class="mt-2">
+          <label class="me-3 small"><input type="checkbox" name="is_active" {% if r.is_active %}checked{% endif %}> aktiv</label>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+          <button class="btn btn-primary btn-sm">Speichern</button>
+          <button form="del-{{ r.pk }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('Rubrik „{{ r.label }}“ löschen?');">Löschen</button>
+        </div>
+      </form>
+      <form method="post" id="del-{{ r.pk }}" action="{% url 'radio:rubrik_delete' r.pk %}">{% csrf_token %}</form>
+    </details>
+    {% endfor %}
+
+    <details class="border rounded p-2 mt-2" style="background:#f3f7f4">
+      <summary><strong>➕ Neue Rubrik anlegen</strong></summary>
+      <form method="post" action="{% url 'radio:rubrik_save' %}" class="mt-2">
+        {% csrf_token %}
+        <div class="row g-2">
+          <div class="col-md-8"><label class="small">Name</label><input name="label" class="form-control form-control-sm" placeholder="z. B. „Gedicht des Tages“" required></div>
+          <div class="col-md-4"><label class="small">Typ</label>
+            <select name="rtype" class="form-select form-select-sm"><option value="speech">Sprache</option><option value="music">Musik</option></select>
+          </div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col-md-4"><label class="small">Stimme (Sprache)</label>
+            <select name="voice" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for v,vl in voices %}<option value="{{ v }}">{{ vl }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-5"><label class="small rb-modellabel">KI-Modell</label>
+            <select name="tts_model" class="form-select form-select-sm rb-ttsmodel">
+              <option value="">Standard (automatisch)</option>
+              <optgroup label="Sprache (TTS)" data-for="speech">
+                <option value="flash">Gemini flash – schnell/günstig</option>
+                <option value="pro">Gemini pro – höhere Qualität</option>
+                <option value="eleven_multilingual_v2">ElevenLabs Multilingual v2</option>
+                <option value="eleven_turbo_v2_5">ElevenLabs Turbo v2.5</option>
+                <option value="eleven_flash_v2_5">ElevenLabs Flash v2.5</option>
+              </optgroup>
+              <optgroup label="Musik" data-for="music">
+                <option value="lyria">Google Lyria (Standard)</option>
+                <option value="minimax">MiniMax (günstig)</option>
+                <option value="fal">fal.ai</option>
+                <option value="elevenlabs">ElevenLabs Music</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="col-md-3"><label class="small">Länge (Sek.)</label>
+            <input name="target_sec" type="number" min="0" max="3600" value="0" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col-md-8"><label class="small">🎺 Intro (optional)</label>
+            <div class="d-flex gap-1 intro-row">
+              <select name="intro" class="form-select form-select-sm">
+                <option value="">— kein Intro —</option>
+                {% for glabel, items in intro_groups %}<optgroup label="{{ glabel }}">
+                  {% for t in items %}<option value="{{ t.pk }}" data-url="{{ t.url }}">{{ t.title }} ({{ t.dur }})</option>{% endfor %}
+                </optgroup>{% endfor %}
+              </select>
+              <button type="button" class="btn btn-outline-secondary btn-sm intro-play" title="Intro probehören">▶</button>
+            </div>
+          </div>
+        </div>
+        <label class="small mt-2">System-Prompt</label>
+        <textarea name="system_prompt" rows="3" class="form-control form-control-sm" placeholder="Du bist … (Rolle, Stil, Ton)"></textarea>
+        <label class="small mt-2">Aufgabe</label>
+        <textarea name="task_prompt" rows="2" class="form-control form-control-sm" placeholder="Schreibe … (Länge, Form)"></textarea>
+        <div class="mt-2">
+          <label class="me-3 small"><input type="checkbox" name="is_active" checked> aktiv</label>
+        </div>
+        <button class="btn btn-success btn-sm mt-2">Rubrik anlegen</button>
+      </form>
+    </details>
+  </div></div>
+
+  <!-- Allgemein -->
+  <div class="card mb-3"><div class="card-body">
+    <h5 class="card-title">📻 Allgemein</h5>
+    <form method="post" action="{% url 'radio:save_settings' %}">
+      {% csrf_token %}
+      <div class="mb-2">
+        <label class="form-label small mb-0">Sendername</label>
+        <input type="text" name="name" value="{{ config.name }}" class="form-control form-control-sm">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small mb-0">📺 YouTube-Live-Adresse (Ausweich-Link, wenn der Webstream voll ausgelastet ist)</label>
+        <input type="text" name="youtube_url" value="{{ config.youtube_url }}" class="form-control form-control-sm" placeholder="https://www.youtube.com/@deinKanal/live">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small mb-0">📰 News-Themen (eine pro Zeile) – werden alle 2 Std automatisch online recherchiert</label>
+        <textarea name="news_topics" rows="4" class="form-control form-control-sm">{{ config.news_topics }}</textarea>
+      </div>
+
+      <div class="mb-2 p-2 rounded" style="background:rgba(255,255,255,.05)">
+        <label class="form-label small fw-semibold mb-1">🎚️ Standardprogramm (wenn nichts Festes geplant ist)</label>
+        <div class="small text-muted mb-2">So mischt der Sender automatisch aus dem Pool. 0 = ausschalten.</div>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="small mb-0">Alle wie viele Musiktitel ein Wortbeitrag?</label>
+            <input type="number" name="std_music_per_talk" min="0" max="50" value="{{ config.std_music_per_talk }}" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-6 mt-2">
+            <label class="form-label small fw-semibold mb-1">🎤 Anteil „Musik mit Gesang“: <b id="songsharelabel">{{ config.song_share }}</b> %
+              <span class="infobtn" data-info-title="🎤 Gesangs-Anteil" data-info="Bestimmt, wie viel Prozent der Musik-Rotation Lieder MIT Gesang sind. 0 % = nur Instrumentals, 100 % = nur Gesangslieder. Beispiel 35 %: etwa jedes dritte Musikstück hat Gesang. Greift bei der nächsten Tagesplanung.">i</span></label>
+            <input type="range" name="song_share" min="0" max="100" step="5" value="{{ config.song_share }}" class="form-range"
+                   oninput="document.getElementById('songsharelabel').textContent=this.value">
+            <div class="d-flex justify-content-between small text-muted"><span>nur Instrumental</span><span>nur Gesang</span></div>
+            <div class="small text-muted">z. B. 4 = nach 4 Titeln ein Wissens-/Tipp-/Geschichten-Beitrag</div>
+          </div>
+          <div class="col-md-4">
+            <label class="small mb-0">Jingle alle wie viele Musiktitel?</label>
+            <input type="number" name="std_jingle_every" min="0" max="50" value="{{ config.std_jingle_every }}" class="form-control form-control-sm">
+            <div class="small text-muted">0 = keine Jingles</div>
+          </div>
+          <div class="col-md-4">
+            <label class="small mb-0">Werbung/Spot alle wie viele Minuten?</label>
+            <input type="number" name="std_ad_every_min" min="0" max="240" value="{{ config.std_ad_every_min }}" class="form-control form-control-sm">
+            <div class="small text-muted">0 = keine Werbung</div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+        <label class="form-label small fw-semibold mb-1">Welche Rubrik zählt als was?</label>
+        <div class="small text-muted mb-2">Legt fest, ob eine Rubrik im Standardprogramm als Wortbeitrag, Jingle, Werbung oder Musik eingeplant wird. „Automatisch" entscheidet anhand der Art.</div>
+        <div class="row g-1">
+          {% for ru in rubriken %}
+          <div class="col-md-6 d-flex align-items-center gap-2 mb-1">
+            <span class="small flex-grow-1 text-truncate" title="{{ ru.label }}">{{ ru.label }}</span>
+            <select name="cat_{{ ru.pk }}" class="form-select form-select-sm" style="max-width:160px">
+              <option value="" {% if not ru.category %}selected{% endif %}>Automatisch</option>
+              <option value="talk" {% if ru.category == 'talk' %}selected{% endif %}>Wortbeitrag</option>
+              <option value="jingle" {% if ru.category == 'jingle' %}selected{% endif %}>Jingle/Effekt</option>
+              <option value="ad" {% if ru.category == 'ad' %}selected{% endif %}>Werbung/Spot</option>
+              <option value="music" {% if ru.category == 'music' %}selected{% endif %}>Musik</option>
+            </select>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="mb-2 p-2 rounded" style="background:rgba(255,255,255,.05)">
+        <input type="hidden" name="mix_section" value="1">
+        <label class="form-label small fw-semibold mb-1">🎚️ Übergänge zwischen Titeln (Crossfade)</label>
+        <div class="small text-muted mb-2">Wirkt sofort (kein Neustart nötig). Sprache, Geschichten, Klanggeschichten, Jingles und Effekte laufen IMMER vollständig zu Ende – nur Musik wird überblendet.</div>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="small d-block"><input type="checkbox" name="mix_crossfade" {% if config.mix_crossfade %}checked{% endif %}> Überblenden aktivieren</label>
+          </div>
+          <div class="col-md-4">
+            <label class="small mb-0">Überblend-Dauer (Sekunden)</label>
+            <input type="number" name="mix_xfade_sec" min="0" max="3.8" step="0.1" value="{{ config.mix_xfade_sec }}" class="form-control form-control-sm">
+            <div class="small text-muted">0 = harter Schnitt · z. B. 1.5 = sanft</div>
+          </div>
+          <div class="col-md-4">
+            <label class="small d-block"><input type="checkbox" name="mix_xfade_songs" {% if config.mix_xfade_songs %}checked{% endif %}> Auch Lieder mit Gesang überblenden</label>
+            <div class="small text-muted">aus = Lieder spielen ganz aus</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-sm">Speichern</button>
+      <button type="button" id="fetchnewsbtn" class="btn btn-outline-secondary btn-sm">📰 News jetzt suchen</button>
+      <span id="fetchnewsstatus" class="small text-muted ms-2"></span>
+    </form>
+    <script>
+      document.getElementById('fetchnewsbtn').addEventListener('click',function(){
+        var b=this; b.disabled=true; document.getElementById('fetchnewsstatus').textContent='sucht & fasst zusammen…';
+        fetch("{% url 'radio:fetch_news_now' %}",{method:'POST',headers:{'X-CSRFToken':'{{ csrf_token }}'}})
+          .then(function(r){return r.json();}).then(function(j){
+            document.getElementById('fetchnewsstatus').textContent = j.ok ? '✓ läuft – in ~1 Min im Studio unter „News" verfügbar' : 'Fehler';
+            setTimeout(function(){ b.disabled=false; },3000);
+          }).catch(function(){ b.disabled=false; document.getElementById('fetchnewsstatus').textContent='Netzwerkfehler'; });
+      });
+    </script>
+  </div></div>
+</div>
+
+<script>
+  // KI-Modell-Dropdown je nach Rubrik-Typ umschalten: Musik-Rubriken zeigen Musik-Engines,
+  // Sprach-Rubriken zeigen TTS-Modelle. Pro Formular eigenständig.
+  (function(){
+    document.querySelectorAll('select.rb-ttsmodel').forEach(function(mod){
+      var form = mod.closest('form'); if(!form) return;
+      var rt = form.querySelector('select[name="rtype"]'); if(!rt) return;
+      var col = mod.closest('[class*="col-"]');
+      var lab = col ? col.querySelector('.rb-modellabel') : null;
+      var hint = col ? col.querySelector('.rb-modelhint') : null;
+      function sync(){
+        var want = (rt.value === 'music') ? 'music' : 'speech';
+        Array.prototype.forEach.call(mod.querySelectorAll('optgroup'), function(g){
+          var show = (g.getAttribute('data-for') === want);
+          g.hidden = !show; g.disabled = !show;
+          Array.prototype.forEach.call(g.querySelectorAll('option'), function(o){ o.hidden=!show; o.disabled=!show; });
+        });
+        var cur = mod.options[mod.selectedIndex];
+        if(cur && (cur.hidden || cur.disabled)) mod.value='';
+        if(lab) lab.textContent = (want==='music') ? 'KI-Modell (Musik)' : 'KI-Modell (Sprache/TTS)';
+        if(hint) hint.textContent = (want==='music')
+          ? 'Engine, die diese Musik-Rubrik erzeugt.'
+          : 'Bei Sprache passend zur Stimmen-Engine; sonst Standard.';
+      }
+      rt.addEventListener('change', sync); sync();
+    });
+  })();
+
+  // Intro-Probehören: ▶ spielt das im Dropdown gewählte Intro ab (⏸ stoppt)
+  (function(){
+    var au=new Audio(), cur=null;
+    function reset(){ if(cur){ cur.textContent='▶'; } cur=null; }
+    au.addEventListener('ended', reset);
+    document.addEventListener('click', function(e){
+      var b=e.target.closest('.intro-play'); if(!b) return;
+      e.preventDefault();
+      if(cur===b && !au.paused){ au.pause(); reset(); return; }
+      var sel=b.closest('.intro-row').querySelector('select');
+      var opt=sel && sel.options[sel.selectedIndex];
+      var url=opt ? (opt.getAttribute('data-url')||'') : '';
+      if(!url){ b.textContent='—'; setTimeout(function(){ b.textContent='▶'; }, 900); return; }
+      au.pause(); reset();
+      au.src=url; au.play().catch(function(){});
+      b.textContent='⏸'; cur=b;
+    });
+  })();
+</script>
+{% include 'radio/_assistant.html' %}
+{% endblock %}

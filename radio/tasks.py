@@ -50,6 +50,11 @@ def _synthesize(text, voice, kind=None, gemini_model=None, eleven_model=None):
     if voice and str(voice).startswith('fal:'):
         from . import fal
         return fal.tts(voice.split(':', 1)[1], text)
+    # Edge-TTS (Microsoft) — gratis, natürliche deutsche Stimmen, KEINE lokale Last.
+    # Stimme kodiert als 'edge-<VoiceName>', z. B. 'edge-de-DE-ConradNeural'.
+    if voice and str(voice).startswith('edge-'):
+        from . import edgetts
+        return edgetts.synth(text, voice=voice)
     # ElevenLabs-Stimme (Feintuning aus StationConfig)
     from . import elevenlabs as el
     if el.is_eleven_voice(voice):
@@ -777,8 +782,10 @@ def fetch_news(self, only_if_missing=False):
                 'freundlich, zum Vorlesen, keine URLs oder Quellenangaben:\n\n' + combined,
                 system='Du bist Nachrichtenredakteur eines familienfreundlichen Radiosenders.',
                 max_tokens=900).strip()
-            r = _Rb.objects.filter(key='news').first()
-            voice = (r.voice if (r and r.voice and not r.voice.startswith('piper')) else '') or 'gemini-Rasalgethi'
+            # Tagesnews/Journal hat eine EIGENE Rubrik 'journal' (getrennt von der
+            # saisonalen/zeitlosen 'news'-Rubrik). Fallback auf 'news' für Altbestand.
+            r = _Rb.objects.filter(key='journal').first() or _Rb.objects.filter(key='news').first()
+            voice = (r.voice if (r and r.voice and not r.voice.startswith('piper')) else '') or 'edge-de-DE-ConradNeural'
             _gm = (r.tts_model.strip() if (r and r.tts_model) else '') or None
             mp3 = _synthesize(jt, voice, kind='news', gemini_model=_gm)
             from django.utils import timezone as _tz2

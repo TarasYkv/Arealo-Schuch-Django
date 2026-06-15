@@ -366,7 +366,9 @@ def settings_view(request):
     intro_groups = [('🔔 Jingles & Effekte', jingles), ('🎵 Musik', music)]
     return render(request, 'radio/settings.html', {
         'config': config,
-        'rubriken': Rubrik.objects.all(),
+        # 'journal' (Tagesnews) ist ein Sonderfall mit eigener News-Seite -> hier ausblenden.
+        # Die saisonale/zeitlose 'news'-Rubrik bleibt regulär in der Liste.
+        'rubriken': Rubrik.objects.exclude(key='journal'),
         'voices': gemini_voices,
         'intro_groups': intro_groups,
     })
@@ -428,6 +430,44 @@ def rubrik_delete(request, pk):
     from .models import Rubrik
     Rubrik.objects.filter(pk=pk).delete()
     return redirect(reverse('radio:settings') + '?rubrik_del=1#rubriken')
+
+
+def _get_journal_rubrik():
+    """Liefert (und erstellt bei Bedarf) die Sonderrubrik 'journal' = Tagesnews."""
+    from .models import Rubrik
+    j, _ = Rubrik.objects.get_or_create(
+        key='journal',
+        defaults={'label': 'Tagesnews / Journal', 'rtype': 'speech',
+                  'voice': 'edge-de-DE-ConradNeural', 'in_nightly': True,
+                  'is_active': True})
+    return j
+
+
+@_superuser_only
+def news_settings(request):
+    """Eigene Seite für die TAGESNEWS (Journal) — getrennt von der saisonalen
+    'news'-Rubrik. Bündelt: recherchierte Themen, Stimme, TTS-Modell, an/aus."""
+    config = StationConfig.get()
+    journal = _get_journal_rubrik()
+    return render(request, 'radio/news_settings.html', {
+        'config': config,
+        'journal': journal,
+        'voices': list(STUDIO_VOICES),  # Gemini + Edge (gratis)
+    })
+
+
+@_superuser_only
+@require_POST
+def news_settings_save(request):
+    c = StationConfig.get()
+    c.news_topics = (request.POST.get('news_topics') or '').strip()[:2000]
+    c.save(update_fields=['news_topics'])
+    journal = _get_journal_rubrik()
+    journal.voice = (request.POST.get('voice') or '').strip()
+    journal.tts_model = (request.POST.get('tts_model') or '').strip()[:40]
+    journal.is_active = bool(request.POST.get('is_active'))
+    journal.save()
+    return redirect(reverse('radio:news_settings') + '?saved=1')
 
 
 @_superuser_only
@@ -508,10 +548,13 @@ def upload_clone_voice(request):
 
 
 from . import gemini_tts as _gtts
+from . import edgetts as _edgetts
 
 STUDIO_VOICES = (
-    # Gemini Cloud-TTS — natürlich, menschlich (einzige aktive Engine)
+    # Gemini Cloud-TTS — natürlich, menschlich
     [(f'gemini-{name}', f'🌟 {label}') for name, label in _gtts.VOICES]
+    # Edge-TTS (Microsoft) — gratis, keine lokale Last
+    + [(f'edge-{vid}', f'🔊 {label} · gratis') for vid, label in _edgetts.VOICES]
 )
 
 

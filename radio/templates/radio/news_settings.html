@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Tagesnews / Journal – Naturmacher Radio{% endblock %}
+{% block extra_css %}{% include 'radio/_theme.html' %}{% endblock %}
+
+{% block content %}
+<div class="container py-4 radio-wrap" style="max-width:860px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">📰 Tagesnews / Journal</h2>
+    <a href="{% url 'radio:settings' %}" class="btn btn-outline-secondary btn-sm">← zu den Einstellungen</a>
+  </div>
+
+  {% if request.GET.saved %}<div class="alert alert-success py-2">Gespeichert.</div>{% endif %}
+
+  <div class="alert alert-info py-2 small">
+    Hier steuerst du das <strong>aktuelle „Naturmacher-Journal"</strong> — die zu den
+    unten angegebenen Themen <strong>frisch recherchierten</strong> Tagesmeldungen
+    (Gemini-Web-Recherche → GLM-Aufbereitung → Vertonung). Das ist getrennt von der
+    Rubrik <em>„Saisonales / zeitlose News"</em>, die du weiterhin unter
+    <a href="{% url 'radio:settings' %}#rubriken">Einstellungen → Rubriken</a> findest.
+  </div>
+
+  <form method="post" action="{% url 'radio:news_settings_save' %}">
+    {% csrf_token %}
+
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">🗞️ News-Themen</h5>
+      <p class="text-muted small mb-2">Ein Thema pro Zeile. Zu jedem Thema wird aktuell
+        recherchiert und daraus das Journal zusammengestellt.</p>
+      <textarea name="news_topics" rows="6" class="form-control form-control-sm"
+        placeholder="Garten und Pflanzen&#10;Nachhaltigkeit und Umwelt&#10;Basteln und DIY mit Kindern&#10;Familie und Natur">{{ config.news_topics }}</textarea>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">🎙️ Stimme & Modell</h5>
+      <div class="row g-2">
+        <div class="col-md-7">
+          <label class="small">Stimme</label>
+          <select name="voice" class="form-select form-select-sm">
+            <option value="">—</option>
+            {% for v,vl in voices %}<option value="{{ v }}" {% if journal.voice == v %}selected{% endif %}>{{ vl }}</option>{% endfor %}
+          </select>
+          <div class="form-text">🔊-Stimmen (Edge) sind <strong>kostenlos</strong> und belasten den Server nicht — empfohlen für die Nachrichten.</div>
+        </div>
+        <div class="col-md-5">
+          <label class="small">KI-Modell <span class="text-muted">(nur für 🌟 Gemini-Stimmen)</span></label>
+          <select name="tts_model" class="form-select form-select-sm">
+            <option value="" {% if not journal.tts_model %}selected{% endif %}>Standard (automatisch)</option>
+            <option value="flash" {% if journal.tts_model == 'flash' %}selected{% endif %}>Gemini flash – günstig</option>
+            <option value="pro" {% if journal.tts_model == 'pro' %}selected{% endif %}>Gemini pro – beste Qualität</option>
+          </select>
+          <div class="form-text">Bei Edge-Stimmen ohne Wirkung (immer gratis).</div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">⚙️ Status</h5>
+      <label class="small d-block">
+        <input type="checkbox" name="is_active" {% if journal.is_active %}checked{% endif %}>
+        Tagesnews aktiv (werden recherchiert, vertont und ins Programm aufgenommen)
+      </label>
+      <p class="text-muted small mt-2 mb-0">
+        Sendezeiten (Morgen-/Mittags-/Abendausgabe) werden zentral über den
+        Sendeplan gesteuert.</p>
+    </div></div>
+
+    <button class="btn btn-primary">Speichern</button>
+    <a href="{% url 'radio:settings' %}" class="btn btn-outline-secondary">Abbrechen</a>
+  </form>
+</div>
+{% endblock %}
