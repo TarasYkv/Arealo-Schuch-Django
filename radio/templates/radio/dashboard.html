@@ -878,9 +878,9 @@
 </script>
 
 <!-- Hörer-Verlauf -->
-<div id="statmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1085;padding:24px;overflow:auto">
-  <div class="rounded p-3 mx-auto glass" style="max-width:760px">
-    <div class="d-flex align-items-center mb-2 gap-2">
+<div id="statmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1085;padding:16px;overflow:auto">
+  <div class="rounded p-3 p-md-4 mx-auto glass" style="max-width:1100px;width:96vw">
+    <div class="d-flex align-items-center mb-3 gap-2">
       <h5 class="mb-0 flex-grow-1">📊 Hörer-Verlauf</h5>
       <select id="stathours" class="form-select form-select-sm" style="width:auto">
         <option value="24">24 Stunden</option>
@@ -890,7 +890,8 @@
       </select>
       <button id="statclose" class="btn btn-outline-secondary btn-sm" type="button">✕</button>
     </div>
-    <canvas id="statchart" height="120"></canvas>
+    <div class="d-flex flex-wrap gap-2 mb-3" id="statkpis"></div>
+    <div style="position:relative;height:min(62vh,460px)"><canvas id="statchart"></canvas></div>
     <div id="stathint" class="small text-muted mt-2"></div>
   </div>
 </div>
@@ -899,16 +900,37 @@
 (function(){
   var $=function(id){return document.getElementById(id);};
   var chart=null;
+  function kpi(label,val){return '<div class="glass rounded px-3 py-2 text-center" style="min-width:120px"><div class="small text-muted">'+label+'</div><div style="font-size:1.4rem;font-weight:700;line-height:1.1">'+val+'</div></div>';}
   function load(){
     var h=$('stathours').value;
     $('stathint').textContent='lädt…';
     fetch("{% url 'radio:listener_history' %}?hours="+h,{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
       var pts=j.points||[];
-      var labels=pts.map(function(p){var d=new Date(p.t);return d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});});
+      var times=pts.map(function(p){return new Date(p.t);});
+      var labels=times.map(function(d){return d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});});
       var data=pts.map(function(p){return p.l;});
+      var peak=data.length?Math.max.apply(null,data):0;
+      var cur=data.length?data[data.length-1]:0;
+      var avg=data.length?(data.reduce(function(a,b){return a+b;},0)/data.length):0;
+      var peakAt=data.indexOf(peak);
+      $('statkpis').innerHTML = kpi('Aktuell',cur+' 👤')+kpi('Spitze',peak+' 👤')+kpi('Ø Schnitt',avg.toFixed(1))+kpi('Messpunkte',data.length);
       if(chart) chart.destroy();
-      chart=new Chart($('statchart'),{type:'line',data:{labels:labels,datasets:[{label:'Hörer',data:data,borderColor:'#2bb673',backgroundColor:'rgba(43,182,115,.15)',fill:true,tension:.25,pointRadius:0}]},options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{precision:0}}},plugins:{legend:{display:false}}}});
-      $('stathint').textContent = pts.length? (pts.length+' Messpunkte · Spitze: '+Math.max.apply(null,data)+' Hörer') : 'Noch keine Daten – die Erfassung läuft alle 5 Minuten, das Diagramm füllt sich mit der Zeit.';
+      chart=new Chart($('statchart'),{
+        type:'line',
+        data:{labels:labels,datasets:[{label:'Hörer',data:data,borderColor:'#2bb673',backgroundColor:'rgba(43,182,115,.18)',fill:true,tension:.25,pointRadius:0,pointHoverRadius:6,borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          interaction:{mode:'index',intersect:false},
+          scales:{y:{beginAtZero:true,ticks:{precision:0},title:{display:true,text:'Gleichzeitige Hörer'}},
+                  x:{ticks:{maxTicksLimit:12,autoSkip:true,maxRotation:0}}},
+          plugins:{legend:{display:false},
+            tooltip:{displayColors:false,padding:10,titleFont:{size:13},bodyFont:{size:14},
+              callbacks:{
+                title:function(items){var d=times[items[0].dataIndex];return d.toLocaleString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr';},
+                label:function(item){return item.parsed.y+' Hörer gleichzeitig';},
+                afterLabel:function(item){return (peak>0&&item.dataIndex===peakAt)?'⭐ Höchstwert im Zeitraum':'';}
+              }}}}
+      });
+      $('stathint').textContent = pts.length? ('Zeitraum: '+labels[0]+' bis '+labels[labels.length-1]+' · Erfassung alle 5 Min') : 'Noch keine Daten – die Erfassung läuft alle 5 Minuten, das Diagramm füllt sich mit der Zeit.';
     }).catch(function(){ $('stathint').textContent='Fehler beim Laden.'; });
   }
   $('statbtn').addEventListener('click',function(){ $('statmodal').style.display='flex'; load(); });
