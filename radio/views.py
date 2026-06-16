@@ -2145,7 +2145,7 @@ def presence_state(request):
             {'name': 'Android-App · Google Play', 'url': '', 'state': 'pend', 'label': 'Identitätsprüfung läuft'},
             {'name': 'Android-App · Amazon Appstore (Fire-Tablets)', 'url': '', 'state': 'ok', 'label': 'Live seit 12.06.'},
             {'name': 'Web-App (PWA) auf der Hörseite', 'url': 'https://workloom.de/radio/live/', 'state': 'ok', 'label': 'Aktiv'},
-            {'name': 'Huawei AppGallery', 'url': '', 'state': 'pend', 'label': 'Konto in Prüfung'},
+            {'name': 'Android-App · Huawei AppGallery', 'url': '', 'state': 'ok', 'label': 'Live seit 16.06.'},
             {'name': 'Samsung Galaxy Store', 'url': '', 'state': 'idle', 'label': 'übersprungen (Play deckt ab)'},
         ]),
         ('📚 Radio-Verzeichnisse', [
