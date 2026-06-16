@@ -843,8 +843,13 @@ def fetch_news(self, only_if_missing=False):
                 'freundlich, zum Vorlesen, keine URLs oder Quellenangaben:\n\n' + combined,
                 system='Du bist Nachrichtenredakteur eines familienfreundlichen Radiosenders.',
                 max_tokens=max(900, _words * 3)).strip()
-            voice = (r.voice if (r and r.voice and not r.voice.startswith('piper')) else '') or 'edge-de-DE-ConradNeural'
-            _gm = (r.tts_model.strip() if (r and r.tts_model) else '') or None
+            # Stimme/Modell: pro-Termin (News-Pin gen_spec) hat Vorrang vor der Journal-Rubrik
+            _pspec = (_pin.gen_spec or {}) if _pin else {}
+            voice = (_pspec.get('voice')
+                     or (r.voice if (r and r.voice and not r.voice.startswith('piper')) else '')
+                     or 'edge-de-DE-ConradNeural')
+            _gm = (_pspec.get('tts_model')
+                   or (r.tts_model.strip() if (r and r.tts_model) else '') or None)
             mp3 = _synthesize(jt, voice, kind='news', gemini_model=_gm)
             mp3 = _prepend_news_intro(mp3)  # festes Intro (Jingle) voranstellen
             from django.utils import timezone as _tz2

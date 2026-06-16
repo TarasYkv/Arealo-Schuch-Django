@@ -91,19 +91,30 @@
     </div></div>
 
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">📋 Themen pro Termin</h5>
-      <p class="text-muted small mb-2">Für jeden Sendetermin eigene Themen (leer = globale Themen oben). Mehrere Themen kommagetrennt. So wird jede Stunde abwechslungsreich.</p>
+      <h5 class="card-title">📋 Themen, Stimme & Modell pro Termin</h5>
+      <p class="text-muted small mb-2">Für jeden Sendetermin eigene Themen (leer = globale Themen oben), eigene Stimme und Modell (leer = globale Stimme). Mit ▶ hörst du die gewählte Stimme probe. Mehrere Themen kommagetrennt – je Beitrag werden 4 genommen (täglich rotierend).</p>
       {% if news_pins %}
-        <div style="max-height:360px;overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px">
+        <div style="max-height:420px;overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px">
         {% for p in news_pins %}
-          <div class="row g-2 align-items-center mb-1">
-            <div class="col-3 col-md-2"><span class="badge bg-secondary">{{ p.start_time|time:"H:i" }}</span></div>
-            <div class="col-9 col-md-10">
-              <textarea name="topic_{{ p.pk }}" rows="2" class="form-control form-control-sm" placeholder="(globale Themen verwenden) – mehrere kommagetrennt, je Beitrag werden 4 genommen (täglich rotierend)">{{ p.topic }}</textarea>
+          <div class="news-term mb-2 pb-2" style="border-bottom:1px solid rgba(255,255,255,.06)">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+              <span class="badge bg-secondary">{{ p.start_time|time:"H:i" }}</span>
+              <select name="voice_{{ p.pk }}" class="form-select form-select-sm news-voice" style="width:auto;max-width:260px">
+                <option value="">— globale Stimme —</option>
+                {% for v,vl in voices %}<option value="{{ v }}" {% if p.gen_spec.voice == v %}selected{% endif %}>{{ vl }}</option>{% endfor %}
+              </select>
+              <select name="model_{{ p.pk }}" class="form-select form-select-sm news-model" style="width:auto" title="nur für 🌟 Gemini-Stimmen">
+                <option value="">Modell: auto</option>
+                <option value="flash" {% if p.gen_spec.tts_model == 'flash' %}selected{% endif %}>flash</option>
+                <option value="pro" {% if p.gen_spec.tts_model == 'pro' %}selected{% endif %}>pro</option>
+              </select>
+              <button type="button" class="btn btn-outline-secondary btn-sm news-voice-play" title="Stimme probehören">▶</button>
             </div>
+            <textarea name="topic_{{ p.pk }}" rows="2" class="form-control form-control-sm" placeholder="(globale Themen verwenden) – mehrere kommagetrennt">{{ p.topic }}</textarea>
           </div>
         {% endfor %}
         </div>
+        <div class="form-text">▶ erzeugt eine Live-Probe (🔊 Edge-Stimmen gratis, 🌟 Gemini-Stimmen wenige Cent).</div>
       {% else %}
         <div class="small text-muted">Noch keine Termine vorhanden – erst „Sendezeiten" speichern, dann erscheinen hier die Termine zum Befüllen.</div>
       {% endif %}
@@ -132,4 +143,26 @@
     <a href="{% url 'radio:settings' %}" class="btn btn-outline-secondary">Abbrechen</a>
   </form>
 </div>
+
+<script>
+(function(){
+  var audio=new Audio();
+  var csrf=document.querySelector('[name=csrfmiddlewaretoken]');
+  var globalVoice=document.querySelector('select[name="voice"]');
+  var globalModel=document.querySelector('select[name="tts_model"]');
+  document.querySelectorAll('.news-voice-play').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var box=btn.closest('.news-term');
+      var voice=(box.querySelector('.news-voice').value)||(globalVoice?globalVoice.value:'')||'gemini-Gacrux';
+      var model=(box.querySelector('.news-model').value)||(globalModel?globalModel.value:'');
+      var orig=btn.textContent; btn.textContent='⏳'; btn.disabled=true;
+      fetch("{% url 'radio:tts_test' %}",{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrf?csrf.value:''},body:JSON.stringify({voice:voice,gemini_model:model})})
+        .then(function(r){return r.json();}).then(function(j){
+          if(j.audio){ audio.src=j.audio; audio.play(); } else { alert('Probe fehlgeschlagen: '+(j.error||'?')); }
+        }).catch(function(){ alert('Probe fehlgeschlagen.'); })
+        .finally(function(){ btn.textContent=orig; btn.disabled=false; });
+    });
+  });
+})();
+</script>
 {% endblock %}

@@ -470,9 +470,9 @@ def _regenerate_news_pins(c):
     Spielt je Pin die frischeste Tagesnews (rubrik_key='news')."""
     import datetime as _dt
     from .models import ScheduledItem
-    # vorhandene Termin-Themen pro Stunde merken, damit sie beim Neuaufbau erhalten bleiben
-    old_topics = {p.start_time.hour: p.topic for p in
-                  ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True)}
+    # vorhandene Termin-Themen + Stimme/Modell pro Stunde merken (beim Neuaufbau erhalten)
+    old = {p.start_time.hour: (p.topic, p.gen_spec or {}) for p in
+           ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True)}
     # nur die WIEDERKEHRENDEN News-Pins ersetzen (on_date leer); datums-spezifische bleiben
     ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True).delete()
     if not c.news_enabled:
@@ -483,10 +483,11 @@ def _regenerate_news_pins(c):
     to = max(0, min(23, c.news_to_hour if c.news_to_hour is not None else 23))
     made, hh = 0, frm
     while hh <= to:
+        _topic, _spec = old.get(hh, ('', {}))
         ScheduledItem.objects.create(
             name=f'News {hh:02d}:{minute:02d}', mode='rubrik_auto', rubrik_key='news',
             start_time=_dt.time(hh, minute), days='', enforce='anchor', is_active=True, order=0,
-            topic=old_topics.get(hh, ''))
+            topic=_topic, gen_spec=_spec)
         made += 1
         hh += step
     return made
@@ -531,10 +532,22 @@ def news_settings_save(request):
     # damit _regenerate_news_pins sie pro Stunde übernimmt.
     from .models import ScheduledItem
     for p in ScheduledItem.objects.filter(rubrik_key='news', on_date__isnull=True):
-        key = f'topic_{p.pk}'
-        if key in request.POST:
-            p.topic = (request.POST.get(key) or '').strip()[:1000]
-            p.save(update_fields=['topic'])
+        changed = False
+        if f'topic_{p.pk}' in request.POST:
+            p.topic = (request.POST.get(f'topic_{p.pk}') or '').strip()[:1000]
+            changed = True
+        # Stimme/Modell pro Termin in gen_spec ablegen (leer = globale Journal-Stimme)
+        if f'voice_{p.pk}' in request.POST:
+            spec = dict(p.gen_spec or {})
+            v = (request.POST.get(f'voice_{p.pk}') or '').strip()
+            m = (request.POST.get(f'model_{p.pk}') or '').strip()
+            spec['voice'] = v if v else None
+            spec['tts_model'] = m if m else None
+            spec = {k: val for k, val in spec.items() if val}
+            p.gen_spec = spec
+            changed = True
+        if changed:
+            p.save()
     n = _regenerate_news_pins(c)
     return redirect(reverse('radio:news_settings') + f'?saved=1&pins={n}')
 
@@ -1125,6 +1138,9 @@ def tts_test(request):
             mp3 = el.text_to_speech(text, el.voice_id_of(voice), model_id=(eleven_model or c.eleven_model_id),
                                     stability=c.eleven_stability, similarity=c.eleven_similarity,
                                     style=c.eleven_style, speaker_boost=c.eleven_speaker_boost)
+        elif str(voice).startswith('edge-'):
+            from . import edgetts
+            mp3 = edgetts.synth(text, voice=voice)
         else:
             model = gemini_model or StationConfig.get().gemini_tts_model
             mp3 = gemini_tts.synth(text, voice=voice, kind='wissen', model=model)
