@@ -362,20 +362,54 @@ def generate_spoken_text(kind, topic=None, season=None, target_words=None):
         extra += ' ' + ann
     user = (
         f'{task}{extra} '
-        'Antworte ausschließlich als JSON-Objekt mit genau zwei Feldern: '
-        '"title" = ein kurzer, konkreter deutscher Titel (kein Platzhalter, keine '
-        'spitzen Klammern), "text" = der vollständige, fertig ausformulierte '
-        'Vorlesetext als Fließtext (ohne Regieanweisungen, ohne Überschriften). '
-        'Beide Felder MÜSSEN mit echtem, ausformuliertem Inhalt gefüllt sein.'
+        'Gib deine Antwort in genau diesem Format: In der ERSTEN Zeile "TITEL: " gefolgt von '
+        'einem kurzen, konkreten deutschen Titel (kein Platzhalter, keine spitzen Klammern). '
+        'Danach eine Leerzeile, dann der vollständige, fertig ausformulierte Vorlesetext als '
+        'Fließtext (ohne Überschriften, ohne Markdown/Sternchen). Schreibe den Text '
+        'zusammenhängend und vollständig bis zum Schluss zu Ende.'
     )
-    raw = glm_chat(user, system=system, json_mode=True, max_tokens=max(800, words * 3))
-    data = _parse_json(raw)
-    if not isinstance(data, dict) or not data.get('text'):
-        raise RuntimeError(f'Unerwartetes GLM-Format für Wort-Inhalt: {raw[:200]}')
-    return {
-        'title': (data.get('title') or kind.title()).strip()[:200],
-        'text': data['text'].strip(),
-    }
+    import re as _re_t
+    def _truncated(txt):
+        # Text gilt als abgeschnitten, wenn er (nach evtl. SFX-Marker) nicht
+        # mit einem Satzzeichen endet -> GLM-Truncation, neu generieren.
+        t = _re_t.sub(r'\[[^\]]*\]\s*$', '', (txt or '').strip()).strip()
+        t = t.rstrip('"\u201c\u201d\u201e\u00bb\u00ab' + chr(39)).strip()
+        return bool(t) and t[-1] not in '.!?\u2026'
+    # WICHTIG: KEIN json_mode. Im JSON-Modus beendet ein Anführungszeichen aus der
+    # wörtlichen Rede das "text"-Feld vorzeitig -> die Geschichte bricht mitten im
+    # Dialog ab. Reines Textformat (TITEL-Zeile + Fließtext) ist dagegen robust.
+    title, body, raw = '', '', ''
+    for _att in range(3):
+        raw = glm_chat(user, system=system, max_tokens=max(2400, words * 6)).strip()
+        title, body = _split_title_text(raw, kind)
+        if body and not _truncated(body):
+            break
+    if not body:
+        raise RuntimeError(f'Leerer GLM-Wort-Inhalt: {raw[:200]}')
+    body = body.replace('*', '').replace('#', '').strip()  # Markdown-Reste raus
+    return {'title': (title or kind.title())[:200], 'text': body}
+
+
+def _split_title_text(raw, kind='wissen'):
+    """Trennt 'TITEL: ...' (erste Zeile) vom Vorlesetext; robust gegen fehlenden Marker."""
+    import re as _re
+    s = (raw or '').strip()
+    if s.startswith('```'):
+        s = s.strip('`').strip()
+        if s[:4].lower() == 'json':
+            s = s[4:].strip()
+    lines = s.splitlines()
+    title, start = '', 0
+    for i, ln in enumerate(lines[:3]):
+        m = _re.match(r'\s*(?:TITEL|Titel|TITLE|Title)\s*[:\-]\s*(.+)', ln)
+        if m:
+            title = m.group(1).strip().strip('"“”„*#').strip()
+            start = i + 1
+            break
+    body = '\n'.join(lines[start:]).strip()
+    if not title and body:  # kein Marker -> Titel aus erstem Satz ableiten
+        title = _re.split(r'(?<=[.!?])\s', body, 1)[0][:60]
+    return title[:200], body
 
 
 def _parse_json(raw):
