@@ -806,19 +806,27 @@ def fetch_news(self, only_if_missing=False):
     created = 0
     for topic in topics[:8]:
         raw = news.search_topic(topic)
-        if not raw:
+        if not raw or raw.strip().upper().startswith('KEINE'):
             continue
         try:
             text = glm.glm_chat(
-                f'Fasse die folgenden aktuellen Meldungen zum Thema "{topic}" zu einem kurzen, '
-                f'radiotauglichen Nachrichtenblock auf Deutsch zusammen (3–5 Sätze, sachlich, zum '
-                f'Vorlesen, ohne Quellenangaben oder URLs):\n\n{raw}\n\nGib nur den fertigen Vorlesetext zurück.',
-                system='Du bist Nachrichtenredakteur eines Radiosenders.', max_tokens=600).strip()
+                f'Aus den folgenden recherchierten Meldungen zum Thema "{topic}" einen kurzen '
+                f'Radio-Nachrichtenblock auf Deutsch formen (3–5 Sätze). WICHTIG: Berichte NUR '
+                f'über die konkreten, AKTUELLEN Ereignisse (was genau ist passiert, wer, wann) – '
+                f'KEINE allgemeinen Ratgebertipps, KEINE zeitlosen Floskeln wie "erfreut sich '
+                f'Beliebtheit" oder "ideal für Anfänger". Enthalten die Meldungen kein echtes '
+                f'aktuelles Ereignis, antworte nur mit "KEINE".\n\n{raw}\n\n'
+                f'Gib ausschließlich den Vorlesetext zurück – ohne Einleitung, Erklärung oder Markdown.',
+                system='Du bist Nachrichtenredakteur. Du berichtest nur über konkrete, aktuelle Ereignisse.',
+                max_tokens=600).strip()
         except Exception as e:
             logger.warning(f'fetch_news: GLM-Zusammenfassung fehlgeschlagen ({e}), nutze Rohtext')
             text = raw
+        # Themen ohne echte aktuelle Meldung ueberspringen (kein Evergreen-Fueller)
+        if not text or text.strip().upper().startswith('KEINE'):
+            continue
         sc = SpokenContent(kind='news', title=f'News: {topic}'[:200], description=topic[:300],
-                           text=(text or raw).strip(), voice='', air_date=_date.today(), status='draft')
+                           text=text.strip(), voice='', air_date=_date.today(), status='draft')
         sc.save()
         created += 1
     # --- Tages-Journal: alle Themen zu EINEM vertonten Beitrag bündeln ------
@@ -836,13 +844,26 @@ def fetch_news(self, only_if_missing=False):
             _words = max(40, round(_sec * 2.3))
             combined = '\n\n'.join(f'[{d.description}]\n{d.text}' for d in drafts)
             jt = glm.glm_chat(
-                'Forme aus den folgenden Themenblöcken ein zusammenhängendes, radiotaugliches '
-                f'"Naturmacher-Journal" (ca. {_sec} Sekunden Vorlesezeit, etwa {_words} Wörter): '
-                'freundlicher Einstieg ("Willkommen zum Naturmacher-Journal"), die wichtigsten '
-                'Meldungen fließend verbunden, kurzer warmer Abschluss. Sachlich und '
-                'freundlich, zum Vorlesen, keine URLs oder Quellenangaben:\n\n' + combined,
-                system='Du bist Nachrichtenredakteur eines familienfreundlichen Radiosenders.',
+                'Forme aus den folgenden recherchierten Meldungen ein zusammenhängendes, '
+                f'radiotaugliches "Naturmacher-Journal" (ca. {_sec} Sekunden Vorlesezeit, etwa '
+                f'{_words} Wörter). Beginne mit "Willkommen zum Naturmacher-Journal", verbinde die '
+                'wichtigsten Meldungen fließend, kurzer warmer Abschluss. '
+                'WICHTIG: Berichte über die KONKRETEN, AKTUELLEN Ereignisse – was ist passiert, '
+                'wer ist beteiligt, welcher Anlass. Es sind echte Nachrichten, KEINE allgemeinen '
+                'Ratgebertipps und KEINE zeitlosen Floskeln ("erfreut sich Beliebtheit", "ideal '
+                'für Anfänger"). Nenne konkrete Fakten/Anlässe. Antworte mit NICHTS außer dem '
+                'reinen Vorlesetext: KEINE Einleitung wie "Hier ist ein Entwurf", KEINE Längen- '
+                'oder Meta-Hinweise, KEIN Markdown, KEINE Sternchen, keine URLs/Quellen:\n\n' + combined,
+                system='Du bist Nachrichtenredakteur eines familienfreundlichen Radiosenders. Du '
+                       'berichtest ausschließlich über konkrete, aktuelle Ereignisse und gibst nur '
+                       'den reinen Vorlesetext aus (keine Vorrede, kein Markdown).',
                 max_tokens=max(900, _words * 3)).strip()
+            # Sicherheitsnetz: GLM-Meta-Vorrede / Markdown entfernen, damit nichts
+            # wie "Hier ist ein Entwurf ..." mitvorgelesen wird.
+            jt = jt.replace('*', '').replace('#', '').strip()
+            _wk = jt.find('Willkommen zum Naturmacher-Journal')
+            if _wk > 0:
+                jt = jt[_wk:].strip()
             # Stimme/Modell: pro-Termin (News-Pin gen_spec) hat Vorrang vor der Journal-Rubrik
             _pspec = (_pin.gen_spec or {}) if _pin else {}
             voice = (_pspec.get('voice')

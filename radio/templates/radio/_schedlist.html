@@ -1,0 +1,19 @@
+{% for day in days %}
+    {% for e in day.entries %}
+      <div class="tl-row sched-row" data-day="{{ day.date|date:'Y-m-d' }}" data-daylabel="{{ day.label }}" data-hour="{{ e.proj.hour }}">
+        <span class="tl-time">{{ e.proj_str }}</span>
+        <span class="kind-badge k-{{ e.kind }}">{{ e.get_kind_display }}</span>
+        <span class="tl-title">{{ e.title }}{% if e.manual %} <span class="badge bg-light text-dark">manuell</span>{% endif %}
+          {% if e.engine_label %}<span class="d-block small" style="color:#8fa3b8">🤖 {{ e.engine_label }}{% if e.gen_prompt %} <a href="#" style="color:#9fb3cc" onclick="var p=this.parentNode.nextElementSibling;p.style.display=p.style.display==='block'?'none':'block';return false;">Prompt</a>{% endif %}</span>{% endif %}
+          {% if e.gen_prompt %}<span class="d-block small" style="display:none;white-space:pre-wrap;color:#7e93a8;background:rgba(255,255,255,.05);border-radius:6px;padding:6px 8px;max-height:160px;overflow:auto">{{ e.gen_prompt }}</span>{% endif %}</span>
+        {% if e.audio_url %}<audio controls preload="none" src="{{ e.audio_url }}" style="max-width:200px"></audio>{% endif %}
+        {% if e.planned %}<span class="badge bg-info text-dark" title="Wird live punktgenau eingespielt (nicht in der Warteschlange)">⏱ geplant · live um {{ e.proj_str }}</span>{% else %}<span class="btn-group btn-group-sm">
+          <form method="post" action="{% url 'radio:entry_move' e.pk %}" class="m-0">{% csrf_token %}<input type="hidden" name="dir" value="up"><button class="btn btn-outline-secondary" {% if forloop.first and forloop.parentloop.first %}disabled{% endif %}>↑</button></form>
+          <form method="post" action="{% url 'radio:entry_move' e.pk %}" class="m-0">{% csrf_token %}<input type="hidden" name="dir" value="down"><button class="btn btn-outline-secondary">↓</button></form>
+          <form method="post" action="{% url 'radio:entry_remove' e.pk %}" class="m-0" onsubmit="return confirm('Eintrag entfernen?');">{% csrf_token %}<button class="btn btn-outline-danger">✕</button></form>
+        </span>{% endif %}
+      </div>
+    {% endfor %}
+  {% empty %}
+    <div class="text-muted">Kein Sendeplan. Erstelle einen Beitrag im Studio oder plane den Tag.</div>
+  {% endfor %}

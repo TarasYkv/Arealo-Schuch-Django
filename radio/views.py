@@ -54,6 +54,51 @@ def _queue_reach():
     return n, txt
 
 
+class _PlannedRow:
+    """Synthetische Sendeplan-Zeile fuer einen geplanten exact-Pin (kommt live
+    vom Waechter, ist NICHT materialisiert -> sonst im Sendeplan unsichtbar)."""
+    def __init__(self, pt, kind, kind_disp, title):
+        self.proj = pt
+        self.proj_str = pt.strftime('%H:%M')
+        self.kind = kind
+        self.get_kind_display = kind_disp
+        self.title = title
+        self.engine_label = ''
+        self.gen_prompt = ''
+        self.audio_url = ''
+        self.manual = False
+        self.planned = True
+        self.pk = None
+
+
+def _planned_pin_rows(start_b, end_b):
+    """exact-Pins als 'geplant'-Marker im Sendeplan-Zeitfenster [start_b, end_b]."""
+    from datetime import datetime as _dt
+    from .models import ScheduledItem, SpokenContent
+    kindmap = dict(SpokenContent.KIND)
+    pins = list(ScheduledItem.objects.filter(is_active=True, enforce='exact')
+                .select_related('track', 'spoken'))
+    out = []
+    d = start_b.date()
+    while d <= end_b.date():
+        for pin in pins:
+            if not pin.applies_on(d):
+                continue
+            pt = _dt.combine(d, pin.start_time, tzinfo=BERLIN)
+            if pt < start_b or pt > end_b:
+                continue
+            if pin.mode == 'pinned_track' and pin.track:
+                kind, title = 'music', pin.track.title
+            elif pin.mode == 'pinned_spoken' and pin.spoken:
+                kind, title = (pin.spoken.kind or 'news'), pin.spoken.title
+            else:
+                kind = pin.rubrik_key or 'music'
+                title = kindmap.get(pin.rubrik_key) or pin.rubrik_key or 'Beitrag'
+            out.append(_PlannedRow(pt, kind, kindmap.get(kind, kind), title))
+        d += timedelta(days=1)
+    return out
+
+
 def _projected_days():
     """(days, queued, current, nxt): anstehende Einträge mit projizierten Berliner
     Sendezeiten (vorwärts ab jetzt kumuliert), nach Tagen gruppiert."""
@@ -79,8 +124,16 @@ def _projected_days():
         e.proj_str = pe.strftime('%H:%M')  # bereits Berlin — KEIN Template-|time-Filter
         e.engine_label, e.gen_prompt = _entry_meta(e)
         t += timedelta(seconds=e.duration_sec or 120)
+    rows = list(queued)
+    for _e in rows:
+        _e.planned = False
+    try:
+        rows = rows + _planned_pin_rows(now.astimezone(BERLIN), t.astimezone(BERLIN))
+        rows.sort(key=lambda x: x.proj)
+    except Exception:
+        pass
     days = []
-    for e in queued:
+    for e in rows:
         label = f'{WD[e.proj.weekday()]}, {e.proj.strftime("%d.%m.")}'
         if not days or days[-1]['label'] != label:
             days.append({'label': label, 'date': e.proj.date(), 'entries': []})
