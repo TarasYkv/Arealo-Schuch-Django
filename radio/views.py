@@ -61,7 +61,7 @@ class _PlannedRow:
         self.proj = pt
         self.proj_str = pt.strftime('%H:%M')
         self.kind = kind
-        self.get_kind_display = kind_disp
+        self._kind_disp = kind_disp
         self.title = title
         self.engine_label = ''
         self.gen_prompt = ''
@@ -69,6 +69,9 @@ class _PlannedRow:
         self.manual = False
         self.planned = True
         self.pk = None
+
+    def get_kind_display(self):
+        return self._kind_disp
 
 
 def _planned_pin_rows(start_b, end_b):
