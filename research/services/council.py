@@ -126,6 +126,16 @@ MODELS = {
         'weaknesses': 'Deutsch gelegentlich holprig; kulturelle Bias wie bei allen chin. Modellen; Instruction-Following weniger strikt.',
         'notes': 'Im Z.AI Coding Plan inkludiert — keine zusaetzlichen Token-Kosten.'
     },
+    'glm52': {
+        'name': 'GLM 5.2', 'provider': 'zhipu', 'model': 'glm-5.2',
+        # Nutzt den Z.AI Coding Plan (flat-rate Abo) ueber api.z.ai/api/coding/paas/v4.
+        # Keine Token-Kosten; Endpoint liefert die aktuelle GLM-5.2-Generation.
+        'pricing': (0.00, 0.00), 'context': '200k',
+        'origin': 'Zhipu AI (China, Peking, aus Tsinghua-Uni ausgegruendet). Nachfolger von GLM 5.1.',
+        'strengths': 'Aktuellste GLM-Generation, im Coding Plan flat-rate inkludiert, schnell, verbessertes Reasoning + Instruction-Following gegenueber 5.1.',
+        'weaknesses': 'Deutsch gelegentlich holprig; kulturelle Bias wie bei allen chin. Modellen.',
+        'notes': 'Standard-Redakteur/Moderator des Councils — laeuft kostenneutral ueber das Z.AI-Abo.'
+    },
     'kimi': {
         'name': 'Kimi K2.6', 'provider': 'openrouter', 'model': 'moonshotai/kimi-k2.6',
         'pricing': (0.60, 2.80), 'context': '200k',

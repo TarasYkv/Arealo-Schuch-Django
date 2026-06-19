@@ -35,7 +35,7 @@ class AskForm(forms.Form):
     )
     primary_model = forms.ChoiceField(
         label='Primär-Modell (RAG + Hybrid + Council-Redakteur)',
-        choices=[], initial='glm',
+        choices=[], initial='glm52',
         widget=forms.Select(attrs={'class': 'form-select'}),
         required=False,
     )
