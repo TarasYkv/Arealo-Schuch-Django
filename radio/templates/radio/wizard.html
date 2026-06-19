@@ -1,0 +1,432 @@
+{% extends 'base.html' %}
+{% block title %}Inhalte-Wizard – Naturmacher Radio{% endblock %}
+{% block extra_css %}{% include 'radio/_theme.html' %}
+<style>
+  .wz-step{display:none;} .wz-step.on{display:block;}
+  .wz-dots{display:flex;gap:8px;margin-bottom:14px;}
+  .wz-dot{flex:1;height:6px;border-radius:6px;background:rgba(255,255,255,.15);}
+  .wz-dot.on{background:linear-gradient(90deg,#2ecf8f,#3b82f6);}
+  .rub-row{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.07);}
+  .gen-card{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.05);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-3 radio-wrap" style="max-width:900px">
+  <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <h2 class="mb-0">🪄 Inhalte-Wizard</h2>
+    <a href="{% url 'radio:dashboard' %}" class="btn btn-outline-secondary btn-sm">← zum Sendeplan</a>
+  </div>
+  <div class="wz-dots"><div class="wz-dot on" id="d1"></div><div class="wz-dot" id="d2"></div><div class="wz-dot" id="d3"></div></div>
+
+  <!-- Schritt 1: Rubriken wählen -->
+  <div class="wz-step on" id="step1">
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">1. Welche Inhalte sollen erstellt werden?</h5>
+      <p class="text-muted small">Wähle Rubriken, lege die Anzahl fest und gib optional ein Thema/eine Richtung vor.</p>
+      <div id="rubrows"></div>
+      <button id="to2" class="btn btn-success mt-3">Weiter → Texte erzeugen</button>
+    </div></div>
+  </div>
+
+  <!-- Schritt 2: Texte (GLM) bearbeiten -->
+  <div class="wz-step" id="step2">
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">2. Texte (GLM 5.1) prüfen & bearbeiten</h5>
+      <div id="wzspeechbar" class="d-flex gap-2 align-items-center flex-wrap mb-2">
+        <label class="small mb-0">🎙️ Sprach-Engine:</label>
+        <select id="wzengine" class="form-select form-select-sm" style="max-width:140px">
+          <option value="gemini">🌟 Gemini</option>
+          <option value="eleven">🎧 ElevenLabs</option>
+        </select>
+        <select id="wzgmodel" class="form-select form-select-sm" style="max-width:320px"></select>
+        <span class="infobtn" data-info-title="🌟 Flash vs. Pro (Gemini-Stimmen)" data-info="Beide nutzen dieselben Gemini-Stimmen, aber unterschiedliche Qualitätsstufen:
+
+• FLASH (Standard): schnell, sehr günstig (~1,5 ct/Min), zuverlässig. Schon sehr natürlich – ideal für News, Tipps, Moderation und Dauerbetrieb.
+
+• PRO: noch natürlichere Betonung/Emotion, besonders schön für Gute-Nacht-/Hörgeschichten. Aber ~2× teurer (~3 ct/Min), etwas langsamer und gelegentlich instabil bei sehr langen Texten.
+
+Tipp: Pro vor allem für Geschichten; für kurze Sachtexte reicht Flash.">i</span>
+        <button id="wztune" type="button" class="btn btn-outline-info btn-sm">⚙️ Feintuning</button>
+        <span style="border-left:1px solid rgba(255,255,255,.2);padding-left:10px">
+          <label class="small mb-0"><input type="checkbox" id="wzbgmusic"> 🎵 Hintergrundmusik</label>
+        </span>
+        <span id="wzbgopts" class="d-flex align-items-center gap-1" style="display:none!important">
+          <span class="input-group input-group-sm" style="width:96px"><input id="wzbgvol" type="number" min="0" max="100" step="1" value="12" title="Lautstärke %"><span class="input-group-text">%</span></span>
+          <button type="button" id="wzbgpick" class="btn btn-outline-secondary btn-sm">🎵 <span id="wzbglabel">Automatisch</span></button>
+          <input type="hidden" id="wzbgtrack" value="">
+        </span>
+      </div>
+      <div id="genstatus" class="small text-muted mb-2"></div>
+      <div id="cards"></div>
+      <div class="d-flex gap-2 mt-2 flex-wrap">
+        <button id="back1" class="btn btn-outline-secondary btn-sm">← zurück</button>
+        <button id="to3" class="btn btn-success btn-sm">Weiter → vertonen/erzeugen</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- Schritt 3: Erzeugen -->
+  <div class="wz-step" id="step3">
+    <div class="card"><div class="card-body">
+      <h5 class="card-title">3. Audio erzeugen → Bibliothek</h5>
+      <p class="text-muted small">Aus jedem Text/Lied wird Audio erzeugt. Danach kannst du jeden Beitrag <b>anhören</b>, gute mit <b>✓ Übernehmen</b> in die Bibliothek aufnehmen und schlechte mit <b>🗑 Entfernen</b> löschen.</p>
+      <button id="createall" class="btn btn-success">🎧 Alle erzeugen</button>
+      <div id="createlist" class="mt-3"></div>
+      <a href="{% url 'radio:dashboard' %}" id="donelink" class="btn btn-outline-primary btn-sm mt-2" style="display:none">✓ Fertig – zum Sendeplan</a>
+    </div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var CSRF="{{ csrf_token }}";
+  var RUBS={{ rubriken_json|safe }};
+  var VBK={{ voice_by_kind|safe }};
+  var GEMINI_VOICES={{ voices_json|safe }};
+  var ELEVEN_VOICES={{ eleven_voices_json|safe }};
+  var TTS_SET={{ tts_settings_json|safe }};
+  var BG_TRACKS={{ bg_tracks_json|safe }};
+  var ENGINE='gemini';
+  var SAMPLE_BASE="{{ sample_base }}";
+  var prevAudio=new Audio();
+  function curVoices(){ return (ENGINE==='eleven'?ELEVEN_VOICES:GEMINI_VOICES); }
+  function voiceOpts(sel){ var L=curVoices(); if(!L.length) return '<option value="">(keine Stimmen)</option>';
+    return L.map(function(v){ return '<option value="'+v.value+'"'+(v.value===sel?' selected':'')+'>'+v.label+'</option>'; }).join(''); }
+  function playVoice(val){ if(!val||ENGINE==='eleven') return; prevAudio.pause(); prevAudio.src=SAMPLE_BASE+val+'.mp3'; prevAudio.play(); }
+  function rebuildVoiceSelects(){
+    document.querySelectorAll('.cvoice,.cvoice2').forEach(function(sel){ sel.innerHTML=voiceOpts(sel.value); });
+    document.querySelectorAll('.vprev').forEach(function(b){ b.style.display=(ENGINE==='eleven')?'none':'inline-block'; });
+  }
+  var $=function(id){return document.getElementById(id);};
+  function jpost(url,obj){return fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(obj)}).then(function(r){return r.json();});}
+  function show(step){['1','2','3'].forEach(function(n){ $('step'+n).classList.toggle('on', n===step); $('d'+n).classList.toggle('on', n<=step); });}
+
+  // Sinnvolle Standard-Länge (Sekunden) je Rubrik
+  function defSec(key){ return ({story:180,news:60,tip:45,wissen:75,kreativ:60,dialog:90,music:120,song:150,effekt:5,jingle:8,ad:30})[key]||60; }
+  // Dauerschätzung aus Wortzahl (deutsches Vorlese-Tempo ~2,3 Wörter/Sek.)
+  function estSec(text){ var w=(text||'').trim().split(/\s+/).filter(Boolean).length; return Math.round(w/2.3); }
+  function fmtSec(s){ s=Math.max(0,Math.round(s||0)); return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2); }
+
+  // Schritt 1: Rubrik-Zeilen
+  var rb=$('rubrows');
+  RUBS.forEach(function(r){
+    var row=document.createElement('div'); row.className='rub-row';
+    row.innerHTML='<label class="form-check-label flex-grow-1"><input type="checkbox" class="rsel" data-key="'+r.key+'" data-rtype="'+r.rtype+'"> <strong>'+r.label+'</strong> <span class="text-muted small">('+r.key+')</span></label>'+
+      '<input type="number" class="rcount form-control form-control-sm" min="1" max="10" value="1" title="Anzahl" style="width:64px">'+
+      '<span class="input-group" style="width:118px"><input type="number" class="rsec form-control form-control-sm" min="3" max="1800" step="5" value="'+defSec(r.key)+'" title="Ziel-Länge in Sekunden"><span class="input-group-text">Sek</span></span>'+
+      '<input type="text" class="rinstr form-control form-control-sm" placeholder="Thema/Richtung (optional)" style="max-width:280px">';
+    rb.appendChild(row);
+  });
+
+  function selected(){
+    return Array.prototype.slice.call(document.querySelectorAll('.rub-row')).map(function(row){
+      var cb=row.querySelector('.rsel'); if(!cb.checked) return null;
+      return {key:cb.dataset.key, rtype:cb.dataset.rtype, count:Math.max(1,+row.querySelector('.rcount').value||1),
+              target_sec:Math.max(3,+row.querySelector('.rsec').value||defSec(cb.dataset.key)), instr:row.querySelector('.rinstr').value};
+    }).filter(Boolean);
+  }
+
+  var CARDS=[];
+  $('to2').addEventListener('click',function(){
+    var sel=selected(); if(!sel.length){ alert('Bitte mindestens eine Rubrik wählen.'); return; }
+    show('2'); $('cards').innerHTML=''; CARDS=[];
+    // Liste der zu erzeugenden Items
+    var jobs=[]; sel.forEach(function(s){ for(var i=0;i<s.count;i++) jobs.push(s); });
+    // Sprach-Leiste (Engine/Feintuning/Hintergrundmusik) nur zeigen, wenn Sprach-Beiträge dabei sind
+    var hasSpeech=jobs.some(function(s){ return ['music','song','effekt','jingle'].indexOf(s.key)<0; });
+    $('wzspeechbar').style.display=hasSpeech?'flex':'none';
+    var done=0; $('genstatus').textContent='GLM 5.1 schreibt '+jobs.length+' Text(e)…';
+    function next(i){
+      if(i>=jobs.length){ $('genstatus').textContent='✓ '+jobs.length+' Text(e) erstellt – jetzt prüfen/bearbeiten.'; return; }
+      var s=jobs[i];
+      jpost("{% url 'radio:glm_assist' %}",{kind:s.key, instruction:s.instr, target_sec:s.target_sec, speaker_a:'Anna', speaker_b:'Tom'})
+      .then(function(j){ addCard(s, j.text||''); done++; $('genstatus').textContent='GLM 5.1: '+done+'/'+jobs.length+' …'; next(i+1); })
+      .catch(function(){ addCard(s,''); next(i+1); });
+    }
+    next(0);
+  });
+
+  function addCard(s, text){
+    var idx=CARDS.length;
+    var isMusic=(s.key==='music'), isSong=(s.key==='song'), isFx=(s.key==='effekt'||s.key==='jingle'), isDialog=(s.key==='dialog');
+    var isSpeech=!isMusic && !isSong && !isFx;
+    var label=(isMusic?'Musikstil':(isSong?'Liedtext':(isFx?'Effekt-Beschreibung (EN)':'Text')));
+    var c=document.createElement('div'); c.className='gen-card'; c.id='card'+idx;
+    var styleField = isSong ? '<input class="cstyle form-control form-control-sm mb-1" placeholder="Musikstil (EN)" value="'+(s.instr||'warm german pop, clear female vocals, acoustic guitar')+'">' : '';
+    // Modell-/Stimmen-Auswahl je nach Rubrik
+    var pickField='';
+    if(isMusic){
+      pickField='<label class="small text-muted d-block mt-1">🎛️ Modell &amp; Preis</label>'+
+        '<select class="cmodel form-select form-select-sm">'+
+        '<option value="lyria|lyria-3-pro-preview">Lyria 3 Pro – ganze Stücke (~8 ct)</option>'+
+        '<option value="lyria|lyria-3-clip-preview">Lyria 3 Clip – 30-Sek-Loop (~4 ct)</option>'+
+        '<option value="minimax|music-2.6">MiniMax 2.6 (~15 ct)</option>'+
+        '<option value="minimax|music-2.5+">MiniMax 2.5+ (günstiger)</option>'+
+        '<option value="minimax|music-2.5" disabled>MiniMax 2.5 – nur mit Gesang</option>'+
+        '<option value="minimax|music-2.0" disabled>MiniMax 2.0 – nur mit Gesang</option>'+
+        '<option value="elevenlabs|music_v1">ElevenLabs Music (~37 ct/Min – teuerste)</option>'+
+        '</select>';
+    } else if(isSong){
+      pickField='<label class="small text-muted d-block mt-1">🎛️ Modell &amp; Preis</label>'+
+        '<select class="cmodel form-select form-select-sm">'+
+        '<option value="lyria|lyria-3-pro-preview">Lyria 3 Pro – ganzes Lied (~8 ct)</option>'+
+        '<option value="lyria|lyria-3-clip-preview">Lyria 3 Clip – 30 s (~4 ct)</option>'+
+        '<option value="minimax|music-2.6">MiniMax 2.6 (~15 ct)</option>'+
+        '<option value="minimax|music-2.5+">MiniMax 2.5+ (günstiger)</option>'+
+        '<option value="minimax|music-2.5">MiniMax 2.5 (günstiger)</option>'+
+        '<option value="minimax|music-2.0">MiniMax 2.0 (günstigste)</option>'+
+        '<option value="elevenlabs|music_v1">ElevenLabs Music (~37 ct/Min – teuerste)</option>'+
+        '</select>';
+    } else if(isDialog){
+      var va=VBK['dialog']||'gemini-Charon', vb=VBK['dialog_b']||'gemini-Puck';
+      pickField='<div class="row g-1 mt-1">'+
+        '<div class="col"><label class="small text-muted d-block">🗣️ Stimme A</label>'+
+          '<div class="input-group input-group-sm"><select class="cvoice form-select form-select-sm">'+voiceOpts(va)+'</select>'+
+          '<button type="button" class="btn btn-outline-secondary vprev" data-sel="cvoice" title="Stimme anhören">▶</button></div></div>'+
+        '<div class="col"><label class="small text-muted d-block">🗣️ Stimme B</label>'+
+          '<div class="input-group input-group-sm"><select class="cvoice2 form-select form-select-sm">'+voiceOpts(vb)+'</select>'+
+          '<button type="button" class="btn btn-outline-secondary vprev" data-sel="cvoice2" title="Stimme anhören">▶</button></div></div>'+
+        '</div>';
+    } else if(isSpeech){
+      pickField='<label class="small text-muted d-block mt-1">🗣️ Stimme</label>'+
+        '<div class="input-group input-group-sm"><select class="cvoice form-select form-select-sm">'+voiceOpts(VBK[s.key]||'gemini-Charon')+'</select>'+
+        '<button type="button" class="btn btn-outline-secondary vprev" data-sel="cvoice" title="Stimme anhören">▶</button></div>';
+    }
+    // Längen-/Dauer-Zeile: bei Sprache geschätzt aus dem Text, bei Musik/Effekt die Ziel-Audiolänge
+    var durLine = (isMusic||isSong) ? '🎵 Ziel-Länge: '+fmtSec(s.target_sec)+' min:sek'
+                  : (isFx ? '🔊 Effekt-Länge: '+s.target_sec+' Sek.'
+                  : '⏱️ Geschätzte Dauer: <b class="cdurest">–</b> · Ziel: '+fmtSec(s.target_sec));
+    c.innerHTML='<div class="d-flex justify-content-between"><span class="badge kind-badge k-'+s.key+'">'+s.key+'</span>'+
+      '<button class="btn btn-sm btn-outline-secondary cregen">↻ neu</button></div>'+
+      '<input class="ctitle form-control form-control-sm my-1" placeholder="Titel (optional)">'+styleField+pickField+
+      '<label class="small text-muted">'+label+'</label>'+
+      '<textarea class="ctext form-control form-control-sm" rows="'+(isFx?2:5)+'">'+text+'</textarea>'+
+      '<div class="cdurinfo small text-muted mt-1">'+durLine+'</div>'+
+      '<div class="d-flex gap-2 align-items-center mt-1">'+
+        '<input class="ctags form-control form-control-sm" list="dl-tags" placeholder="🏷 Tags, z. B. weihnachten (optional)" style="flex:1">'+
+        '<label class="small text-muted mb-0" title="Automatisch in den Sendeplan-Pool aufnehmen"><input type="checkbox" class="cauto" checked> auto</label>'+
+      '</div>';
+    $('cards').appendChild(c);
+    CARDS.push({kind:s.key, instr:s.instr, target_sec:s.target_sec, el:c});
+    // Live-Dauerschätzung für Sprach-Rubriken
+    var ta=c.querySelector('.ctext'), est=c.querySelector('.cdurest');
+    function refreshEst(){ if(est) est.textContent=fmtSec(estSec(ta.value)); }
+    if(est){ ta.addEventListener('input',refreshEst); refreshEst(); }
+    // Stimmen-Vorhören (▶ neben jeder Stimmen-Auswahl)
+    Array.prototype.slice.call(c.querySelectorAll('.vprev')).forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var sel=c.querySelector('.'+btn.getAttribute('data-sel'));
+        if(sel) playVoice(sel.value);
+      });
+    });
+    c.querySelector('.cregen').addEventListener('click',function(){
+      ta.value='…';
+      jpost("{% url 'radio:glm_assist' %}",{kind:s.key, instruction:c.querySelector('.ctitle').value||s.instr, target_sec:s.target_sec, speaker_a:'Anna', speaker_b:'Tom'})
+        .then(function(j){ ta.value=j.text||''; refreshEst(); });
+    });
+  }
+
+  $('back1').addEventListener('click',function(){ show('1'); });
+  $('to3').addEventListener('click',function(){ if(!CARDS.length){alert('Keine Texte.');return;} show('3'); });
+
+  function wzEsc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+  // Nach dem Erzeugen: Beitrag anhören, dann „Übernehmen" (aktiviert in der
+  // Bibliothek) ODER „Entfernen" (löscht ihn). Erzeugt wird zunächst INAKTIV.
+  function renderDone(row,it,res){
+    if(!res || !res.pk){ row.textContent='✓ '+it.kind+': '+(it.title||it.text.slice(0,40)); return; }
+    var title=res.title||it.title||it.kind;
+    row.className='mb-2 p-2'; row.style.border='1px solid rgba(255,255,255,.12)'; row.style.borderRadius='8px';
+    row.innerHTML=
+      '<div class="d-flex align-items-center gap-2 flex-wrap">'+
+        '<span class="small flex-grow-1"><b>'+wzEsc(it.kind)+'</b> · '+wzEsc(title)+'</span>'+
+        (res.audio_url?'<audio controls preload="none" src="'+res.audio_url+'" style="height:34px;max-width:240px"></audio>':'')+
+        '<button type="button" class="btn btn-sm btn-success wzkeep">✓ Übernehmen</button>'+
+        '<button type="button" class="btn btn-sm btn-outline-danger wzdel">🗑 Entfernen</button>'+
+      '</div>';
+    var keep=row.querySelector('.wzkeep'), del=row.querySelector('.wzdel');
+    keep.addEventListener('click',function(){
+      keep.disabled=true; keep.textContent='…';
+      jpost("{% url 'radio:library_toggle_auto' %}",{type:res.type,pk:res.pk,on:true}).then(function(){
+        keep.textContent='✓ übernommen'; keep.classList.remove('btn-success'); keep.classList.add('btn-outline-success'); keep.disabled=true;
+        del.style.display='none';
+      }).catch(function(){ keep.disabled=false; keep.textContent='✓ Übernehmen'; alert('Übernehmen fehlgeschlagen'); });
+    });
+    del.addEventListener('click',function(){
+      if(!confirm('Diesen Beitrag wirklich löschen?')) return;
+      del.disabled=true; keep.disabled=true;
+      jpost("{% url 'radio:library_delete' %}",{type:res.type,pk:res.pk}).then(function(){
+        row.style.opacity='.5'; row.innerHTML='<span class="text-muted small">🗑 '+wzEsc(title)+' – entfernt</span>';
+      }).catch(function(){ del.disabled=false; keep.disabled=false; alert('Löschen fehlgeschlagen'); });
+    });
+  }
+  $('createall').addEventListener('click',function(){
+    $('createall').disabled=true; var list=$('createlist'); list.innerHTML='';
+    var items=CARDS.map(function(c){
+      var ve=c.el.querySelector('.cvoice'), ve2=c.el.querySelector('.cvoice2'), cm=c.el.querySelector('.cmodel');
+      var eng='lyria', lyM='', mmM='';
+      if(cm){ var pr=cm.value.split('|'); eng=pr[0]; if(eng==='minimax') mmM=pr[1]; else if(eng==='lyria') lyM=pr[1]; }
+      var tg=c.el.querySelector('.ctags'), au=c.el.querySelector('.cauto');
+      return {kind:c.kind, text:c.el.querySelector('.ctext').value, title:c.el.querySelector('.ctitle').value,
+              style:(c.el.querySelector('.cstyle')?c.el.querySelector('.cstyle').value:''),
+              engine:eng, lyria_model:lyM, mm_model:mmM, target_sec:(c.target_sec||60),
+              voice:(ve?ve.value:(VBK[c.kind]||'gemini-Charon')),
+              voice2:(ve2?ve2.value:'gemini-Puck'),
+              tags:(tg?tg.value:''), auto:(au?au.checked:true)};
+    });
+    var done=0;
+    function gen(i){
+      if(i>=items.length){ $('donelink').style.display='inline-block'; $('createall').textContent='✓ alle erzeugt'; return; }
+      var it=items[i];
+      var row=document.createElement('div'); row.className='small mb-1'; row.id='gr'+i;
+      row.textContent='⏳ '+it.kind+': '+(it.title||it.text.slice(0,40))+' …'; list.appendChild(row);
+      var body={kind:it.kind,text:it.text,title:it.title,voice:it.voice,style:it.style,
+                engine:it.engine,lyria_model:it.lyria_model,mm_model:it.mm_model,
+                gemini_model:wzGeminiModel(),eleven_model:wzElevenModel(),
+                seconds:it.target_sec,duration_min:Math.max(1,Math.round(it.target_sec/60)),
+                speaker_a:'Anna',speaker_b:'Tom',voice2:it.voice2,
+                tags:it.tags, auto:false,
+                bg_music:$('wzbgmusic').checked, bg_volume:(+$('wzbgvol').value||12)/100, bg_track_id:$('wzbgtrack').value};
+      jpost("{% url 'radio:compose_generate' %}",body).then(function(j){
+        if(!j.task_id){ row.textContent='❌ '+it.kind+': '+(j.error||'Fehler'); gen(i+1); return; }
+        poll(j.task_id,row,it,i);
+      }).catch(function(){ row.textContent='❌ '+it.kind+': Netzwerkfehler'; gen(i+1); });
+    }
+    function poll(tid,row,it,i){
+      fetch("{% url 'radio:compose_status' 'TID' %}".replace('TID',tid)).then(function(r){return r.json();}).then(function(j){
+        if(j.state==='done'){ done++; renderDone(row,it,j.result); gen(i+1); }
+        else if(j.state==='failed'){ row.textContent='❌ '+it.kind+': '+(j.error||''); gen(i+1); }
+        else { row.textContent='⏳ '+it.kind+' ('+j.state+') …'; setTimeout(function(){poll(tid,row,it,i);},3000); }
+      });
+    }
+    gen(0);
+  });
+
+  // --- Engine-Wechsel: alle Stimmen-Dropdowns umstellen ---
+  var WZ_GEMINI_MODELS=[{value:'flash',label:'Flash – ~1,5 ct/Min (empfohlen)'},{value:'pro',label:'Pro – ~3 ct/Min (für Geschichten)'}];
+  var WZ_ELEVEN_MODELS=[{value:'eleven_multilingual_v2',label:'Multilingual v2 – beste Qualität (~20 ct/Min)'},{value:'eleven_turbo_v2_5',label:'Turbo v2.5 – schneller (~10 ct/Min)'},{value:'eleven_flash_v2_5',label:'Flash v2.5 – am schnellsten (~10 ct/Min)'}];
+  function wzFillModels(){
+    var isGem=($('wzengine').value!=='eleven'); var models=isGem?WZ_GEMINI_MODELS:WZ_ELEVEN_MODELS;
+    var cur=isGem?(TTS_SET.gemini_tts_model||'flash'):(TTS_SET.eleven_model_id||'eleven_multilingual_v2');
+    $('wzgmodel').innerHTML=models.map(function(m){return '<option value="'+m.value+'"'+(m.value===cur?' selected':'')+'>'+m.label+'</option>';}).join('');
+  }
+  $('wzengine').addEventListener('change',function(){ ENGINE=$('wzengine').value; rebuildVoiceSelects(); wzFillModels(); });
+  wzFillModels();
+  function wzGeminiModel(){ return ($('wzengine').value==='eleven')?'' : $('wzgmodel').value; }
+  function wzElevenModel(){ return ($('wzengine').value==='eleven')? $('wzgmodel').value : ''; }
+
+  // --- Hintergrundmusik (global für alle Sprach-Beiträge) ---
+  function wzbgToggle(){ $('wzbgopts').style.setProperty('display', $('wzbgmusic').checked?'flex':'none', 'important'); }
+  $('wzbgmusic').addEventListener('change',wzbgToggle); wzbgToggle();
+  // Melodie-Auswahl per Popup (Suche + Pagination 20/Seite)
+  var WBGP={page:0,q:''};
+  function wzbgFiltered(){ var q=WBGP.q.toLowerCase();
+    var auto=[{value:'',label:'🔀 Automatisch (zufällig aus der Bibliothek)'}];
+    var list=BG_TRACKS.filter(function(t){ return !q || (t.label||'').toLowerCase().indexOf(q)>=0; });
+    return (q?[]:auto).concat(list); }
+  function wzbgRender(){
+    var items=wzbgFiltered(), n=items.length, PER=20, pages=Math.max(1,Math.ceil(n/PER));
+    if(WBGP.page>=pages)WBGP.page=pages-1; if(WBGP.page<0)WBGP.page=0;
+    var box=$('wzbglist'); box.innerHTML='';
+    if(!n){ box.innerHTML='<div class="text-muted small">Keine Treffer.</div>'; }
+    items.slice(WBGP.page*PER,(WBGP.page+1)*PER).forEach(function(t){
+      var row=document.createElement('button'); row.type='button'; row.className='btn btn-outline-secondary btn-sm w-100 text-start mb-1';
+      if(String(t.value)===String($('wzbgtrack').value)) row.classList.add('active');
+      row.textContent=t.label; row.addEventListener('click',function(){
+        $('wzbgtrack').value=t.value; $('wzbglabel').textContent=(t.value?t.label:'Automatisch'); $('wzbgmodal').style.display='none'; });
+      box.appendChild(row);
+    });
+    var s=WBGP.page*PER;
+    $('wzbgpager').innerHTML=(pages>1)?
+      ('<button class="btn btn-sm btn-outline-secondary" id="wzbgprev"'+(WBGP.page<=0?' disabled':'')+'>←</button>'+
+       '<span class="small text-muted">'+(s+1)+'–'+Math.min(s+PER,n)+' von '+n+' · Seite '+(WBGP.page+1)+'/'+pages+'</span>'+
+       '<button class="btn btn-sm btn-outline-secondary" id="wzbgnext"'+(WBGP.page>=pages-1?' disabled':'')+'>→</button>')
+      :'<span></span><span class="small text-muted">'+n+' Titel</span><span></span>';
+    if($('wzbgprev')) $('wzbgprev').addEventListener('click',function(){WBGP.page--;wzbgRender();});
+    if($('wzbgnext')) $('wzbgnext').addEventListener('click',function(){WBGP.page++;wzbgRender();});
+  }
+  $('wzbgpick').addEventListener('click',function(){ WBGP.page=0; $('wzbgmodal').style.display='flex'; wzbgRender(); });
+  $('wzbgclose').addEventListener('click',function(){ $('wzbgmodal').style.display='none'; });
+  $('wzbgmodal').addEventListener('click',function(e){ if(e.target.id==='wzbgmodal') $('wzbgmodal').style.display='none'; });
+  (function(){ var s=$('wzbgsearch'),t=null; s.addEventListener('input',function(){ clearTimeout(t); t=setTimeout(function(){ WBGP.q=s.value; WBGP.page=0; wzbgRender(); },180); }); })();
+
+  // --- TTS-Feintuning-Popup (gleiche Einstellungen wie im Studio, global) ---
+  function tuneSyncVis(){ var eng=$('wzengine').value;
+    $('wtune-gemini').style.display=(eng==='eleven')?'none':'block';
+    $('wtune-eleven').style.display=(eng==='eleven')?'block':'none'; }
+  function tuneLoad(){
+    $('wtg-model').value=TTS_SET.gemini_tts_model||'flash';
+    $('wte-model').value=TTS_SET.eleven_model_id||'eleven_multilingual_v2';
+    $('wte-stab').value=TTS_SET.eleven_stability; $('wte-stabv').textContent=(+TTS_SET.eleven_stability).toFixed(2);
+    $('wte-sim').value=TTS_SET.eleven_similarity; $('wte-simv').textContent=(+TTS_SET.eleven_similarity).toFixed(2);
+    $('wte-style').value=TTS_SET.eleven_style; $('wte-stylev').textContent=(+TTS_SET.eleven_style).toFixed(2);
+    $('wte-boost').checked=!!TTS_SET.eleven_speaker_boost; tuneSyncVis();
+  }
+  [['wte-stab','wte-stabv'],['wte-sim','wte-simv'],['wte-style','wte-stylev']].forEach(function(p){
+    $(p[0]).addEventListener('input',function(){ $(p[1]).textContent=(+$(p[0]).value).toFixed(2); }); });
+  $('wztune').addEventListener('click',function(){ tuneLoad(); $('wtsmodal').style.display='flex'; });
+  $('wtsclose').addEventListener('click',function(){ $('wtsmodal').style.display='none'; });
+  $('wtsmodal').addEventListener('click',function(e){ if(e.target.id==='wtsmodal') $('wtsmodal').style.display='none'; });
+  $('wtssave').addEventListener('click',function(){
+    $('wtssavestatus').textContent='speichert…';
+    jpost("{% url 'radio:tts_settings' %}",{gemini_tts_model:$('wtg-model').value, eleven_model_id:$('wte-model').value,
+      eleven_stability:+$('wte-stab').value, eleven_similarity:+$('wte-sim').value, eleven_style:+$('wte-style').value,
+      eleven_speaker_boost:$('wte-boost').checked})
+    .then(function(j){ if(j.ok){ TTS_SET=j.settings; $('wtssavestatus').textContent='✓ gespeichert';
+      setTimeout(function(){ $('wtsmodal').style.display='none'; },700);} else { $('wtssavestatus').textContent='Fehler'; } });
+  });
+})();
+</script>
+
+<!-- TTS-Feintuning Popup (Wizard) -->
+<div id="wtsmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1096;padding:24px;overflow:auto">
+  <div class="rounded p-3 mx-auto glass" style="max-width:520px">
+    <div class="d-flex align-items-center mb-2"><h6 class="mb-0 flex-grow-1">⚙️ TTS-Feintuning</h6>
+      <button id="wtsclose" type="button" class="btn btn-outline-secondary btn-sm">Schließen</button></div>
+    <div id="wtune-gemini">
+      <label class="form-label mb-1">Gemini-Modell</label>
+      <select id="wtg-model" class="form-select form-select-sm mb-2">
+        <option value="flash">Flash – ~1,5 ct/Min, schnell &amp; zuverlässig (empfohlen)</option>
+        <option value="pro">Pro – ~3 ct/Min, höchste Qualität (langsamer)</option>
+      </select>
+    </div>
+    <div id="wtune-eleven">
+      <label class="form-label mb-1">ElevenLabs-Modell</label>
+      <select id="wte-model" class="form-select form-select-sm mb-2">
+        <option value="eleven_multilingual_v2">Multilingual v2 (natürlich, Deutsch)</option>
+        <option value="eleven_turbo_v2_5">Turbo v2.5 (schneller, günstiger)</option>
+        <option value="eleven_flash_v2_5">Flash v2.5 (am schnellsten)</option>
+      </select>
+      <label class="form-label mb-0 small">Stabilität: <b id="wte-stabv"></b></label>
+      <input id="wte-stab" type="range" min="0" max="1" step="0.05" class="form-range mb-1">
+      <label class="form-label mb-0 small">Ähnlichkeit: <b id="wte-simv"></b></label>
+      <input id="wte-sim" type="range" min="0" max="1" step="0.05" class="form-range mb-1">
+      <label class="form-label mb-0 small">Ausdruck (Style): <b id="wte-stylev"></b></label>
+      <input id="wte-style" type="range" min="0" max="1" step="0.05" class="form-range mb-1">
+      <label class="small"><input id="wte-boost" type="checkbox"> Speaker Boost</label>
+    </div>
+    <button id="wtssave" type="button" class="btn btn-success btn-sm mt-2">Speichern</button>
+    <span id="wtssavestatus" class="small text-muted ms-2"></span>
+  </div>
+</div>
+
+<!-- Hintergrundmelodie-Auswahl Popup (Wizard) -->
+<div id="wzbgmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1097;padding:24px;overflow:auto">
+  <div class="rounded p-3 mx-auto glass" style="max-width:560px">
+    <div class="d-flex align-items-center mb-2"><h6 class="mb-0 flex-grow-1">🎵 Hintergrundmelodie wählen</h6>
+      <button id="wzbgclose" type="button" class="btn btn-outline-secondary btn-sm">Schließen</button></div>
+    <input id="wzbgsearch" type="search" class="form-control form-control-sm mb-2" placeholder="🔍 Melodie suchen…" autocomplete="off">
+    <div id="wzbglist"></div>
+    <div id="wzbgpager" class="d-flex justify-content-between align-items-center mt-2"></div>
+  </div>
+</div>
+<datalist id="dl-tags"></datalist>
+<script>
+(function(){var dl=document.getElementById('dl-tags'); if(!dl) return;
+ fetch("{% url 'radio:tags_overview' %}").then(function(r){return r.json();}).then(function(j){
+   dl.innerHTML=(j.tags||[]).map(function(t){return '<option value="'+t.name+'">'+(t.count?(t.count+'× verwendet'):'neu')+(t.season?(' · Saison '+t.season):'')+'</option>';}).join('');
+ }).catch(function(){});})();
+</script>
+{% include 'radio/_infohelp.html' %}
+{% include 'radio/_assistant.html' %}
+{% endblock %}
