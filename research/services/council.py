@@ -200,7 +200,7 @@ MODELS = {
         'origin': 'Perplexity (USA, 2022 gegr.). Kombiniert LLM-Reasoning mit live Web-/Paper-Suche; dahinterliegendes Basismodell rotiert (GPT/Claude/Mistral).',
         'strengths': '🌐 LIVE Web-Zugriff — kann aktuelle Paper/Artikel finden, die nach Trainings-Cutoff erschienen sind. Gibt Quellen-URLs mit. Gut für „Stand der Forschung 2025/2026"-Fragen.',
         'weaknesses': 'Variable Qualität je nach Basismodell-Route. Längere Latenz wegen Suchschritt. Kein Zugriff auf kostenpflichtige Journals.',
-        'notes': 'GAME-CHANGER für aktuelle Literatur-Recherche. In Council + Hybrid hervorragend, um die anderen Modelle mit Fakten zu ergänzen.'
+        'notes': 'GAME-CHANGER für aktuelle Literatur-Recherche. Im Council hervorragend, um die anderen Modelle mit Fakten zu ergänzen.'
     },
     'sonar_deep': {
         'name': 'Perplexity Sonar Deep Research', 'provider': 'openrouter', 'model': 'perplexity/sonar-deep-research',

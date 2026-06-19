@@ -5,7 +5,8 @@ from . import views
 app_name = 'research'
 
 urlpatterns = [
-    path('', views.dashboard, name='dashboard'),
+    path('', views.models_showcase, name='index'),
+    path('dashboard/', views.dashboard, name='dashboard'),
     path('ask/', views.ask, name='ask'),
     path('ask/<int:pk>/', views.query_detail, name='query_detail'),
     path('ask/<int:pk>/download/', views.query_download, name='query_download'),

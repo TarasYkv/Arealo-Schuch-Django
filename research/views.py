@@ -1366,4 +1366,9 @@ def models_showcase(request):
         'modes': 5,
         'free': sum(1 for c in MODELS.values() if c.get('pricing') in [(0, 0), (0.0, 0.0)]),
     }
-    return render(request, 'research/models.html', {'groups': groups, 'stats': stats})
+    recent = None
+    if request.user.is_authenticated:
+        recent = list(ResearchQuery.objects.filter(owner=request.user)
+                      .order_by('-created_at')[:5])
+    return render(request, 'research/models.html',
+                  {'groups': groups, 'stats': stats, 'recent': recent})
