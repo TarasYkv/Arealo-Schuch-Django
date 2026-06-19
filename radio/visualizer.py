@@ -78,18 +78,12 @@ def build_core(cfg, W, H, F):
                 f'c4=0x00c2ff:c5=0x3d5afe:c6=0xc043ff:speed={sp}')
     _white = 'cscheme=1|1|1|1|1|1'
     if t == 'eco_logo':
-        # SPARSAM: statisches Naturmacher-Standbild als Hintergrund + farbige
-        # Spektrum-Balken im unteren Drittel. KEIN gblur, KEIN animierter
-        # Gradient -> nur ein Bruchteil der CPU von aurora_flow.
-        # Statischer Farb-Hintergrund (Naturmacher-Grün) + bunte CQT-Balken unten.
-        # KEIN movie-loop (haengt ffmpeg), KEIN gblur/gradient -> zuverlaessig + sparsam.
-        # Das Logo kommt als Overlay über build_filter (show_logo=True).
-        bg = (_g(cfg, 'bg_color', '0x0d2e22')).replace('#', '0x')
-        bh = H * 2 // 3
-        return (f'color=c={bg}:s={size}:r={F}[bg];'
-                f'[0:a]showcqt=s={W}x{bh}:fps={F}:count=2:gamma=4:bar_g=2:axis_h=0:sono_h=0:'
-                f'cscheme=1|0.5|0|0|0.5|1[bars];'
-                f'[bg][bars]overlay=0:{H - bh}:shortest=1')
+        # SPARSAM: bunte CQT-Balken über das GANZE Bild (schwarzer Grund), KEINE Kante.
+        # KEIN blend/gradient/gblur/movie/color -> nur ein Bruchteil der CPU (das
+        # screen-blend ueber volle Höhe war mit ~254% der CPU-Killer). Logo + Titel
+        # kommen als Overlay über build_filter (show_logo/show_nowplaying).
+        return (f'[0:a]showcqt=s={size}:fps={F}:count=2:gamma=4:bar_g=2:axis_h=0:sono_h=0:'
+                f'cscheme=1|0.5|0|0|0.5|1')
     if t == 'cqt_rainbow':
         # bunte Balken (Regenbogen nach Frequenz) + Glow
         return (f'{_rainbow(W, H, 0.006)}[gr];'
