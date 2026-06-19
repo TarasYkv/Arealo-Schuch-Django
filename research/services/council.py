@@ -299,6 +299,129 @@ MODELS = {
         'notes': 'Zur Diversifizierung — AWS-Stimme im Council.'
     },
 
+    # === Neuzugaenge (Stand 2026-06-19) ===
+    'fable': {
+        'name': 'Claude Fable 5', 'provider': 'openrouter', 'model': 'anthropic/claude-fable-5',
+        'pricing': (10.00, 50.00), 'context': '1M',
+        'origin': 'Anthropic (USA). Spezialisierte Claude-Variante mit Fokus auf erzaehlerisches/kreatives Schreiben.',
+        'strengths': 'Bester narrativer Stil der Claude-Familie, lebendige Formulierungen, gut fuer Storytelling und ansprechende Fliesstexte.',
+        'weaknesses': 'Teuer; fuer hartes Fakten-Reasoning ueberdimensioniert.',
+        'notes': 'Stimme fuer kreative/sprachlich anspruchsvolle Formulierungen.'
+    },
+    'gpt_pro': {
+        'name': 'GPT-5.5 Pro', 'provider': 'openrouter', 'model': 'openai/gpt-5.5-pro',
+        'pricing': (30.00, 180.00), 'context': '1M',
+        'origin': 'OpenAI (USA). Pro-Stufe von GPT-5.5 mit laengerer interner Denkphase.',
+        'strengths': 'Hoechste GPT-Reasoning-Qualitaet, sehr stark bei Mathe/Statistik/komplexer Logik.',
+        'weaknesses': 'Sehr teuer (180 USD/M Output), hohe Latenz.',
+        'notes': 'Nur fuer besonders harte Reasoning-Fragen, wo Qualitaet vor Kosten geht.'
+    },
+    'o3_pro': {
+        'name': 'OpenAI o3-pro', 'provider': 'openrouter', 'model': 'openai/o3-pro',
+        'pricing': (20.00, 80.00), 'context': '200k',
+        'origin': 'OpenAI (USA). Pro-Variante des o3-Reasoning-Modells.',
+        'strengths': 'Top bei mathematischem Beweis, Physik, mehrstufiger Logik; sehr gruendliche Selbstkorrektur.',
+        'weaknesses': 'Teuer, langsam, kein Web-Zugriff.',
+        'notes': 'Schwerstes Reasoning-Geschuetz neben GPT-5.5 Pro.'
+    },
+    'gemini_flash': {
+        'name': 'Gemini 3.5 Flash', 'provider': 'openrouter', 'model': 'google/gemini-3.5-flash',
+        'pricing': (1.50, 9.00), 'context': '1M',
+        'origin': 'Google DeepMind (UK/USA). Schnelle Flash-Stufe der Gemini-3.5-Generation.',
+        'strengths': 'Schnell, 1M Kontext, gute multimodale Faehigkeiten, neueste Gemini-Generation.',
+        'weaknesses': 'Flash-Stufe (kein Pro) — bei tiefem Reasoning schwaecher als 3.1 Pro.',
+        'notes': 'Schnelle Google-Stimme; aktueller als Gemini 3.1 Pro im Flash-Tier.'
+    },
+    'deepseek_flash': {
+        'name': 'DeepSeek V4 Flash', 'provider': 'openrouter', 'model': 'deepseek/deepseek-v4-flash',
+        'pricing': (0.09, 0.18), 'context': '1M',
+        'origin': 'DeepSeek (China, Hangzhou). Schnelle/guenstige Flash-Variante von DeepSeek V4.',
+        'strengths': 'Extrem guenstig (0.09/0.18 per 1M) bei 1M Kontext — ideal fuer Massen-/Long-Context-Aufgaben.',
+        'weaknesses': 'Flacher als V4 Pro bei komplexem Reasoning.',
+        'notes': 'Beste Wahl fuer "lies viele Paper fuer ein paar Cent".'
+    },
+    'qwen_max': {
+        'name': 'Qwen 3.7 Max', 'provider': 'openrouter', 'model': 'qwen/qwen3.7-max',
+        'pricing': (1.25, 3.75), 'context': '1M',
+        'origin': 'Alibaba Cloud (China). Groesste Qwen-3.7-Stufe.',
+        'strengths': 'Staerkstes Qwen-Modell, multilingual sehr stark (auch Deutsch), 1M Kontext.',
+        'weaknesses': 'Teurer als Qwen 3.7 Plus; chin. kultureller Bias.',
+        'notes': 'Qwen-Flagship fuer anspruchsvolle multilinguale Aufgaben.'
+    },
+    'sonar_search': {
+        'name': 'Perplexity Sonar Pro Search', 'provider': 'openrouter', 'model': 'perplexity/sonar-pro-search',
+        'pricing': (3.00, 15.00), 'context': '200k',
+        'origin': 'Perplexity (USA). Neue agentische Web-Such-Variante mit mehrstufiger Suche.',
+        'strengths': 'Live-Web-Suche, mehrstufig/agentisch, liefert Quellen — aktueller als Trainingscutoff.',
+        'weaknesses': 'Latenz durch Suchschritt; kein Zugriff auf Paywall-Journals.',
+        'notes': 'Web-Recherche-Stimme; Alternative zu Sonar Reasoning Pro.'
+    },
+    'nova2': {
+        'name': 'Amazon Nova 2 Lite', 'provider': 'openrouter', 'model': 'amazon/nova-2-lite-v1',
+        'pricing': (0.30, 2.50), 'context': '1M',
+        'origin': 'Amazon (USA). Lite-Stufe der neuen Nova-2-Generation.',
+        'strengths': 'Guenstig, 1M Kontext, andere Trainingsmix-Perspektive (AWS).',
+        'weaknesses': 'Lite-Stufe — kein Frontier-Reasoning.',
+        'notes': 'AWS-Diversifizierungsstimme, Nova-2-Generation.'
+    },
+    'kimi_code': {
+        'name': 'Kimi K2.7 Code', 'provider': 'openrouter', 'model': 'moonshotai/kimi-k2.7-code',
+        'pricing': (0.74, 3.50), 'context': '262k',
+        'origin': 'Moonshot AI (China). Code-spezialisierte Variante der K2.7-Generation.',
+        'strengths': 'Stark bei Code/Algorithmen, langer Kontext (262k), neueste Kimi-Generation.',
+        'weaknesses': 'Auf Code optimiert — fuer Fliesstext/qualitative Fragen weniger geeignet.',
+        'notes': 'Code-Spezialist im Council.'
+    },
+    'grok_multi': {
+        'name': 'Grok 4.20 Multi-Agent', 'provider': 'openrouter', 'model': 'x-ai/grok-4.20-multi-agent',
+        'pricing': (1.25, 2.50), 'context': '2M',
+        'origin': 'xAI (USA). Multi-Agent-Orchestrierungs-Variante von Grok 4.20.',
+        'strengths': 'Interne Multi-Agent-Zerlegung komplexer Aufgaben, 2M Kontext.',
+        'weaknesses': 'Hoehere Latenz durch Agenten-Orchestrierung.',
+        'notes': 'Experimentelle Multi-Agent-Stimme.'
+    },
+    'glm_turbo': {
+        'name': 'GLM 5 Turbo', 'provider': 'openrouter', 'model': 'z-ai/glm-5-turbo',
+        'pricing': (1.20, 4.00), 'context': '262k',
+        'origin': 'Zhipu AI (China). Schnelle Turbo-Variante der GLM-5-Generation (via OpenRouter).',
+        'strengths': 'Schnell, langer Kontext (262k), solide Qualitaet.',
+        'weaknesses': 'Ueber OpenRouter kostenpflichtig (nicht im Z.AI-Abo).',
+        'notes': 'Schnelle GLM-Alternative ueber OpenRouter.'
+    },
+
+    'o4_mini_deep': {
+        'name': 'OpenAI o4-mini Deep Research', 'provider': 'openrouter', 'model': 'openai/o4-mini-deep-research',
+        'pricing': (2.00, 8.00), 'context': '200k',
+        'origin': 'OpenAI (USA). Deep-Research-Variante des o4-mini — fuehrt autonom mehrstufige Web-Recherchen durch.',
+        'strengths': 'Autonome mehrstufige Recherche mit Web-Zugriff, guenstiger als o3-Deep-Research; gut fuer Literatur-/State-of-the-Art-Fragen.',
+        'weaknesses': 'Latenz durch Recherche-Schritte; flacher als o3-Variante.',
+        'notes': 'Guenstige Deep-Research-Stimme — gut fuer Promotions-Literaturrecherche.'
+    },
+    'o3_deep': {
+        'name': 'OpenAI o3 Deep Research', 'provider': 'openrouter', 'model': 'openai/o3-deep-research',
+        'pricing': (10.00, 40.00), 'context': '200k',
+        'origin': 'OpenAI (USA). Premium-Deep-Research auf o3-Basis — autonome, gruendliche mehrstufige Web-Recherche.',
+        'strengths': 'Tiefste autonome Recherche-Qualitaet von OpenAI, mit Quellen; ideal fuer umfassende Kapitel-Recherchen.',
+        'weaknesses': 'Teuer und langsam.',
+        'notes': 'Schweres Recherche-Geschuetz, nur fuer gruendliche State-of-the-Art-Ueberblicke.'
+    },
+    'nemotron_ultra': {
+        'name': 'NVIDIA Nemotron 3 Ultra 550B', 'provider': 'openrouter', 'model': 'nvidia/nemotron-3-ultra-550b-a55b',
+        'pricing': (0.50, 2.20), 'context': '1M',
+        'origin': 'NVIDIA (USA). Groesstes Nemotron-3-Modell (550B Parameter), 1M Kontext.',
+        'strengths': 'Sehr gross (550B), 1M Kontext, guenstig fuer die Groesse; staerker als die 120B-Variante.',
+        'weaknesses': 'Weniger fein-getuned als Frontier-Modelle der grossen Labore.',
+        'notes': 'Grosse NVIDIA-Stimme (bezahlt, nicht rate-limited wie die Free-Variante).'
+    },
+    'llama_scout': {
+        'name': 'Llama 4 Scout', 'provider': 'openrouter', 'model': 'meta-llama/llama-4-scout',
+        'pricing': (0.10, 0.30), 'context': '10M',
+        'origin': 'Meta (USA). Open-Weight-Variante der Llama-4-Familie mit extremem 10M-Kontextfenster.',
+        'strengths': 'Open-Weight (reproduzierbar!), 10 Mio Tokens Kontext, extrem guenstig.',
+        'weaknesses': 'Bei tiefem Fach-Reasoning schwaecher als Frontier-Modelle.',
+        'notes': 'Fuer riesige Dokumentenmengen + wissenschaftliche Reproduzierbarkeit.'
+    },
+
     # === Auto-Routing ===
     'auto': {
         'name': 'OpenRouter Auto', 'provider': 'openrouter', 'model': 'openrouter/auto',
