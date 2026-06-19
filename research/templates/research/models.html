@@ -1,0 +1,266 @@
+{% extends 'research/base.html' %}
+{% block title %}Forschungsassistent — 44 KI-Modelle, eine Antwort{% endblock %}
+
+{% block research_content %}
+<style>
+.ms-hero { text-align:center; padding: 18px 0 8px; }
+.ms-hero__eyebrow { display:inline-block; font-size:12px; font-weight:600; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--rs-accent-ink); background:var(--rs-accent-soft);
+  padding:6px 14px; border-radius:999px; margin-bottom:18px; }
+.ms-hero__title { font-size:44px; line-height:1.08; font-weight:700; margin:0 auto 16px; max-width:18ch;
+  background:linear-gradient(120deg,#0f172a,#4338ca); -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent; }
+.ms-hero__sub { font-size:18px; color:var(--rs-ink-soft); max-width:62ch; margin:0 auto 26px; line-height:1.55; }
+.ms-cta { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:8px; }
+.ms-cta .rs-btn { padding:13px 24px; font-size:15px; }
+.ms-trust { font-size:13px; color:var(--rs-ink-faint); margin-top:14px; }
+
+.ms-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:38px 0; }
+@media(max-width:760px){ .ms-stats{ grid-template-columns:repeat(2,1fr);} .ms-hero__title{font-size:30px;} }
+.ms-stat { text-align:center; background:var(--rs-surface); border:1px solid var(--rs-border);
+  border-radius:16px; padding:22px 12px; }
+.ms-stat__num { font-size:34px; font-weight:700; color:var(--rs-accent-ink); letter-spacing:-.02em; }
+.ms-stat__lbl { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--rs-ink-faint);
+  font-weight:600; margin-top:6px; }
+
+.ms-section { margin:56px 0; }
+.ms-section__title { font-size:26px; font-weight:700; text-align:center; margin:0 0 6px; }
+.ms-section__sub { text-align:center; color:var(--rs-ink-soft); max-width:60ch; margin:0 auto 28px; font-size:15px; }
+
+.ms-svg-wrap { background:var(--rs-surface); border:1px solid var(--rs-border); border-radius:18px;
+  padding:24px; box-shadow:var(--rs-shadow-md); }
+.ms-svg { width:100%; height:auto; display:block; font-family:'Inter',sans-serif; }
+
+.ms-benefits { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
+@media(max-width:1100px){ .ms-benefits{grid-template-columns:repeat(2,1fr);} }
+@media(max-width:560px){ .ms-benefits{grid-template-columns:1fr;} }
+.ms-benefit { background:var(--rs-surface); border:1px solid var(--rs-border); border-radius:16px;
+  padding:22px; transition:.15s; }
+.ms-benefit:hover { border-color:#cbd5e1; box-shadow:var(--rs-shadow-md); transform:translateY(-2px); }
+.ms-benefit__ic { width:42px; height:42px; border-radius:12px; background:var(--rs-accent-soft);
+  color:var(--rs-accent-ink); display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:14px; }
+.ms-benefit h3 { font-size:16px; margin:0 0 6px; }
+.ms-benefit p { font-size:14px; color:var(--rs-ink-soft); margin:0; line-height:1.5; }
+
+.ms-modes { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+.ms-mode { border:1px solid var(--rs-border); border-radius:12px; padding:12px 16px; background:var(--rs-surface-soft);
+  font-size:13.5px; }
+.ms-mode b { color:var(--rs-accent-ink); }
+
+.ms-cat { margin-top:44px; }
+.ms-cat__head { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+.ms-cat__ic { width:38px; height:38px; border-radius:10px; background:var(--rs-ink); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:16px; }
+.ms-cat__title { font-size:20px; font-weight:700; margin:0; }
+.ms-cat__desc { color:var(--rs-ink-soft); font-size:14px; margin:0 0 18px 50px; }
+@media(max-width:560px){ .ms-cat__desc{ margin-left:0; } }
+
+.ms-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+@media(max-width:1100px){ .ms-grid{grid-template-columns:repeat(2,1fr);} }
+@media(max-width:680px){ .ms-grid{grid-template-columns:1fr;} }
+.ms-card { background:var(--rs-surface); border:1px solid var(--rs-border); border-radius:14px;
+  padding:18px; display:flex; flex-direction:column; gap:10px; transition:.15s; }
+.ms-card:hover { border-color:#c7d2fe; box-shadow:var(--rs-shadow-md); }
+.ms-card__head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.ms-card__name { font-size:16px; font-weight:700; margin:0; }
+.ms-badge { font-size:11px; font-family:'JetBrains Mono',monospace; white-space:nowrap;
+  background:var(--rs-surface-soft); border:1px solid var(--rs-border); color:var(--rs-ink-soft);
+  padding:4px 8px; border-radius:8px; }
+.ms-badge--free { background:var(--rs-success-soft); border-color:#a7f3d0; color:var(--rs-success); }
+.ms-card__origin { font-size:12.5px; color:var(--rs-ink-faint); margin:0; line-height:1.45; }
+.ms-row { display:flex; gap:8px; font-size:13px; line-height:1.45; }
+.ms-row__ic { flex:0 0 18px; width:18px; height:18px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:11px; font-weight:700; margin-top:1px; }
+.ms-row--pro .ms-row__ic { background:var(--rs-success-soft); color:var(--rs-success); }
+.ms-row--con .ms-row__ic { background:var(--rs-warning-soft); color:var(--rs-warning); }
+.ms-row--pro span:last-child { color:var(--rs-ink); }
+.ms-row--con span:last-child { color:var(--rs-ink-soft); }
+.ms-card__foot { margin-top:auto; padding-top:10px; border-top:1px dashed var(--rs-border-soft);
+  font-size:12px; color:var(--rs-ink-faint); }
+.ms-card__ctx { font-family:'JetBrains Mono',monospace; color:var(--rs-accent-ink); }
+
+.ms-final { text-align:center; background:linear-gradient(120deg,#0f172a,#312e81); border-radius:20px;
+  padding:48px 24px; margin:60px 0 20px; color:#fff; }
+.ms-final h2 { font-size:30px; margin:0 0 12px; color:#fff; }
+.ms-final p { color:#cbd5e1; max-width:54ch; margin:0 auto 24px; font-size:16px; }
+.ms-final .rs-btn--accent { background:#fff; color:#0f172a; border-color:#fff; padding:14px 28px; font-size:16px; }
+.ms-final .rs-btn--accent:hover { background:#e2e8f0; color:#0f172a; }
+</style>
+
+<!-- ============ HERO ============ -->
+<div class="ms-hero">
+  <span class="ms-hero__eyebrow">Forschungsassistent</span>
+  <h1 class="ms-hero__title">{{ stats.models }} KI-Modelle. Eine Frage. Die beste Antwort.</h1>
+  <p class="ms-hero__sub">Verlass dich nicht auf ein einzelnes KI-Modell. Der Forschungsassistent
+    befragt ein ganzes <b>Council</b> der weltweit stärksten Modelle gleichzeitig — und ein
+    Redakteur bündelt alle Stimmen zu einer konsolidierten, quellenbelegten Antwort.</p>
+  <div class="ms-cta">
+    <a href="{% url 'research:ask' %}" class="rs-btn rs-btn--accent"><i class="fas fa-rocket"></i> Jetzt kostenlos starten</a>
+    <a href="#funktion" class="rs-btn rs-btn--ghost"><i class="fas fa-circle-play"></i> So funktioniert's</a>
+  </div>
+  <p class="ms-trust">Ohne Installation · Antworten mit Quellen · von schnell &amp; günstig bis Frontier-Niveau</p>
+</div>
+
+<!-- ============ STATS ============ -->
+<div class="ms-stats">
+  <div class="ms-stat"><div class="ms-stat__num">{{ stats.models }}</div><div class="ms-stat__lbl">KI-Modelle</div></div>
+  <div class="ms-stat"><div class="ms-stat__num">{{ stats.vendors }}</div><div class="ms-stat__lbl">Anbieter</div></div>
+  <div class="ms-stat"><div class="ms-stat__num">{{ stats.modes }}</div><div class="ms-stat__lbl">Arbeitsmodi</div></div>
+  <div class="ms-stat"><div class="ms-stat__num">10M</div><div class="ms-stat__lbl">Token Kontext</div></div>
+</div>
+
+<!-- ============ FUNKTIONSWEISE (SVG) ============ -->
+<div class="ms-section" id="funktion">
+  <h2 class="ms-section__title">So funktioniert's</h2>
+  <p class="ms-section__sub">Eine Frage geht parallel an viele Modelle. Ein Redakteur konsolidiert.
+    Du bekommst eine Antwort — geprüft aus vielen Perspektiven.</p>
+  <div class="ms-svg-wrap">
+    <svg class="ms-svg" viewBox="0 0 960 290" role="img" aria-label="Ablauf: Frage, Council, Redakteur, Antwort">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/></marker>
+        <linearGradient id="gc" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#eef2ff"/><stop offset="1" stop-color="#e0e7ff"/></linearGradient>
+      </defs>
+      <!-- 1 Frage -->
+      <rect x="14" y="105" width="150" height="80" rx="14" fill="#0f172a"/>
+      <text x="89" y="140" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Deine Frage</text>
+      <text x="89" y="162" text-anchor="middle" fill="#cbd5e1" font-size="11">natürliche Sprache</text>
+      <line x1="166" y1="145" x2="222" y2="145" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+      <!-- 2 Council -->
+      <rect x="228" y="34" width="318" height="222" rx="16" fill="url(#gc)" stroke="#c7d2fe"/>
+      <text x="387" y="60" text-anchor="middle" fill="#4338ca" font-size="13" font-weight="700">COUNCIL · parallel</text>
+      <g font-size="12" fill="#1e293b" font-weight="600">
+        <rect x="244" y="76"  width="138" height="32" rx="8" fill="#fff" stroke="#c7d2fe"/><text x="313" y="97" text-anchor="middle">Claude Opus 4.8</text>
+        <rect x="392" y="76"  width="138" height="32" rx="8" fill="#fff" stroke="#c7d2fe"/><text x="461" y="97" text-anchor="middle">GPT-5.5</text>
+        <rect x="244" y="118" width="138" height="32" rx="8" fill="#fff" stroke="#c7d2fe"/><text x="313" y="139" text-anchor="middle">Gemini 3.1 Pro</text>
+        <rect x="392" y="118" width="138" height="32" rx="8" fill="#fff" stroke="#c7d2fe"/><text x="461" y="139" text-anchor="middle">DeepSeek V4</text>
+        <rect x="244" y="160" width="138" height="32" rx="8" fill="#fff" stroke="#c7d2fe"/><text x="313" y="181" text-anchor="middle">Grok 4.3</text>
+        <rect x="392" y="160" width="138" height="32" rx="8" fill="#fff" stroke="#c7d2fe"/><text x="461" y="181" text-anchor="middle">GLM 5.2</text>
+      </g>
+      <text x="387" y="222" text-anchor="middle" fill="#64748b" font-size="11">… und bis zu {{ stats.models }} weitere</text>
+      <line x1="548" y1="145" x2="600" y2="145" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+      <!-- 3 Redakteur -->
+      <rect x="606" y="100" width="166" height="92" rx="14" fill="#6366f1"/>
+      <text x="689" y="133" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Redakteur</text>
+      <text x="689" y="154" text-anchor="middle" fill="#e0e7ff" font-size="12">GLM 5.2</text>
+      <text x="689" y="173" text-anchor="middle" fill="#c7d2fe" font-size="10.5">konsolidiert &amp; prüft</text>
+      <line x1="774" y1="145" x2="804" y2="145" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+      <!-- 4 Antwort -->
+      <rect x="810" y="100" width="138" height="92" rx="14" fill="#059669"/>
+      <text x="879" y="133" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">Antwort</text>
+      <text x="879" y="155" text-anchor="middle" fill="#d1fae5" font-size="11.5">+ Quellen</text>
+      <text x="879" y="172" text-anchor="middle" fill="#a7f3d0" font-size="10.5">konsolidiert</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ============ WARUM COUNCIL (SVG) ============ -->
+<div class="ms-section">
+  <h2 class="ms-section__title">Warum ein Council ein einzelnes Modell schlägt</h2>
+  <p class="ms-section__sub">Jedes Modell hat blinde Flecken und halluziniert mal. Im Council fällt das
+    sofort auf — Konsens und Ausreißer werden sichtbar.</p>
+  <div class="ms-svg-wrap">
+    <svg class="ms-svg" viewBox="0 0 960 280" role="img" aria-label="Vergleich einzelnes Modell gegen Council">
+      <!-- linke Seite: 1 Modell -->
+      <text x="225" y="34" text-anchor="middle" font-size="15" font-weight="700" fill="#0f172a">Ein einzelnes Modell</text>
+      <rect x="120" y="58" width="210" height="150" rx="14" fill="#f8fafc" stroke="#e2e8f0"/>
+      <circle cx="225" cy="120" r="34" fill="#0f172a"/>
+      <text x="225" y="126" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">1×</text>
+      <text x="225" y="178" text-anchor="middle" fill="#dc2626" font-size="12.5" font-weight="600">Fehler bleibt unbemerkt</text>
+      <text x="225" y="196" text-anchor="middle" fill="#94a3b8" font-size="11">du hast keine Gegenprobe</text>
+      <text x="225" y="240" text-anchor="middle" fill="#64748b" font-size="12">Eine Meinung. Ein blinder Fleck.</text>
+      <!-- Trenner -->
+      <line x1="480" y1="50" x2="480" y2="230" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <text x="480" y="145" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="700">vs</text>
+      <!-- rechte Seite: Council -->
+      <text x="730" y="34" text-anchor="middle" font-size="15" font-weight="700" fill="#4338ca">Council aus vielen Modellen</text>
+      <rect x="560" y="58" width="360" height="150" rx="14" fill="#eef2ff" stroke="#c7d2fe"/>
+      <g font-size="11.5" font-weight="600">
+        <rect x="578" y="74" width="150" height="26" rx="7" fill="#fff" stroke="#a7f3d0"/><text x="590" y="91" fill="#059669">✓ Modell A</text>
+        <rect x="578" y="106" width="150" height="26" rx="7" fill="#fff" stroke="#a7f3d0"/><text x="590" y="123" fill="#059669">✓ Modell B</text>
+        <rect x="578" y="138" width="150" height="26" rx="7" fill="#fff" stroke="#a7f3d0"/><text x="590" y="155" fill="#059669">✓ Modell C</text>
+        <rect x="578" y="170" width="150" height="26" rx="7" fill="#fff" stroke="#fde68a"/><text x="590" y="187" fill="#d97706">! Ausreißer</text>
+      </g>
+      <line x1="734" y1="133" x2="772" y2="133" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/>
+      <circle cx="838" cy="133" r="40" fill="#059669"/>
+      <path d="M820,133 l12,12 l24,-26" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="838" y="196" text-anchor="middle" fill="#059669" font-size="12.5" font-weight="600">Konsens sichtbar</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ============ BENEFITS ============ -->
+<div class="ms-section">
+  <h2 class="ms-section__title">Was du davon hast</h2>
+  <p class="ms-section__sub">Mehr Verlässlichkeit, weniger Arbeit, volle Kontrolle.</p>
+  <div class="ms-benefits">
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-users"></i></div>
+      <h3>Council statt Einzelmeinung</h3><p>Viele Modelle antworten parallel — du erkennst Konsens und Widerspruch sofort und tappst nicht in die Schwäche eines einzelnen Modells.</p></div>
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-feather-pointed"></i></div>
+      <h3>Redakteur-Synthese</h3><p>GLM 5.2 bündelt alle Stimmen zu einer klaren, konsolidierten Antwort — du musst nicht zehn Texte selbst vergleichen.</p></div>
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-globe"></i></div>
+      <h3>Live-Web &amp; Deep Research</h3><p>Perplexity Sonar und OpenAI Deep Research holen tagesaktuelle Quellen mit Links — ideal für „Stand der Forschung".</p></div>
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-book-open"></i></div>
+      <h3>RAG aus deiner Library</h3><p>Antworten mit Zitaten direkt aus deinen eigenen hochgeladenen Dokumenten.</p></div>
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-flask"></i></div>
+      <h3>Wissenschafts-Pipeline</h3><p>Direkter Draht zu PubMed, OpenAlex, Europe PMC, Crossref &amp; Semantic Scholar.</p></div>
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-scale-balanced"></i></div>
+      <h3>Volle Kostenkontrolle</h3><p>Preis pro Modell transparent, viele günstige und {{ stats.free }} kostenlose Optionen, bis zu 10 Mio Token Kontext.</p></div>
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-shield-halved"></i></div>
+      <h3>Keine Abhängigkeit</h3><p>{{ stats.vendors }} Anbieter, mehrere Architekturen (Transformer, Diffusion, Reasoning) — kein Lock-in, kein einseitiger Bias.</p></div>
+    <div class="ms-benefit"><div class="ms-benefit__ic"><i class="fas fa-share-nodes"></i></div>
+      <h3>Teilen mit einem Klick</h3><p>Ergebnisse als öffentliche Share-Links weitergeben — ganz ohne Login für den Empfänger.</p></div>
+  </div>
+</div>
+
+<!-- ============ MODI ============ -->
+<div class="ms-section">
+  <h2 class="ms-section__title">{{ stats.modes }} Arbeitsmodi</h2>
+  <p class="ms-section__sub">Vom schnellen Faktencheck bis zur tiefen Literaturrecherche.</p>
+  <div class="ms-modes">
+    <div class="ms-mode"><b>RAG</b> — aus deiner Library, mit Zitaten</div>
+    <div class="ms-mode"><b>Council</b> — viele Modelle parallel</div>
+    <div class="ms-mode"><b>Council + Redakteur</b> — konsolidierte Synthese</div>
+    <div class="ms-mode"><b>Hybrid</b> — Library-Kontext + Council</div>
+    <div class="ms-mode"><b>Pipeline</b> — externe Wissenschafts-Quellen</div>
+  </div>
+</div>
+
+<!-- ============ MODELL-KATALOG ============ -->
+<div class="ms-section">
+  <h2 class="ms-section__title">Alle {{ stats.models }} Modelle im Überblick</h2>
+  <p class="ms-section__sub">Jedes Modell mit Stärken, Schwächen und Preis (USD je 1 Mio. Tokens, Eingabe / Ausgabe).</p>
+
+  {% for g in groups %}
+  <div class="ms-cat">
+    <div class="ms-cat__head">
+      <div class="ms-cat__ic"><i class="fas {{ g.icon }}"></i></div>
+      <h3 class="ms-cat__title">{{ g.title }}</h3>
+    </div>
+    <p class="ms-cat__desc">{{ g.desc }}</p>
+    <div class="ms-grid">
+      {% for m in g.models %}
+      <div class="ms-card">
+        <div class="ms-card__head">
+          <h4 class="ms-card__name">{{ m.name }}</h4>
+          <span class="ms-badge {% if m.free %}ms-badge--free{% endif %}">{{ m.price }}</span>
+        </div>
+        <p class="ms-card__origin">{{ m.origin }}</p>
+        {% if m.strengths %}<div class="ms-row ms-row--pro"><span class="ms-row__ic">+</span><span>{{ m.strengths }}</span></div>{% endif %}
+        {% if m.weaknesses %}<div class="ms-row ms-row--con"><span class="ms-row__ic">!</span><span>{{ m.weaknesses }}</span></div>{% endif %}
+        <div class="ms-card__foot"><span class="ms-card__ctx">{{ m.context }} Kontext</span>{% if m.notes %} · {{ m.notes }}{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ============ FINAL CTA ============ -->
+<div class="ms-final">
+  <h2>Stell deine Frage an {{ stats.models }} Modelle gleichzeitig.</h2>
+  <p>Eine konsolidierte, quellenbelegte Antwort — geprüft aus vielen Perspektiven. Probier es jetzt aus.</p>
+  <a href="{% url 'research:ask' %}" class="rs-btn rs-btn--accent"><i class="fas fa-rocket"></i> Kostenlos starten</a>
+</div>
+{% endblock %}

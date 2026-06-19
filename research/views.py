@@ -1276,3 +1276,94 @@ def stats(request):
 
 
 # api_keys-View entfernt: wird zentral unter /accounts/neue-api-einstellungen/ verwaltet.
+
+
+def models_showcase(request):
+    """Oeffentliche Landing-Page: bewirbt das Research-Tool und listet alle
+    Council-Modelle mit Vor- und Nachteilen. Kein Login erforderlich —
+    datengetrieben aus council_service.MODELS, bleibt also automatisch aktuell."""
+    MODELS = council_service.MODELS
+
+    CATEGORIES = [
+        ('Top-Allrounder (Frontier)',
+         'Die staerksten Universalmodelle der Welt — erste Wahl fuer anspruchsvolle Fragen.',
+         'fa-crown',
+         ['opus', 'gpt', 'gemini', 'grok', 'deepseek', 'qwen', 'qwen_max', 'glm52', 'fable']),
+        ('Reasoning-Spezialisten',
+         'Dedizierte Denk-Modelle mit langer Gedankenkette fuer Mathe, Logik und Physik.',
+         'fa-brain',
+         ['gpt_pro', 'o3_pro', 'o3', 'o4_mini', 'qwen_max_thinking', 'kimi_thinking']),
+        ('Web-Recherche & Deep Research',
+         'Live-Zugriff auf aktuelle Quellen — auch ueber den Trainings-Cutoff hinaus, mit Quellenangaben.',
+         'fa-globe',
+         ['sonar_search', 'sonar_reasoning', 'sonar_pro', 'sonar_deep', 'o3_deep', 'o4_mini_deep']),
+        ('Schnell & guenstig',
+         'Fuer Alltag, hohe Volumina und riesige Kontexte zum kleinen Preis.',
+         'fa-bolt',
+         ['sonnet', 'haiku', 'gpt_mini', 'grok_fast', 'grok_multi', 'deepseek_flash',
+          'gemini_flash', 'minimax', 'glm', 'glm_turbo', 'kimi', 'mistral']),
+        ('Schreiben & Code',
+         'Spezialisten fuer erzaehlerischen Fliesstext, Struktur und Programmierung.',
+         'fa-pen-nib',
+         ['palmyra', 'kimi_code']),
+        ('Open-Weight & Diversitaet',
+         'Reproduzierbare Open-Weight-Modelle und alternative Architekturen gegen Single-Vendor-Bias.',
+         'fa-cubes',
+         ['llama4', 'llama_scout', 'nemotron', 'nemotron_ultra', 'nova', 'nova2',
+          'mercury', 'glm_air_free', 'auto']),
+    ]
+
+    def fmt_price(p):
+        try:
+            i, o = p
+        except Exception:
+            return ''
+        if (i or 0) == 0 and (o or 0) == 0:
+            return 'inklusive'
+        return '${:g} / ${:g}'.format(i, o)
+
+    def build(k, cfg):
+        pricing = cfg.get('pricing')
+        is_free = pricing in [(0, 0), (0.0, 0.0)]
+        return {
+            'key': k,
+            'name': cfg['name'],
+            'origin': cfg.get('origin', ''),
+            'strengths': cfg.get('strengths', ''),
+            'weaknesses': cfg.get('weaknesses', ''),
+            'notes': cfg.get('notes', ''),
+            'context': cfg.get('context', ''),
+            'price': fmt_price(pricing),
+            'free': is_free,
+        }
+
+    seen = set()
+    groups = []
+    for title, desc, icon, keys in CATEGORIES:
+        items = [build(k, MODELS[k]) for k in keys if k in MODELS]
+        for k in keys:
+            if k in MODELS:
+                seen.add(k)
+        if items:
+            groups.append({'title': title, 'desc': desc, 'icon': icon, 'models': items})
+
+    rest = [build(k, cfg) for k, cfg in MODELS.items() if k not in seen]
+    if rest:
+        groups.append({
+            'title': 'Weitere Modelle', 'desc': 'Frisch ergaenzte Modelle.',
+            'icon': 'fa-layer-group', 'models': rest,
+        })
+
+    vendors = set()
+    for cfg in MODELS.values():
+        o = cfg.get('origin', '')
+        if '(' in o:
+            vendors.add(o.split('(')[0].strip())
+
+    stats = {
+        'models': len(MODELS),
+        'vendors': len(vendors),
+        'modes': 5,
+        'free': sum(1 for c in MODELS.values() if c.get('pricing') in [(0, 0), (0.0, 0.0)]),
+    }
+    return render(request, 'research/models.html', {'groups': groups, 'stats': stats})

@@ -20,4 +20,6 @@ urlpatterns = [
     path('share/<str:token>/download/', views.share_download, name='share_download'),
     path('history/', views.history, name='history'),
     path('stats/', views.stats, name='stats'),
+    # Oeffentliche Marketing-/Modell-Showcase-Seite (kein Login)
+    path('modelle/', views.models_showcase, name='models'),
 ]
