@@ -60,7 +60,7 @@ PROVIDERS: dict[str, dict] = {
 # Anbieter/Route; Details: https://openrouter.ai/models, https://anthropic.com/pricing
 MODELS = {
     'opus': {
-        'name': 'Claude Opus 4.7', 'provider': 'openrouter', 'model': 'anthropic/claude-opus-4.7',
+        'name': 'Claude Opus 4.8', 'provider': 'openrouter', 'model': 'anthropic/claude-opus-4.8',
         'pricing': (5.00, 25.00), 'context': '1M',
         'origin': 'Anthropic (USA, gegr. 2021 von Ex-OpenAI-Forschern). In San Francisco entwickelt, betont Sicherheit und interpretierbares Alignment.',
         'strengths': 'Bester Schreibstil und Kohärenz, exzellentes Deutsch, starke Reasoning-Kette, sehr gute Kontext-Nutzung über 1M Tokens, ehrlich über Unsicherheit.',
@@ -84,8 +84,8 @@ MODELS = {
         'notes': 'Geeignet für schnelle Zweitmeinungen.'
     },
     'gpt': {
-        'name': 'GPT-5.4', 'provider': 'openrouter', 'model': 'openai/gpt-5.4',
-        'pricing': (2.50, 15.00), 'context': '400k',
+        'name': 'GPT-5.5', 'provider': 'openrouter', 'model': 'openai/gpt-5.5',
+        'pricing': (5.00, 30.00), 'context': '1M',
         'origin': 'OpenAI (USA, gegr. 2015). Microsoft-finanziert, dominiert seit 2022 den LLM-Markt.',
         'strengths': 'Sehr starkes mathematisches + statistisches Reasoning, gute Code-Qualität, breites Weltwissen.',
         'weaknesses': 'Schreibstil wirkt formelhafter als Claude; Zitate + Quellen werden häufiger fantasiert.',
@@ -100,16 +100,16 @@ MODELS = {
         'notes': 'Ideal für lange Paper-Synthesen.'
     },
     'grok': {
-        'name': 'Grok 4.20', 'provider': 'openrouter', 'model': 'x-ai/grok-4.20',
-        'pricing': (2.00, 6.00), 'context': '256k',
+        'name': 'Grok 4.3', 'provider': 'openrouter', 'model': 'x-ai/grok-4.3',
+        'pricing': (1.25, 2.50), 'context': '1M',
         'origin': 'xAI (USA, 2023 von Elon Musk gegründet). Trainiert teilweise auf X-Daten.',
         'strengths': 'Gute allgemeine Reasoning-Qualität, weniger zensorisch als Konkurrenten, aktuelle Ereignisse.',
         'weaknesses': 'Jüngstes Ökosystem, Tools teils unausgereift; kann gelegentlich überzogen provokant antworten.',
         'notes': 'Nützlich für Perspektiven außerhalb des Mainstream-Konsens.'
     },
     'deepseek': {
-        'name': 'DeepSeek R1', 'provider': 'openrouter', 'model': 'deepseek/deepseek-r1',
-        'pricing': (0.70, 2.50), 'context': '128k',
+        'name': 'DeepSeek V4', 'provider': 'openrouter', 'model': 'deepseek/deepseek-v4-pro',
+        'pricing': (0.43, 0.87), 'context': '1M',
         'origin': 'DeepSeek (China, Hangzhou, 2023). Open-Weight-Modell, kostengünstig trainiert, 2025 viel Medienecho.',
         'strengths': 'Sehr günstig bei starker Reasoning-Qualität, gute Mathe/Code/Logik, Open-Weight (lokal hostbar).',
         'weaknesses': 'Deutsch ordentlich aber nicht exzellent; chinesischer Trainingsbias bei politischen Themen.',
@@ -145,8 +145,8 @@ MODELS = {
         'notes': 'Alternative Stimme mit kreativeren Formulierungen.'
     },
     'qwen': {
-        'name': 'Qwen 3.6 Plus', 'provider': 'openrouter', 'model': 'qwen/qwen3.6-plus',
-        'pricing': (0.33, 1.95), 'context': '128k',
+        'name': 'Qwen 3.7 Plus', 'provider': 'openrouter', 'model': 'qwen/qwen3.7-plus',
+        'pricing': (0.32, 1.28), 'context': '1M',
         'origin': 'Alibaba Cloud (China). Eigene Foundation-Model-Familie, Open-Weight-Varianten verfügbar.',
         'strengths': 'Extrem stark multilingual (auch Deutsch), gute Code-Qualität, günstig.',
         'weaknesses': 'Reasoning etwas flach bei sehr komplexen Fachthemen; ab und zu übersichtlich-oberflächlich.',
@@ -161,8 +161,8 @@ MODELS = {
         'notes': 'Europäischer Anker im Council, wichtig für DSGVO-Überlegungen.'
     },
     'minimax': {
-        'name': 'MiniMax M2.7', 'provider': 'openrouter', 'model': 'minimax/minimax-m2.7',
-        'pricing': (0.30, 1.20), 'context': '128k',
+        'name': 'MiniMax M3', 'provider': 'openrouter', 'model': 'minimax/minimax-m3',
+        'pricing': (0.30, 1.20), 'context': '1M',
         'origin': 'MiniMax (China, Shanghai, 2021). Fokus auf multimodale Agenten + Consumer-Apps (Talkie).',
         'strengths': 'Schnell, günstig, solide allgemeine Qualität, gute Dialog-Fähigkeiten.',
         'weaknesses': 'Wissenschaftliches Reasoning nicht auf Top-Niveau; Ausgaben manchmal kurz.',
