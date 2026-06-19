@@ -1,11 +1,11 @@
 """
-GLM-5.1-Client für den Radiosender (Z.AI Coding Plan, Abo — keine Token-Kosten).
+GLM-5.2-Client für den Radiosender (Z.AI Coding Plan, Abo — keine Token-Kosten).
 
 Folgt exakt dem Muster aus research/services/council.py und
 backloom/services/bot_runner.py:
 - Endpoint: https://api.z.ai/api/coding/paas/v4 (OpenAI-kompatibel)
 - Key: CustomUser.zhipu_api_key (verschlüsselt), bevorzugt User 'taras'
-- Modell: glm-5.1 (Fallback glm-4.6)
+- Modell: glm-5.2 (Fallback glm-4.6)
 
 Wird für ALLE KI-Agenten-Aufgaben des Senders genutzt: MusicGen-Prompts,
 News-Zusammenfassungen, Gute-Nacht-Geschichten, Programmplanung.
@@ -17,7 +17,7 @@ import urllib.request
 logger = logging.getLogger(__name__)
 
 ZAI_BASE_URL = 'https://api.z.ai/api/coding/paas/v4'
-GLM_MODEL_PRIMARY = 'glm-5.1'
+GLM_MODEL_PRIMARY = 'glm-5.2'
 GLM_MODEL_FALLBACK = 'glm-4.6'
 
 DEFAULT_MUSIC_SYSTEM = (
@@ -70,7 +70,7 @@ def get_glm_key():
     if user and user.zhipu_api_key:
         return user.zhipu_api_key
 
-    raise RuntimeError('Kein zhipu_api_key in den API-Einstellungen gefunden (GLM 5.1).')
+    raise RuntimeError('Kein zhipu_api_key in den API-Einstellungen gefunden (GLM 5.2).')
 
 
 # Rubriken OHNE Eingangs-Ankündigung (Jingle ist selbst eine Kennung; ein Spot
@@ -135,7 +135,7 @@ def remember_topic(kind, title):
 
 
 def make_title(text, max_words=7):
-    """Kurzer, prägnanter deutscher Titel aus einem Text/Liedtext (GLM 5.1).
+    """Kurzer, prägnanter deutscher Titel aus einem Text/Liedtext (GLM 5.2).
     Gibt '' zurück, wenn kein Text oder bei Fehler."""
     snippet = (text or '').strip()
     if not snippet:
@@ -174,7 +174,7 @@ def _strip_cjk(text):
 
 def glm_chat(prompt, system=None, max_tokens=4000, timeout=120, json_mode=False):
     """
-    Einzelner GLM-5.1-Call. Gibt den Antworttext (str) zurück.
+    Einzelner GLM-5.2-Call. Gibt den Antworttext (str) zurück.
     Bei json_mode=True wird das Modell angewiesen, reines JSON zu liefern.
     """
     api_key = get_glm_key()
@@ -187,7 +187,7 @@ def glm_chat(prompt, system=None, max_tokens=4000, timeout=120, json_mode=False)
         'model': GLM_MODEL_PRIMARY,
         'messages': messages,
         'max_tokens': max_tokens,
-        'thinking': {'type': 'disabled'},  # GLM 5.1: kein Reasoning in den Antworttext
+        'thinking': {'type': 'disabled'},  # GLM 5.2: kein Reasoning in den Antworttext
     }
     if json_mode:
         payload['response_format'] = {'type': 'json_object'}
@@ -219,12 +219,12 @@ def glm_chat(prompt, system=None, max_tokens=4000, timeout=120, json_mode=False)
             last_err = e
             logger.warning(f'GLM-Call mit {model} fehlgeschlagen: {e}')
             continue
-    raise RuntimeError(f'GLM 5.1 nicht erreichbar: {last_err}')
+    raise RuntimeError(f'GLM 5.2 nicht erreichbar: {last_err}')
 
 
 def generate_music_prompts(mood, count=10):
     """
-    Lässt GLM 5.1 eine Liste kreativer MusicGen-Prompts (englisch) erzeugen.
+    Lässt GLM 5.2 eine Liste kreativer MusicGen-Prompts (englisch) erzeugen.
     Gibt eine Liste von dicts zurück: [{'title': ..., 'prompt': ...}, ...].
     """
     system = _rubrik_system('music', DEFAULT_MUSIC_SYSTEM)
@@ -336,7 +336,7 @@ SPOKEN_SPECS = {
 
 def generate_spoken_text(kind, topic=None, season=None, target_words=None):
     """
-    Lässt GLM 5.1 einen Vorlese-Text schreiben. Gibt dict {'title','text'} zurück.
+    Lässt GLM 5.2 einen Vorlese-Text schreiben. Gibt dict {'title','text'} zurück.
     kind: 'story' | 'wissen' | 'tip' | 'news'
     target_words: optionale Längen-Zielvorgabe (überschreibt die Rubrik-Standardlänge).
     """

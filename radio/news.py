@@ -3,7 +3,7 @@ Online-News-Recherche für den Radiosender.
 
 Sucht via Gemini (Google-Search-Grounding, vorhandener Gemini-Key) aktuelle
 Nachrichten zu den in den Einstellungen hinterlegten Themen. Die Zusammen-
-fassung in radiotauglichen Text macht anschließend GLM 5.1 (siehe tasks.fetch_news).
+fassung in radiotauglichen Text macht anschließend GLM 5.2 (siehe tasks.fetch_news).
 """
 import json
 import logging

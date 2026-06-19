@@ -153,7 +153,7 @@ class StationConfig(models.Model):
 
 class Rubrik(models.Model):
     """
-    Eine editierbare Beitrags-Rubrik. GLM 5.1 erzeugt Inhalte anhand dieser
+    Eine editierbare Beitrags-Rubrik. GLM 5.2 erzeugt Inhalte anhand dieser
     Daten. Built-in-Rubriken (Musik, Geschichte, …) sind vorbefüllt, eigene
     können angelegt/entfernt werden.
     """
@@ -169,7 +169,7 @@ class Rubrik(models.Model):
     key = models.SlugField(max_length=40, unique=True)
     label = models.CharField(max_length=80)
     rtype = models.CharField(max_length=10, choices=TYPES, default='speech')
-    system_prompt = models.TextField(help_text='Rolle/Stil-Vorgabe für GLM 5.1')
+    system_prompt = models.TextField(help_text='Rolle/Stil-Vorgabe für GLM 5.2')
     task_prompt = models.TextField(blank=True, default='', help_text='Konkreter Schreibauftrag (Sprache) bzw. Zusatz (Musik)')
     voice = models.CharField(max_length=60, blank=True, default='piper-thorsten-medium',
                              help_text='Stimme (nur Sprache)')

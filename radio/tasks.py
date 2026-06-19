@@ -2,7 +2,7 @@
 Celery-Tasks des Radiosenders.
 
 generate_music_batch: der nächtliche KI-Musik-Lauf.
-  GLM 5.1 (Programmdirektor) schreibt die MusicGen-Prompts ->
+  GLM 5.2 (Programmdirektor) schreibt die MusicGen-Prompts ->
   MusicGen auf RunPod erzeugt die Tracks -> Track-Datensätze + MP3.
 
 Gestartet z.B. via Celery-Beat (nachts) oder manuell über
@@ -119,7 +119,7 @@ def _prepend_news_intro(news_bytes):
 @shared_task
 def generate_spoken_content(kind='wissen', topic=None, season=None, air_date=None, voice=None):
     """
-    Erzeugt EINEN Wort-Inhalt: GLM 5.1 schreibt den Text, Piper liest ihn,
+    Erzeugt EINEN Wort-Inhalt: GLM 5.2 schreibt den Text, Piper liest ihn,
     Ergebnis wird als SpokenContent (status='generated') gespeichert.
     Gibt die SpokenContent-pk zurück.
     """
@@ -148,7 +148,7 @@ def generate_spoken_content(kind='wissen', topic=None, season=None, air_date=Non
                 else 'Herbst' if _m in (9, 10, 11) else 'Winter')
         season = f'aktuell ist {_MON[_m - 1]} ({_SAI})'
 
-    logger.info(f'GLM 5.1: schreibe Wort-Inhalt ({kind})...')
+    logger.info(f'GLM 5.2: schreibe Wort-Inhalt ({kind})...')
     written = glm.generate_spoken_text(kind, topic=topic, season=season, target_words=target_words)
 
     # Harte Dublettenprüfung: GLM ignoriert das Themen-Gedächtnis gelegentlich.
@@ -340,7 +340,7 @@ def generate_music_batch(mood=None, count=10, batch_job_id=None, duration_sec=30
         job.save(update_fields=['log'])
 
     try:
-        _log(f'GLM 5.1: erzeuge {count} Musik-Prompts für Stimmung "{mood}"...')
+        _log(f'GLM 5.2: erzeuge {count} Musik-Prompts für Stimmung "{mood}"...')
         prompts = glm.generate_music_prompts(mood, count=count)
         _log(f'GLM lieferte {len(prompts)} Prompts.')
 
@@ -537,7 +537,7 @@ def _fallback_mix(cands, target_sec):
 @shared_task
 def auto_program(target_minutes=120):
     """
-    Stellt mit GLM 5.1 aus der BIBLIOTHEK ein ~target_minutes langes Programm
+    Stellt mit GLM 5.2 aus der BIBLIOTHEK ein ~target_minutes langes Programm
     zusammen (Musik mit/ohne Gesang + Wortbeiträge + Jingles, sinnvoll gemischt)
     und hängt es HINTEN an den Sendeplan an. Läuft alle 2 Std. via Celery-Beat.
     """
@@ -758,7 +758,7 @@ def radio_healthcheck():
 def fetch_news(self, only_if_missing=False):
     """
     Recherchiert aktuelle News zu den konfigurierten Themen (Gemini-Grounding),
-    fasst sie per GLM 5.1 zu einem vertonten Tages-Journal zusammen (3 Ausgaben/Tag).
+    fasst sie per GLM 5.2 zu einem vertonten Tages-Journal zusammen (3 Ausgaben/Tag).
     only_if_missing=True: läuft nur, wenn die aktuelle Tages-Ausgabe noch fehlt
     (Nachzügler-Check). Bei Fehlern: automatisch bis zu 3 Wiederholungen.
     """
