@@ -6,6 +6,7 @@ app_name = 'voice_pot'
 urlpatterns = [
     # Oeffentlich
     path('api/upload/', views.upload_audio, name='upload'),
+    path('api/get/<str:unique_id>/', views.voice_get, name='voice_get'),
     path('api/webhook/order-created/', views.order_webhook, name='order_webhook'),
     path('v/<str:unique_id>/', views.play, name='play'),
 

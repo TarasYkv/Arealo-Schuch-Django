@@ -19,6 +19,14 @@ MAX_BYTES = 15 * 1024 * 1024            # 15 MB
 MAX_DURATION = 130                      # Sekunden (etwas Puffer ueber 120)
 ALLOWED_EXT = ('.webm', '.mp3', '.m4a', '.ogg', '.oga', '.wav', '.aac', '.mp4')
 
+# Der Beschenkte hoert die Stimme auf der NATURMACHER-Seite (Branding/Vertrauen);
+# Workloom hostet nur das Audio + liefert die Daten per API.
+PLAY_BASE = 'https://naturmacher.de/pages/stimme'
+
+
+def _play_url(uid):
+    return f'{PLAY_BASE}?id={uid}'
+
 
 def _is_superuser(u):
     return u.is_superuser
@@ -90,7 +98,7 @@ def upload_audio(request):
     return JsonResponse({
         'ok': True,
         'unique_id': rec.unique_id,
-        'play_url': _abs(request, reverse('voice_pot:play', args=[rec.unique_id])),
+        'play_url': _play_url(rec.unique_id),
         'audio_url': _abs(request, rec.audio_file.url),
         'duration_sec': rec.duration_sec,
     })
@@ -125,14 +133,33 @@ def order_webhook(request):
     return JsonResponse({'ok': True, 'linked': n})
 
 
+@csrf_exempt
+@cors_headers
+def voice_get(request, unique_id):
+    """JSON-API fuer die Naturmacher-Abspielseite (CORS): Audio-URL + Begleittexte.
+    Zaehlt Abrufe. Liefert approved=False, solange noch nicht freigegeben."""
+    rec = VoiceRecording.objects.filter(unique_id=unique_id).first()
+    if not rec:
+        return JsonResponse({'ok': False, 'found': False}, status=404)
+    if not rec.is_public:
+        return JsonResponse({'ok': True, 'approved': False})
+    VoiceRecording.objects.filter(pk=rec.pk).update(
+        play_count=rec.play_count + 1, last_played_at=timezone.now())
+    return JsonResponse({
+        'ok': True, 'approved': True,
+        'audio_url': _abs(request, rec.audio_file.url),
+        'gift_message': rec.gift_message,
+        'sender_name': rec.sender_name,
+        'recipient_name': rec.recipient_name,
+        'duration_sec': rec.duration_sec,
+    })
+
+
 def play(request, unique_id):
-    """Oeffentliche Abspielseite (QR-Ziel). Ohne Login. Zaehlt Abrufe."""
-    rec = get_object_or_404(VoiceRecording, unique_id=unique_id)
-    public = rec.is_public
-    if public:
-        VoiceRecording.objects.filter(pk=rec.pk).update(
-            play_count=rec.play_count + 1, last_played_at=timezone.now())
-    return render(request, 'voice_pot/play.html', {'rec': rec, 'public': public})
+    """Alte Workloom-URL -> leitet auf die Naturmacher-Abspielseite weiter
+    (Branding). Haelt frueher gravierte/geteilte Links lauffaehig."""
+    from django.shortcuts import redirect as _redirect
+    return _redirect(_play_url(unique_id))
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +188,7 @@ def admin_list(request):
 def admin_detail(request, unique_id):
     rec = get_object_or_404(VoiceRecording, unique_id=unique_id)
     from fileshare.utils import generate_qr_code
-    qr_data_uri = generate_qr_code(_abs(request, reverse('voice_pot:play', args=[rec.unique_id])))
+    qr_data_uri = generate_qr_code(_play_url(rec.unique_id))
     return render(request, 'voice_pot/detail.html', {'rec': rec, 'qr': qr_data_uri})
 
 
@@ -199,7 +226,7 @@ def qr_png(request, unique_id):
     rec = get_object_or_404(VoiceRecording, unique_id=unique_id)
     import qrcode
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=20, border=2)
-    qr.add_data(_abs(request, reverse('voice_pot:play', args=[rec.unique_id])))
+    qr.add_data(_play_url(rec.unique_id))
     qr.make(fit=True)
     img = qr.make_image(fill_color='black', back_color='white')
     buf = io.BytesIO()
