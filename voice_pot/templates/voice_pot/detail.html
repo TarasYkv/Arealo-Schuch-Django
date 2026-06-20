@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprachtopf {{ rec.unique_id }}</title>
+<style>
+  body{ font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:#0f1720; color:#e8eef5; margin:0; padding:20px; }
+  a{ color:#7fe0b3; }
+  .wrap{ max-width:620px; margin:0 auto; }
+  .card{ background:#16212c; border-radius:14px; padding:18px 20px; margin-bottom:16px; }
+  h1{ font-size:1.2rem; margin:0 0 12px; }
+  .kv{ font-size:.92rem; line-height:1.7; }
+  .kv b{ color:#9fb3c8; font-weight:600; }
+  audio{ width:100%; margin:6px 0 4px; }
+  .msg{ font-style:italic; background:rgba(255,255,255,.06); padding:12px 14px; border-radius:10px; margin-top:8px; }
+  .qr{ text-align:center; }
+  .qr img{ width:200px; background:#fff; padding:10px; border-radius:10px; }
+  .badge{ font-size:.75rem; padding:3px 9px; border-radius:6px; }
+  .b-app{ background:#1f6f4a; color:#dfffe9; } .b-pend{ background:#7a5c12; color:#ffe9b0; } .b-off{ background:#5a2330; color:#ffd6dd; }
+  form{ display:inline; }
+  button{ border:none; border-radius:9px; padding:10px 16px; font-size:.92rem; cursor:pointer; margin:4px 4px 0 0; }
+  .ok{ background:#2bb673; color:#053; font-weight:700; } .warn{ background:#243441; color:#cfe; } .danger{ background:#7a2233; color:#ffd6dd; }
+</style></head><body>
+<div class="wrap">
+  <p><a href="{% url 'voice_pot:admin_list' %}">← Übersicht</a></p>
+  <div class="card">
+    <h1>Sprachtopf {{ rec.order_name|default:rec.unique_id }}
+      {% if rec.is_approved %}<span class="badge b-app">freigegeben</span>{% else %}<span class="badge b-pend">zu prüfen</span>{% endif %}
+      {% if not rec.is_active %}<span class="badge b-off">gesperrt</span>{% endif %}
+    </h1>
+    <audio controls preload="auto" src="{{ rec.audio_file.url }}"></audio>
+    {% if rec.gift_message %}<div class="msg">„{{ rec.gift_message }}"</div>{% endif %}
+    <div class="kv" style="margin-top:12px">
+      {% if rec.sender_name %}<div><b>Von:</b> {{ rec.sender_name }}</div>{% endif %}
+      {% if rec.recipient_name %}<div><b>Für:</b> {{ rec.recipient_name }}</div>{% endif %}
+      <div><b>Länge:</b> {{ rec.duration_sec }} s · {{ rec.file_size|filesizeformat }}</div>
+      <div><b>Einwilligung:</b> {% if rec.consent %}✓ bestätigt{% else %}⚠ nicht bestätigt{% endif %}</div>
+      <div><b>Bestellung:</b> {{ rec.order_name|default:"–" }} {% if rec.shopify_order_id %}(ID {{ rec.shopify_order_id }}){% endif %}</div>
+      <div><b>Hochgeladen:</b> {{ rec.created_at|date:"d.m.Y H:i" }} · {{ rec.play_count }}× gehört</div>
+      <div><b>Abspiel-Link:</b> <a href="{% url 'voice_pot:play' rec.unique_id %}" target="_blank">{% url 'voice_pot:play' rec.unique_id %}</a></div>
+    </div>
+  </div>
+
+  <div class="card qr">
+    <h1 style="text-align:left">QR-Code zum Gravieren</h1>
+    <img src="{{ qr }}" alt="QR">
+    <div style="margin-top:10px"><a href="{% url 'voice_pot:qr_png' rec.unique_id %}">⬇ Hochauflösendes PNG herunterladen</a></div>
+  </div>
+
+  <div class="card">
+    {% if not rec.is_approved %}
+      <form method="post" action="{% url 'voice_pot:admin_action' rec.unique_id %}">{% csrf_token %}
+        <input type="hidden" name="action" value="approve"><button class="ok">✓ Freigeben (öffentlich hörbar)</button></form>
+    {% else %}
+      <form method="post" action="{% url 'voice_pot:admin_action' rec.unique_id %}">{% csrf_token %}
+        <input type="hidden" name="action" value="unapprove"><button class="warn">Freigabe zurücknehmen</button></form>
+    {% endif %}
+    <form method="post" action="{% url 'voice_pot:admin_action' rec.unique_id %}">{% csrf_token %}
+      <input type="hidden" name="action" value="toggle_active"><button class="warn">{% if rec.is_active %}Sperren{% else %}Entsperren{% endif %}</button></form>
+    <form method="post" action="{% url 'voice_pot:admin_action' rec.unique_id %}" onsubmit="return confirm('Aufnahme endgültig löschen?');">{% csrf_token %}
+      <input type="hidden" name="action" value="delete"><button class="danger">🗑 Löschen</button></form>
+  </div>
+</div>
+</body></html>

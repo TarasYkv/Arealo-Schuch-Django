@@ -33,6 +33,7 @@ ALLOWED_HOSTS = [
     'tarasyuzkiv.pythonanywhere.com',
     'www.workloom.de',
     'workloom.de',
+    'alexa.workloom.de',
     '10.63.100.139',
     '127.0.0.1',
     'localhost',
@@ -69,6 +70,7 @@ INSTALLED_APPS = [
     'chat',
     'shopify_manager',
     'shopify_uploads',
+    'voice_pot',
     'bug_report',
     'videos',
     'mycut',
@@ -110,6 +112,7 @@ INSTALLED_APPS = [
     'video',
     'magvis',
     'lasergravur',
+    'radio',
 ]
 
 
@@ -420,6 +423,10 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 # konsumiert nur die magvis-Queue.
 CELERY_TASK_ROUTES = {
     'magvis.tasks.*': {'queue': 'magvis'},
+    # Radio-Tasks (Audio-Erzeugung Lyria/Gemini/ElevenLabs, Auto-Programm, News) in
+    # eigene Queue, damit sie nicht vom solo-Haupt-Worker (vidgen/GPU-Polling) blockiert
+    # werden. Eigener Worker: celery-radio.service konsumiert nur die radio-Queue.
+    'radio.tasks.*': {'queue': 'radio'},
 }
 
 # Site Configuration für E-Mail Links
@@ -427,7 +434,45 @@ SITE_DOMAIN = 'www.workloom.de'
 SITE_NAME = 'WorkLoom'
 
 # Celery Beat Scheduler for periodic tasks
+from celery.schedules import crontab  # noqa: E402
+
 CELERY_BEAT_SCHEDULE = {
+    'radio-snapshot-listeners': {
+        'task': 'radio.tasks.snapshot_listeners',
+        'schedule': 300.0,  # alle 5 Min Hoererzahl fuer das Verlaufs-Diagramm erfassen
+    },
+    'radio-cleanup-media': {
+        'task': 'radio.tasks.cleanup_old_media',
+        'schedule': crontab(hour=5, minute=0),  # täglich 05:00: alte Audio/Video-Dateien entfernen
+    },
+    # 'radio-auto-program' deaktiviert (12.06.2026): kollidierte mit der 24/7-Pin-
+    # Tagesplanung (doppelte Wortbeiträge um :00/:30). Der Tag wird komplett über
+    # materialize_day geplant; der Folgetag nächtlich über radio-plan-next-day.
+    'radio-topup-queue': {
+        'task': 'radio.tasks.topup_queue',
+        'schedule': 900.0,  # alle 15 Min: Warteschlange auffuellen, falls < 3h Vorlauf
+    },
+    'radio-plan-next-day': {
+        'task': 'radio.tasks.plan_ahead',
+        'schedule': crontab(hour=21, minute=30),  # UTC = 23:30 Berlin: Folgetag komplett vorausplanen (Absicherung; topup hält ohnehin >=10h)
+    },
+    'radio-fetch-news': {
+        'task': 'radio.tasks.fetch_news',
+        'schedule': crontab(minute=40),  # stündlich :40 — frische Tagesnews vor dem :50-Slot
+    },
+    'radio-healthcheck': {
+        'task': 'radio.tasks.radio_healthcheck',
+        'schedule': 900.0,  # alle 15 Min: Stream/Sendeplan/Journal prüfen, bei Problemen Mail an den Betreiber
+    },
+    'radio-fetch-news-nachzuegler': {
+        'task': 'radio.tasks.fetch_news',
+        'schedule': crontab(minute=52),  # stündlich Sicherheitsnetz: nur falls die Ausgabe noch fehlt
+        'kwargs': {'only_if_missing': True},
+    },
+    'radio-enforce-pins': {
+        'task': 'radio.tasks.enforce_pins',
+        'schedule': 60.0,  # jede Minute: exakte Zeit-Pins durchsetzen (unterbricht laufenden Track)
+    },
     'sync-emails': {
         'task': 'mail_app.tasks.sync_emails',
         'schedule': MAIL_APP_SETTINGS['EMAIL_SYNC_INTERVAL'],

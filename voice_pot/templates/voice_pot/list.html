@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprachtöpfe – Verwaltung</title>
+<style>
+  body{ font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:#0f1720; color:#e8eef5; margin:0; padding:20px; }
+  h1{ font-size:1.4rem; margin:0 0 4px; }
+  .bar{ margin:14px 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .bar a,.bar input{ text-decoration:none; }
+  .chip{ padding:6px 12px; border-radius:20px; background:#1b2733; color:#cfe; font-size:.85rem; }
+  .chip.on{ background:#2bb673; color:#062; font-weight:700; }
+  input[type=text]{ padding:7px 10px; border-radius:8px; border:1px solid #2a3a49; background:#121c26; color:#e8eef5; }
+  .row{ background:#16212c; border-radius:12px; padding:12px 14px; margin-bottom:10px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .row .id{ font-family:monospace; opacity:.7; font-size:.8rem; }
+  .row .meta{ flex-grow:1; min-width:180px; }
+  .badge{ font-size:.72rem; padding:3px 8px; border-radius:6px; }
+  .b-app{ background:#1f6f4a; color:#dfffe9; }
+  .b-pend{ background:#7a5c12; color:#ffe9b0; }
+  .b-off{ background:#5a2330; color:#ffd6dd; }
+  audio{ height:34px; max-width:230px; }
+  a.btn{ background:#243441; color:#cfe; padding:7px 12px; border-radius:8px; text-decoration:none; font-size:.85rem; }
+</style></head><body>
+  <h1>🌿 Sprachtöpfe</h1>
+  <div style="opacity:.7;font-size:.9rem">{{ pending }} wartet{{ pending|pluralize:"et,en" }} auf Freigabe</div>
+  <div class="bar">
+    <a class="chip {% if not f %}on{% endif %}" href="?">Alle</a>
+    <a class="chip {% if f == 'pending' %}on{% endif %}" href="?f=pending">⏳ Zu prüfen</a>
+    <a class="chip {% if f == 'approved' %}on{% endif %}" href="?f=approved">✓ Freigegeben</a>
+    <form method="get" style="margin-left:auto"><input type="text" name="q" value="{{ q }}" placeholder="Bestellung / ID suchen"></form>
+  </div>
+  {% for r in recs %}
+    <div class="row">
+      <div class="meta">
+        <div>{{ r.order_name|default:"(noch keine Bestellung)" }}
+          {% if r.is_approved %}<span class="badge b-app">freigegeben</span>{% else %}<span class="badge b-pend">zu prüfen</span>{% endif %}
+          {% if not r.is_active %}<span class="badge b-off">gesperrt</span>{% endif %}
+        </div>
+        <div class="id">{{ r.unique_id }} · {{ r.duration_sec }}s · {{ r.created_at|date:"d.m. H:i" }} · {{ r.play_count }}× gehört</div>
+        {% if r.gift_message %}<div style="font-style:italic;opacity:.85;font-size:.88rem">„{{ r.gift_message|truncatechars:70 }}"</div>{% endif %}
+      </div>
+      <audio controls preload="none" src="{{ r.audio_file.url }}"></audio>
+      <a class="btn" href="{% url 'voice_pot:admin_detail' r.unique_id %}">Öffnen →</a>
+    </div>
+  {% empty %}
+    <p style="opacity:.6">Noch keine Aufnahmen.</p>
+  {% endfor %}
+</body></html>

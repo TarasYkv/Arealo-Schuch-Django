@@ -11,8 +11,12 @@ from core import views as core_views
 from videos import views as video_views
 from linkloom import views as linkloom_views
 from core.sitemaps import sitemaps
+from Schuch import aszendent_proxy
 
 urlpatterns = [
+    path('sterntopf/', include('sterntopf.urls')),
+    path('voice/', include('voice_pot.urls')),
+    path('api/aszendent-signup', aszendent_proxy.aszendent_signup, name='aszendent_signup'),
     # GEÄNDERT: Der Pfad verweist jetzt auf die View in der core-App
     path('', core_views.startseite_ansicht, name='startseite'),
 
@@ -100,6 +104,8 @@ urlpatterns = [
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     # Video Creator
     path("videostudio/", include("video.urls")),
+    # Naturmacher KI-Radio (Superuser-Cockpit)
+    path("radio/", include("radio.urls")),
     path('robots.txt', core_views.robots_txt, name='robots_txt'),
 
     path('admin/', admin.site.urls),

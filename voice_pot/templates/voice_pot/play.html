@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Eine Nachricht für dich – Naturmacher</title>
+<style>
+  :root{ --green:#0d3b2e; --green2:#14503c; --accent:#2bb673; --cream:#f4f1ea; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+        min-height:100vh; background:linear-gradient(160deg,var(--green) 0%,var(--green2) 100%);
+        color:var(--cream); display:flex; align-items:center; justify-content:center; padding:24px; }
+  .card{ width:100%; max-width:440px; text-align:center; }
+  .leaf{ font-size:42px; }
+  h1{ font-size:1.5rem; font-weight:700; margin:14px 0 6px; }
+  .sub{ opacity:.8; font-size:.98rem; line-height:1.5; margin-bottom:26px; }
+  .play{ width:128px; height:128px; border-radius:50%; border:none; cursor:pointer;
+         background:var(--accent); color:#fff; font-size:54px; line-height:1; margin:8px auto 18px;
+         display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px rgba(0,0,0,.3);
+         transition:transform .15s; }
+  .play:active{ transform:scale(.94); }
+  .msg{ background:rgba(255,255,255,.08); border-radius:14px; padding:16px 18px; margin-top:18px;
+        font-style:italic; line-height:1.55; }
+  .from{ margin-top:10px; opacity:.75; font-size:.9rem; }
+  .foot{ margin-top:34px; opacity:.6; font-size:.8rem; }
+  .foot a{ color:var(--cream); }
+  .wait{ background:rgba(255,255,255,.08); border-radius:14px; padding:22px; line-height:1.6; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="leaf">🌿</div>
+    {% if public %}
+      <h1>Eine Nachricht für dich</h1>
+      <p class="sub">{% if rec.recipient_name %}Hallo {{ rec.recipient_name }}, j{% else %}J{% endif %}emand hat dir etwas gesagt – tippe auf Play und hör die vertraute Stimme.</p>
+      <button class="play" id="playBtn" aria-label="Abspielen">▶</button>
+      <audio id="aud" src="{{ rec.audio_file.url }}" preload="auto"></audio>
+      {% if rec.gift_message %}<div class="msg">„{{ rec.gift_message }}"</div>{% endif %}
+      {% if rec.sender_name %}<div class="from">– von {{ rec.sender_name }}</div>{% endif %}
+    {% else %}
+      <h1>Wird gerade vorbereitet</h1>
+      <div class="wait">Diese Sprachnachricht wird gerade geprüft und ist gleich für dich bereit.
+        Schau in Kürze noch einmal vorbei. 💚</div>
+    {% endif %}
+    <div class="foot">Ein Sprachtopf von <a href="https://naturmacher.de">Naturmacher</a> –
+      die Pflanze lebt weiter und trägt deine Worte.</div>
+  </div>
+{% if public %}
+<script>
+  (function(){
+    var btn=document.getElementById('playBtn'), aud=document.getElementById('aud');
+    btn.addEventListener('click', function(){
+      if(aud.paused){ aud.play(); btn.textContent='⏸'; }
+      else { aud.pause(); btn.textContent='▶'; }
+    });
+    aud.addEventListener('ended', function(){ btn.textContent='▶'; });
+  })();
+</script>
+{% endif %}
+</body>
+</html>
