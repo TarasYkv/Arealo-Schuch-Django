@@ -1048,7 +1048,7 @@ def _engrave_dither(proc, method='floyd-steinberg', threshold=127, target_width=
 @csrf_exempt
 @cors_headers
 def ai_optimize_public(request, unique_id):
-    """OEFFENTLICH (Shop): optimiert das Foto fuer die Lasergravur. Versucht zuerst Nano Banana Pro
+    """OEFFENTLICH (Shop): optimiert das Foto fuer die Lasergravur. Versucht zuerst Nano Banana 2
     (generativ); falls das Modell kein Bild liefert (z.B. Safety-Filter bei Personen), Fallback auf
     die Analyse-Variante (Gemini Vision empfiehlt Werte -> PIL-Dithering). Speichert als 'image'."""
     if request.method == 'OPTIONS':
@@ -1081,7 +1081,7 @@ def ai_optimize_public(request, unique_id):
         _block_reason = None
         model_used = 'gemini-3.1-flash-image-preview'
 
-        # --- Versuch 1: generativ (Nano Banana Pro) ---
+        # --- Versuch 1: generativ (Nano Banana 2) ---
         try:
             from imageforge.services.gemini_generator import GeminiGenerator
             gprompt = (
