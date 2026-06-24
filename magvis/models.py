@@ -29,7 +29,7 @@ class MagvisSettings(models.Model):
     glm_base_url = models.URLField(default='https://api.z.ai/api/coding/paas/v4')
 
     # Gemini (Bilder)
-    gemini_image_model = models.CharField(max_length=64, default='gemini-2.5-flash-image')
+    gemini_image_model = models.CharField(max_length=64, default='gemini-3.1-flash-image-preview')
 
     # Defaults Video
     default_video_template = models.CharField(max_length=32, default='youtube_short')

@@ -93,10 +93,28 @@ def image_list(request):
             Q(original_filename__icontains=search_query)
         )
 
+    from django.db.models import Sum, Count
+    from django.utils import timezone
+    from .models import AiUsageLog
+    _all = AiUsageLog.objects.aggregate(n=Count('id'), c=Sum('cost_cents'))
+    _nm = AiUsageLog.objects.filter(source='naturmacher').aggregate(n=Count('id'), c=Sum('cost_cents'))
+    _ms = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    _mo = AiUsageLog.objects.filter(created_at__gte=_ms).aggregate(n=Count('id'), c=Sum('cost_cents'))
+    ai_stats = {
+        'total_n': _all['n'] or 0, 'total_eur': (_all['c'] or 0) / 100.0,
+        'nm_n': _nm['n'] or 0, 'nm_eur': (_nm['c'] or 0) / 100.0,
+        'month_n': _mo['n'] or 0, 'month_eur': (_mo['c'] or 0) / 100.0,
+    }
+    images = list(images)
+    for _img in images:
+        _ps = _img.processing_settings if isinstance(_img.processing_settings, dict) else {}
+        _img.ki_kind = 'gemini' if 'gemini' in str(_ps.get('ai', '') or '').lower() else 'manuell'
+
     context = {
         'images': images,
         'search_query': search_query,
         'total_count': FotogravurImage.objects.count(),
+        'ai_stats': ai_stats,
     }
     return render(request, 'shopify_uploads/image_list.html', context)
 
@@ -110,8 +128,16 @@ def image_detail(request, unique_id):
     """
     image = get_object_or_404(FotogravurImage, unique_id=unique_id)
 
+    ps = image.processing_settings if isinstance(image.processing_settings, dict) else {}
+    _ai = str(ps.get('ai', '') or '')
+    if 'gemini' in _ai.lower():
+        ki_info = {'kind': 'gemini', 'label': 'Mit Gemini KI bearbeitet', 'model': _ai}
+    else:
+        ki_info = {'kind': 'manuell', 'label': 'Manuell / ohne KI bearbeitet', 'model': _ai}
+
     context = {
         'image': image,
+        'ki_info': ki_info,
     }
     return render(request, 'shopify_uploads/image_detail.html', context)
 
@@ -203,6 +229,16 @@ def upload_image(request):
             )
             is_update = False
 
+        # Schutz: ein bereits KI-optimiertes Gravur-Bild darf NICHT durch die clientseitige
+        # (Graustufen-)Version ueberschrieben werden. Nur Metadaten/Original-Bild duerfen rein.
+        _ai_locked = bool(
+            is_update
+            and isinstance(getattr(fotogravur_image, 'processing_settings', None), dict)
+            and fotogravur_image.processing_settings.get('ai')
+        )
+        if _ai_locked:
+            image_binary = None  # vorhandenes KI-Gravurbild behalten
+
         # Felder aktualisieren (optional)
         if 'original_filename' in data:
             fotogravur_image.original_filename = data['original_filename']
@@ -214,7 +250,7 @@ def upload_image(request):
             fotogravur_image.custom_text = data['custom_text']
         if 'font_family' in data:
             fotogravur_image.font_family = data['font_family']
-        if 'processing_settings' in data:
+        if 'processing_settings' in data and not _ai_locked:
             fotogravur_image.processing_settings = data['processing_settings']
 
         # File size aktualisieren
@@ -503,7 +539,7 @@ def process_image_ajax(request, unique_id):
             }, status=400)
 
         # Importiere ImageProcessor
-        from image_editor.image_processing import ImageProcessor
+        from .image_processing import ImageProcessor
         import base64
         from io import BytesIO
         from PIL import Image as PILImage
@@ -626,8 +662,8 @@ def save_processed_image(request, unique_id):
         image_binary = base64.b64decode(image_data)
 
         # Speichere als S/W-Bild
-        filename = f"{unique_id}.png"
-        image.image.save(
+        filename = f"{unique_id}_edited.png"
+        image.edited_image.save(
             filename,
             ContentFile(image_binary),
             save=False
@@ -637,7 +673,7 @@ def save_processed_image(request, unique_id):
         image.file_size = len(image_binary)
 
         # Speichere Verarbeitungseinstellungen
-        image.processing_settings = processing_settings
+        # processing_settings (Kundenwerte) bleiben erhalten
 
         # Save to database
         image.save()
@@ -645,8 +681,8 @@ def save_processed_image(request, unique_id):
         return JsonResponse({
             'success': True,
             'message': 'Bild erfolgreich gespeichert',
-            'file_size_kb': image.file_size_kb,
-            'image_url': image.image.url
+            
+            'image_url': image.edited_image.url
         })
 
     except json.JSONDecodeError:
@@ -815,3 +851,311 @@ def serve_media_with_cors(request, file_path):
         logger = logging.getLogger(__name__)
         logger.error(f'Media serve error: {str(e)}', exc_info=True)
         raise Http404("File not found")
+
+
+
+_AI_SAFETY = [
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+]
+
+
+_AI_COST_CENTS = {
+    'gemini-3-pro-image-preview': 13.0, 'gemini-3-pro-image': 13.0,
+    'gemini-2.5-flash-image': 4.0, 'gemini-3.1-flash-image-preview': 6.7,
+    'gemini-2.5-flash': 0.2, 'gemini-2.5-flash-lite': 0.1, 'gemini-flash-latest': 0.3,
+}
+
+
+def _log_ai_usage(source, model, kind, unique_id):
+    try:
+        from .models import AiUsageLog
+        AiUsageLog.objects.create(source=source, model=model or '', kind=kind,
+                                  cost_cents=_AI_COST_CENTS.get(model, 0.0), unique_id=unique_id or '')
+    except Exception:
+        pass
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def ai_optimize_engraving(request, unique_id):
+    """KI-Optimierung fuer Lasergravur: Gemini analysiert das Foto und empfiehlt optimale
+    Tonwert-Parameter (Helligkeit/Kontrast/Schwellwert/Dithering), die exakt mit PIL angewendet
+    werden. Der Bildinhalt (Personen/Umgebung) wird NICHT veraendert."""
+    from django.conf import settings as dj_settings
+    image = get_object_or_404(FotogravurImage, unique_id=unique_id)
+    src = image.original_image if (image.original_image and image.original_image.name) else image.image
+    if not src or not src.name:
+        return JsonResponse({'success': False, 'error': 'Kein Bild vorhanden'}, status=400)
+    api_key = getattr(request.user, 'gemini_api_key', None) or getattr(dj_settings, 'GEMINI_API_KEY', None)
+    if not api_key:
+        return JsonResponse({'success': False, 'error': 'Kein Gemini-API-Key konfiguriert'}, status=500)
+    try:
+        import re as _re
+        import google.generativeai as genai
+        from PIL import Image as PILImage
+        from .image_processing import ImageProcessor
+
+        pil = PILImage.open(src)
+        if pil.mode != 'RGB':
+            pil = pil.convert('RGB')
+
+        prompt = (
+            "You are a laser-engraving image specialist. Analyze this photo and recommend the OPTIMAL "
+            "tonal processing parameters to convert it into a clean black-and-white image for laser "
+            "engraving on a light ceramic surface. Maximize clarity of the main subject (faces, contours). "
+            "IMPORTANT: only recommend tonal/processing parameters - do NOT change or describe changing any content. "
+            "Return ONLY valid minified JSON (no markdown) with keys: "
+            "brightness_factor (number 0.6-1.5, 1.0=neutral), "
+            "contrast_factor (number 0.8-2.2, 1.0=neutral), "
+            "threshold (integer 0-255), "
+            "dithering (one of: floyd-steinberg, ordered, none), "
+            "reason (short German sentence). "
+            "Guidance: portraits/photos with faces -> floyd-steinberg dithering and moderate contrast; "
+            "logos/line art -> dithering none with a hard threshold."
+        )
+
+        try:
+            _body = json.loads(request.body or b'{}')
+        except Exception:
+            _body = {}
+        _allowed = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3-flash-preview']
+        _mname = _body.get('model') if _body.get('model') in _allowed else 'gemini-2.5-flash'
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(_mname)
+        resp = model.generate_content([prompt, pil], safety_settings=_AI_SAFETY)
+        txt = (getattr(resp, 'text', '') or '').strip()
+        mt = _re.search(r'\{.*\}', txt, _re.S)
+        params = json.loads(mt.group(0)) if mt else {}
+
+        bf = float(params.get('brightness_factor', 1.0))
+        cf = float(params.get('contrast_factor', 1.0))
+        th = int(float(params.get('threshold', 127)))
+        dith = str(params.get('dithering', 'floyd-steinberg')).lower().strip()
+        reason = str(params.get('reason', ''))[:200]
+        bf = max(0.4, min(2.0, bf)); cf = max(0.5, min(3.0, cf)); th = max(0, min(255, th))
+        if dith not in ('floyd-steinberg', 'ordered', 'none'):
+            dith = 'floyd-steinberg'
+
+        proc = ImageProcessor(pil)
+        proc.convert_to_grayscale()
+        if abs(bf - 1.0) > 0.001:
+            proc.adjust_brightness(bf)
+        if abs(cf - 1.0) > 0.001:
+            proc.adjust_contrast(cf)
+        if dith == 'none':
+            proc.apply_threshold(th)
+        else:
+            proc.apply_dithering(method=dith, threshold=th)
+
+        data_url = proc.get_current_image_base64()
+        _log_ai_usage('admin', _mname, 'optimize', unique_id)
+        return JsonResponse({
+            'success': True,
+            'image_data': data_url,
+            'settings': {'brightness_factor': bf, 'contrast_factor': cf, 'threshold': th, 'dithering': dith},
+            'reason': reason,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': 'KI-Optimierung fehlgeschlagen: ' + str(e)}, status=500)
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def ai_generate_engraving(request, unique_id):
+    """Komplett-KI-Bearbeitung (generativ): Nano Banana (gemini-3-pro-image) erzeugt aus dem
+    Original ein gravur-optimiertes S/W-Bild. ACHTUNG: generativ - kann Inhalt leicht veraendern."""
+    from django.conf import settings as dj_settings
+    image = get_object_or_404(FotogravurImage, unique_id=unique_id)
+    src = image.original_image if (image.original_image and image.original_image.name) else image.image
+    if not src or not src.name:
+        return JsonResponse({'success': False, 'error': 'Kein Bild vorhanden'}, status=400)
+    api_key = getattr(request.user, 'gemini_api_key', None) or getattr(dj_settings, 'GEMINI_API_KEY', None)
+    if not api_key:
+        return JsonResponse({'success': False, 'error': 'Kein Gemini-API-Key konfiguriert'}, status=500)
+    try:
+        from imageforge.services.gemini_generator import GeminiGenerator
+        prompt = (
+            "Redraw this photograph as a HIGH-CONTRAST BLACK AND WHITE line/stipple artwork for laser "
+            "engraving on light ceramic. Represent shading with fine STIPPLING, CROSS-HATCHING and HALFTONE "
+            "DOTS - NOT smooth grey gradients. Strong clear contours, well-defined facial features, plain "
+            "white background. CRITICAL: keep the person(s), faces, pose and composition EXACTLY as in the "
+            "reference - do not add, remove, beautify or restyle anything, only change the rendering style."
+        )
+        try:
+            _body = json.loads(request.body or b'{}')
+        except Exception:
+            _body = {}
+        _allowed = ['gemini-2.5-flash-image', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview']
+        _mname = _body.get('model') if _body.get('model') in _allowed else 'gemini-3.1-flash-image-preview'
+        gen = GeminiGenerator(api_key)
+        try:
+            src_path = src.path
+        except Exception:
+            src_path = src
+        result = gen.generate(prompt=prompt, reference_images=[src_path], model=_mname)
+        if not result.get('success'):
+            return JsonResponse({'success': False, 'error': result.get('error', 'KI-Bildgenerierung fehlgeschlagen')}, status=500)
+        img_data = result.get('image_data') or ''
+        if not img_data:
+            return JsonResponse({'success': False, 'error': 'Kein Bild von der KI erhalten'}, status=500)
+        raw = img_data.split(',', 1)[1] if ',' in str(img_data) else img_data
+        # Generatives (Graustufen-)Ergebnis in echtes 1-Bit Gravur-Bild wandeln (Floyd-Steinberg)
+        try:
+            import io as _io
+            from PIL import Image as _PILImage
+            from .image_processing import ImageProcessor
+            nb = _PILImage.open(_io.BytesIO(base64.b64decode(raw)))
+            if nb.mode != 'RGB':
+                nb = nb.convert('RGB')
+            proc = ImageProcessor(nb)
+            proc.convert_to_grayscale()
+            proc.apply_dithering(method='floyd-steinberg', threshold=127)
+            final = proc.get_current_image_base64()
+        except Exception:
+            final = 'data:image/png;base64,' + raw
+        return JsonResponse({'success': True, 'image_data': final})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': 'KI-Bearbeitung fehlgeschlagen: ' + str(e)}, status=500)
+
+
+def _engrave_dither(proc, method='floyd-steinberg', threshold=127, target_width=360, upscale=3):
+    """Bewusst grobes Dithering fuer Diodenlaser (z.B. Creality Falcon 2, 40W):
+    Das Bild wird vor dem Dithering auf target_width reduziert (LANCZOS), gedithert und
+    danach mit NEAREST wieder vergroessert. So werden die einzelnen Laserpunkte gross/klar
+    genug, dass der Laser sie trennen kann - sonst verschmelzen sie zu einer Grauflaeche."""
+    try:
+        from PIL import Image as _IM
+        ow, oh = proc.current_image.size
+        if ow > target_width:
+            nh = max(1, int(round(oh * target_width / float(ow))))
+            proc.current_image = proc.current_image.resize((target_width, nh), _IM.LANCZOS)
+    except Exception:
+        pass
+    proc.apply_dithering(method=method, threshold=threshold)
+    try:
+        from PIL import Image as _IM
+        dw, dh = proc.current_image.size
+        proc.current_image = proc.current_image.resize((dw * upscale, dh * upscale), _IM.NEAREST)
+    except Exception:
+        pass
+
+
+@csrf_exempt
+@cors_headers
+def ai_optimize_public(request, unique_id):
+    """OEFFENTLICH (Shop): optimiert das Foto fuer die Lasergravur. Versucht zuerst Nano Banana Pro
+    (generativ); falls das Modell kein Bild liefert (z.B. Safety-Filter bei Personen), Fallback auf
+    die Analyse-Variante (Gemini Vision empfiehlt Werte -> PIL-Dithering). Speichert als 'image'."""
+    if request.method == 'OPTIONS':
+        return JsonResponse({})
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST'}, status=405)
+    from django.conf import settings as dj_settings
+    from django.contrib.auth import get_user_model
+    image = get_object_or_404(FotogravurImage, unique_id=unique_id)
+    src = image.original_image if (image.original_image and image.original_image.name) else None
+    if not src:
+        return JsonResponse({'success': False, 'error': 'Kein Original-Bild vorhanden'}, status=400)
+    api_key = getattr(dj_settings, 'GEMINI_API_KEY', None)
+    if not api_key:
+        U = get_user_model()
+        owner = U.objects.filter(username='taras').first() or U.objects.filter(is_superuser=True).exclude(gemini_api_key='').first()
+        api_key = getattr(owner, 'gemini_api_key', None) if owner else None
+    if not api_key:
+        return JsonResponse({'success': False, 'error': 'Kein Gemini-Key'}, status=500)
+    try:
+        import io as _io, re as _re
+        from PIL import Image as _PILImage
+        from .image_processing import ImageProcessor
+        pil = _PILImage.open(src)
+        if pil.mode != 'RGB':
+            pil = pil.convert('RGB')
+
+        proc = None
+        preview_url = None
+        _block_reason = None
+        model_used = 'gemini-3.1-flash-image-preview'
+
+        # --- Versuch 1: generativ (Nano Banana Pro) ---
+        try:
+            from imageforge.services.gemini_generator import GeminiGenerator
+            gprompt = (
+                "Convert this photograph into a clean black-and-white stipple/halftone artwork for LASER ENGRAVING "
+                "on light cream ceramic. CRITICAL: the ENTIRE background must be 100% PURE WHITE and completely EMPTY "
+                "- fully remove the studio / wall / backdrop, cut out ONLY the main subject(s) (the people), and put "
+                "absolutely NO dots, shading, grey or texture anywhere in the background. Draw only the subject(s) "
+                "with clear stippling and halftone dots; render dark areas (hair, dark clothing, shadows) as a DENSE "
+                "DARK-GREY stipple/halftone (not a flat solid black blob) so they read dark but stay textured. Keep "
+                "strong contrast and clearly defined edges so it engraves well. Keep the person(s), faces, pose and "
+                "composition EXACTLY as in the reference."
+            )
+            try:
+                src_path = src.path
+            except Exception:
+                src_path = src
+            gres = GeminiGenerator(api_key).generate(prompt=gprompt, reference_images=[src_path], model='gemini-3.1-flash-image-preview')
+            if gres.get('success') and gres.get('image_data'):
+                rb = gres['image_data']
+                raw = rb.split(',', 1)[1] if ',' in str(rb) else rb
+                nb = _PILImage.open(_io.BytesIO(base64.b64decode(raw)))
+                if nb.mode != 'RGB':
+                    nb = nb.convert('RGB')
+                proc = ImageProcessor(nb)
+                proc.convert_to_grayscale()
+                proc.adjust_brightness(1.12)
+                # Tiefen gezielt anheben: dunkle Flaechen heller, Highlights unberuehrt
+                _lut = []
+                for _i in range(256):
+                    _v = _i + (45.0 * (1.0 - _i / 200.0) if _i < 200 else 0.0)
+                    if _v >= 230:
+                        _v = 255
+                    _lut.append(int(min(255, _v)))
+                try:
+                    if proc.current_image.mode != 'RGB':
+                        proc.current_image = proc.current_image.convert('RGB')
+                    proc.current_image = proc.current_image.point(_lut * 3)
+                except Exception:
+                    pass
+                preview_url = proc.get_current_image_base64()
+                _engrave_dither(proc, method='floyd-steinberg', threshold=127)
+            else:
+                _ge = str(gres.get('error', '')).lower()
+                _pf_keys = ('public figure', 'public person', 'person of public', 'real people',
+                            'real person', 'real individual', 'identifiable person', 'depict real',
+                            'depicting real', 'celebrity', 'celebrities', 'known person',
+                            'images of real', 'cannot create images of real', 'famous', 'politician',
+                            'actual person', 'specific real')
+                if any(_k in _ge for _k in _pf_keys):
+                    _block_reason = 'public_figure'
+        except Exception:
+            proc = None
+
+        # Als Person des oeffentlichen Lebens erkannt -> nicht bearbeiten, klare Meldung
+        if _block_reason == 'public_figure':
+            return JsonResponse({
+                'success': False,
+                'reason': 'public_figure',
+                'error': ('Leider k\u00f6nnen wir dieses Bild nicht automatisch f\u00fcr die Gravur '
+                          'bearbeiten, da es sich offenbar um eine Person des \u00f6ffentlichen Lebens '
+                          'handelt. Bitte verwende ein privates Foto.')
+            }, status=200)
+
+        # Generative Freistellung nicht moeglich (Safety-Filter bei z.B. Minderjaehrigen o.ae.).
+        # -> Signal an den Shop, die clientseitige body-pix-Freistellung zu verwenden.
+        if proc is None:
+            return JsonResponse({'success': False, 'reason': 'use_clientside'}, status=200)
+
+        final_url = proc.get_current_image_base64()
+        final_raw = final_url.split(',', 1)[1]
+        image.image.save(f"{unique_id}.png", ContentFile(base64.b64decode(final_raw)), save=False)
+        image.processing_settings = {'ai': model_used, 'dithering': 'floyd-steinberg'}
+        image.save()
+        _log_ai_usage('naturmacher', model_used, 'optimize', unique_id)
+        return JsonResponse({'success': True, 'image_data': final_url, 'preview_image': preview_url or final_url})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': 'KI-Optimierung fehlgeschlagen: ' + str(e)}, status=500)

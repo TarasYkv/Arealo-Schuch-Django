@@ -523,7 +523,7 @@ class PinSettings(models.Model):
     gemini_model = models.CharField(
         max_length=50,
         choices=GEMINI_MODEL_CHOICES,
-        default='gemini-3-pro-image-preview',
+        default='gemini-3.1-flash-image-preview',
         verbose_name="Gemini Modell",
         help_text="Nano Banana Pro: Beste Qualität, präziser Text. Nano Banana: Schneller, günstiger."
     )

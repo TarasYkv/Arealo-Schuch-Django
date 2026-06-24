@@ -823,7 +823,7 @@ def api_generate_image(request, project_id):
                 project.final_image.save(f"final_{project.id}.png", ContentFile(image_data), save=True)
 
             # Model-Name für Anzeige formatieren
-            model_display = selected_model or ('gemini-2.5-flash-image' if ai_provider == 'gemini' else 'V_2A_TURBO')
+            model_display = selected_model or ('gemini-3.1-flash-image-preview' if ai_provider == 'gemini' else 'V_2A_TURBO')
             if ai_provider == 'gemini':
                 model_names = {
                     'gemini-3-pro-image-preview': 'Gemini 3 Pro',
@@ -1203,7 +1203,7 @@ def api_add_ai_text_overlay(request, project_id):
             project.final_image.save(filename, ContentFile(image_data), save=True)
 
             # Model-Name für Anzeige
-            model_display = selected_model or 'gemini-2.5-flash-image'
+            model_display = selected_model or 'gemini-3.1-flash-image-preview'
             model_names = {
                 'gemini-3-pro-image-preview': 'Gemini 3 Pro',
                 'gemini-2.5-flash-image': 'Gemini 2.5 Flash',
@@ -2693,7 +2693,7 @@ def api_generate_pin_image(request, project_id, position):
         if ai_provider == 'gemini':
             from .gemini_service import GeminiImageService
 
-            model_name = 'gemini-2.5-flash-image'
+            model_name = 'gemini-3.1-flash-image-preview'
             if user_settings:
                 model_name = user_settings.gemini_model
 

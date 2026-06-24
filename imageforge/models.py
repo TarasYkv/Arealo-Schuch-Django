@@ -318,7 +318,7 @@ class ImageGeneration(models.Model):
     ai_model = models.CharField(
         max_length=50,
         choices=AI_MODELS,
-        default='gemini-2.0-flash-preview-image-generation',
+        default='gemini-3.1-flash-image-preview',
         verbose_name='KI-Modell'
     )
 
@@ -517,7 +517,7 @@ class ProductMockup(models.Model):
     # KI-Modell das verwendet wurde
     ai_model = models.CharField(
         max_length=50,
-        default='gemini-3-pro-image-preview',
+        default='gemini-3.1-flash-image-preview',
         verbose_name='KI-Modell'
     )
 

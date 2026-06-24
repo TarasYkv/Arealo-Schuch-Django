@@ -71,7 +71,7 @@ class GeminiImageService:
         'imagen-4.0-ultra-generate-001',
     ]
 
-    DEFAULT_MODEL = 'gemini-2.5-flash-image'
+    DEFAULT_MODEL = 'gemini-3.1-flash-image-preview'
 
     def __init__(self, api_key: str):
         self.api_key = api_key

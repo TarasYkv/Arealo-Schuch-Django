@@ -33,7 +33,8 @@ class GeminiGenerator(BaseImageGenerator):
     AVAILABLE_MODELS = {
         # Gemini (Nano Banana)
         'gemini-2.5-flash-image': 'Nano Banana (Schnell)',
-        'gemini-3-pro-image-preview': 'Nano Banana Pro (Beste Qualität)',
+        'gemini-3.1-flash-image-preview': 'Nano Banana 2 (Schnell, gute Texte)',
+        'gemini-3-pro-image-preview': 'Nano Banana Pro (Beste Qualitaet)',
         # Imagen 4
         'imagen-4.0-ultra-generate-001': 'Imagen 4 Ultra',
         'imagen-4.0-generate-001': 'Imagen 4 Standard',
@@ -50,7 +51,7 @@ class GeminiGenerator(BaseImageGenerator):
         'imagen-3.0-generate-002',
     ]
 
-    DEFAULT_MODEL = 'gemini-2.5-flash-image'
+    DEFAULT_MODEL = 'gemini-3.1-flash-image-preview'
 
     def __init__(self, api_key: str):
         super().__init__(api_key)

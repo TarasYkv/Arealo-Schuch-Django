@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class MagvisGeminiHelper:
-    DEFAULT_MODEL = 'gemini-2.5-flash-image'
+    DEFAULT_MODEL = 'gemini-3.1-flash-image-preview'
 
     def __init__(self, user, magvis_settings=None):
         self.user = user

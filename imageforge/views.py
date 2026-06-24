@@ -95,7 +95,7 @@ def generate_image(request):
         shadow_type = request.POST.get('shadow_type', 'soft')
         color_mood = request.POST.get('color_mood', 'neutral')
         quality = request.POST.get('quality', 'standard')
-        ai_model = request.POST.get('ai_model', 'gemini-2.0-flash-preview-image-generation')
+        ai_model = request.POST.get('ai_model', 'gemini-3.1-flash-image-preview')
 
         # Design-Modus spezifische Parameter
         design_type = request.POST.get('design_type', 'illustration')
@@ -568,7 +568,7 @@ def generate_mockup(request):
             return JsonResponse({'error': 'Stil-Referenzbild ist erforderlich'}, status=400)
 
         # Nano Banana Pro für Text-Rendering erzwingen
-        ai_model = 'gemini-3-pro-image-preview'
+        ai_model = 'gemini-3.1-flash-image-preview'
 
         # API-Key prüfen (Gemini erforderlich für beste Qualität)
         api_key = getattr(request.user, 'gemini_api_key', None)
@@ -679,7 +679,7 @@ def generate_mockup_scene(request):
         shadow_type = request.POST.get('shadow_type', 'soft')
         color_mood = request.POST.get('color_mood', 'neutral')
         quality = request.POST.get('quality', 'standard')
-        ai_model = request.POST.get('ai_model', 'gemini-3-pro-image-preview')
+        ai_model = request.POST.get('ai_model', 'gemini-3.1-flash-image-preview')
 
         if not mockup_id:
             return JsonResponse({'error': 'Mockup-ID erforderlich'}, status=400)

@@ -151,7 +151,7 @@ class BlogPrepSettings(models.Model):
 
     image_model = models.CharField(
         max_length=50,
-        default='gemini-2.5-flash-image',  # Nano Banana als Standard
+        default='gemini-3.1-flash-image-preview',  # Nano Banana als Standard
         verbose_name='Bild-Modell'
     )
 

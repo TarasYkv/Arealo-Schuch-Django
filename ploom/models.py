@@ -161,7 +161,7 @@ class PLoomSettings(models.Model):
     )
     image_generation_model = models.CharField(
         max_length=50,
-        default='gemini-2.5-flash-image',
+        default='gemini-3.1-flash-image-preview',
         verbose_name="Bildgenerierungs-Modell"
     )
     komplettset_description = models.TextField(
