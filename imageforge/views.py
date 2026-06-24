@@ -159,7 +159,15 @@ def generate_image(request):
         if product_image:
             reference_images.append(product_image)
         if character:
-            for char_img in character.images.all()[:5]:  # Max 5 Bilder
+            # Nur Bilder mit tatsaechlich existierender Datei verwenden (sonst
+            # bekommt die KI tote Referenzen und ignoriert den Charakter).
+            # Hauptbild zuerst, dann nach Upload-Reihenfolge.
+            valid_imgs = [
+                ci for ci in character.images.all()
+                if ci.image and ci.image.storage.exists(ci.image.name)
+            ]
+            valid_imgs.sort(key=lambda ci: (not ci.is_primary, ci.upload_order))
+            for char_img in valid_imgs[:5]:  # Max 5 Bilder
                 reference_images.append(char_img.image)
         # Design-Modus: Stil-Referenzbild
         if mode == 'design' and design_reference_image:
