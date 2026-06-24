@@ -5,6 +5,20 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'imageforge/css/style.css' %}">
+<style>
+.character-image-item { position: relative; }
+.character-image-item .char-img-delete,
+.character-image-item .char-img-primary {
+  position: absolute; width: 26px; height: 26px; padding: 0; border: none;
+  border-radius: 50%; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.character-image-item .char-img-delete { top: 5px; right: 5px; background: rgba(220,38,38,.92); color:#fff; }
+.character-image-item .char-img-delete:hover { background:#b91c1c; }
+.character-image-item .char-img-primary { top: 5px; left: 5px; background: rgba(255,255,255,.92); color:#d97706; }
+.character-image-item .char-img-primary:hover { background:#fff; color:#b45309; }
+.character-image-item .char-img-badge { position:absolute; bottom:5px; left:5px; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -43,12 +57,17 @@
                             <label class="form-label fw-bold">Vorhandene Bilder</label>
                             <div class="character-images-grid">
                                 {% for img in character.images.all %}
-                                <div class="character-image-item {% if img.is_primary %}primary{% endif %}">
+                                <div class="character-image-item {% if img.is_primary %}primary{% endif %}" data-image-id="{{ img.id }}">
                                     <img src="{{ img.image.url }}" alt="Referenzbild">
                                     {% if img.is_primary %}
-                                    <span class="badge bg-primary">Hauptbild</span>
+                                    <span class="badge bg-primary char-img-badge">Hauptbild</span>
+                                    {% else %}
+                                    <button type="button" class="char-img-primary" data-image-id="{{ img.id }}" title="Als Hauptbild setzen"><i class="fas fa-star"></i></button>
                                     {% endif %}
+                                    <button type="button" class="char-img-delete" data-image-id="{{ img.id }}" title="Bild entfernen">&times;</button>
                                 </div>
+                                {% empty %}
+                                <p class="text-muted mb-0">Noch keine Bilder vorhanden.</p>
                                 {% endfor %}
                             </div>
                         </div>
@@ -82,4 +101,32 @@
 
 {% block extra_js %}
 <script src="{% static 'imageforge/js/app.js' %}"></script>
+<script>
+(function(){
+  var delTpl = "{% url 'imageforge:character_image_delete' character.id 0 %}";
+  var priTpl = "{% url 'imageforge:character_image_set_primary' character.id 0 %}";
+  var tk = document.querySelector('[name=csrfmiddlewaretoken]');
+  var token = tk ? tk.value : '';
+  function post(url){ return fetch(url, {method:'POST', headers:{'X-CSRFToken':token,'X-Requested-With':'XMLHttpRequest'}}); }
+  document.querySelectorAll('.char-img-delete').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      if(!confirm('Dieses Bild wirklich entfernen?')) return;
+      var id = btn.getAttribute('data-image-id');
+      post(delTpl.replace('/0/delete/','/'+id+'/delete/')).then(function(r){
+        if(r.ok){ var t=btn.closest('.character-image-item'); if(t) t.remove(); } else { alert('Loeschen fehlgeschlagen.'); }
+      }).catch(function(){ alert('Loeschen fehlgeschlagen.'); });
+    });
+  });
+  document.querySelectorAll('.char-img-primary').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      var id = btn.getAttribute('data-image-id');
+      post(priTpl.replace('/0/primary/','/'+id+'/primary/')).then(function(r){
+        if(r.ok){ location.reload(); } else { alert('Hauptbild setzen fehlgeschlagen.'); }
+      }).catch(function(){ alert('Hauptbild setzen fehlgeschlagen.'); });
+    });
+  });
+})();
+</script>
 {% endblock %}

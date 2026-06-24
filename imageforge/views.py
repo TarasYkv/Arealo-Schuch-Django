@@ -389,6 +389,46 @@ def character_delete(request, character_id):
     return redirect('imageforge:character_detail', character_id=character_id)
 
 
+@login_required
+def character_image_delete(request, character_id, image_id):
+    """Einzelnes Referenzbild eines Charakters entfernen."""
+    character = get_object_or_404(Character, id=character_id, user=request.user)
+    image = get_object_or_404(CharacterImage, id=image_id, character=character)
+    if request.method != 'POST':
+        return redirect('imageforge:character_edit', character_id=character.id)
+    was_primary = image.is_primary
+    try:
+        if image.image:
+            image.image.delete(save=False)
+    except Exception:
+        pass
+    image.delete()
+    # Falls Hauptbild entfernt: erstes verbleibendes Bild zum Hauptbild machen
+    if was_primary:
+        nxt = character.images.first()
+        if nxt and not nxt.is_primary:
+            nxt.is_primary = True
+            nxt.save()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+    messages.success(request, 'Bild entfernt.')
+    return redirect('imageforge:character_edit', character_id=character.id)
+
+
+@login_required
+def character_image_set_primary(request, character_id, image_id):
+    """Ein Referenzbild als Hauptbild markieren."""
+    character = get_object_or_404(Character, id=character_id, user=request.user)
+    image = get_object_or_404(CharacterImage, id=image_id, character=character)
+    if request.method == 'POST':
+        image.is_primary = True
+        image.save()  # Model entfernt andere Hauptbilder automatisch
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True})
+        messages.success(request, 'Hauptbild gesetzt.')
+    return redirect('imageforge:character_edit', character_id=character.id)
+
+
 # =============================================================================
 # PRESET-VERWALTUNG
 # =============================================================================

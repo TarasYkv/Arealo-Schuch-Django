@@ -22,6 +22,8 @@ urlpatterns = [
     path('characters/<int:character_id>/', views.character_detail, name='character_detail'),
     path('characters/<int:character_id>/edit/', views.character_edit, name='character_edit'),
     path('characters/<int:character_id>/delete/', views.character_delete, name='character_delete'),
+    path('characters/<int:character_id>/images/<int:image_id>/delete/', views.character_image_delete, name='character_image_delete'),
+    path('characters/<int:character_id>/images/<int:image_id>/primary/', views.character_image_set_primary, name='character_image_set_primary'),
 
     # Presets
     path('presets/', views.preset_list, name='preset_list'),
