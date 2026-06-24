@@ -204,6 +204,28 @@ input[type="range"] {
             <div class="col-md-6">
                 <div class="control-group">
                     <h5><i class="bi bi-sliders"></i> Basisanpassungen</h5>
+                    {% if image.image %}
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-3" id="btnApplyShopSettings" data-customer-image="{{ image.image.url }}">
+                        <i class="bi bi-shop"></i> Kunden-Ergebnis &uuml;bernehmen (inkl. Hintergrund &amp; Maske)
+                    </button>
+                    {% endif %}
+                    <select id="aiAnalyzeModel" class="form-select form-select-sm mb-1" style="font-size: 11px;">
+                        <option value="gemini-2.5-flash-lite">Analyse: Flash-Lite (g&uuml;nstigste, &lt;0,1 ct)</option>
+                        <option value="gemini-2.5-flash" selected>Analyse: Flash (Standard, ~0,2 ct)</option>
+                        <option value="gemini-flash-latest">Analyse: Flash (neuestes)</option>
+                    </select>
+                    <button type="button" class="btn btn-success btn-sm w-100 mb-2" id="btnAiOptimize">
+                        <i class="bi bi-magic"></i> Automatisch f&uuml;r Lasergravur optimieren (KI)
+                    </button>
+                    <select id="aiGenerateModel" class="form-select form-select-sm mb-1" style="font-size: 11px;">
+                        <option value="gemini-2.5-flash-image">Erzeugen: Nano Banana (~4 ct)</option>
+                        <option value="gemini-3.1-flash-image-preview" selected>Erzeugen: Nano Banana 2 (~6,7 ct, schnell + gute Texte)</option>
+                        <option value="gemini-3-pro-image-preview">Erzeugen: Nano Banana Pro (~13 ct, beste)</option>
+                    </select>
+                    <button type="button" class="btn btn-outline-success btn-sm w-100 mb-2" id="btnAiGenerate">
+                        <i class="bi bi-stars"></i> Komplett mit KI neu erzeugen (generativ)
+                    </button>
+                    <div id="aiOptimizeStatus" style="font-size: 12px; color: #666; margin-bottom: 10px;"></div>
 
                     <!-- Helligkeit -->
                     <div class="slider-container">
@@ -687,6 +709,115 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'floyd-steinberg'
         });
     });
+
+    // Kunden-Ergebnis (inkl. Hintergrund-Entfernung & selbst erstellter Maske) als Basis laden
+    const btnApplyShop = document.getElementById('btnApplyShopSettings');
+    if (btnApplyShop) {
+        btnApplyShop.addEventListener('click', function() {
+            const custUrl = btnApplyShop.dataset.customerImage;
+            if (!custUrl) return;
+            const cimg = new Image();
+            cimg.crossOrigin = 'anonymous';
+            cimg.onload = function() {
+                // NUR Arbeits-/Vorschau-Ebene ersetzen - das Original-Canvas bleibt UNVERAENDERT!
+                processedCanvas.width = cimg.width; processedCanvas.height = cimg.height;
+                processedCtx.drawImage(cimg, 0, 0);
+                const tmp = processedCtx.getImageData(0, 0, cimg.width, cimg.height);
+                workingImage = processedCtx.createImageData(cimg.width, cimg.height);
+                workingImage.data.set(tmp.data);
+                currentImageData = tmp;
+                // Regler neutral - das Kunden-Bild ist bereits fertig verarbeitet (BG/Maske/Werte drin)
+                brightnessSlider.value = 0; contrastSlider.value = 0; thresholdSlider.value = 127;
+                brightnessValue.textContent = '0'; contrastValue.textContent = '0'; thresholdValue.textContent = '127';
+                currentSettings.brightness = 0; currentSettings.contrast = 0; currentSettings.threshold = 127;
+                updatePreview();
+            };
+            cimg.onerror = function() { alert('Kunden-Bild konnte nicht geladen werden.'); };
+            cimg.src = custUrl;
+        });
+    }
+
+    // KI-Optimierung fuer Lasergravur (Gemini empfiehlt Werte -> exakte Anwendung, Inhalt bleibt erhalten)
+    const btnAi = document.getElementById('btnAiOptimize');
+    if (btnAi) {
+        btnAi.addEventListener('click', async function() {
+            const status = document.getElementById('aiOptimizeStatus');
+            const orig = btnAi.innerHTML;
+            btnAi.disabled = true;
+            btnAi.innerHTML = '<i class="bi bi-hourglass-split"></i> KI optimiert ...';
+            if (status) { status.style.color = '#666'; status.textContent = 'Gemini analysiert das Bild ...'; }
+            try {
+                const _m = (document.getElementById('aiAnalyzeModel') || {}).value || '';
+                const r = await fetch('{% url "shopify_uploads:ai_optimize" image.unique_id %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: _m })
+                });
+                const data = await r.json();
+                if (!data.success) throw new Error(data.error || 'Unbekannter Fehler');
+                const aimg = new Image();
+                aimg.onload = function() {
+                    processedCanvas.width = aimg.width; processedCanvas.height = aimg.height;
+                    processedCtx.drawImage(aimg, 0, 0);
+                    const tmp = processedCtx.getImageData(0, 0, aimg.width, aimg.height);
+                    workingImage = processedCtx.createImageData(aimg.width, aimg.height);
+                    workingImage.data.set(tmp.data);
+                    currentImageData = tmp;
+                    brightnessSlider.value = 0; contrastSlider.value = 0; thresholdSlider.value = 127;
+                    brightnessValue.textContent = '0'; contrastValue.textContent = '0'; thresholdValue.textContent = '127';
+                    currentSettings.brightness = 0; currentSettings.contrast = 0; currentSettings.threshold = 127;
+                    updatePreview();
+                    if (status) { status.style.color = '#115E16'; status.textContent = '\u2713 ' + (data.reason || 'Fuer Lasergravur optimiert.'); }
+                };
+                aimg.src = data.image_data;
+            } catch (e) {
+                if (status) { status.style.color = '#c0392b'; status.textContent = 'Fehler: ' + e.message; }
+            } finally {
+                btnAi.disabled = false; btnAi.innerHTML = orig;
+            }
+        });
+    }
+
+    // Generative KI-Bearbeitung (Nano Banana) - erzeugt ein neues Bild, kann Inhalt veraendern
+    const btnGen = document.getElementById('btnAiGenerate');
+    if (btnGen) {
+        btnGen.addEventListener('click', async function() {
+            const status = document.getElementById('aiOptimizeStatus');
+            const orig = btnGen.innerHTML;
+            btnGen.disabled = true;
+            btnGen.innerHTML = '<i class="bi bi-hourglass-split"></i> KI erzeugt Bild ...';
+            if (status) { status.style.color = '#666'; status.textContent = 'Nano Banana erzeugt ein Gravur-Bild (kann ~15s dauern) ...'; }
+            try {
+                const _m = (document.getElementById('aiGenerateModel') || {}).value || '';
+                const r = await fetch('{% url "shopify_uploads:ai_generate" image.unique_id %}', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: _m })
+                });
+                const data = await r.json();
+                if (!data.success) throw new Error(data.error || 'Unbekannter Fehler');
+                const gimg = new Image();
+                gimg.onload = function() {
+                    processedCanvas.width = gimg.width; processedCanvas.height = gimg.height;
+                    processedCtx.drawImage(gimg, 0, 0);
+                    const tmp = processedCtx.getImageData(0, 0, gimg.width, gimg.height);
+                    workingImage = processedCtx.createImageData(gimg.width, gimg.height);
+                    workingImage.data.set(tmp.data);
+                    currentImageData = tmp;
+                    brightnessSlider.value = 0; contrastSlider.value = 0; thresholdSlider.value = 127;
+                    brightnessValue.textContent = '0'; contrastValue.textContent = '0'; thresholdValue.textContent = '127';
+                    currentSettings.brightness = 0; currentSettings.contrast = 0; currentSettings.threshold = 127;
+                    updatePreview();
+                    if (status) { status.style.color = '#115E16'; status.textContent = '\u2713 KI-Bild erzeugt. Pruefe das Ergebnis und finetune bei Bedarf.'; }
+                };
+                gimg.src = data.image_data;
+            } catch (e) {
+                if (status) { status.style.color = '#c0392b'; status.textContent = 'Fehler: ' + e.message; }
+            } finally {
+                btnGen.disabled = false; btnGen.innerHTML = orig;
+            }
+        });
+    }
 
     // Reset button
     document.getElementById('btnReset').addEventListener('click', function() {
