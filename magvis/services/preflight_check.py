@@ -160,7 +160,7 @@ class MagvisPreflightCheck:
             return False, 'zhipu_api_key fehlt'
         base = (ms.glm_base_url if ms else '') or 'https://api.z.ai/api/coding/paas/v4'
         model = (ms.glm_model if ms else 'glm-5.1')
-        return self._http_with_retry(lambda: requests.post(
+        ok, msg = self._http_with_retry(lambda: requests.post(
             f'{base}/chat/completions',
             headers={'Authorization': f'Bearer {api_key.strip()}',
                      'Content-Type': 'application/json'},
@@ -171,6 +171,11 @@ class MagvisPreflightCheck:
             },
             timeout=60,
         ))
+        # Transiente Z.AI-Ueberlastung (HTTP 429 / Code 1305) ist NICHT kritisch:
+        # Pipeline nicht killen und keine Alert-Mail spammen — laeuft mit Backoff weiter.
+        if not ok and '429' in (msg or ''):
+            return True, f'Z.AI ueberlastet (429, nicht-kritisch): {(msg or "")[:80]}'
+        return ok, msg
 
     def _check_shopify(self) -> tuple[bool, str]:
         from ploom.models import PLoomSettings
