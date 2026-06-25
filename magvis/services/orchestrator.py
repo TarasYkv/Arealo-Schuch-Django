@@ -142,7 +142,15 @@ class MagvisOrchestrator:
             # Alert-Mail bevor wir die Exception weiterwerfen
             try:
                 from .report_mailer import send_preflight_failure_alert
-                send_preflight_failure_alert(self.project, check.results)
+                import os, time
+                _flag = '/tmp/magvis_preflight_alert.ts'
+                _cooldown = 12 * 3600  # max. 1 Alert-Mail pro 12h, kein Spam
+                _last = os.path.getmtime(_flag) if os.path.exists(_flag) else 0
+                if time.time() - _last > _cooldown:
+                    send_preflight_failure_alert(self.project, check.results)
+                    open(_flag, 'w').close()
+                else:
+                    logger.info('Preflight-Alert unterdrueckt (Cooldown < 12h aktiv)')
             except Exception as alert_exc:
                 logger.warning('Preflight-Alert-Mail-Versand: %s', alert_exc)
             raise
