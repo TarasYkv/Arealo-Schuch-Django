@@ -180,7 +180,9 @@ class MagvisOrchestrator:
         pipe = MagvisSocialPipeline(self.project)
         # Hardcoded: YouTube + Instagram + TikTok (User-Wunsch).
         # YouTube ist zwingend fuer den Blog-Embed in Stage 4.
-        result = pipe.post_video(platforms=['youtube', 'instagram', 'tiktok'])
+        # IG/Pinterest deaktiviert (User-Wunsch 2026-06-25) — YouTube/TikTok bleiben
+        _vid_plats = [p for p in ['youtube', 'instagram', 'tiktok'] if p not in ('instagram', 'pinterest')]
+        result = pipe.post_video(platforms=_vid_plats)
         if not result.get('success'):
             raise RuntimeError(f'Video-Posten fehlgeschlagen: {result.get("error")}')
         # Auf YouTube-URL warten
@@ -240,6 +242,8 @@ class MagvisOrchestrator:
         for asset in self.project.image_assets.all():
             # Plattform-Wahl: explizite Wizard-Vorgabe gewinnt, sonst Magvis-Strategie
             platforms = asset.target_platforms or self._select_platforms_for_asset(asset)
+            # IG/Pinterest-Posts deaktiviert (User-Wunsch 2026-06-25)
+            platforms = [p for p in platforms if p not in ('instagram', 'pinterest')]
             if not platforms:
                 continue
 
